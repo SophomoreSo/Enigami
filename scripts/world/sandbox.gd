@@ -213,11 +213,18 @@ class SandboxPanel extends Control:
 		for i in sandbox.player.runners.size():
 			var r: SkillRunner = sandbox.player.runners[i]
 			var armed := i == sandbox.player.selected_slot
+			var usable := sandbox.player.can_cast(i)
 			var card := Rect2(x, y, 150, 52)
 			draw_rect(card, Color(0.10, 0.13, 0.17, 0.9) if armed else Color(0.07, 0.08, 0.11, 0.85))
+			var title := UiKit.TEXT
+			if not usable:
+				title = Color(0.72, 0.55, 0.58)
+			elif armed:
+				title = Color(1, 1, 1)
 			draw_string(_font, Vector2(x + 8, y + 18),
-				"%s%d · %s" % ["▸ " if armed else "", i + 1, r.board.skill_name],
-				HORIZONTAL_ALIGNMENT_LEFT, 138, 10, Color(1, 1, 1) if armed else UiKit.TEXT)
+				"%s%d · %s%s" % ["▸ " if armed else "", i + 1, r.board.skill_name,
+					"" if usable else "  ✕"],
+				HORIZONTAL_ALIGNMENT_LEFT, 138, 10, title)
 			while _sim.size() <= i:
 				_sim.append({})
 			if _sim[i].is_empty():
@@ -229,7 +236,9 @@ class SandboxPanel extends Control:
 				float(res["cycle_seconds"]), (res["outputs"] as Array).size()],
 				HORIZONTAL_ALIGNMENT_LEFT, 138, 10, UiKit.DIM)
 			var border := Color(0.3, 0.35, 0.42)
-			if r.active:
+			if not usable:
+				border = Color(0.85, 0.35, 0.35)
+			elif r.active:
 				border = Color(0.5, 0.9, 1.0)
 			elif armed:
 				border = Color(0.45, 0.95, 0.8)

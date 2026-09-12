@@ -85,6 +85,15 @@ static func rejection_reason(weapon_id: String, board: SkillBoard) -> String:
 	var tags := board.compute_tags()
 	return "%s will not carry a %s skill." % [get_def(weapon_id)["name"], ", ".join(tags)]
 
+## The same refusal, short enough to float over a fight. `rejection_reason` is
+## a sentence for the loadout screen; this is a label for the moment a player
+## presses the button and nothing happens.
+static func rejection_note(weapon_id: String, board: SkillBoard) -> String:
+	if accepts_board(weapon_id, board):
+		return ""
+	return "%s: no %s" % [String(get_def(weapon_id)["name"]).to_upper(),
+		", ".join(board.compute_tags())]
+
 ## The starting payload every flow on this weapon begins with.
 static func base_payload(weapon_id: String) -> Payload:
 	var d := get_def(weapon_id)

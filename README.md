@@ -21,6 +21,9 @@ godot res://tests/cooldown_test.tscn # the numbers behind the slot cooldown wipe
 godot res://tests/speed_test.tscn   # the SPEED part, and bolt collision at speed
 godot res://tests/dash_test.tscn    # where a lunge lands, aimed and auto-aimed
 godot res://tests/select_test.tscn  # arming a slot, and what each button fires
+godot res://tests/weapon_fit_test.tscn  # a weapon refuses skills it cannot carry
+godot res://tests/stamina_test.tscn # the dash budget under the health bar
+godot res://tests/menu_fit_test.tscn # menus stay on screen and scroll the rest
 godot res://tests/shots.tscn   # writes a screenshot of each screen to user://shots
 SHOTS_DIR=/tmp/shots godot res://tests/shots.tscn   # ...or wherever you point it
 ```
@@ -31,10 +34,10 @@ SHOTS_DIR=/tmp/shots godot res://tests/shots.tscn   # ...or wherever you point i
 |---|---|
 | A / D, ← / → | move |
 | SPACE | jump; again in mid-air to double jump; against a wall to kick off |
-| SHIFT | dash (brief invulnerability) |
+| SHIFT | dash (brief invulnerability); spends stamina, four dashes to a full bar |
 | LMB | attack with the weapon's own board — always available, never lost |
 | 1 / 2 / 3 / 4 | arm a skill slot (numpad works too); arming does not fire it |
-| RMB | hold to cast the armed skill |
+| RMB | hold to cast the armed skill — a weapon refuses skills it cannot carry |
 | mouse / right stick | aim, and where a lunge lands |
 | TAB | open assembly — **the raid keeps running**; TAB, ESC or the CLOSE button leaves it |
 | F | interact, and hold to extract |

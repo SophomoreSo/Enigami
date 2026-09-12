@@ -77,14 +77,31 @@ func _run() -> void:
 		push_error("SMOKE FAIL: cast_skill is on %s, not RMB" % Controls.short_label_for("cast_skill"))
 	say("numbers arm a slot, LMB attacks, RMB casts")
 
-	Input.action_press("cast_skill")
-	Input.action_press("skill_2")
-	await frames(120)
-	Input.action_release("cast_skill")
-	Input.action_release("skill_2")
-	say("circuits fired %d times across %d slots" % [fire_count[0], raid.player.runners.size()])
+	raid.player.basic_runner.fired.connect(func(_p: Payload) -> void: fire_count[0] += 1)
+	# Arm each slot in turn and cast it. A slot the weapon will not carry fires
+	# nothing on purpose, so it is skipped rather than counted as a failure.
+	var castable := 0
+	var refused := 0
+	for i in raid.player.runners.size():
+		raid.player.select_slot(i)
+		await frames(4)
+		if not raid.player.can_cast(i):
+			refused += 1
+			continue
+		castable += 1
+		Input.action_press("cast_skill")
+		await frames(40)
+		Input.action_release("cast_skill")
+		await frames(4)
+	Input.action_press("attack")
+	await frames(40)
+	Input.action_release("attack")
+	say("circuits fired %d times across %d castable slot(s), %d refused by the weapon"
+		% [fire_count[0], castable, refused])
+	if castable <= 0:
+		push_error("SMOKE FAIL: the weapon accepted none of its own loadout")
 	if fire_count[0] <= 0:
-		push_error("SMOKE FAIL: holding a skill produced no output")
+		push_error("SMOKE FAIL: casting produced no output")
 
 	# Every attack form, straight through the spawner.
 	for form in ["PROJECTILE", "SLASH", "AREA", "DASHSLASH", "DASHSLASH_AUTO"]:

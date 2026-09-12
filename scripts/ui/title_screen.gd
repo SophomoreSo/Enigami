@@ -55,14 +55,16 @@ func _ready() -> void:
 	Audio.play_music()
 
 func _build_settings() -> void:
-	_settings = UiKit.panel()
-	_settings.position = Vector2(500, 90)
-	_settings.custom_minimum_size = Vector2(560, 540)
+	# The panel keeps its full height inside a scroll that fits the screen: the
+	# rebinding list is long enough to run off the bottom on its own.
+	var panel := UiKit.panel()
+	panel.custom_minimum_size = Vector2(560, 0)
+	_settings = UiKit.screen_scroll(panel, Vector2(500, 60), 582.0)
 	_settings.visible = false
 	add_child(_settings)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
-	_settings.add_child(v)
+	panel.add_child(v)
 	v.add_child(UiKit.label("SETTINGS", 15, UiKit.ACCENT))
 	v.add_child(UiKit.hline())
 	v.add_child(_slider("Music", Audio.music_volume, func(val: float) -> void: Audio.set_music_volume(val)))

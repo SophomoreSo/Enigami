@@ -38,6 +38,16 @@ const JUMP_BUFFER := 0.12
 ## full distance, the way they always have.
 const STICK_AIM_REACH := 2000.0
 
+## Stamina is what a dash spends. The dash keeps its short cooldown, which is
+## what makes chaining feel responsive; stamina is the separate question of how
+## long you may keep chaining before you have to stop. Four dashes' worth, and
+## a pause before it starts coming back, so a retreat is a decision rather than
+## something held down.
+const MAX_STAMINA := 100.0
+const DASH_STAMINA := 25.0
+const STAMINA_REGEN := 38.0    ## per second
+const STAMINA_PAUSE := 0.45    ## quiet after a dash before any of it returns
+
 var weapon_id: String = "SWORD"
 var runners: Array[SkillRunner] = []
 ## The weapon's innate attack, on its own button and outside the loadout.
@@ -61,6 +71,8 @@ var _dash_cd: float = 0.0
 var _dash_dir: Vector2 = Vector2.RIGHT
 var _wall_dir: int = 0
 var _air_jump_used: bool = false
+var stamina: float = MAX_STAMINA
+var _stamina_pause: float = 0.0
 var parry_time: float = 0.0
 var parry_slot: int = -1
 var input_locked: bool = false
@@ -119,6 +131,22 @@ func _make_runner(board: SkillBoard, slot: int) -> SkillRunner:
 	runner.parry_opened.connect(_on_parry_opened.bind(slot))
 	return runner
 
+## Whether the weapon in hand will carry what is on this slot's board. The
+## hideout already refuses to equip a board a weapon rejects, but a board can
+## turn incompatible after it is equipped — edited mid-raid, or carried onto a
+## different weapon in the sandbox — so the rule is applied again at the moment
+## of firing rather than trusted from when the loadout was built.
+func stamina_ratio() -> float:
+	return clampf(stamina / MAX_STAMINA, 0.0, 1.0)
+
+func can_dash() -> bool:
+	return _dash_cd <= 0.0 and stamina >= DASH_STAMINA
+
+func can_cast(slot: int) -> bool:
+	if slot < 0 or slot >= runners.size():
+		return false
+	return Weapons.accepts_board(weapon_id, runners[slot].board)
+
 ## Arms a slot. Out-of-range numbers are ignored rather than clamped, so a
 ## weapon with two slots simply does not answer to "3".
 func select_slot(slot: int) -> void:
@@ -131,6 +159,16 @@ func rebuild_runner(slot: int) -> void:
 	if slot < 0 or slot >= runners.size():
 		return
 	runners[slot].refresh()
+
+## Say why, once, on the press. A skill the weapon will not carry doing nothing
+## at all is indistinguishable from the game having missed the input.
+func _refuse_cast() -> void:
+	if selected_slot < 0 or selected_slot >= runners.size():
+		return
+	Fx.text(global_position + Vector2(0, -44),
+		Weapons.rejection_note(weapon_id, runners[selected_slot].board),
+		Color(1.0, 0.55, 0.5))
+	Audio.play("deny")
 
 func _on_parry_opened(seconds: float, slot: int) -> void:
 	parry_time = maxf(parry_time, seconds)
@@ -159,8 +197,10 @@ func _process(delta: float) -> void:
 	# Only the armed slot answers the cast button; the rest still tick, so their
 	# cooldowns run down while another one is being used.
 	var casting := not input_locked and Input.is_action_pressed("cast_skill")
+	if casting and Input.is_action_just_pressed("cast_skill") and not can_cast(selected_slot):
+		_refuse_cast()
 	for i in runners.size():
-		runners[i].set_active(casting and i == selected_slot)
+		runners[i].set_active(casting and i == selected_slot and can_cast(i))
 		runners[i].update(delta)
 	if basic_runner != null:
 		basic_runner.set_active(not input_locked and Input.is_action_pressed("attack"))
@@ -280,14 +320,27 @@ func _physics_process(delta: float) -> void:
 	if not input_locked and Input.is_action_just_released("jump") and velocity.y < 0.0:
 		velocity.y *= 0.45
 
+	# Stamina only comes back once the dashing stops.
+	if _stamina_pause > 0.0:
+		_stamina_pause = maxf(0.0, _stamina_pause - delta)
+	elif stamina < MAX_STAMINA:
+		stamina = minf(MAX_STAMINA, stamina + STAMINA_REGEN * delta)
+
 	if not input_locked and Input.is_action_just_pressed("dash") and _dash_cd <= 0.0:
-		var d := Vector2(dir, Input.get_axis("move_up", "move_down"))
-		if d.length() < 0.2:
-			d = Vector2(facing, 0)
-		_dash_dir = d.normalized()
-		_dash_time = DASH_TIME
-		_dash_cd = DASH_COOLDOWN
-		Audio.play("dash")
+		if stamina < DASH_STAMINA:
+			# Nothing happening at all reads as a dropped input, so say why.
+			Fx.text(global_position + Vector2(0, -44), "WINDED", Color(0.95, 0.7, 0.35))
+			Audio.play("deny", 0.85)
+		else:
+			stamina -= DASH_STAMINA
+			_stamina_pause = STAMINA_PAUSE
+			var d := Vector2(dir, Input.get_axis("move_up", "move_down"))
+			if d.length() < 0.2:
+				d = Vector2(facing, 0)
+			_dash_dir = d.normalized()
+			_dash_time = DASH_TIME
+			_dash_cd = DASH_COOLDOWN
+			Audio.play("dash")
 
 	for t in _trail:
 		t["t"] -= delta

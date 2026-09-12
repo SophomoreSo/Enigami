@@ -74,11 +74,16 @@ func _ready() -> void:
 	check(fired.has("weapon"), "the attack button runs the weapon's own board (%s)" % str(fired))
 	check(not fired.has("slot 1"), "and not the armed slot")
 
-	for slot_key in [KEY_2, KEY_3]:
-		await tap_key(slot_key)
+	# Only slots the weapon will carry — a refused one firing nothing is the
+	# weapon rule, which weapon_fit_test covers.
+	var cast_any := 0
+	for i in p.runners.size():
+		if not p.can_cast(i):
+			continue
+		await tap_key([KEY_1, KEY_2, KEY_3, KEY_4][i])
 		fired = []
 		await hold_mouse(MOUSE_BUTTON_RIGHT, 26)
-		var want := "slot %d" % (p.selected_slot + 1)
+		var want := "slot %d" % (i + 1)
 		check(fired.has(want), "the cast button runs the armed slot (%s)" % str(fired))
 		check(not fired.has("weapon"), "and not the weapon attack")
 		var others := 0
@@ -86,6 +91,8 @@ func _ready() -> void:
 			if f != want:
 				others += 1
 		check(others == 0, "and nothing else (%d strays)" % others)
+		cast_any += 1
+	check(cast_any > 0, "at least one slot was castable to test with")
 
 	await tap_key(KEY_1)
 	await tap_key(KEY_4)

@@ -101,6 +101,38 @@ static func sync_screen(c: Control) -> void:
 	if c.size != want:
 		c.size = want
 
+## A column that always fits the screen, scrolling whatever will not.
+##
+## The menus here are built as a VBox at a fixed position, which quietly grows
+## off the bottom as soon as a row is added: two new rebindable actions were
+## enough to push the ABANDON RAID button out of the pause menu entirely, with
+## nothing on screen to say it was there. Keeping the height tied to the
+## viewport means that cannot happen again, on any window size.
+class ScreenScroll extends ScrollContainer:
+	var top_left := Vector2(430, 40)
+	var content_width := 470.0
+	var bottom_margin := 28.0
+
+	func _ready() -> void:
+		horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		_fit()
+
+	func _process(_delta: float) -> void:
+		_fit()
+
+	func _fit() -> void:
+		position = top_left
+		var vp := get_viewport_rect().size
+		size = Vector2(content_width, maxf(vp.y - top_left.y - bottom_margin, 120.0))
+
+static func screen_scroll(content: Control, at: Vector2, width: float) -> ScrollContainer:
+	var sc := ScreenScroll.new()
+	sc.top_left = at
+	sc.content_width = width
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(content)
+	return sc
+
 static func spacer(h: int = 8) -> Control:
 	var c := Control.new()
 	c.custom_minimum_size = Vector2(0, h)
