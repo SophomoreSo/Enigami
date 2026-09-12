@@ -47,12 +47,13 @@ func _draw_health() -> void:
 	draw_string(_font, Vector2(30, 38), "%d / %d" % [int(player.health), int(player.max_health)],
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.9))
 	_draw_stamina(w)
+	_draw_mana(w)
 	var wdef := Weapons.get_def(player.weapon_id)
-	draw_string(_font, Vector2(24, 74), String(wdef["name"]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(wdef["color"]))
+	draw_string(_font, Vector2(24, 86), String(wdef["name"]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(wdef["color"]))
 	if player.burn_time > 0.0:
-		draw_string(_font, Vector2(100, 74), "BURNING", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 0.5, 0.2))
+		draw_string(_font, Vector2(100, 86), "BURNING", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 0.5, 0.2))
 	if player.chill_time > 0.0:
-		draw_string(_font, Vector2(170, 74), "CHILLED", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.5, 0.85, 1))
+		draw_string(_font, Vector2(170, 86), "CHILLED", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.5, 0.85, 1))
 
 ## Slimmer and quieter than health: this is a budget, not a life. It is divided
 ## into one segment per dash, so the question it answers at a glance is "how
@@ -68,6 +69,22 @@ func _draw_stamina(w: float) -> void:
 	for i in range(1, segments):
 		var sx := bar.position.x + bar.size.x * float(i) / float(segments)
 		draw_line(Vector2(sx, bar.position.y), Vector2(sx, bar.end.y), Color(0, 0, 0, 0.55), 1.0)
+	draw_rect(bar, Color(0.5, 0.6, 0.7, 0.8), false, 1.0)
+
+## Mana pays for charging, so the charge bought so far is drawn riding on top of
+## it: the two numbers only mean anything next to each other.
+func _draw_mana(w: float) -> void:
+	var bar := Rect2(24, 58, w, 9)
+	draw_rect(bar, Color(0, 0, 0, 0.55))
+	draw_rect(Rect2(bar.position, Vector2(bar.size.x * player.mana_ratio(), bar.size.y)),
+		Color(0.38, 0.55, 0.95))
+	if player.charge > 0.0:
+		# A strip along the top rather than a second fill over the first: the
+		# charge is what the mana was spent on, and both have to stay readable.
+		var cw := bar.size.x * player.charge_ratio()
+		draw_rect(Rect2(bar.position, Vector2(cw, 3.0)), Color(0.78, 0.68, 1.0))
+		draw_string(_font, Vector2(bar.end.x + 8, bar.end.y), "+%d LIFE" % int(player.charge),
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.82, 0.72, 1.0))
 	draw_rect(bar, Color(0.5, 0.6, 0.7, 0.8), false, 1.0)
 
 ## The weapon's own attack sits first, then each slot. Which slot is armed has
@@ -87,7 +104,7 @@ func _draw_slots(vp: Vector2) -> void:
 			player.runners[i].board.skill_name, armed, player.can_cast(i))
 		x += 136.0
 	draw_string(_font, Vector2(24, y - 8),
-		"%s attacks · number keys arm a skill · %s casts the armed one" % [
+		"%s attacks · number keys arm a skill · hold %s to charge, release to cast" % [
 			Controls.short_label_for("attack"), Controls.short_label_for("cast_skill")],
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.55, 0.65, 0.78))
 

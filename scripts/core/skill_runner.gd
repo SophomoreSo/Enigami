@@ -22,22 +22,27 @@ const BASE_TICK := 0.045
 const BASE_COOLDOWN_TICKS := 3
 const HEAT_TO_TICKS := 2.2
 const MAX_PULSES := 64
-## A flow may now enter a part from any side, which makes rings easy to build.
-## Without a budget a pulse could circle forever: the cycle would never end, so
-## the cooldown would never start and a ring past an OUTPUT would fire free.
+## Every pulse carries a time to live, counted in parts it may still enter, and
+## dies when it runs out. That is what keeps a cycle in the board from running
+## forever. It is per pulse rather than shared across the cast on purpose: with
+## one pool between them, two branches leaving a TEE race for the last of it and
+## which one starves depends on the order they happen to be stepped in.
 ##
-## The budget counts how often a cycle may enter the *same* part, not how far a
-## pulse has travelled. A chain that never doubles back is unaffected however
-## long it is, while a ring stops after a few laps — and it is the same rule
-## `simulate()` uses, so the cycle time the editor previews is the one the board
-## actually runs. A total-distance budget could not do both: it has to be long
-## enough for a board-spanning chain, which leaves a small ring circling for
-## dozens of ticks with INPUT unable to restart behind it.
-const MAX_VISITS := 4
-## How many follow-up attacks one trigger branch may queue in a cycle. A branch
-## can only resolve as often as the visit budget lets the flow reach its OUTPUT,
-## so this matches MAX_VISITS; it is named separately because it guards a
-## different thing — the length of the chain, not the length of the walk.
+## A pulse starts with one full pass of this board, so an uncharged cast does
+## what it always did — one pass, and never truncated for being long.
+##
+## CHARGE adds to that life. It never adds a pass and never adds a loop: a board
+## with no cycle in it walks to its OUTPUT and stops there whatever life it was
+## given, so it fires once charged exactly as it fires once uncharged. What the
+## life is for is a cycle the player built — that is what has somewhere to spend
+## it, and it spends it going round again.
+const MAX_TTL_BONUS := 36
+## Ceiling on the dry run behind the preview, so a pathological board cannot
+## hang the editor.
+const MAX_SIM_TICKS := 4000
+## How many follow-up attacks one trigger branch may queue in a cycle, however
+## much life the pulse feeding it has. Guards the length of the chain rather
+## than the length of the walk.
 const MAX_TRIGGER_CHAIN := 4
 ## Seconds the "ready again" flash takes to fade.
 const READY_FLASH := 0.45
@@ -51,11 +56,13 @@ class Pulse extends RefCounted:
 	var timer: int
 	var total: int
 	var payload: Payload
-	func _init(c: Vector2i, t: int, p: Payload) -> void:
+	var ttl: int    ## parts this pulse may still enter before it dies
+	func _init(c: Vector2i, t: int, p: Payload, life: int) -> void:
 		cell = c
 		timer = t
 		total = max(t, 1)
 		payload = p
+		ttl = life
 	## 0..1 progress through the component, for the editor's flow visual.
 	func progress() -> float:
 		return clampf(1.0 - float(timer) / float(total), 0.0, 1.0)
@@ -73,8 +80,18 @@ var trigger_payloads: Dictionary = {}
 ## when it ends, so a chain is whatever one cycle built and never accumulates
 ## across cycles.
 var pending_triggers: Dictionary = {}
-## "cell:branch" -> times entered this cycle, against MAX_VISITS.
-var cycle_visits: Dictionary = {}
+## Extra life added to a cast, bought by charging.
+var ttl_bonus: int = 0
+## What one full pass of this board costs, in parts entered.
+var pass_cost: int = 1
+
+## Set when a cast ran out of life with flow still to go.
+var expired: bool = false
+## Heat of the last completed cast, kept because `cycle_heat` is cleared.
+var last_heat: float = 0.0
+## True on the private copy the preview drives, which must not prime itself or
+## fast-forward — it is counting ticks.
+var dry_run: bool = false
 var _analysis: Dictionary = {}
 ## Ticks of this cycle already burnt by `_spend_lead`, repaid to the cooldown.
 ## Seconds the last full cycle took, from firing to ready again. The slot wipe
@@ -98,7 +115,13 @@ func _init(b: SkillBoard) -> void:
 
 func refresh() -> void:
 	_analysis = board.analyze()
-	_reaches_output = bool(board.trace().get("reaches_output", false))
+	var t := board.trace()
+	_reaches_output = bool(t.get("reaches_output", false))
+	# One pass costs one entry per part the flow can actually get to. Taking it
+	# from the board rather than from a constant is what lets the base cast be
+	# exactly one pass on a four-part board and on a thirty-part one alike, so
+	# length alone never costs a board its shot.
+	pass_cost = maxi(1, int((t.get("reachable", {}) as Dictionary).size()))
 	_primed = false
 
 func tick_time() -> float:
@@ -126,6 +149,11 @@ func _recovered() -> void:
 	ready_flash = 1.0
 
 ## True when a press would start a new cycle right now.
+## The life every pulse of a cast starts with: one full pass of this board, plus
+## whatever charge has bought on top of it.
+func cycle_ttl() -> int:
+	return maxi(1, pass_cost + ttl_bonus)
+
 func is_ready() -> bool:
 	return pulses.is_empty() and cooldown <= 0
 
@@ -196,6 +224,7 @@ func _advance() -> void:
 	if pulses.is_empty():
 		cooldown = (BASE_COOLDOWN_TICKS + int(round(cycle_heat * HEAT_TO_TICKS))
 			+ _penalty_ticks() + _lead)
+		last_heat = cycle_heat
 		cycle_heat = 0.0
 		_lead = 0
 		# The cycle's branches have all resolved, so they become the triggers
@@ -205,18 +234,29 @@ func _advance() -> void:
 			trigger_payloads[k] = pending_triggers[k]
 
 func _start_cycle() -> void:
-	var input_cell = board.find_input()
-	if input_cell == null:
+	if board.find_input() == null:
 		return
-	_prime()
-	var p := _base_payload()
-	var entry: Dictionary = board.comp_origin_at(input_cell)
-	cycle_visits.clear()
+	if not dry_run:
+		_prime()
 	pending_triggers.clear()
 	_elapsed = 0.0
-	pulses = [Pulse.new(input_cell, int(Components.get_def(entry["id"])["cost"]), p)]
+	expired = false
+	if not _begin_pass():
+		return
 	cycle_started.emit()
 	_spend_lead()
+
+## Puts the cast's one pulse on the INPUT.
+func _begin_pass() -> bool:
+	var input_cell = board.find_input()
+	if input_cell == null:
+		return false
+	var entry: Dictionary = board.comp_origin_at(input_cell)
+	if entry.is_empty():
+		return false
+	pulses = [Pulse.new(input_cell, int(Components.get_def(entry["id"])["cost"]),
+		_base_payload(), cycle_ttl())]
+	return true
 
 ## What a trigger branch produces is a property of the board, not of history,
 ## but the branch is still walking behind the attack that would carry it — so
@@ -253,7 +293,7 @@ func _prime() -> void:
 func _spend_lead() -> void:
 	_lead = 0
 	_had_effect = false
-	if not _reaches_output:
+	if dry_run or not _reaches_output:
 		return
 	while not _had_effect and not pulses.is_empty() and _lead < MAX_LEAD:
 		_lead += 1
@@ -284,17 +324,21 @@ func _exit(p: Pulse) -> Array[Pulse]:
 		bp.branch = id
 		bp.form = ""
 		bp.duplicates = 1
-		_try_enter(ex + Components.dir_to_vec(pay_dir), pay_dir, bp, result)
+		_try_enter(ex + Components.dir_to_vec(pay_dir), pay_dir, bp, result, p.ttl)
 
 	var outs := Components.world_outputs(id, rot)
 	for d in outs:
 		var np := p.payload.clone()
 		if id == "SPLIT":
 			np.damage *= 0.5
-		_try_enter(ex + Components.dir_to_vec(d), d, np, result)
+		_try_enter(ex + Components.dir_to_vec(d), d, np, result, p.ttl)
 	return result
 
-func _try_enter(cell: Vector2i, from_dir: int, payload: Payload, result: Array[Pulse]) -> void:
+func _try_enter(cell: Vector2i, from_dir: int, payload: Payload,
+		result: Array[Pulse], ttl: int) -> void:
+	if ttl <= 0:
+		expired = true
+		return  # out of life; a ring winds down here
 	if not board.in_bounds(cell):
 		return
 	var target: Dictionary = board.comp_origin_at(cell)
@@ -307,14 +351,7 @@ func _try_enter(cell: Vector2i, from_dir: int, payload: Payload, result: Array[P
 	_apply(tid, payload)
 	if tid == "OUTPUT":
 		_resolve(payload)
-	# The part still does its work on the visit that spends the last of the
-	# budget; it just does not carry the flow onward, so a ring winds down
-	# instead of holding the cycle open.
-	var key := "%s:%s" % [cell, payload.branch]
-	cycle_visits[key] = int(cycle_visits.get(key, 0)) + 1
-	if int(cycle_visits[key]) > MAX_VISITS:
-		return
-	result.append(Pulse.new(cell, int(Components.get_def(tid)["cost"]), payload))
+	result.append(Pulse.new(cell, int(Components.get_def(tid)["cost"]), payload, ttl - 1))
 
 ## Mutate the payload as it enters a component.
 func _apply(id: String, p: Payload) -> void:
@@ -404,97 +441,51 @@ func consume_parry() -> Payload:
 		out.on_hit = trigger_payloads.get("ON_HIT", null)
 	return out
 
-## Offline walk of the board used by the editor preview: reports what a full
-## cycle would produce and how long it takes, without running in real time.
+## What one full cast of this board comes to, for the editor preview.
+##
+## It runs the board rather than describing it: a private copy of the runner is
+## driven through a whole cast with the real code, and what it fires is what is
+## reported. Walking the board a second way — a breadth-first sweep beside the
+## tick loop — is what kept letting the editor and the game disagree, and once a
+## cast shared one pool of life between its pulses the two even disagreed about
+## which pulse got the last of it. There is only one walk now, so they cannot.
 func simulate() -> Dictionary:
-	var input_cell = board.find_input()
-	if input_cell == null:
-		return {"outputs": [], "ticks": 0, "heat": 0.0, "error": "No INPUT placed"}
-	var sim_heat := 0.0
-	var outputs: Array[Payload] = []
-	var triggers: Dictionary = {}
-	var frontier: Array = [[input_cell, _base_payload(), 0]]
-	var visits: Dictionary = {}
-	var max_ticks := 0
-	var steps := 0
-	while not frontier.is_empty() and steps < 400:
-		steps += 1
-		var item: Array = frontier.pop_front()
-		var cell: Vector2i = item[0]
-		var payload: Payload = item[1]
-		var t: int = item[2]
-		var entry: Dictionary = board.comp_origin_at(cell)
-		if entry.is_empty():
-			continue
-		var id: String = entry["id"]
-		var rot: int = entry["rot"]
-		t += int(Components.get_def(id)["cost"])
-		max_ticks = max(max_ticks, t)
-		var ex := Components.exit_cell(id, cell, rot)
-
-		# A trigger's branch and the ordinary outputs leave the part the same
-		# way, so they are gathered and then walked by one piece of code that
-		# mirrors `_exit` and `_try_enter`. Giving the branch its own shortened
-		# path here is what made the editor disagree with the game: it skipped
-		# the port check, the visit budget, and `_sim_apply` on the first part
-		# of every branch, so a trigger previewed one part weaker than it ran.
-		var exits: Array = []
-		var pay_dir := Components.world_payload_out(id, rot)
-		if pay_dir >= 0:
-			var bp := payload.clone()
-			bp.branch = id
-			bp.form = ""
-			bp.duplicates = 1
-			exits.append([pay_dir, bp])
-		for d in Components.world_outputs(id, rot):
-			var np := payload.clone()
-			if id == "SPLIT":
-				np.damage *= 0.5
-			exits.append([d, np])
-
-		for e in exits:
-			var edir: int = int(e[0])
-			var ep: Payload = e[1]
-			var ncell: Vector2i = ex + Components.dir_to_vec(edir)
-			if not board.in_bounds(ncell):
-				continue
-			var tgt: Dictionary = board.comp_origin_at(ncell)
-			if tgt.is_empty():
-				continue
-			if not Components.world_inputs(tgt["id"], tgt["rot"]).has(Components.opposite(edir)):
-				continue
-			var before := ep.heat
-			_sim_apply(tgt["id"], ep)
-			sim_heat += ep.heat - before
-			if tgt["id"] == "OUTPUT":
-				if ep.branch != "":
-					_chain_trigger(triggers, ep)
-				elif ep.is_productive():
-					outputs.append(ep)
-			# Counted on entry, exactly as `_try_enter` counts it: the part
-			# still does its work on the visit that spends the last of the
-			# budget, it just carries the flow no further.
-			var key := "%s:%s" % [ncell, ep.branch]
-			visits[key] = int(visits.get(key, 0)) + 1
-			if int(visits[key]) > MAX_VISITS:
-				continue  # a loop in the board; stop expanding it
-			frontier.append([ncell, ep, t])
-
 	var a := board.analyze()
-	var total_ticks := max_ticks + BASE_COOLDOWN_TICKS + int(round(sim_heat * HEAT_TO_TICKS))
 	var speed := maxf(float(a.get("speed_mul", 1.0)), 0.05)
-	var cycle := float(total_ticks) * BASE_TICK / speed + float(a.get("penalty_seconds", 0.0))
-	return {
-		"outputs": outputs,
-		"triggers": triggers,
-		"ticks": total_ticks,
-		"speed_mul": speed,
-		"penalty_seconds": float(a.get("penalty_seconds", 0.0)),
-		"overclock": int(a.get("overclock", 0)),
-		"cycle_seconds": cycle,
-		"heat": sim_heat,
-		"error": "",
+	var penalty := float(a.get("penalty_seconds", 0.0))
+	var blank := {
+		"outputs": [] as Array[Payload], "triggers": {}, "ticks": 0,
+		"speed_mul": speed, "penalty_seconds": penalty,
+		"overclock": int(a.get("overclock", 0)), "cycle_seconds": 0.0, "heat": 0.0,
+		"ttl": cycle_ttl(), "expired": false, "error": "",
 	}
+	if board.find_input() == null:
+		blank["error"] = "No INPUT placed"
+		return blank
+
+	var dry := SkillRunner.new(board)
+	dry.dry_run = true
+	dry.base_payload_provider = base_payload_provider
+	dry.ttl_bonus = ttl_bonus
+	var outs: Array[Payload] = []
+	dry.fired.connect(func(p: Payload) -> void: outs.append(p))
+	dry.active = true
+	dry._start_cycle()
+	var ticks := 0
+	while dry.cooldown <= 0 and ticks < MAX_SIM_TICKS:
+		if dry.pulses.is_empty():
+			break
+		dry._advance()
+		ticks += 1
+
+	var total := ticks + dry.cooldown
+	blank["outputs"] = outs
+	blank["triggers"] = dry.trigger_payloads
+	blank["ticks"] = total
+	blank["heat"] = dry.last_heat
+	blank["expired"] = dry.expired
+	blank["cycle_seconds"] = float(total) * BASE_TICK / speed
+	return blank
 
 ## Same mutations as _apply, minus the live signals.
 func _sim_apply(id: String, p: Payload) -> void:

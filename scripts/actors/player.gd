@@ -48,6 +48,23 @@ const DASH_STAMINA := 25.0
 const STAMINA_REGEN := 38.0    ## per second
 const STAMINA_PAUSE := 0.45    ## quiet after a dash before any of it returns
 
+## Mana is what charging spends, and the longer the hold the more of it goes.
+## Holding the cast button builds the charge; releasing it is what casts, with
+## whatever was built. Charging engages on every skill alike — nothing is
+## special-cased on the shape of the board — and the life it buys is spent by
+## whatever cycle the player put there to spend it.
+## The first cast of a hold still goes out at once — charge is what the ones
+## after it ride on, so holding is a decision about depth, not a wind-up that
+## delays the opening shot.
+const MAX_MANA := 100.0
+const MANA_REGEN := 20.0          ## per second
+const MANA_PAUSE := 0.6           ## quiet after charging before any returns
+const CHARGE_TTL_RATE := 12.0     ## extra life bought per second of holding
+const MANA_PER_TTL := 1.4
+const MAX_CHARGE_TTL := float(SkillRunner.MAX_TTL_BONUS)
+const CHARGE_DECAY := 150.0       ## how fast an unspent charge bleeds off
+const CAST_BUFFER := 0.18         ## grace for a release landing on a cooldown
+
 var weapon_id: String = "SWORD"
 var runners: Array[SkillRunner] = []
 ## The weapon's innate attack, on its own button and outside the loadout.
@@ -73,6 +90,14 @@ var _wall_dir: int = 0
 var _air_jump_used: bool = false
 var stamina: float = MAX_STAMINA
 var _stamina_pause: float = 0.0
+var mana: float = MAX_MANA
+## Extra life being built up while the button is held, in TTL.
+var charge: float = 0.0
+## What the last release actually paid for, carried by the cast it bought.
+var cast_charge: float = 0.0
+var _cast_buffer: float = 0.0
+var _mana_pause: float = 0.0
+var _spark_timer: float = 0.0
 var parry_time: float = 0.0
 var parry_slot: int = -1
 var input_locked: bool = false
@@ -139,6 +164,45 @@ func _make_runner(board: SkillBoard, slot: int) -> SkillRunner:
 func stamina_ratio() -> float:
 	return clampf(stamina / MAX_STAMINA, 0.0, 1.0)
 
+func mana_ratio() -> float:
+	return clampf(mana / MAX_MANA, 0.0, 1.0)
+
+func charge_ratio() -> float:
+	return clampf(charge / MAX_CHARGE_TTL, 0.0, 1.0)
+
+## One ceiling for every skill in the game. Nothing here asks what shape the
+## board is: charging engages the same way on all of them, and what the life it
+## buys is worth is then up to what the player built.
+func charge_cap() -> float:
+	return MAX_CHARGE_TTL
+
+## Charging runs only while the cast button is held on a slot the weapon will
+## actually fire, and only while there is mana to pay for it. Released, it
+## bleeds off quickly: the depth is bought for this burst, not banked.
+func _update_charge(delta: float, casting: bool) -> void:
+	# While the button is down the charge only ever holds or grows. Letting the
+	# decay branch run once it reached the cap made the two fight each other
+	# frame by frame — charge sat just under the cap while mana drained away
+	# into the gap being refilled.
+	if casting and can_cast(selected_slot):
+		var cap := charge_cap()
+		if charge < cap and mana > 0.0:
+			var want := CHARGE_TTL_RATE * delta
+			var afford := mana / MANA_PER_TTL
+			var gained := minf(minf(want, afford), cap - charge)
+			charge += gained
+			mana = maxf(0.0, mana - gained * MANA_PER_TTL)
+		_charge_sparks(delta)
+		_mana_pause = MANA_PAUSE
+		return
+	# Let go without casting — a slot the weapon refuses, say — and it bleeds off.
+	charge = maxf(0.0, charge - CHARGE_DECAY * delta)
+	_spark_timer = 0.0
+	if _mana_pause > 0.0:
+		_mana_pause = maxf(0.0, _mana_pause - delta)
+	elif mana < MAX_MANA:
+		mana = minf(MAX_MANA, mana + MANA_REGEN * delta)
+
 func can_dash() -> bool:
 	return _dash_cd <= 0.0 and stamina >= DASH_STAMINA
 
@@ -159,6 +223,18 @@ func rebuild_runner(slot: int) -> void:
 	if slot < 0 or slot >= runners.size():
 		return
 	runners[slot].refresh()
+
+## Charging is a thing happening to the character, not just a bar moving in the
+## corner: it draws a tightening ring and pulls sparks inward, so holding the
+## button reads as doing something even with the HUD out of view.
+func _charge_sparks(delta: float) -> void:
+	_spark_timer -= delta
+	if _spark_timer > 0.0:
+		return
+	_spark_timer = 0.09
+	var a := randf() * TAU
+	var r := 34.0 + randf() * 16.0
+	Fx.burst(global_position + Vector2(cos(a), sin(a)) * r, Color(0.78, 0.68, 1.0), 1, 28.0)
 
 ## Say why, once, on the press. A skill the weapon will not carry doing nothing
 ## at all is indistinguishable from the game having missed the input.
@@ -194,14 +270,35 @@ func _process(delta: float) -> void:
 		for i in runners.size():
 			if Input.is_action_just_pressed("skill_%d" % (i + 1)):
 				select_slot(i)
-	# Only the armed slot answers the cast button; the rest still tick, so their
-	# cooldowns run down while another one is being used.
-	var casting := not input_locked and Input.is_action_pressed("cast_skill")
-	if casting and Input.is_action_just_pressed("cast_skill") and not can_cast(selected_slot):
+	# Holding the cast button charges; letting go is what fires it. A tap is
+	# simply a charge of nothing, so a quick press still casts as it always did.
+	var holding := not input_locked and Input.is_action_pressed("cast_skill")
+	if holding and Input.is_action_just_pressed("cast_skill") and not can_cast(selected_slot):
 		_refuse_cast()
+	# Taken before the charge is touched: on the frame of the release the button
+	# already reads as up, and letting the bleed-off run first shaved a fifth
+	# off what the player had actually paid for.
+	if not input_locked and Input.is_action_just_released("cast_skill") and can_cast(selected_slot):
+		cast_charge = charge
+		charge = 0.0
+		# Held over a few frames, so a release landing on the tail of the last
+		# cooldown still goes off instead of being swallowed.
+		_cast_buffer = CAST_BUFFER
+	_update_charge(delta, holding)
+	_cast_buffer = maxf(0.0, _cast_buffer - delta)
 	for i in runners.size():
-		runners[i].set_active(casting and i == selected_slot and can_cast(i))
-		runners[i].update(delta)
+		var r: SkillRunner = runners[i]
+		var armed := i == selected_slot
+		# Whatever the release paid for stays with the cast it bought, right
+		# through to the end of it, and only clears once the slot is free again.
+		if armed and (_cast_buffer > 0.0 or not r.is_ready()):
+			r.ttl_bonus = int(cast_charge)
+		else:
+			r.ttl_bonus = 0
+		r.set_active(armed and _cast_buffer > 0.0 and can_cast(i))
+		r.update(delta)
+	if _cast_buffer > 0.0 and not runners[selected_slot].is_ready():
+		_cast_buffer = 0.0      # it went off; stop asking
 	if basic_runner != null:
 		basic_runner.set_active(not input_locked and Input.is_action_pressed("attack"))
 		basic_runner.update(delta)
@@ -382,6 +479,10 @@ func _draw() -> void:
 		draw_circle(to_local(t["p"]), 10.0 * a, Color(0.6, 0.85, 1.0, a * 0.35))
 
 	# The sprite is the body; these are the state read-outs drawn over it.
+	if charge > 0.0:
+		var ct := charge_ratio()
+		draw_arc(Vector2.ZERO, 34.0 - 10.0 * ct, 0, TAU, 28,
+			Color(0.78, 0.68, 1.0, 0.30 + 0.55 * ct), 1.5 + 2.5 * ct)
 	if parry_time > 0.0:
 		draw_arc(Vector2.ZERO, 24.0, 0, TAU, 24, Color(1, 0.95, 0.6, 0.9), 2.5)
 	if _dash_cd > 0.0:

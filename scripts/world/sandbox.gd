@@ -169,7 +169,8 @@ class SandboxPanel extends Control:
 		UiKit.fill_screen(self)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var v := VBoxContainer.new()
-		v.position = Vector2(20, 90)
+		# Clear of the readout panel above, which now carries the meters too.
+		v.position = Vector2(20, 120)
 		v.add_theme_constant_override("separation", 4)
 		add_child(v)
 		var wb := UiKit.overlay_button("SWAP WEAPON", UiKit.ACCENT)
@@ -193,20 +194,42 @@ class SandboxPanel extends Control:
 		UiKit.sync_screen(self)
 		queue_redraw()
 
+	## Stamina and mana, so a charge is visible in the room skills are tested
+	## in and not only in a raid.
+	func _draw_meters() -> void:
+		var p := sandbox.player
+		var w := 276.0
+		var st := Rect2(24, 82, w, 8)
+		draw_rect(st, Color(0, 0, 0, 0.55))
+		draw_rect(Rect2(st.position, Vector2(w * p.stamina_ratio(), st.size.y)),
+			Color(0.45, 0.82, 0.62))
+		draw_rect(st, Color(0.5, 0.6, 0.7, 0.7), false, 1.0)
+		var mn := Rect2(24, 93, w, 8)
+		draw_rect(mn, Color(0, 0, 0, 0.55))
+		draw_rect(Rect2(mn.position, Vector2(w * p.mana_ratio(), mn.size.y)),
+			Color(0.38, 0.55, 0.95))
+		if p.charge > 0.0:
+			draw_rect(Rect2(mn.position, Vector2(w * p.charge_ratio(), 3.0)),
+				Color(0.78, 0.68, 1.0))
+			draw_string(_font, Vector2(mn.end.x + 8, mn.end.y), "+%d LIFE" % int(p.charge),
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.82, 0.72, 1.0))
+		draw_rect(mn, Color(0.5, 0.6, 0.7, 0.7), false, 1.0)
+
 	func _draw() -> void:
 		if sandbox == null or sandbox.player == null:
 			return
 		var vp := get_viewport_rect().size
-		draw_rect(Rect2(12, 16, 300, 62), Color(0.07, 0.08, 0.11, 0.85))
-		draw_rect(Rect2(12, 16, 300, 62), Color(0.35, 0.5, 0.65, 0.6), false, 1.2)
+		draw_rect(Rect2(12, 16, 320, 92), Color(0.07, 0.08, 0.11, 0.85))
+		draw_rect(Rect2(12, 16, 320, 92), Color(0.35, 0.5, 0.65, 0.6), false, 1.2)
 		var wdef := Weapons.get_def(sandbox.current_weapon())
 		draw_string(_font, Vector2(24, 38), "SANDBOX · %s" % String(wdef["name"]).to_upper(),
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(wdef["color"]))
 		draw_string(_font, Vector2(24, 58), "damage/sec (3s avg): %.1f" % sandbox.dps(),
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 12, UiKit.GOOD)
-		draw_string(_font, Vector2(24, 72), "TAB assemble · %s attacks · 1-3 arm · %s casts" % [
+		draw_string(_font, Vector2(24, 72), "TAB assemble · %s attacks · 1-3 arm · hold %s to charge" % [
 				Controls.short_label_for("attack"), Controls.short_label_for("cast_skill")],
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UiKit.DIM)
+		_draw_meters()
 
 		var x := 24.0
 		var y := vp.y - 80.0

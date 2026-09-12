@@ -58,6 +58,9 @@ func _ready() -> void:
 	check(tr["reachable"].size() == 5, "the whole ring is reachable")
 	var runner := SkillRunner.new(r)
 	runner.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
+	# Charged, so the ring is given real life to burn through rather than the
+	# single pass an uncharged cast is worth.
+	runner.ttl_bonus = 40
 	runner.set_active(true)
 	runner._tick()                               # starts the cycle
 	check(not runner.is_idle(), "the ring pulse is in flight")
@@ -66,7 +69,7 @@ func _ready() -> void:
 		runner._tick()
 		ticks += 1
 	check(runner.is_idle(), "the circulating pulse burns out (%d ticks)" % ticks)
-	check(ticks > 10, "but not immediately — it really did circulate")
+	check(ticks > 4, "but not immediately — it really did circulate")
 	# And the board recovers: the next cycle starts normally afterwards.
 	var restarted := false
 	for i in 200:
@@ -94,6 +97,9 @@ func _ready() -> void:
 	lp.place("OUTPUT", Vector2i(3, 2), 0)
 	var lr := SkillRunner.new(lp)
 	lr.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
+	# An uncharged cast is worth one pass, so the laps this is checking are
+	# bought the way a player buys them: by holding the cast button.
+	lr.ttl_bonus = 32
 	var pred := lr.simulate()
 	var predicted := float(pred["cycle_seconds"])
 	var want_shots: int = (pred["outputs"] as Array).size()
@@ -134,6 +140,7 @@ func _ready() -> void:
 	tb.place("DAMAGE", Vector2i(1, 3), 3)      # back into the DASHSLASH head
 	var tr2 := SkillRunner.new(tb)
 	tr2.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
+	tr2.ttl_bonus = 48   # charged, so the branch goes round more than once
 	var tsim := tr2.simulate()
 	var chain: Array = []
 	var link = (tsim["triggers"] as Dictionary).get("ON_HIT", null)

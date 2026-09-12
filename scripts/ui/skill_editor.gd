@@ -571,7 +571,12 @@ func _draw_info(vp: Vector2) -> void:
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.7, 0.95, 0.85))
 		var line := y + 46.0
 		if outs.is_empty():
-			draw_string(_font, Vector2(rx, line), b.first_problem(),
+			# A flow that simply ran out of life is not a wiring fault, and
+			# `first_problem` would go looking for one that is not there.
+			var why := b.first_problem()
+			if bool(result.get("expired", false)):
+				why = "The flow runs out of life (%d) before it reaches an OUTPUT. Shorten it, or hold the cast button to charge it further." % int(result.get("ttl", 0))
+			draw_string(_font, Vector2(rx, line), why,
 				HORIZONTAL_ALIGNMENT_LEFT, 560, 12, Color(1.0, 0.62, 0.45))
 			line += 18.0
 		for i in mini(outs.size(), 3):
@@ -584,6 +589,12 @@ func _draw_info(vp: Vector2) -> void:
 				int(result["overclock"]), float(result["speed_mul"]), float(result["penalty_seconds"])],
 				HORIZONTAL_ALIGNMENT_LEFT, 520, 10, Components.COL_FLOW)
 			line += 16.0
+		# What holding the cast button buys this board, in the board's own terms.
+		draw_string(_font, Vector2(rx, line),
+			"LIFE %d · hold the cast button to buy more, release to fire"
+				% int(result.get("ttl", 0)),
+			HORIZONTAL_ALIGNMENT_LEFT, 520, 10, Color(0.78, 0.68, 1.0))
+		line += 16.0
 		var trig: Dictionary = result.get("triggers", {})
 		for k in trig:
 			# A loop can queue several follow-ups on one trigger, each landing

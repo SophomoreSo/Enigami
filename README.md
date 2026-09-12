@@ -24,6 +24,8 @@ godot res://tests/select_test.tscn  # arming a slot, and what each button fires
 godot res://tests/weapon_fit_test.tscn  # a weapon refuses skills it cannot carry
 godot res://tests/stamina_test.tscn # the dash budget under the health bar
 godot res://tests/menu_fit_test.tscn # menus stay on screen and scroll the rest
+godot res://tests/ttl_test.tscn     # a pulse's life, and what bounds a loop
+godot res://tests/charge_test.tscn  # holding the cast button buys life for mana
 godot res://tests/shots.tscn   # writes a screenshot of each screen to user://shots
 SHOTS_DIR=/tmp/shots godot res://tests/shots.tscn   # ...or wherever you point it
 ```
@@ -37,7 +39,7 @@ SHOTS_DIR=/tmp/shots godot res://tests/shots.tscn   # ...or wherever you point i
 | SHIFT | dash (brief invulnerability); spends stamina, four dashes to a full bar |
 | LMB | attack with the weapon's own board — always available, never lost |
 | 1 / 2 / 3 / 4 | arm a skill slot (numpad works too); arming does not fire it |
-| RMB | hold to cast the armed skill — a weapon refuses skills it cannot carry |
+| RMB | hold to charge the armed skill, release to cast it — a tap is a charge of nothing; a weapon refuses skills it cannot carry |
 | mouse / right stick | aim, and where a lunge lands |
 | TAB | open assembly — **the raid keeps running**; TAB, ESC or the CLOSE button leaves it |
 | F | interact, and hold to extract |
@@ -96,13 +98,28 @@ may come from, so a flow can turn a corner through any part and the arrows on
 the board describe its behaviour completely. The two joins that cannot carry
 flow are two outputs meeting head-on, and anything aimed back at the INPUT.
 
-Because a flow can enter from any side, rings are easy to build. A cycle may
-enter the same part four times, after which the flow stops there — so a ring
-runs a few laps and winds down rather than being a way to fire without ever
-paying the cooldown. The budget counts re-entries rather than distance
-travelled, which leaves a chain that never doubles back unaffected however long
-it is, and it is the same budget the workbench preview uses: a looping board
-runs at the cycle time and shot count the preview shows it.
+Because a flow can enter from any side, rings are easy to build. Every pulse
+therefore carries a **time to live** — how many more parts it may enter — and
+dies when it runs out, which is what stops a cycle running forever. It is per
+pulse rather than shared across the cast on purpose: with one pool between them,
+two branches out of a `TEE` race for the last of it and which one starves comes
+down to the order they happen to be stepped in. A pulse starts with one full
+pass of its own board, so length alone never costs a board its shot.
+
+Holding the cast button **charges** the armed board, spending mana the whole
+time it is held; **letting go is what casts it**, with whatever the hold paid
+for. A tap is simply a charge of nothing, so a quick press casts as it always
+did. Charging engages on every skill alike — nothing is special-cased on the
+shape of the board — but all it ever buys is life, and life is only ever spent
+going round. A board with no cycle in it walks to its OUTPUT and stops there
+however much it was given, so it fires **once** charged exactly as it fires once
+uncharged. A cycle is what has somewhere to spend the life, and it spends it on
+more laps; on a loop that runs its payload back through its own stat parts that
+compounds, because every lap picks them up again.
+
+The workbench previews all of it by running the board rather than describing
+it: a private copy of the runner is driven through a whole cast and what it
+fires is what the preview reports, so the editor and the game cannot disagree.
 
 The board also shows what is actually wired: a green bridge on each joint that
 carries flow, a red cross where two parts touch but cannot connect, and a faint
