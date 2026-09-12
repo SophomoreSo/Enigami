@@ -14,11 +14,18 @@ const FRICTION := 2400.0
 const GRAVITY := 1900.0
 const MAX_FALL := 900.0
 const JUMP_VELOCITY := -610.0
+## The air jump is a touch shorter than the first, so the second hop reads as
+## a recovery rather than as the better of the two.
+const DOUBLE_JUMP_VELOCITY := -540.0
 const WALL_SLIDE_SPEED := 120.0
 const WALL_JUMP_PUSH := 300.0
-const DASH_SPEED := 620.0
-const DASH_TIME := 0.16
-const DASH_COOLDOWN := 0.55
+## The dash is a movement tool first: it wants to be over almost before it has
+## registered, and to be there again the moment it is wanted. Speed carries the
+## reach so the window can stay short, and the recovery is deliberately shorter
+## than the dash is long, which is what makes chaining them feel free.
+const DASH_SPEED := 880.0
+const DASH_TIME := 0.13
+const DASH_COOLDOWN := 0.30
 const COYOTE := 0.10
 const JUMP_BUFFER := 0.12
 
@@ -27,6 +34,9 @@ var runners: Array[SkillRunner] = []
 var room = null
 var aim: Vector2 = Vector2.RIGHT
 var weapon_sprite: Sprite2D
+## Whether the player has an air jump at all. Clear it to take the move away —
+## for an upgrade that grants it, a debuff, or a room that asks for precision.
+var can_double_jump: bool = true
 
 var _coyote: float = 0.0
 var _buffer: float = 0.0
@@ -34,6 +44,7 @@ var _dash_time: float = 0.0
 var _dash_cd: float = 0.0
 var _dash_dir: Vector2 = Vector2.RIGHT
 var _wall_dir: int = 0
+var _air_jump_used: bool = false
 var parry_time: float = 0.0
 var parry_slot: int = -1
 var input_locked: bool = false
@@ -173,6 +184,7 @@ func _physics_process(delta: float) -> void:
 	var on_floor := is_on_floor()
 	if on_floor:
 		_coyote = COYOTE
+		_air_jump_used = false
 	else:
 		_coyote = maxf(0.0, _coyote - delta)
 	_buffer = maxf(0.0, _buffer - delta)
@@ -211,7 +223,20 @@ func _physics_process(delta: float) -> void:
 			velocity.x = -_wall_dir * WALL_JUMP_PUSH
 			face(-_wall_dir)
 			_buffer = 0.0
+			# Kicking off a wall is a fresh launch, so it hands the air jump
+			# back the way landing does.
+			_air_jump_used = false
 			Audio.play("jump", 1.15)
+		elif can_double_jump and not _air_jump_used:
+			# Assigning the speed rather than adding to it is the point: the
+			# air jump then lifts just as well out of a long fall as it does
+			# off the top of a hop, instead of being eaten by gravity.
+			_air_jump_used = true
+			velocity.y = DOUBLE_JUMP_VELOCITY
+			_buffer = 0.0
+			Audio.play("jump", 1.3)
+			Fx.ring(global_position + Vector2(0, 10), Color(0.7, 0.9, 1.0), 22.0)
+			Fx.burst(global_position + Vector2(0, 12), Color(0.7, 0.85, 1.0), 6, 90.0)
 	# Releasing jump early cuts the arc short.
 	if not input_locked and Input.is_action_just_released("jump") and velocity.y < 0.0:
 		velocity.y *= 0.45

@@ -40,6 +40,38 @@ static func button(text: String, accent: Color = ACCENT) -> Button:
 	b.add_theme_font_size_override("font_size", 13)
 	return b
 
+## A button layered over a running game. It never takes keyboard focus, so the
+## keys the player is playing with keep reaching the game after they click one:
+## a focusable button swallows SPACE as "press me again" and TAB as "move to
+## the next button", which costs the player a jump or the assembly screen.
+## Menus use `button` — there, keyboard and gamepad navigation is the point.
+static func overlay_button(text: String, accent: Color = ACCENT) -> Button:
+	var b := button(text, accent)
+	b.focus_mode = Control.FOCUS_NONE
+	return b
+
+## The cooldown state a skill slot shows, drawn over the card and shared by
+## every screen that lists slots so they cannot drift apart.
+##
+## `progress` runs 0 → 1 as the skill recovers. The grey sheet covers what is
+## left of the wait and its upper edge is the clock hand: it starts at the top
+## of the card and slides to the bottom, leaving the card clear when it lands.
+## `flash` fades 1 → 0 just after it lands and brightens the card's edge, so a
+## skill coming back announces itself to a player who is watching the fight
+## rather than the bar.
+static func draw_cooldown(c: CanvasItem, rect: Rect2, progress: float, flash: float,
+		border: Color) -> void:
+	var p := clampf(progress, 0.0, 1.0)
+	if p < 1.0:
+		var top := rect.position.y + rect.size.y * p
+		c.draw_rect(Rect2(rect.position.x, top, rect.size.x, rect.end.y - top),
+			Color(0.55, 0.58, 0.65, 0.55))
+		# A lit edge on the sheet, so the slide reads even on a short cooldown.
+		c.draw_line(Vector2(rect.position.x, top), Vector2(rect.end.x, top),
+			Color(0.85, 0.9, 1.0, 0.75), 1.0)
+	var f := clampf(flash, 0.0, 1.0)
+	c.draw_rect(rect, border.lerp(Color(1, 1, 1), f * 0.85), false, 1.5 + 2.5 * f)
+
 static func label(text: String, size: int = 13, color: Color = TEXT) -> Label:
 	var l := Label.new()
 	l.text = text

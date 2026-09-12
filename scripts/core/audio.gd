@@ -11,7 +11,9 @@ var _music_player: AudioStreamPlayer
 var _next_player := 0
 
 var sfx_volume: float = 0.7
-var music_volume: float = 0.35
+## Music is off for now. Give this a value again — or move the Music slider in
+## Settings, which works while the game is running — to bring it back.
+var music_volume: float = 0.0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -24,8 +26,14 @@ func _ready() -> void:
 	_music_player = AudioStreamPlayer.new()
 	_music_player.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(_music_player)
-	_music_player.stream = _make_music()
 	_apply_volumes()
+
+## The loop is a few hundred thousand samples to synthesise and about half a
+## megabyte to hold, so it is built the first time it is actually wanted rather
+## than at boot: with music off, that work never happens at all.
+func _ensure_music() -> void:
+	if _music_player.stream == null:
+		_music_player.stream = _make_music()
 
 ## Release the streaming buffers on the way out, so shutdown is clean.
 func _exit_tree() -> void:
@@ -48,6 +56,13 @@ func set_sfx_volume(v: float) -> void:
 func set_music_volume(v: float) -> void:
 	music_volume = clampf(v, 0.0, 1.0)
 	_apply_volumes()
+	# The slider acts at once in both directions. Without this, turning it down
+	# leaves a silent stream running and turning it up does nothing until the
+	# next screen change happens to call play_music().
+	if music_volume <= 0.001:
+		_music_player.stop()
+	else:
+		play_music()
 
 func play(id: String, pitch: float = 1.0) -> void:
 	if not _sfx.has(id) or sfx_volume <= 0.001:
@@ -59,8 +74,10 @@ func play(id: String, pitch: float = 1.0) -> void:
 	p.play()
 
 func play_music() -> void:
-	if not _music_player.playing and music_volume > 0.001:
-		_music_player.play()
+	if _music_player.playing or music_volume <= 0.001:
+		return
+	_ensure_music()
+	_music_player.play()
 
 func stop_music() -> void:
 	_music_player.stop()

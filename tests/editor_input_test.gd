@@ -7,6 +7,12 @@ var game: Node
 var ed: SkillEditor
 var fails := 0
 
+## Same convention as tests/shots.gd: user://shots unless SHOTS_DIR says otherwise.
+func shot(name: String) -> void:
+	var dir := OS.get_environment("SHOTS_DIR") if OS.has_environment("SHOTS_DIR") else "user://shots"
+	DirAccess.make_dir_recursive_absolute(dir)
+	get_viewport().get_texture().get_image().save_png(dir.path_join(name + ".png"))
+
 func say(s: String) -> void:
 	print("[EDIT] ", s)
 
@@ -115,8 +121,7 @@ func _ready() -> void:
 	await move_to(cell_pos(Vector2i(2, 3)) + Vector2(12, 6))
 	await frames(2)
 	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(
-		"/private/tmp/claude-501/-Users-soday-Documents-WIPGames-260911/7651cc29-7de6-437f-9c39-ce9cf9c0075c/scratchpad/shots/10_dragging.png")
+	shot("10_dragging")
 	await button(cell_pos(Vector2i(2, 3)) + Vector2(12, 6), MOUSE_BUTTON_LEFT, false)
 
 	# --- rotate mid-drag, then drop -----------------------------------------
@@ -192,8 +197,7 @@ func _ready() -> void:
 	await move_to(cell_pos(Vector2i(5, 1)))
 	await frames(2)
 	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(
-		"/private/tmp/claude-501/-Users-soday-Documents-WIPGames-260911/7651cc29-7de6-437f-9c39-ce9cf9c0075c/scratchpad/shots/11_ports.png")
+	shot("11_ports")
 
 	say("---- %d failures ----" % fails)
 	get_tree().quit()

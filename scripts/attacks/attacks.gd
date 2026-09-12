@@ -28,9 +28,24 @@ static func nearest_target(pos: Vector2, team: int, max_dist: float = 1e9) -> Ac
 static func container() -> Node:
 	return Fx.world
 
-## Staggered follow-ups (DUPLICATE, multi-hit forms) are scheduled by a small
-## node rather than a captured lambda: an attacker can die between the first
-## strike and the last, and a node can re-check that before it fires.
+## A trigger's follow-up waits this long rather than going off inside the hit
+## that caused it. Fired inline, a whole chain ran within a single frame, and
+## every link read the attacker's position from before the current attack had
+## moved them — so four chained dash-slashes computed the same start and the
+## same destination and landed exactly on top of each other, reading as one
+## dash that happened to hit four times. A beat between links lets each one
+## start from where the last finished, and gives each its own dash to watch.
+const TRIGGER_DELAY := 0.14
+
+## The lunge the DASH component adds to an attack. Its own number rather than
+## the player's dash speed: this one rides on a skill that has already paid for
+## itself in ticks and heat, so it is tuned against the board, not against the
+## movement button.
+const DASH_LUNGE_SPEED := 620.0
+
+## Staggered follow-ups (DUPLICATE, multi-hit forms, triggers) are scheduled by
+## a small node rather than a captured lambda: an attacker can die between the
+## first strike and the last, and a node can re-check that before it fires.
 class Deferred extends Node:
 	var t: float = 0.0
 	var kind: String = ""
@@ -38,20 +53,40 @@ class Deferred extends Node:
 	var aim: Vector2 = Vector2.RIGHT
 	var pos: Vector2 = Vector2.ZERO
 	var team: int = 0
-	var attacker: Actor = null
+	## Untyped for the same reason `resolve_hit` takes it loose: the attacker
+	## can be torn down while this is still counting down.
+	var attacker = null
 	var room: Node = null
+	var ctx: Dictionary = {}
 
 	func _process(delta: float) -> void:
 		t -= delta
 		if t > 0.0:
 			return
+		var atk: Actor = attacker if is_instance_valid(attacker) and attacker is Actor else null
 		match kind:
 			"melee":
-				Attacks._melee(payload, aim, team, attacker, room)
+				Attacks._melee(payload, aim, team, atk, room)
 			"burst":
-				Attacks._burst(payload, pos, team, attacker, room)
+				Attacks._burst(payload, pos, team, atk, room)
 			"dash":
-				Attacks._dash_slash(payload, aim, team, attacker, room)
+				Attacks._dash_slash(payload, aim, team, atk, room)
+			"spawn":
+				# The full spawn path, so a trigger's attack behaves exactly as
+				# it would fired straight off the board.
+				var c := ctx.duplicate()
+				c["attacker"] = atk
+				# The attack that caused this has moved the attacker since, so
+				# a follow-up aims where they are aiming now rather than down
+				# the hit that triggered it: a chain of lunges kept on the old
+				# heading walks past the target and every link after the first
+				# misses. The origin stays at the impact point, so an ON HIT
+				# burst or bolt still comes from where the hit landed.
+				if atk != null:
+					var live_aim = atk.get("aim")
+					if live_aim is Vector2 and (live_aim as Vector2).length() > 0.01:
+						c["aim"] = live_aim
+				Attacks.spawn(payload, c)
 		queue_free()
 
 static func _schedule(seconds: float, kind: String, p: Payload, aim: Vector2, pos: Vector2,
@@ -68,6 +103,20 @@ static func _schedule(seconds: float, kind: String, p: Payload, aim: Vector2, po
 	d.team = team
 	d.attacker = attacker
 	d.room = room
+	w.add_child(d)
+
+## Schedules a whole `spawn` — used for trigger follow-ups, which need the form
+## re-resolved from scratch rather than one fixed attack kind.
+static func _schedule_spawn(seconds: float, p: Payload, ctx: Dictionary) -> void:
+	var w := container()
+	if w == null or not is_instance_valid(w):
+		return
+	var d := Deferred.new()
+	d.t = seconds
+	d.kind = "spawn"
+	d.payload = p
+	d.ctx = ctx.duplicate()
+	d.attacker = ctx.get("attacker", null)
 	w.add_child(d)
 
 ## ctx keys: attacker (Actor), room (Node), aim (Vector2), team (int),
@@ -97,7 +146,7 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 				Fx.burst(behind, Color(0.6, 0.8, 1.0), 10, 160.0)
 				Audio.play("dash", 1.3)
 	if payload.dash and attacker != null and is_instance_valid(attacker):
-		attacker.velocity = aim * 620.0
+		attacker.velocity = aim * DASH_LUNGE_SPEED
 		if attacker.has_method("on_dashed"):
 			attacker.on_dashed()
 		Audio.play("dash")
@@ -182,10 +231,21 @@ static func _dash_slash(p: Payload, aim: Vector2, team: int, atk: Actor, room) -
 	container().add_child(n)
 
 ## A single connection: damage, feedback, and any trigger flows it unlocks.
-static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, attacker: Actor, room, team: int) -> void:
+##
+## `attacker` is deliberately untyped: a projectile or a burst outlives whoever
+## fired it, and a monster torn down mid-flight leaves behind a node that still
+## passes `is_instance_valid` for a moment with its script already released.
+## Declaring the parameter as `Actor` made the engine reject the whole call at
+## that moment, so a shot from a dying enemy silently did no damage at all.
+## Taking it loose and narrowing here costs the kill credit and any trigger
+## flow that needs a live owner, and lands the hit.
+static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, attacker, room, team: int) -> void:
 	if target == null or not is_instance_valid(target) or target.dead:
 		return
-	var dealt := target.apply_damage(p.damage, p.elements, attacker)
+	# Both halves are needed: a fully deleted node fails `is_instance_valid`,
+	# and one still being torn down passes it but no longer answers to `is`.
+	var atk: Actor = attacker if is_instance_valid(attacker) and attacker is Actor else null
+	var dealt := target.apply_damage(p.damage, p.elements, atk)
 	if dealt <= 0.0:
 		return
 	target.knockback(dir, 120.0 + p.damage * 2.0)
@@ -195,16 +255,14 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 	Audio.play("hit", 1.0 + randf_range(-0.12, 0.12))
 
 	var killed := target.dead
-	if killed and attacker != null and is_instance_valid(attacker) and attacker.team == 0:
+	if killed and atk != null and atk.team == 0:
 		GameState.register_kill()
 
 	var ctx := {
-		"attacker": attacker, "room": room, "team": team,
+		"attacker": atk, "room": room, "team": team,
 		"aim": dir, "origin": pos, "gravity": false,
 	}
 	if p.on_hit != null:
-		var hp: Payload = (p.on_hit as Payload).clone()
-		spawn(hp, ctx)
+		_schedule_spawn(TRIGGER_DELAY, (p.on_hit as Payload).clone(), ctx)
 	if killed and p.on_kill != null:
-		var kp: Payload = (p.on_kill as Payload).clone()
-		spawn(kp, ctx)
+		_schedule_spawn(TRIGGER_DELAY, (p.on_kill as Payload).clone(), ctx)

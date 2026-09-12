@@ -92,6 +92,7 @@ func _run() -> void:
 		await frames(6)
 	say("all attack forms ok")
 
+
 	# Editor mid-raid, then a component placement from the bag.
 	GameState.add_component("HOMING", 3, GameState.raid_bag)
 	raid._open_editor()

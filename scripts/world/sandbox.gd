@@ -172,20 +172,20 @@ class SandboxPanel extends Control:
 		v.position = Vector2(20, 90)
 		v.add_theme_constant_override("separation", 4)
 		add_child(v)
-		var wb := UiKit.button("SWAP WEAPON", UiKit.ACCENT)
+		var wb := UiKit.overlay_button("SWAP WEAPON", UiKit.ACCENT)
 		wb.pressed.connect(func() -> void: sandbox.cycle_weapon())
 		v.add_child(wb)
 		for kind in ["CRAWLER", "SENTRY", "LOBBER", "HOPPER", "DRIFTER", "WARDEN", "ARBITER"]:
-			var b := UiKit.button("spawn %s" % Monsters.get_def(kind)["name"], UiKit.WARN)
+			var b := UiKit.overlay_button("spawn %s" % Monsters.get_def(kind)["name"], UiKit.WARN)
 			b.pressed.connect(func() -> void: sandbox.spawn_monster(kind))
 			v.add_child(b)
-		var db := UiKit.button("spawn dummy", UiKit.GOOD)
+		var db := UiKit.overlay_button("spawn dummy", UiKit.GOOD)
 		db.pressed.connect(func() -> void: sandbox.spawn_dummy())
 		v.add_child(db)
-		var cb := UiKit.button("clear", UiKit.BAD)
+		var cb := UiKit.overlay_button("clear", UiKit.BAD)
 		cb.pressed.connect(func() -> void: sandbox.clear_monsters())
 		v.add_child(cb)
-		var xb := UiKit.button("leave (ESC)")
+		var xb := UiKit.overlay_button("leave (ESC)")
 		xb.pressed.connect(func() -> void: sandbox.exit_requested.emit())
 		v.add_child(xb)
 
@@ -211,8 +211,8 @@ class SandboxPanel extends Control:
 		var y := vp.y - 80.0
 		for i in sandbox.player.runners.size():
 			var r: SkillRunner = sandbox.player.runners[i]
-			draw_rect(Rect2(x, y, 150, 52), Color(0.07, 0.08, 0.11, 0.85))
-			draw_rect(Rect2(x, y, 150, 52), Color(0.5, 0.9, 1.0) if r.active else Color(0.3, 0.35, 0.42), false, 1.2)
+			var card := Rect2(x, y, 150, 52)
+			draw_rect(card, Color(0.07, 0.08, 0.11, 0.85))
 			draw_string(_font, Vector2(x + 8, y + 18), "%d · %s" % [i + 1, r.board.skill_name],
 				HORIZONTAL_ALIGNMENT_LEFT, 138, 10, UiKit.TEXT)
 			while _sim.size() <= i:
@@ -225,4 +225,6 @@ class SandboxPanel extends Control:
 			draw_string(_font, Vector2(x + 8, y + 34), "cycle %.2fs · out %d" % [
 				float(res["cycle_seconds"]), (res["outputs"] as Array).size()],
 				HORIZONTAL_ALIGNMENT_LEFT, 138, 10, UiKit.DIM)
+			UiKit.draw_cooldown(self, card, r.ready_ratio(), r.ready_flash,
+				Color(0.5, 0.9, 1.0) if r.active else Color(0.3, 0.35, 0.42))
 			x += 158.0

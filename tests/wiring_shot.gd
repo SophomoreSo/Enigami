@@ -1,14 +1,18 @@
 extends Node
 const GameScript := preload("res://scripts/core/game.gd")
-const DIR := "/private/tmp/claude-501/-Users-soday-Documents-WIPGames-260911/7651cc29-7de6-437f-9c39-ce9cf9c0075c/scratchpad/shots"
+## Same convention as tests/shots.gd: user://shots unless SHOTS_DIR says otherwise.
+var dir: String = "user://shots"
 
 func frames(n: int) -> void:
 	for i in n:
 		await get_tree().process_frame
 
 func shot(name: String) -> void:
+	if OS.has_environment("SHOTS_DIR"):
+		dir = OS.get_environment("SHOTS_DIR")
+	DirAccess.make_dir_recursive_absolute(dir)
 	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png("%s/%s.png" % [DIR, name])
+	get_viewport().get_texture().get_image().save_png(dir.path_join(name + ".png"))
 	print("[SHOT] ", name)
 
 func _ready() -> void:

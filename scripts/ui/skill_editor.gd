@@ -586,9 +586,18 @@ func _draw_info(vp: Vector2) -> void:
 			line += 16.0
 		var trig: Dictionary = result.get("triggers", {})
 		for k in trig:
-			draw_string(_font, Vector2(rx, line), "↳ %s: %s" % [k, (trig[k] as Payload).summary()],
-				HORIZONTAL_ALIGNMENT_LEFT, 520, 10, Color(1.0, 0.7, 0.85))
-			line += 15.0
+			# A loop can queue several follow-ups on one trigger, each landing
+			# after the one before. List them, so a chain of four reads as four
+			# attacks rather than as a single very large one.
+			var q = trig[k]
+			var n := 0
+			while q != null and n < SkillRunner.MAX_TRIGGER_CHAIN:
+				var label: String = String(Components.get_def(k).get("name", k)) if n == 0 else "then"
+				draw_string(_font, Vector2(rx, line), "↳ %s: %s" % [label, (q as Payload).summary()],
+					HORIZONTAL_ALIGNMENT_LEFT, 520, 10, Color(1.0, 0.7, 0.85))
+				line += 15.0
+				n += 1
+				q = q.on_hit
 		if not Weapons.accepts_board(weapon_id, b):
 			draw_string(_font, Vector2(rx, line), Weapons.rejection_reason(weapon_id, b),
 				HORIZONTAL_ALIGNMENT_LEFT, 520, 11, Color(1.0, 0.5, 0.5))

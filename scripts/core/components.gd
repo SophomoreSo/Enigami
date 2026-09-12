@@ -110,6 +110,11 @@ const DEFS := {
 		"outs": [E], "payload_out": -1, "color": COL_STAT, "glyph": "⤢",
 		"desc": "Scales the attack by 1.6. Melee arcs widen and reach further.",
 	},
+	"SPEED": {
+		"name": "SPEED x", "cat": CAT_STAT, "cost": 2, "heat": 0.35, "cells": 1,
+		"outs": [E], "payload_out": -1, "color": COL_STAT, "glyph": "⏩",
+		"desc": "Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. Does nothing to a flow with no bolt in it.",
+	},
 
 	"PIERCE": {
 		"name": "PIERCE", "cat": CAT_BEHAVIOR, "cost": 2, "heat": 0.5, "cells": 1,
@@ -191,7 +196,7 @@ const STRUCTURAL := ["INPUT", "OUTPUT", "WIRE", "BEND"]
 ## Loot-able components, in the order the palette shows them.
 const LOOT_POOL := [
 	"PROJECTILE", "SLASH", "AREA", "DASHSLASH", "DASHSLASH_AUTO",
-	"FIRE", "ICE", "DAMAGE", "SIZE",
+	"FIRE", "ICE", "DAMAGE", "SIZE", "SPEED",
 	"PIERCE", "DASH", "BLINK", "HOMING", "REVERSE",
 	"SPLIT", "TEE", "DUPLICATE", "OVERCLOCK", "DELAY", "TIME_DILATION",
 	"ON_HIT", "ON_KILL", "ON_PARRY",

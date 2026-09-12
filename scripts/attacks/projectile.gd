@@ -4,6 +4,13 @@ extends Node2D
 ## A travelling bolt. Collision is resolved analytically against actor radii and
 ## the room's solid grid, so attacks need no physics bodies of their own.
 
+## Longest hop a bolt may take before its collision is sampled again. Walls are
+## a 32px grid and a target only a few pixels across, so a fast bolt has to be
+## walked in pieces: sampled once a frame, a shot carrying SPEED parts steps
+## clean over a one-cell platform and out the far side of whatever it was aimed
+## at. The hops cost nothing — even the fastest build needs a handful.
+const MAX_STEP := 12.0
+
 var payload: Payload
 var velocity: Vector2 = Vector2.RIGHT * 400.0
 var team: int = 0
@@ -59,19 +66,30 @@ func _process(delta: float) -> void:
 			var want := (t.global_position - global_position).normalized() * velocity.length()
 			velocity = velocity.lerp(want, clampf(homing_strength * delta, 0.0, 1.0))
 	velocity.y += gravity * delta
-	var step := velocity * delta
-	position += step
+
+	var travel := velocity * delta
+	var hops := maxi(1, int(ceil(travel.length() / MAX_STEP)))
+	var hop := travel / float(hops)
+	for i in hops:
+		position += hop
+		if _sample():
+			return
+
 	trail.append(position)
 	if trail.size() > 8:
 		trail.pop_front()
+	queue_redraw()
 
+## One collision sample where the bolt is standing. Returns true once the bolt
+## is gone, so the caller stops walking it.
+func _sample() -> bool:
 	if room != null and room.has_method("is_solid_at") and room.is_solid_at(global_position):
 		Fx.burst(global_position, color, 5, 110.0)
 		queue_free()
-		return
+		return true
 	if room != null and room.has_method("out_of_bounds") and room.out_of_bounds(global_position):
 		queue_free()
-		return
+		return true
 
 	for a in Attacks.targets(team):
 		if _hit.has(a):
@@ -83,8 +101,8 @@ func _process(delta: float) -> void:
 			if hits_left <= 0:
 				Fx.burst(global_position, color, 6, 130.0)
 				queue_free()
-				return
-	queue_redraw()
+				return true
+	return false
 
 func _expire() -> void:
 	queue_free()

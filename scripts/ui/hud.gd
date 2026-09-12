@@ -62,27 +62,15 @@ func _draw_slots(vp: Vector2) -> void:
 		var r: SkillRunner = player.runners[i]
 		var rect := Rect2(x, y, 128, 64)
 		draw_rect(rect, Color(0.08, 0.09, 0.12, 0.85))
-		var active := r.active
-		draw_rect(rect, Color(0.5, 0.9, 1.0) if active else Color(0.3, 0.35, 0.42), false, 1.5)
 		draw_string(_font, rect.position + Vector2(8, 18), "%s  %s" % [keys[i] if i < keys.size() else "?", r.board.skill_name],
 			HORIZONTAL_ALIGNMENT_LEFT, 116, 10, Color(0.85, 0.92, 1.0))
-
-		# Cycle bar: full while pulses are in flight, draining while cooling.
-		var bar := Rect2(rect.position + Vector2(8, 28), Vector2(112, 8))
-		draw_rect(bar, Color(0, 0, 0, 0.5))
-		var ratio := 0.0
-		var col := Color(0.4, 0.9, 0.7)
-		if not r.is_idle():
-			ratio = 1.0
-			col = Color(0.5, 1.0, 0.8)
-		elif r.cooldown > 0:
-			ratio = r.cooldown_ratio()
-			col = Color(0.9, 0.6, 0.35)
-		draw_rect(Rect2(bar.position, Vector2(bar.size.x * ratio, bar.size.y)), col)
-
 		var pulses := r.pulses.size()
 		draw_string(_font, rect.position + Vector2(8, 54), "%d pulse%s" % [pulses, "" if pulses == 1 else "s"],
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.6, 0.7, 0.8))
+		# Drawn last: the sheet covers the card's own text as it recedes, which
+		# is what makes a slot read as unavailable at a glance.
+		UiKit.draw_cooldown(self, rect, r.ready_ratio(), r.ready_flash,
+			Color(0.5, 0.9, 1.0) if r.active else Color(0.3, 0.35, 0.42))
 		x += 136.0
 
 func _draw_bag(vp: Vector2) -> void:

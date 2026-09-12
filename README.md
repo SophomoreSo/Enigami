@@ -14,6 +14,11 @@ at boot.
 ```bash
 godot                      # opens the project
 godot res://tests/smoke.tscn   # drives every screen and asserts the core rules
+godot res://tests/jump_test.tscn    # ground jump, wall kick and the air jump
+godot res://tests/focus_test.tscn   # in-game buttons never steal the keyboard
+godot res://tests/trigger_test.tscn # a trigger chain lands as separate attacks
+godot res://tests/cooldown_test.tscn # the numbers behind the slot cooldown wipe
+godot res://tests/speed_test.tscn   # the SPEED part, and bolt collision at speed
 godot res://tests/shots.tscn   # writes a screenshot of each screen to user://shots
 SHOTS_DIR=/tmp/shots godot res://tests/shots.tscn   # ...or wherever you point it
 ```
@@ -23,7 +28,7 @@ SHOTS_DIR=/tmp/shots godot res://tests/shots.tscn   # ...or wherever you point i
 | | |
 |---|---|
 | A / D, ← / → | move |
-| SPACE | jump; press again against a wall to kick off |
+| SPACE | jump; again in mid-air to double jump; against a wall to kick off |
 | SHIFT | dash (brief invulnerability) |
 | LMB / RMB / Q / E | hold to run skill slots 1–4 |
 | mouse / right stick | aim |
@@ -44,11 +49,22 @@ restarts once every pulse from the previous cycle has resolved — **the length
 and shape of the board is the cooldown**, which is why a bigger build is not
 automatically a better one.
 
+The board is the *cooldown*, not the cast time: the walk up to the cycle's
+first `OUTPUT` is spent the moment you press, so the attack lands on the press,
+and those ticks are charged back onto the cooldown instead. A long board makes
+you wait for the *next* shot, never for this one. Everything the board does
+after that first `OUTPUT` still plays out in real time, which is what lets
+`DELAY` stagger branches and triggers against each other.
+
 - `SPLIT` halves damage down two branches; `TEE` keeps the main line and grows
   a full-strength branch sideways.
 - Triggers (`ON HIT`, `ON KILL`, `ON PARRY`) grow a second flow out of their
   side port. That branch inherits the numbers but not the attack form, so it
-  defines its own payload, and it attaches to attacks fired afterwards.
+  defines its own payload, and it attaches to the attacks the skill fires.
+  A branch that loops resolves once per lap and each lap is its own follow-up:
+  they land in sequence, so a ring back through an attack form gives you that
+  attack again and again rather than one strike carrying every lap's stats.
+  The workbench lists the whole chain under the trigger.
 - Heat accumulated along the path is added to the cycle cooldown.
 - `OVERCLOCK` runs the board on a faster clock and charges a settling delay
   between cycles. Each stack adds less speed than the last while the delay grows
@@ -73,9 +89,13 @@ may come from, so a flow can turn a corner through any part and the arrows on
 the board describe its behaviour completely. The two joins that cannot carry
 flow are two outputs meeting head-on, and anything aimed back at the INPUT.
 
-Because a flow can enter from any side, rings are easy to build. A pulse gets a
-budget of 64 hops and burns out if it never resolves, so a ring is a dead end
-rather than a way to fire without ever paying the cooldown.
+Because a flow can enter from any side, rings are easy to build. A cycle may
+enter the same part four times, after which the flow stops there — so a ring
+runs a few laps and winds down rather than being a way to fire without ever
+paying the cooldown. The budget counts re-entries rather than distance
+travelled, which leaves a chain that never doubles back unaffected however long
+it is, and it is the same budget the workbench preview uses: a looping board
+runs at the cycle time and shot count the preview shows it.
 
 The board also shows what is actually wired: a green bridge on each joint that
 carries flow, a red cross where two parts touch but cannot connect, and a faint
@@ -140,5 +160,5 @@ scripts/actors/    actor base, player, monster catalogue, monster AI
 scripts/attacks/   projectile, melee arc, area burst, dash slash, spawner
 scripts/world/     room generation, raid map graph, raid loop, sandbox, pickups
 scripts/ui/        skill editor, HUD, hideout, title, results, controls panel
-tests/             smoke test and screenshot capture
+tests/             smoke, movement, board tracing, timing, screenshot capture
 ```
