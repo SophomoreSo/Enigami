@@ -13,10 +13,12 @@ const ACTIONS := [
 	["move_down", "Aim down / drop"],
 	["jump", "Jump"],
 	["dash", "Dash"],
-	["skill_1", "Skill slot 1"],
-	["skill_2", "Skill slot 2"],
-	["skill_3", "Skill slot 3"],
-	["skill_4", "Skill slot 4"],
+	["attack", "Attack (weapon)"],
+	["cast_skill", "Cast armed skill"],
+	["skill_1", "Arm slot 1"],
+	["skill_2", "Arm slot 2"],
+	["skill_3", "Arm slot 3"],
+	["skill_4", "Arm slot 4"],
 	["open_editor", "Skill assembly"],
 	["interact", "Interact / extract"],
 	["pause", "Pause"],
@@ -51,6 +53,20 @@ static func label_for(action: String) -> String:
 	if names.is_empty():
 		return "unbound"
 	return " / ".join(names)
+
+## The single binding a HUD should print: the first keyboard or mouse one, with
+## the pad and any alternates left off. `label_for` lists everything, which is
+## right for the rebinding screen and far too long for a slot card.
+static func short_label_for(action: String) -> String:
+	if not InputMap.has_action(action):
+		return "—"
+	for e in InputMap.action_get_events(action):
+		if e is InputEventKey:
+			return OS.get_keycode_string((e as InputEventKey).physical_keycode)
+		if e is InputEventMouseButton:
+			var idx := (e as InputEventMouseButton).button_index
+			return {1: "LMB", 2: "RMB", 3: "MMB"}.get(idx, "Mouse %d" % idx)
+	return "—"
 
 ## Replaces the keyboard/mouse binding of `action`, leaving the gamepad one.
 static func rebind(action: String, event: InputEvent) -> bool:

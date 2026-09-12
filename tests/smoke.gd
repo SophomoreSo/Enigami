@@ -62,10 +62,25 @@ func _run() -> void:
 	var fire_count := [0]
 	for r in raid.player.runners:
 		r.fired.connect(func(_p: Payload) -> void: fire_count[0] += 1)
-	Input.action_press("skill_1")
+	# The number keys arm a slot and never fire it; the mouse buttons do the
+	# firing, one for the weapon and one for whatever is armed.
+	for slot in range(1, 5):
+		var bound := Controls.short_label_for("skill_%d" % slot)
+		if bound != str(slot):
+			push_error("SMOKE FAIL: skill_%d reads as '%s', not '%d'" % [slot, bound, slot])
+		for ev in InputMap.action_get_events("skill_%d" % slot):
+			if ev is InputEventMouseButton:
+				push_error("SMOKE FAIL: skill_%d must not be on a mouse button" % slot)
+	if Controls.short_label_for("attack") != "LMB":
+		push_error("SMOKE FAIL: attack is on %s, not LMB" % Controls.short_label_for("attack"))
+	if Controls.short_label_for("cast_skill") != "RMB":
+		push_error("SMOKE FAIL: cast_skill is on %s, not RMB" % Controls.short_label_for("cast_skill"))
+	say("numbers arm a slot, LMB attacks, RMB casts")
+
+	Input.action_press("cast_skill")
 	Input.action_press("skill_2")
 	await frames(120)
-	Input.action_release("skill_1")
+	Input.action_release("cast_skill")
 	Input.action_release("skill_2")
 	say("circuits fired %d times across %d slots" % [fire_count[0], raid.player.runners.size()])
 	if fire_count[0] <= 0:
@@ -194,9 +209,9 @@ func _run() -> void:
 	sb._open_editor()
 	await frames(20)
 	sb._close_editor()
-	Input.action_press("skill_1")
+	Input.action_press("cast_skill")
 	await frames(60)
-	Input.action_release("skill_1")
+	Input.action_release("cast_skill")
 	say("sandbox ok, dps=%.1f weapon=%s" % [sb.dps(), sb.current_weapon()])
 
 	# Damage has to actually land: stand on a dummy and hold the trigger.
@@ -208,12 +223,12 @@ func _run() -> void:
 	sb._apply_weapon()
 	sb.player.global_position = dummy.global_position + Vector2(-30, 0)
 	sb.player.aim = Vector2.RIGHT
-	Input.action_press("skill_1")
+	Input.action_press("cast_skill")
 	for i in 120:
 		sb.player.global_position = dummy.global_position + Vector2(-30, 0)
 		sb.player.aim = Vector2.RIGHT
 		await get_tree().process_frame
-	Input.action_release("skill_1")
+	Input.action_release("cast_skill")
 	var hp_lost := dummy.max_health - dummy.health
 	say("melee damage landed: %.1f (dps %.1f)" % [hp_lost, sb.dps()])
 	if hp_lost <= 0.0:

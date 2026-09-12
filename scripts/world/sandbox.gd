@@ -204,17 +204,20 @@ class SandboxPanel extends Control:
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(wdef["color"]))
 		draw_string(_font, Vector2(24, 58), "damage/sec (3s avg): %.1f" % sandbox.dps(),
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 12, UiKit.GOOD)
-		draw_string(_font, Vector2(24, 72), "TAB assemble · same board, different weapon",
+		draw_string(_font, Vector2(24, 72), "TAB assemble · %s attacks · 1-3 arm · %s casts" % [
+				Controls.short_label_for("attack"), Controls.short_label_for("cast_skill")],
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UiKit.DIM)
 
 		var x := 24.0
 		var y := vp.y - 80.0
 		for i in sandbox.player.runners.size():
 			var r: SkillRunner = sandbox.player.runners[i]
+			var armed := i == sandbox.player.selected_slot
 			var card := Rect2(x, y, 150, 52)
-			draw_rect(card, Color(0.07, 0.08, 0.11, 0.85))
-			draw_string(_font, Vector2(x + 8, y + 18), "%d · %s" % [i + 1, r.board.skill_name],
-				HORIZONTAL_ALIGNMENT_LEFT, 138, 10, UiKit.TEXT)
+			draw_rect(card, Color(0.10, 0.13, 0.17, 0.9) if armed else Color(0.07, 0.08, 0.11, 0.85))
+			draw_string(_font, Vector2(x + 8, y + 18),
+				"%s%d · %s" % ["▸ " if armed else "", i + 1, r.board.skill_name],
+				HORIZONTAL_ALIGNMENT_LEFT, 138, 10, Color(1, 1, 1) if armed else UiKit.TEXT)
 			while _sim.size() <= i:
 				_sim.append({})
 			if _sim[i].is_empty():
@@ -225,6 +228,10 @@ class SandboxPanel extends Control:
 			draw_string(_font, Vector2(x + 8, y + 34), "cycle %.2fs · out %d" % [
 				float(res["cycle_seconds"]), (res["outputs"] as Array).size()],
 				HORIZONTAL_ALIGNMENT_LEFT, 138, 10, UiKit.DIM)
-			UiKit.draw_cooldown(self, card, r.ready_ratio(), r.ready_flash,
-				Color(0.5, 0.9, 1.0) if r.active else Color(0.3, 0.35, 0.42))
+			var border := Color(0.3, 0.35, 0.42)
+			if r.active:
+				border = Color(0.5, 0.9, 1.0)
+			elif armed:
+				border = Color(0.45, 0.95, 0.8)
+			UiKit.draw_cooldown(self, card, r.ready_ratio(), r.ready_flash, border)
 			x += 158.0

@@ -43,6 +43,10 @@ const TRIGGER_DELAY := 0.14
 ## movement button.
 const DASH_LUNGE_SPEED := 620.0
 
+## How far a lunge travels at size 1. For DASHSLASH this is the cap on aiming
+## it: the cursor decides where inside that range it lands.
+const DASH_SLASH_REACH := 170.0
+
 ## Staggered follow-ups (DUPLICATE, multi-hit forms, triggers) are scheduled by
 ## a small node rather than a captured lambda: an attacker can die between the
 ## first strike and the last, and a node can re-check that before it fires.
@@ -215,15 +219,30 @@ static func _dash_slash(p: Payload, aim: Vector2, team: int, atk: Actor, room) -
 	if room != null and not is_instance_valid(room):
 		room = null
 	var start: Vector2 = atk.global_position
+	var reach := DASH_SLASH_REACH * p.size
 	var dest: Vector2
 	if p.form == "DASHSLASH_AUTO":
 		var t := nearest_target(start, team, 520.0)
 		if t == null:
-			dest = start + aim * 150.0
+			dest = start + aim * reach
 		else:
-			dest = t.global_position + (t.global_position - start).normalized() * (t.hurt_radius + 34.0)
+			# The shortest lunge that still carries the cut past the target:
+			# out to its centre, then just clear of its far side. Overshooting
+			# by a fixed margin threw the attacker further away than the strike
+			# needed and left the next one further to travel.
+			var to: Vector2 = t.global_position - start
+			var away: Vector2 = to.normalized() if to.length() > 0.01 else aim
+			dest = start + away * (to.length() + t.hurt_radius + atk.hurt_radius)
 	else:
-		dest = start + aim * (170.0 * p.size)
+		# Land on what the attacker is pointing at rather than a fixed distance
+		# down the aim, so the lunge goes where it is aimed. Past the skill's
+		# reach it still stops at the reach, which is what SIZE buys. An
+		# attacker with nothing to point at — every monster — keeps the aim.
+		var want := start + aim * reach
+		var pt = atk.get("aim_point")
+		if pt is Vector2:
+			want = pt
+		dest = start + (want - start).limit_length(reach)
 	if room != null and room.has_method("clamp_dash"):
 		dest = room.clamp_dash(start, dest)
 	var n := DashSlash.new()

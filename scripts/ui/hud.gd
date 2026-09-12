@@ -53,25 +53,47 @@ func _draw_health() -> void:
 	if player.chill_time > 0.0:
 		draw_string(_font, Vector2(170, 62), "CHILLED", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.5, 0.85, 1))
 
-## Each slot shows its own circuit state: idle, running, or cooling down.
+## The weapon's own attack sits first, then each slot. Which slot is armed has
+## to be obvious at a glance: it is the one the cast button will run.
 func _draw_slots(vp: Vector2) -> void:
 	var x := 24.0
 	var y := vp.y - 92.0
-	var keys := ["LMB", "RMB", "Q", "E"]
-	for i in player.runners.size():
-		var r: SkillRunner = player.runners[i]
-		var rect := Rect2(x, y, 128, 64)
-		draw_rect(rect, Color(0.08, 0.09, 0.12, 0.85))
-		draw_string(_font, rect.position + Vector2(8, 18), "%s  %s" % [keys[i] if i < keys.size() else "?", r.board.skill_name],
-			HORIZONTAL_ALIGNMENT_LEFT, 116, 10, Color(0.85, 0.92, 1.0))
-		var pulses := r.pulses.size()
-		draw_string(_font, rect.position + Vector2(8, 54), "%d pulse%s" % [pulses, "" if pulses == 1 else "s"],
-			HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.6, 0.7, 0.8))
-		# Drawn last: the sheet covers the card's own text as it recedes, which
-		# is what makes a slot read as unavailable at a glance.
-		UiKit.draw_cooldown(self, rect, r.ready_ratio(), r.ready_flash,
-			Color(0.5, 0.9, 1.0) if r.active else Color(0.3, 0.35, 0.42))
+	if player.basic_runner != null:
+		_draw_slot_card(Rect2(x, y, 128, 64), player.basic_runner,
+			Controls.short_label_for("attack"), "Weapon attack", false)
 		x += 136.0
+	for i in player.runners.size():
+		var armed := i == player.selected_slot
+		var key := Controls.short_label_for("skill_%d" % (i + 1))
+		_draw_slot_card(Rect2(x, y, 128, 64), player.runners[i], key,
+			player.runners[i].board.skill_name, armed)
+		x += 136.0
+	draw_string(_font, Vector2(24, y - 8),
+		"%s attacks · number keys arm a skill · %s casts the armed one" % [
+			Controls.short_label_for("attack"), Controls.short_label_for("cast_skill")],
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.55, 0.65, 0.78))
+
+func _draw_slot_card(rect: Rect2, r: SkillRunner, key: String, name: String, armed: bool) -> void:
+	draw_rect(rect, Color(0.10, 0.13, 0.17, 0.9) if armed else Color(0.08, 0.09, 0.12, 0.85))
+	# Read from the binding rather than spelled out here, so the card stays
+	# honest after a rebind.
+	draw_string(_font, rect.position + Vector2(8, 18), "%s  %s" % [key, name],
+		HORIZONTAL_ALIGNMENT_LEFT, 116, 10,
+		Color(1, 1, 1) if armed else Color(0.85, 0.92, 1.0))
+	if armed:
+		draw_string(_font, rect.position + Vector2(8, 40), "ARMED",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.55, 1.0, 0.85))
+	var pulses := r.pulses.size()
+	draw_string(_font, rect.position + Vector2(8, 54), "%d pulse%s" % [pulses, "" if pulses == 1 else "s"],
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.6, 0.7, 0.8))
+	# Drawn last: the sheet covers the card's own text as it recedes, which is
+	# what makes a slot read as unavailable at a glance.
+	var border := Color(0.3, 0.35, 0.42)
+	if r.active:
+		border = Color(0.5, 0.9, 1.0)
+	elif armed:
+		border = Color(0.45, 0.95, 0.8)
+	UiKit.draw_cooldown(self, rect, r.ready_ratio(), r.ready_flash, border)
 
 func _draw_bag(vp: Vector2) -> void:
 	var x := vp.x - 232.0

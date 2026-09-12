@@ -19,6 +19,8 @@ godot res://tests/focus_test.tscn   # in-game buttons never steal the keyboard
 godot res://tests/trigger_test.tscn # a trigger chain lands as separate attacks
 godot res://tests/cooldown_test.tscn # the numbers behind the slot cooldown wipe
 godot res://tests/speed_test.tscn   # the SPEED part, and bolt collision at speed
+godot res://tests/dash_test.tscn    # where a lunge lands, aimed and auto-aimed
+godot res://tests/select_test.tscn  # arming a slot, and what each button fires
 godot res://tests/shots.tscn   # writes a screenshot of each screen to user://shots
 SHOTS_DIR=/tmp/shots godot res://tests/shots.tscn   # ...or wherever you point it
 ```
@@ -30,14 +32,16 @@ SHOTS_DIR=/tmp/shots godot res://tests/shots.tscn   # ...or wherever you point i
 | A / D, ← / → | move |
 | SPACE | jump; again in mid-air to double jump; against a wall to kick off |
 | SHIFT | dash (brief invulnerability) |
-| LMB / RMB / Q / E | hold to run skill slots 1–4 |
-| mouse / right stick | aim |
+| LMB | attack with the weapon's own board — always available, never lost |
+| 1 / 2 / 3 / 4 | arm a skill slot (numpad works too); arming does not fire it |
+| RMB | hold to cast the armed skill |
+| mouse / right stick | aim, and where a lunge lands |
 | TAB | open assembly — **the raid keeps running**; TAB, ESC or the CLOSE button leaves it |
 | F | interact, and hold to extract |
 | ESC | pause |
 
-Gamepad: left stick moves, A jumps, B dashes, triggers run slots 1–2, X/Y run
-3–4, select opens assembly, RB interacts. Every keyboard binding is remappable
+Gamepad: left stick moves, A jumps, B dashes, the right trigger attacks and the
+left one casts, X/Y arm slots 1–2, select opens assembly, RB interacts. Every keyboard binding is remappable
 from Settings (title screen) or the pause menu.
 
 ## How a skill works

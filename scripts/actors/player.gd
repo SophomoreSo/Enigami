@@ -1,10 +1,15 @@
 class_name Player
 extends Actor
 
-## Platforming plus a rack of live skill circuits. Holding a skill button keeps
-## that board's INPUT firing; the board's own length decides the cadence.
+## Platforming plus a rack of live skill circuits.
+##
+## The number keys pick which circuit is armed; holding the cast button keeps
+## that one board's INPUT firing, and the board's own length decides the
+## cadence. The attack button runs the weapon's own innate board instead — that
+## one is not part of the loadout and cannot be lost, so a raid that goes badly
+## leaves the player poorer but never unarmed.
 
-signal slot_fired(slot: int)
+signal slot_fired(slot: int)   ## -1 for the weapon's own attack
 signal parry_success()
 
 const RUN_SPEED := 250.0
@@ -28,11 +33,22 @@ const DASH_TIME := 0.13
 const DASH_COOLDOWN := 0.30
 const COYOTE := 0.10
 const JUMP_BUFFER := 0.12
+## A stick has no cursor to point at, so it aims at a point far enough down
+## itself to be past anything's reach — which leaves gamepad lunges going their
+## full distance, the way they always have.
+const STICK_AIM_REACH := 2000.0
 
 var weapon_id: String = "SWORD"
 var runners: Array[SkillRunner] = []
+## The weapon's innate attack, on its own button and outside the loadout.
+var basic_runner: SkillRunner
+## Which loadout slot the number keys have armed.
+var selected_slot: int = 0
 var room = null
 var aim: Vector2 = Vector2.RIGHT
+## Where the player is pointing, in world space, as opposed to `aim` which is
+## only the direction. A lunge lands here rather than a fixed distance out.
+var aim_point: Vector2 = Vector2.ZERO
 var weapon_sprite: Sprite2D
 ## Whether the player has an air jump at all. Clear it to take the move away —
 ## for an upgrade that grants it, a debuff, or a room that asks for precision.
@@ -91,13 +107,25 @@ func setup(weapon: String, boards: Array) -> void:
 	# Runners are rebuilt wholesale; the old ones go away with their signals.
 	runners.clear()
 	for i in boards.size():
-		var board: SkillBoard = boards[i]
-		var runner := SkillRunner.new(board)
-		runner.base_payload_provider = func() -> Payload: return Weapons.base_payload(weapon_id)
-		runner.fired.connect(_on_fired.bind(i))
-		runner.dilation_requested.connect(func(sec: float) -> void: Fx.dilate(sec, 0.42))
-		runner.parry_opened.connect(_on_parry_opened.bind(i))
-		runners.append(runner)
+		runners.append(_make_runner(boards[i], i))
+	basic_runner = _make_runner(Weapons.make_innate_board(weapon_id), -1)
+	selected_slot = clampi(selected_slot, 0, maxi(runners.size() - 1, 0))
+
+func _make_runner(board: SkillBoard, slot: int) -> SkillRunner:
+	var runner := SkillRunner.new(board)
+	runner.base_payload_provider = func() -> Payload: return Weapons.base_payload(weapon_id)
+	runner.fired.connect(_on_fired.bind(slot))
+	runner.dilation_requested.connect(func(sec: float) -> void: Fx.dilate(sec, 0.42))
+	runner.parry_opened.connect(_on_parry_opened.bind(slot))
+	return runner
+
+## Arms a slot. Out-of-range numbers are ignored rather than clamped, so a
+## weapon with two slots simply does not answer to "3".
+func select_slot(slot: int) -> void:
+	if slot < 0 or slot >= runners.size() or slot == selected_slot:
+		return
+	selected_slot = slot
+	Audio.play("ui", 1.2)
 
 func rebuild_runner(slot: int) -> void:
 	if slot < 0 or slot >= runners.size():
@@ -124,10 +152,19 @@ func _process(delta: float) -> void:
 	_process_status(delta)
 	if parry_time > 0.0:
 		parry_time -= delta
+	if not input_locked:
+		for i in runners.size():
+			if Input.is_action_just_pressed("skill_%d" % (i + 1)):
+				select_slot(i)
+	# Only the armed slot answers the cast button; the rest still tick, so their
+	# cooldowns run down while another one is being used.
+	var casting := not input_locked and Input.is_action_pressed("cast_skill")
 	for i in runners.size():
-		var held := not input_locked and Input.is_action_pressed("skill_%d" % (i + 1))
-		runners[i].set_active(held)
+		runners[i].set_active(casting and i == selected_slot)
 		runners[i].update(delta)
+	if basic_runner != null:
+		basic_runner.set_active(not input_locked and Input.is_action_pressed("attack"))
+		basic_runner.update(delta)
 	_update_aim()
 	_update_anim()
 	queue_redraw()
@@ -157,10 +194,12 @@ func _update_aim() -> void:
 	var stick := Vector2(Input.get_joy_axis(0, JOY_AXIS_RIGHT_X), Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y))
 	if stick.length() > 0.35:
 		aim = stick.normalized()
+		aim_point = global_position + aim * STICK_AIM_REACH
 	else:
 		var m := get_global_mouse_position() - global_position
 		if m.length() > 4.0:
 			aim = m.normalized()
+		aim_point = get_global_mouse_position()
 
 func _physics_process(delta: float) -> void:
 	if dead:
@@ -267,8 +306,13 @@ func apply_damage(amount: float, elements: Array = [], source: Node = null, show
 		Fx.text(global_position + Vector2(0, -30), "PARRY", Color(1, 0.95, 0.6))
 		invuln = maxf(invuln, 0.4)
 		parry_success.emit()
-		if parry_slot >= 0 and parry_slot < runners.size():
-			var p: Payload = runners[parry_slot].consume_parry()
+		var guard: SkillRunner = null
+		if parry_slot == -1:
+			guard = basic_runner
+		elif parry_slot >= 0 and parry_slot < runners.size():
+			guard = runners[parry_slot]
+		if guard != null:
+			var p: Payload = guard.consume_parry()
 			if p != null:
 				_on_fired(p, parry_slot)
 		return 0.0

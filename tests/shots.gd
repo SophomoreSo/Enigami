@@ -49,10 +49,10 @@ func _ready() -> void:
 			raid._enter_room(c, -1)
 			break
 	await frames(20)
-	Input.action_press("skill_1")
+	Input.action_press("cast_skill")
 	await frames(45)
 	await shot("04_raid")
-	Input.action_release("skill_1")
+	Input.action_release("cast_skill")
 
 	raid._open_editor()
 	var red: SkillEditor = raid.editor
