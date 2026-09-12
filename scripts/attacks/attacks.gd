@@ -1,0 +1,210 @@
+class_name Attacks
+extends RefCounted
+
+## Turns a resolved Payload into real things in the world, and resolves the
+## hits those things cause (including trigger payloads).
+
+## Every living actor that `team` is allowed to hurt.
+static func targets(team: int) -> Array:
+	var out: Array = []
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return out
+	for a in tree.get_nodes_in_group("actors"):
+		if a is Actor and not a.dead and a.team != team:
+			out.append(a)
+	return out
+
+static func nearest_target(pos: Vector2, team: int, max_dist: float = 1e9) -> Actor:
+	var best: Actor = null
+	var best_d := max_dist
+	for a in targets(team):
+		var d: float = pos.distance_to(a.global_position)
+		if d < best_d:
+			best_d = d
+			best = a
+	return best
+
+static func container() -> Node:
+	return Fx.world
+
+## Staggered follow-ups (DUPLICATE, multi-hit forms) are scheduled by a small
+## node rather than a captured lambda: an attacker can die between the first
+## strike and the last, and a node can re-check that before it fires.
+class Deferred extends Node:
+	var t: float = 0.0
+	var kind: String = ""
+	var payload: Payload
+	var aim: Vector2 = Vector2.RIGHT
+	var pos: Vector2 = Vector2.ZERO
+	var team: int = 0
+	var attacker: Actor = null
+	var room: Node = null
+
+	func _process(delta: float) -> void:
+		t -= delta
+		if t > 0.0:
+			return
+		match kind:
+			"melee":
+				Attacks._melee(payload, aim, team, attacker, room)
+			"burst":
+				Attacks._burst(payload, pos, team, attacker, room)
+			"dash":
+				Attacks._dash_slash(payload, aim, team, attacker, room)
+		queue_free()
+
+static func _schedule(seconds: float, kind: String, p: Payload, aim: Vector2, pos: Vector2,
+		team: int, attacker: Actor, room) -> void:
+	var w := container()
+	if w == null or not is_instance_valid(w):
+		return
+	var d := Deferred.new()
+	d.t = seconds
+	d.kind = kind
+	d.payload = p
+	d.aim = aim
+	d.pos = pos
+	d.team = team
+	d.attacker = attacker
+	d.room = room
+	w.add_child(d)
+
+## ctx keys: attacker (Actor), room (Node), aim (Vector2), team (int),
+##           origin (Vector2), gravity (bool)
+static func spawn(payload: Payload, ctx: Dictionary) -> void:
+	var w := container()
+	if w == null or not is_instance_valid(w):
+		return
+	var attacker: Actor = ctx.get("attacker", null)
+	var team: int = int(ctx.get("team", 0))
+	var room = ctx.get("room", null)
+	var aim: Vector2 = ctx.get("aim", Vector2.RIGHT)
+	if aim.length() < 0.01:
+		aim = Vector2.RIGHT
+	aim = aim.normalized()
+	var origin: Vector2 = ctx.get("origin", attacker.global_position if attacker != null else Vector2.ZERO)
+
+	# Movement effects run first: they decide where the attack comes from.
+	if payload.blink and attacker != null and is_instance_valid(attacker):
+		var t := nearest_target(attacker.global_position, team, 460.0)
+		if t != null:
+			var behind: Vector2 = t.global_position - aim * (t.hurt_radius + 26.0)
+			if room == null or not room.has_method("is_solid_at") or not room.is_solid_at(behind):
+				Fx.burst(attacker.global_position, Color(0.6, 0.8, 1.0), 10, 160.0)
+				attacker.global_position = behind
+				origin = behind
+				Fx.burst(behind, Color(0.6, 0.8, 1.0), 10, 160.0)
+				Audio.play("dash", 1.3)
+	if payload.dash and attacker != null and is_instance_valid(attacker):
+		attacker.velocity = aim * 620.0
+		if attacker.has_method("on_dashed"):
+			attacker.on_dashed()
+		Audio.play("dash")
+
+	var count: int = clampi(payload.duplicates, 1, 9)
+	match payload.form:
+		"PROJECTILE":
+			for i in count:
+				var spread := 0.0 if count == 1 else deg_to_rad(lerpf(-16.0, 16.0, float(i) / float(count - 1)))
+				_projectile(payload, origin, aim.rotated(spread), team, attacker, room, bool(ctx.get("gravity", false)))
+			Audio.play("shoot")
+		"SLASH":
+			for i in count:
+				var delay := float(i) * 0.07
+				var off := 0.0 if count == 1 else deg_to_rad(lerpf(-22.0, 22.0, float(i) / float(count - 1)))
+				if delay <= 0.0:
+					_melee(payload, aim.rotated(off), team, attacker, room)
+				else:
+					_schedule(delay, "melee", payload, aim.rotated(off), origin, team, attacker, room)
+			Audio.play("slash")
+		"AREA":
+			for i in count:
+				var pos: Vector2 = origin + (Vector2.ZERO if i == 0 else Vector2(randf_range(-70, 70), randf_range(-40, 40)))
+				if i == 0:
+					_burst(payload, pos, team, attacker, room)
+				else:
+					_schedule(float(i) * 0.1, "burst", payload, aim, pos, team, attacker, room)
+		"DASHSLASH", "DASHSLASH_AUTO":
+			for i in count:
+				if i == 0:
+					_dash_slash(payload, aim, team, attacker, room)
+				else:
+					_schedule(float(i) * 0.12, "dash", payload, aim, origin, team, attacker, room)
+		_:
+			pass
+
+static func _projectile(p: Payload, pos: Vector2, dir: Vector2, team: int, atk: Actor, room, gravity: bool) -> void:
+	var n := Projectile.new()
+	n.setup(p, pos, dir, team, atk, room)
+	if gravity:
+		n.gravity = 620.0
+		n.velocity *= 0.85
+	container().add_child(n)
+
+static func _melee(p: Payload, dir: Vector2, team: int, atk: Actor, room) -> void:
+	if atk == null or not is_instance_valid(atk):
+		return
+	if room != null and not is_instance_valid(room):
+		room = null
+	var n := MeleeArc.new()
+	n.setup(p, dir, team, atk, room)
+	container().add_child(n)
+
+static func _burst(p: Payload, pos: Vector2, team: int, atk: Actor, room) -> void:
+	if atk != null and not is_instance_valid(atk):
+		atk = null
+	if room != null and not is_instance_valid(room):
+		room = null
+	var n := AreaBurst.new()
+	n.setup(p, pos, team, atk, room)
+	container().add_child(n)
+
+static func _dash_slash(p: Payload, aim: Vector2, team: int, atk: Actor, room) -> void:
+	if atk == null or not is_instance_valid(atk):
+		return
+	if room != null and not is_instance_valid(room):
+		room = null
+	var start: Vector2 = atk.global_position
+	var dest: Vector2
+	if p.form == "DASHSLASH_AUTO":
+		var t := nearest_target(start, team, 520.0)
+		if t == null:
+			dest = start + aim * 150.0
+		else:
+			dest = t.global_position + (t.global_position - start).normalized() * (t.hurt_radius + 34.0)
+	else:
+		dest = start + aim * (170.0 * p.size)
+	if room != null and room.has_method("clamp_dash"):
+		dest = room.clamp_dash(start, dest)
+	var n := DashSlash.new()
+	n.setup(p, start, dest, team, atk, room)
+	container().add_child(n)
+
+## A single connection: damage, feedback, and any trigger flows it unlocks.
+static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, attacker: Actor, room, team: int) -> void:
+	if target == null or not is_instance_valid(target) or target.dead:
+		return
+	var dealt := target.apply_damage(p.damage, p.elements, attacker)
+	if dealt <= 0.0:
+		return
+	target.knockback(dir, 120.0 + p.damage * 2.0)
+	Fx.burst(pos, Projectile._element_color(p), 6, 150.0)
+	Fx.hitstop(0.035)
+	Fx.shake(3.0)
+	Audio.play("hit", 1.0 + randf_range(-0.12, 0.12))
+
+	var killed := target.dead
+	if killed and attacker != null and is_instance_valid(attacker) and attacker.team == 0:
+		GameState.register_kill()
+
+	var ctx := {
+		"attacker": attacker, "room": room, "team": team,
+		"aim": dir, "origin": pos, "gravity": false,
+	}
+	if p.on_hit != null:
+		var hp: Payload = (p.on_hit as Payload).clone()
+		spawn(hp, ctx)
+	if killed and p.on_kill != null:
+		var kp: Payload = (p.on_kill as Payload).clone()
+		spawn(kp, ctx)

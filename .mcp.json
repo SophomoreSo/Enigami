@@ -1,0 +1,52 @@
+{
+	"mcpServers": {
+		"task-master-ai": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [
+				"-y",
+				"task-master-ai"
+			],
+			"env": {
+				"TASK_MASTER_TOOLS": "core",
+				"ANTHROPIC_API_KEY": "YOUR_ANTHROPIC_API_KEY_HERE",
+				"PERPLEXITY_API_KEY": "YOUR_PERPLEXITY_API_KEY_HERE",
+				"OPENAI_API_KEY": "YOUR_OPENAI_KEY_HERE",
+				"GOOGLE_API_KEY": "YOUR_GOOGLE_KEY_HERE",
+				"XAI_API_KEY": "YOUR_XAI_KEY_HERE",
+				"OPENROUTER_API_KEY": "YOUR_OPENROUTER_KEY_HERE",
+				"MISTRAL_API_KEY": "YOUR_MISTRAL_KEY_HERE",
+				"AZURE_OPENAI_API_KEY": "YOUR_AZURE_KEY_HERE",
+				"OLLAMA_API_KEY": "YOUR_OLLAMA_API_KEY_HERE"
+			}
+		},
+		"godot": {
+			"type": "stdio",
+			"command": "node",
+			"args": [
+				"/Users/soday/Documents/MCP_Servers/godot-mcp/build/index.js"
+			],
+			"env": {
+				"DEBUG": "true",
+				"GODOT": "/Users/soday/Desktop/Godot.app"
+			},
+			"disabled": false,
+			"autoApprove": [
+				"launch_editor",
+				"run_project",
+				"get_debug_output",
+				"stop_project",
+				"get_godot_version",
+				"list_projects",
+				"get_project_info",
+				"create_scene",
+				"add_node",
+				"load_sprite",
+				"export_mesh_library",
+				"save_scene",
+				"get_uid",
+				"update_project_uids"
+			]
+		}
+	}
+}
