@@ -23,7 +23,10 @@ const CHOICE_GAP := 5.0
 var npc: Npc
 var sprite: AnimatedSprite2D
 ## The bubble sits on its own layer so the player walking in front of the NPC
-## never covers what they are saying.
+## never covers what they are saying — and so it is reading text, drawn at the
+## screen's resolution: a canvas layer is not part of the world the pixel camera
+## copies. It follows the camera, just over the pixel picture.
+var bubble_layer: CanvasLayer
 var bubble: Node2D
 var _font: Font
 var _box: StyleBoxFlat
@@ -44,10 +47,13 @@ func _ready() -> void:
 	_prompt_box = StyleBoxFlat.new()
 	_prompt_box.bg_color = Style.SPEECH_PROMPT_FILL
 	_prompt_box.set_corner_radius_all(CORNER)
+	bubble_layer = CanvasLayer.new()
+	bubble_layer.layer = PixelCamera.LAYER + 1
+	bubble_layer.follow_viewport_enabled = true
+	add_child(bubble_layer)
 	bubble = Node2D.new()
-	bubble.z_index = 30
 	bubble.draw.connect(_draw_bubble)
-	add_child(bubble)
+	bubble_layer.add_child(bubble)
 
 ## Built on the first frame rather than in `_ready`, by which time the NPC knows
 ## who it is.
@@ -72,6 +78,7 @@ func _process(delta: float) -> void:
 		_build_sprite()
 	_t += delta
 	sprite.flip_h = npc.facing < 0
+	bubble.position = global_position
 	bubble.queue_redraw()
 
 func _draw_bubble() -> void:

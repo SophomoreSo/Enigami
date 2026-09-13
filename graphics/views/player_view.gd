@@ -25,13 +25,11 @@ var weapon_sprite: Sprite2D
 var _weapon_art: String = ""
 var _trail: Array = []
 var _spark: float = 0.0
-var _font: Font
 
 func _configure() -> void:
 	player = actor as Player
 	art = Style.PLAYER_ART
 	z_index = 50
-	_font = ThemeDB.fallback_font
 
 func _build_sprite() -> void:
 	super._build_sprite()
@@ -129,13 +127,9 @@ func _draw() -> void:
 ## the eye on the character and something usually walking towards them — so
 ## the progress is drawn where the eye already is rather than in the corner of
 ## the screen. The ring says a charge is happening; this says how far it has
-## got, and what the mana spent so far has bought.
+## got.
 func _draw_charge_bar(ct: float) -> void:
 	var bar := Rect2(-CHARGE_BAR.x * 0.5, CHARGE_BAR_Y, CHARGE_BAR.x, CHARGE_BAR.y)
 	draw_rect(bar, Color(0, 0, 0, 0.55))
 	draw_rect(Rect2(bar.position, Vector2(bar.size.x * ct, bar.size.y)), CHARGE_COLOR)
 	draw_rect(bar, Color(0.5, 0.6, 0.7, 0.8), false, 1.0)
-	# Its own box, wider than the bar, so a full charge's number never clips.
-	var tw := 90.0
-	draw_string(_font, Vector2(-tw * 0.5, bar.position.y - 4.0), "+%d LIFE" % int(player.charge),
-		HORIZONTAL_ALIGNMENT_CENTER, tw, 9, Color(0.82, 0.72, 1.0))
