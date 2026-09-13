@@ -51,12 +51,16 @@ from Settings (title screen) or the pause menu.
 
 ## How a skill works
 
-A board is a circuit. A pulse leaves `INPUT`, spends each component's tick cost
-inside it, and mutates a payload on the way through. When the pulse reaches an
-`OUTPUT`, whatever the payload has become is fired into the world. `INPUT` only
-restarts once every pulse from the previous cycle has resolved — **the length
-and shape of the board is the cooldown**, which is why a bigger build is not
-automatically a better one.
+A board is a circuit. A pulse leaves `INPUT`, spends **one tick in every cell**
+it passes through, and mutates a payload on the way through — a part costs
+exactly the room it takes up, so a two-cell part like `AREA` costs two ticks and
+everything else costs one. When the pulse reaches an `OUTPUT`, whatever the
+payload has become is fired into the world. `INPUT` only restarts once every
+pulse from the previous cycle has resolved — **the length and shape of the board
+is the cooldown**, which is why a bigger build is not automatically a better
+one, and why a cycle can be counted off the grid rather than looked up part by
+part. What still separates one part from another in time is heat, which is
+added to the cooldown at the end of the cycle.
 
 The board is the *cooldown*, not the cast time: the walk up to the cycle's
 first `OUTPUT` is spent the moment you press, so the attack lands on the press,
@@ -81,7 +85,8 @@ after that first `OUTPUT` still plays out in real time, which is what lets
   and a wall of them is far worse than none. The delay is measured in real
   seconds rather than ticks on purpose: a tick-denominated cost would be shrunk
   by the very speed-up it pays for, and the two would cancel.
-- `DELAY` exists only to stagger branches and triggers in time.
+- `DELAY` is a cell of waiting like any other; stagger a branch against another
+  by giving it further to walk.
 - `TIME DILATION` slows the world *and* the board together — it changes the
   pace of a fight rather than buffing attack speed.
 

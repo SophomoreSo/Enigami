@@ -38,6 +38,20 @@ func cast_at(r: SkillRunner, bonus: int) -> Dictionary:
 			break
 	return {"wipe": wipe, "seconds": secs}
 
+## A straight board: INPUT, the listed parts in a row, then OUTPUT. Returns how
+## many ticks one whole cycle of it takes.
+func ticks_of(ids: Array) -> int:
+	var b := SkillBoard.new(12, 5, "chain")
+	b.place("INPUT", Vector2i(0, 2), 0)
+	var x := 1
+	for id in ids:
+		b.place(String(id), Vector2i(x, 2), 0)
+		x += int(Components.get_def(id)["cells"])
+	b.place("OUTPUT", Vector2i(x, 2), 0)
+	var r := SkillRunner.new(b)
+	r.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
+	return int(r.simulate()["ticks"])
+
 func _ready() -> void:
 	# Held: the fill runs the whole wait and restarts, and each landing flashes.
 	var r := make("SWORD")
@@ -121,6 +135,24 @@ func _ready() -> void:
 		worst = minf(worst, float(cast_at(lr, bonus)["wipe"]))
 	check(worst > 0.9,
 		"the wipe is full when the slot comes free, charged or not (worst %.2f)" % worst)
+
+	# One tick per cell. What a part costs is the room it takes up, so a cycle can
+	# be counted off the grid instead of looked up part by part.
+	var drift: Array = []
+	for id in Components.DEFS:
+		if Components.tick_cost(id) != int(Components.get_def(id)["cells"]):
+			drift.append(id)
+	check(drift.is_empty(), "every part costs one tick per cell (%s)" % str(drift))
+	check(Components.tick_cost("AREA") == 2 and Components.tick_cost("WIRE") == 1,
+		"a two-cell part costs two ticks and a one-cell part one")
+	# And the board agrees: every cell added to the path is one more tick,
+	# whichever part it belongs to. DELAY, which used to hold a flow for twelve
+	# ticks of its own, is now a cell like any other.
+	var one := ticks_of(["WIRE"])
+	check(ticks_of(["WIRE", "WIRE"]) - one == 1,
+		"a second WIRE costs one tick (%d)" % (ticks_of(["WIRE", "WIRE"]) - one))
+	check(ticks_of(["WIRE", "DELAY"]) - one == 1,
+		"and so does a DELAY (%d)" % (ticks_of(["WIRE", "DELAY"]) - one))
 
 	print("[CD] ---- %d failures ----" % fails)
 	get_tree().quit()

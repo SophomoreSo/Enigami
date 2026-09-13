@@ -546,8 +546,8 @@ func _draw_info(vp: Vector2) -> void:
 		var def := Components.get_def(describe)
 		draw_string(_font, Vector2(48, y + 26), String(def["name"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(def["color"]))
 		draw_string(_font, Vector2(48, y + 46), String(def["desc"]), HORIZONTAL_ALIGNMENT_LEFT, 620, 11, Color(0.72, 0.78, 0.86))
-		draw_string(_font, Vector2(48, y + 66), "cost %d ticks   heat %.1f   cells %d" % [
-			int(def["cost"]), float(def["heat"]), int(def["cells"])],
+		draw_string(_font, Vector2(48, y + 66), "cells %d   cost %d ticks, one per cell   heat %.1f" % [
+			int(def["cells"]), Components.tick_cost(describe), float(def["heat"])],
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.55, 0.65, 0.75))
 
 	var b := current_board()

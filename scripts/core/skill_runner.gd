@@ -3,8 +3,8 @@ extends RefCounted
 
 ## Runs a SkillBoard as a live circuit.
 ##
-## A pulse starts at INPUT carrying a base payload, spends each component's tick
-## cost inside it, and mutates the payload on entry. Reaching an OUTPUT turns the
+## A pulse starts at INPUT carrying a base payload, spends one tick inside each
+## cell of every component it enters, and mutates the payload on entry. Reaching an OUTPUT turns the
 ## payload into a real effect. The INPUT only restarts once every pulse of the
 ## previous cycle has resolved, so board length *is* the cooldown.
 ##
@@ -40,6 +40,11 @@ const MAX_TTL_BONUS := 36
 const READY_FLASH := 0.45
 ## What one SPEED part multiplies a bolt's velocity by.
 const SPEED_MUL := 1.5
+## How long the guard window ON PARRY opens stays open. Real seconds, like the
+## overclock settling delay and for the same reason: a window denominated in
+## ticks would be shortened by a faster clock, and it used to be read off ON
+## PARRY's own tick cost, which one tick per cell would have cut to a third.
+const PARRY_WINDOW := 0.2
 
 class Pulse extends RefCounted:
 	var cell: Vector2i
@@ -276,7 +281,7 @@ func _begin_pass() -> bool:
 	var entry: Dictionary = board.comp_origin_at(input_cell)
 	if entry.is_empty():
 		return false
-	pulses = [Pulse.new(input_cell, int(Components.get_def(entry["id"])["cost"]),
+	pulses = [Pulse.new(input_cell, Components.tick_cost(entry["id"]),
 		_base_payload(), cycle_ttl())]
 	return true
 
@@ -375,7 +380,7 @@ func _try_enter(cell: Vector2i, from_dir: int, payload: Payload,
 	_apply(tid, payload)
 	if tid == "OUTPUT":
 		_resolve(payload)
-	result.append(Pulse.new(cell, int(Components.get_def(tid)["cost"]), payload, ttl - 1))
+	result.append(Pulse.new(cell, Components.tick_cost(tid), payload, ttl - 1))
 
 ## Mutate the payload as it enters a component.
 func _apply(id: String, p: Payload) -> void:
@@ -414,7 +419,7 @@ func _apply(id: String, p: Payload) -> void:
 			dilation_requested.emit(1.4)
 		"ON_PARRY":
 			_had_effect = true
-			parry_opened.emit(float(def["cost"]) * tick_time() * 1.5)
+			parry_opened.emit(PARRY_WINDOW)
 
 ## A branch reaching an OUTPUT defines a follow-up attack rather than firing
 ## one. A loop can bring the same branch round several times in a single cycle,
