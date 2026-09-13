@@ -58,13 +58,15 @@ static func button(text: String, accent: Color = ACCENT, pixel: bool = false) ->
 ## a focusable button swallows SPACE as "press me again" and TAB as "move to
 ## the next button", which costs the player a jump or the assembly screen.
 ## Menus use `button` — there, keyboard and gamepad navigation is the point.
-static func overlay_button(text: String, accent: Color = ACCENT) -> Button:
-	var b := button(text, accent)
+static func overlay_button(text: String, accent: Color = ACCENT, pixel: bool = false) -> Button:
+	var b := button(text, accent, pixel)
 	b.focus_mode = Control.FOCUS_NONE
 	return b
 
 ## The cooldown state a skill slot shows, drawn over the card and shared by
 ## every screen that lists slots so they cannot drift apart.
+## `PixelDraw.cooldown` is this same wipe on the pixel grid, for the screens
+## drawn that way; what it means is described here.
 ##
 ## `progress` runs 0 → 1 as the skill recovers. The grey sheet covers what is
 ## left of the wait and its upper edge is the clock hand: it starts at the top

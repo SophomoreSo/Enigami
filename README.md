@@ -30,6 +30,7 @@ godot res://tests/feature/stamina_test.tscn # the dash budget under the health b
 godot res://tests/graphics/menu_fit_test.tscn # menus stay on screen and scroll the rest
 godot res://tests/graphics/editor_pixel_test.tscn # every pixel of the assembly screen is on the grid
 godot res://tests/graphics/hideout_pixel_test.tscn # the hideout's pixel look, and everything on it fits
+godot res://tests/graphics/bench_pixel_test.tscn # the bench panel's pixel look and layout
 godot res://tests/feature/ttl_test.tscn     # a pulse's life, and what bounds a loop
 godot res://tests/feature/charge_test.tscn  # holding the cast button buys life for mana
 godot res://tests/feature/npc_test.tscn     # talking to an NPC, line by line
@@ -209,6 +210,8 @@ feature/world/     room generation, raid map graph, raid loop, sandbox, pickups
 graphics/          the atlas, screen effects, the pixel camera, the palette, view attachment
 graphics/views/    one view per gameplay node: actors, attacks, rooms, loot
 graphics/ui/       skill editor, HUD, hideout, title, results, bench panel
+                   ui_kit: one look for screens built of Controls
+                   pixel_draw: the same look for screens that draw themselves
 graphics/assets/   the sprite atlas, the actor shader, two OFL fonts
 tests/feature/     movement, board tracing, timing — rules, run headless
 tests/graphics/    editor input, focus, menus, the pixel camera, screenshot capture — need a window

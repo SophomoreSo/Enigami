@@ -8,10 +8,9 @@ extends Control
 ## Drawn in UiKit's pixel look, like the title and its settings: text is the
 ## pixel face at PIXEL_TEXT, and every fill, border, arrow and icon is whole
 ## PIXELs laid on the PIXEL grid, so the board reads as the same pixel art as the
-## world under it. All of it goes through the helpers at the bottom, which snap
-## to that grid — an edge off it puts a stroke across two rows of the grid
-## instead of on one. The pixel face has almost none of the symbols in `Style`'s
-## part glyphs, so parts are drawn as their `Style.component_icon` instead.
+## world under it. All of it goes through `PixelDraw`, which snaps to that grid.
+## The pixel face has almost none of the symbols in `Style`'s part glyphs, so
+## parts are drawn as their `Style.component_icon` instead.
 
 signal board_changed(slot: int)
 signal closed()
@@ -55,6 +54,7 @@ var _message: String = ""
 var _message_time: float = 0.0
 var _ports: Array = []               ## PORT turned to face each direction
 var _arrows: Array = []              ## ARROW likewise, for the drag chip
+var _px := PixelDraw.new(self)
 
 func _ready() -> void:
 	UiKit.fill_screen(self)
@@ -62,8 +62,8 @@ func _ready() -> void:
 	focus_mode = Control.FOCUS_ALL
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	for d in 4:
-		_ports.append(_turn(PORT, d))
-		_arrows.append(_turn(ARROW, d))
+		_ports.append(PixelDraw.turn(PORT, d))
+		_arrows.append(PixelDraw.turn(ARROW, d))
 	set_process(true)
 
 func configure(b: Array, inv: Dictionary, unlim: bool, rs: Array = []) -> void:
@@ -344,11 +344,7 @@ func _notify(msg: String) -> void:
 
 ## --- drawing ----------------------------------------------------------------
 const PX := UiKit.PIXEL
-const FONT := UiKit.PIXEL_FONT
-const FONT_SIZE := UiKit.PIXEL_TEXT
-## Baseline to baseline. Capitals stand 10px tall at PIXEL_TEXT and nothing in
-## the face descends, so this leaves 10px clear between rows.
-const LINE := 20.0
+const LINE := PixelDraw.LINE
 const HEADER_H := 84.0
 ## Five rows and the controls line under them. The biggest board a Workbench
 ## grows, and the palette, both end above it.
@@ -391,49 +387,49 @@ func _traits_text() -> String:
 		wdef["name"], float(wdef["melee_mul"]), float(wdef["ranged_mul"]), float(wdef["projectile_speed"])]
 
 func _draw_header(vp: Vector2) -> void:
-	_px_rect(Rect2(0, 0, vp.x, HEADER_H), Color(0.07, 0.08, 0.11, 0.9))
-	_px_rect(Rect2(0, HEADER_H, vp.x, PX), Color(0.3, 0.5, 0.7, 0.6))
-	_text(Vector2(48, 34), title_text, Color(0.85, 0.92, 1.0), TAB_ORIGIN.x - 64.0)
-	_text(Vector2(48, 70), _traits_text(), Color(0.6, 0.7, 0.8), vp.x - 96.0)
+	_px.rect(Rect2(0, 0, vp.x, HEADER_H), Color(0.07, 0.08, 0.11, 0.9))
+	_px.rect(Rect2(0, HEADER_H, vp.x, PX), Color(0.3, 0.5, 0.7, 0.6))
+	_px.text(Vector2(48, 34), title_text, Color(0.85, 0.92, 1.0), TAB_ORIGIN.x - 64.0)
+	_px.text(Vector2(48, 70), _traits_text(), Color(0.6, 0.7, 0.8), vp.x - 96.0)
 
 	for i in boards.size():
 		var b: SkillBoard = boards[i]
 		var r := _tab_rect(i)
 		var active := i == slot
 		var edge := Color(0.45, 0.8, 1.0) if active else Color(0.28, 0.33, 0.4)
-		_px_rect(r, Color(0.18, 0.3, 0.42, 0.9) if active else Color(0.11, 0.13, 0.17, 0.9))
-		_px_frame(r, edge)
+		_px.rect(r, Color(0.18, 0.3, 0.42, 0.9) if active else Color(0.11, 0.13, 0.17, 0.9))
+		_px.frame(r, edge)
 		# The slot's number on a key, since that key is what selects it.
 		var key := Rect2(r.position + Vector2(6, 6), Vector2(18, 18))
-		_px_rect(key, edge)
+		_px.rect(key, edge)
 		var digit := str(i + 1)
-		_text(key.position + Vector2((key.size.x - _ink_width(digit)) * 0.5, 14), digit,
+		_px.text(key.position + Vector2((key.size.x - PixelDraw.ink_width(digit)) * 0.5, 14), digit,
 			Color(0.07, 0.08, 0.11) if active else Color(0.8, 0.86, 0.94))
-		_text(r.position + Vector2(32, 20), b.skill_name, Color(0.9, 0.95, 1.0), r.size.x - 40.0)
+		_px.text(r.position + Vector2(32, 20), b.skill_name, Color(0.9, 0.95, 1.0), r.size.x - 40.0)
 		if i == _hover_tab and not active:
-			_px_frame(r, Color(1, 1, 1, 0.35))
+			_px.frame(r, Color(1, 1, 1, 0.35))
 	var cr := _close_rect()
-	_px_rect(cr, Color(0.45, 0.18, 0.2, 0.9) if _hover_close else Color(0.14, 0.12, 0.14, 0.9))
-	_px_frame(cr, Color(1.0, 0.55, 0.55) if _hover_close else Color(0.45, 0.4, 0.44))
+	_px.rect(cr, Color(0.45, 0.18, 0.2, 0.9) if _hover_close else Color(0.14, 0.12, 0.14, 0.9))
+	_px.frame(cr, Color(1.0, 0.55, 0.55) if _hover_close else Color(0.45, 0.4, 0.44))
 	var ink := Color(1, 0.9, 0.9) if _hover_close else Color(0.8, 0.78, 0.8)
 	var mark := CROSS[0].length() * PX + 8.0
-	var at := _snap(cr.position + Vector2((cr.size.x - mark - _ink_width("CLOSE")) * 0.5, 10))
-	_icon(at, CROSS, ink)
-	_text(at + Vector2(mark, 10), "CLOSE", ink)
+	var at := _px.snap(cr.position + Vector2((cr.size.x - mark - PixelDraw.ink_width("CLOSE")) * 0.5, 10))
+	_px.icon(at, CROSS, ink)
+	_px.text(at + Vector2(mark, 10), "CLOSE", ink)
 
 func _draw_board() -> void:
 	var b := current_board()
 	if b == null:
 		return
 	var frame := Rect2(BOARD_ORIGIN - Vector2(10, 10), Vector2(b.width * CELL + 20, b.height * CELL + 20))
-	_px_rect(frame, Color(0.08, 0.09, 0.12, 0.92))
-	_px_frame(frame, Color(0.3, 0.45, 0.6, 0.7))
+	_px.rect(frame, Color(0.08, 0.09, 0.12, 0.92))
+	_px.frame(frame, Color(0.3, 0.45, 0.6, 0.7))
 
 	for y in b.height:
 		for x in b.width:
 			var r := _cell_rect(Vector2i(x, y)).grow(-2)
-			_px_rect(r, CELL_EDGE)
-			_px_rect(r.grow(-PX), CELL_FILL)
+			_px.rect(r, CELL_EDGE)
+			_px.rect(r.grow(-PX), CELL_FILL)
 
 	if _trace_cache.is_empty() or _sim_dirty:
 		_trace_cache = b.trace()
@@ -455,7 +451,7 @@ func _draw_board() -> void:
 		for c in Components.footprint(held, _hover_cell, rotation_step):
 			if b.in_bounds(c):
 				ghost = ghost.merge(_cell_rect(c))
-		_px_rect(ghost.grow(-4), Color(0.4, 1.0, 0.6, 0.22) if ok else Color(1.0, 0.4, 0.4, 0.22))
+		_px.rect(ghost.grow(-4), Color(0.4, 1.0, 0.6, 0.22) if ok else Color(1.0, 0.4, 0.4, 0.22))
 		if ok:
 			_draw_ports_preview(held, _hover_cell)
 
@@ -481,15 +477,15 @@ func _draw_drag() -> void:
 	var part_name := String(Components.get_def(_drag_id)["name"])
 	# Icon, name, then a rotation readout, since the wheel turns the part while it
 	# is in hand.
-	var r := Rect2(_snap(_mouse_pos + Vector2(14, -16)), Vector2(60.0 + _ink_width(part_name), 30.0))
+	var r := Rect2(_px.snap(_mouse_pos + Vector2(14, -16)), Vector2(60.0 + PixelDraw.ink_width(part_name), 30.0))
 	# Opaque, unlike the rest of the panel: it is dragged over the palette, and
 	# two rows of pixel text through each other are unreadable.
-	_px_rect(r, Color(0.07, 0.08, 0.11))
-	_px_rect(r, Color(col.r, col.g, col.b, 0.32))
-	_px_frame(r, col)
-	_icon(r.position + Vector2(8, 8), Style.component_icon(_drag_id), col)
-	_text(r.position + Vector2(30, 20), part_name, Color(0.95, 0.97, 1.0))
-	_icon(Vector2(r.end.x - 18.0, r.position.y + 10.0), _arrows[rotation_step], Color(0.8, 0.9, 1.0))
+	_px.rect(r, Color(0.07, 0.08, 0.11))
+	_px.rect(r, Color(col.r, col.g, col.b, 0.32))
+	_px.frame(r, col)
+	_px.icon(r.position + Vector2(8, 8), Style.component_icon(_drag_id), col)
+	_px.text(r.position + Vector2(30, 20), part_name, Color(0.95, 0.97, 1.0))
+	_px.icon(Vector2(r.end.x - 18.0, r.position.y + 10.0), _arrows[rotation_step], Color(0.8, 0.9, 1.0))
 
 func _cell_rect(c: Vector2i) -> Rect2:
 	return Rect2(BOARD_ORIGIN + Vector2(c.x * CELL, c.y * CELL), Vector2(CELL, CELL))
@@ -502,7 +498,7 @@ func _cell_center(c: Vector2i) -> Vector2:
 ## An arrow out of `cell` across its `dir` edge, the point on the edge itself.
 func _draw_port_arrow(cell: Vector2i, dir: int, col: Color) -> void:
 	var v := Vector2(Components.dir_to_vec(dir))
-	_icon_centered(_cell_center(cell) + v * (CELL * 0.5 - 3.0), _ports[dir % 4], col)
+	_px.icon_centered(_cell_center(cell) + v * (CELL * 0.5 - 3.0), _ports[dir % 4], col)
 
 ## Live joints get a bridge across the seam; joints that touch but do not
 ## connect get a cross. Without this a board that looks wired can be dead and
@@ -515,16 +511,16 @@ func _draw_wiring() -> void:
 		var across := Vector2(along.y, along.x)
 		# Three PIXELs thick, the width that centres on the line through the
 		# middle of the cells.
-		_px_rect(Rect2((a + c) * 0.5 - along * 12.0 - across * 3.0, along * 24.0 + across * 6.0),
+		_px.rect(Rect2((a + c) * 0.5 - along * 12.0 - across * 3.0, along * 24.0 + across * 6.0),
 			Color(0.45, 1.0, 0.75, 0.95))
 	for br in _trace_cache.get("breaks", []):
-		_icon_centered((_cell_center(br["from"]) + _cell_center(br["to"])) * 0.5, CROSS,
+		_px.icon_centered((_cell_center(br["from"]) + _cell_center(br["to"])) * 0.5, CROSS,
 			Color(1.0, 0.4, 0.4, 0.95))
 	for leak in _trace_cache.get("leaks", []):
 		if String(leak.get("why", "")) != "empty":
 			continue
 		var v := Vector2(Components.dir_to_vec(int(leak["dir"])))
-		_icon_centered(_cell_center(leak["from"]) + v * (CELL * 0.5 + 5.0), DOT, Color(0.9, 0.6, 0.35, 0.75))
+		_px.icon_centered(_cell_center(leak["from"]) + v * (CELL * 0.5 + 5.0), DOT, Color(0.9, 0.6, 0.35, 0.75))
 
 ## A two-cell part is one box across both of its cells rather than two boxes
 ## side by side: the seam between them would otherwise read as two parts, and
@@ -546,14 +542,14 @@ func _draw_component(b: SkillBoard, origin: Vector2i) -> void:
 	var r := _part_rect(id, origin, rot)
 	# The part's own ground under its tint, so the grid it covers does not show
 	# through the tint and draw a seam across a two-cell part.
-	_px_rect(r, CELL_FILL)
-	_px_rect(r, Color(col.r, col.g, col.b, 0.28 if live else 0.08))
-	_px_frame(r, col if live else Color(col.r, col.g, col.b, 0.35))
+	_px.rect(r, CELL_FILL)
+	_px.rect(r, Color(col.r, col.g, col.b, 0.28 if live else 0.08))
+	_px.frame(r, col if live else Color(col.r, col.g, col.b, 0.35))
 	# No name under the icon: none fits a cell in the pixel face. Hovering the
 	# part names it in the panel along the bottom instead. The icon is drawn at
 	# ICON_ZOOM here — a cell is wide enough for it, and at palette size it was
 	# lost in the middle of one.
-	_icon_centered(r.get_center(), Style.component_icon(id),
+	_px.icon_centered(r.get_center(), Style.component_icon(id),
 		col.lightened(0.3) if live else Color(col.r, col.g, col.b, 0.4), ICON_ZOOM)
 
 	var ex := Components.exit_cell(id, origin, rot)
@@ -582,8 +578,8 @@ func _draw_live_flow(b: SkillBoard) -> void:
 		var box := _cell_rect(p.cell).grow(-4) if entry.is_empty() \
 			else _part_rect(String(entry["id"]), origin, int(entry["rot"]))
 		var k := p.progress()
-		_px_diamond(box.get_center(), 3 + int(round(2.0 * sin(k * PI))), Color(0.6, 1.0, 0.85, 0.85))
-		_px_lap(box, k, Color(0.5, 1.0, 0.8, 0.7))
+		_px.diamond(box.get_center(), 3 + int(round(2.0 * sin(k * PI))), Color(0.6, 1.0, 0.85, 0.85))
+		_px.lap(box, k, Color(0.5, 1.0, 0.8, 0.7))
 
 func _pal_rect(i: int) -> Rect2:
 	return Rect2(PAL_ORIGIN + Vector2(i % PAL_COLS * PAL_W, int(i / PAL_COLS) * PAL_H),
@@ -593,8 +589,8 @@ func _draw_palette() -> void:
 	var ids := _palette_ids()
 	var rows := int(ceil(float(ids.size()) / float(PAL_COLS)))
 	var panel := Rect2(PAL_ORIGIN - Vector2(10, 10), Vector2(PAL_COLS * PAL_W + 16, rows * PAL_H + 16))
-	_px_rect(panel, Color(0.08, 0.09, 0.12, 0.92))
-	_px_frame(panel, Color(0.3, 0.45, 0.6, 0.7))
+	_px.rect(panel, Color(0.08, 0.09, 0.12, 0.92))
+	_px.frame(panel, Color(0.3, 0.45, 0.6, 0.7))
 
 	for i in ids.size():
 		var id: String = ids[i]
@@ -604,14 +600,14 @@ func _draw_palette() -> void:
 		var bg := Color(c.r, c.g, c.b, 0.18 if have else 0.05)
 		if id == selected:
 			bg = Color(c.r, c.g, c.b, 0.42)
-		_px_rect(r, bg)
-		_px_frame(r, c if have else Color(0.3, 0.32, 0.36))
-		_icon(r.position + Vector2(8, 6), Style.component_icon(id), c)
+		_px.rect(r, bg)
+		_px.frame(r, c if have else Color(0.3, 0.32, 0.36))
+		_px.icon(r.position + Vector2(8, 6), Style.component_icon(id), c)
 		_draw_count(r.end - Vector2(8, 8), id)
-		_text(r.position + Vector2(30, 18), String(Components.get_def(id)["name"]),
+		_px.text(r.position + Vector2(30, 18), String(Components.get_def(id)["name"]),
 			Color(0.92, 0.95, 1.0) if have else Color(0.45, 0.48, 0.52), _pal_name_width(i))
 		if i == _hover_pal:
-			_px_frame(r, Color(1, 1, 1, 0.5))
+			_px.frame(r, Color(1, 1, 1, 0.5))
 
 ## The room a palette row leaves its part's name: after the icon, and short of
 ## the count.
@@ -627,21 +623,21 @@ func _endless(id: String) -> bool:
 func _count_width(id: String) -> float:
 	if _endless(id):
 		return INFINITY[0].length() * PX
-	return _ink_width("x%d" % int(inventory.get(id, 0)))
+	return PixelDraw.ink_width("x%d" % int(inventory.get(id, 0)))
 
 ## "x2", or the infinity, right-aligned on `right`.
 func _draw_count(right: Vector2, id: String) -> void:
 	var col := Color(0.6, 0.7, 0.8)
-	var at := _snap(right - Vector2(_count_width(id), 0))
+	var at := _px.snap(right - Vector2(_count_width(id), 0))
 	if _endless(id):
-		_icon(at + Vector2(0, -5 * PX), INFINITY, col)
+		_px.icon(at + Vector2(0, -5 * PX), INFINITY, col)
 	else:
-		_text(at, "x%d" % int(inventory.get(id, 0)), col)
+		_px.text(at, "x%d" % int(inventory.get(id, 0)), col)
 
 func _draw_info(vp: Vector2) -> void:
 	var y := vp.y - INFO_H
-	_px_rect(Rect2(0, y, vp.x, INFO_H), Color(0.07, 0.08, 0.11, 0.94))
-	_px_rect(Rect2(0, y, vp.x, PX), Color(0.3, 0.5, 0.7, 0.6))
+	_px.rect(Rect2(0, y, vp.x, INFO_H), Color(0.07, 0.08, 0.11, 0.94))
+	_px.rect(Rect2(0, y, vp.x, PX), Color(0.3, 0.5, 0.7, 0.6))
 
 	var b := current_board()
 	# The part under the cursor, on the palette or the board, else the one in
@@ -653,11 +649,11 @@ func _draw_info(vp: Vector2) -> void:
 		describe = String(b.comp_at(_hover_cell)["id"])
 	if describe != "":
 		var def := Components.get_def(describe)
-		_text(Vector2(48, y + 26), String(def["name"]), Style.component_color(describe), INFO_LEFT_W)
-		var desc := _wrap(String(def["desc"]), INFO_LEFT_W, 2)
+		_px.text(Vector2(48, y + 26), String(def["name"]), Style.component_color(describe), INFO_LEFT_W)
+		var desc := PixelDraw.wrap(String(def["desc"]), INFO_LEFT_W, 2)
 		for i in desc.size():
-			_text(Vector2(48, y + 46 + i * LINE), desc[i], Color(0.72, 0.78, 0.86))
-		_text(Vector2(48, y + 86), "cells %d   cost %d ticks, one per cell   heat %.1f" % [
+			_px.text(Vector2(48, y + 46 + i * LINE), desc[i], Color(0.72, 0.78, 0.86))
+		_px.text(Vector2(48, y + 86), "cells %d   cost %d ticks, one per cell   heat %.1f" % [
 			int(def["cells"]), Components.tick_cost(describe), float(def["heat"])],
 			Color(0.55, 0.65, 0.75), INFO_LEFT_W)
 
@@ -677,14 +673,14 @@ func _draw_info(vp: Vector2) -> void:
 		var note: Dictionary = notes[i]
 		var at := Vector2(rx, y + 26 + i * LINE)
 		if note.has("icon"):
-			_icon(at - Vector2(0, 5 * PX), note["icon"], note["col"])
+			_px.icon(at - Vector2(0, 5 * PX), note["icon"], note["col"])
 			at.x += 18.0
-		_text(at, note["text"], note["col"], right - at.x)
+		_px.text(at, note["text"], note["col"], right - at.x)
 
 	if _message_time > 0.0:
-		_text(Vector2(48, y + 106), _message, Color(1.0, 0.65, 0.55), INFO_LEFT_W)
+		_px.text(Vector2(48, y + 106), _message, Color(1.0, 0.65, 0.55), INFO_LEFT_W)
 	# Controls live along the bottom, clear of the slot tabs at the top.
-	_text(Vector2(48, vp.y - 8), HINT, Color(0.5, 0.58, 0.68), vp.x - 96.0)
+	_px.text(Vector2(48, vp.y - 8), HINT, Color(0.5, 0.58, 0.68), vp.x - 96.0)
 
 const HINT := "drag to place · wheel turns the part under the cursor · RMB removes · TAB or ESC closes"
 
@@ -744,140 +740,5 @@ func _preview_rows(b: SkillBoard, result: Dictionary, width: float) -> Array:
 	return rows
 
 func _add_rows(rows: Array, text: String, col: Color, width: float, most: int) -> void:
-	for line in _wrap(text, width, most):
+	for line in PixelDraw.wrap(text, width, most):
 		rows.append({"text": line, "col": col})
-
-## --- the pixel grid ---------------------------------------------------------
-## Everything above draws through these.
-
-func _snap(p: Vector2) -> Vector2:
-	return (p / PX).floor() * PX
-
-func _px_rect(r: Rect2, col: Color) -> void:
-	var a := _snap(r.position)
-	draw_rect(Rect2(a, _snap(r.end) - a), col)
-
-## A border one PIXEL wide, inside `r`. Four rects rather than an unfilled
-## draw_rect, whose corners overlap and double up a translucent colour.
-func _px_frame(r: Rect2, col: Color) -> void:
-	var a := _snap(r.position)
-	var z := _snap(r.end)
-	draw_rect(Rect2(a.x, a.y, z.x - a.x, PX), col)
-	draw_rect(Rect2(a.x, z.y - PX, z.x - a.x, PX), col)
-	draw_rect(Rect2(a.x, a.y + PX, PX, z.y - a.y - 2 * PX), col)
-	draw_rect(Rect2(z.x - PX, a.y + PX, PX, z.y - a.y - 2 * PX), col)
-
-## A filled diamond centred on `c`, `radius` PIXELs from its middle to each point.
-func _px_diamond(c: Vector2, radius: int, col: Color) -> void:
-	var mid := _snap(c - Vector2.ONE * PX * 0.5)
-	for dy in range(-radius, radius + 1):
-		var half := radius - absi(dy)
-		draw_rect(Rect2(mid.x - half * PX, mid.y + dy * PX, (2 * half + 1) * PX, PX), col)
-
-## The border of `r` lit clockwise from the middle of its top edge, `k` of the
-## way round. Each side after the first starts a PIXEL past its corner, so no
-## corner is lit twice and doubled up in a translucent colour.
-func _px_lap(r: Rect2, k: float, col: Color) -> void:
-	var a := _snap(r.position)
-	var z := _snap(r.end) - Vector2.ONE * PX
-	var top := Vector2(_snap(Vector2((a.x + z.x) * 0.5, 0.0)).x, a.y)
-	var corners := [top, Vector2(z.x, a.y), z, Vector2(a.x, z.y), a, top]
-	var total := 0.0
-	for i in 5:
-		var seg: Vector2 = corners[i + 1] - corners[i]
-		total += absf(seg.x) + absf(seg.y)
-	var lit := int(clampf(k, 0.0, 1.0) * total / PX)
-	for i in 5:
-		var seg: Vector2 = corners[i + 1] - corners[i]
-		var steps := int((absf(seg.x) + absf(seg.y)) / PX)
-		if steps == 0:
-			continue
-		var d := seg / float(steps)
-		var start: Vector2 = corners[i] if i == 0 else corners[i] + d
-		var n := mini(steps + (1 if i == 0 else 0), lit)
-		if n <= 0:
-			return
-		var end := start + d * (n - 1)
-		var lo := Vector2(minf(start.x, end.x), minf(start.y, end.y))
-		draw_rect(Rect2(lo, (start - end).abs() + Vector2.ONE * PX), col)
-		lit -= n
-
-## A bitmap — one string per row, `#` for a PIXEL — with its top-left at `at`,
-## each bitmap pixel `zoom` PIXELs square. Each run along a row goes down as one
-## rect.
-func _icon(at: Vector2, rows: Array, col: Color, zoom: int = 1) -> void:
-	var o := _snap(at)
-	var s := PX * zoom
-	for y in rows.size():
-		var row := String(rows[y])
-		var x := row.find("#")
-		while x >= 0:
-			var end := x
-			while end < row.length() and row[end] == "#":
-				end += 1
-			draw_rect(Rect2(o.x + x * s, o.y + y * s, (end - x) * s, s), col)
-			x = row.find("#", end)
-
-func _icon_centered(c: Vector2, rows: Array, col: Color, zoom: int = 1) -> void:
-	_icon(c - Vector2(String(rows[0]).length(), rows.size()) * PX * zoom * 0.5, rows, col, zoom)
-
-## A bitmap turned `steps` quarter turns clockwise.
-static func _turn(rows: Array, steps: int) -> Array:
-	var out := rows
-	for s in posmod(steps, 4):
-		var turned: Array = []
-		for x in String(out[0]).length():
-			var line := ""
-			for y in range(out.size() - 1, -1, -1):
-				line += String(out[y])[x]
-			turned.append(line)
-		out = turned
-	return out
-
-## `text` in the pixel face, its baseline at `pos`, cut short with an ellipsis
-## when it is wider than `width`.
-func _text(pos: Vector2, text: String, col: Color, width: float = -1.0) -> void:
-	if width > 0.0:
-		text = _clip(text, width)
-	draw_string(FONT, _snap(pos), text, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, col)
-
-func _text_width(text: String) -> float:
-	return FONT.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x
-
-## The width of the letters alone: every advance carries a PIXEL of space after
-## its letter, which would push anything centred on it off by half of one.
-func _ink_width(text: String) -> float:
-	return _text_width(text) - PX
-
-func _clip(text: String, width: float) -> String:
-	if _text_width(text) <= width:
-		return text
-	var lo := 0
-	var hi := text.length()
-	while lo < hi:
-		var mid := (lo + hi + 1) >> 1
-		if _text_width(text.left(mid) + "…") <= width:
-			lo = mid
-		else:
-			hi = mid - 1
-	return text.left(lo).strip_edges(false, true) + "…"
-
-## `text` broken at spaces into rows no wider than `width`, at most `most` of
-## them; the last row ends in an ellipsis if words were left over.
-func _wrap(text: String, width: float, most: int) -> PackedStringArray:
-	var words := text.split(" ", false)
-	var rows := PackedStringArray()
-	var row := ""
-	for i in words.size():
-		var trial := words[i] if row == "" else row + " " + words[i]
-		if row == "" or _text_width(trial) <= width:
-			row = trial
-		elif rows.size() == most - 1:
-			rows.append(_clip(row + " " + " ".join(words.slice(i)), width))
-			return rows
-		else:
-			rows.append(row)
-			row = words[i]
-	if row != "":
-		rows.append(row)
-	return rows
