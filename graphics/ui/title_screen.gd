@@ -377,41 +377,51 @@ func _menu_button(text: String, parent: VBoxContainer) -> Button:
 func _build_settings() -> void:
 	# The panel keeps its full height inside a scroll that fits the screen: the
 	# rebinding list is long enough to run off the bottom on its own.
-	var panel := UiKit.panel()
-	panel.custom_minimum_size = Vector2(560, 0)
-	_settings = UiKit.screen_scroll(panel, Vector2(349, 56), 582.0)
+	#
+	# It is built in UiKit's pixel look, like the menu that opens it. The pixel
+	# face runs up to twice as wide as the one it replaced, so the panel is wider
+	# too: 600 holds the controls list's two columns, and the scroll adds its bar.
+	var panel := UiKit.panel(UiKit.PANEL, Color(0.22, 0.3, 0.38), true)
+	panel.custom_minimum_size = Vector2(600, 0)
+	_settings = UiKit.screen_scroll(panel, Vector2(336, 56), 608.0)
+	UiKit.pixel_scroll(_settings)
 	_settings.visible = false
 	add_child(_settings)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
 	panel.add_child(v)
-	v.add_child(UiKit.label("SETTINGS", 15, UiKit.ACCENT))
-	v.add_child(UiKit.hline())
+	v.add_child(UiKit.label("SETTINGS", 24, UiKit.ACCENT, true))
+	v.add_child(UiKit.hline(true))
 	v.add_child(_slider("Music", Audio.music_volume, func(val: float) -> void: Audio.set_music_volume(val)))
 	v.add_child(_slider("Sound", Audio.sfx_volume, func(val: float) -> void:
 		Audio.set_sfx_volume(val)
 		Audio.play("ui")))
 	v.add_child(UiKit.spacer(6))
-	v.add_child(UiKit.label("Aim with the mouse, or the right stick on a gamepad.", 11, UiKit.DIM))
-	v.add_child(UiKit.label("Gamepad: left stick moves, A jumps, B dashes, triggers fire slots 1-2.", 11, UiKit.DIM))
+	for hint in ["Aim with the mouse, or the right stick on a gamepad.",
+			"Gamepad: left stick moves, A jumps, B dashes, triggers fire slots 1-2."]:
+		var l := UiKit.label(hint, 16, UiKit.DIM, true)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(l)
 	v.add_child(UiKit.spacer(6))
-	v.add_child(ControlsPanel.new())
+	var controls := ControlsPanel.new()
+	controls.pixel = true
+	v.add_child(controls)
 	v.add_child(UiKit.spacer(8))
-	var rb := UiKit.button("WIPE PROFILE", UiKit.BAD)
+	var rb := UiKit.button("WIPE PROFILE", UiKit.BAD, true)
 	rb.pressed.connect(func() -> void:
 		GameState.reset_profile()
 		Audio.play("deny"))
 	v.add_child(rb)
 	v.add_child(UiKit.spacer(4))
-	var back := UiKit.button("BACK")
+	var back := UiKit.button("BACK", UiKit.ACCENT, true)
 	back.pressed.connect(_toggle_settings)
 	v.add_child(back)
 
 func _slider(name: String, value: float, cb: Callable) -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
-	var l := UiKit.label(name, 12)
-	l.custom_minimum_size = Vector2(70, 0)
+	var l := UiKit.label(name, 16, UiKit.TEXT, true)
+	l.custom_minimum_size = Vector2(80, 0)
 	h.add_child(l)
 	var s := HSlider.new()
 	s.min_value = 0.0
@@ -419,6 +429,7 @@ func _slider(name: String, value: float, cb: Callable) -> Control:
 	s.step = 0.05
 	s.value = value
 	s.custom_minimum_size = Vector2(240, 20)
+	UiKit.pixel_slider(s)
 	s.value_changed.connect(cb)
 	h.add_child(s)
 	return h
