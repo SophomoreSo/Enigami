@@ -27,6 +27,12 @@ const SEAL_R := 206.0
 const MENU_TOP := 538.0
 const SETTLE_TOP := 452.0    ## where the board starts sinking into black
 
+## The seal and the wordmark are drawn at this fraction of the screen and
+## blitted back with nearest filtering. The copper is all axis-aligned and
+## already reads as pixels; curves and serifs do not, and drawing them small
+## and magnifying them is the only thing that puts them on the same grid.
+const SEAL_SCALE := 0.5
+
 ## Read off the reference: a near-black ground, blue and violet copper, and one
 ## warm cream that only the seal and the wordmark are allowed to use.
 const GROUND := Color(0.0, 0.047, 0.051)
@@ -52,6 +58,8 @@ var _pulses: Array = []      ## {i, t, v, len}
 var _rng := RandomNumberGenerator.new()
 
 var _board: SubViewport
+var _seal_view: SubViewport
+var _seal_painter: Node2D
 var _menu_font: FontVariation
 var _menu_root: VBoxContainer
 var _buttons: Array = []
@@ -66,16 +74,47 @@ class BoardPainter extends Node2D:
 	func _draw() -> void:
 		screen._paint_copper(self)
 
+## Repaints the seal every frame at SEAL_SCALE. The seal breathes and its rune
+## bands turn, so unlike the board this one cannot be baked — but at half
+## resolution it is a couple of hundred primitives over a quarter of the
+## pixels, which costs less than drawing it full-size once.
+class SealPainter extends Node2D:
+	var screen: TitleScreen
+	func _draw() -> void:
+		var breath := screen._breath()
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2(SEAL_SCALE, SEAL_SCALE))
+		screen._paint_seal(self, breath)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		screen._paint_wordmark(self, breath, SEAL_SCALE)
+
 func _ready() -> void:
 	UiKit.fill_screen(self)
+	# Nothing this screen blits wants smoothing: the board goes down 1:1 and
+	# the seal is magnified on purpose.
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_rng.randomize()
 	_menu_font = FontVariation.new()
 	_menu_font.base_font = PIXEL
 	_menu_font.spacing_glyph = 3
 	_build_board()
+	_build_seal_view()
 	_build_menu()
 	_build_settings()
 	Audio.play_music()
+
+func _breath() -> float:
+	return 0.5 + 0.5 * sin(_t * 0.7)
+
+func _build_seal_view() -> void:
+	_seal_view = SubViewport.new()
+	_seal_view.size = Vector2i(DESIGN * SEAL_SCALE)
+	_seal_view.transparent_bg = true
+	_seal_view.disable_3d = true
+	_seal_view.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	_seal_painter = SealPainter.new()
+	(_seal_painter as SealPainter).screen = self
+	_seal_view.add_child(_seal_painter)
+	add_child(_seal_view)
 
 ## --- the board --------------------------------------------------------------
 ## Seeded, so the board is the same board every boot: it is the game's face, not
@@ -355,60 +394,61 @@ func _process(delta: float) -> void:
 		pu["t"] += float(pu["v"]) * delta
 		if pu["t"] > 1.0:
 			_respawn(pu)
+	if _seal_painter != null:
+		_seal_painter.queue_redraw()
 	queue_redraw()
 
 ## --- drawing ----------------------------------------------------------------
 func _draw() -> void:
-	var breath := 0.5 + 0.5 * sin(_t * 0.7)
 	draw_rect(Rect2(Vector2.ZERO, size), GROUND)
 	if _board != null:
 		draw_texture(_board.get_texture(), Vector2.ZERO)
 	_draw_pulses()
 	_draw_settle()
-	_draw_seal(breath)
-	_draw_wordmark(breath)
+	if _seal_view != null:
+		draw_texture_rect(_seal_view.get_texture(), Rect2(Vector2.ZERO, DESIGN), false)
 	_draw_focus_marks()
 	_draw_records()
 	_draw_glass()
 
-func _paint_copper(c: CanvasItem) -> void:
+func _paint_copper(cv: CanvasItem) -> void:
 	for tr in _traces:
-		c.draw_polyline(tr["pts"], tr["col"], tr["w"])
+		cv.draw_polyline(tr["pts"], tr["col"], tr["w"])
 	for pt in _parts:
-		_paint_part(c, pt)
+		_paint_part(cv, pt)
 
-func _paint_part(c: CanvasItem, pt: Dictionary) -> void:
+func _paint_part(cv: CanvasItem, pt: Dictionary) -> void:
 	var p: Vector2 = pt["p"]
 	var col: Color = pt["col"]
 	var d: Vector2 = pt["d"]
 	var n := Vector2(-d.y, d.x)
 	match int(pt["kind"]):
 		PAD:
-			c.draw_circle(p, 4.0, col)
-			c.draw_circle(p, 1.5, GROUND)
+			cv.draw_circle(p, 4.0, col)
+			cv.draw_circle(p, 1.5, GROUND)
 		VIA:
-			c.draw_arc(p, 4.5, 0.0, TAU, 10, col, 1.0)
+			cv.draw_arc(p, 4.5, 0.0, TAU, 10, col, 1.0)
 		CHIP:
 			var s: Vector2 = pt["s"]
 			var r := Rect2(p - s * 0.5, s)
-			c.draw_rect(r, Color(col.r, col.g, col.b, 0.22))
-			c.draw_rect(r, col, false, 1.0)
+			cv.draw_rect(r, Color(col.r, col.g, col.b, 0.22))
+			cv.draw_rect(r, col, false, 1.0)
 			var pins := maxi(int(s.x / 6.0), 1)
 			for i in pins:
 				var x := r.position.x + 3.0 + float(i) * 6.0
-				c.draw_line(Vector2(x, r.position.y), Vector2(x, r.position.y - 3.0), col, 1.0)
-				c.draw_line(Vector2(x, r.end.y), Vector2(x, r.end.y + 3.0), col, 1.0)
+				cv.draw_line(Vector2(x, r.position.y), Vector2(x, r.position.y - 3.0), col, 1.0)
+				cv.draw_line(Vector2(x, r.end.y), Vector2(x, r.end.y + 3.0), col, 1.0)
 		CAP:
 			for k in 3:
 				var o := d * (float(k) * 3.0 - 3.0)
-				c.draw_line(p + o - n * 7.0, p + o + n * 7.0, col, 1.0)
+				cv.draw_line(p + o - n * 7.0, p + o + n * 7.0, col, 1.0)
 		RES:
-			c.draw_rect(Rect2(p - d * 7.0 - n * 3.0, d * 14.0 + n * 6.0).abs(), col, false, 1.0)
-			c.draw_line(p - n * 3.0, p + n * 3.0, col, 1.0)
+			cv.draw_rect(Rect2(p - d * 7.0 - n * 3.0, d * 14.0 + n * 6.0).abs(), col, false, 1.0)
+			cv.draw_line(p - n * 3.0, p + n * 3.0, col, 1.0)
 		DOTS:
 			for gx in 3:
 				for gy in 4:
-					c.draw_rect(Rect2(p + d * float(gx) * 4.0 + n * float(gy) * 4.0,
+					cv.draw_rect(Rect2(p + d * float(gx) * 4.0 + n * float(gy) * 4.0,
 						Vector2(2, 2)), col)
 
 ## The board sinks into black below the seal, so the menu has something to sit
@@ -445,7 +485,11 @@ func _draw_pulses() -> void:
 				draw_polyline(seg, Color(SPARK.r, SPARK.g, SPARK.b, 0.16 + 0.64 * f * f),
 					float(tr["w"]) + 0.5)
 
-func _draw_seal(breath: float) -> void:
+## Drawn into `_seal_view` at SEAL_SCALE and blitted back at 1/SEAL_SCALE with
+## nearest filtering, so every curve here lands on the same coarse grid the
+## copper does. Line widths are therefore in half-pixels: 2.0 is one pixel of
+## the seal's grid, and anything odd blends across a row instead of filling it.
+func _paint_seal(cv: CanvasItem, breath: float) -> void:
 	var c := SEAL
 	var r := SEAL_R
 
@@ -454,26 +498,26 @@ func _draw_seal(breath: float) -> void:
 		if pts.is_empty():
 			continue
 		var a := (0.07 + 0.12 * float(i)) * (0.72 + 0.28 * breath)
-		draw_multiline(pts, Color(HALO.r, HALO.g, HALO.b, a), 2.0)
+		cv.draw_multiline(pts, Color(HALO.r, HALO.g, HALO.b, a), 2.0)
 
 	# The bloom around the rim: concentric arcs fading outward, which is as
 	# close to a soft glow as a line renderer gets. It wants to be wide and
 	# weak — a few bright rings read as a target, not as light.
 	for i in 26:
 		var k := float(i) / 26.0
-		draw_arc(c, r + 1.0 + k * 44.0, 0.0, TAU, 96,
+		cv.draw_arc(c, r + 1.0 + k * 44.0, 0.0, TAU, 96,
 			Color(CREAM.r, CREAM.g, CREAM.b,
-				(1.0 - k) * (1.0 - k) * 0.16 * (0.62 + 0.38 * breath)), 3.0)
+				(1.0 - k) * (1.0 - k) * 0.16 * (0.62 + 0.38 * breath)), 4.0)
 
-	draw_circle(c, r - 1.0, PLATE)
-	draw_arc(c, r, 0.0, TAU, 180, Color(CREAM.r, CREAM.g, CREAM.b, 0.82 + 0.18 * breath), 2.5)
-	draw_arc(c, r - 6.0, 0.0, TAU, 160, Color(CREAM.r, CREAM.g, CREAM.b, 0.26), 1.0)
+	cv.draw_circle(c, r - 1.0, PLATE)
+	cv.draw_arc(c, r, 0.0, TAU, 180, Color(CREAM.r, CREAM.g, CREAM.b, 0.82 + 0.18 * breath), 4.0)
+	cv.draw_arc(c, r - 8.0, 0.0, TAU, 160, Color(CREAM.r, CREAM.g, CREAM.b, 0.26), 2.0)
 
 	var ink := Color(0.32, 0.44, 0.70, 0.88)
 	var dim := Color(0.26, 0.36, 0.60, 0.62)
 	var faint := Color(0.23, 0.32, 0.56, 0.44)
 	for k in [0.93, 0.855, 0.835, 0.755, 0.47, 0.45]:
-		draw_arc(c, r * k, 0.0, TAU, 128, faint if k < 0.5 else dim, 1.0)
+		cv.draw_arc(c, r * k, 0.0, TAU, 128, faint if k < 0.5 else dim, 2.0)
 
 	# The rune band turns about once every two minutes — under the threshold
 	# where you would call it spinning, over the one where the seal looks dead.
@@ -482,16 +526,16 @@ func _draw_seal(breath: float) -> void:
 		var a := rot + TAU * float(i) / 98.0
 		var d := Vector2(cos(a), sin(a))
 		if i % 7 == 0:
-			draw_line(c + d * (r * 0.862), c + d * (r * 0.925), ink, 1.5)
-			draw_rect(Rect2(c + d * (r * 0.90) - Vector2(1.5, 1.5), Vector2(3, 3)), ink)
+			cv.draw_line(c + d * (r * 0.862), c + d * (r * 0.925), ink, 2.0)
+			cv.draw_rect(Rect2(c + d * (r * 0.90) - Vector2(2, 2), Vector2(4, 4)), ink)
 		else:
-			draw_line(c + d * (r * 0.868), c + d * (r * 0.90 + (6.0 if i % 2 == 0 else 2.0)),
-				dim, 1.0)
+			cv.draw_line(c + d * (r * 0.868), c + d * (r * 0.90 + (6.0 if i % 2 == 0 else 2.0)),
+				dim, 2.0)
 	# A finer band inside it, turning the other way.
 	for i in 60:
 		var a := -rot * 1.6 + TAU * float(i) / 60.0
 		var d := Vector2(cos(a), sin(a))
-		draw_line(c + d * (r * 0.775), c + d * (r * 0.80), faint, 1.0)
+		cv.draw_line(c + d * (r * 0.775), c + d * (r * 0.80), faint, 2.0)
 
 	# Two heptagrams, the inner one turned against the outer, with spokes
 	# carrying the outer's points out to the rune band.
@@ -500,76 +544,81 @@ func _draw_seal(breath: float) -> void:
 		var a := -PI * 0.5 + TAU * float(i) / 7.0
 		vp.append(c + Vector2(cos(a), sin(a)) * (r * 0.70))
 	for i in 7:
-		draw_line(vp[i], vp[(i + 3) % 7], ink, 1.0)
-		draw_circle(vp[i], 3.0, Color(0.45, 0.60, 0.88, 0.85))
-		draw_arc(vp[i], 6.0, 0.0, TAU, 10, dim, 1.0)
+		cv.draw_line(vp[i], vp[(i + 3) % 7], ink, 2.0)
+		cv.draw_circle(vp[i], 4.0, Color(0.45, 0.60, 0.88, 0.85))
+		cv.draw_arc(vp[i], 8.0, 0.0, TAU, 10, dim, 2.0)
 		var d: Vector2 = (vp[i] - c).normalized()
-		draw_line(c + d * (r * 0.70), c + d * (r * 0.835), faint, 1.0)
+		cv.draw_line(c + d * (r * 0.70), c + d * (r * 0.835), faint, 2.0)
 	var ip: Array = []
 	for i in 7:
 		var a := PI * 0.5 + TAU * (float(i) + 0.5) / 7.0
 		ip.append(c + Vector2(cos(a), sin(a)) * (r * 0.45))
 	for i in 7:
-		draw_line(ip[i], ip[(i + 2) % 7], faint, 1.0)
+		cv.draw_line(ip[i], ip[(i + 2) % 7], faint, 2.0)
 
 	# The plate the wordmark sits against, and the chamber under it.
-	draw_rect(Rect2(c - Vector2(r * 0.54, r * 0.28), Vector2(r * 1.08, r * 0.56)), dim, false, 1.0)
-	draw_rect(Rect2(c - Vector2(r * 0.50, r * 0.24), Vector2(r * 1.00, r * 0.48)), faint, false, 1.0)
+	cv.draw_rect(Rect2(c - Vector2(r * 0.54, r * 0.28), Vector2(r * 1.08, r * 0.56)), dim, false, 2.0)
+	cv.draw_rect(Rect2(c - Vector2(r * 0.50, r * 0.24), Vector2(r * 1.00, r * 0.48)), faint, false, 2.0)
 	for i in 3:
 		var a := PI * 0.5 + TAU * float(i) / 3.0
 		var b := PI * 0.5 + TAU * float(i + 1) / 3.0
-		draw_line(c + Vector2(cos(a), sin(a)) * (r * 0.56),
-			c + Vector2(cos(b), sin(b)) * (r * 0.56), dim, 1.0)
+		cv.draw_line(c + Vector2(cos(a), sin(a)) * (r * 0.56),
+			c + Vector2(cos(b), sin(b)) * (r * 0.56), dim, 2.0)
 	# The lower half of the seal is the half the wordmark does not cover, so it
 	# carries the detail: a graduated band, and the core hung at the bottom.
 	for i in 46:
 		var a := PI * 0.12 + PI * 0.76 * (float(i) / 45.0)
 		var d := Vector2(cos(a), sin(a))
-		draw_line(c + d * (r * 0.615), c + d * (r * 0.615 + (7.0 if i % 5 == 0 else 3.0)),
-			dim if i % 5 == 0 else faint, 1.0)
-	draw_arc(c, r * 0.615, PI * 0.10, PI * 0.90, 64, faint, 1.0)
+		cv.draw_line(c + d * (r * 0.615), c + d * (r * 0.615 + (8.0 if i % 5 == 0 else 4.0)),
+			dim if i % 5 == 0 else faint, 2.0)
+	cv.draw_arc(c, r * 0.615, PI * 0.10, PI * 0.90, 64, faint, 2.0)
 
 	var core := c + Vector2(0, r * 0.50)
-	draw_arc(core, 14.0, 0.0, TAU, 18, ink, 1.0)
-	draw_arc(core, 9.0, 0.0, TAU, 14, dim, 1.0)
-	draw_circle(core, 3.0, Color(0.50, 0.66, 0.92, 0.85))
+	cv.draw_arc(core, 14.0, 0.0, TAU, 18, ink, 2.0)
+	cv.draw_arc(core, 9.0, 0.0, TAU, 14, dim, 2.0)
+	cv.draw_circle(core, 4.0, Color(0.50, 0.66, 0.92, 0.85))
 	for i in 6:
 		var a := TAU * float(i) / 6.0 - rot * 2.0
 		var d := Vector2(cos(a), sin(a))
-		draw_line(core + d * 14.0, core + d * 21.0, dim, 1.0)
-	_diamond(core, 26.0, faint)
+		cv.draw_line(core + d * 14.0, core + d * 21.0, dim, 2.0)
+	_diamond(cv, core, 26.0, faint)
 
-	_draw_pendant(c + Vector2(0, r), breath)
+	_paint_pendant(cv, c + Vector2(0, r), breath)
 
 ## The charm hanging off the bottom of the seal, and the one place the menu and
 ## the seal touch.
-func _draw_pendant(top: Vector2, breath: float) -> void:
+func _paint_pendant(cv: CanvasItem, top: Vector2, breath: float) -> void:
 	var glow := Color(SPARK.r, SPARK.g, SPARK.b, 0.30 + 0.35 * breath)
-	draw_line(top, top + Vector2(0, 28), Color(CREAM.r, CREAM.g, CREAM.b, 0.55), 1.0)
+	cv.draw_line(top, top + Vector2(0, 28), Color(CREAM.r, CREAM.g, CREAM.b, 0.55), 2.0)
 	var node := top + Vector2(0, 34)
 	for i in 4:
-		draw_circle(node, 5.0 + float(i) * 3.0, Color(glow.r, glow.g, glow.b, glow.a * 0.14))
-	draw_arc(node, 5.0, 0.0, TAU, 12, Color(CREAM.r, CREAM.g, CREAM.b, 0.85), 1.5)
-	_diamond(node + Vector2(0, 15), 7.0, Color(SPARK.r, SPARK.g, SPARK.b, 0.75 + 0.25 * breath))
+		cv.draw_circle(node, 5.0 + float(i) * 3.0, Color(glow.r, glow.g, glow.b, glow.a * 0.14))
+	cv.draw_arc(node, 6.0, 0.0, TAU, 12, Color(CREAM.r, CREAM.g, CREAM.b, 0.85), 2.0)
+	_diamond(cv, node + Vector2(0, 16), 8.0, Color(SPARK.r, SPARK.g, SPARK.b, 0.75 + 0.25 * breath))
 
-func _diamond(p: Vector2, r: float, col: Color) -> void:
-	draw_polyline(PackedVector2Array([
+func _diamond(cv: CanvasItem, p: Vector2, r: float, col: Color, w: float = 2.0) -> void:
+	cv.draw_polyline(PackedVector2Array([
 		p + Vector2(0, -r), p + Vector2(r, 0), p + Vector2(0, r),
-		p + Vector2(-r, 0), p + Vector2(0, -r)]), col, 1.5)
+		p + Vector2(-r, 0), p + Vector2(0, -r)]), col, w)
 
-func _draw_wordmark(breath: float) -> void:
-	var s := "Enigami"
-	var px := 142
-	var w := SERIF.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, px).x
-	var at := Vector2(SEAL.x - w * 0.5, SEAL.y + 46.0)
+## The wordmark is sized and placed in seal-grid pixels rather than being drawn
+## large and scaled down: a glyph rasterised at 142 and squeezed into half the
+## room comes back smooth, and smooth is the one thing it must not be.
+func _paint_wordmark(cv: CanvasItem, breath: float, s: float) -> void:
+	var text := "Enigami"
+	var px := int(round(142.0 * s))
+	var w := SERIF.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, px).x
+	var at := Vector2(SEAL.x * s - w * 0.5, (SEAL.y + 46.0) * s).round()
 	for i in 8:
 		var a := TAU * float(i) / 8.0
-		draw_string(SERIF, at + Vector2(cos(a), sin(a)) * 5.0, s,
+		cv.draw_string(SERIF, at + (Vector2(cos(a), sin(a)) * 5.0 * s).round(), text,
 			HORIZONTAL_ALIGNMENT_LEFT, -1, px,
 			Color(CREAM.r, CREAM.g, CREAM.b, 0.05 + 0.035 * breath))
-	draw_string(SERIF, at + Vector2(3, 4), s, HORIZONTAL_ALIGNMENT_LEFT, -1, px,
-		Color(0.0, 0.055, 0.11, 0.85))
-	draw_string(SERIF, at, s, HORIZONTAL_ALIGNMENT_LEFT, -1, px, CREAM)
+	# One grid pixel of offset, not two: at this size a second one stops being
+	# a shadow and starts being an emboss.
+	cv.draw_string(SERIF, at + Vector2(1, 1), text,
+		HORIZONTAL_ALIGNMENT_LEFT, -1, px, Color(0.0, 0.055, 0.11, 0.85))
+	cv.draw_string(SERIF, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, px, CREAM)
 
 func _draw_focus_marks() -> void:
 	if _menu_root == null or not _menu_root.visible:
@@ -582,8 +631,8 @@ func _draw_focus_marks() -> void:
 	var y := r.position.y + r.size.y * 0.5
 	var beat := 0.55 + 0.45 * sin(_t * 4.0)
 	var col := Color(SPARK.r, SPARK.g, SPARK.b, beat)
-	_diamond(Vector2(r.position.x + 8.0, y), 4.0, col)
-	_diamond(Vector2(r.end.x - 8.0, y), 4.0, col)
+	_diamond(self, Vector2(r.position.x + 8.0, y), 4.0, col, 1.5)
+	_diamond(self, Vector2(r.end.x - 8.0, y), 4.0, col, 1.5)
 
 func _draw_records() -> void:
 	if _settings != null and _settings.visible:
