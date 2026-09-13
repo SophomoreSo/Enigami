@@ -44,6 +44,43 @@ func chain(n: int) -> SkillBoard:
 func shots(r: SkillRunner) -> int:
 	return (r.simulate()["outputs"] as Array).size()
 
+## A DASHSLASH+ whose ON HIT walks three OVERCLOCKs back round into it, so every
+## lap the life pays for is one more follow-up.
+func trigger_ring() -> SkillBoard:
+	var b := SkillBoard.new(7, 5, "trigger ring")
+	b.place("INPUT", Vector2i(0, 2), 0)
+	b.place("DASHSLASH_AUTO", Vector2i(1, 2), 0)
+	b.place("ON_HIT", Vector2i(3, 2), 0)
+	b.place("OUTPUT", Vector2i(4, 2), 0)
+	b.place("OVERCLOCK", Vector2i(3, 3), 2)
+	b.place("OVERCLOCK", Vector2i(2, 3), 2)
+	b.place("OVERCLOCK", Vector2i(1, 3), 3)
+	return b
+
+## Attacks in a chain: the one fired, and every follow-up hung off it.
+func links(p) -> int:
+	var n := 0
+	while p != null:
+		n += 1
+		p = p.on_hit
+	return n
+
+## One live cast at `bonus`, run to the end: how many attacks its chain holds.
+func live_links(r: SkillRunner, bonus: int) -> int:
+	r.ttl_bonus = bonus
+	var got := [0]
+	var count := func(p: Payload) -> void: got[0] = links(p)
+	r.fired.connect(count)
+	r.set_active(true)
+	r.update(1.0 / 60.0)
+	r.set_active(false)
+	for i in 6000:
+		if r.is_ready():
+			break
+		r.update(1.0 / 60.0)
+	r.fired.disconnect(count)
+	return got[0]
+
 func _ready() -> void:
 	# A cycle has to end in the live runner, not just on paper — and still end
 	# when it has been charged as far as charge goes.
@@ -87,6 +124,25 @@ func _ready() -> void:
 			"a cycle-free board fires once at +%d charge" % bonus)
 	check(shots(runner(Weapons.make_innate_board("SWORD"), SkillRunner.MAX_TTL_BONUS)) == 1,
 		"and so does a fully charged starter board")
+
+	# What a charge buys has to ride on the cast that paid for it. A trigger
+	# branch walks behind the attack that carries it, and each cast used to carry
+	# the chain the cast before it had built: a charged cast after a tap went out
+	# with no follow-ups, and every tap after a charged cast kept its whole chain.
+	var tr := runner(trigger_ring())
+	var want := {}
+	for bonus in [0, 16, SkillRunner.MAX_TTL_BONUS]:
+		tr.ttl_bonus = bonus
+		want[bonus] = links(tr.simulate()["triggers"].get("ON_HIT", null)) + 1
+	check(want[SkillRunner.MAX_TTL_BONUS] > want[16] and want[16] > want[0],
+		"charging a looping trigger buys follow-ups (%s)" % str(want))
+	var got: Array = []
+	var expected: Array = []
+	for bonus in [0, SkillRunner.MAX_TTL_BONUS, SkillRunner.MAX_TTL_BONUS, 16, 0]:
+		got.append(live_links(tr, bonus))
+		expected.append(want[bonus])
+	check(got == expected,
+		"each live cast carries the chain its own charge built (%s, want %s)" % [str(got), str(expected)])
 
 	print("[TTL] ---- %d failures ----" % fails)
 	get_tree().quit()

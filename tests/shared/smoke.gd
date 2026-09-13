@@ -24,6 +24,16 @@ func frames(n: int) -> void:
 	for i in n:
 		await get_tree().process_frame
 
+## The cast button as an event rather than `Input.action_press`, which stamps the
+## action with the current frame and so can have its release land in a frame the
+## player has already processed — leaving `is_action_just_released` false and the
+## cast never bought.
+func _cast_button(down: bool) -> void:
+	var e := InputEventMouseButton.new()
+	e.button_index = MOUSE_BUTTON_RIGHT
+	e.pressed = down
+	Input.parse_input_event(e)
+
 func _run() -> void:
 	game = Node.new()
 	game.set_script(GameScript)
@@ -250,6 +260,49 @@ func _run() -> void:
 	say("melee damage landed: %.1f (dps %.1f)" % [hp_lost, sb.dps()])
 	if hp_lost <= 0.0:
 		push_error("SMOKE FAIL: no damage was dealt")
+
+	# The dragon test, off the bench: a charged cast down the tower, and the
+	# floor setting itself again. What it comes to in numbers is
+	# tests/feature/dragon_test.tscn; this is here to draw the screen.
+	# A beat before the screen swaps. The release above is still the current
+	# frame's edge, and the player the next screen builds reads the same input:
+	# swapping on the same frame handed the dragon test a free uncharged cast
+	# before anyone had touched a button.
+	await frames(6)
+	sb.open_dragon_test()
+	await frames(12)
+	var dragon: DragonTest = game.current
+	# Held for as long as a player would hold it, and let go: the release is what
+	# casts, and what it bought is what the chain is worth.
+	_cast_button(true)
+	var held := 0.0
+	while dragon.player.charge < dragon.charge_to_clear() and held < 8.0:
+		await get_tree().process_frame
+		held += get_process_delta_time()
+	_cast_button(false)
+	await frames(3)
+	say("held the cast button %.2fs for %.0f charge" % [held, dragon.player.cast_charge])
+	for i in 400:
+		await get_tree().process_frame
+		if dragon.guards_left == 0:
+			break
+	say("dragon test ok, %d of %d guards down, best cast %d" % [
+		dragon.total_guards - dragon.guards_left, dragon.total_guards, dragon.best_cast])
+	if dragon.best_cast < dragon.total_guards:
+		push_error("SMOKE FAIL: one charged cast did not take the whole floor (%d of %d)"
+			% [dragon.best_cast, dragon.total_guards])
+	dragon.set_editing(true)
+	await frames(6)
+	dragon.set_editing(false)
+	dragon.reset_floor()
+	await frames(6)
+	if dragon.guards_left != dragon.total_guards:
+		push_error("SMOKE FAIL: the dragon test did not set its floor again")
+	dragon.leave()
+	await frames(12)
+	say("left the dragon test, state=%d (3 = sandbox)" % game.state)
+	if game.state != 3:
+		push_error("SMOKE FAIL: leaving the dragon test did not return to the bench")
 
 	# Death path.
 	var lib_before := GameState.skill_library.size()

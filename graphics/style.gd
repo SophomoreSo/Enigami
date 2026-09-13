@@ -114,6 +114,10 @@ static func weapon_art(id: String) -> String:
 ## Teal plate, which already matches the cyan the player was drawn in.
 const PLAYER_ART := "knight_m"
 const PLAYER_COLOR := Color(0.65, 0.9, 1.0)
+## In the dragon test the player is the Dragon: the pack's lizard warrior, with
+## its katana in hand in place of whatever the weapon would show.
+const DRAGON_ART := "lizard_m"
+const DRAGON_BLADE := "weapon_katana"
 
 ## --- monsters ---------------------------------------------------------------
 ## `art` names the character in the shared atlas, chosen so the sprite reads as
@@ -129,6 +133,7 @@ const MONSTER := {
 	"DRIFTER": {"art": "angel", "color": Color(0.5, 0.85, 0.95)},
 	"WARDEN": {"art": "ogre", "color": Color(0.45, 0.65, 0.98), "tint": Color(0.66, 0.82, 1.1)},
 	"DUMMY": {"art": "skelet", "color": Color(0.6, 0.62, 0.68)},
+	"GRUNT": {"art": "orc_warrior", "color": Color(0.86, 0.1, 0.22)},
 	"ARBITER": {"art": "big_demon", "color": Color(0.98, 0.35, 0.55)},
 }
 

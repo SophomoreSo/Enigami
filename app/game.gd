@@ -1,13 +1,13 @@
 extends Node
 
 ## Top-level state machine: title → hideout → raid → results, with the sandbox
-## and the hideout's skill editor hanging off the side.
+## (and the dragon test off it) and the hideout's skill editor hanging off the side.
 ##
 ## The composition root, and the only script allowed to know both modules: it
 ## builds screens out of `graphics/` and drives them with `feature/`. Neither
 ## module reaches the other except through here and through `Cues`.
 
-enum State { TITLE, HIDEOUT, RAID, SANDBOX, RESULTS }
+enum State { TITLE, HIDEOUT, RAID, SANDBOX, RESULTS, DRAGON_TEST }
 
 var state: int = State.TITLE
 var current: Node = null
@@ -65,8 +65,18 @@ func goto_sandbox() -> void:
 	state = State.SANDBOX
 	var s := Sandbox.new()
 	s.exit_requested.connect(goto_hideout)
+	s.dragon_test_requested.connect(goto_dragon_test)
 	add_child(s)
 	current = s
+
+## Leaving the dragon test goes back to the sandbox it was opened from.
+func goto_dragon_test() -> void:
+	_clear()
+	state = State.DRAGON_TEST
+	var d := DragonTest.new()
+	d.exit_requested.connect(goto_sandbox)
+	add_child(d)
+	current = d
 
 func _deploy(weapon: String, slots: Array) -> void:
 	GameState.deploy(weapon, slots)

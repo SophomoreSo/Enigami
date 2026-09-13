@@ -89,7 +89,7 @@ var pass_cost: int = 1
 var expired: bool = false
 ## Heat of the last completed cast, kept because `cycle_heat` is cleared.
 var last_heat: float = 0.0
-## True on the private copy the preview drives, which must not prime itself or
+## True on the private copy the preview drives, which must not walk itself or
 ## fast-forward — it is counting ticks.
 var dry_run: bool = false
 var _analysis: Dictionary = {}
@@ -110,13 +110,15 @@ var ready_flash: float = 0.0
 ## corrected by what the cast really took, and thrown away when the board
 ## changes — the only thing that can make either wrong.
 var _cycle_at_life: Dictionary = {}
+## What a cast's trigger branches come to, keyed by the life it was given, off
+## the same walk. Thrown away with it when the board changes.
+var _triggers_at_life: Dictionary = {}
 ## The life the cycle now running started with, so the correction lands on the
 ## right entry however the charge has moved since.
 var _cycle_life: int = 0
 
 var _elapsed: float = 0.0
 var _lead: int = 0
-var _primed: bool = false
 var _had_effect: bool = false
 var _reaches_output: bool = false
 
@@ -134,7 +136,7 @@ func refresh() -> void:
 	# length alone never costs a board its shot.
 	pass_cost = maxi(1, int((t.get("reachable", {}) as Dictionary).size()))
 	_cycle_at_life.clear()
-	_primed = false
+	_triggers_at_life.clear()
 
 func tick_time() -> float:
 	return BASE_TICK / maxf(float(_analysis.get("speed_mul", 1.0)), 0.05)
@@ -177,8 +179,18 @@ func is_ready() -> bool:
 ## the charge costs one walk per step rather than one per press.
 func _cycle_length(life: int) -> float:
 	if not _cycle_at_life.has(life):
-		_cycle_at_life[life] = float(simulate().get("cycle_seconds", 0.0))
+		_walk(life)
 	return float(_cycle_at_life[life])
+
+## Walks a cast at `life` offline and banks both things the walk knows: how long
+## it takes, unless a real cast of that life has been timed already, and what its
+## trigger branches resolve to. Called with `life` equal to `cycle_ttl()`, which
+## is the life `simulate` walks.
+func _walk(life: int) -> void:
+	var pre := simulate()
+	if not _cycle_at_life.has(life):
+		_cycle_at_life[life] = float(pre.get("cycle_seconds", 0.0))
+	_triggers_at_life[life] = pre["triggers"]
 
 ## How far the skill has recovered: 0 the instant it fires, 1 when it can fire
 ## again. This is one continuous run across both halves of the wait — the board
@@ -263,8 +275,9 @@ func _advance() -> void:
 		cycle_heat = 0.0
 		_lead = 0
 		# The cycle's branches have all resolved, so they become the triggers
-		# the next attacks carry. Promoting at the boundary rather than as each
-		# branch lands is what stops a chain growing cycle after cycle.
+		# this runner holds — which is how `simulate` reads a walk back. Promoting
+		# at the boundary rather than as each branch lands is what stops a chain
+		# growing cycle after cycle.
 		for k in pending_triggers:
 			trigger_payloads[k] = pending_triggers[k]
 
@@ -273,9 +286,9 @@ func _start_cycle() -> void:
 		return
 	_cycle_life = cycle_ttl()
 	if not dry_run:
-		_prime()
 		# The wipe fills against the cast about to run, not the one before it.
 		cycle_seconds = _cycle_length(_cycle_life)
+		_arm_triggers(_cycle_life)
 	pending_triggers.clear()
 	_cycle_ticks = 0
 	_elapsed = 0.0
@@ -297,26 +310,18 @@ func _begin_pass() -> bool:
 		_base_payload(), cycle_ttl())]
 	return true
 
-## What a trigger branch produces is a property of the board, not of history,
-## but the branch is still walking behind the attack that would carry it — so
-## the first attack after equipping or editing a skill went out with no
-## follow-ups at all, and on a board whose whole point is its trigger that read
-## as the skill simply not working. The offline walk already knows what the
-## branch resolves to, so the chain is seeded from it once per board and every
-## attack from the first onwards behaves the same.
-func _prime() -> void:
-	if _primed:
-		return
-	_primed = true
-	var pre := simulate()
-	# The slot has to fill sensibly on the very first press too, before any
-	# cycle has been timed. This is the same walk `_cycle_length` would do, so
-	# it is banked here rather than run twice.
-	_cycle_at_life[cycle_ttl()] = float(pre.get("cycle_seconds", 0.0))
-	if not trigger_payloads.is_empty():
-		return
-	for k in pre["triggers"]:
-		trigger_payloads[k] = pre["triggers"][k]
+## What a trigger branch produces is a property of the board and the life it was
+## given, not of history, but the branch is still walking behind the attack that
+## would carry it. Taking the chain from whichever cycle ran last cost the first
+## attack after equipping or editing a skill all of its follow-ups, and once
+## charging bought laps it put every chain one cast behind the charge: a charged
+## cast after a tap went out bare, and the taps after it kept its whole chain.
+## The offline walk knows what the branches resolve to at exactly this life, so
+## the cast is armed from it before its first attack fires.
+func _arm_triggers(life: int) -> void:
+	if not _triggers_at_life.has(life):
+		_walk(life)
+	trigger_payloads = (_triggers_at_life[life] as Dictionary).duplicate()
 
 ## Everything between INPUT and the cycle's first visible effect is time the
 ## player waits with nothing on screen: input lag, not cooldown. A cycle burns

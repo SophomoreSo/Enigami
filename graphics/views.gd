@@ -50,10 +50,14 @@ func view_script_for(n: Node) -> GDScript:
 		return DashSlashView
 	if n is Pickup:
 		return PickupView
+	if n is DragonTower:
+		return TowerView
 	if n is Room:
 		return RoomView
 	if n is Raid:
 		return RaidView
 	if n is Sandbox:
 		return SandboxView
+	if n is DragonTest:
+		return DragonTestView
 	return null

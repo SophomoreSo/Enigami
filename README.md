@@ -31,7 +31,9 @@ godot res://tests/graphics/menu_fit_test.tscn # menus stay on screen and scroll 
 godot res://tests/feature/ttl_test.tscn     # a pulse's life, and what bounds a loop
 godot res://tests/feature/charge_test.tscn  # holding the cast button buys life for mana
 godot res://tests/feature/npc_test.tscn     # talking to an NPC, line by line
+godot res://tests/feature/dragon_test.tscn  # one charged cast clears the whole tower
 godot res://tests/graphics/shots.tscn   # writes a screenshot of each screen to user://shots
+godot res://tests/graphics/dragon_shot.tscn  # ...and frames of the dragon test
 SHOTS_DIR=/tmp/shots godot res://tests/graphics/shots.tscn   # ...or wherever you point it
 ```
 
@@ -147,6 +149,32 @@ would produce, the trigger payloads, and total heat.
 Monsters run boards through the exact same simulator, and a kill can drop the
 components its attack was visibly built from.
 
+## The dragon test
+
+Title → SANDBOX → **DRAGON TEST**. A four-storey tower with eight guards posted
+across it, after the room in Katana ZERO where the Dragon tries out his dash:
+one cut kills a guard, and the whole building is inside one cast of the board
+the screen hands you.
+
+That board is `DASHSLASH+` with an `ON HIT` whose branch runs three
+`OVERCLOCK`s back round into it, so **every lap the cast has life for is one
+more lunge at the nearest guard still standing**. A tap is one lunge and one
+body; hold the cast button and the chain grows a link at a time — the read-out
+along the top counts what a release right now would reach, the mark on the
+charge bar is where that becomes all eight, and letting go there sends you
+through the whole tower in one line. Guards stand far enough apart that each
+lunge only carries the cut through its own, and the stairwells cut through the
+floors are where the jumps between storeys pass, so the chain climbs.
+
+`R` sets the floor again, `TAB` opens the board (parts are free), `ESC` goes
+back to the bench. Nothing is at stake and the floor resets itself once it is
+clear.
+
+The layout is `LAYOUT` in `feature/world/dragon_tower.gd`, one string per row of
+cells: `#` solid, `G` a guard's post, `P` the door. Moving a post or closing a
+stairwell can break the chain — `tests/feature/dragon_test.tscn` is what says
+whether one cast still clears it.
+
 ## Design decisions
 
 The PRD left eight questions open. This build answers them as follows.
@@ -204,6 +232,7 @@ feature/core/      components, payload, board, runner, state, time control
 feature/actors/    actor base, player, monster catalogue, monster AI, NPCs, dialogue loading
 feature/attacks/   projectile, melee arc, area burst, dash slash, spawner
 feature/world/     room generation, raid map graph, raid loop, sandbox, pickups
+                   dragon test: the hand-laid tower and its rules
 graphics/          the atlas, screen effects, the pixel camera, the palette, view attachment
 graphics/views/    one view per gameplay node: actors, attacks, rooms, loot
 graphics/ui/       skill editor, HUD, hideout, title, results, bench panel

@@ -12,6 +12,8 @@ signal exit_requested()
 signal editing_changed(on: bool)
 ## The loadout changed under the bench, so anything cached about it is stale.
 signal loadout_changed()
+## The dragon test was asked for: a building of guards to try a chain of lunges on.
+signal dragon_test_requested()
 
 const MONSTER_BUTTONS := ["CRAWLER", "SENTRY", "LOBBER", "HOPPER", "DRIFTER", "WARDEN", "ARBITER"]
 
@@ -103,6 +105,9 @@ func clear_monsters() -> void:
 
 func leave() -> void:
 	exit_requested.emit()
+
+func open_dragon_test() -> void:
+	dragon_test_requested.emit()
 
 func _on_damage(_a: Actor, amount: float) -> void:
 	_dps_window.append([float(Time.get_ticks_msec()) / 1000.0, amount])

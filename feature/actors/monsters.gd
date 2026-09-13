@@ -59,6 +59,14 @@ const DEFS := {
 		"aggro": 0.0, "attack_range": 0.0, "contact": 0.0, "scrap": 0,
 		"board": [],
 	},
+	## The dragon test's guards. One cut from any weapon drops one, and they hold
+	## their posts, so a chain of lunges is judged on reach and line alone.
+	"GRUNT": {
+		"name": "Grunt", "hp": 1.0, "speed": 0.0, "ai": "turret",
+		"size": 14.0,
+		"aggro": 900.0, "attack_range": 0.0, "contact": 0.0, "scrap": 0,
+		"board": [],
+	},
 	"ARBITER": {
 		"name": "Arbiter", "hp": 460.0, "speed": 120.0, "ai": "boss",
 		"size": 34.0,

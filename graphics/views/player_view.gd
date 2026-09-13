@@ -25,10 +25,13 @@ var weapon_sprite: Sprite2D
 var _weapon_art: String = ""
 var _trail: Array = []
 var _spark: float = 0.0
+## True in the dragon test, where the player is drawn as the Dragon.
+var _dragon: bool = false
 
 func _configure() -> void:
 	player = actor as Player
-	art = Style.PLAYER_ART
+	_dragon = player.get_parent() is DragonTest
+	art = Style.DRAGON_ART if _dragon else Style.PLAYER_ART
 	z_index = 50
 
 func _build_sprite() -> void:
@@ -59,8 +62,9 @@ func _animate() -> void:
 func _update_weapon() -> void:
 	if weapon_sprite == null:
 		return
-	if _weapon_art != Style.weapon_art(player.weapon_id):
-		_weapon_art = Style.weapon_art(player.weapon_id)
+	var blade := Style.DRAGON_BLADE if _dragon else Style.weapon_art(player.weapon_id)
+	if _weapon_art != blade:
+		_weapon_art = blade
 		var tex := Sprites.texture(_weapon_art)
 		weapon_sprite.texture = tex
 		if tex != null:
