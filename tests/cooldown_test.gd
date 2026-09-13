@@ -19,6 +19,25 @@ func make(weapon: String) -> SkillRunner:
 	r.base_payload_provider = func() -> Payload: return Weapons.base_payload(weapon)
 	return r
 
+## Runs one whole cast at `bonus` charge, and reports how long it took and what
+## the wipe read on the last frame before the slot came free.
+func cast_at(r: SkillRunner, bonus: int) -> Dictionary:
+	r.ttl_bonus = bonus
+	r.set_active(true)
+	var ran := false
+	var wipe := 0.0
+	var secs := 0.0
+	for i in 2000:
+		r.update(DT)
+		if not r.is_ready():
+			ran = true
+			wipe = r.ready_ratio()
+			secs += DT
+			r.set_active(false)   # one cast, not a held repeat
+		elif ran:
+			break
+	return {"wipe": wipe, "seconds": secs}
+
 func _ready() -> void:
 	# Held: the fill runs the whole wait and restarts, and each landing flashes.
 	var r := make("SWORD")
@@ -74,6 +93,34 @@ func _ready() -> void:
 	check(slow.cycle_seconds > r.cycle_seconds,
 		"and its slot fills more slowly to match (%.3fs vs %.3fs)"
 			% [slow.cycle_seconds, r.cycle_seconds])
+
+	# Charging changes how long a cast takes, so one cycle stopped predicting the
+	# next one the moment holding the button bought laps. The wipe has to fill
+	# against the cast actually running: a charged cast followed by an uncharged
+	# one had the slot reading four tenths full at the instant it was castable.
+	var ring := SkillBoard.new(7, 5, "ring")
+	ring.place("INPUT", Vector2i(0, 1), 0)
+	ring.place("WIRE", Vector2i(1, 1), 3)
+	ring.place("WIRE", Vector2i(1, 0), 0)
+	ring.place("WIRE", Vector2i(2, 0), 0)
+	ring.place("WIRE", Vector2i(3, 0), 1)
+	ring.place("WIRE", Vector2i(3, 1), 2)
+	ring.place("TEE", Vector2i(2, 1), 1)
+	ring.place("SLASH", Vector2i(2, 2), 0)
+	ring.place("OUTPUT", Vector2i(3, 2), 0)
+	var lr := SkillRunner.new(ring)
+	lr.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
+	var charged := cast_at(lr, SkillRunner.MAX_TTL_BONUS)
+	var plain := cast_at(lr, 0)
+	check(charged["seconds"] > plain["seconds"] * 1.5,
+		"a charged cast really is the longer one (%.2fs vs %.2fs)"
+			% [charged["seconds"], plain["seconds"]])
+	# Alternating is what catches it: each cast is measured against the last.
+	var worst := 1.0
+	for bonus in [SkillRunner.MAX_TTL_BONUS, 0, SkillRunner.MAX_TTL_BONUS, 0]:
+		worst = minf(worst, float(cast_at(lr, bonus)["wipe"]))
+	check(worst > 0.9,
+		"the wipe is full when the slot comes free, charged or not (worst %.2f)" % worst)
 
 	print("[CD] ---- %d failures ----" % fails)
 	get_tree().quit()

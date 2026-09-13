@@ -176,15 +176,15 @@ func charge_ratio() -> float:
 func charge_cap() -> float:
 	return MAX_CHARGE_TTL
 
-## Charging runs only while the cast button is held on a slot the weapon will
-## actually fire, and only while there is mana to pay for it. Released, it
-## bleeds off quickly: the depth is bought for this burst, not banked.
+## Charging runs only while the cast button is held on a slot that could be cast
+## right now, and only while there is mana to pay for it. Released, it bleeds
+## off quickly: the depth is bought for this burst, not banked.
 func _update_charge(delta: float, casting: bool) -> void:
 	# While the button is down the charge only ever holds or grows. Letting the
 	# decay branch run once it reached the cap made the two fight each other
 	# frame by frame — charge sat just under the cap while mana drained away
 	# into the gap being refilled.
-	if casting and can_cast(selected_slot):
+	if casting and can_charge(selected_slot):
 		var cap := charge_cap()
 		if charge < cap and mana > 0.0:
 			var want := CHARGE_TTL_RATE * delta
@@ -195,7 +195,8 @@ func _update_charge(delta: float, casting: bool) -> void:
 		_charge_sparks(delta)
 		_mana_pause = MANA_PAUSE
 		return
-	# Let go without casting — a slot the weapon refuses, say — and it bleeds off.
+	# Let go, or hold something that cannot take a charge — a slot the weapon
+	# refuses, or one still recovering — and it bleeds off.
 	charge = maxf(0.0, charge - CHARGE_DECAY * delta)
 	_spark_timer = 0.0
 	if _mana_pause > 0.0:
@@ -210,6 +211,15 @@ func can_cast(slot: int) -> bool:
 	if slot < 0 or slot >= runners.size():
 		return false
 	return Weapons.accepts_board(weapon_id, runners[slot].board)
+
+## A skill still recovering cannot be charged. The wait is the board's own
+## cadence, and letting a hold run alongside it would buy the next cast's life
+## out of time already being spent — a long board would come back charged for
+## free, and the hold would stop being a decision made against the cooldown.
+## Holding through the wait is not punished: the charge simply starts building
+## the moment the slot comes free.
+func can_charge(slot: int) -> bool:
+	return can_cast(slot) and runners[slot].is_ready()
 
 ## Arms a slot. Out-of-range numbers are ignored rather than clamped, so a
 ## weapon with two slots simply does not answer to "3".

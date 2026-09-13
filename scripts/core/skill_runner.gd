@@ -84,14 +84,25 @@ var last_heat: float = 0.0
 var dry_run: bool = false
 var _analysis: Dictionary = {}
 ## Ticks of this cycle already burnt by `_spend_lead`, repaid to the cooldown.
-## Seconds the last full cycle took, from firing to ready again. The slot wipe
-## fills against this: a board cannot change mid-cycle, so the previous cycle
-## predicts the current one almost exactly, and the first is seeded from the
-## offline walk.
+## Seconds the cast now running takes, from firing to ready again. The slot wipe
+## fills against this, so it has to describe *this* cast: the cycle before it
+## stopped predicting it the moment charging became a way to buy laps, and a
+## charged cast followed by an uncharged one had the slot reading four tenths
+## full at the instant the skill was castable again.
 var cycle_seconds: float = 0.0
 ## Fades from 1 the moment the skill comes back, so a slot can flash without
 ## every piece of UI having to watch for the transition itself.
 var ready_flash: float = 0.0
+
+## Seconds a cast takes, keyed by the life it was given. A cast's length is a
+## property of the board and that life, so it is known when the cycle starts
+## rather than guessed from the cycle before it. Seeded from the offline walk,
+## corrected by what the cast really took, and thrown away when the board
+## changes — the only thing that can make either wrong.
+var _cycle_at_life: Dictionary = {}
+## The life the cycle now running started with, so the correction lands on the
+## right entry however the charge has moved since.
+var _cycle_life: int = 0
 
 var _elapsed: float = 0.0
 var _lead: int = 0
@@ -112,6 +123,7 @@ func refresh() -> void:
 	# exactly one pass on a four-part board and on a thirty-part one alike, so
 	# length alone never costs a board its shot.
 	pass_cost = maxi(1, int((t.get("reachable", {}) as Dictionary).size()))
+	_cycle_at_life.clear()
 	_primed = false
 
 func tick_time() -> float:
@@ -136,6 +148,9 @@ func is_idle() -> bool:
 func _recovered() -> void:
 	if _elapsed > 0.0:
 		cycle_seconds = _elapsed
+		# What it really took beats what the walk predicted — but only for a
+		# cast of the same life, which is what the next one gets measured on.
+		_cycle_at_life[_cycle_life] = _elapsed
 	ready_flash = 1.0
 
 ## True when a press would start a new cycle right now.
@@ -146,6 +161,14 @@ func cycle_ttl() -> int:
 
 func is_ready() -> bool:
 	return pulses.is_empty() and cooldown <= 0
+
+## How long a cast at `life` takes. Walked offline the first time it is asked
+## for and remembered after that, so holding the button through every step of
+## the charge costs one walk per step rather than one per press.
+func _cycle_length(life: int) -> float:
+	if not _cycle_at_life.has(life):
+		_cycle_at_life[life] = float(simulate().get("cycle_seconds", 0.0))
+	return float(_cycle_at_life[life])
 
 ## How far the skill has recovered: 0 the instant it fires, 1 when it can fire
 ## again. This is one continuous run across both halves of the wait — the board
@@ -232,8 +255,11 @@ func _advance() -> void:
 func _start_cycle() -> void:
 	if board.find_input() == null:
 		return
+	_cycle_life = cycle_ttl()
 	if not dry_run:
 		_prime()
+		# The wipe fills against the cast about to run, not the one before it.
+		cycle_seconds = _cycle_length(_cycle_life)
 	pending_triggers.clear()
 	_elapsed = 0.0
 	expired = false
@@ -267,9 +293,9 @@ func _prime() -> void:
 	_primed = true
 	var pre := simulate()
 	# The slot has to fill sensibly on the very first press too, before any
-	# cycle has been timed.
-	if cycle_seconds <= 0.0:
-		cycle_seconds = float(pre.get("cycle_seconds", 0.0))
+	# cycle has been timed. This is the same walk `_cycle_length` would do, so
+	# it is banked here rather than run twice.
+	_cycle_at_life[cycle_ttl()] = float(pre.get("cycle_seconds", 0.0))
 	if not trigger_payloads.is_empty():
 		return
 	for k in pre["triggers"]:

@@ -53,6 +53,12 @@ func hold_and_count(p: Player, secs: float) -> int:
 	await settle(p)
 	return shots
 
+func press(down: bool) -> void:
+	var e := InputEventMouseButton.new()
+	e.button_index = MOUSE_BUTTON_RIGHT
+	e.pressed = down
+	Input.parse_input_event(e)
+
 func hold(secs: float) -> void:
 	var d := InputEventMouseButton.new()
 	d.button_index = MOUSE_BUTTON_RIGHT
@@ -154,6 +160,28 @@ func _ready() -> void:
 	await hold(1.2)
 	check(p.mana < Player.MAX_MANA - 5.0, "holding it spends mana (%.0f left)" % p.mana)
 	await frames(2)
+
+	# A skill still recovering cannot be charged. The wait is the board's own
+	# cadence; a hold running alongside it would buy the next cast's life out of
+	# time already being spent. Held across the boundary, nothing is bought
+	# while it recovers and the same hold starts paying the moment it is free.
+	p.mana = Player.MAX_MANA
+	p.charge = 0.0
+	await frames(4)
+	check(not p.runners[0].is_ready(), "the cast that hold bought is still running")
+	press(true)
+	await wait(0.4)
+	check(p.charge <= 0.01, "holding a recovering skill buys no life (%.1f)" % p.charge)
+	check(p.mana >= Player.MAX_MANA - 0.01, "and spends no mana on it (%.0f)" % p.mana)
+	var guard := 0
+	while not p.runners[0].is_ready() and guard < 900:
+		await get_tree().process_frame
+		guard += 1
+	await wait(0.4)
+	check(p.charge > 0.0,
+		"the same hold charges the moment the slot comes free (%.0f)" % p.charge)
+	press(false)
+	await frames(3)
 
 	# With mana gone there is nothing left to buy life with.
 	p.mana = 0.0

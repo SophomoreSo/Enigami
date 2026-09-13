@@ -39,7 +39,7 @@ SHOTS_DIR=/tmp/shots godot res://tests/shots.tscn   # ...or wherever you point i
 | SHIFT | dash (brief invulnerability); spends stamina, four dashes to a full bar |
 | LMB | attack with the weapon's own board — always available, never lost |
 | 1 / 2 / 3 / 4 | arm a skill slot (numpad works too); arming does not fire it |
-| RMB | hold to charge the armed skill, release to cast it — a tap is a charge of nothing; a weapon refuses skills it cannot carry |
+| RMB | hold to charge the armed skill, release to cast it — a tap is a charge of nothing; a skill still recovering cannot be charged, and a weapon refuses skills it cannot carry |
 | mouse / right stick | aim, and where a lunge lands |
 | TAB | open assembly — **the raid keeps running**; TAB, ESC or the CLOSE button leaves it |
 | F | interact, and hold to extract |
@@ -109,8 +109,12 @@ pass of its own board, so length alone never costs a board its shot.
 Holding the cast button **charges** the armed board, spending mana the whole
 time it is held; **letting go is what casts it**, with whatever the hold paid
 for. A tap is simply a charge of nothing, so a quick press casts as it always
-did. Charging engages on every skill alike — nothing is special-cased on the
-shape of the board — but all it ever buys is life, and life is only ever spent
+did. A skill still recovering cannot be charged: the wait is the board's own
+cadence, and a hold running alongside it would buy the next cast's life out of
+time already being spent. Holding through the wait costs nothing and loses
+nothing — the charge starts building the moment the slot comes free. Charging
+engages on every skill alike — nothing is special-cased on the shape of the
+board — but all it ever buys is life, and life is only ever spent
 going round. A board with no cycle in it walks to its OUTPUT and stops there
 however much it was given, so it fires **once** charged exactly as it fires once
 uncharged. A cycle is what has somewhere to spend the life, and it spends it on
