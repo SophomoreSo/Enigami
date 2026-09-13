@@ -20,6 +20,9 @@ func _on_node_added(n: Node) -> void:
 		return
 	var v: Node = script.new()
 	v.name = "View"
+	# Seen by the pixel camera only, not by the screen under its picture.
+	if v is CanvasItem:
+		(v as CanvasItem).visibility_layer = PixelCamera.WORLD_LAYER
 	n.add_child(v)
 
 ## The view a gameplay node was given, or null. Handy for tests and for screens

@@ -6,8 +6,9 @@ and loot is only yours once you walk it out of the raid.
 Built on Godot 4.5. Actors are animated sprites cut at runtime from one CC0
 atlas ([0x72's 16x16 DungeonTileset II](https://0x72.itch.io/dungeontileset-ii),
 see `graphics/assets/sprites/CREDITS.md`); everything else — rooms, attacks,
-effects and the whole UI — is still drawn from primitives, and every sound is
-synthesised at boot.
+effects, the whole UI and the title screen's circuit board — is still drawn
+from primitives, and every sound is synthesised at boot. The only other assets
+are two OFL fonts (`graphics/assets/fonts/CREDITS.md`).
 
 The rules and the picture are two separate modules, `feature/` and `graphics/`,
 with a one-way seam between them — see [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -202,12 +203,12 @@ feature/core/      components, payload, board, runner, state, time control
 feature/actors/    actor base, player, monster catalogue, monster AI
 feature/attacks/   projectile, melee arc, area burst, dash slash, spawner
 feature/world/     room generation, raid map graph, raid loop, sandbox, pickups
-graphics/          the atlas, screen effects, the palette, view attachment
+graphics/          the atlas, screen effects, the pixel camera, the palette, view attachment
 graphics/views/    one view per gameplay node: actors, attacks, rooms, loot
 graphics/ui/       skill editor, HUD, hideout, title, results, bench panel
-graphics/assets/   the sprite atlas and the actor shader
+graphics/assets/   the sprite atlas, the actor shader, two OFL fonts
 tests/feature/     movement, board tracing, timing — rules, run headless
-tests/graphics/    editor input, focus, menus, screenshot capture — need a window
+tests/graphics/    editor input, focus, menus, the pixel camera, screenshot capture — need a window
 tests/shared/      the smoke test, which walks the whole game
 ```
 

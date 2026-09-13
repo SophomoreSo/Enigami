@@ -29,7 +29,8 @@ func _draw() -> void:
 		]), c)
 	else:
 		draw_rect(Rect2(-7, bob - 7, 14, 14), c)
-		draw_rect(Rect2(-7, bob - 7, 14, 14), Color(0.05, 0.07, 0.1), false, 1.5)
-		draw_string(ThemeDB.fallback_font, Vector2(-5, bob + 4),
-			Style.component_glyph(pickup.component_id),
-			HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.05, 0.07, 0.1))
+		draw_rect(Rect2(-7, bob - 7, 14, 14), Color(0.05, 0.07, 0.1), false, 2.0)
+		# Most part glyphs are symbols the pixel font does not have, so these keep
+		# the fallback face, drawn at the buffer's size like all other world text.
+		PixelCamera.draw_text(self, Vector2(0, bob + 4), Style.component_glyph(pickup.component_id),
+			Color(0.05, 0.07, 0.1), Color(0, 0, 0, 0), 5, ThemeDB.fallback_font)

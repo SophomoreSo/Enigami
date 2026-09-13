@@ -10,6 +10,7 @@ extends Node2D
 
 var raid: Raid
 var camera: Camera2D
+var pixels: PixelCamera
 var hud: Hud
 var editor: SkillEditor
 
@@ -21,6 +22,8 @@ func _ready() -> void:
 	add_child(camera)
 	camera.make_current()
 	Fx.register_camera(camera)
+	pixels = PixelCamera.new()
+	add_child(pixels)
 
 	var layer := CanvasLayer.new()
 	layer.layer = 10

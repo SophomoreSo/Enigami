@@ -88,6 +88,7 @@ someone gives it a glyph.
 | Retune damage, cooldowns, room generation | `feature/` |
 | Retune shake, sparks, hitstop *feel* | `graphics/cue_visuals.gd` — except hitstop and dilation, see below |
 | HUD layout, editor look, menu copy | `graphics/ui/` |
+| The resolution the world is drawn at | `graphics/pixel_camera.gd` (the size comes from `Sprites.PIXEL_SCALE`) |
 | A new sound | `app/audio/audio_cues.gd` |
 | A new screen | `app/game.gd`, plus its Control in `graphics/ui/` |
 
