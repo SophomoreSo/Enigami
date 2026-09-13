@@ -97,6 +97,18 @@ func _ready() -> void:
 	check(not n.line_finished(), "which types out rather than appearing at once")
 	check(n.speaker() == "npc" and n.speaker_name() == n.display_name, "and the NPC is the one saying it")
 
+	# Held still while listening.
+	check(p.controls_locked(), "the player is held while the conversation lasts")
+	var stood := p.global_position
+	Input.action_press("move_left")
+	Input.action_press("jump")
+	await phys(12)
+	Input.action_release("move_left")
+	Input.action_release("jump")
+	await phys(2)
+	check(p.global_position.distance_to(stood) < 1.0 and n.is_talking(),
+		"walking and jumping do nothing mid-conversation (moved %.1f)" % p.global_position.distance_to(stood))
+
 	# A press mid-line finishes it without skipping ahead.
 	await press()
 	check(n.node_id == "hello" and n.line_finished(), "a press mid-line finishes that line")
@@ -133,7 +145,8 @@ func _ready() -> void:
 	# An answer can lead into another question.
 	p.global_position = Vector2(300, n.global_position.y)
 	await phys(2)
-	check(not n.is_talking() and ended[0] == 1, "walking away mid-question ends the conversation")
+	check(not n.is_talking() and ended[0] == 1, "being carried away mid-question ends the conversation")
+	check(not p.controls_locked(), "and lets the player move again")
 	p.global_position = Vector2(560, n.global_position.y)
 	await phys(2)
 	await press()

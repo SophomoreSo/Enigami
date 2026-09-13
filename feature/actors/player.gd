@@ -107,7 +107,11 @@ var _mana_pause: float = 0.0
 var charging: bool = false
 var parry_time: float = 0.0
 var parry_slot: int = -1
+## Set while a screen over the game takes the keys — the skill editor.
 var input_locked: bool = false
+## Set by an NPC for as long as they are talking to this player: the talk key
+## still moves the conversation on, but nothing else the player does acts.
+var talk_locked: bool = false
 
 ## Movement runs as a state machine. Every frame the senses are read, the state
 ## is re-picked from them, and only then does that state act — so the state an
@@ -292,23 +296,28 @@ func _on_fired(payload: Payload, slot: int) -> void:
 func on_dashed() -> void:
 	invuln = maxf(invuln, 0.12)
 
+## Whether the player's own input is ignored: a screen has the keys, or someone
+## is talking to them.
+func controls_locked() -> bool:
+	return input_locked or talk_locked
+
 func _process(delta: float) -> void:
 	_process_status(delta)
 	if parry_time > 0.0:
 		parry_time -= delta
-	if not input_locked:
+	if not controls_locked():
 		for i in runners.size():
 			if Input.is_action_just_pressed("skill_%d" % (i + 1)):
 				select_slot(i)
 	# Holding the cast button charges; letting go is what fires it. A tap is
 	# simply a charge of nothing, so a quick press still casts as it always did.
-	var holding := not input_locked and Input.is_action_pressed("cast_skill")
+	var holding := not controls_locked() and Input.is_action_pressed("cast_skill")
 	if holding and Input.is_action_just_pressed("cast_skill") and not can_cast(selected_slot):
 		_refuse_cast()
 	# Taken before the charge is touched: on the frame of the release the button
 	# already reads as up, and letting the bleed-off run first shaved a fifth
 	# off what the player had actually paid for.
-	if not input_locked and Input.is_action_just_released("cast_skill") and can_cast(selected_slot):
+	if not controls_locked() and Input.is_action_just_released("cast_skill") and can_cast(selected_slot):
 		cast_charge = charge
 		charge = 0.0
 		# Held over a few frames, so a release landing on the tail of the last
@@ -330,7 +339,7 @@ func _process(delta: float) -> void:
 	if _cast_buffer > 0.0 and not runners[selected_slot].is_ready():
 		_cast_buffer = 0.0      # it went off; stop asking
 	if basic_runner != null:
-		basic_runner.set_active(not input_locked and Input.is_action_pressed("attack"))
+		basic_runner.set_active(not controls_locked() and Input.is_action_pressed("attack"))
 		basic_runner.update(delta)
 	_update_aim()
 
@@ -349,7 +358,7 @@ func _physics_process(delta: float) -> void:
 	if dead:
 		return
 	_dir = 0.0
-	if not input_locked:
+	if not controls_locked():
 		_dir = Input.get_axis("move_left", "move_right")
 	if _dir != 0.0:
 		face(int(signf(_dir)))
@@ -380,7 +389,7 @@ func _sense(delta: float) -> void:
 	else:
 		_coyote = maxf(0.0, _coyote - delta)
 	_buffer = maxf(0.0, _buffer - delta)
-	if not input_locked and Input.is_action_just_pressed("jump"):
+	if not controls_locked() and Input.is_action_just_pressed("jump"):
 		_buffer = JUMP_BUFFER
 
 	# Wall interaction: hugging a wall slows the fall and enables a kick-off.
@@ -467,10 +476,10 @@ func _jump_and_dash() -> void:
 			_buffer = 0.0
 			Cues.at(&"jump", global_position, {"kind": "air"})
 	# Releasing jump early cuts the arc short.
-	if not input_locked and Input.is_action_just_released("jump") and velocity.y < 0.0:
+	if not controls_locked() and Input.is_action_just_released("jump") and velocity.y < 0.0:
 		velocity.y *= 0.45
 
-	if not input_locked and Input.is_action_just_pressed("dash") and _dash_cd <= 0.0:
+	if not controls_locked() and Input.is_action_just_pressed("dash") and _dash_cd <= 0.0:
 		if stamina < DASH_STAMINA:
 			# Nothing happening at all reads as a dropped input, so say why.
 			Cues.at(&"refused", global_position, {"kind": "stamina", "text": "WINDED"})

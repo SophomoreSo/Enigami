@@ -371,7 +371,7 @@ func _update_extraction(delta: float) -> void:
 		return
 	var inside := extraction_rect().has_point(player.global_position)
 	var reason := extraction_blocked_reason()
-	if inside and reason == "" and Input.is_action_pressed("interact") and not player.input_locked:
+	if inside and reason == "" and Input.is_action_pressed("interact") and not player.controls_locked():
 		extract_hold += delta
 		_extract_active = true
 		if int(extract_hold * 8.0) != int((extract_hold - delta) * 8.0):

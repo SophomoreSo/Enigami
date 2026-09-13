@@ -4,7 +4,9 @@ extends CharacterBody2D
 ## Someone to talk to. Walk up and press interact and a conversation starts;
 ## each further press moves it on. Some lines end in a question — move up and
 ## down to pick an answer, interact to give it — and the answer decides what
-## they say next. Walking away ends it. Nothing here is drawn:
+## they say next. The player is held still while they listen — no walking,
+## jumping, dashing or attacking — so a conversation ends by talking it through,
+## or by something else carrying the player out of range. Nothing here is drawn:
 ## `graphics/views/npc_view.gd` and `graphics/ui/dialogue_box.gd` show it.
 ##
 ## What each NPC says lives in their dialogue file, `data/dialogue/<id>.json`
@@ -46,6 +48,8 @@ var revealed: float = 0.0
 var selected: int = 0
 ## True while the player stands close enough to talk.
 var in_range: bool = false
+## The player being talked to, held still until the conversation ends.
+var _listener: Player = null
 
 func setup(id: String) -> void:
 	npc_id = id
@@ -124,6 +128,7 @@ func move_selection(step: int) -> void:
 func end_conversation() -> void:
 	if not is_talking():
 		return
+	_release_listener()
 	node_id = ""
 	revealed = 0.0
 	selected = 0
@@ -142,8 +147,21 @@ func _go(to: String) -> void:
 	node_id = to
 	revealed = 0.0
 	selected = 0
+	if _listener == null:
+		_listener = _player()
+		if _listener != null:
+			_listener.talk_locked = true
 	Cues.at(&"talk", global_position, {"npc": npc_id, "node": to, "line": current_node()})
 	line_started.emit(self, node_id)
+
+## An NPC taken away mid-sentence must not leave the player frozen.
+func _exit_tree() -> void:
+	_release_listener()
+
+func _release_listener() -> void:
+	if _listener != null and is_instance_valid(_listener):
+		_listener.talk_locked = false
+	_listener = null
 
 ## Letters coming out are a moment a voice can blip along with. At most one a
 ## frame, so a fast line is a patter rather than a buzz, and never for spaces or
