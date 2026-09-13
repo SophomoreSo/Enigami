@@ -17,6 +17,8 @@ const MONSTER_BUTTONS := ["CRAWLER", "SENTRY", "LOBBER", "HOPPER", "DRIFTER", "W
 
 var room: Room
 var player: Player
+## Someone on the bench to talk to.
+var npc: Npc
 var boards: Array = []
 var weapon_index: int = 0
 var inventory: Dictionary = {}
@@ -50,6 +52,7 @@ func _ready() -> void:
 	_apply_weapon()
 
 	spawn_dummy()
+	spawn_npc()
 
 func _apply_weapon() -> void:
 	var ids := Weapons.ids()
@@ -69,6 +72,16 @@ func current_weapon() -> String:
 
 func spawn_dummy() -> void:
 	_spawn("DUMMY", 1, room.cell_center(28, 16))
+
+## Dropped in above the floor and left to land, like everything else here. On no
+## collision layer of its own, so nothing bumps into it.
+func spawn_npc() -> void:
+	npc = Npc.new()
+	npc.setup("SAGE")
+	npc.collision_layer = 0
+	npc.collision_mask = 1
+	npc.position = room.cell_center(20, 16)
+	add_child(npc)
 
 func spawn_monster(kind: String) -> void:
 	_spawn(kind, 2, room.cell_center(24 + randi() % 8, 10))

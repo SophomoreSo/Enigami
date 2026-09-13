@@ -29,6 +29,7 @@ godot res://tests/feature/stamina_test.tscn # the dash budget under the health b
 godot res://tests/graphics/menu_fit_test.tscn # menus stay on screen and scroll the rest
 godot res://tests/feature/ttl_test.tscn     # a pulse's life, and what bounds a loop
 godot res://tests/feature/charge_test.tscn  # holding the cast button buys life for mana
+godot res://tests/feature/npc_test.tscn     # talking to an NPC, line by line
 godot res://tests/graphics/shots.tscn   # writes a screenshot of each screen to user://shots
 SHOTS_DIR=/tmp/shots godot res://tests/graphics/shots.tscn   # ...or wherever you point it
 ```
@@ -45,7 +46,7 @@ SHOTS_DIR=/tmp/shots godot res://tests/graphics/shots.tscn   # ...or wherever yo
 | RMB | hold to charge the armed skill, release to cast it — a tap is a charge of nothing; a skill still recovering cannot be charged, and a weapon refuses skills it cannot carry |
 | mouse / right stick | aim, and where a lunge lands |
 | TAB | open assembly — **the raid keeps running**; TAB, ESC or the CLOSE button leaves it |
-| F | interact, and hold to extract |
+| F | interact: talk to an NPC (again for the next line), and hold to extract |
 | ESC | pause |
 
 Gamepad: left stick moves, A jumps, B dashes, the right trigger attacks and the

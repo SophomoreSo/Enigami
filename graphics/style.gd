@@ -162,6 +162,25 @@ const ELITE_RING := Color(1, 0.9, 0.5, 0.7)
 const AGGRO_DOT := Color(1, 0.4, 0.4, 0.9)
 const HEALTH_BAR := Color(0.95, 0.35, 0.35)
 
+## --- NPCs -------------------------------------------------------------------
+## `art` names the character in the shared atlas, like a monster's — picked from
+## the ones no monster wears, so a bystander is never mistaken for a threat.
+const NPC := {
+	"SAGE": {"art": "wizzard_m"},
+}
+
+static func npc_art(id: String) -> String:
+	return String(NPC.get(id, NPC["SAGE"])["art"])
+
+## The speech bubble is paper and ink, so it reads as someone talking rather
+## than as another panel of the HUD.
+const SPEECH_FILL := Color(0.95, 0.94, 0.88)
+const SPEECH_EDGE := Color(0.1, 0.12, 0.16)
+const SPEECH_TEXT := Color(0.1, 0.11, 0.14)
+const SPEECH_NAME := Color(0.42, 0.33, 0.62)
+const SPEECH_PROMPT_FILL := Color(0.05, 0.06, 0.08, 0.8)
+const SPEECH_PROMPT_TEXT := Color(0.86, 0.9, 0.96)
+
 ## --- the world --------------------------------------------------------------
 const ROOM_BG := Color(0.075, 0.085, 0.11)
 const ROOM_GRID := Color(1, 1, 1, 0.022)

@@ -84,6 +84,7 @@ someone gives it a glyph.
 |---|---|
 | New skill component | `feature/core/components.gd` + its rule in `skill_runner.gd`; its glyph in `graphics/style.gd` |
 | New monster | `feature/actors/monsters.gd`; its sprite and colour in `graphics/style.gd` |
+| New NPC or dialogue | `CATALOGUE` in `feature/actors/npc.gd`; its sprite in `graphics/style.gd`; the bubble in `graphics/views/npc_view.gd` |
 | Retune damage, cooldowns, room generation | `feature/` |
 | Retune shake, sparks, hitstop *feel* | `graphics/cue_visuals.gd` — except hitstop and dilation, see below |
 | HUD layout, editor look, menu copy | `graphics/ui/` |
