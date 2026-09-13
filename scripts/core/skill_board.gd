@@ -147,11 +147,11 @@ func trace() -> Dictionary:
 			"has_input": false, "reaches_output": false}
 
 	var reaches_output := false
+	# Each part is queued the once, the first time the flow reaches it, so the
+	# sweep is over when the board is — a ring is walked, not chased round.
 	var queue: Array = [input_cell]
 	reachable[input_cell] = true
-	var guard := 0
-	while not queue.is_empty() and guard < 600:
-		guard += 1
+	while not queue.is_empty():
 		var origin: Vector2i = queue.pop_front()
 		var entry: Dictionary = cells.get(origin, {})
 		if entry.is_empty():

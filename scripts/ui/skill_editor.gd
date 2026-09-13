@@ -598,11 +598,11 @@ func _draw_info(vp: Vector2) -> void:
 		var trig: Dictionary = result.get("triggers", {})
 		for k in trig:
 			# A loop can queue several follow-ups on one trigger, each landing
-			# after the one before. List them, so a chain of four reads as four
-			# attacks rather than as a single very large one.
+			# after the one before. List the whole chain, so four laps read as
+			# four attacks rather than as a single very large one.
 			var q = trig[k]
 			var n := 0
-			while q != null and n < SkillRunner.MAX_TRIGGER_CHAIN:
+			while q != null:
 				var label: String = String(Components.get_def(k).get("name", k)) if n == 0 else "then"
 				draw_string(_font, Vector2(rx, line), "↳ %s: %s" % [label, (q as Payload).summary()],
 					HORIZONTAL_ALIGNMENT_LEFT, 520, 10, Color(1.0, 0.7, 0.85))

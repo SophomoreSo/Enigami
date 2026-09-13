@@ -21,7 +21,6 @@ signal cycle_started()
 const BASE_TICK := 0.045
 const BASE_COOLDOWN_TICKS := 3
 const HEAT_TO_TICKS := 2.2
-const MAX_PULSES := 64
 ## Every pulse carries a time to live, counted in parts it may still enter, and
 ## dies when it runs out. That is what keeps a cycle in the board from running
 ## forever. It is per pulse rather than shared across the cast on purpose: with
@@ -37,19 +36,10 @@ const MAX_PULSES := 64
 ## life is for is a cycle the player built — that is what has somewhere to spend
 ## it, and it spends it going round again.
 const MAX_TTL_BONUS := 36
-## Ceiling on the dry run behind the preview, so a pathological board cannot
-## hang the editor.
-const MAX_SIM_TICKS := 4000
-## How many follow-up attacks one trigger branch may queue in a cycle, however
-## much life the pulse feeding it has. Guards the length of the chain rather
-## than the length of the walk.
-const MAX_TRIGGER_CHAIN := 4
 ## Seconds the "ready again" flash takes to fade.
 const READY_FLASH := 0.45
 ## What one SPEED part multiplies a bolt's velocity by.
 const SPEED_MUL := 1.5
-## Ceiling on the up-front walk, so a pathological board cannot spin a frame.
-const MAX_LEAD := 96
 
 class Pulse extends RefCounted:
 	var cell: Vector2i
@@ -209,6 +199,13 @@ func _tick() -> void:
 	_advance()
 
 ## One tick of every pulse in flight.
+##
+## However wide a board branches, every pulse it makes carries a life of its own
+## and dies when that runs out, so a cast always ends. Nothing else bounds it:
+## there is no ceiling on how many pulses may be in flight. Life limits how far
+## a pulse walks rather than how many there are, so a ring that sends both of
+## its outputs back into itself doubles the count every lap and pays for it out
+## of the same life.
 func _advance() -> void:
 	var next: Array[Pulse] = []
 	for p in pulses:
@@ -217,8 +214,7 @@ func _advance() -> void:
 			next.append(p)
 			continue
 		for np in _exit(p):
-			if next.size() < MAX_PULSES:
-				next.append(np)
+			next.append(np)
 	pulses = next
 
 	if pulses.is_empty():
@@ -295,7 +291,9 @@ func _spend_lead() -> void:
 	_had_effect = false
 	if dry_run or not _reaches_output:
 		return
-	while not _had_effect and not pulses.is_empty() and _lead < MAX_LEAD:
+	# The walk ends at the first effect, or — on a board that never produces one
+	# — when the cast's life does.
+	while not _had_effect and not pulses.is_empty():
 		_lead += 1
 		_advance()
 
@@ -408,12 +406,8 @@ func _chain_trigger(into: Dictionary, p: Payload) -> void:
 		into[p.branch] = stored
 		return
 	var tail: Payload = head
-	var depth := 1
 	while tail.on_hit != null:
 		tail = tail.on_hit
-		depth += 1
-		if depth >= MAX_TRIGGER_CHAIN:
-			return  # the chain is as long as a cycle is allowed to make it
 	tail.on_hit = stored
 
 func _resolve(p: Payload) -> void:
@@ -471,8 +465,10 @@ func simulate() -> Dictionary:
 	dry.fired.connect(func(p: Payload) -> void: outs.append(p))
 	dry.active = true
 	dry._start_cycle()
+	# The dry run ends where the real cast would: when the last pulse has spent
+	# its life and the cooldown is set.
 	var ticks := 0
-	while dry.cooldown <= 0 and ticks < MAX_SIM_TICKS:
+	while dry.cooldown <= 0:
 		if dry.pulses.is_empty():
 			break
 		dry._advance()

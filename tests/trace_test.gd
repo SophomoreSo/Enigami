@@ -147,8 +147,23 @@ func _ready() -> void:
 	while link != null:
 		chain.append(link)
 		link = link.on_hit
-	check(chain.size() == SkillRunner.MAX_TRIGGER_CHAIN,
-		"each lap queues its own follow-up (%d)" % chain.size())
+	check(chain.size() > 1, "each lap queues its own follow-up (%d)" % chain.size())
+	# And the life the pulse carries is the only thing that bounds the chain:
+	# the same board charged less queues fewer follow-ups.
+	var chain_at := func(bonus: int) -> int:
+		var rr := SkillRunner.new(tb)
+		rr.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
+		rr.ttl_bonus = bonus
+		var n := 0
+		var l = (rr.simulate()["triggers"] as Dictionary).get("ON_HIT", null)
+		while l != null:
+			n += 1
+			l = l.on_hit
+		return n
+	var short_chain: int = chain_at.call(12)
+	check(short_chain < chain.size(),
+		"and life is what bounds it: +12 queues %d, +48 queues %d"
+			% [short_chain, chain.size()])
 	var rising := true
 	for i in range(1, chain.size()):
 		if chain[i].damage <= chain[i - 1].damage:
