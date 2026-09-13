@@ -3,7 +3,13 @@ extends Node
 ## the whole wait, measured against how long a cycle really takes, and a flash
 ## at the moment it lands.
 
-const DT := 1.0 / 60.0
+## Finer than a frame, because this measures a cycle rather than plays one: at
+## the base clock a plain board's whole cadence is a couple of frames long, and
+## sampling it every sixtieth of a second cannot tell 0.04s from 0.05s — the
+## readings this asserts on were quantisation, not the runner.
+const DT := 1.0 / 240.0
+## Steps to a second, so a wait can be written as the time it means.
+const SECOND := int(1.0 / DT)
 
 var fails := 0
 
@@ -19,6 +25,17 @@ func make(weapon: String) -> SkillRunner:
 	r.base_payload_provider = func() -> Payload: return Weapons.base_payload(weapon)
 	return r
 
+## Cycles a held skill gets through in `secs`.
+func cycles_in(r: SkillRunner, secs: float) -> int:
+	var n := [0]
+	r.cycle_started.connect(func() -> void: n[0] += 1)
+	r.set_active(true)
+	var t := 0.0
+	while t < secs:
+		r.update(DT)
+		t += DT
+	return n[0]
+
 ## Runs one whole cast at `bonus` charge, and reports how long it took and what
 ## the wipe read on the last frame before the slot came free.
 func cast_at(r: SkillRunner, bonus: int) -> Dictionary:
@@ -27,7 +44,7 @@ func cast_at(r: SkillRunner, bonus: int) -> Dictionary:
 	var ran := false
 	var wipe := 0.0
 	var secs := 0.0
-	for i in 2000:
+	for i in 20 * SECOND:
 		r.update(DT)
 		if not r.is_ready():
 			ran = true
@@ -62,7 +79,7 @@ func _ready() -> void:
 	var was_flash := 0.0
 	var backwards := 0
 	var last := 0.0
-	for i in 200:
+	for i in 3 * SECOND:
 		r.update(DT)
 		var p := r.ready_ratio()
 		if r.ready_flash > was_flash:
@@ -74,7 +91,7 @@ func _ready() -> void:
 		samples.append(p)
 	check(samples.max() > 0.85, "the fill reaches the bottom of the card (%.2f)" % samples.max())
 	check(backwards == 0, "and only ever runs downward, never jumping back (%d reversals)" % backwards)
-	check(flashes >= 2, "a held skill flashes on every landing (%d in %.1fs)" % [flashes, 200 * DT])
+	check(flashes >= 2, "a held skill flashes on every landing (%d in %.1fs)" % [flashes, 3 * SECOND * DT])
 	check(absf(r.cycle_seconds - predicted) < predicted * 0.2,
 		"the fill is measured against the real cycle (%.3fs vs %.3fs preview)"
 			% [r.cycle_seconds, predicted])
@@ -86,27 +103,28 @@ func _ready() -> void:
 		q.update(DT)
 	q.set_active(false)
 	var peak := 0.0
-	for i in 60:
+	for i in SECOND:
 		q.update(DT)
 		peak = maxf(peak, q.ready_flash)
 	check(q.is_ready(), "a released skill settles as ready")
 	check(is_equal_approx(q.ready_ratio(), 1.0), "with the card fully clear (%.2f)" % q.ready_ratio())
 	check(peak > 0.9, "and it flashed when it got there (%.2f)" % peak)
-	for i in 60:
+	for i in SECOND:
 		q.update(DT)
 	check(q.ready_flash <= 0.0, "the flash fades out rather than sticking on")
 
-	# A slower board must take proportionally longer to fill.
-	var slow := make("ROCK")
-	var slow_cycle := float(slow.simulate()["cycle_seconds"])
+	# A slower board must take proportionally longer to fill. Counted over a run
+	# of cycles rather than read off one of them: these two boards are the same
+	# length and separated only by a tick of heat, which is finer than one step
+	# of this loop, so a single reading of either is mostly quantisation.
+	var slow_cycle := float(make("ROCK").simulate()["cycle_seconds"])
 	check(slow_cycle > predicted,
-		"the ROCK board really is the slower one (%.2fs vs %.2fs)" % [slow_cycle, predicted])
-	slow.set_active(true)
-	for i in 200:
-		slow.update(DT)
-	check(slow.cycle_seconds > r.cycle_seconds,
-		"and its slot fills more slowly to match (%.3fs vs %.3fs)"
-			% [slow.cycle_seconds, r.cycle_seconds])
+		"the ROCK board really is the slower one (%.4fs vs %.4fs)" % [slow_cycle, predicted])
+	var slow_n := cycles_in(make("ROCK"), 3.0)
+	var fast_n := cycles_in(make("SWORD"), 3.0)
+	check(slow_n < fast_n,
+		"and its slot fills more slowly to match (%d ROCK cycles in 3s against %d SWORD)"
+			% [slow_n, fast_n])
 
 	# Charging changes how long a cast takes, so one cycle stopped predicting the
 	# next one the moment holding the button bought laps. The wipe has to fill

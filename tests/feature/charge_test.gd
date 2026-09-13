@@ -170,9 +170,21 @@ func _ready() -> void:
 	await frames(4)
 	check(not p.runners[0].is_ready(), "the cast that hold bought is still running")
 	press(true)
-	await wait(0.4)
-	check(p.charge <= 0.01, "holding a recovering skill buys no life (%.1f)" % p.charge)
-	check(p.mana >= Player.MAX_MANA - 0.01, "and spends no mana on it (%.0f)" % p.mana)
+	# Sampled only for as long as it really is recovering, and read before each
+	# frame rather than after it. Both halves of the rule are true at once — the
+	# wait buys nothing, and the same hold starts paying the instant the slot
+	# comes free — so a fixed wait that outlasts the recovery measures the second
+	# half and calls it a failure of the first.
+	var bought := 0.0
+	var spent := 0.0
+	var held := 0.0
+	while held < 0.4 and not p.runners[0].is_ready():
+		bought = maxf(bought, p.charge)
+		spent = maxf(spent, Player.MAX_MANA - p.mana)
+		await get_tree().process_frame
+		held += get_process_delta_time()
+	check(bought <= 0.01, "holding a recovering skill buys no life (%.1f)" % bought)
+	check(spent <= 0.01, "and spends no mana on it (%.1f)" % spent)
 	var guard := 0
 	while not p.runners[0].is_ready() and guard < 900:
 		await get_tree().process_frame

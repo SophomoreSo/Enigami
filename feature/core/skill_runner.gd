@@ -18,9 +18,26 @@ signal dilation_requested(seconds: float)
 signal parry_opened(seconds: float)
 signal cycle_started()
 
-const BASE_TICK := 0.01
+## Seconds one cell of board costs at the base clock. It sets the pace of every
+## skill in the game, the player's and the monsters' alike, because it is the
+## only thing converting a board's length into time.
+##
+## Costs denominated in real seconds — the overclock settling delay and the
+## parry window — deliberately do not move with it, so changing it shifts the
+## balance between walking a board and paying those: at half the tick, a board's
+## own length is half as expensive while an overclock's settling delay costs
+## exactly what it did, which makes stacking overclocks a worse trade than it
+## was.
+const BASE_TICK := 0.005
 const BASE_COOLDOWN_TICKS := 3
 const HEAT_TO_TICKS := 2.2
+## Ticks one `update` may run. It stops a long frame turning into an unbounded
+## catch-up; the ceiling is taken from the frame rather than fixed because a
+## fixed one is a throttle at some clock speed or other. A flat 8 was headroom
+## at a hundredth of a second per tick and a limit at half that, where an
+## overclocked board wants a dozen ticks inside a sixtieth of a second and would
+## quietly have run slower than its own preview promised.
+const MAX_TICKS_PER_UPDATE := 64
 ## Every pulse carries a time to live, counted in parts it may still enter, and
 ## dies when it runs out. That is what keeps a cycle in the board from running
 ## forever. It is per pulse rather than shared across the cast on purpose: with
@@ -219,11 +236,16 @@ func update(delta: float) -> void:
 		ready_flash = maxf(0.0, ready_flash - delta / READY_FLASH)
 	accum += delta
 	var tt := tick_time()
+	var budget := clampi(int(ceil(delta / tt)) + 2, 8, MAX_TICKS_PER_UPDATE)
 	var guard := 0
-	while accum >= tt and guard < 8:
+	while accum >= tt and guard < budget:
 		accum -= tt
 		guard += 1
 		_tick()
+	# A frame that could not run its whole share drops the remainder instead of
+	# banking it. A backlog no later frame has the room to pay off only grows,
+	# and the board would fall further behind the clock the longer it ran.
+	accum = minf(accum, tt)
 
 
 func _tick() -> void:

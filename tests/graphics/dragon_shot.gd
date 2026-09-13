@@ -51,7 +51,9 @@ func _ready() -> void:
 	await shot("21_dragon_charging")
 	screen.player.charge = Player.MAX_CHARGE_TTL
 	mouse(false)
-	await wait(0.55)
+	# Partway down the chain. The whole thing is over in about four tenths of a
+	# second, so this has to be early to catch it running at all.
+	await wait(0.18)
 	await shot("22_dragon_chain")
 	var guard := 0
 	while screen.guards_left > 0 and guard < 600:

@@ -35,7 +35,23 @@ static func container() -> Node:
 ## same destination and landed exactly on top of each other, reading as one
 ## dash that happened to hit four times. A beat between links lets each one
 ## start from where the last finished, and gives each its own dash to watch.
-const TRIGGER_DELAY := 0.14
+##
+## What that needs is the frame after the hit, not a seventh of a second. At
+## 0.14 a nine-link chain spent a second working through a room one metronome
+## beat at a time, which is a chain of separate strikes rather than one long
+## one; this is a few frames, enough to read each link and to let the lunge
+## before it land the attacker.
+const TRIGGER_DELAY := 0.045
+
+## What one connection takes off the clock.
+##
+## A chain's links take the lighter one: the whole chain is a single blow, and
+## stopping the clock in full for each of nine of them reads as a stutter rather
+## than as a strike — and spends most of a second of real time doing it, because
+## every stop slams the scale down and then eases back over the best part of ten
+## frames.
+const HITSTOP := 0.035
+const CHAIN_HITSTOP := 0.010
 
 ## The lunge the DASH component adds to an attack. Its own number rather than
 ## the player's dash speed: this one rides on a skill that has already paid for
@@ -273,7 +289,7 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 	target.knockback(dir, 120.0 + p.damage * 2.0)
 	# A connection stops the clock for a frame. That is a rule — everything in
 	# the fight feels it — so it is applied here and not left to the screen.
-	TimeCtl.hitstop(0.035)
+	TimeCtl.hitstop(CHAIN_HITSTOP if p.follow_up else HITSTOP)
 
 	var killed := target.dead
 	if killed and atk != null and atk.team == 0:
@@ -285,6 +301,14 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 		"aim": dir, "origin": pos, "gravity": false,
 	}
 	if p.on_hit != null:
-		_schedule_spawn(TRIGGER_DELAY, (p.on_hit as Payload).clone(), ctx)
+		_schedule_spawn(TRIGGER_DELAY, _follow(p.on_hit), ctx)
 	if killed and p.on_kill != null:
-		_schedule_spawn(TRIGGER_DELAY, (p.on_kill as Payload).clone(), ctx)
+		_schedule_spawn(TRIGGER_DELAY, _follow(p.on_kill), ctx)
+
+## A link of a chain, marked as belonging to the blow that caused it rather than
+## being one of its own. A parry's riposte is deliberately not marked: that is a
+## separate answer to a separate event, and it should land like one.
+static func _follow(p: Payload) -> Payload:
+	var f: Payload = (p as Payload).clone()
+	f.follow_up = true
+	return f

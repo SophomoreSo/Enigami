@@ -17,6 +17,9 @@ var blink: bool = false            ## teleport behind nearest enemy
 var duplicates: int = 1
 var heat: float = 0.0              ## accumulated while travelling; feeds cycle cooldown
 var branch: String = ""            ## "", "ON_HIT", "ON_KILL", "ON_PARRY"
+## Set on an attack spawned as a trigger's follow-up. The chain it belongs to is
+## one blow, so its links do not each stop the clock like a blow of their own.
+var follow_up: bool = false
 
 ## Trigger payloads resolved from branch flows, attached at fire time.
 var on_hit: Payload = null
@@ -38,6 +41,7 @@ func clone() -> Payload:
 	p.duplicates = duplicates
 	p.heat = heat
 	p.branch = branch
+	p.follow_up = follow_up
 	p.on_hit = on_hit
 	p.on_kill = on_kill
 	p.on_parry = on_parry
