@@ -17,8 +17,6 @@ config/icon="res://icon.svg"
 
 [autoload]
 
-; Order matters: the seam first, then the rules, then what draws them. Delete
-; every graphics entry and the game still runs — that is the point of the split.
 Cues="*res://app/cues.gd"
 Audio="*res://app/audio/audio.gd"
 AudioCues="*res://app/audio/audio_cues.gd"
