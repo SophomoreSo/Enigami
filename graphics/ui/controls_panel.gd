@@ -3,32 +3,40 @@ extends PanelContainer
 
 ## Lists every action and lets one be rebound by pressing a key.
 
+## Set before it enters the tree to build it in UiKit's pixel look. The title's
+## settings do; the pause menu keeps the plain one.
+var pixel: bool = false
+
 var _listening: String = ""
 var _rows: Dictionary = {}
 
 func _ready() -> void:
-	add_theme_stylebox_override("panel", UiKit.style(UiKit.PANEL, Color(0.22, 0.3, 0.38)))
+	add_theme_stylebox_override("panel", UiKit.style(UiKit.PANEL, Color(0.22, 0.3, 0.38), 1, 3, pixel))
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 3)
+	v.add_theme_constant_override("separation", 4 if pixel else 3)
 	add_child(v)
-	v.add_child(UiKit.label("CONTROLS — click a binding, then press a key", 13, UiKit.ACCENT))
-	v.add_child(UiKit.hline())
+	v.add_child(UiKit.label("CONTROLS — click a binding, then press a key", 13, UiKit.ACCENT, pixel))
+	v.add_child(UiKit.hline(pixel))
+	# The pixel face runs up to twice as wide, so both columns widen with it:
+	# 200 holds the longest action name, 352 the longest default binding.
+	var name_width := 200 if pixel else 150
+	var bind_width := 352 if pixel else 200
 	for entry in Controls.ACTIONS:
 		var action: String = entry[0]
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
-		var l := UiKit.label(String(entry[1]), 11)
-		l.custom_minimum_size = Vector2(150, 0)
+		var l := UiKit.label(String(entry[1]), 11, UiKit.TEXT, pixel)
+		l.custom_minimum_size = Vector2(name_width, 0)
 		row.add_child(l)
-		var b := UiKit.button(Controls.label_for(action))
-		b.custom_minimum_size = Vector2(200, 24)
+		var b := UiKit.button(Controls.label_for(action), UiKit.ACCENT, pixel)
+		b.custom_minimum_size = Vector2(bind_width, 24)
 		b.pressed.connect(func() -> void:
 			_listening = action
 			_refresh())
 		row.add_child(b)
 		_rows[action] = b
 		v.add_child(row)
-	var rb := UiKit.button("RESET TO DEFAULTS", UiKit.BAD)
+	var rb := UiKit.button("RESET TO DEFAULTS", UiKit.BAD, pixel)
 	rb.pressed.connect(func() -> void:
 		Controls.reset()
 		_refresh())

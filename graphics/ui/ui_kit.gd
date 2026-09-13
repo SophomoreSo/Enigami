@@ -13,31 +13,44 @@ const GOOD := Color(0.45, 0.95, 0.7)
 const WARN := Color(0.98, 0.72, 0.38)
 const BAD := Color(0.95, 0.45, 0.45)
 
-static func style(bg: Color, border: Color, width: int = 1, radius: int = 3) -> StyleBoxFlat:
+## A pixel look for the same kit, opted into per call with `pixel`. Text is
+## Silkscreen at a multiple of its native 8px, borders are square and a whole
+## number of PIXELs wide, and nothing is antialiased, so a screen built this way
+## reads as the same pixel art as the title and the world. The title's settings
+## use it; the rest of the interface does not yet.
+const PIXEL_FONT := preload("res://graphics/assets/fonts/Silkscreen-Regular.ttf")
+const PIXEL := 2
+const PIXEL_TEXT := 16
+
+static func style(bg: Color, border: Color, width: int = 1, radius: int = 3,
+		pixel: bool = false) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = bg
 	s.border_color = border
-	s.set_border_width_all(width)
-	s.set_corner_radius_all(radius)
+	s.set_border_width_all(width * PIXEL if pixel else width)
+	s.set_corner_radius_all(0 if pixel else radius)
+	s.anti_aliasing = not pixel
 	s.content_margin_left = 10
 	s.content_margin_right = 10
 	s.content_margin_top = 6
 	s.content_margin_bottom = 6
 	return s
 
-static func button(text: String, accent: Color = ACCENT) -> Button:
+static func button(text: String, accent: Color = ACCENT, pixel: bool = false) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.focus_mode = Control.FOCUS_ALL
-	b.add_theme_stylebox_override("normal", style(PANEL, Color(accent.r, accent.g, accent.b, 0.5)))
-	b.add_theme_stylebox_override("hover", style(Color(accent.r, accent.g, accent.b, 0.22), accent))
-	b.add_theme_stylebox_override("pressed", style(Color(accent.r, accent.g, accent.b, 0.35), accent))
-	b.add_theme_stylebox_override("focus", style(Color(0, 0, 0, 0), accent))
-	b.add_theme_stylebox_override("disabled", style(Color(0.1, 0.1, 0.12), Color(0.25, 0.27, 0.3)))
+	b.add_theme_stylebox_override("normal", style(PANEL, Color(accent.r, accent.g, accent.b, 0.5), 1, 3, pixel))
+	b.add_theme_stylebox_override("hover", style(Color(accent.r, accent.g, accent.b, 0.22), accent, 1, 3, pixel))
+	b.add_theme_stylebox_override("pressed", style(Color(accent.r, accent.g, accent.b, 0.35), accent, 1, 3, pixel))
+	b.add_theme_stylebox_override("focus", style(Color(0, 0, 0, 0), accent, 1, 3, pixel))
+	b.add_theme_stylebox_override("disabled", style(Color(0.1, 0.1, 0.12), Color(0.25, 0.27, 0.3), 1, 3, pixel))
 	b.add_theme_color_override("font_color", TEXT)
 	b.add_theme_color_override("font_hover_color", Color.WHITE)
 	b.add_theme_color_override("font_disabled_color", Color(0.4, 0.42, 0.46))
-	b.add_theme_font_size_override("font_size", 13)
+	if pixel:
+		b.add_theme_font_override("font", PIXEL_FONT)
+	b.add_theme_font_size_override("font_size", PIXEL_TEXT if pixel else 13)
 	return b
 
 ## A button layered over a running game. It never takes keyboard focus, so the
@@ -72,16 +85,21 @@ static func draw_cooldown(c: CanvasItem, rect: Rect2, progress: float, flash: fl
 	var f := clampf(flash, 0.0, 1.0)
 	c.draw_rect(rect, border.lerp(Color(1, 1, 1), f * 0.85), false, 1.5 + 2.5 * f)
 
-static func label(text: String, size: int = 13, color: Color = TEXT) -> Label:
+static func label(text: String, size: int = 13, color: Color = TEXT, pixel: bool = false) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.add_theme_color_override("font_color", color)
+	if pixel:
+		# Silkscreen only draws clean at multiples of its native 8px.
+		l.add_theme_font_override("font", PIXEL_FONT)
+		size = maxi(PIXEL_TEXT, snappedi(size, 8))
 	l.add_theme_font_size_override("font_size", size)
 	return l
 
-static func panel(color: Color = PANEL, border: Color = Color(0.22, 0.3, 0.38)) -> PanelContainer:
+static func panel(color: Color = PANEL, border: Color = Color(0.22, 0.3, 0.38),
+		pixel: bool = false) -> PanelContainer:
 	var p := PanelContainer.new()
-	p.add_theme_stylebox_override("panel", style(color, border))
+	p.add_theme_stylebox_override("panel", style(color, border, 1, 3, pixel))
 	return p
 
 static func title(text: String, size: int = 22) -> Label:
@@ -138,8 +156,47 @@ static func spacer(h: int = 8) -> Control:
 	c.custom_minimum_size = Vector2(0, h)
 	return c
 
-static func hline() -> ColorRect:
+static func hline(pixel: bool = false) -> ColorRect:
 	var r := ColorRect.new()
 	r.color = Color(0.25, 0.32, 0.4, 0.7)
-	r.custom_minimum_size = Vector2(0, 1)
+	r.custom_minimum_size = Vector2(0, PIXEL if pixel else 1)
 	return r
+
+## A slider in the pixel look: a flat track whose filled part is the accent, and
+## a square knob in place of the theme's round one.
+static func pixel_slider(s: Slider) -> void:
+	s.add_theme_stylebox_override("slider", _pixel_box(LINE, PIXEL))
+	s.add_theme_stylebox_override("grabber_area", _pixel_box(ACCENT, PIXEL))
+	s.add_theme_stylebox_override("grabber_area_highlight", _pixel_box(ACCENT, PIXEL))
+	s.add_theme_stylebox_override("focus", style(Color(0, 0, 0, 0), ACCENT, 1, 0, true))
+	s.add_theme_icon_override("grabber", _pixel_knob(TEXT))
+	s.add_theme_icon_override("grabber_highlight", _pixel_knob(Color.WHITE))
+	s.add_theme_icon_override("grabber_disabled", _pixel_knob(DIM))
+
+## A scroll container in the pixel look: flat, square bars four PIXELs wide, and
+## a square focus border in place of the theme's rounded one, which the
+## container draws through an internal panel of its own.
+static func pixel_scroll(sc: ScrollContainer) -> void:
+	sc.add_theme_stylebox_override("focus", style(Color(0, 0, 0, 0), ACCENT, 1, 0, true))
+	for bar: ScrollBar in [sc.get_v_scroll_bar(), sc.get_h_scroll_bar()]:
+		bar.add_theme_stylebox_override("scroll", _pixel_box(PANEL, PIXEL * 2))
+		bar.add_theme_stylebox_override("scroll_focus", _pixel_box(PANEL, PIXEL * 2))
+		bar.add_theme_stylebox_override("grabber", _pixel_box(LINE, PIXEL * 2))
+		bar.add_theme_stylebox_override("grabber_highlight", _pixel_box(ACCENT, PIXEL * 2))
+		bar.add_theme_stylebox_override("grabber_pressed", _pixel_box(ACCENT, PIXEL * 2))
+
+## A flat, borderless, unsmoothed box. Its margins are what give a slider track
+## or a scrollbar its thickness.
+static func _pixel_box(bg: Color, margin: int) -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = bg
+	s.anti_aliasing = false
+	s.set_content_margin_all(margin)
+	return s
+
+## The slider knob: a block of `fill` inside a one-PIXEL dark border.
+static func _pixel_knob(fill: Color) -> ImageTexture:
+	var img := Image.create_empty(PIXEL * 6, PIXEL * 8, false, Image.FORMAT_RGBA8)
+	img.fill(BG)
+	img.fill_rect(Rect2i(PIXEL, PIXEL, PIXEL * 4, PIXEL * 6), fill)
+	return ImageTexture.create_from_image(img)
