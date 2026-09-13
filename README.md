@@ -47,6 +47,7 @@ SHOTS_DIR=/tmp/shots godot res://tests/graphics/shots.tscn   # ...or wherever yo
 | mouse / right stick | aim, and where a lunge lands |
 | TAB | open assembly — **the raid keeps running**; TAB, ESC or the CLOSE button leaves it |
 | F | interact: talk to an NPC (again for the next line), and hold to extract |
+| W / S, ↑ / ↓ | when an NPC asks a question, move between answers; F gives the highlighted one |
 | ESC | pause |
 
 Gamepad: left stick moves, A jumps, B dashes, the right trigger attacks and the

@@ -1,7 +1,8 @@
 extends Node2D
 ## Talking to an NPC: interact only works up close, a press finishes a line
-## still coming in before it moves on, the last press ends the conversation, and
-## walking away ends it too. Attacks never treat a bystander as a target.
+## still coming in before it moves on, a question waits for an answer picked
+## with up and down, the answer decides what comes next, and walking away ends
+## it. Attacks never treat a bystander as a target.
 
 var fails := 0
 
@@ -27,13 +28,20 @@ func solid(centre: Vector2, size: Vector2) -> void:
 	b.add_child(cs)
 	add_child(b)
 
-## Presses interact the way a player does. A synthetic press only reads as
+## Presses an action the way a player does. A synthetic press only reads as
 ## just-pressed on the physics frame after it, so give it two.
-func press() -> void:
-	Input.action_press("interact")
+func press(action: String = "interact") -> void:
+	Input.action_press(action)
 	await phys(2)
-	Input.action_release("interact")
+	Input.action_release(action)
 	await phys(1)
+
+## Waits for the current line to finish typing by itself.
+func listen(n: Npc) -> void:
+	var guard := 0
+	while n.is_talking() and not n.line_finished() and guard < 600:
+		await get_tree().physics_frame
+		guard += 1
 
 func _ready() -> void:
 	solid(Vector2(600, 500), Vector2(2000, 200))
@@ -49,11 +57,16 @@ func _ready() -> void:
 	n.position = Vector2(600, 380)
 	add_child(n)
 	var ended := [0]
+	var picks: Array = []
 	n.conversation_ended.connect(func(_n: Npc) -> void: ended[0] += 1)
+	n.choice_made.connect(func(_n: Npc, from: String, i: int) -> void: picks.append([from, i]))
 	await phys(40)
 
 	check(n.is_on_floor(), "the NPC stands on the floor")
 	check(not n.is_in_group("actors"), "and is no target for attacks")
+	for id in Npc.CATALOGUE:
+		check(Npc.broken_links(id).is_empty(),
+			"every answer in %s's dialogue leads somewhere real %s" % [id, str(Npc.broken_links(id))])
 
 	# Too far away.
 	await press()
@@ -65,38 +78,87 @@ func _ready() -> void:
 	check(n.in_range, "standing next to them is in range")
 	check(n.facing == -1, "and they turn to face the player")
 	await press()
-	check(n.line_index == 0, "a press starts the conversation on the first line (%d)" % n.line_index)
+	check(n.node_id == "hello", "a press starts the conversation at the start (%s)" % n.node_id)
 	check(not n.line_finished(), "which types out rather than appearing at once")
 
 	# A press mid-line finishes it without skipping ahead.
 	await press()
-	check(n.line_index == 0 and n.line_finished(), "a press mid-line finishes that line")
+	check(n.node_id == "hello" and n.line_finished(), "a press mid-line finishes that line")
 	await press()
-	check(n.line_index == 1 and n.revealed < 3.0, "the next press moves on to the next line")
+	check(n.node_id == "ask", "the next press follows the line on to the question")
 
-	# Letting a line finish on its own.
-	await phys(int(float(n.current_line().length()) / Npc.REVEAL_RATE * 60.0) + 10)
-	check(n.line_finished(), "a line finishes revealing on its own")
+	# A question can't be answered before it has been asked.
+	await press("move_down")
+	check(not n.is_choosing() and n.selected == 0, "the answers wait until the question is out")
+	await listen(n)
+	check(n.is_choosing() and n.choices().size() == 4, "then four answers are open (%d)" % n.choices().size())
 
-	# Through to the end.
-	var guard := 0
-	while n.is_talking() and guard < 20:
-		await press()
-		guard += 1
-	check(not n.is_talking() and ended[0] == 1,
-		"a press on the last line ends it (%d presses, ended %d)" % [guard, ended[0]])
+	# Moving the highlight, wrapping both ways.
+	await press("move_down")
+	check(n.selected == 1, "down moves to the next answer (%d)" % n.selected)
+	await press("move_up")
+	await press("move_up")
+	check(n.selected == 3, "up past the first wraps to the last (%d)" % n.selected)
+	await press("move_down")
+	check(n.selected == 0, "down past the last wraps to the first (%d)" % n.selected)
+
+	# The answer decides what comes next.
+	await press("move_down")
 	await press()
-	check(n.line_index == 0, "and talking again starts over")
+	check(n.node_id == "charge", "picking 'What does charging do?' leads to its answer (%s)" % n.node_id)
+	check(picks.size() == 1 and picks[0] == ["ask", 1], "and reports which answer was given (%s)" % str(picks))
+	check(n.selected == 0, "a new line starts with the highlight back on top")
+	await listen(n)
+	await press()
+	check(n.node_id == "ask_again", "a plain line after it carries on (%s)" % n.node_id)
 
-	# Walking away mid-conversation.
+	# An answer can lead into another question.
 	p.global_position = Vector2(300, n.global_position.y)
 	await phys(2)
-	check(not n.is_talking() and ended[0] == 2, "walking away ends the conversation")
+	check(not n.is_talking() and ended[0] == 1, "walking away mid-question ends the conversation")
+	p.global_position = Vector2(560, n.global_position.y)
+	await phys(2)
+	await press()
+	check(n.node_id == "hello", "and talking again starts over")
+	await listen(n)
+	await press()
+	await listen(n)
+	await press("move_down")
+	await press("move_down")
+	await press()
+	check(n.node_id == "who", "picking 'Who are you?' leads to its line (%s)" % n.node_id)
+	await listen(n)
+	check(n.is_choosing() and n.choices().size() == 2, "which asks a question of its own")
+	await press("move_down")
+	await press()
+	check(n.node_id == "ask", "'Back to my questions' returns to the first question (%s)" % n.node_id)
+
+	# An answer that leads nowhere ends it on the spot.
+	await listen(n)
+	await press("move_up")
+	await press()
+	check(not n.is_talking() and ended[0] == 2, "'Nothing. Bye.' ends the conversation at once")
+
+	# A goodbye line ends it on the press after.
+	await press()
+	await listen(n)
+	await press()
+	await listen(n)
+	await press("move_down")
+	await press()
+	await listen(n)
+	await press()
+	check(n.node_id == "ask_again", "reached 'Anything else?' (%s)" % n.node_id)
+	await listen(n)
+	await press("move_up")
+	await press()
+	check(n.node_id == "bye" and not n.has_more(), "'That's all' leads to a last line (%s)" % n.node_id)
+	await listen(n)
+	await press()
+	check(not n.is_talking() and ended[0] == 3, "and a press on it ends the conversation")
 
 	# Locked input, like the skill editor being open.
-	p.global_position = Vector2(560, n.global_position.y)
 	p.input_locked = true
-	await phys(2)
 	await press()
 	check(not n.is_talking(), "no conversation starts while the player's input is locked")
 	p.input_locked = false

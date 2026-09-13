@@ -3,17 +3,22 @@ extends Node2D
 
 ## A bystander: their character from the atlas, a prompt over their head while
 ## the player is close enough to talk, and a speech bubble holding the line they
-## are saying.
+## are saying — with the answers under it when the line is a question.
 
 ## Text wraps inside this.
-const BUBBLE_WIDTH := 170.0
+const BUBBLE_WIDTH := 190.0
 const BUBBLE_PAD := Vector2(8.0, 6.0)
 ## Space between the top of the head and the tip of the bubble's tail.
 const BUBBLE_GAP := 6.0
 const TAIL := Vector2(6.0, 8.0)
 const TEXT_SIZE := 10
 const NAME_SIZE := 9
+const HINT_SIZE := 8
 const CORNER := 5
+## How far an answer sits in from the line, to leave room for the marker.
+const CHOICE_INDENT := 12.0
+## Space between the line and the first answer, and after the last.
+const CHOICE_GAP := 5.0
 
 var npc: Npc
 var sprite: AnimatedSprite2D
@@ -79,16 +84,29 @@ func _draw_bubble() -> void:
 		_draw_prompt(tip_y)
 
 func _draw_speech(tip_y: float) -> void:
-	# Wrapped from the whole line, not the part revealed so far, so a word never
-	# jumps to the next row halfway through coming in and the bubble never grows
-	# under the reader's eye.
-	var rows := _wrap(npc.current_line(), BUBBLE_WIDTH)
 	var line_h := _font.get_height(TEXT_SIZE)
 	var name_h := _font.get_height(NAME_SIZE)
-	var inner := Vector2(_font.get_string_size(npc.display_name, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE).x,
-		name_h + line_h * rows.size())
+	var hint_h := _font.get_height(HINT_SIZE)
+	# Wrapped from the whole line, not the part revealed so far, so a word never
+	# jumps to the next row halfway through coming in.
+	var rows := _wrap(npc.current_line(), BUBBLE_WIDTH, TEXT_SIZE)
+	var options: Array = []
+	for c in npc.choices():
+		options.append(_wrap(String(c.get("text", "")), BUBBLE_WIDTH - CHOICE_INDENT, TEXT_SIZE))
+	var hint := _choice_hint()
+
+	# Sized for the answers from the first letter, even though they only appear
+	# once the question is out, so the bubble never grows under the reader's eye.
+	var inner := Vector2(_width(npc.display_name, NAME_SIZE), name_h + line_h * rows.size())
 	for row in rows:
-		inner.x = maxf(inner.x, _font.get_string_size(row, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE).x)
+		inner.x = maxf(inner.x, _width(row, TEXT_SIZE))
+	if not options.is_empty():
+		inner.y += CHOICE_GAP * 2.0 + hint_h
+		inner.x = maxf(inner.x, _width(hint, HINT_SIZE))
+		for opt in options:
+			inner.y += line_h * opt.size()
+			for row in opt:
+				inner.x = maxf(inner.x, CHOICE_INDENT + _width(row, TEXT_SIZE))
 	var size := inner + BUBBLE_PAD * 2.0
 	var body := Rect2(Vector2(-size.x * 0.5, tip_y - TAIL.y - size.y), size)
 
@@ -103,20 +121,35 @@ func _draw_speech(tip_y: float) -> void:
 	]), Style.SPEECH_EDGE, 2.0)
 
 	var pen := body.position + BUBBLE_PAD
-	bubble.draw_string(_font, pen + Vector2(0, _font.get_ascent(NAME_SIZE)), npc.display_name,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, Style.SPEECH_NAME)
+	_text(pen, npc.display_name, NAME_SIZE, Style.SPEECH_NAME)
 	pen.y += name_h
 	var left := int(npc.revealed)
 	for row in rows:
-		if left <= 0:
-			break
-		bubble.draw_string(_font, pen + Vector2(0, _font.get_ascent(TEXT_SIZE)), row.left(left),
-			HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, Style.SPEECH_TEXT)
+		if left > 0:
+			_text(pen, row.left(left), TEXT_SIZE, Style.SPEECH_TEXT)
 		left -= row.length() + 1   # the space the wrap swallowed
 		pen.y += line_h
 
-	# A blinking marker once the line is out, when a press has more to say.
-	if npc.line_finished() and npc.has_more() and fmod(_t, 0.8) < 0.5:
+	if npc.is_choosing():
+		pen.y += CHOICE_GAP
+		for i in options.size():
+			var opt: PackedStringArray = options[i]
+			var chosen := i == npc.selected
+			if chosen:
+				bubble.draw_rect(Rect2(pen.x - 3.0, pen.y, inner.x + 6.0, line_h * opt.size()),
+					Style.SPEECH_CHOICE_FILL)
+				var mid := pen.y + line_h * 0.5
+				bubble.draw_colored_polygon(PackedVector2Array([
+					Vector2(pen.x + 1.0, mid - 4.0), Vector2(pen.x + 7.0, mid), Vector2(pen.x + 1.0, mid + 4.0),
+				]), Style.SPEECH_NAME)
+			for row in opt:
+				_text(pen + Vector2(CHOICE_INDENT, 0), row, TEXT_SIZE,
+					Style.SPEECH_TEXT if chosen else Style.SPEECH_CHOICE)
+				pen.y += line_h
+		pen.y += CHOICE_GAP
+		_text(pen, hint, HINT_SIZE, Style.SPEECH_HINT)
+	elif npc.line_finished() and npc.has_more() and fmod(_t, 0.8) < 0.5:
+		# A blinking marker once the line is out, when a press has more to say.
 		var m := body.end - BUBBLE_PAD
 		bubble.draw_colored_polygon(PackedVector2Array([
 			m + Vector2(-8, -5), m + Vector2(0, -5), m + Vector2(-4, 0),
@@ -124,21 +157,33 @@ func _draw_speech(tip_y: float) -> void:
 
 func _draw_prompt(tip_y: float) -> void:
 	var text := "%s  Talk" % Controls.short_label_for("interact")
-	var w := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE).x
+	var w := _width(text, NAME_SIZE)
 	var bob := sin(_t * 4.0) * 1.5
 	var body := Rect2(Vector2(-w * 0.5 - 5.0, tip_y - 16.0 + bob), Vector2(w + 10.0, 15.0))
 	bubble.draw_style_box(_prompt_box, body)
-	bubble.draw_string(_font, Vector2(body.position.x + 5.0, body.position.y + 3.0 + _font.get_ascent(NAME_SIZE)),
-		text, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, Style.SPEECH_PROMPT_TEXT)
+	_text(body.position + Vector2(5.0, 3.0), text, NAME_SIZE, Style.SPEECH_PROMPT_TEXT)
+
+## How to answer, in whatever the player has the keys bound to.
+func _choice_hint() -> String:
+	return "%s/%s choose  ·  %s answer" % [Controls.short_label_for("move_up"),
+		Controls.short_label_for("move_down"), Controls.short_label_for("interact")]
+
+## Draws `text` with its top-left corner at `pos`.
+func _text(pos: Vector2, text: String, size: int, color: Color) -> void:
+	bubble.draw_string(_font, pos + Vector2(0, _font.get_ascent(size)), text,
+		HORIZONTAL_ALIGNMENT_LEFT, -1, size, color)
+
+func _width(text: String, size: int) -> float:
+	return _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 
 ## Greedy word wrap into rows no wider than `width`. A single word wider than
 ## the bubble gets a row of its own rather than being split.
-func _wrap(text: String, width: float) -> PackedStringArray:
+func _wrap(text: String, width: float, size: int) -> PackedStringArray:
 	var rows := PackedStringArray()
 	var row := ""
 	for word in text.split(" ", false):
 		var trial := word if row == "" else row + " " + word
-		if row != "" and _font.get_string_size(trial, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE).x > width:
+		if row != "" and _width(trial, size) > width:
 			rows.append(row)
 			row = word
 		else:

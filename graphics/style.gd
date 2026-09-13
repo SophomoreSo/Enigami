@@ -180,6 +180,10 @@ const SPEECH_TEXT := Color(0.1, 0.11, 0.14)
 const SPEECH_NAME := Color(0.42, 0.33, 0.62)
 const SPEECH_PROMPT_FILL := Color(0.05, 0.06, 0.08, 0.8)
 const SPEECH_PROMPT_TEXT := Color(0.86, 0.9, 0.96)
+## Answers not yet picked are faded ink; the highlighted one sits on a wash.
+const SPEECH_CHOICE := Color(0.36, 0.37, 0.42)
+const SPEECH_CHOICE_FILL := Color(0.42, 0.33, 0.62, 0.16)
+const SPEECH_HINT := Color(0.5, 0.5, 0.55)
 
 ## --- the world --------------------------------------------------------------
 const ROOM_BG := Color(0.075, 0.085, 0.11)
