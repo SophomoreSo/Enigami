@@ -11,16 +11,24 @@ config_version=5
 [application]
 
 config/name="Enigami"
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="res://app/main.tscn"
 config/features=PackedStringArray("4.5")
 config/icon="res://icon.svg"
 
 [autoload]
 
-GameState="*res://scripts/core/game_state.gd"
-Sprites="*res://scripts/core/sprites.gd"
-Fx="*res://scripts/core/fx.gd"
-Audio="*res://scripts/core/audio.gd"
+; Order matters: the seam first, then the rules, then what draws them. Delete
+; every graphics entry and the game still runs — that is the point of the split.
+Cues="*res://app/cues.gd"
+Audio="*res://app/audio/audio.gd"
+AudioCues="*res://app/audio/audio_cues.gd"
+Arena="*res://feature/core/arena.gd"
+TimeCtl="*res://feature/core/time_control.gd"
+GameState="*res://feature/core/game_state.gd"
+Sprites="*res://graphics/sprites.gd"
+Fx="*res://graphics/fx.gd"
+Views="*res://graphics/views.gd"
+CueVisuals="*res://graphics/cue_visuals.gd"
 
 [display]
 

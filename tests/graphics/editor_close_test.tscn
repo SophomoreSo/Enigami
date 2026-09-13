@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3]
+[ext_resource type="Script" path="res://tests/graphics/editor_close_test.gd" id="1_c"]
+[node name="EditorClose" type="Node"]
+script = ExtResource("1_c")

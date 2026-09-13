@@ -5,29 +5,32 @@ and loot is only yours once you walk it out of the raid.
 
 Built on Godot 4.5. Actors are animated sprites cut at runtime from one CC0
 atlas ([0x72's 16x16 DungeonTileset II](https://0x72.itch.io/dungeontileset-ii),
-see `assets/sprites/CREDITS.md`); everything else — rooms, attacks, effects and
-the whole UI — is still drawn from primitives, and every sound is synthesised
-at boot.
+see `graphics/assets/sprites/CREDITS.md`); everything else — rooms, attacks,
+effects and the whole UI — is still drawn from primitives, and every sound is
+synthesised at boot.
+
+The rules and the picture are two separate modules, `feature/` and `graphics/`,
+with a one-way seam between them — see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Running
 
 ```bash
 godot                      # opens the project
-godot res://tests/smoke.tscn   # drives every screen and asserts the core rules
-godot res://tests/jump_test.tscn    # ground jump, wall kick and the air jump
-godot res://tests/focus_test.tscn   # in-game buttons never steal the keyboard
-godot res://tests/trigger_test.tscn # a trigger chain lands as separate attacks
-godot res://tests/cooldown_test.tscn # the numbers behind the slot cooldown wipe
-godot res://tests/speed_test.tscn   # the SPEED part, and bolt collision at speed
-godot res://tests/dash_test.tscn    # where a lunge lands, aimed and auto-aimed
-godot res://tests/select_test.tscn  # arming a slot, and what each button fires
-godot res://tests/weapon_fit_test.tscn  # a weapon refuses skills it cannot carry
-godot res://tests/stamina_test.tscn # the dash budget under the health bar
-godot res://tests/menu_fit_test.tscn # menus stay on screen and scroll the rest
-godot res://tests/ttl_test.tscn     # a pulse's life, and what bounds a loop
-godot res://tests/charge_test.tscn  # holding the cast button buys life for mana
-godot res://tests/shots.tscn   # writes a screenshot of each screen to user://shots
-SHOTS_DIR=/tmp/shots godot res://tests/shots.tscn   # ...or wherever you point it
+godot res://tests/shared/smoke.tscn   # drives every screen and asserts the core rules
+godot res://tests/feature/jump_test.tscn    # ground jump, wall kick and the air jump
+godot res://tests/graphics/focus_test.tscn   # in-game buttons never steal the keyboard
+godot res://tests/feature/trigger_test.tscn # a trigger chain lands as separate attacks
+godot res://tests/feature/cooldown_test.tscn # the numbers behind the slot cooldown wipe
+godot res://tests/feature/speed_test.tscn   # the SPEED part, and bolt collision at speed
+godot res://tests/feature/dash_test.tscn    # where a lunge lands, aimed and auto-aimed
+godot res://tests/feature/select_test.tscn  # arming a slot, and what each button fires
+godot res://tests/feature/weapon_fit_test.tscn  # a weapon refuses skills it cannot carry
+godot res://tests/feature/stamina_test.tscn # the dash budget under the health bar
+godot res://tests/graphics/menu_fit_test.tscn # menus stay on screen and scroll the rest
+godot res://tests/feature/ttl_test.tscn     # a pulse's life, and what bounds a loop
+godot res://tests/feature/charge_test.tscn  # holding the cast button buys life for mana
+godot res://tests/graphics/shots.tscn   # writes a screenshot of each screen to user://shots
+SHOTS_DIR=/tmp/shots godot res://tests/graphics/shots.tscn   # ...or wherever you point it
 ```
 
 ## Controls
@@ -187,11 +190,24 @@ Extraction needs a held input so nothing ends by accident.
 
 ## Layout
 
+Two modules, and a shell around them. `graphics/` may read `feature/`;
+`feature/` never mentions `graphics/`. See [ARCHITECTURE.md](ARCHITECTURE.md)
+for the seam between them.
+
 ```
-scripts/core/      components, payload, board, runner, state, audio, fx, controls
-scripts/actors/    actor base, player, monster catalogue, monster AI
-scripts/attacks/   projectile, melee arc, area burst, dash slash, spawner
-scripts/world/     room generation, raid map graph, raid loop, sandbox, pickups
-scripts/ui/        skill editor, HUD, hideout, title, results, controls panel
-tests/             smoke, movement, board tracing, timing, screenshot capture
+app/               entry scene, screen flow, the cue bus, the sound bank
+feature/core/      components, payload, board, runner, state, time control
+feature/actors/    actor base, player, monster catalogue, monster AI
+feature/attacks/   projectile, melee arc, area burst, dash slash, spawner
+feature/world/     room generation, raid map graph, raid loop, sandbox, pickups
+graphics/          the atlas, screen effects, the palette, view attachment
+graphics/views/    one view per gameplay node: actors, attacks, rooms, loot
+graphics/ui/       skill editor, HUD, hideout, title, results, bench panel
+graphics/assets/   the sprite atlas and the actor shader
+tests/feature/     movement, board tracing, timing — rules, run headless
+tests/graphics/    editor input, focus, menus, screenshot capture — need a window
+tests/shared/      the smoke test, which walks the whole game
 ```
+
+`tests/feature` runs under `--headless`; `tests/graphics` drives the mouse and
+needs a real window.
