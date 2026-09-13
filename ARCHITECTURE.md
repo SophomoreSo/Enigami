@@ -99,7 +99,7 @@ files and a handler on the presentation side.
 
 | Change | File |
 |---|---|
-| New skill component | `feature/core/components.gd` + its rule in `skill_runner.gd`; its glyph in `graphics/style.gd` |
+| New skill component | `feature/core/components.gd` + its rule in `skill_runner.gd`; its colour, glyph and icon in `graphics/style.gd` |
 | New monster | `feature/actors/monsters.gd`; its sprite and colour in `graphics/style.gd` |
 | New NPC or dialogue | a file in `data/dialogue/` — see its README; no code. New *kinds* of direction: `graphics/ui/dialogue_box.gd` (emotion, portrait), `graphics/views/npc_view.gd` (camera), `app/audio/audio_cues.gd` (sound) |
 | What an emotion looks like | `EMOTIONS` in `graphics/style.gd` |

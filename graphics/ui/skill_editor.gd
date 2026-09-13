@@ -4,6 +4,14 @@ extends Control
 ## The assembly screen. It is deliberately not a safe menu: in a raid the world
 ## keeps running behind it, so the panel stays translucent and compact and every
 ## action is a single click.
+##
+## Drawn in UiKit's pixel look, like the title and its settings: text is the
+## pixel face at PIXEL_TEXT, and every fill, border, arrow and icon is whole
+## PIXELs laid on the PIXEL grid, so the board reads as the same pixel art as the
+## world under it. All of it goes through the helpers at the bottom, which snap
+## to that grid — an edge off it puts a stroke across two rows of the grid
+## instead of on one. The pixel face has almost none of the symbols in `Style`'s
+## part glyphs, so parts are drawn as their `Style.component_icon` instead.
 
 signal board_changed(slot: int)
 signal closed()
@@ -11,9 +19,12 @@ signal closed()
 const CELL := 50
 const BOARD_ORIGIN := Vector2(48, 104)
 const PAL_ORIGIN := Vector2(700, 104)
-const PAL_COLS := 4
-const PAL_W := 132
-const PAL_H := 46
+## Two wide columns of one-line rows rather than four of two-line tiles: the
+## pixel face runs up to twice as wide as the one the palette was laid out for,
+## and the longest part name takes 130 of a row.
+const PAL_COLS := 2
+const PAL_W := 264
+const PAL_H := 30
 
 var boards: Array = []               ## Array[SkillBoard]
 var slot: int = 0
@@ -42,13 +53,17 @@ var _trace_cache: Dictionary = {}
 var _sim_dirty: bool = true
 var _message: String = ""
 var _message_time: float = 0.0
-var _font: Font
+var _ports: Array = []               ## PORT turned to face each direction
+var _arrows: Array = []              ## ARROW likewise, for the drag chip
 
 func _ready() -> void:
-	_font = ThemeDB.fallback_font
 	UiKit.fill_screen(self)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_ALL
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	for d in 4:
+		_ports.append(_turn(PORT, d))
+		_arrows.append(_turn(ARROW, d))
 	set_process(true)
 
 func configure(b: Array, inv: Dictionary, unlim: bool, rs: Array = []) -> void:
@@ -115,15 +130,23 @@ func _input(event: InputEvent) -> void:
 			return
 	get_viewport().set_input_as_handled()
 
-const TAB_ORIGIN := Vector2(420, 20)
-const TAB_W := 160
-const TAB_SIZE := Vector2(150, 46)
+## The slot tabs share the header's top row with the title and CLOSE.
+const TAB_ORIGIN := Vector2(420, 14)
+const TAB_H := 30.0
+const TAB_GAP := 8.0
+const TAB_MAX_W := 236.0
+const CLOSE_W := 100.0
 
+## Each tab as wide as the room between the title and CLOSE allows, up to
+## TAB_MAX_W: the sandbox can bring four boards.
 func _tab_rect(i: int) -> Rect2:
-	return Rect2(TAB_ORIGIN + Vector2(i * TAB_W, 0), TAB_SIZE)
+	var room := _close_rect().position.x - 16.0 - TAB_ORIGIN.x
+	var n := maxi(boards.size(), 1)
+	var w := minf(TAB_MAX_W, floorf((room + TAB_GAP) / n / PX) * PX - TAB_GAP)
+	return Rect2(TAB_ORIGIN + Vector2(i * (w + TAB_GAP), 0), Vector2(w, TAB_H))
 
 func _close_rect() -> Rect2:
-	return Rect2(get_viewport_rect().size.x - 88.0, 14.0, 72.0, 30.0)
+	return Rect2(get_viewport_rect().size.x - 16.0 - CLOSE_W, 14.0, CLOSE_W, 30.0)
 
 func _update_hover(pos: Vector2) -> void:
 	_hover_cell = Vector2i(-1, -1)
@@ -319,12 +342,38 @@ func _notify(msg: String) -> void:
 	_message = msg
 	_message_time = 2.2
 
-func _count(id: String) -> String:
-	if unlimited or Components.is_structural(id):
-		return "∞"
-	return str(int(inventory.get(id, 0)))
-
 ## --- drawing ----------------------------------------------------------------
+const PX := UiKit.PIXEL
+const FONT := UiKit.PIXEL_FONT
+const FONT_SIZE := UiKit.PIXEL_TEXT
+## Baseline to baseline. Capitals stand 10px tall at PIXEL_TEXT and nothing in
+## the face descends, so this leaves 10px clear between rows.
+const LINE := 20.0
+const HEADER_H := 84.0
+## Five rows and the controls line under them. The biggest board a Workbench
+## grows, and the palette, both end above it.
+const INFO_H := 144.0
+const INFO_ROWS := 5
+const INFO_LEFT_W := 604.0
+
+## A part's icon is drawn this many PIXELs per bitmap pixel on the board, and
+## one PIXEL per bitmap pixel everywhere else.
+const ICON_ZOOM := 2
+## An empty cell of the board, and what a part sits on.
+const CELL_FILL := Color(0.11, 0.13, 0.17)
+const CELL_EDGE := Color(0.2, 0.24, 0.3)
+
+## What the pixel face has no glyph for, as bitmaps: one string per row, `#` for
+## a PIXEL. Arrows point east and are turned to face the others.
+const PORT := ["#..", "##.", "###", "##.", "#.."]
+const ARROW := ["..#..", "...#.", "#####", "...#.", "..#.."]
+const CROSS := ["#...#", ".#.#.", "..#..", ".#.#.", "#...#"]
+const CHAIN := ["#....", "#....", "#..#.", "#####", "...#."]
+const DOT := ["###", "###", "###"]
+## Wide enough to read as two loops rather than as two more digits — it sits in
+## the same column as counts like "x2", and a tighter one came out as "x00".
+const INFINITY := [".##...##.", "#..#.#..#", "#...#...#", "#..#.#..#", ".##...##."]
+
 func _draw() -> void:
 	var vp := get_viewport_rect().size
 	# Only a light veil: the fight behind this panel has to stay readable.
@@ -335,46 +384,56 @@ func _draw() -> void:
 	_draw_info(vp)
 	_draw_drag()
 
-func _draw_header(vp: Vector2) -> void:
-	draw_rect(Rect2(0, 0, vp.x, 84), Color(0.07, 0.08, 0.11, 0.9))
-	draw_line(Vector2(0, 84), Vector2(vp.x, 84), Color(0.3, 0.5, 0.7, 0.6), 1.5)
-	var text_width := TAB_ORIGIN.x - 64.0
-	draw_string(_font, Vector2(48, 34), title_text, HORIZONTAL_ALIGNMENT_LEFT, text_width, 18, Color(0.85, 0.92, 1.0))
+## Traits matter more than flavour here: the preview below is computed with them.
+func _traits_text() -> String:
 	var wdef := Weapons.get_def(weapon_id)
-	# Traits matter more than flavour here: the preview below is computed with them.
-	draw_string(_font, Vector2(48, 58), "%s · melee x%.2f · ranged x%.2f · bolt speed x%.2f" % [
-		wdef["name"], float(wdef["melee_mul"]), float(wdef["ranged_mul"]), float(wdef["projectile_speed"])],
-		HORIZONTAL_ALIGNMENT_LEFT, text_width, 11, Color(0.6, 0.7, 0.8))
+	return "%s · melee x%.2f · ranged x%.2f · bolt speed x%.2f" % [
+		wdef["name"], float(wdef["melee_mul"]), float(wdef["ranged_mul"]), float(wdef["projectile_speed"])]
+
+func _draw_header(vp: Vector2) -> void:
+	_px_rect(Rect2(0, 0, vp.x, HEADER_H), Color(0.07, 0.08, 0.11, 0.9))
+	_px_rect(Rect2(0, HEADER_H, vp.x, PX), Color(0.3, 0.5, 0.7, 0.6))
+	_text(Vector2(48, 34), title_text, Color(0.85, 0.92, 1.0), TAB_ORIGIN.x - 64.0)
+	_text(Vector2(48, 70), _traits_text(), Color(0.6, 0.7, 0.8), vp.x - 96.0)
 
 	for i in boards.size():
 		var b: SkillBoard = boards[i]
 		var r := _tab_rect(i)
 		var active := i == slot
-		draw_rect(r, Color(0.18, 0.3, 0.42, 0.9) if active else Color(0.11, 0.13, 0.17, 0.9))
-		draw_rect(r, Color(0.45, 0.8, 1.0) if active else Color(0.28, 0.33, 0.4), false, 1.5)
-		draw_string(_font, r.position + Vector2(10, 20), "SLOT %d" % (i + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.7, 0.85, 1.0))
-		draw_string(_font, r.position + Vector2(10, 37), b.skill_name, HORIZONTAL_ALIGNMENT_LEFT, 136, 12, Color(0.9, 0.95, 1.0))
+		var edge := Color(0.45, 0.8, 1.0) if active else Color(0.28, 0.33, 0.4)
+		_px_rect(r, Color(0.18, 0.3, 0.42, 0.9) if active else Color(0.11, 0.13, 0.17, 0.9))
+		_px_frame(r, edge)
+		# The slot's number on a key, since that key is what selects it.
+		var key := Rect2(r.position + Vector2(6, 6), Vector2(18, 18))
+		_px_rect(key, edge)
+		var digit := str(i + 1)
+		_text(key.position + Vector2((key.size.x - _ink_width(digit)) * 0.5, 14), digit,
+			Color(0.07, 0.08, 0.11) if active else Color(0.8, 0.86, 0.94))
+		_text(r.position + Vector2(32, 20), b.skill_name, Color(0.9, 0.95, 1.0), r.size.x - 40.0)
 		if i == _hover_tab and not active:
-			draw_rect(r, Color(1, 1, 1, 0.35), false, 1.2)
+			_px_frame(r, Color(1, 1, 1, 0.35))
 	var cr := _close_rect()
-	draw_rect(cr, Color(0.45, 0.18, 0.2, 0.9) if _hover_close else Color(0.14, 0.12, 0.14, 0.9))
-	draw_rect(cr, Color(1.0, 0.55, 0.55) if _hover_close else Color(0.45, 0.4, 0.44), false, 1.4)
-	draw_string(_font, cr.position + Vector2(0, 20), "✕ CLOSE", HORIZONTAL_ALIGNMENT_CENTER, cr.size.x, 11,
-		Color(1, 0.9, 0.9) if _hover_close else Color(0.8, 0.78, 0.8))
+	_px_rect(cr, Color(0.45, 0.18, 0.2, 0.9) if _hover_close else Color(0.14, 0.12, 0.14, 0.9))
+	_px_frame(cr, Color(1.0, 0.55, 0.55) if _hover_close else Color(0.45, 0.4, 0.44))
+	var ink := Color(1, 0.9, 0.9) if _hover_close else Color(0.8, 0.78, 0.8)
+	var mark := CROSS[0].length() * PX + 8.0
+	var at := _snap(cr.position + Vector2((cr.size.x - mark - _ink_width("CLOSE")) * 0.5, 10))
+	_icon(at, CROSS, ink)
+	_text(at + Vector2(mark, 10), "CLOSE", ink)
 
 func _draw_board() -> void:
 	var b := current_board()
 	if b == null:
 		return
-	var size := Vector2(b.width * CELL, b.height * CELL)
-	draw_rect(Rect2(BOARD_ORIGIN - Vector2(10, 10), size + Vector2(20, 20)), Color(0.08, 0.09, 0.12, 0.92))
-	draw_rect(Rect2(BOARD_ORIGIN - Vector2(10, 10), size + Vector2(20, 20)), Color(0.3, 0.45, 0.6, 0.7), false, 1.5)
+	var frame := Rect2(BOARD_ORIGIN - Vector2(10, 10), Vector2(b.width * CELL + 20, b.height * CELL + 20))
+	_px_rect(frame, Color(0.08, 0.09, 0.12, 0.92))
+	_px_frame(frame, Color(0.3, 0.45, 0.6, 0.7))
 
 	for y in b.height:
 		for x in b.width:
-			var r := Rect2(BOARD_ORIGIN + Vector2(x * CELL, y * CELL), Vector2(CELL, CELL))
-			draw_rect(r.grow(-1), Color(0.11, 0.13, 0.17))
-			draw_rect(r.grow(-1), Color(0.2, 0.24, 0.3), false, 1.0)
+			var r := _cell_rect(Vector2i(x, y)).grow(-2)
+			_px_rect(r, CELL_EDGE)
+			_px_rect(r.grow(-PX), CELL_FILL)
 
 	if _trace_cache.is_empty() or _sim_dirty:
 		_trace_cache = b.trace()
@@ -389,11 +448,14 @@ func _draw_board() -> void:
 	var occupied := _hover_cell.x >= 0 and not b.comp_at(_hover_cell).is_empty()
 	if _hover_cell.x >= 0 and held != "" and (_drag_id != "" or not occupied):
 		var ok := b.can_place(held, _hover_cell, rotation_step)
+		# One box across the whole footprint, the shape the part would take. A
+		# footprint half off the board shows the half that is on it, which is
+		# why this grows from the hovered cell rather than from the footprint.
+		var ghost := _cell_rect(_hover_cell)
 		for c in Components.footprint(held, _hover_cell, rotation_step):
-			if not b.in_bounds(c):
-				continue
-			var r := Rect2(BOARD_ORIGIN + Vector2(c.x * CELL, c.y * CELL), Vector2(CELL, CELL))
-			draw_rect(r.grow(-3), Color(0.4, 1.0, 0.6, 0.22) if ok else Color(1.0, 0.4, 0.4, 0.22))
+			if b.in_bounds(c):
+				ghost = ghost.merge(_cell_rect(c))
+		_px_rect(ghost.grow(-4), Color(0.4, 1.0, 0.6, 0.22) if ok else Color(1.0, 0.4, 0.4, 0.22))
 		if ok:
 			_draw_ports_preview(held, _hover_cell)
 
@@ -415,28 +477,32 @@ func _draw_ports_preview(id: String, origin: Vector2i) -> void:
 func _draw_drag() -> void:
 	if _drag_id == "":
 		return
-	var def := Components.get_def(_drag_id)
 	var col := Style.component_color(_drag_id)
-	var w := 108.0 if int(def.get("cells", 1)) == 1 else 150.0
-	var r := Rect2(_mouse_pos + Vector2(14, -16), Vector2(w, 34))
-	draw_rect(r, Color(col.r, col.g, col.b, 0.32))
-	draw_rect(r, col, false, 1.6)
-	draw_string(_font, r.position + Vector2(8, 23), Style.component_glyph(_drag_id), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, col)
-	draw_string(_font, r.position + Vector2(30, 22), String(def["name"]), HORIZONTAL_ALIGNMENT_LEFT, w - 36, 11, Color(0.95, 0.97, 1.0))
-	# Rotation readout, since the wheel turns the part while it is in hand.
-	var arrow: String = ["→", "↓", "←", "↑"][rotation_step]
-	draw_string(_font, r.position + Vector2(w - 20, 23), arrow, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.8, 0.9, 1.0))
+	var part_name := String(Components.get_def(_drag_id)["name"])
+	# Icon, name, then a rotation readout, since the wheel turns the part while it
+	# is in hand.
+	var r := Rect2(_snap(_mouse_pos + Vector2(14, -16)), Vector2(60.0 + _ink_width(part_name), 30.0))
+	# Opaque, unlike the rest of the panel: it is dragged over the palette, and
+	# two rows of pixel text through each other are unreadable.
+	_px_rect(r, Color(0.07, 0.08, 0.11))
+	_px_rect(r, Color(col.r, col.g, col.b, 0.32))
+	_px_frame(r, col)
+	_icon(r.position + Vector2(8, 8), Style.component_icon(_drag_id), col)
+	_text(r.position + Vector2(30, 20), part_name, Color(0.95, 0.97, 1.0))
+	_icon(Vector2(r.end.x - 18.0, r.position.y + 10.0), _arrows[rotation_step], Color(0.8, 0.9, 1.0))
 
+func _cell_rect(c: Vector2i) -> Rect2:
+	return Rect2(BOARD_ORIGIN + Vector2(c.x * CELL, c.y * CELL), Vector2(CELL, CELL))
+
+## CELL is an odd number of PIXELs, so the middle of a cell is the middle of a
+## PIXEL, and a bitmap an odd number of PIXELs across centres on it exactly.
 func _cell_center(c: Vector2i) -> Vector2:
 	return BOARD_ORIGIN + Vector2(c.x * CELL + CELL * 0.5, c.y * CELL + CELL * 0.5)
 
+## An arrow out of `cell` across its `dir` edge, the point on the edge itself.
 func _draw_port_arrow(cell: Vector2i, dir: int, col: Color) -> void:
 	var v := Vector2(Components.dir_to_vec(dir))
-	var c := _cell_center(cell) + v * (CELL * 0.5 - 8.0)
-	var perp := v.orthogonal()
-	draw_colored_polygon(PackedVector2Array([
-		c + v * 7.0, c - v * 3.0 + perp * 5.0, c - v * 3.0 - perp * 5.0,
-	]), col)
+	_icon_centered(_cell_center(cell) + v * (CELL * 0.5 - 3.0), _ports[dir % 4], col)
 
 ## Live joints get a bridge across the seam; joints that touch but do not
 ## connect get a cross. Without this a board that looks wired can be dead and
@@ -445,48 +511,50 @@ func _draw_wiring() -> void:
 	for link in _trace_cache.get("links", []):
 		var a: Vector2 = _cell_center(link[0])
 		var c: Vector2 = _cell_center(link[1])
-		var mid := (a + c) * 0.5
-		var v := (c - a).normalized()
-		draw_line(mid - v * 11.0, mid + v * 11.0, Color(0.45, 1.0, 0.75, 0.95), 3.5)
+		var along := (c - a).normalized().abs()
+		var across := Vector2(along.y, along.x)
+		# Three PIXELs thick, the width that centres on the line through the
+		# middle of the cells.
+		_px_rect(Rect2((a + c) * 0.5 - along * 12.0 - across * 3.0, along * 24.0 + across * 6.0),
+			Color(0.45, 1.0, 0.75, 0.95))
 	for br in _trace_cache.get("breaks", []):
-		var a2: Vector2 = _cell_center(br["from"])
-		var c2: Vector2 = _cell_center(br["to"])
-		var mid2 := (a2 + c2) * 0.5
-		var v2 := (c2 - a2).normalized()
-		var p := v2.orthogonal() * 6.0
-		var q := v2 * 6.0
-		draw_line(mid2 - q - p, mid2 + q + p, Color(1.0, 0.4, 0.4, 0.95), 2.5)
-		draw_line(mid2 - q + p, mid2 + q - p, Color(1.0, 0.4, 0.4, 0.95), 2.5)
+		_icon_centered((_cell_center(br["from"]) + _cell_center(br["to"])) * 0.5, CROSS,
+			Color(1.0, 0.4, 0.4, 0.95))
 	for leak in _trace_cache.get("leaks", []):
 		if String(leak.get("why", "")) != "empty":
 			continue
-		var a3: Vector2 = _cell_center(leak["from"])
-		var v3 := Vector2(Components.dir_to_vec(int(leak["dir"])))
-		draw_circle(a3 + v3 * (CELL * 0.5 + 6.0), 3.0, Color(0.9, 0.6, 0.35, 0.75))
+		var v := Vector2(Components.dir_to_vec(int(leak["dir"])))
+		_icon_centered(_cell_center(leak["from"]) + v * (CELL * 0.5 + 5.0), DOT, Color(0.9, 0.6, 0.35, 0.75))
+
+## A two-cell part is one box across both of its cells rather than two boxes
+## side by side: the seam between them would otherwise read as two parts, and
+## run right through the icon sitting on it.
+func _part_rect(id: String, origin: Vector2i, rot: int) -> Rect2:
+	var r := _cell_rect(origin)
+	for c in Components.footprint(id, origin, rot):
+		r = r.merge(_cell_rect(c))
+	return r.grow(-4)
 
 func _draw_component(b: SkillBoard, origin: Vector2i) -> void:
 	var entry: Dictionary = b.cells[origin]
 	var id: String = entry["id"]
 	var rot: int = entry["rot"]
-	var def := Components.get_def(id)
-	var cells := Components.footprint(id, origin, rot)
 	var col := Style.component_color(id)
 	# A part the flow cannot reach is drawn faint: it is on the board but dead.
 	var live: bool = not bool(_trace_cache.get("has_input", false)) \
 		or _trace_cache.get("reachable", {}).has(origin)
-	var fill_a := 0.28 if live else 0.08
-	var line_col := col if live else Color(col.r, col.g, col.b, 0.35)
-	for c in cells:
-		var r := Rect2(BOARD_ORIGIN + Vector2(c.x * CELL, c.y * CELL), Vector2(CELL, CELL))
-		draw_rect(r.grow(-3), Color(col.r, col.g, col.b, fill_a))
-		draw_rect(r.grow(-3), line_col, false, 1.8)
-	var center := _cell_center(origin)
-	if cells.size() > 1:
-		center = (_cell_center(cells[0]) + _cell_center(cells[1])) * 0.5
-	var glyph_col := col.lightened(0.3) if live else Color(col.r, col.g, col.b, 0.4)
-	var name_col := Color(0.75, 0.8, 0.88) if live else Color(0.5, 0.52, 0.56)
-	draw_string(_font, center + Vector2(-CELL * 0.5, 4), Style.component_glyph(id), HORIZONTAL_ALIGNMENT_CENTER, CELL, 16, glyph_col)
-	draw_string(_font, center + Vector2(-CELL * 0.8, CELL * 0.42), String(def["name"]), HORIZONTAL_ALIGNMENT_CENTER, CELL * 1.6, 8, name_col)
+	var r := _part_rect(id, origin, rot)
+	# The part's own ground under its tint, so the grid it covers does not show
+	# through the tint and draw a seam across a two-cell part.
+	_px_rect(r, CELL_FILL)
+	_px_rect(r, Color(col.r, col.g, col.b, 0.28 if live else 0.08))
+	_px_frame(r, col if live else Color(col.r, col.g, col.b, 0.35))
+	# No name under the icon: none fits a cell in the pixel face. Hovering the
+	# part names it in the panel along the bottom instead. The icon is drawn at
+	# ICON_ZOOM here — a cell is wide enough for it, and at palette size it was
+	# lost in the middle of one.
+	_icon_centered(r.get_center(), Style.component_icon(id),
+		col.lightened(0.3) if live else Color(col.r, col.g, col.b, 0.4), ICON_ZOOM)
 
 	var ex := Components.exit_cell(id, origin, rot)
 	var arrow_col := col.lightened(0.4) if live else Color(col.r, col.g, col.b, 0.35)
@@ -496,7 +564,12 @@ func _draw_component(b: SkillBoard, origin: Vector2i) -> void:
 	if pd >= 0:
 		_draw_port_arrow(ex, pd, Color(1.0, 0.55, 0.8) if live else Color(1.0, 0.55, 0.8, 0.35))
 
-## Live pulses from the running circuit, so the board shows its own timing.
+## Live pulses from the running circuit, so the board shows its own timing: a
+## diamond that swells as the pulse crosses a part, and the part's border lit
+## clockwise from the top as far as the pulse has got.
+##
+## A pulse is at whichever of a two-cell part's cells the flow entered by, so
+## both are resolved back to the part: the wipe goes round the whole of it.
 func _draw_live_flow(b: SkillBoard) -> void:
 	if slot >= runners.size():
 		return
@@ -504,53 +577,90 @@ func _draw_live_flow(b: SkillBoard) -> void:
 	if r == null or r.board != b:
 		return
 	for p in r.pulses:
-		var c := _cell_center(p.cell)
-		var glow := Color(0.6, 1.0, 0.85, 0.85)
-		draw_circle(c, 7.0 + 4.0 * sin(p.progress() * PI), glow)
-		draw_arc(c, CELL * 0.42, -PI * 0.5, -PI * 0.5 + TAU * p.progress(), 20, Color(0.5, 1.0, 0.8, 0.7), 2.0)
+		var origin: Vector2i = b.origin_at(p.cell)
+		var entry := b.comp_origin_at(origin)
+		var box := _cell_rect(p.cell).grow(-4) if entry.is_empty() \
+			else _part_rect(String(entry["id"]), origin, int(entry["rot"]))
+		var k := p.progress()
+		_px_diamond(box.get_center(), 3 + int(round(2.0 * sin(k * PI))), Color(0.6, 1.0, 0.85, 0.85))
+		_px_lap(box, k, Color(0.5, 1.0, 0.8, 0.7))
+
+func _pal_rect(i: int) -> Rect2:
+	return Rect2(PAL_ORIGIN + Vector2(i % PAL_COLS * PAL_W, int(i / PAL_COLS) * PAL_H),
+		Vector2(PAL_W - 4, PAL_H - 4))
 
 func _draw_palette() -> void:
 	var ids := _palette_ids()
 	var rows := int(ceil(float(ids.size()) / float(PAL_COLS)))
-	var panel := Rect2(PAL_ORIGIN - Vector2(10, 10), Vector2(PAL_COLS * PAL_W + 20, rows * PAL_H + 20))
-	draw_rect(panel, Color(0.08, 0.09, 0.12, 0.92))
-	draw_rect(panel, Color(0.3, 0.45, 0.6, 0.7), false, 1.5)
+	var panel := Rect2(PAL_ORIGIN - Vector2(10, 10), Vector2(PAL_COLS * PAL_W + 16, rows * PAL_H + 16))
+	_px_rect(panel, Color(0.08, 0.09, 0.12, 0.92))
+	_px_frame(panel, Color(0.3, 0.45, 0.6, 0.7))
 
 	for i in ids.size():
 		var id: String = ids[i]
-		var def := Components.get_def(id)
-		var col := int(i % PAL_COLS)
-		var row := int(i / PAL_COLS)
-		var r := Rect2(PAL_ORIGIN + Vector2(col * PAL_W, row * PAL_H), Vector2(PAL_W - 4, PAL_H - 4))
+		var r := _pal_rect(i)
 		var have := unlimited or Components.is_structural(id) or int(inventory.get(id, 0)) > 0
 		var c := Style.component_color(id)
 		var bg := Color(c.r, c.g, c.b, 0.18 if have else 0.05)
 		if id == selected:
 			bg = Color(c.r, c.g, c.b, 0.42)
-		draw_rect(r, bg)
-		draw_rect(r, c if have else Color(0.3, 0.32, 0.36), false, 1.5 if id == selected else 1.0)
-		var text_col := Color(0.92, 0.95, 1.0) if have else Color(0.45, 0.48, 0.52)
-		draw_string(_font, r.position + Vector2(8, 18), Style.component_glyph(id), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, c)
-		draw_string(_font, r.position + Vector2(30, 18), String(def["name"]), HORIZONTAL_ALIGNMENT_LEFT, PAL_W - 40, 10, text_col)
-		draw_string(_font, r.position + Vector2(30, 34), "x%s" % _count(id), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.6, 0.7, 0.8))
+		_px_rect(r, bg)
+		_px_frame(r, c if have else Color(0.3, 0.32, 0.36))
+		_icon(r.position + Vector2(8, 6), Style.component_icon(id), c)
+		_draw_count(r.end - Vector2(8, 8), id)
+		_text(r.position + Vector2(30, 18), String(Components.get_def(id)["name"]),
+			Color(0.92, 0.95, 1.0) if have else Color(0.45, 0.48, 0.52), _pal_name_width(i))
 		if i == _hover_pal:
-			draw_rect(r, Color(1, 1, 1, 0.5), false, 1.5)
+			_px_frame(r, Color(1, 1, 1, 0.5))
+
+## The room a palette row leaves its part's name: after the icon, and short of
+## the count.
+func _pal_name_width(i: int) -> float:
+	return _pal_rect(i).size.x - 46.0 - _count_width(String(_palette_ids()[i]))
+
+## A part there is no end of shows an infinity sign instead of a count, drawn
+## because the pixel face has none. On its own, without the "x" a count has: the
+## two together read as one more number.
+func _endless(id: String) -> bool:
+	return unlimited or Components.is_structural(id)
+
+func _count_width(id: String) -> float:
+	if _endless(id):
+		return INFINITY[0].length() * PX
+	return _ink_width("x%d" % int(inventory.get(id, 0)))
+
+## "x2", or the infinity, right-aligned on `right`.
+func _draw_count(right: Vector2, id: String) -> void:
+	var col := Color(0.6, 0.7, 0.8)
+	var at := _snap(right - Vector2(_count_width(id), 0))
+	if _endless(id):
+		_icon(at + Vector2(0, -5 * PX), INFINITY, col)
+	else:
+		_text(at, "x%d" % int(inventory.get(id, 0)), col)
 
 func _draw_info(vp: Vector2) -> void:
-	var y := vp.y - 132.0
-	draw_rect(Rect2(0, y, vp.x, 132), Color(0.07, 0.08, 0.11, 0.94))
-	draw_line(Vector2(0, y), Vector2(vp.x, y), Color(0.3, 0.5, 0.7, 0.6), 1.5)
-
-	var describe: String = selected if _hover_pal < 0 else String(_palette_ids()[_hover_pal])
-	if describe != "":
-		var def := Components.get_def(describe)
-		draw_string(_font, Vector2(48, y + 26), String(def["name"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Style.component_color(describe))
-		draw_string(_font, Vector2(48, y + 46), String(def["desc"]), HORIZONTAL_ALIGNMENT_LEFT, 620, 11, Color(0.72, 0.78, 0.86))
-		draw_string(_font, Vector2(48, y + 66), "cells %d   cost %d ticks, one per cell   heat %.1f" % [
-			int(def["cells"]), Components.tick_cost(describe), float(def["heat"])],
-			HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.55, 0.65, 0.75))
+	var y := vp.y - INFO_H
+	_px_rect(Rect2(0, y, vp.x, INFO_H), Color(0.07, 0.08, 0.11, 0.94))
+	_px_rect(Rect2(0, y, vp.x, PX), Color(0.3, 0.5, 0.7, 0.6))
 
 	var b := current_board()
+	# The part under the cursor, on the palette or the board, else the one in
+	# hand. The board names nothing itself, since no name fits in a cell.
+	var describe := selected
+	if _hover_pal >= 0:
+		describe = String(_palette_ids()[_hover_pal])
+	elif b != null and _hover_cell.x >= 0 and not b.comp_at(_hover_cell).is_empty():
+		describe = String(b.comp_at(_hover_cell)["id"])
+	if describe != "":
+		var def := Components.get_def(describe)
+		_text(Vector2(48, y + 26), String(def["name"]), Style.component_color(describe), INFO_LEFT_W)
+		var desc := _wrap(String(def["desc"]), INFO_LEFT_W, 2)
+		for i in desc.size():
+			_text(Vector2(48, y + 46 + i * LINE), desc[i], Color(0.72, 0.78, 0.86))
+		_text(Vector2(48, y + 86), "cells %d   cost %d ticks, one per cell   heat %.1f" % [
+			int(def["cells"]), Components.tick_cost(describe), float(def["heat"])],
+			Color(0.55, 0.65, 0.75), INFO_LEFT_W)
+
 	if b == null:
 		return
 	# The board walk is only redone when something actually changed.
@@ -560,62 +670,214 @@ func _draw_info(vp: Vector2) -> void:
 		_sim_cache = sim.simulate()
 		_trace_cache = b.trace()
 		_sim_dirty = false
-	var result := _sim_cache
-	var rx := 700.0
-	if String(result.get("error", "")) != "":
-		draw_string(_font, Vector2(rx, y + 26), String(result["error"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 0.55, 0.5))
-	else:
-		var outs: Array = result["outputs"]
-		draw_string(_font, Vector2(rx, y + 26), "CYCLE %.2fs   outputs %d   heat %.1f" % [
-			float(result["cycle_seconds"]), outs.size(), float(result["heat"])],
-			HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.7, 0.95, 0.85))
-		var line := y + 46.0
-		if outs.is_empty():
-			# A flow that simply ran out of life is not a wiring fault, and
-			# `first_problem` would go looking for one that is not there.
-			var why := b.first_problem()
-			if bool(result.get("expired", false)):
-				why = "The flow runs out of life (%d) before it reaches an OUTPUT. Shorten it, or hold the cast button to charge it further." % int(result.get("ttl", 0))
-			draw_string(_font, Vector2(rx, line), why,
-				HORIZONTAL_ALIGNMENT_LEFT, 560, 12, Color(1.0, 0.62, 0.45))
-			line += 18.0
-		for i in mini(outs.size(), 3):
-			var p: Payload = Weapons.finalize(weapon_id, (outs[i] as Payload).clone())
-			draw_string(_font, Vector2(rx, line), "• %s" % p.summary(), HORIZONTAL_ALIGNMENT_LEFT, 520, 11, Color(0.82, 0.88, 0.95))
-			line += 17.0
-		# Overclocking is a trade, so show both halves of it.
-		if int(result.get("overclock", 0)) > 0:
-			draw_string(_font, Vector2(rx, line), "OVERCLOCK x%d · clock x%.2f · +%.2fs settle" % [
-				int(result["overclock"]), float(result["speed_mul"]), float(result["penalty_seconds"])],
-				HORIZONTAL_ALIGNMENT_LEFT, 520, 10, Style.flow_color())
-			line += 16.0
-		# What holding the cast button buys this board, in the board's own terms.
-		draw_string(_font, Vector2(rx, line),
-			"LIFE %d · hold the cast button to buy more, release to fire"
-				% int(result.get("ttl", 0)),
-			HORIZONTAL_ALIGNMENT_LEFT, 520, 10, Color(0.78, 0.68, 1.0))
-		line += 16.0
-		var trig: Dictionary = result.get("triggers", {})
-		for k in trig:
-			# A loop can queue several follow-ups on one trigger, each landing
-			# after the one before. List the whole chain, so four laps read as
-			# four attacks rather than as a single very large one.
-			var q = trig[k]
-			var n := 0
-			while q != null:
-				var label: String = String(Components.get_def(k).get("name", k)) if n == 0 else "then"
-				draw_string(_font, Vector2(rx, line), "↳ %s: %s" % [label, (q as Payload).summary()],
-					HORIZONTAL_ALIGNMENT_LEFT, 520, 10, Color(1.0, 0.7, 0.85))
-				line += 15.0
-				n += 1
-				q = q.on_hit
-		if not Weapons.accepts_board(weapon_id, b):
-			draw_string(_font, Vector2(rx, line), Weapons.rejection_reason(weapon_id, b),
-				HORIZONTAL_ALIGNMENT_LEFT, 520, 11, Color(1.0, 0.5, 0.5))
+	var rx := PAL_ORIGIN.x
+	var right := vp.x - 48.0
+	var notes := _preview_rows(b, _sim_cache, right - rx)
+	for i in notes.size():
+		var note: Dictionary = notes[i]
+		var at := Vector2(rx, y + 26 + i * LINE)
+		if note.has("icon"):
+			_icon(at - Vector2(0, 5 * PX), note["icon"], note["col"])
+			at.x += 18.0
+		_text(at, note["text"], note["col"], right - at.x)
 
 	if _message_time > 0.0:
-		draw_string(_font, Vector2(48, y + 96), _message, HORIZONTAL_ALIGNMENT_LEFT, 600, 12, Color(1.0, 0.65, 0.55))
+		_text(Vector2(48, y + 106), _message, Color(1.0, 0.65, 0.55), INFO_LEFT_W)
 	# Controls live along the bottom, clear of the slot tabs at the top.
-	draw_string(_font, Vector2(48, vp.y - 10),
-		"drag to place · wheel turns the part under the cursor · RMB removes · TAB or ESC closes",
-		HORIZONTAL_ALIGNMENT_LEFT, vp.x - 96, 11, Color(0.5, 0.58, 0.68))
+	_text(Vector2(48, vp.y - 8), HINT, Color(0.5, 0.58, 0.68), vp.x - 96.0)
+
+const HINT := "drag to place · wheel turns the part under the cursor · RMB removes · TAB or ESC closes"
+
+## What the cycle preview says, a row each, as {text, col} and an `icon` to put
+## before a row. There is room for INFO_ROWS of them: a preview that runs longer
+## says how much it left out rather than running off the bottom of the screen.
+func _preview_rows(b: SkillBoard, result: Dictionary, width: float) -> Array:
+	var rows: Array = []
+	if String(result.get("error", "")) != "":
+		_add_rows(rows, String(result["error"]), Color(1.0, 0.55, 0.5), width, INFO_ROWS)
+		return rows
+	var outs: Array = result["outputs"]
+	rows.append({"text": "CYCLE %.2fs   outputs %d   heat %.1f" % [
+		float(result["cycle_seconds"]), outs.size(), float(result["heat"])],
+		"col": Color(0.7, 0.95, 0.85)})
+	# A weapon that will not carry the board matters more than anything under it,
+	# so it goes straight under the cycle rather than wherever rows are left.
+	if not Weapons.accepts_board(weapon_id, b):
+		_add_rows(rows, Weapons.rejection_reason(weapon_id, b), Color(1.0, 0.5, 0.5), width, 2)
+	if outs.is_empty():
+		# A flow that simply ran out of life is not a wiring fault, and
+		# `first_problem` would go looking for one that is not there.
+		var why := b.first_problem()
+		if bool(result.get("expired", false)):
+			why = "The flow runs out of life (%d) before it reaches an OUTPUT. Shorten it, or hold the cast button to charge it further." % int(result.get("ttl", 0))
+		_add_rows(rows, why, Color(1.0, 0.62, 0.45), width, 3)
+	for i in mini(outs.size(), 3):
+		var p: Payload = Weapons.finalize(weapon_id, (outs[i] as Payload).clone())
+		rows.append({"text": "• %s" % p.summary(), "col": Color(0.82, 0.88, 0.95)})
+	# Overclocking is a trade, so show both halves of it.
+	if int(result.get("overclock", 0)) > 0:
+		rows.append({"text": "OVERCLOCK x%d · clock x%.2f · +%.2fs settle" % [
+			int(result["overclock"]), float(result["speed_mul"]), float(result["penalty_seconds"])],
+			"col": Style.flow_color()})
+	# What holding the cast button buys this board, in the board's own terms. The
+	# binding is named so the row fits, and stays true after a rebind.
+	rows.append({"text": "LIFE %d · hold %s for more, release to fire" % [
+		int(result.get("ttl", 0)), Controls.short_label_for("cast_skill")],
+		"col": Color(0.78, 0.68, 1.0)})
+	var trig: Dictionary = result.get("triggers", {})
+	for k in trig:
+		# A loop can queue several follow-ups on one trigger, each landing
+		# after the one before. List the whole chain, so four laps read as
+		# four attacks rather than as a single very large one.
+		var q = trig[k]
+		var n := 0
+		while q != null:
+			var label: String = String(Components.get_def(k).get("name", k)) if n == 0 else "then"
+			rows.append({"text": "%s: %s" % [label, (q as Payload).summary()],
+				"col": Color(1.0, 0.7, 0.85), "icon": CHAIN})
+			n += 1
+			q = q.on_hit
+	if rows.size() > INFO_ROWS:
+		var cut := rows.size() - INFO_ROWS + 1
+		rows.resize(INFO_ROWS - 1)
+		rows.append({"text": "… %d more" % cut, "col": Color(0.55, 0.65, 0.75)})
+	return rows
+
+func _add_rows(rows: Array, text: String, col: Color, width: float, most: int) -> void:
+	for line in _wrap(text, width, most):
+		rows.append({"text": line, "col": col})
+
+## --- the pixel grid ---------------------------------------------------------
+## Everything above draws through these.
+
+func _snap(p: Vector2) -> Vector2:
+	return (p / PX).floor() * PX
+
+func _px_rect(r: Rect2, col: Color) -> void:
+	var a := _snap(r.position)
+	draw_rect(Rect2(a, _snap(r.end) - a), col)
+
+## A border one PIXEL wide, inside `r`. Four rects rather than an unfilled
+## draw_rect, whose corners overlap and double up a translucent colour.
+func _px_frame(r: Rect2, col: Color) -> void:
+	var a := _snap(r.position)
+	var z := _snap(r.end)
+	draw_rect(Rect2(a.x, a.y, z.x - a.x, PX), col)
+	draw_rect(Rect2(a.x, z.y - PX, z.x - a.x, PX), col)
+	draw_rect(Rect2(a.x, a.y + PX, PX, z.y - a.y - 2 * PX), col)
+	draw_rect(Rect2(z.x - PX, a.y + PX, PX, z.y - a.y - 2 * PX), col)
+
+## A filled diamond centred on `c`, `radius` PIXELs from its middle to each point.
+func _px_diamond(c: Vector2, radius: int, col: Color) -> void:
+	var mid := _snap(c - Vector2.ONE * PX * 0.5)
+	for dy in range(-radius, radius + 1):
+		var half := radius - absi(dy)
+		draw_rect(Rect2(mid.x - half * PX, mid.y + dy * PX, (2 * half + 1) * PX, PX), col)
+
+## The border of `r` lit clockwise from the middle of its top edge, `k` of the
+## way round. Each side after the first starts a PIXEL past its corner, so no
+## corner is lit twice and doubled up in a translucent colour.
+func _px_lap(r: Rect2, k: float, col: Color) -> void:
+	var a := _snap(r.position)
+	var z := _snap(r.end) - Vector2.ONE * PX
+	var top := Vector2(_snap(Vector2((a.x + z.x) * 0.5, 0.0)).x, a.y)
+	var corners := [top, Vector2(z.x, a.y), z, Vector2(a.x, z.y), a, top]
+	var total := 0.0
+	for i in 5:
+		var seg: Vector2 = corners[i + 1] - corners[i]
+		total += absf(seg.x) + absf(seg.y)
+	var lit := int(clampf(k, 0.0, 1.0) * total / PX)
+	for i in 5:
+		var seg: Vector2 = corners[i + 1] - corners[i]
+		var steps := int((absf(seg.x) + absf(seg.y)) / PX)
+		if steps == 0:
+			continue
+		var d := seg / float(steps)
+		var start: Vector2 = corners[i] if i == 0 else corners[i] + d
+		var n := mini(steps + (1 if i == 0 else 0), lit)
+		if n <= 0:
+			return
+		var end := start + d * (n - 1)
+		var lo := Vector2(minf(start.x, end.x), minf(start.y, end.y))
+		draw_rect(Rect2(lo, (start - end).abs() + Vector2.ONE * PX), col)
+		lit -= n
+
+## A bitmap — one string per row, `#` for a PIXEL — with its top-left at `at`,
+## each bitmap pixel `zoom` PIXELs square. Each run along a row goes down as one
+## rect.
+func _icon(at: Vector2, rows: Array, col: Color, zoom: int = 1) -> void:
+	var o := _snap(at)
+	var s := PX * zoom
+	for y in rows.size():
+		var row := String(rows[y])
+		var x := row.find("#")
+		while x >= 0:
+			var end := x
+			while end < row.length() and row[end] == "#":
+				end += 1
+			draw_rect(Rect2(o.x + x * s, o.y + y * s, (end - x) * s, s), col)
+			x = row.find("#", end)
+
+func _icon_centered(c: Vector2, rows: Array, col: Color, zoom: int = 1) -> void:
+	_icon(c - Vector2(String(rows[0]).length(), rows.size()) * PX * zoom * 0.5, rows, col, zoom)
+
+## A bitmap turned `steps` quarter turns clockwise.
+static func _turn(rows: Array, steps: int) -> Array:
+	var out := rows
+	for s in posmod(steps, 4):
+		var turned: Array = []
+		for x in String(out[0]).length():
+			var line := ""
+			for y in range(out.size() - 1, -1, -1):
+				line += String(out[y])[x]
+			turned.append(line)
+		out = turned
+	return out
+
+## `text` in the pixel face, its baseline at `pos`, cut short with an ellipsis
+## when it is wider than `width`.
+func _text(pos: Vector2, text: String, col: Color, width: float = -1.0) -> void:
+	if width > 0.0:
+		text = _clip(text, width)
+	draw_string(FONT, _snap(pos), text, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, col)
+
+func _text_width(text: String) -> float:
+	return FONT.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x
+
+## The width of the letters alone: every advance carries a PIXEL of space after
+## its letter, which would push anything centred on it off by half of one.
+func _ink_width(text: String) -> float:
+	return _text_width(text) - PX
+
+func _clip(text: String, width: float) -> String:
+	if _text_width(text) <= width:
+		return text
+	var lo := 0
+	var hi := text.length()
+	while lo < hi:
+		var mid := (lo + hi + 1) >> 1
+		if _text_width(text.left(mid) + "…") <= width:
+			lo = mid
+		else:
+			hi = mid - 1
+	return text.left(lo).strip_edges(false, true) + "…"
+
+## `text` broken at spaces into rows no wider than `width`, at most `most` of
+## them; the last row ends in an ellipsis if words were left over.
+func _wrap(text: String, width: float, most: int) -> PackedStringArray:
+	var words := text.split(" ", false)
+	var rows := PackedStringArray()
+	var row := ""
+	for i in words.size():
+		var trial := words[i] if row == "" else row + " " + words[i]
+		if row == "" or _text_width(trial) <= width:
+			row = trial
+		elif rows.size() == most - 1:
+			rows.append(_clip(row + " " + " ".join(words.slice(i)), width))
+			return rows
+		else:
+			rows.append(row)
+			row = words[i]
+	if row != "":
+		rows.append(row)
+	return rows
