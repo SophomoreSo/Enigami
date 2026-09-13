@@ -42,9 +42,9 @@ func draw_static(c: CanvasItem) -> void:
 	var h := Room.H * Room.CELL
 	c.draw_rect(Rect2(0, 0, w, h), Style.ROOM_BG)
 	for x in range(0, Room.W + 1, 2):
-		c.draw_line(Vector2(x * Room.CELL, 0), Vector2(x * Room.CELL, h), Style.ROOM_GRID, 1.0)
+		c.draw_line(Vector2(x * Room.CELL, 0), Vector2(x * Room.CELL, h), Style.ROOM_GRID, 2.0)
 	for y in range(0, Room.H + 1, 2):
-		c.draw_line(Vector2(0, y * Room.CELL), Vector2(w, y * Room.CELL), Style.ROOM_GRID, 1.0)
+		c.draw_line(Vector2(0, y * Room.CELL), Vector2(w, y * Room.CELL), Style.ROOM_GRID, 2.0)
 
 	var tint := Style.region_tint(int(room.data.get("region", 0)))
 	for y in Room.H:
@@ -55,7 +55,7 @@ func draw_static(c: CanvasItem) -> void:
 			c.draw_rect(r, tint)
 			if not room.is_solid(x, y - 1):
 				c.draw_rect(Rect2(r.position, Vector2(Room.CELL, 4)), tint.lightened(0.35))
-			c.draw_rect(r, Color(0, 0, 0, 0.22), false, 1.0)
+			c.draw_rect(r, Color(0, 0, 0, 0.22), false, 2.0)
 
 	for cell in room.hazards:
 		var base: Vector2 = Vector2(cell.x * Room.CELL, (cell.y + 1) * Room.CELL)
@@ -85,9 +85,8 @@ func _draw() -> void:
 	for i in 3:
 		var rad: float = 20.0 + float(i) * 12.0 + sin(t + float(i)) * 3.0
 		draw_arc(c, rad, 0, TAU, 28, Color(col.r, col.g, col.b, 0.45 - 0.1 * float(i)), 2.0)
-	var font := ThemeDB.fallback_font
 	var title := String(room.extraction.get("name", "EXIT"))
-	draw_string(font, c + Vector2(-46, -60), title, HORIZONTAL_ALIGNMENT_CENTER, 92, 13, col)
+	PixelCamera.draw_text(self, c + Vector2(0, -60), title, col)
 	if room.extract_hold > 0.0:
 		var need := float(room.extraction.get("time", 2.5))
 		draw_arc(c, 52.0, -PI * 0.5, -PI * 0.5 + TAU * clampf(room.extract_hold / need, 0.0, 1.0),

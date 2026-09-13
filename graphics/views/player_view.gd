@@ -107,7 +107,7 @@ func _draw() -> void:
 	if player.charge > 0.0:
 		var ct := player.charge_ratio()
 		draw_arc(Vector2.ZERO, 34.0 - 10.0 * ct, 0, TAU, 28,
-			Color(CHARGE_COLOR.r, CHARGE_COLOR.g, CHARGE_COLOR.b, 0.30 + 0.55 * ct), 1.5 + 2.5 * ct)
+			Color(CHARGE_COLOR.r, CHARGE_COLOR.g, CHARGE_COLOR.b, 0.30 + 0.55 * ct), 2.0 + 2.0 * ct)
 	if player.parry_time > 0.0:
 		draw_arc(Vector2.ZERO, 24.0, 0, TAU, 24, Color(PARRY_COLOR.r, PARRY_COLOR.g, PARRY_COLOR.b, 0.9), 2.5)
 	var recovery := player.dash_recovery()

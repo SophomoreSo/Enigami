@@ -45,6 +45,13 @@ func _ready() -> void:
 	await frames(4)
 	await shot("focus_sandbox")
 
+	# START asks for a save slot instead of leaving the screen.
+	title._start_button.emit_signal("pressed")
+	await frames(6)
+	await shot("save_slots")
+	title._hide_save_slots()
+	await frames(4)
+
 	title._toggle_settings()
 	await frames(10)
 	await shot("settings")

@@ -4,6 +4,14 @@ extends Control
 signal start_requested()
 signal sandbox_requested()
 
+## The save slot picked on the way in, 1..SAVE_SLOTS, or -1 until one is.
+##
+## Nothing reads it yet. Saving is still one profile in one file
+## (`GameState.SAVE_PATH`), so every slot opens that same profile; this screen
+## only asks the question. Read it from the `start_requested` handler — the
+## screen is freed straight after.
+var save_slot: int = -1
+
 ## One drawing, grown from a seed at boot: a circuit board, with the seal of the
 ## game stamped over it and light running the traces.
 ##
@@ -25,6 +33,8 @@ const CHAMFER := 4.0         ## corners are cut at 45°, the way copper is
 const SEAL := Vector2(640, 262)
 const SEAL_R := 206.0
 const MENU_TOP := 538.0
+const SAVE_SLOT_TOP := 556.0 ## the slot chooser sits lower, under its heading
+const SAVE_SLOTS := 3
 const SETTLE_TOP := 452.0    ## where the board starts sinking into black
 
 ## The seal and the wordmark are drawn at this fraction of the screen and
@@ -62,7 +72,11 @@ var _seal_view: SubViewport
 var _seal_painter: Node2D
 var _menu_font: FontVariation
 var _menu_root: VBoxContainer
+var _save_slot_root: VBoxContainer
 var _buttons: Array = []
+var _start_button: Button
+var _settings_button: Button
+var _first_save_slot: Button
 var _settings: Control
 
 ## Paints the copper once, into `_board`. Nothing on the board moves — the
@@ -99,6 +113,7 @@ func _ready() -> void:
 	_build_board()
 	_build_seal_view()
 	_build_menu()
+	_build_save_slots()
 	_build_settings()
 	Audio.play_music()
 
@@ -284,25 +299,58 @@ func _arc_slice(pts: PackedVector2Array, a: float, b: float) -> PackedVector2Arr
 
 ## --- the menu ---------------------------------------------------------------
 func _build_menu() -> void:
-	_menu_root = VBoxContainer.new()
-	_menu_root.position = Vector2(SEAL.x - 200.0, MENU_TOP)
-	_menu_root.custom_minimum_size = Vector2(400, 0)
-	_menu_root.add_theme_constant_override("separation", 2)
-	add_child(_menu_root)
-
-	var start := _menu_button("START")
-	start.pressed.connect(func() -> void: start_requested.emit())
-	var sandbox := _menu_button("SANDBOX")
+	_menu_root = _column(MENU_TOP)
+	_start_button = _menu_button("START", _menu_root)
+	_start_button.pressed.connect(_show_save_slots)
+	var sandbox := _menu_button("SANDBOX", _menu_root)
 	sandbox.pressed.connect(func() -> void: sandbox_requested.emit())
-	var settings := _menu_button("SETTINGS")
-	settings.pressed.connect(_toggle_settings)
-	var quit := _menu_button("QUIT")
+	_settings_button = _menu_button("SETTINGS", _menu_root)
+	_settings_button.pressed.connect(_toggle_settings)
+	var quit := _menu_button("QUIT", _menu_root)
 	quit.pressed.connect(func() -> void: get_tree().quit())
-	start.grab_focus()
+	_start_button.grab_focus()
+
+## START asks which save slot before it hands over. The rows say which slot and
+## nothing about what is in it: all three open the one profile there is, so
+## anything like EMPTY would be untrue. See `save_slot`.
+func _build_save_slots() -> void:
+	_save_slot_root = _column(SAVE_SLOT_TOP)
+	_save_slot_root.visible = false
+	for i in SAVE_SLOTS:
+		var n := i + 1
+		var b := _menu_button("SLOT %d" % n, _save_slot_root)
+		b.pressed.connect(func() -> void:
+			save_slot = n
+			start_requested.emit())
+		if i == 0:
+			_first_save_slot = b
+	var back := _menu_button("BACK", _save_slot_root)
+	back.add_theme_font_size_override("font_size", 16)
+	back.pressed.connect(_hide_save_slots)
+
+func _column(top: float) -> VBoxContainer:
+	var v := VBoxContainer.new()
+	v.position = Vector2(SEAL.x - 200.0, top)
+	v.custom_minimum_size = Vector2(400, 0)
+	v.add_theme_constant_override("separation", 2)
+	add_child(v)
+	return v
+
+func _show_save_slots() -> void:
+	_menu_root.visible = false
+	_save_slot_root.visible = true
+	_first_save_slot.grab_focus()
+	Audio.play("ui")
+
+func _hide_save_slots() -> void:
+	_save_slot_root.visible = false
+	_menu_root.visible = true
+	_start_button.grab_focus()
+	Audio.play("ui")
 
 ## No chrome at all: the menu is text that brightens, and the marks flanking it
 ## are drawn by `_draw_focus_marks` so a gamepad player can see where they are.
-func _menu_button(text: String) -> Button:
+func _menu_button(text: String, parent: VBoxContainer) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.focus_mode = Control.FOCUS_ALL
@@ -322,7 +370,7 @@ func _menu_button(text: String) -> Button:
 	b.add_theme_color_override("font_pressed_color", Color.WHITE)
 	b.add_theme_color_override("font_hover_pressed_color", Color.WHITE)
 	b.mouse_entered.connect(func() -> void: b.grab_focus())
-	_menu_root.add_child(b)
+	parent.add_child(b)
 	_buttons.append(b)
 	return b
 
@@ -376,15 +424,23 @@ func _slider(name: String, value: float, cb: Callable) -> Control:
 	return h
 
 func _toggle_settings() -> void:
+	# Settings can only be reached from the main column, so that is the one to
+	# put back when it closes.
 	_settings.visible = not _settings.visible
 	_menu_root.visible = not _settings.visible
-	if not _settings.visible and not _buttons.is_empty():
-		_buttons[2].grab_focus()
+	if not _settings.visible and _settings_button != null:
+		_settings_button.grab_focus()
 	Audio.play("ui")
 
+## Backing out: settings first, then the save slots.
 func _unhandled_input(event: InputEvent) -> void:
-	if _settings != null and _settings.visible and event.is_action_pressed("ui_cancel"):
+	if not event.is_action_pressed("ui_cancel"):
+		return
+	if _settings != null and _settings.visible:
 		_toggle_settings()
+		get_viewport().set_input_as_handled()
+	elif _save_slot_root != null and _save_slot_root.visible:
+		_hide_save_slots()
 		get_viewport().set_input_as_handled()
 
 func _process(delta: float) -> void:
@@ -408,6 +464,7 @@ func _draw() -> void:
 	if _seal_view != null:
 		draw_texture_rect(_seal_view.get_texture(), Rect2(Vector2.ZERO, DESIGN), false)
 	_draw_focus_marks()
+	_draw_save_slot_prompt()
 	_draw_records()
 	_draw_glass()
 
@@ -621,10 +678,8 @@ func _paint_wordmark(cv: CanvasItem, breath: float, s: float) -> void:
 	cv.draw_string(SERIF, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, px, CREAM)
 
 func _draw_focus_marks() -> void:
-	if _menu_root == null or not _menu_root.visible:
-		return
 	var f := get_viewport().gui_get_focus_owner()
-	if f == null or not _buttons.has(f):
+	if f == null or not _buttons.has(f) or not (f as Control).is_visible_in_tree():
 		return
 	var r := (f as Control).get_global_rect()
 	r.position -= global_position
@@ -634,8 +689,20 @@ func _draw_focus_marks() -> void:
 	_diamond(self, Vector2(r.position.x + 8.0, y), 4.0, col, 1.5)
 	_diamond(self, Vector2(r.end.x - 8.0, y), 4.0, col, 1.5)
 
+## The heading over the save slots. Drawn rather than laid out, so the column
+## below it keeps the exact spacing the main menu has.
+func _draw_save_slot_prompt() -> void:
+	if _save_slot_root == null or not _save_slot_root.visible:
+		return
+	var line := "SELECT SAVE SLOT"
+	var w := _menu_font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+	draw_string(_menu_font, Vector2(SEAL.x - w * 0.5, SAVE_SLOT_TOP - 12.0), line,
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(CREAM.r, CREAM.g, CREAM.b, 0.7))
+
 func _draw_records() -> void:
 	if _settings != null and _settings.visible:
+		return
+	if _save_slot_root != null and _save_slot_root.visible:
 		return
 	var rec: Dictionary = GameState.records
 	var line := "RAIDS %d   ESCAPED %d   LOST %d   KILLS %d   BEST HAUL %d" % [

@@ -6,6 +6,7 @@ extends Node2D
 
 var sandbox: Sandbox
 var camera: Camera2D
+var pixels: PixelCamera
 var editor: SkillEditor
 var panel: SandboxPanel
 
@@ -16,6 +17,8 @@ func _ready() -> void:
 	add_child(camera)
 	camera.make_current()
 	Fx.register_camera(camera)
+	pixels = PixelCamera.new()
+	add_child(pixels)
 
 	var layer := CanvasLayer.new()
 	layer.layer = 10

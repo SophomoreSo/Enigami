@@ -43,7 +43,7 @@ func _draw() -> void:
 	if enemy.modifier != "":
 		draw_arc(Vector2.ZERO, s + 6.0, 0, TAU, 24, Style.modifier_color(enemy.modifier), 2.0)
 	if enemy.def.get("elite", false) or enemy.def.get("boss", false):
-		draw_arc(Vector2.ZERO, s + 10.0, 0, TAU, 28, Style.ELITE_RING, 1.5)
+		draw_arc(Vector2.ZERO, s + 10.0, 0, TAU, 28, Style.ELITE_RING, 2.0)
 
 	draw_health_bar(s * 2.4, -s - 12.0)
 	if enemy.aggro:

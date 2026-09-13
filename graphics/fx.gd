@@ -131,14 +131,12 @@ class FloatText extends Node2D:
 	var life: float = 0.8
 	var label: String = ""
 	var color: Color = Color.WHITE
-	var font: Font
 
 	func setup(pos: Vector2, s: String, c: Color) -> void:
 		position = pos + Vector2(randf_range(-6, 6), -8)
 		label = s
 		color = c
 		z_index = 70
-		font = ThemeDB.fallback_font
 
 	func _process(delta: float) -> void:
 		life -= delta
@@ -151,6 +149,4 @@ class FloatText extends Node2D:
 	func _draw() -> void:
 		var c := color
 		c.a = clampf(life / 0.5, 0.0, 1.0)
-		var shadow := Color(0, 0, 0, c.a * 0.8)
-		draw_string(font, Vector2(1, 1), label, HORIZONTAL_ALIGNMENT_CENTER, -1, 14, shadow)
-		draw_string(font, Vector2.ZERO, label, HORIZONTAL_ALIGNMENT_CENTER, -1, 14, c)
+		PixelCamera.draw_text(self, Vector2.ZERO, label, c, Color(0, 0, 0, c.a * 0.8))
