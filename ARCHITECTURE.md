@@ -78,13 +78,31 @@ Every lookup in `Style` falls back, so the two branches can land in either
 order: a part added on the feature branch draws in its category's colour until
 someone gives it a glyph.
 
+### Dialogue files — content both halves read
+
+Conversations are data, not a fourth mechanism: `data/dialogue/<id>.json`, one
+file per character, format in `data/dialogue/README.md`. Each half reads only
+its own keys from a line:
+
+| Keys | Read by |
+|---|---|
+| `text` `next` `choices` `speaker` `name` `speed` | `feature/actors/dialogue.gd` and `npc.gd` — the conversation itself |
+| `emotion` `sprite` | `graphics/ui/dialogue_box.gd`, polling the NPC's current line |
+| `camera` | `graphics/views/npc_view.gd`, through `Fx.direct` / `Fx.release` |
+| `sfx` `voice` | `app/audio/audio_cues.gd`, from the `talk` and `talk_letter` cues, which carry the line |
+
+`feature/` passes the rest through untouched and never names a key it does not
+use, so the rule above still holds: a new kind of direction is a new key in the
+files and a handler on the presentation side.
+
 ## Where does it go?
 
 | Change | File |
 |---|---|
 | New skill component | `feature/core/components.gd` + its rule in `skill_runner.gd`; its glyph in `graphics/style.gd` |
 | New monster | `feature/actors/monsters.gd`; its sprite and colour in `graphics/style.gd` |
-| New NPC or dialogue | `CATALOGUE` in `feature/actors/npc.gd`; its sprite in `graphics/style.gd`; the bubble in `graphics/views/npc_view.gd` |
+| New NPC or dialogue | a file in `data/dialogue/` — see its README; no code. New *kinds* of direction: `graphics/ui/dialogue_box.gd` (emotion, portrait), `graphics/views/npc_view.gd` (camera), `app/audio/audio_cues.gd` (sound) |
+| What an emotion looks like | `EMOTIONS` in `graphics/style.gd` |
 | Retune damage, cooldowns, room generation | `feature/` |
 | Retune shake, sparks, hitstop *feel* | `graphics/cue_visuals.gd` — except hitstop and dilation, see below |
 | HUD layout, editor look, menu copy | `graphics/ui/` |

@@ -1,0 +1,80 @@
+{
+	"id": "SAGE",
+	"name": "Old Tinker",
+	"sprite": "wizzard_m",
+	"player_name": "Knight",
+	"start": "hello",
+	"defaults": {
+		"speaker": "npc",
+		"emotion": "neutral",
+		"voice": "low",
+		"speed": 45
+	},
+	"nodes": {
+		"hello": {
+			"text": "Ah, a new face. Nothing you break in here stays broken.",
+			"emotion": "happy",
+			"sfx": "pickup",
+			"camera": {"focus": "both", "zoom": 1.5, "time": 0.6},
+			"next": "ask"
+		},
+		"ask": {
+			"text": "What would you like to know?",
+			"emotion": "thinking",
+			"choices": [
+				{"text": "How do skills work?", "next": "circuits"},
+				{"text": "What does charging do?", "next": "charge"},
+				{"text": "Who are you?", "next": "who"},
+				{"text": "Nothing. Bye.", "next": ""}
+			]
+		},
+		"circuits": {
+			"text": "Every skill is a circuit. The longer the path, the longer you wait for the next shot.",
+			"next": "ask_again"
+		},
+		"charge": {
+			"text": "Build a loop, then hold the cast button. Charge buys the pulse more laps.",
+			"emotion": "happy",
+			"speed": 55,
+			"next": "ask_again"
+		},
+		"who": {
+			"text": "I tinker. Mostly with things that explode.",
+			"emotion": "happy",
+			"camera": {"focus": "npc", "zoom": 2.0, "time": 0.4},
+			"choices": [
+				{"text": "Sounds dangerous.", "next": "danger"},
+				{"text": "Back to my questions.", "next": "ask"}
+			]
+		},
+		"danger": {
+			"text": "Only out on a raid. In here, the dummy won't mind.",
+			"emotion": "surprised",
+			"sfx": "explode",
+			"camera": {"focus": "npc", "zoom": 1.5, "shake": 8, "time": 0.2},
+			"next": "danger_reply"
+		},
+		"danger_reply": {
+			"speaker": "player",
+			"text": "Noted. I'll aim at the dummy.",
+			"voice": "high",
+			"camera": {"focus": "player", "zoom": 1.5, "time": 0.4},
+			"next": "ask_again"
+		},
+		"ask_again": {
+			"text": "Anything else?",
+			"emotion": "thinking",
+			"camera": {"focus": "both", "zoom": 1.5, "time": 0.4},
+			"choices": [
+				{"text": "How do skills work?", "next": "circuits"},
+				{"text": "What does charging do?", "next": "charge"},
+				{"text": "That's all, thanks.", "next": "bye"}
+			]
+		},
+		"bye": {
+			"text": "Go on, then. Break something.",
+			"emotion": "happy",
+			"camera": "reset"
+		}
+	}
+}

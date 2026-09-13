@@ -2,7 +2,8 @@ extends Node2D
 ## Talking to an NPC: interact only works up close, a press finishes a line
 ## still coming in before it moves on, a question waits for an answer picked
 ## with up and down, the answer decides what comes next, and walking away ends
-## it. Attacks never treat a bystander as a target.
+## it. Attacks never treat a bystander as a target. Every dialogue file reads
+## cleanly.
 
 var fails := 0
 
@@ -58,15 +59,29 @@ func _ready() -> void:
 	add_child(n)
 	var ended := [0]
 	var picks: Array = []
+	var letters := [0]
 	n.conversation_ended.connect(func(_n: Npc) -> void: ended[0] += 1)
 	n.choice_made.connect(func(_n: Npc, from: String, i: int) -> void: picks.append([from, i]))
+	Cues.fired.connect(func(cue: StringName, _d: Dictionary) -> void:
+		if cue == &"talk_letter":
+			letters[0] += 1)
 	await phys(40)
 
 	check(n.is_on_floor(), "the NPC stands on the floor")
 	check(not n.is_in_group("actors"), "and is no target for attacks")
-	for id in Npc.CATALOGUE:
-		check(Npc.broken_links(id).is_empty(),
-			"every answer in %s's dialogue leads somewhere real %s" % [id, str(Npc.broken_links(id))])
+
+	# The files.
+	check(Dialogue.ids().has("SAGE"), "the SAGE's lines are read from a dialogue file (%s)" % str(Dialogue.ids()))
+	for id in Dialogue.ids():
+		check(Dialogue.problems(id).is_empty(),
+			"%s's dialogue file has no broken links or empty lines %s" % [id, str(Dialogue.problems(id))])
+	var sage := Dialogue.character("SAGE")
+	var filled := true
+	for key in sage["nodes"]:
+		for k in sage.get("defaults", {}):
+			filled = filled and sage["nodes"][key].has(k)
+	check(filled, "every line picks up the file's defaults")
+	check(Dialogue.character("NOBODY") == sage, "an NPC with no file talks like the SAGE")
 
 	# Too far away.
 	await press()
@@ -80,6 +95,7 @@ func _ready() -> void:
 	await press()
 	check(n.node_id == "hello", "a press starts the conversation at the start (%s)" % n.node_id)
 	check(not n.line_finished(), "which types out rather than appearing at once")
+	check(n.speaker() == "npc" and n.speaker_name() == n.display_name, "and the NPC is the one saying it")
 
 	# A press mid-line finishes it without skipping ahead.
 	await press()
@@ -91,6 +107,7 @@ func _ready() -> void:
 	await press("move_down")
 	check(not n.is_choosing() and n.selected == 0, "the answers wait until the question is out")
 	await listen(n)
+	check(letters[0] > 0, "letters typing out are announced for a voice to follow (%d)" % letters[0])
 	check(n.is_choosing() and n.choices().size() == 4, "then four answers are open (%d)" % n.choices().size())
 
 	# Moving the highlight, wrapping both ways.
@@ -108,6 +125,7 @@ func _ready() -> void:
 	check(n.node_id == "charge", "picking 'What does charging do?' leads to its answer (%s)" % n.node_id)
 	check(picks.size() == 1 and picks[0] == ["ask", 1], "and reports which answer was given (%s)" % str(picks))
 	check(n.selected == 0, "a new line starts with the highlight back on top")
+	check(n.reveal_rate() == float(n.current_node()["speed"]), "a line types at the speed its file gives it")
 	await listen(n)
 	await press()
 	check(n.node_id == "ask_again", "a plain line after it carries on (%s)" % n.node_id)
@@ -156,6 +174,12 @@ func _ready() -> void:
 	await listen(n)
 	await press()
 	check(not n.is_talking() and ended[0] == 3, "and a press on it ends the conversation")
+
+	# The player can have lines of their own.
+	n.node_id = "danger_reply"
+	check(n.speaker() == "player" and n.speaker_name() == String(sage["player_name"]),
+		"a line the file gives the player is said by the player, under their name")
+	n.end_conversation()
 
 	# Locked input, like the skill editor being open.
 	p.input_locked = true

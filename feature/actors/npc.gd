@@ -1,11 +1,14 @@
 class_name Npc
 extends CharacterBody2D
 
-## Someone to talk to. Walk up and press interact: a line appears over their
-## head and each further press moves the conversation on. Some lines end in a
-## question — move up and down to pick an answer, interact to give it — and the
-## answer decides what they say next. Walking away ends it. Nothing here is
-## drawn; `graphics/views/npc_view.gd` turns it into a speech bubble.
+## Someone to talk to. Walk up and press interact and a conversation starts;
+## each further press moves it on. Some lines end in a question — move up and
+## down to pick an answer, interact to give it — and the answer decides what
+## they say next. Walking away ends it. Nothing here is drawn:
+## `graphics/views/npc_view.gd` and `graphics/ui/dialogue_box.gd` show it.
+##
+## What each NPC says lives in their dialogue file, `data/dialogue/<id>.json`
+## (see `Dialogue`).
 ##
 ## An NPC is deliberately not an Actor. Attacks find their targets through the
 ## "actors" group, so a bystander outside it can stand in the line of fire
@@ -20,47 +23,16 @@ const GRAVITY := 1900.0
 const MAX_FALL := 900.0
 ## How close the player has to stand for a press to count, centre to centre.
 const TALK_RANGE := 64.0
-## Letters a line reveals per second. A press while one is still coming in
-## finishes it rather than skipping it unread.
+## Letters a line reveals per second, unless it sets its own `speed`. A press
+## while one is still coming in finishes it rather than skipping it unread.
 const REVEAL_RATE := 45.0
-
-## Who each NPC is and what they say.
-##
-## A conversation is a set of named nodes, entered at `start`. Each node says
-## its `text`, then either goes on to `next` or offers `choices`, each of which
-## names the node it leads to. A `next` that is empty or missing ends the
-## conversation, so a goodbye is just a node that leads nowhere.
-const CATALOGUE := {
-	"SAGE": {
-		"name": "Old Tinker",
-		"start": "hello",
-		"nodes": {
-			"hello": {"text": "Ah, a new face. Nothing you break in here stays broken.", "next": "ask"},
-			"ask": {"text": "What would you like to know?", "choices": [
-				{"text": "How do skills work?", "next": "circuits"},
-				{"text": "What does charging do?", "next": "charge"},
-				{"text": "Who are you?", "next": "who"},
-				{"text": "Nothing. Bye.", "next": ""},
-			]},
-			"circuits": {"text": "Every skill is a circuit. The longer the path, the longer you wait for the next shot.", "next": "ask_again"},
-			"charge": {"text": "Build a loop, then hold the cast button. Charge buys the pulse more laps.", "next": "ask_again"},
-			"who": {"text": "I tinker. Mostly with things that explode.", "choices": [
-				{"text": "Sounds dangerous.", "next": "danger"},
-				{"text": "Back to my questions.", "next": "ask"},
-			]},
-			"danger": {"text": "Only out on a raid. In here, the dummy won't mind.", "next": "ask_again"},
-			"ask_again": {"text": "Anything else?", "choices": [
-				{"text": "How do skills work?", "next": "circuits"},
-				{"text": "What does charging do?", "next": "charge"},
-				{"text": "That's all, thanks.", "next": "bye"},
-			]},
-			"bye": {"text": "Go on, then. Break something."},
-		},
-	},
-}
+## Letters that make no sound as they type.
+const QUIET := " .,!?;:'\"-…()"
 
 var npc_id: String = "SAGE"
 var display_name: String = ""
+## The whole dialogue file, as `Dialogue` read it.
+var data: Dictionary = {}
 var nodes: Dictionary = {}
 var start: String = ""
 ## +1 right, -1 left. They turn to whoever is close enough to talk to.
@@ -77,29 +49,10 @@ var in_range: bool = false
 
 func setup(id: String) -> void:
 	npc_id = id
-	var def: Dictionary = CATALOGUE.get(id, CATALOGUE["SAGE"])
-	display_name = String(def["name"])
-	nodes = def["nodes"]
-	start = String(def["start"])
-
-## Every link in a conversation that points at a node that does not exist. A
-## typo in the catalogue would otherwise only show up as a conversation cut
-## short, and only for whoever happened to pick that answer.
-static func broken_links(id: String) -> Array:
-	var def: Dictionary = CATALOGUE[id]
-	var all: Dictionary = def["nodes"]
-	var broken: Array = []
-	if not all.has(def["start"]):
-		broken.append("start -> %s" % def["start"])
-	for key in all:
-		var node: Dictionary = all[key]
-		var links: Array = [node.get("next", "")]
-		for c in node.get("choices", []):
-			links.append(c.get("next", ""))
-		for to in links:
-			if String(to) != "" and not all.has(to):
-				broken.append("%s -> %s" % [key, to])
-	return broken
+	data = Dialogue.character(id)
+	display_name = String(data.get("name", id))
+	nodes = data.get("nodes", {})
+	start = String(data.get("start", ""))
 
 func _ready() -> void:
 	if nodes.is_empty():
@@ -124,7 +77,9 @@ func _physics_process(delta: float) -> void:
 		if not in_range:
 			end_conversation()
 		else:
-			revealed = minf(revealed + REVEAL_RATE * delta, float(current_line().length()))
+			var before := int(revealed)
+			revealed = minf(revealed + reveal_rate() * delta, float(current_line().length()))
+			_announce_letters(before)
 	if not in_range or player.input_locked:
 		return
 	if is_choosing():
@@ -174,6 +129,8 @@ func end_conversation() -> void:
 	selected = 0
 	conversation_ended.emit(self)
 
+## The cue carries the whole line, so whatever it says about how it looks and
+## sounds reaches the picture and the sound bank without this reading it.
 func _go(to: String) -> void:
 	if to == "":
 		end_conversation()
@@ -185,8 +142,18 @@ func _go(to: String) -> void:
 	node_id = to
 	revealed = 0.0
 	selected = 0
-	Cues.at(&"talk", global_position, {"npc": npc_id})
+	Cues.at(&"talk", global_position, {"npc": npc_id, "node": to, "line": current_node()})
 	line_started.emit(self, node_id)
+
+## Letters coming out are a moment a voice can blip along with. At most one a
+## frame, so a fast line is a patter rather than a buzz, and never for spaces or
+## punctuation.
+func _announce_letters(before: int) -> void:
+	var line := current_line()
+	for i in range(before, int(revealed)):
+		if i % 2 == 0 and not QUIET.contains(line[i]):
+			Cues.at(&"talk_letter", global_position, {"npc": npc_id, "line": current_node(), "index": i})
+			return
 
 func is_talking() -> bool:
 	return node_id != ""
@@ -203,6 +170,22 @@ func visible_text() -> String:
 
 func line_finished() -> bool:
 	return int(revealed) >= current_line().length()
+
+## Letters per second for the current line.
+func reveal_rate() -> float:
+	return maxf(float(current_node().get("speed", REVEAL_RATE)), 1.0)
+
+## Who says the current line: "npc" or "player".
+func speaker() -> String:
+	return String(current_node().get("speaker", "npc"))
+
+func speaker_name() -> String:
+	var node := current_node()
+	if node.has("name"):
+		return String(node["name"])
+	if speaker() == "player":
+		return String(data.get("player_name", "You"))
+	return display_name
 
 ## The answers the current line offers; empty when it is not a question.
 func choices() -> Array:

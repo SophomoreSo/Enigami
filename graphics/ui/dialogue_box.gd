@@ -1,0 +1,298 @@
+class_name DialogueBox
+extends Control
+
+## A conversation, in the manner of Celeste: a dark box across the top of the
+## screen with the speaker's portrait framed at one end, their name on a tab,
+## and the line typing in a letter at a time, each letter rising into place as it
+## arrives. When the line is a question the answers are listed under it.
+##
+## How a line looks comes from its dialogue file: `speaker` puts the portrait on
+## the left (the NPC) or the right (the player), `sprite` swaps its art, and
+## `emotion` tints, trembles or hops the portrait, gives it a mark, and trembles
+## or ripples the letters (see `Style.EMOTIONS`).
+##
+## Screen space, at the screen's resolution: this is reading text, and the pixel
+## camera would blur it. The portrait is the one piece of pixel art in it, blown
+## up by a whole multiple so every art pixel stays square.
+
+## Over the pixel picture and its prompts, under the screens (5) and the HUD (10).
+const LAYER := 4
+const TOP := 44.0
+## Kept out of the top corners, where the bench panel and the raid's bag sit.
+const SIDE_CLEAR := 350.0
+const MAX_WIDTH := 600.0
+const MIN_WIDTH := 420.0
+const PAD := 14.0
+const PORTRAIT := 112.0
+const TEXT_SIZE := 18
+const NAME_SIZE := 15
+const HINT_SIZE := 12
+const TAB_HEIGHT := 24.0
+## How far an answer sits in from the line, to leave room for the marker.
+const CHOICE_INDENT := 22.0
+## Space between the line and the first answer, and after the last.
+const CHOICE_GAP := 8.0
+## Seconds the box takes to open out from its middle.
+const OPEN_TIME := 0.14
+## A letter rises this far into place, over this long.
+const POP_RISE := 5.0
+const POP_TIME := 0.12
+## Where an emotion's mark sits, in from the portrait's top outer corner.
+const MARK_INSET := Vector2(18.0, 20.0)
+
+var npc: Npc
+var _font: Font
+var _open: float = 0.0
+var _t: float = 0.0
+## The line the arrival times below belong to.
+var _node: String = ""
+## When each letter of the line came out, by `_t`.
+var _arrived := PackedFloat32Array()
+
+func _ready() -> void:
+	UiKit.fill_screen(self)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_font = ThemeDB.fallback_font
+
+func _process(delta: float) -> void:
+	UiKit.sync_screen(self)
+	_t += delta
+	var talking := npc != null and is_instance_valid(npc) and npc.is_talking()
+	# Opens with a snap and is simply gone when the talking stops: there is no
+	# line left to show while it closed.
+	_open = minf(_open + delta / OPEN_TIME, 1.0) if talking else 0.0
+	_track_arrivals(talking)
+	queue_redraw()
+
+## Notes when each letter comes out, so it can rise into place in its own time.
+## The reveal stops dead at the end of the line, so this cannot be read off how
+## far past a letter it has run — the last few would never finish arriving. A
+## press that finishes the line brings everything left out at once, already in
+## place: the player asked to read it, not to watch it.
+func _track_arrivals(talking: bool) -> void:
+	if not talking:
+		_node = ""
+		_arrived.clear()
+		return
+	if npc.node_id != _node:
+		_node = npc.node_id
+		_arrived.clear()
+	var shown := int(npc.revealed)
+	var fresh := shown - _arrived.size()
+	var at := _t if fresh <= 2 else _t - POP_TIME
+	for i in maxi(fresh, 0):
+		_arrived.append(at)
+
+func _draw() -> void:
+	if _open <= 0.0:
+		return
+	var w := clampf(size.x - SIDE_CLEAR * 2.0, MIN_WIDTH, MAX_WIDTH)
+	var text_w := w - PORTRAIT - PAD * 3.0
+	var line_h := _font.get_height(TEXT_SIZE)
+	# Wrapped from the whole line, not the part revealed so far, so a word never
+	# jumps to the next row halfway through coming in.
+	var rows := _wrap(npc.current_line(), text_w, TEXT_SIZE)
+	var options: Array = []
+	for c in npc.choices():
+		options.append(_wrap(String(c.get("text", "")), text_w - CHOICE_INDENT, TEXT_SIZE))
+
+	# Sized for the answers from the first letter, even though they only appear
+	# once the question is out, so the box never grows under the reader's eye.
+	var text_h := line_h * rows.size()
+	if not options.is_empty():
+		text_h += CHOICE_GAP * 2.0 + _font.get_height(HINT_SIZE)
+		for opt in options:
+			text_h += line_h * opt.size()
+	var h := maxf(PORTRAIT, text_h) + PAD * 2.0
+	var full := Rect2(roundf((size.x - w) * 0.5), TOP, w, h)
+
+	var e := 1.0 - pow(1.0 - _open, 3.0)
+	if _open < 1.0:
+		var opening := Rect2(full.position.x, full.get_center().y - h * 0.5 * e, w, h * e)
+		draw_rect(opening, Style.DIALOGUE_FILL)
+		draw_rect(opening, Style.DIALOGUE_EDGE, false, 2.0)
+		return
+
+	var node := npc.current_node()
+	var mood := Style.emotion(String(node.get("emotion", "neutral")))
+	var on_right := npc.speaker() == "player"
+	var portrait := Rect2(
+		Vector2(full.end.x - PAD - PORTRAIT if on_right else full.position.x + PAD, full.position.y + PAD),
+		Vector2(PORTRAIT, PORTRAIT))
+
+	_draw_name_tab(portrait, on_right)
+	draw_rect(full, Style.DIALOGUE_FILL)
+	draw_rect(full, Style.DIALOGUE_EDGE, false, 2.0)
+	_draw_portrait(portrait, _portrait_art(node), mood, on_right)
+
+	var pen := Vector2(full.position.x + PAD if on_right else portrait.end.x + PAD, full.position.y + PAD)
+	var text_right := portrait.position.x - PAD if on_right else full.end.x - PAD
+	_draw_line(pen, rows, line_h, mood)
+	pen.y += line_h * rows.size()
+
+	if npc.is_choosing():
+		pen.y += CHOICE_GAP
+		for i in options.size():
+			var opt: PackedStringArray = options[i]
+			var chosen := i == npc.selected
+			if chosen:
+				var mid := pen.y + line_h * 0.5
+				var nudge := roundf(absf(sin(_t * 6.0)) * 3.0)
+				draw_colored_polygon(PackedVector2Array([
+					Vector2(pen.x + 2.0 + nudge, mid - 6.0), Vector2(pen.x + 11.0 + nudge, mid),
+					Vector2(pen.x + 2.0 + nudge, mid + 6.0),
+				]), Style.DIALOGUE_MARK)
+			for row in opt:
+				_text(pen + Vector2(CHOICE_INDENT, 0), row, TEXT_SIZE,
+					Style.DIALOGUE_TEXT if chosen else Style.DIALOGUE_CHOICE)
+				pen.y += line_h
+		pen.y += CHOICE_GAP
+		_text(pen, _choice_hint(), HINT_SIZE, Style.DIALOGUE_HINT)
+	elif npc.line_finished():
+		# The bouncing arrow: the line is out, and a press moves on.
+		var m := Vector2(text_right - 8.0, full.end.y - PAD - 4.0 - roundf(absf(sin(_t * 5.0)) * 5.0))
+		draw_colored_polygon(PackedVector2Array([
+			m + Vector2(-8, -8), m + Vector2(8, -8), m,
+		]), Style.DIALOGUE_MARK)
+
+## The name on a tab over the portrait's end of the box, drawn first so the
+## box's edge runs across its foot.
+func _draw_name_tab(portrait: Rect2, on_right: bool) -> void:
+	var speaker := npc.speaker_name()
+	var tab_w := _width(speaker, NAME_SIZE) + 24.0
+	var x := portrait.end.x - tab_w if on_right else portrait.position.x
+	var tab := Rect2(Vector2(x, portrait.position.y - PAD - TAB_HEIGHT + 2.0), Vector2(tab_w, TAB_HEIGHT))
+	draw_rect(tab, Style.DIALOGUE_TAB)
+	_text(tab.position + Vector2(12.0, (TAB_HEIGHT - _font.get_height(NAME_SIZE)) * 0.5), speaker,
+		NAME_SIZE, Style.DIALOGUE_NAME)
+
+## Whose face goes in the frame: the line's own `sprite` if it names one the
+## atlas has, otherwise whoever is speaking — in their face for the line's
+## emotion, where the atlas has one.
+func _portrait_art(node: Dictionary) -> String:
+	var art := Style.PLAYER_ART if npc.speaker() == "player" else Style.npc_art(String(npc.data.get("sprite", "")))
+	var override := String(node.get("sprite", ""))
+	if Style.has_character(override):
+		art = override
+	return Style.portrait_art(art, String(node.get("emotion", "")))
+
+## The speaker's sprite, cropped to its drawn pixels and scaled up whole, facing
+## into the box. They run through their idle faster and hop while the line is
+## coming in, so they read as the one talking; the emotion does the rest.
+func _draw_portrait(frame: Rect2, art: String, mood: Dictionary, flip: bool) -> void:
+	draw_rect(frame, Style.DIALOGUE_PORTRAIT_BG)
+	var frames := Sprites.frames_for(art)
+	var speaking := not npc.line_finished()
+	var count := frames.get_frame_count("idle")
+	var tex := frames.get_frame_texture("idle", int(_t * (10.0 if speaking else 4.0)) % count)
+	var src := Sprites.art_rect(art)
+	var scale := floorf(minf((frame.size.x - 16.0) / src.size.x, (frame.size.y - 16.0) / src.size.y))
+	var dst_size := src.size * scale
+	var hop := 0.0
+	if speaking and fmod(_t, 0.24) < 0.12:
+		hop = float(mood.get("hop", 1.0)) * scale
+	# Deterministic noise rather than randf, so a portrait never draws from the
+	# random numbers the fight is using.
+	var shake := float(mood.get("shake", 0.0))
+	var tremble := Vector2(roundf(sin(_t * 83.0) * shake), roundf(cos(_t * 71.0) * shake))
+	var dst := Rect2(frame.position + Vector2(roundf((frame.size.x - dst_size.x) * 0.5),
+		frame.size.y - 6.0 - dst_size.y - hop) + tremble, dst_size)
+	var tint: Color = mood.get("tint", Color.WHITE)
+	if flip:
+		# Mirrored about the portrait's centre line, to face the text on its left.
+		draw_set_transform(Vector2(dst.get_center().x * 2.0, 0.0), 0.0, Vector2(-1.0, 1.0))
+	draw_texture_rect_region(tex, dst, src, tint)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	draw_rect(frame, Style.DIALOGUE_EDGE, false, 2.0)
+	var corner := Vector2(frame.position.x + MARK_INSET.x if flip else frame.end.x - MARK_INSET.x,
+		frame.position.y + MARK_INSET.y)
+	_draw_mark(String(mood.get("mark", "")), corner)
+
+## The little sign an emotion puts by the face, drawn from primitives.
+func _draw_mark(kind: String, at: Vector2) -> void:
+	if kind == "":
+		return
+	var col: Color = Style.EMOTE_COLORS.get(kind, Style.DIALOGUE_MARK)
+	var p := at + Vector2(0, roundf(sin(_t * 5.0) * 2.0))
+	match kind:
+		"exclaim":
+			draw_rect(Rect2(p + Vector2(-3, -12), Vector2(6, 13)), col)
+			draw_rect(Rect2(p + Vector2(-3, 4), Vector2(6, 6)), col)
+		"dots":
+			for i in 3:
+				if int(_t * 3.0) % 4 > i:
+					draw_rect(Rect2(p + Vector2(-13.0 + i * 9.0, 0), Vector2(5, 5)), col)
+		"sparkle":
+			for s in [Vector2(-7, -5), Vector2(7, 6)]:
+				var r := 4.0 + roundf(absf(sin(_t * 6.0 + s.x)) * 3.0)
+				draw_rect(Rect2(p + s - Vector2(1, r), Vector2(2, r * 2.0)), col)
+				draw_rect(Rect2(p + s - Vector2(r, 1), Vector2(r * 2.0, 2)), col)
+		"drop", "sweat":
+			# A tear runs down; sweat just hangs there.
+			var d := p + Vector2(0, roundf(fmod(_t * 18.0, 18.0)) if kind == "drop" else 0.0)
+			draw_colored_polygon(PackedVector2Array([
+				d + Vector2(0, -8), d + Vector2(5, 2), d + Vector2(0, 6), d + Vector2(-5, 2),
+			]), col)
+		"vein":
+			var pulse := 1.0 + absf(sin(_t * 8.0)) * 0.3
+			for a in 4:
+				var dir := Vector2.RIGHT.rotated(a * PI * 0.5 + PI * 0.25)
+				draw_line(p + dir * 3.0 * pulse, p + dir * 9.0 * pulse, col, 3.0)
+
+## The line so far, a letter at a time, each rising into place from when it came
+## out (see `_track_arrivals`), trembling or rippling as the emotion asks.
+func _draw_line(pen: Vector2, rows: PackedStringArray, line_h: float, mood: Dictionary) -> void:
+	var shown := mini(int(npc.revealed), _arrived.size())
+	var ascent := _font.get_ascent(TEXT_SIZE)
+	var jitter := float(mood.get("jitter", 0.0))
+	var wave := float(mood.get("wave", 0.0))
+	var i := 0
+	for row in rows:
+		var x := pen.x
+		for k in row.length():
+			if i >= shown:
+				return
+			var p := clampf((_t - _arrived[i]) / POP_TIME, 0.0, 1.0)
+			var col := Style.DIALOGUE_TEXT
+			col.a *= p
+			var off := Vector2(0, POP_RISE * (1.0 - p))
+			if jitter > 0.0:
+				var noise := float(i) * 12.9898 + floorf(_t * 20.0) * 78.233
+				off += Vector2(sin(noise), cos(noise * 1.3)) * jitter
+			if wave > 0.0:
+				off.y += sin(_t * 6.0 + float(i) * 0.5) * wave
+			x += _font.draw_char(get_canvas_item(), Vector2(x, pen.y + ascent) + off.round(),
+				row.unicode_at(k), TEXT_SIZE, col)
+			i += 1
+		i += 1   # the space the wrap swallowed
+		pen.y += line_h
+
+## How to answer, in whatever the player has the keys bound to.
+func _choice_hint() -> String:
+	return "%s/%s choose  ·  %s answer" % [Controls.short_label_for("move_up"),
+		Controls.short_label_for("move_down"), Controls.short_label_for("interact")]
+
+## Draws `text` with its top-left corner at `pos`.
+func _text(pos: Vector2, text: String, font_size: int, color: Color) -> void:
+	draw_string(_font, pos + Vector2(0, _font.get_ascent(font_size)), text,
+		HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
+
+func _width(text: String, font_size: int) -> float:
+	return _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+
+## Greedy word wrap into rows no wider than `width`. A single word wider than
+## the box gets a row of its own rather than being split.
+func _wrap(text: String, width: float, font_size: int) -> PackedStringArray:
+	var rows := PackedStringArray()
+	var row := ""
+	for word in text.split(" ", false):
+		var trial := word if row == "" else row + " " + word
+		if row != "" and _width(trial, font_size) > width:
+			rows.append(row)
+			row = word
+		else:
+			row = trial
+	if row != "":
+		rows.append(row)
+	return rows

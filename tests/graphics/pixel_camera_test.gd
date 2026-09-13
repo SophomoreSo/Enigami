@@ -62,16 +62,25 @@ func audit(name: String, pixels: PixelCamera) -> void:
 		"%s: world points land where the camera puts them (worst %.3f px)" % [name, worst])
 
 ## What reaches the screen is the buffer at SCALE×: every block lined up with
-## the slide is a single colour. The HUD is sharp on purpose, so it is hidden.
+## the slide is a single colour. The HUD is sharp on purpose, so it is hidden —
+## and so is an NPC's talk prompt, reading text drawn over the picture at the
+## screen's resolution for the same reason.
 func blocks(name: String, pixels: PixelCamera, hud_layer: CanvasLayer) -> void:
 	if pixels == null or not is_instance_valid(pixels):
 		return
-	hud_layer.visible = false
+	var sharp: Array = [hud_layer]
+	for n in get_tree().get_nodes_in_group("npcs"):
+		var v = Views.of(n)
+		if v is NpcView:
+			sharp.append(v.prompt_layer)
+	for layer in sharp:
+		layer.visible = false
 	await frames(6)
 	await RenderingServer.frame_post_draw
 	var im := get_viewport().get_texture().get_image()
 	var pos := Vector2i(pixels._image.position)
-	hud_layer.visible = true
+	for layer in sharp:
+		layer.visible = true
 	var screen := Vector2i(get_viewport().get_visible_rect().size)
 	if im.get_size() != screen:
 		print("[PIXEL] skip %s block check: the frame is %s, not %s" % [name, im.get_size(), screen])

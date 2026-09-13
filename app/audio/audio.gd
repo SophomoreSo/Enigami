@@ -100,6 +100,12 @@ func _build_library() -> void:
 	_sfx["extract"] = _tone(420.0, 880.0, 0.5, "tri", 0.4, 0.0)
 	_sfx["parry"] = _tone(1200.0, 700.0, 0.18, "tri", 0.5, 0.0)
 	_sfx["boss"] = _tone(90.0, 60.0, 0.8, "saw", 0.6, 0.4)
+	# The typing blip: short and soft, since it plays a dozen times a line.
+	_sfx["voice"] = _tone(540.0, 480.0, 0.04, "square", 0.12, 0.0)
+
+## Whether the bank holds a sound, for content that names one by id.
+func has(id: String) -> bool:
+	return _sfx.has(id)
 
 func _wave(kind: String, phase: float) -> float:
 	match kind:

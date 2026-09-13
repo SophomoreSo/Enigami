@@ -163,27 +163,71 @@ const AGGRO_DOT := Color(1, 0.4, 0.4, 0.9)
 const HEALTH_BAR := Color(0.95, 0.35, 0.35)
 
 ## --- NPCs -------------------------------------------------------------------
-## `art` names the character in the shared atlas, like a monster's — picked from
-## the ones no monster wears, so a bystander is never mistaken for a threat.
-const NPC := {
-	"SAGE": {"art": "wizzard_m"},
-}
+## A character's sprite is named in their dialogue file (`sprite`). This is for a
+## file that names none, or names one the atlas does not have — picked from the
+## characters no monster wears, so a bystander is never mistaken for a threat.
+const NPC_FALLBACK_ART := "wizzard_m"
 
-static func npc_art(id: String) -> String:
-	return String(NPC.get(id, NPC["SAGE"])["art"])
+static func npc_art(sprite: String) -> String:
+	return sprite if has_character(sprite) else NPC_FALLBACK_ART
 
-## The speech bubble is paper and ink, so it reads as someone talking rather
-## than as another panel of the HUD.
-const SPEECH_FILL := Color(0.95, 0.94, 0.88)
-const SPEECH_EDGE := Color(0.1, 0.12, 0.16)
-const SPEECH_TEXT := Color(0.1, 0.11, 0.14)
-const SPEECH_NAME := Color(0.42, 0.33, 0.62)
+## The portrait for a line: the character's own art, unless the atlas holds a
+## version of them for the line's emotion (`<art>_<emotion>_idle_anim_f0`, say
+## `wizzard_m_angry`) — so giving a character a face per mood is adding tiles to
+## the atlas, not code.
+static func portrait_art(art: String, emotion_id: String) -> String:
+	var mood := "%s_%s" % [art, emotion_id]
+	return mood if emotion_id != "" and has_character(mood) else art
+
+static func has_character(base: String) -> bool:
+	return base != "" and (Sprites.has_tile("%s_idle_anim_f0" % base) or Sprites.has_tile("%s_anim_f0" % base))
+
+## The talk prompt over an NPC's head.
 const SPEECH_PROMPT_FILL := Color(0.05, 0.06, 0.08, 0.8)
 const SPEECH_PROMPT_TEXT := Color(0.86, 0.9, 0.96)
-## Answers not yet picked are faded ink; the highlighted one sits on a wash.
-const SPEECH_CHOICE := Color(0.36, 0.37, 0.42)
-const SPEECH_CHOICE_FILL := Color(0.42, 0.33, 0.62, 0.16)
-const SPEECH_HINT := Color(0.5, 0.5, 0.55)
+## The dialogue box, after Celeste: near-black with a pale edge, so it reads as a
+## voice over the scene rather than as another of the HUD's blue-grey panels.
+const DIALOGUE_FILL := Color(0.03, 0.03, 0.05, 0.94)
+const DIALOGUE_EDGE := Color(0.92, 0.9, 0.84)
+const DIALOGUE_TEXT := Color(0.96, 0.95, 0.92)
+## The name is dark on a pale tab, the box's edge colour.
+const DIALOGUE_TAB := Color(0.92, 0.9, 0.84)
+const DIALOGUE_NAME := Color(0.08, 0.07, 0.12)
+const DIALOGUE_PORTRAIT_BG := Color(0.13, 0.11, 0.2)
+## Answers not yet picked are dimmed; the marker and the arrow share one accent.
+const DIALOGUE_CHOICE := Color(0.55, 0.55, 0.6)
+const DIALOGUE_MARK := Color(0.72, 0.6, 0.98)
+const DIALOGUE_HINT := Color(0.5, 0.5, 0.56)
+
+## How each `emotion` a dialogue line names shows, on the portrait and in the
+## letters. An emotion missing here is neutral, so a writer's typo is a calm face
+## rather than an error.
+##   tint    the portrait's colour
+##   hop     art pixels the portrait hops while the line types (default 1)
+##   shake   screen pixels the portrait trembles
+##   jitter  screen pixels each letter trembles
+##   wave    screen pixels the letters ripple
+##   mark    the sign by the face, one of EMOTE_COLORS' keys
+const EMOTIONS := {
+	"neutral": {},
+	"happy": {"hop": 2.0, "wave": 1.5, "mark": "sparkle"},
+	"sad": {"tint": Color(0.7, 0.78, 1.0), "hop": 0.0, "mark": "drop"},
+	"angry": {"tint": Color(1.0, 0.68, 0.62), "shake": 2.0, "jitter": 1.2, "mark": "vein"},
+	"surprised": {"hop": 3.0, "mark": "exclaim"},
+	"thinking": {"hop": 0.0, "mark": "dots"},
+	"scared": {"tint": Color(0.82, 0.84, 1.0), "shake": 1.0, "jitter": 0.8, "mark": "sweat"},
+}
+const EMOTE_COLORS := {
+	"sparkle": Color(1.0, 0.88, 0.45),
+	"drop": Color(0.55, 0.75, 1.0),
+	"vein": Color(1.0, 0.35, 0.35),
+	"exclaim": Color(1.0, 0.95, 0.6),
+	"dots": Color(0.92, 0.9, 0.84),
+	"sweat": Color(0.7, 0.88, 1.0),
+}
+
+static func emotion(id: String) -> Dictionary:
+	return EMOTIONS.get(id, EMOTIONS["neutral"])
 
 ## --- the world --------------------------------------------------------------
 const ROOM_BG := Color(0.075, 0.085, 0.11)

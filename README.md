@@ -199,8 +199,9 @@ for the seam between them.
 
 ```
 app/               entry scene, screen flow, the cue bus, the sound bank
+data/dialogue/     conversations, one JSON file per character — format in its README
 feature/core/      components, payload, board, runner, state, time control
-feature/actors/    actor base, player, monster catalogue, monster AI
+feature/actors/    actor base, player, monster catalogue, monster AI, NPCs, dialogue loading
 feature/attacks/   projectile, melee arc, area burst, dash slash, spawner
 feature/world/     room generation, raid map graph, raid loop, sandbox, pickups
 graphics/          the atlas, screen effects, the pixel camera, the palette, view attachment
