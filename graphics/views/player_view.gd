@@ -2,7 +2,8 @@ class_name PlayerView
 extends ActorView
 
 ## The player: the knight, the weapon they are pointing, the ghost a dash
-## leaves behind, and the rings that report charge, guard and dash recovery.
+## leaves behind, the charge bar over their head, and the rings that report
+## guard and dash recovery.
 
 ## The weapon is a separate tile so it can swing to the aim direction while the
 ## body keeps running. Every weapon tile in the atlas points up.
@@ -14,16 +15,23 @@ const CHARGE_COLOR := Color(0.78, 0.68, 1.0)
 const PARRY_COLOR := Color(1, 0.95, 0.6)
 const DASH_COLOR := Color(0.7, 0.9, 1.0)
 
+## The charge read-out rides above the head: clear of the ring at its widest,
+## and high enough that the body never grows into it.
+const CHARGE_BAR := Vector2(40.0, 5.0)
+const CHARGE_BAR_Y := -46.0
+
 var player: Player
 var weapon_sprite: Sprite2D
 var _weapon_art: String = ""
 var _trail: Array = []
 var _spark: float = 0.0
+var _font: Font
 
 func _configure() -> void:
 	player = actor as Player
 	art = Style.PLAYER_ART
 	z_index = 50
+	_font = ThemeDB.fallback_font
 
 func _build_sprite() -> void:
 	super._build_sprite()
@@ -108,9 +116,26 @@ func _draw() -> void:
 		var ct := player.charge_ratio()
 		draw_arc(Vector2.ZERO, 34.0 - 10.0 * ct, 0, TAU, 28,
 			Color(CHARGE_COLOR.r, CHARGE_COLOR.g, CHARGE_COLOR.b, 0.30 + 0.55 * ct), 1.5 + 2.5 * ct)
+		_draw_charge_bar(ct)
 	if player.parry_time > 0.0:
 		draw_arc(Vector2.ZERO, 24.0, 0, TAU, 24, Color(PARRY_COLOR.r, PARRY_COLOR.g, PARRY_COLOR.b, 0.9), 2.5)
 	var recovery := player.dash_recovery()
 	if recovery < 1.0:
 		draw_arc(Vector2(0, 22), 6.0, -PI * 0.5, -PI * 0.5 + TAU * recovery, 16,
 			Color(DASH_COLOR.r, DASH_COLOR.g, DASH_COLOR.b, 0.7), 2.0)
+
+## How much of a charge there is, over the head of whoever is paying for it.
+## Holding the cast button is a decision taken in the middle of a fight, with
+## the eye on the character and something usually walking towards them — so
+## the progress is drawn where the eye already is rather than in the corner of
+## the screen. The ring says a charge is happening; this says how far it has
+## got, and what the mana spent so far has bought.
+func _draw_charge_bar(ct: float) -> void:
+	var bar := Rect2(-CHARGE_BAR.x * 0.5, CHARGE_BAR_Y, CHARGE_BAR.x, CHARGE_BAR.y)
+	draw_rect(bar, Color(0, 0, 0, 0.55))
+	draw_rect(Rect2(bar.position, Vector2(bar.size.x * ct, bar.size.y)), CHARGE_COLOR)
+	draw_rect(bar, Color(0.5, 0.6, 0.7, 0.8), false, 1.0)
+	# Its own box, wider than the bar, so a full charge's number never clips.
+	var tw := 90.0
+	draw_string(_font, Vector2(-tw * 0.5, bar.position.y - 4.0), "+%d LIFE" % int(player.charge),
+		HORIZONTAL_ALIGNMENT_CENTER, tw, 9, Color(0.82, 0.72, 1.0))

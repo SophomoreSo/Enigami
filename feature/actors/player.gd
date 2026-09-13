@@ -35,6 +35,8 @@ const WALL_JUMP_PUSH := 300.0
 const DASH_SPEED := 880.0
 const DASH_TIME := 0.13
 const DASH_COOLDOWN := 0.30
+## How much longer the weapon's own attack waits between swings than its board alone would.
+const BASIC_COOLDOWN_MUL := 4.0
 const COYOTE := 0.10
 const JUMP_BUFFER := 0.12
 ## A stick has no cursor to point at, so it aims at a point far enough down
@@ -107,6 +109,21 @@ var parry_time: float = 0.0
 var parry_slot: int = -1
 var input_locked: bool = false
 
+## Movement runs as a state machine. Every frame the senses are read, the state
+## is re-picked from them, and only then does that state act — so the state an
+## action runs in describes this frame, not the one before a jump or a ledge.
+var fsm_idle: FSMNode
+var fsm_run: FSMNode
+var fsm_rise: FSMNode
+var fsm_fall: FSMNode
+var fsm_wall_slide: FSMNode
+var fsm_dash: FSMNode
+var current_state: FSMNode
+## Log state transitions.
+var debug_mode: bool = false
+## Horizontal input this frame, -1..1.
+var _dir: float = 0.0
+
 func _ready() -> void:
 	team = 0
 	max_health = GameState.max_health()
@@ -114,6 +131,46 @@ func _ready() -> void:
 	hurt_radius = HURT_RADIUS
 	_make_body(BODY.x, BODY.y)
 	add_to_group("player")
+	_setup_fsm()
+	current_state = fsm_idle
+
+func _notification(what: int) -> void:
+	# Not _exit_tree: a player carried between rooms leaves the tree and comes
+	# back without _ready running again, and would return with no states.
+	if what == NOTIFICATION_PREDELETE and current_state != null:
+		for s in [fsm_idle, fsm_run, fsm_rise, fsm_fall, fsm_wall_slide, fsm_dash]:
+			s.cleanup()
+
+func _setup_fsm() -> void:
+	fsm_idle = FSMNode.new(_action_idle)
+	fsm_run = FSMNode.new(_action_run)
+	fsm_rise = FSMNode.new(_action_air)
+	fsm_fall = FSMNode.new(_action_air)
+	fsm_wall_slide = FSMNode.new(_action_wall_slide)
+	fsm_dash = FSMNode.new(_action_dash)
+
+	# What it takes to be in each state. They are exclusive, so at most one holds
+	# on any frame, and every state can reach every other: a dash can end in the
+	# air or on the ground, a wall kick can go straight up, a ledge drops into a
+	# fall from a standstill.
+	var entry := {
+		fsm_dash: func() -> bool: return _dash_time > 0.0,
+		fsm_wall_slide: func() -> bool: return _airborne() and _wall_dir != 0,
+		fsm_run: func() -> bool: return _grounded() and _dir != 0.0,
+		fsm_idle: func() -> bool: return _grounded() and _dir == 0.0,
+		fsm_rise: func() -> bool: return _airborne() and _wall_dir == 0 and velocity.y < 0.0,
+		fsm_fall: func() -> bool: return _airborne() and _wall_dir == 0 and velocity.y >= 0.0,
+	}
+	for from: FSMNode in entry:
+		for to: FSMNode in entry:
+			if to != from:
+				from.add_next_node(entry[to], to)
+
+func _grounded() -> bool:
+	return _dash_time <= 0.0 and is_on_floor()
+
+func _airborne() -> bool:
+	return _dash_time <= 0.0 and not is_on_floor()
 
 func setup(weapon: String, boards: Array) -> void:
 	weapon_id = weapon
@@ -122,6 +179,7 @@ func setup(weapon: String, boards: Array) -> void:
 	for i in boards.size():
 		runners.append(_make_runner(boards[i], i))
 	basic_runner = _make_runner(Weapons.make_innate_board(weapon_id), -1)
+	basic_runner.cooldown_mul = BASIC_COOLDOWN_MUL
 	selected_slot = clampi(selected_slot, 0, maxi(runners.size() - 1, 0))
 
 func _make_runner(board: SkillBoard, slot: int) -> SkillRunner:
@@ -290,23 +348,33 @@ func _update_aim() -> void:
 func _physics_process(delta: float) -> void:
 	if dead:
 		return
-	var dir := 0.0
+	_dir = 0.0
 	if not input_locked:
-		dir = Input.get_axis("move_left", "move_right")
-	if dir != 0.0:
-		face(int(signf(dir)))
-
+		_dir = Input.get_axis("move_left", "move_right")
+	if _dir != 0.0:
+		face(int(signf(_dir)))
 	if _dash_cd > 0.0:
 		_dash_cd -= delta
-	if _dash_time > 0.0:
-		_dash_time -= delta
-		velocity = _dash_dir * DASH_SPEED
-		invuln = maxf(invuln, 0.05)
-		move_and_slide()
-		return
+	# A dash owns the body outright: nothing is sensed, buffered or refilled
+	# while it runs.
+	if _dash_time <= 0.0:
+		_sense(delta)
 
-	var on_floor := is_on_floor()
-	if on_floor:
+	var next := current_state.find_next_node()
+	if next != null:
+		_change_state(next)
+	current_state.perform()
+
+	move_and_slide()
+
+func _change_state(new_state: FSMNode) -> void:
+	if debug_mode:
+		print("State: %s → %s" % [_state_label(current_state), _state_label(new_state)])
+	current_state = new_state
+
+## Everything a state is picked from and acts on that is not the body itself.
+func _sense(delta: float) -> void:
+	if is_on_floor():
 		_coyote = COYOTE
 		_air_jump_used = false
 	else:
@@ -317,23 +385,64 @@ func _physics_process(delta: float) -> void:
 
 	# Wall interaction: hugging a wall slows the fall and enables a kick-off.
 	_wall_dir = 0
-	if not on_floor and is_on_wall_only():
+	if not is_on_floor() and is_on_wall_only():
 		var normal := get_wall_normal()
-		if absf(normal.x) > 0.5 and dir != 0.0 and signf(dir) == -signf(normal.x):
+		if absf(normal.x) > 0.5 and _dir != 0.0 and signf(_dir) == -signf(normal.x):
 			_wall_dir = -int(signf(normal.x))
 
-	var accel := GROUND_ACCEL if on_floor else AIR_ACCEL
-	if dir != 0.0:
-		velocity.x = move_toward(velocity.x, dir * RUN_SPEED * speed_scale(), accel * delta)
+	# Stamina only comes back once the dashing stops.
+	if _stamina_pause > 0.0:
+		_stamina_pause = maxf(0.0, _stamina_pause - delta)
+	elif stamina < MAX_STAMINA:
+		stamina = minf(MAX_STAMINA, stamina + STAMINA_REGEN * delta)
+
+## --- state actions ----------------------------------------------------------
+func _action_idle() -> void:
+	var delta := get_physics_process_delta_time()
+	velocity.x = move_toward(velocity.x, 0.0, FRICTION * delta)
+	_apply_gravity(delta)
+	_jump_and_dash()
+
+func _action_run() -> void:
+	var delta := get_physics_process_delta_time()
+	velocity.x = move_toward(velocity.x, _dir * RUN_SPEED * speed_scale(), GROUND_ACCEL * delta)
+	_apply_gravity(delta)
+	_jump_and_dash()
+
+## Rising and falling steer the same; they are apart so the arc can be told.
+func _action_air() -> void:
+	var delta := get_physics_process_delta_time()
+	_steer_air(delta)
+	_apply_gravity(delta)
+	_jump_and_dash()
+
+func _action_wall_slide() -> void:
+	var delta := get_physics_process_delta_time()
+	_steer_air(delta)
+	_apply_gravity(delta)
+	if velocity.y > WALL_SLIDE_SPEED:
+		velocity.y = WALL_SLIDE_SPEED
+		Cues.at(&"wall_slide", global_position, {"dir": _wall_dir})
+	_jump_and_dash()
+
+func _action_dash() -> void:
+	_dash_time -= get_physics_process_delta_time()
+	velocity = _dash_dir * DASH_SPEED
+	invuln = maxf(invuln, 0.05)
+
+func _steer_air(delta: float) -> void:
+	if _dir != 0.0:
+		velocity.x = move_toward(velocity.x, _dir * RUN_SPEED * speed_scale(), AIR_ACCEL * delta)
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, FRICTION * delta)
 
-	velocity.y += GRAVITY * delta
-	if _wall_dir != 0 and velocity.y > WALL_SLIDE_SPEED:
-		velocity.y = WALL_SLIDE_SPEED
-		Cues.at(&"wall_slide", global_position, {"dir": _wall_dir})
-	velocity.y = minf(velocity.y, MAX_FALL)
+func _apply_gravity(delta: float) -> void:
+	velocity.y = minf(velocity.y + GRAVITY * delta, MAX_FALL)
 
+## The moves every state but the dash can start. Which jump a press becomes is
+## decided by what is available — ground or coyote time, a wall, the air jump —
+## and a dash begun here takes over from the next frame.
+func _jump_and_dash() -> void:
 	if _buffer > 0.0:
 		if _coyote > 0.0:
 			velocity.y = JUMP_VELOCITY
@@ -361,12 +470,6 @@ func _physics_process(delta: float) -> void:
 	if not input_locked and Input.is_action_just_released("jump") and velocity.y < 0.0:
 		velocity.y *= 0.45
 
-	# Stamina only comes back once the dashing stops.
-	if _stamina_pause > 0.0:
-		_stamina_pause = maxf(0.0, _stamina_pause - delta)
-	elif stamina < MAX_STAMINA:
-		stamina = minf(MAX_STAMINA, stamina + STAMINA_REGEN * delta)
-
 	if not input_locked and Input.is_action_just_pressed("dash") and _dash_cd <= 0.0:
 		if stamina < DASH_STAMINA:
 			# Nothing happening at all reads as a dropped input, so say why.
@@ -374,15 +477,13 @@ func _physics_process(delta: float) -> void:
 		else:
 			stamina -= DASH_STAMINA
 			_stamina_pause = STAMINA_PAUSE
-			var d := Vector2(dir, Input.get_axis("move_up", "move_down"))
+			var d := Vector2(_dir, Input.get_axis("move_up", "move_down"))
 			if d.length() < 0.2:
 				d = Vector2(facing, 0)
 			_dash_dir = d.normalized()
 			_dash_time = DASH_TIME
 			_dash_cd = DASH_COOLDOWN
 			Cues.at(&"dash", global_position)
-
-	move_and_slide()
 
 ## A guard window opened by ON PARRY swallows the hit and runs the branch flow.
 func apply_damage(amount: float, elements: Array = [], source: Node = null, is_hit: bool = true) -> float:
@@ -411,6 +512,19 @@ func apply_damage(amount: float, elements: Array = [], source: Node = null, is_h
 ## --- read by the view -------------------------------------------------------
 func is_dashing() -> bool:
 	return _dash_time > 0.0
+
+## The movement state, by name: Idle, Run, Rise, Fall, WallSlide or Dash.
+func state_name() -> String:
+	return _state_label(current_state)
+
+func _state_label(state: FSMNode) -> String:
+	if state == fsm_idle: return "Idle"
+	if state == fsm_run: return "Run"
+	if state == fsm_rise: return "Rise"
+	if state == fsm_fall: return "Fall"
+	if state == fsm_wall_slide: return "WallSlide"
+	if state == fsm_dash: return "Dash"
+	return "Unknown"
 
 ## 0 → 1 as the dash comes back; 1 when it is ready.
 func dash_recovery() -> float:

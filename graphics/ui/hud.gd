@@ -72,20 +72,14 @@ func _draw_stamina(w: float) -> void:
 		draw_line(Vector2(sx, bar.position.y), Vector2(sx, bar.end.y), Color(0, 0, 0, 0.55), 1.0)
 	draw_rect(bar, Color(0.5, 0.6, 0.7, 0.8), false, 1.0)
 
-## Mana pays for charging, so the charge bought so far is drawn riding on top of
-## it: the two numbers only mean anything next to each other.
+## Mana is what charging spends, so this draining is the price of a hold. What
+## the price bought rides over the player's head instead — see `PlayerView`,
+## which puts it where the eye is during the fight the hold is happening in.
 func _draw_mana(w: float) -> void:
 	var bar := Rect2(24, 58, w, 9)
 	draw_rect(bar, Color(0, 0, 0, 0.55))
 	draw_rect(Rect2(bar.position, Vector2(bar.size.x * player.mana_ratio(), bar.size.y)),
 		Color(0.38, 0.55, 0.95))
-	if player.charge > 0.0:
-		# A strip along the top rather than a second fill over the first: the
-		# charge is what the mana was spent on, and both have to stay readable.
-		var cw := bar.size.x * player.charge_ratio()
-		draw_rect(Rect2(bar.position, Vector2(cw, 3.0)), PlayerView.CHARGE_COLOR)
-		draw_string(_font, Vector2(bar.end.x + 8, bar.end.y), "+%d LIFE" % int(player.charge),
-			HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.82, 0.72, 1.0))
 	draw_rect(bar, Color(0.5, 0.6, 0.7, 0.8), false, 1.0)
 
 ## The weapon's own attack sits first, then each slot. Which slot is armed has

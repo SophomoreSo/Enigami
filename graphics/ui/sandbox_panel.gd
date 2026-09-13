@@ -44,8 +44,9 @@ func _process(_d: float) -> void:
 	UiKit.sync_screen(self)
 	queue_redraw()
 
-## Stamina and mana, so a charge is visible in the room skills are tested in
-## and not only in a raid.
+## Stamina and mana, so what a charge costs is visible in the room skills are
+## tested in and not only in a raid. What it buys is over the player's head, the
+## same as anywhere else.
 func _draw_meters() -> void:
 	var p := sandbox.player
 	var w := 276.0
@@ -58,11 +59,6 @@ func _draw_meters() -> void:
 	draw_rect(mn, Color(0, 0, 0, 0.55))
 	draw_rect(Rect2(mn.position, Vector2(w * p.mana_ratio(), mn.size.y)),
 		Color(0.38, 0.55, 0.95))
-	if p.charge > 0.0:
-		draw_rect(Rect2(mn.position, Vector2(w * p.charge_ratio(), 3.0)),
-			PlayerView.CHARGE_COLOR)
-		draw_string(_font, Vector2(mn.end.x + 8, mn.end.y), "+%d LIFE" % int(p.charge),
-			HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.82, 0.72, 1.0))
 	draw_rect(mn, Color(0.5, 0.6, 0.7, 0.7), false, 1.0)
 
 func _draw() -> void:

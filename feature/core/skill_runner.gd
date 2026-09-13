@@ -18,7 +18,7 @@ signal dilation_requested(seconds: float)
 signal parry_opened(seconds: float)
 signal cycle_started()
 
-const BASE_TICK := 0.045
+const BASE_TICK := 0.01
 const BASE_COOLDOWN_TICKS := 3
 const HEAT_TO_TICKS := 2.2
 ## Every pulse carries a time to live, counted in parts it may still enter, and
@@ -66,6 +66,11 @@ var board: SkillBoard
 var active: bool = false          ## true while the player holds the skill button
 var pulses: Array[Pulse] = []
 var cooldown: int = 0
+## Stretches the whole wait between casts — the walk and the recovery together —
+## so a runner can be made slower without touching its board.
+var cooldown_mul: float = 1.0
+## Ticks advanced by the cycle now running, lead included.
+var _cycle_ticks: int = 0
 var cycle_heat: float = 0.0
 var accum: float = 0.0
 var base_payload_provider: Callable = Callable()
@@ -235,6 +240,7 @@ func _tick() -> void:
 ## its outputs back into itself doubles the count every lap and pays for it out
 ## of the same life.
 func _advance() -> void:
+	_cycle_ticks += 1
 	var next: Array[Pulse] = []
 	for p in pulses:
 		p.timer -= 1
@@ -248,6 +254,11 @@ func _advance() -> void:
 	if pulses.is_empty():
 		cooldown = (BASE_COOLDOWN_TICKS + int(round(cycle_heat * HEAT_TO_TICKS))
 			+ _penalty_ticks() + _lead)
+		if cooldown_mul != 1.0:
+			# The ticks already walked in real time are part of the wait too, so the
+			# whole cycle is scaled and the walk is taken back off the remainder.
+			var walked := _cycle_ticks - _lead
+			cooldown = int(round(float(walked + cooldown) * cooldown_mul)) - walked
 		last_heat = cycle_heat
 		cycle_heat = 0.0
 		_lead = 0
@@ -266,6 +277,7 @@ func _start_cycle() -> void:
 		# The wipe fills against the cast about to run, not the one before it.
 		cycle_seconds = _cycle_length(_cycle_life)
 	pending_triggers.clear()
+	_cycle_ticks = 0
 	_elapsed = 0.0
 	expired = false
 	if not _begin_pass():
@@ -492,6 +504,7 @@ func simulate() -> Dictionary:
 	dry.dry_run = true
 	dry.base_payload_provider = base_payload_provider
 	dry.ttl_bonus = ttl_bonus
+	dry.cooldown_mul = cooldown_mul
 	var outs: Array[Payload] = []
 	dry.fired.connect(func(p: Payload) -> void: outs.append(p))
 	dry.active = true
