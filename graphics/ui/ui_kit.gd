@@ -102,9 +102,8 @@ static func panel(color: Color = PANEL, border: Color = Color(0.22, 0.3, 0.38),
 	p.add_theme_stylebox_override("panel", style(color, border, 1, 3, pixel))
 	return p
 
-static func title(text: String, size: int = 22) -> Label:
-	var l := label(text, size, Color(0.9, 0.95, 1.0))
-	return l
+static func title(text: String, size: int = 22, pixel: bool = false) -> Label:
+	return label(text, size, Color(0.9, 0.95, 1.0), pixel)
 
 ## A Control parented to a CanvasLayer does not inherit the viewport rect, so
 ## full-screen screens have to be sized explicitly (and kept in sync on resize).

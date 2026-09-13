@@ -87,6 +87,10 @@ func blocks(name: String) -> void:
 
 func _ready() -> void:
 	GameState.reset_profile()
+	# A new profile keeps whatever facility levels the last one had — resetting
+	# does not touch them — so this puts back the Workbench it maxes below, or
+	# every run after it starts on the biggest board there is.
+	var facilities_before: Dictionary = GameState.facilities.duplicate()
 	seed(5)
 	# A fourth skill, so the bench brings the most boards it can and the header
 	# has the most tabs to fit.
@@ -216,5 +220,7 @@ func _ready() -> void:
 	check(rows.size() == SkillEditor.INFO_ROWS, "a long preview is cut to %d rows (%d)" % [SkillEditor.INFO_ROWS, rows.size()])
 	check(String(rows[-1]["text"]).begins_with("…"), "and its last row says what was left out ('%s')" % rows[-1]["text"])
 
+	GameState.facilities = facilities_before
+	GameState.save_game()
 	print("[PIXED] ---- %d failures ----" % fails)
 	get_tree().quit()

@@ -29,6 +29,7 @@ godot res://tests/feature/weapon_fit_test.tscn  # a weapon refuses skills it can
 godot res://tests/feature/stamina_test.tscn # the dash budget under the health bar
 godot res://tests/graphics/menu_fit_test.tscn # menus stay on screen and scroll the rest
 godot res://tests/graphics/editor_pixel_test.tscn # every pixel of the assembly screen is on the grid
+godot res://tests/graphics/hideout_pixel_test.tscn # the hideout's pixel look, and everything on it fits
 godot res://tests/feature/ttl_test.tscn     # a pulse's life, and what bounds a loop
 godot res://tests/feature/charge_test.tscn  # holding the cast button buys life for mana
 godot res://tests/feature/npc_test.tscn     # talking to an NPC, line by line
