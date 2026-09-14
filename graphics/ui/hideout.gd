@@ -3,16 +3,37 @@ extends Control
 
 ## Between raids. Pick the one weapon you will carry, fill its slots with
 ## compatible skills, spend loot on the facilities, and deploy.
+##
+## Built in UiKit's pixel look, like the title and the assembly screen: every
+## piece of text is Silkscreen at a multiple of its native 8px and every box is
+## square and unsmoothed.
+##
+## The pixel face runs up to twice as wide as the one it replaced, which this
+## screen — three columns of dense text — has no room for. Two things give it
+## back: a line that ran past its column now wraps inside it, and everything
+## that only explains something moved to the status line along the bottom,
+## which says what the mouse is on (see `_explain`). A description per facility
+## cost five rows there and the stash the room to show anything.
 
 signal deploy_requested(weapon: String, slots: Array)
 signal sandbox_requested()
 signal title_requested()
 signal edit_requested(board_index: int)
 
+## Wide enough for the longest line each column cannot wrap: a weapon's name on
+## a button, and a stash row's part with a count beside it.
+const COL_WEAPONS := 320.0
+const COL_FACILITIES := 348.0
+
 var weapon_id: String = ""
 var focus_slot: int = 0
 var _root: VBoxContainer
 var _status: Label
+## What the status line says with nothing under the mouse: the last thing to
+## happen, else the profile's own numbers. Held here rather than on the label
+## because a rebuild throws the label away — which is why the forge's own
+## message never used to survive the rebuild that followed it.
+var _message: String = ""
 
 func _ready() -> void:
 	UiKit.fill_screen(self)
@@ -41,7 +62,7 @@ func rebuild() -> void:
 	add_child(_root)
 
 	_root.add_child(_header())
-	_root.add_child(UiKit.hline())
+	_root.add_child(UiKit.hline(true))
 
 	var cols := HBoxContainer.new()
 	cols.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -51,53 +72,114 @@ func rebuild() -> void:
 	cols.add_child(_loadout_column())
 	cols.add_child(_facilities_column())
 
-	_status = UiKit.label("", 12, UiKit.DIM)
+	_status = _label(_idle_status(), UiKit.DIM)
 	_root.add_child(_status)
 	_root.add_child(_footer())
+
+## --- the kit, in the pixel look ---------------------------------------------
+func _label(text: String, color: Color = UiKit.TEXT, size: int = UiKit.PIXEL_TEXT) -> Label:
+	return UiKit.label(text, size, color, true)
+
+## A line that is allowed to run on: it wraps inside its column instead of
+## pushing the column wider.
+func _wrapped(text: String, color: Color = UiKit.DIM) -> Label:
+	var l := _label(text, color)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return l
+
+func _button(text: String, accent: Color = UiKit.ACCENT) -> Button:
+	return UiKit.button(text, accent, true)
+
+## A button carrying a name of any length: it takes the row and cuts the name
+## short rather than pushing the buttons beside it off the panel.
+func _row_button(text: String, accent: Color = UiKit.ACCENT) -> Button:
+	var b := _button(text, accent)
+	b.clip_text = true
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return b
+
+func _pad() -> Control:
+	var c := Control.new()
+	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return c
+
+## --- the status line --------------------------------------------------------
+## `c` explains itself here while the mouse is on it: a facility's effect, a
+## weapon's warning, why a skill will not fit. In place, each of those cost a
+## row of its own, and five of them cost the stash its list.
+##
+## The exit only clears what this control put there, so moving from a row onto
+## the button inside it does not blank the line on the way.
+func _explain(c: Control, text: String) -> void:
+	if text == "":
+		return
+	if c is Label:
+		(c as Label).mouse_filter = Control.MOUSE_FILTER_PASS
+	var show := func() -> void: _status.text = text
+	var clear := func() -> void:
+		if _status.text == text:
+			_status.text = _idle_status()
+	c.mouse_entered.connect(show)
+	c.mouse_exited.connect(clear)
+	# And on focus, so the line works for a player who never touches the mouse.
+	if c.focus_mode != Control.FOCUS_NONE:
+		c.focus_entered.connect(show)
+		c.focus_exited.connect(clear)
+
+func _idle_status() -> String:
+	if _message != "":
+		return _message
+	return "board %dx%d · max hp %d · stash cap %d" % [
+		GameState.board_size().x, GameState.board_size().y,
+		int(GameState.max_health()), GameState.stash_cap()]
+
+func _say(msg: String) -> void:
+	_message = msg
+	if _status != null and is_instance_valid(_status):
+		_status.text = _idle_status()
 
 func _header() -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 16)
-	h.add_child(UiKit.title("HIDEOUT"))
-	h.add_child(UiKit.label("scrap %d" % GameState.scrap, 14, UiKit.WARN))
+	h.add_child(UiKit.title("HIDEOUT", 22, true))
+	h.add_child(_label("scrap %d" % GameState.scrap, UiKit.WARN))
 	var r: Dictionary = GameState.records
-	h.add_child(UiKit.label("raids %d · escaped %d · lost %d · kills %d" % [
-		r["raids"], r["escapes"], r["deaths"], r["kills"]], 12, UiKit.DIM))
-	var pad := Control.new()
-	pad.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(pad)
-	var sb := UiKit.button("SANDBOX", UiKit.GOOD)
+	h.add_child(_label("raids %d · escaped %d · lost %d · kills %d" % [
+		r["raids"], r["escapes"], r["deaths"], r["kills"]], UiKit.DIM))
+	h.add_child(_pad())
+	var sb := _button("SANDBOX", UiKit.GOOD)
 	sb.pressed.connect(func() -> void: sandbox_requested.emit())
 	h.add_child(sb)
-	var tb := UiKit.button("TITLE")
+	var tb := _button("TITLE")
 	tb.pressed.connect(func() -> void: title_requested.emit())
 	h.add_child(tb)
 	return h
 
 ## --- weapons ----------------------------------------------------------------
 func _weapons_column() -> Control:
-	var p := UiKit.panel()
-	p.custom_minimum_size = Vector2(300, 0)
+	var p := UiKit.panel(UiKit.PANEL, Color(0.22, 0.3, 0.38), true)
+	p.custom_minimum_size = Vector2(COL_WEAPONS, 0)
 	p.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
 	p.add_child(v)
-	v.add_child(UiKit.label("WEAPON — one per raid", 13, UiKit.ACCENT))
-	v.add_child(UiKit.hline())
+	v.add_child(_label("WEAPON — one per raid", UiKit.ACCENT))
+	v.add_child(UiKit.hline(true))
 	for id in Weapons.ids():
 		var owned: bool = GameState.owned_weapons.has(id)
 		var d := Weapons.get_def(id)
 		var selected: bool = id == weapon_id
 		var wc := Style.weapon_color(id)
-		var mark := "▸ " if selected else "   "
-		var b := UiKit.button("%s%s%s" % [mark, d["name"], "" if owned else "  (lost)"],
-			Style.weapon_color(id) if selected else UiKit.DIM)
+		# Two characters either way, so the name does not shift as the mark moves.
+		var b := _button("%s%s%s" % ["> " if selected else "  ", d["name"],
+			"" if owned else "  (lost)"], wc if selected else UiKit.DIM)
 		b.disabled = not owned
-		b.custom_minimum_size = Vector2(0, 34 if selected else 28)
+		b.custom_minimum_size = Vector2(0, 40 if selected else 34)
 		if selected:
-			b.add_theme_color_override("font_color", Style.weapon_color(id))
+			b.add_theme_color_override("font_color", wc)
 			b.add_theme_stylebox_override("normal", UiKit.style(
-				Color(wc.r, wc.g, wc.b, 0.2), wc, 2))
+				Color(wc.r, wc.g, wc.b, 0.2), wc, 2, 3, true))
+		_explain(b, String(d["desc"]))
 		b.pressed.connect(func() -> void:
 			weapon_id = id
 			focus_slot = 0
@@ -105,21 +187,23 @@ func _weapons_column() -> Control:
 		v.add_child(b)
 	v.add_child(UiKit.spacer(6))
 	var d := Weapons.get_def(weapon_id)
-	v.add_child(UiKit.label(String(d["desc"]), 11, UiKit.DIM))
+	v.add_child(_wrapped(String(d["desc"])))
 	v.add_child(UiKit.spacer(4))
-	v.add_child(UiKit.label("slots: %d" % int(d["slots"]), 12))
-	v.add_child(UiKit.label("accepts: %s" % ", ".join(d["accepts"]), 11, UiKit.DIM))
-	v.add_child(UiKit.label("melee x%.2f · ranged x%.2f · bolt speed x%.2f" % [
-		float(d["melee_mul"]), float(d["ranged_mul"]), float(d["projectile_speed"])], 11, UiKit.DIM))
+	# Slots and what they take read as one fact about the weapon, and as two
+	# labels they were two wrapped blocks with a gap down the middle.
+	v.add_child(_wrapped("slots %d · accepts %s" % [int(d["slots"]), ", ".join(d["accepts"])],
+		UiKit.TEXT))
+	v.add_child(_wrapped("melee x%.2f · ranged x%.2f · bolt speed x%.2f" % [
+		float(d["melee_mul"]), float(d["ranged_mul"]), float(d["projectile_speed"])]))
 	if bool(d["gravity_shots"]):
-		v.add_child(UiKit.label("thrown: shots arc under gravity", 11, UiKit.WARN))
+		v.add_child(_wrapped("thrown: shots arc under gravity", UiKit.WARN))
 	v.add_child(UiKit.spacer(8))
-	v.add_child(UiKit.label("Dying loses this weapon and the skills slotted into it.", 11, UiKit.BAD))
+	v.add_child(_wrapped("Dying loses this weapon and the skills slotted into it.", UiKit.BAD))
 	return p
 
 ## --- loadout + library ------------------------------------------------------
 func _loadout_column() -> Control:
-	var p := UiKit.panel()
+	var p := UiKit.panel(UiKit.PANEL, Color(0.22, 0.3, 0.38), true)
 	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	p.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var v := VBoxContainer.new()
@@ -127,32 +211,30 @@ func _loadout_column() -> Control:
 	p.add_child(v)
 
 	var slots := GameState.get_loadout(weapon_id)
-	v.add_child(UiKit.label("SKILL SLOTS", 13, UiKit.ACCENT))
-	v.add_child(UiKit.hline())
+	v.add_child(_label("SKILL SLOTS", UiKit.ACCENT))
+	v.add_child(UiKit.hline(true))
 	for i in slots.size():
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 6)
 		var idx := int(slots[i])
+		# The tags ride in the button with the name rather than in a label beside
+		# it: at this size the pair ran past the panel, and the button is the one
+		# of the two that can give ground.
 		var name_txt := "— empty —"
-		var tag_txt := ""
 		if idx >= 0:
 			var b: SkillBoard = GameState.skill_library[idx]
-			name_txt = b.skill_name
-			tag_txt = ", ".join(b.compute_tags())
-		var sel := UiKit.button("%s %d: %s" % ["▸" if i == focus_slot else " ", i + 1, name_txt],
+			name_txt = "%s  [%s]" % [b.skill_name, ", ".join(b.compute_tags())]
+		var sel := _row_button("%s %d: %s" % [">" if i == focus_slot else " ", i + 1, name_txt],
 			UiKit.ACCENT if i == focus_slot else UiKit.DIM)
-		sel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		sel.pressed.connect(func() -> void:
 			focus_slot = i
 			rebuild())
 		row.add_child(sel)
-		if tag_txt != "":
-			row.add_child(UiKit.label(tag_txt, 10, UiKit.DIM))
 		if idx >= 0:
-			var ed := UiKit.button("EDIT", UiKit.GOOD)
+			var ed := _button("EDIT", UiKit.GOOD)
 			ed.pressed.connect(func() -> void: edit_requested.emit(idx))
 			row.add_child(ed)
-			var cl := UiKit.button("CLEAR", UiKit.BAD)
+			var cl := _button("CLEAR", UiKit.BAD)
 			cl.pressed.connect(func() -> void:
 				var s := GameState.get_loadout(weapon_id)
 				s[i] = -1
@@ -163,20 +245,19 @@ func _loadout_column() -> Control:
 
 	v.add_child(UiKit.spacer(8))
 	var lib_head := HBoxContainer.new()
-	lib_head.add_child(UiKit.label("SKILL LIBRARY — click to fit into slot %d" % (focus_slot + 1), 13, UiKit.ACCENT))
-	var pad := Control.new()
-	pad.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lib_head.add_child(pad)
-	var nb := UiKit.button("NEW SKILL", UiKit.GOOD)
+	lib_head.add_child(_label("SKILL LIBRARY — fits slot %d" % (focus_slot + 1), UiKit.ACCENT))
+	lib_head.add_child(_pad())
+	var nb := _button("NEW SKILL", UiKit.GOOD)
 	nb.pressed.connect(func() -> void:
 		GameState.new_skill()
 		edit_requested.emit(GameState.skill_library.size() - 1))
 	lib_head.add_child(nb)
 	v.add_child(lib_head)
-	v.add_child(UiKit.hline())
+	v.add_child(UiKit.hline(true))
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	UiKit.pixel_scroll(scroll)
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", 4)
@@ -189,11 +270,13 @@ func _loadout_column() -> Control:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 6)
 		var tags := board.compute_tags()
-		var txt := "%s   [%s]" % [board.skill_name, ", ".join(tags) if tags.size() > 0 else "utility"]
-		var btn := UiKit.button(txt, UiKit.GOOD if compatible else UiKit.BAD)
-		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var btn := _row_button("%s   [%s]" % [board.skill_name,
+			", ".join(tags) if tags.size() > 0 else "utility"],
+			UiKit.GOOD if compatible else UiKit.BAD)
 		btn.disabled = not compatible
-		btn.tooltip_text = Weapons.rejection_reason(weapon_id, board)
+		# Why it will not fit goes to the status line: the row it used to sit on
+		# had no space left for it, and a tooltip is the theme's, not ours.
+		_explain(btn, Weapons.rejection_reason(weapon_id, board) if not compatible else "")
 		btn.pressed.connect(func() -> void:
 			var s := GameState.get_loadout(weapon_id)
 			# One skill cannot sit in two slots at once.
@@ -205,72 +288,71 @@ func _loadout_column() -> Control:
 			focus_slot = mini(focus_slot + 1, s.size() - 1)
 			rebuild())
 		row.add_child(btn)
-		var ed := UiKit.button("EDIT")
+		var ed := _button("EDIT")
 		ed.pressed.connect(func() -> void: edit_requested.emit(i))
 		row.add_child(ed)
-		var del := UiKit.button("✕", UiKit.BAD)
+		# The pixel face has no ✕; an X in it is the same mark and one glyph.
+		var del := _button("X", UiKit.BAD)
 		del.pressed.connect(func() -> void:
 			GameState.delete_skill(i)
 			rebuild())
 		row.add_child(del)
-		if not compatible:
-			row.add_child(UiKit.label("incompatible", 10, UiKit.BAD))
 		list.add_child(row)
 	return p
 
 ## --- facilities & stash -----------------------------------------------------
 func _facilities_column() -> Control:
-	var p := UiKit.panel()
-	p.custom_minimum_size = Vector2(340, 0)
+	var p := UiKit.panel(UiKit.PANEL, Color(0.22, 0.3, 0.38), true)
+	p.custom_minimum_size = Vector2(COL_FACILITIES, 0)
 	p.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 5)
 	p.add_child(v)
-	v.add_child(UiKit.label("FACILITIES", 13, UiKit.ACCENT))
-	v.add_child(UiKit.hline())
+	v.add_child(_label("FACILITIES", UiKit.ACCENT))
+	v.add_child(UiKit.hline(true))
 	for key in GameState.FACILITY_INFO:
 		var info: Dictionary = GameState.FACILITY_INFO[key]
 		var lvl: int = GameState.facilities[key]
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 6)
-		var lbl := UiKit.label("%s  lv%d" % [info["name"], lvl], 12)
+		row.mouse_filter = Control.MOUSE_FILTER_PASS
+		_explain(row, String(info["desc"]))
+		var lbl := _label("%s  lv%d" % [info["name"], lvl])
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(lbl)
 		if lvl >= int(info["max"]):
-			row.add_child(UiKit.label("max", 11, UiKit.DIM))
+			row.add_child(_label("max", UiKit.DIM))
 		else:
-			var cost := GameState.facility_cost(key)
-			var b := UiKit.button("%d" % cost, UiKit.WARN)
+			var b := _button("%d" % GameState.facility_cost(key), UiKit.WARN)
 			b.disabled = not GameState.can_upgrade(key)
+			_explain(b, String(info["desc"]))
 			b.pressed.connect(func() -> void:
 				if GameState.upgrade_facility(key):
 					Audio.play("pickup")
+					_say("%s is level %d." % [info["name"], GameState.facilities[key]])
 					rebuild())
 			row.add_child(b)
 		v.add_child(row)
-		v.add_child(UiKit.label(String(info["desc"]), 10, UiKit.DIM))
-	v.add_child(UiKit.spacer(4))
-	v.add_child(UiKit.label("board %dx%d · max hp %d · stash cap %d" % [
-		GameState.board_size().x, GameState.board_size().y,
-		int(GameState.max_health()), GameState.stash_cap()], 11, UiKit.DIM))
 
 	v.add_child(UiKit.spacer(8))
 	var sh := HBoxContainer.new()
-	sh.add_child(UiKit.label("STASH", 13, UiKit.ACCENT))
-	var pad := Control.new()
-	pad.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sh.add_child(pad)
-	var fb := UiKit.button("FORGE 3→1 (25)", UiKit.WARN)
+	sh.add_child(_label("STASH", UiKit.ACCENT))
+	sh.add_child(_pad())
+	# No arrow in the pixel face: three of them go in, one comes out.
+	var fb := _button("FORGE 3>1 (25)", UiKit.WARN)
 	fb.disabled = GameState.scrap < 25 or _stash_total() < 3
+	_explain(fb, "Melts three spare components into one, for 25 scrap.")
 	fb.pressed.connect(_forge)
 	sh.add_child(fb)
 	v.add_child(sh)
-	v.add_child(UiKit.hline())
+	v.add_child(UiKit.hline(true))
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	UiKit.pixel_scroll(scroll)
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 4)
 	scroll.add_child(list)
 	v.add_child(scroll)
 	var any := false
@@ -280,19 +362,24 @@ func _facilities_column() -> Control:
 			continue
 		any = true
 		var row := HBoxContainer.new()
-		var l := UiKit.label("%s x%d" % [Components.get_def(id)["name"], n], 11, Style.component_color(id))
+		row.add_theme_constant_override("separation", 6)
+		var l := _label("%s x%d" % [Components.get_def(id)["name"], n], Style.component_color(id))
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		l.clip_text = true
+		_explain(l, String(Components.get_def(id)["desc"]))
 		row.add_child(l)
-		var sc := UiKit.button("scrap", UiKit.DIM)
+		var sc := _button("scrap", UiKit.DIM)
+		_explain(sc, "Breaks one down for scrap.")
 		sc.pressed.connect(func() -> void:
 			var gain := GameState.scrap_component(id)
 			if gain > 0:
 				Audio.play("erase")
+				_say("Scrapped %s for %d." % [Components.get_def(id)["name"], gain])
 			rebuild())
 		row.add_child(sc)
 		list.add_child(row)
 	if not any:
-		list.add_child(UiKit.label("Nothing stored. Bring something home.", 11, UiKit.DIM))
+		list.add_child(_wrapped("Nothing stored. Bring something home."))
 	return p
 
 func _stash_total() -> int:
@@ -317,7 +404,7 @@ func _forge() -> void:
 	var made := GameState.forge_component(pick)
 	if made != "":
 		Audio.play("pickup")
-		_status.text = "The forge yielded %s." % Components.get_def(made)["name"]
+		_say("The forge yielded %s." % Components.get_def(made)["name"])
 	rebuild()
 
 ## --- deploy -----------------------------------------------------------------
@@ -326,13 +413,10 @@ func _footer() -> Control:
 	h.add_theme_constant_override("separation", 12)
 	var slots := GameState.get_loadout(weapon_id)
 	var filled := slots.filter(func(i: int) -> bool: return int(i) >= 0)
-	h.add_child(UiKit.label("%d of %d slots filled" % [filled.size(), slots.size()], 12, UiKit.DIM))
-	var pad := Control.new()
-	pad.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(pad)
-	var warn := UiKit.label("Everything you take can be lost.", 12, UiKit.BAD)
-	h.add_child(warn)
-	var b := UiKit.button("DEPLOY  ▶", UiKit.GOOD)
+	h.add_child(_label("%d of %d slots filled" % [filled.size(), slots.size()], UiKit.DIM))
+	h.add_child(_pad())
+	h.add_child(_label("Everything you take can be lost.", UiKit.BAD))
+	var b := _button("DEPLOY >", UiKit.GOOD)
 	b.custom_minimum_size = Vector2(180, 40)
 	b.disabled = filled.is_empty() or not GameState.owned_weapons.has(weapon_id)
 	b.pressed.connect(func() -> void:

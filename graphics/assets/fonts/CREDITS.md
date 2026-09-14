@@ -9,8 +9,9 @@ as the fonts are not sold on their own and the licence travels with them.
 | `Silkscreen-Regular.ttf` | [Silkscreen](https://fonts.google.com/specimen/Silkscreen) | Jason Kottke |
 | `PlayfairDisplay-Variable.ttf` | [Playfair Display](https://fonts.google.com/specimen/Playfair+Display) | Claus Eggers Sørensen |
 
-Silkscreen is the pixel face: the title screen's menu, records line and settings
-(UiKit's pixel look), and all text drawn in the world (`PixelCamera.draw_text`). Its import is set to **no antialiasing, no hinting and no
+Silkscreen is the pixel face: the title screen's menu, records line and settings,
+the hideout and the assembly screen (UiKit's pixel look), and all text drawn in
+the world (`PixelCamera.draw_text`). Its import is set to **no antialiasing, no hinting and no
 subpixel positioning** (`Silkscreen-Regular.ttf.import`) — a bitmap face has
 exactly one correct shape per pixel, and letting FreeType smooth it turns the
 stems grey. Draw it at whole multiples of 8px for the same reason.

@@ -58,13 +58,15 @@ static func button(text: String, accent: Color = ACCENT, pixel: bool = false) ->
 ## a focusable button swallows SPACE as "press me again" and TAB as "move to
 ## the next button", which costs the player a jump or the assembly screen.
 ## Menus use `button` — there, keyboard and gamepad navigation is the point.
-static func overlay_button(text: String, accent: Color = ACCENT) -> Button:
-	var b := button(text, accent)
+static func overlay_button(text: String, accent: Color = ACCENT, pixel: bool = false) -> Button:
+	var b := button(text, accent, pixel)
 	b.focus_mode = Control.FOCUS_NONE
 	return b
 
 ## The cooldown state a skill slot shows, drawn over the card and shared by
 ## every screen that lists slots so they cannot drift apart.
+## `PixelDraw.cooldown` is this same wipe on the pixel grid, for the screens
+## drawn that way; what it means is described here.
 ##
 ## `progress` runs 0 → 1 as the skill recovers. The grey sheet covers what is
 ## left of the wait and its upper edge is the clock hand: it starts at the top
@@ -102,9 +104,8 @@ static func panel(color: Color = PANEL, border: Color = Color(0.22, 0.3, 0.38),
 	p.add_theme_stylebox_override("panel", style(color, border, 1, 3, pixel))
 	return p
 
-static func title(text: String, size: int = 22) -> Label:
-	var l := label(text, size, Color(0.9, 0.95, 1.0))
-	return l
+static func title(text: String, size: int = 22, pixel: bool = false) -> Label:
+	return label(text, size, Color(0.9, 0.95, 1.0), pixel)
 
 ## A Control parented to a CanvasLayer does not inherit the viewport rect, so
 ## full-screen screens have to be sized explicitly (and kept in sync on resize).
