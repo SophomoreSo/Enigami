@@ -43,7 +43,7 @@ func _ready() -> void:
 	var wb := UiKit.overlay_button("SWAP WEAPON", UiKit.ACCENT, true)
 	wb.pressed.connect(func() -> void: sandbox.cycle_weapon())
 	v.add_child(wb)
-	var dt := UiKit.overlay_button("DRAGON TEST ▶", UiKit.ACCENT)
+	var dt := UiKit.overlay_button("DRAGON TEST ▶", UiKit.ACCENT, true)
 	dt.pressed.connect(func() -> void: sandbox.open_dragon_test())
 	v.add_child(dt)
 	for kind in Sandbox.MONSTER_BUTTONS:
