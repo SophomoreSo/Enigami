@@ -36,7 +36,12 @@ const DASH_SPEED := 880.0
 const DASH_TIME := 0.13
 const DASH_COOLDOWN := 0.30
 ## How much longer the weapon's own attack waits between swings than its board alone would.
-const BASIC_COOLDOWN_MUL := 4.0
+## The innate boards are three or four cells long, so left alone they come round
+## again in a fortieth of a second — a held button became a blur with no swing
+## in it to read. The multiplier is what makes the basic a swing rather than a
+## stream: at ten it lands about two and a half times a second, slow enough to
+## see each one start and end, and still quick enough to combo off.
+const BASIC_COOLDOWN_MUL := 10.0
 const COYOTE := 0.10
 const JUMP_BUFFER := 0.12
 ## A stick has no cursor to point at, so it aims at a point far enough down
@@ -513,7 +518,12 @@ func apply_damage(amount: float, elements: Array = [], source: Node = null, is_h
 				_on_fired(p, parry_slot)
 		return 0.0
 	var dealt := super.apply_damage(amount, elements, source, is_hit)
-	if dealt > 0.0:
+	# Damage over time ticks every frame, so the cue and the i-frames hang off
+	# the blow that lit the burn rather than off the burning. Without `is_hit`
+	# one Arbiter shot played its hurt sound a hundred and fifty times over the
+	# 2.5s fire, and re-armed invulnerability every frame it did — which made
+	# being on fire the safest place in the game.
+	if dealt > 0.0 and is_hit:
 		Cues.at(&"hurt", global_position, {"team": team})
 		invuln = maxf(invuln, 0.45)
 	return dealt

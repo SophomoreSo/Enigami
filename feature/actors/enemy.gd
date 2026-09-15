@@ -7,6 +7,20 @@ extends Actor
 
 const GRAVITY := 1700.0
 
+## How much longer a monster waits between attacks than its board alone would.
+##
+## Monster boards are short by design — a Crawler is INPUT, SLASH, OUTPUT — and
+## a short board comes round again almost immediately, so every monster in the
+## game was attacking twelve to thirty times a second: a Sentry held down a wall
+## of bolts, and walking into a Crawler was a death with no blow in it to read.
+## The player's own basic is paced the same way, by `Player.BASIC_COOLDOWN_MUL`.
+##
+## It is one number for every monster on purpose. What separates a Crawler's
+## slash from an Arbiter's volley is already in their boards — length and heat —
+## so scaling the whole cadence keeps those differences and only sets the pace
+## they play out at.
+const ATTACK_COOLDOWN_MUL := 20.0
+
 var kind: String = "CRAWLER"
 var def: Dictionary = {}
 var board: SkillBoard
@@ -62,6 +76,7 @@ func _ready() -> void:
 
 func _make_runner() -> void:
 	runner = SkillRunner.new(board)
+	runner.cooldown_mul = ATTACK_COOLDOWN_MUL
 	var dmg_scale := 1.0 + 0.14 * float(max(_danger - 1, 0))
 	if modifier == "armored":
 		dmg_scale *= 1.15
