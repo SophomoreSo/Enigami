@@ -22,6 +22,18 @@ const CAT_COLOR := {
 	Components.CAT_TRIGGER: Color(0.98, 0.55, 0.78),
 }
 
+## What each category is called where the editor groups the palette by it. The
+## ids are the rules' own; the wording on screen is ours.
+const CAT_NAME := {
+	Components.CAT_STRUCT: "STRUCTURE",
+	Components.CAT_FORM: "FORM",
+	Components.CAT_ELEMENT: "ELEMENT",
+	Components.CAT_STAT: "STAT",
+	Components.CAT_BEHAVIOR: "BEHAVIOR",
+	Components.CAT_FLOW: "FLOW",
+	Components.CAT_TRIGGER: "TRIGGER",
+}
+
 ## Per-part overrides. `glyph` is what a dropped part draws (the editor draws
 ## the part's `COMPONENT_ICON`); `color` is only given where a part should not
 ## wear its category's colour.
@@ -66,6 +78,11 @@ const FALLBACK := Color(0.55, 0.58, 0.66)
 
 static func category_color(cat: String) -> Color:
 	return CAT_COLOR.get(cat, FALLBACK)
+
+## A category added on the feature branch reads as its own id until it is named
+## here, like every other lookup in this file.
+static func category_name(cat: String) -> String:
+	return String(CAT_NAME.get(cat, cat.to_upper()))
 
 static func component_color(id: String) -> Color:
 	var look: Dictionary = COMPONENT.get(id, {})

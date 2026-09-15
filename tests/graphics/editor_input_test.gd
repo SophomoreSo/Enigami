@@ -48,11 +48,7 @@ func cell_pos(c: Vector2i) -> Vector2:
 	return SkillEditor.BOARD_ORIGIN + Vector2(c.x * SkillEditor.CELL, c.y * SkillEditor.CELL) + Vector2(25, 25)
 
 func pal_pos(id: String) -> Vector2:
-	var ids := ed._palette_ids()
-	var i := ids.find(id)
-	var col := i % SkillEditor.PAL_COLS
-	var row := int(i / SkillEditor.PAL_COLS)
-	return SkillEditor.PAL_ORIGIN + Vector2(col * SkillEditor.PAL_W + 40, row * SkillEditor.PAL_H + 20)
+	return ed._pal_rect(ed._palette_ids().find(id)).get_center()
 
 func _ready() -> void:
 	GameState.reset_profile()
