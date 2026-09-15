@@ -4,9 +4,10 @@ extends Node
 ## board, joints and breaks, live pulses, a drag, the hovers and a message on
 ## screen: every PIXEL×PIXEL block of the picture is one colour, so nothing it
 ## draws is off the grid. On the layout: the biggest board a Workbench grows and
-## the palette both end above the info panel, every part's name fits its palette
-## row, the header's lines fit, and a preview with more to say than rows to say
-## it in is cut short and says so.
+## the palette both end above the info panel, the palette is one block a part
+## category with its name beside it in the gutter, every part's name fits its
+## palette row, the header's lines fit, and a preview with more to say than rows
+## to say it in is cut short and says so.
 ##
 ## Needs a real renderer: the block check reads the frame back.
 
@@ -190,8 +191,42 @@ func _ready() -> void:
 		% [board_end.x, SkillEditor.PAL_ORIGIN.x - 10.0])
 	# The palette's panel runs 10 past its rows on every side.
 	var ids := wb._palette_ids()
-	check(wb._pal_rect(ids.size() - 1).end.y + 10.0 <= info_top, "the palette ends above the info panel")
-	check(wb._pal_rect(SkillEditor.PAL_COLS - 1).end.x + 10.0 <= vp.x, "and inside the screen")
+	var panel := wb._pal_panel()
+	check(panel.end.y <= info_top, "the palette ends above the info panel (%.0f of %.0f)"
+		% [panel.end.y, info_top])
+	check(panel.end.x <= vp.x, "and inside the screen (%.0f of %.0f)" % [panel.end.x, vp.x])
+	check(panel.position.x >= SkillEditor.PAL_ORIGIN.x - 10.0, "the palette's panel starts at its gutter")
+	# One block a category, every part of a category inside its own block, and
+	# every block's name written in the gutter beside it rather than over it.
+	var blocks := wb._pal_blocks
+	var cats: Array = []
+	for id in ids:
+		var cat := String(Components.get_def(id).get("cat", Components.CAT_STRUCT))
+		if not cats.has(cat):
+			cats.append(cat)
+	check(blocks.size() == cats.size(), "the palette is %d blocks, one a category (%d)"
+		% [cats.size(), blocks.size()])
+	var split: Array = []
+	for cat in cats:
+		var rows: Array = []
+		for i in ids.size():
+			if String(Components.get_def(ids[i]).get("cat", Components.CAT_STRUCT)) == cat:
+				rows.append(i)
+		if int(rows[-1]) - int(rows[0]) != rows.size() - 1:
+			split.append(cat)
+	check(split.is_empty(), "every category's parts are one run of rows (split: %s)" % str(split))
+	var wide: Array = []
+	var room := SkillEditor.PAL_GUTTER - SkillEditor.PAL_SPINE - 8.0
+	for block in blocks:
+		if PixelDraw.text_width(String(block["name"])) > room:
+			wide.append("%s (%.0f of %.0f)" % [block["name"], PixelDraw.text_width(String(block["name"])), room])
+	check(wide.is_empty(), "every category name fits the gutter (too wide: %s)" % str(wide))
+	var overlap: Array = []
+	for i in ids.size():
+		for j in range(i + 1, ids.size()):
+			if wb._pal_rect(i).intersects(wb._pal_rect(j)):
+				overlap.append("%s/%s" % [ids[i], ids[j]])
+	check(overlap.is_empty(), "no two palette rows overlap (%s)" % str(overlap))
 	var tight: Array = []
 	for i in ids.size():
 		var id: String = ids[i]

@@ -11,19 +11,34 @@ extends Control
 ## world under it. All of it goes through `PixelDraw`, which snaps to that grid.
 ## The pixel face has almost none of the symbols in `Style`'s part glyphs, so
 ## parts are drawn as their `Style.component_icon` instead.
+##
+## The parts on the right are grouped by the category the rules give them —
+## forms, elements, stats and the rest — each block named down the gutter beside
+## it in the category's own colour, which is the colour its parts wear.
 
 signal board_changed(slot: int)
 signal closed()
 
 const CELL := 50
 const BOARD_ORIGIN := Vector2(48, 104)
-const PAL_ORIGIN := Vector2(700, 104)
+## The palette's top-left, the gutter its category names sit in included.
+const PAL_ORIGIN := Vector2(626, 104)
 ## Two wide columns of one-line rows rather than four of two-line tiles: the
 ## pixel face runs up to twice as wide as the one the palette was laid out for,
 ## and the longest part name takes 130 of a row.
 const PAL_COLS := 2
-const PAL_W := 264
-const PAL_H := 30
+const PAL_W := 244
+const PAL_H := 26
+## A category's name is written down the gutter beside its block rather than on
+## a header row above it: there are seven of them, and seven more rows do not
+## fit between the header and the info panel. The spine is the rule the name
+## and the block hang off, PAL_SPINE short of the first column.
+const PAL_GUTTER := 122.0
+const PAL_SPINE := 10.0
+const PAL_GROUP_GAP := 6.0
+## The baseline of a row's text, from the top of the row: capitals stand 10
+## tall, so this leaves 6 above them and 6 under.
+const PAL_TEXT_Y := 16.0
 
 var boards: Array = []               ## Array[SkillBoard]
 var slot: int = 0
@@ -52,6 +67,11 @@ var _trace_cache: Dictionary = {}
 var _sim_dirty: bool = true
 var _message: String = ""
 var _message_time: float = 0.0
+## The palette, laid out once: a row per part and a block per category, both
+## drawn and hit-tested from the same rects. See `_build_palette`.
+var _pal_rows: Array = []
+var _pal_blocks: Array = []
+var _pal_height: float = 0.0
 var _ports: Array = []               ## PORT turned to face each direction
 var _arrows: Array = []              ## ARROW likewise, for the drag chip
 var _px := PixelDraw.new(self)
@@ -166,16 +186,23 @@ func _update_hover(pos: Vector2) -> void:
 			var c := Vector2i(int(rel.x / CELL), int(rel.y / CELL))
 			if b.in_bounds(c):
 				_hover_cell = c
-	var prel := pos - PAL_ORIGIN
-	if prel.x >= 0 and prel.y >= 0:
-		var col := int(prel.x / PAL_W)
-		var row := int(prel.y / PAL_H)
-		if col >= 0 and col < PAL_COLS:
-			var idx := row * PAL_COLS + col
-			if idx >= 0 and idx < _palette_ids().size():
-				_hover_pal = idx
+	if _pal_panel().has_point(pos):
+		for i in _pal_list().size():
+			if _pal_rect(i).has_point(pos):
+				_hover_pal = i
+				return
 
+## Every part the palette offers, in the order its rows come — the pool's own
+## order, gathered into category blocks.
 func _palette_ids() -> Array:
+	var ids: Array = []
+	for row in _pal_list():
+		ids.append(String(row["id"]))
+	return ids
+
+## The pool the palette is laid out from: the structural parts, always at hand,
+## then everything that drops.
+func _pool_ids() -> Array:
 	var ids: Array = []
 	ids.append_array(Components.STRUCTURAL)
 	ids.append_array(Components.LOOT_POOL)
@@ -274,8 +301,10 @@ func _release_left() -> void:
 		return  # a palette drag that went nowhere costs nothing
 
 	# Dropping a lifted part on the palette discards it back into the pool;
-	# anywhere else invalid, it simply goes back where it was.
-	if _hover_pal >= 0:
+	# anywhere else invalid, it simply goes back where it was. The whole panel
+	# counts, gutter and the gaps between blocks included: a part thrown at the
+	# palette was thrown away wherever on it it landed.
+	if _hover_pal >= 0 or _pal_panel().has_point(_mouse_pos):
 		_give(id)
 		Audio.play("erase")
 		board_changed.emit(slot)
@@ -350,7 +379,9 @@ const HEADER_H := 84.0
 ## grows, and the palette, both end above it.
 const INFO_H := 144.0
 const INFO_ROWS := 5
-const INFO_LEFT_W := 604.0
+## The part being described, up to where the cycle preview starts under the
+## palette.
+const INFO_LEFT_W := 530.0
 
 ## A part's icon is drawn this many PIXELs per bitmap pixel on the board, and
 ## one PIXEL per bitmap pixel everywhere else.
@@ -581,17 +612,75 @@ func _draw_live_flow(b: SkillBoard) -> void:
 		_px.diamond(box.get_center(), 3 + int(round(2.0 * sin(k * PI))), Color(0.6, 1.0, 0.85, 0.85))
 		_px.lap(box, k, Color(0.5, 1.0, 0.8, 0.7))
 
+## The parts, in blocks — one a category, in the order the pool brings them: a
+## category's block starts where its first part does, and every later part of
+## the same category joins it rather than starting a second block of its own.
+func _pal_groups() -> Array:
+	var groups: Array = []
+	var at := {}
+	for id in _pool_ids():
+		var cat := String(Components.get_def(id).get("cat", Components.CAT_STRUCT))
+		if not at.has(cat):
+			at[cat] = groups.size()
+			groups.append({"cat": cat, "ids": []})
+		(groups[int(at[cat])]["ids"] as Array).append(id)
+	return groups
+
+## Every row and every block placed, once. The pool is a constant, so this is
+## worked out on first use and kept: the rows the palette draws and the rects
+## the cursor is tested against are then the same numbers, and a block that
+## grows a part pushes the ones under it down on its own.
+func _build_palette() -> void:
+	_pal_rows = []
+	_pal_blocks = []
+	var x := PAL_ORIGIN.x + PAL_GUTTER
+	var y := PAL_ORIGIN.y
+	for group in _pal_groups():
+		var ids: Array = group["ids"]
+		var rows := int(ceil(float(ids.size()) / float(PAL_COLS)))
+		var cat := String(group["cat"])
+		_pal_blocks.append({
+			"name": Style.category_name(cat),
+			"col": Style.category_color(cat),
+			# The name is right-aligned on the spine, on the first row's baseline.
+			"baseline": Vector2(x - PAL_SPINE - 8.0, y + PAL_TEXT_Y),
+			"spine": Rect2(x - PAL_SPINE, y, PX, rows * PAL_H - 4.0),
+		})
+		for i in ids.size():
+			_pal_rows.append({"id": String(ids[i]), "rect": Rect2(
+				Vector2(x + (i % PAL_COLS) * PAL_W, y + int(i / PAL_COLS) * PAL_H),
+				Vector2(PAL_W - 4, PAL_H - 4))})
+		y += rows * PAL_H + PAL_GROUP_GAP
+	_pal_height = y - PAL_GROUP_GAP - PAL_ORIGIN.y
+
+func _pal_list() -> Array:
+	if _pal_rows.is_empty():
+		_build_palette()
+	return _pal_rows
+
 func _pal_rect(i: int) -> Rect2:
-	return Rect2(PAL_ORIGIN + Vector2(i % PAL_COLS * PAL_W, int(i / PAL_COLS) * PAL_H),
-		Vector2(PAL_W - 4, PAL_H - 4))
+	return _pal_list()[i]["rect"]
+
+## The panel the blocks sit on: 10 clear of the rows on every side, the gutter
+## included. Anything thrown at it is thrown at the palette.
+func _pal_panel() -> Rect2:
+	_pal_list()   # for _pal_height, which the layout works out
+	return Rect2(PAL_ORIGIN - Vector2(10, 10),
+		Vector2(PAL_GUTTER + PAL_COLS * PAL_W - 4 + 20, _pal_height + 20))
 
 func _draw_palette() -> void:
-	var ids := _palette_ids()
-	var rows := int(ceil(float(ids.size()) / float(PAL_COLS)))
-	var panel := Rect2(PAL_ORIGIN - Vector2(10, 10), Vector2(PAL_COLS * PAL_W + 16, rows * PAL_H + 16))
+	var panel := _pal_panel()
 	_px.rect(panel, Color(0.08, 0.09, 0.12, 0.92))
 	_px.frame(panel, Color(0.3, 0.45, 0.6, 0.7))
 
+	for block in _pal_blocks:
+		var col: Color = block["col"]
+		_px.rect(block["spine"], Color(col.r, col.g, col.b, 0.7))
+		var label := PixelDraw.clip(String(block["name"]), PAL_GUTTER - PAL_SPINE - 8.0)
+		var at: Vector2 = block["baseline"] - Vector2(PixelDraw.ink_width(label), 0.0)
+		_px.text(at, label, col)
+
+	var ids := _palette_ids()
 	for i in ids.size():
 		var id: String = ids[i]
 		var r := _pal_rect(i)
@@ -602,9 +691,9 @@ func _draw_palette() -> void:
 			bg = Color(c.r, c.g, c.b, 0.42)
 		_px.rect(r, bg)
 		_px.frame(r, c if have else Color(0.3, 0.32, 0.36))
-		_px.icon(r.position + Vector2(8, 6), Style.component_icon(id), c)
-		_draw_count(r.end - Vector2(8, 8), id)
-		_px.text(r.position + Vector2(30, 18), String(Components.get_def(id)["name"]),
+		_px.icon(r.position + Vector2(8, 4), Style.component_icon(id), c)
+		_draw_count(r.end - Vector2(8, 6), id)
+		_px.text(r.position + Vector2(30, PAL_TEXT_Y), String(Components.get_def(id)["name"]),
 			Color(0.92, 0.95, 1.0) if have else Color(0.45, 0.48, 0.52), _pal_name_width(i))
 		if i == _hover_pal:
 			_px.frame(r, Color(1, 1, 1, 0.5))
@@ -612,7 +701,7 @@ func _draw_palette() -> void:
 ## The room a palette row leaves its part's name: after the icon, and short of
 ## the count.
 func _pal_name_width(i: int) -> float:
-	return _pal_rect(i).size.x - 46.0 - _count_width(String(_palette_ids()[i]))
+	return _pal_rect(i).size.x - 46.0 - _count_width(String(_pal_list()[i]["id"]))
 
 ## A part there is no end of shows an infinity sign instead of a count, drawn
 ## because the pixel face has none. On its own, without the "x" a count has: the
