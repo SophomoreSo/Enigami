@@ -451,6 +451,12 @@ func _apply(id: String, p: Payload) -> void:
 			p.homing = true
 		"REVERSE":
 			p.reverse = not p.reverse
+		"GRAVITY":
+			p.pull = true
+		"SHATTER":
+			p.shatter = true
+		"MANA_DRAIN":
+			p.mana_drain = true
 		"DUPLICATE":
 			p.duplicates *= 3
 		"TIME_DILATION":
@@ -575,4 +581,7 @@ func _sim_apply(id: String, p: Payload) -> void:
 		"BLINK": p.blink = true
 		"HOMING": p.homing = true
 		"REVERSE": p.reverse = not p.reverse
+		"GRAVITY": p.pull = true
+		"SHATTER": p.shatter = true
+		"MANA_DRAIN": p.mana_drain = true
 		"DUPLICATE": p.duplicates *= 3

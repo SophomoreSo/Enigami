@@ -31,6 +31,12 @@ func _on_cue(name: StringName, d: Dictionary) -> void:
 			Audio.play("jump", JUMP_PITCH.get(String(d.get("kind", "ground")), 1.0))
 		&"hurt":
 			Audio.play("hurt")
+		&"shatter":
+			Audio.play("hit", 1.55)
+		&"pull":
+			Audio.play("explode", 0.7)
+		&"mana_drain":
+			Audio.play("pickup", 1.4)
 		&"parry":
 			Audio.play("parry")
 		&"refused":

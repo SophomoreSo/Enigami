@@ -14,6 +14,12 @@ var homing: bool = false
 var reverse: bool = false
 var dash: bool = false             ## lunge along aim before the attack lands
 var blink: bool = false            ## teleport behind nearest enemy
+## Drags nearby enemies into the impact instead of knocking the struck one back.
+## Not to be confused with a thrown weapon's `gravity_shots`, which arcs the
+## bolt: that one is a property of the weapon and rides in the spawn context.
+var pull: bool = false
+var shatter: bool = false          ## far harder on an enemy frost has slowed
+var mana_drain: bool = false       ## every connection pays the caster back
 var duplicates: int = 1
 var heat: float = 0.0              ## accumulated while travelling; feeds cycle cooldown
 var branch: String = ""            ## "", "ON_HIT", "ON_KILL", "ON_PARRY"
@@ -38,6 +44,9 @@ func clone() -> Payload:
 	p.reverse = reverse
 	p.dash = dash
 	p.blink = blink
+	p.pull = pull
+	p.shatter = shatter
+	p.mana_drain = mana_drain
 	p.duplicates = duplicates
 	p.heat = heat
 	p.branch = branch
@@ -74,4 +83,10 @@ func summary() -> String:
 		parts.append("dash")
 	if blink:
 		parts.append("blink")
+	if pull:
+		parts.append("pulls in")
+	if shatter:
+		parts.append("x%.1f on chilled" % Attacks.SHATTER_MUL)
+	if mana_drain:
+		parts.append("+%.0f mana a hit" % Attacks.MANA_PER_HIT)
 	return ", ".join(parts)

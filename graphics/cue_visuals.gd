@@ -42,6 +42,17 @@ func _on_cue(name: StringName, d: Dictionary) -> void:
 		&"refused":
 			Fx.text(pos + Vector2(0, -44), String(d.get("text", "")),
 				Style.refuse_color(String(d.get("kind", ""))))
+		&"shatter":
+			# Frost coming apart reads as shards, not as a bigger hit.
+			Fx.burst(pos, Style.SHATTER_SPARK, 10, 210.0)
+			Fx.shake(4.0)
+		&"pull":
+			# The ring is drawn at the reach the pull actually had, so what it
+			# gathered and what the player saw are the same circle.
+			Fx.ring(pos, Style.PULL_RING, float(d.get("radius", 150.0)))
+			Fx.shake(3.5)
+		&"mana_drain":
+			Fx.burst(pos, Style.MANA_SPARK, 4, 90.0)
 		&"parry":
 			Fx.shake(8.0)
 			Fx.ring(pos, Style.PARRY, 60.0)

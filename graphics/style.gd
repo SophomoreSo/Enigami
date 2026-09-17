@@ -55,12 +55,15 @@ const COMPONENT := {
 	"DAMAGE": {"glyph": "+"},
 	"SIZE": {"glyph": "⤢"},
 	"SPEED": {"glyph": "⏩"},
+	"SHATTER": {"glyph": "✶"},
 
 	"PIERCE": {"glyph": "⇢"},
 	"DASH": {"glyph": "≫"},
 	"BLINK": {"glyph": "✦"},
 	"HOMING": {"glyph": "◈"},
 	"REVERSE": {"glyph": "↺"},
+	"GRAVITY": {"glyph": "⤓"},
+	"MANA_DRAIN": {"glyph": "⊚"},
 
 	"SPLIT": {"glyph": "Y"},
 	"TEE": {"glyph": "┬"},
@@ -264,6 +267,33 @@ const COMPONENT_ICON := {
 		"..#.#..",
 		"...#...",
 	],
+	"SHATTER": [
+		"..#..#.",
+		".##..##",
+		"##....#",
+		".......",
+		"#....##",
+		"##..##.",
+		".#..#..",
+	],
+	"GRAVITY": [
+		"#######",
+		".#####.",
+		"..###..",
+		"...#...",
+		"...#...",
+		"...#...",
+		"...#...",
+	],
+	"MANA_DRAIN": [
+		"...#...",
+		"..###..",
+		".#####.",
+		"#######",
+		"#######",
+		".#####.",
+		"..###..",
+	],
 	"REVERSE": [
 		"#####..",
 		".....#.",
@@ -458,6 +488,12 @@ const MODIFIER_COLOR := {
 
 static func modifier_color(id: String) -> Color:
 	return MODIFIER_COLOR.get(id, Color(0.85, 0.85, 0.9))
+
+## What the three parts that act at the moment of impact look like: frost
+## breaking, a field closing in, and mana coming back.
+const SHATTER_SPARK := Color(0.72, 0.93, 1.0)
+const PULL_RING := Color(0.72, 0.6, 1.0, 0.8)
+const MANA_SPARK := Color(0.45, 0.62, 1.0)
 
 const ELITE_RING := Color(1, 0.9, 0.5, 0.7)
 const AGGRO_DOT := Color(1, 0.4, 0.4, 0.9)

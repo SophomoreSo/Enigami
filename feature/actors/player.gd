@@ -210,6 +210,13 @@ func stamina_ratio() -> float:
 func mana_ratio() -> float:
 	return clampf(mana / MAX_MANA, 0.0, 1.0)
 
+## Mana taken back off an enemy by a MANA DRAIN attack. It lands whatever the
+## charge is doing, unlike regeneration: `_mana_pause` exists to stop a hold
+## refilling itself the moment it is released, and this was earned by landing a
+## hit rather than by waiting.
+func gain_mana(amount: float) -> void:
+	mana = minf(MAX_MANA, mana + maxf(amount, 0.0))
+
 func charge_ratio() -> float:
 	return clampf(charge / MAX_CHARGE_TTL, 0.0, 1.0)
 

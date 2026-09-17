@@ -15,10 +15,10 @@ extends RefCounted
 ## exactly the same pixels. With no zero in the alphabet, a round character is
 ## always the letter.
 ##
-## The face has no small letters either — it draws them as capitals — so the
-## sheet that shows a code colours the small ones rather than relying on their
-## shape. That is `ShareCodePanel`'s problem, not this file's; what matters here
-## is that `hBw4k` and `HBW4K` are two different boards.
+## The face has no small letters either — it draws them as capitals — so a code
+## on screen does not show its own case. That is why COPY is the way a code
+## leaves the sheet; what matters here is that `hBw4k` and `HBW4K` are two
+## different boards, whatever they look like.
 ##
 ## Nothing goes between the characters — no dashes, no spaces. A code is shown
 ## and copied as one unbroken run, which keeps it exactly as long as it has to
@@ -90,6 +90,7 @@ const CODE_IDS := [
 	"PIERCE", "DASH", "BLINK", "HOMING", "REVERSE",
 	"SPLIT", "TEE", "DUPLICATE", "OVERCLOCK", "DELAY", "TIME_DILATION",
 	"ON_HIT", "ON_KILL", "ON_PARRY",
+	"SHATTER", "GRAVITY", "MANA_DRAIN",
 ]
 
 ## The last character makes the whole code weigh nothing: every character is
@@ -247,11 +248,6 @@ static func clean(code: String) -> String:
 ## Whether `c` is one of the characters a code is made of.
 static func holds(c: String) -> bool:
 	return c.length() == 1 and ALPHABET.find(c) >= 0
-
-## Whether `c` is one of the small letters — which the pixel face cannot draw as
-## itself, so the sheet colours them instead.
-static func is_small(c: String) -> bool:
-	return c.length() == 1 and c >= "a" and c <= "z"
 
 ## What a board arrives called. A code carries no name — that travels in the
 ## message beside it — so this is the handle it gets instead: the code's own

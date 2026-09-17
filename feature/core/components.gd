@@ -117,6 +117,12 @@ const DEFS := {
 		"desc": "Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. Does nothing to a flow with no bolt in it.",
 	},
 
+	"SHATTER": {
+		"name": "SHATTER", "cat": CAT_STAT, "heat": 0.45, "cells": 1,
+		"outs": [E], "payload_out": -1,
+		"desc": "Hits an enemy already slowed by frost far harder. Worth nothing on its own — pair it with ICE, or with a board that lands twice.",
+	},
+
 	"PIERCE": {
 		"name": "PIERCE", "cat": CAT_BEHAVIOR, "heat": 0.5, "cells": 1,
 		"outs": [E], "payload_out": -1,
@@ -141,6 +147,17 @@ const DEFS := {
 		"name": "REVERSE", "cat": CAT_BEHAVIOR, "heat": 0.4, "cells": 1,
 		"outs": [E], "payload_out": -1,
 		"desc": "Flips travel direction. Bolts return to you; other forms invert in their own way.",
+	},
+
+	"GRAVITY": {
+		"name": "GRAVITY", "cat": CAT_BEHAVIOR, "heat": 0.7, "cells": 1,
+		"outs": [E], "payload_out": -1,
+		"desc": "The enemy struck is not knocked back but pinned, and every other enemy nearby is dragged onto it. Gathers a room into one place for whatever comes next.",
+	},
+	"MANA_DRAIN": {
+		"name": "MANA DRAIN", "cat": CAT_BEHAVIOR, "heat": 0.5, "cells": 1,
+		"outs": [E], "payload_out": -1,
+		"desc": "Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting.",
 	},
 
 	"SPLIT": {
@@ -197,8 +214,8 @@ const STRUCTURAL := ["INPUT", "OUTPUT", "WIRE", "BEND"]
 ## Loot-able components, in the order the palette shows them.
 const LOOT_POOL := [
 	"PROJECTILE", "SLASH", "AREA", "DASHSLASH", "DASHSLASH_AUTO",
-	"FIRE", "ICE", "DAMAGE", "SIZE", "SPEED",
-	"PIERCE", "DASH", "BLINK", "HOMING", "REVERSE",
+	"FIRE", "ICE", "DAMAGE", "SIZE", "SPEED", "SHATTER",
+	"PIERCE", "DASH", "BLINK", "HOMING", "REVERSE", "GRAVITY", "MANA_DRAIN",
 	"SPLIT", "TEE", "DUPLICATE", "OVERCLOCK", "DELAY", "TIME_DILATION",
 	"ON_HIT", "ON_KILL", "ON_PARRY",
 ]

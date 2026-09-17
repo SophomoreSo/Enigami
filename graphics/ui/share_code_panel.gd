@@ -9,12 +9,10 @@ extends Control
 ## A sheet rather than a strip in the header: a code is long, and a player
 ## either wants the whole of it in front of them or does not want to see it.
 ##
-## **The one thing here that is not the face's own:** a code's case matters, and
-## Silkscreen has no small letters — it draws them as capitals, so `hBw4k` and
-## `HBW4K` come out as the same pixels. Rather than give up half the alphabet,
-## or give up the pixel face, the small letters are drawn in a colour of their
-## own and the sheet says so. Colour is also the one thing that survives a
-## screenshot, which is how most of these get shared.
+## A code is drawn in one ink, every character alike. Silkscreen has no small
+## letters — it draws them as capitals — so `hBw4k` and `HBW4K` come out as the
+## same pixels, and the sheet does not try to tell them apart: a code is meant to
+## be COPYed, not read off the screen and typed back in by eye.
 ##
 ## It knows nothing about boards or parts. It collects characters, shows what
 ## `BoardCode` makes of them, and hands them up to the editor, which owns the
@@ -58,13 +56,9 @@ const BG := Color(0.07, 0.08, 0.11, 0.97)
 const EDGE := Color(0.35, 0.55, 0.75, 0.85)
 const BOX_FILL := Color(0.05, 0.06, 0.08)
 const BOX_EDGE := Color(0.24, 0.3, 0.38)
-## Capitals and digits cool, small letters warm. Two hues rather than two
-## brightnesses: a dim letter reads as a letter that is hard to see, where a
-## letter of another colour reads as a letter of another kind.
-const CAPITAL_INK := Color(0.86, 0.94, 1.0)
-const SMALL_INK := Color(1.0, 0.78, 0.42)
+## One ink for the whole code, capitals, small letters and digits alike.
+const CODE_INK := Color(0.86, 0.94, 1.0)
 
-const LEGEND := "orange letters are small ones"
 const HINT := "type either case · ENTER builds · ESC closes"
 
 var _hover: String = ""
@@ -282,7 +276,7 @@ func _draw() -> void:
 		_draw_box(l["code_box"], _lines(c, CODE_LINES, false))
 	_draw_button(l["copy"], "COPY", UiKit.GOOD, _hover == "copy", not c.is_empty())
 	if not c.is_empty():
-		_px.text(l["copy_note"], "%d characters · %s" % [c.length(), LEGEND], UiKit.DIM)
+		_px.text(l["copy_note"], "%d characters" % c.length(), UiKit.DIM)
 
 	_px.text(l["entry_label"], "BUILD FROM A CODE", UiKit.ACCENT, width)
 	var typed := _lines(entry, ENTRY_LINES, true)
@@ -323,18 +317,8 @@ func _draw_box(r: Rect2, rows: PackedStringArray) -> void:
 	_px.rect(r, BOX_FILL)
 	_px.frame(r, BOX_EDGE)
 	for i in rows.size():
-		_draw_code(r.position + Vector2(BOX_PAD, BOX_PAD + 14.0 + i * LINE), rows[i])
-
-## A line of a code, a character at a time, so the small letters can be coloured
-## apart from the capitals the face draws them as. Advances add up exactly in
-## this face — there is no kerning — and every one of them is a whole number of
-## PIXELs, so stepping along by them keeps the line on the grid.
-func _draw_code(at: Vector2, line: String) -> void:
-	var x := 0.0
-	for i in line.length():
-		var ch := line[i]
-		_px.text(at + Vector2(x, 0), ch, SMALL_INK if BoardCode.is_small(ch) else CAPITAL_INK)
-		x += PixelDraw.text_width(ch)
+		_px.text(r.position + Vector2(BOX_PAD, BOX_PAD + 14.0 + i * LINE), rows[i], CODE_INK,
+			r.size.x - BOX_PAD * 2.0)
 
 func _draw_button(r: Rect2, label: String, accent: Color, hot: bool, on: bool) -> void:
 	var edge := accent if on else Color(0.32, 0.34, 0.38)

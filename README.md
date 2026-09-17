@@ -32,6 +32,7 @@ godot res://tests/graphics/editor_pixel_test.tscn # every pixel of the assembly 
 godot res://tests/graphics/hideout_pixel_test.tscn # the hideout's pixel look, and everything on it fits
 godot res://tests/graphics/bench_pixel_test.tscn # the bench panel's pixel look and layout
 godot res://tests/feature/code_test.tscn    # a board survives being written down as a code
+godot res://tests/feature/impact_test.tscn  # GRAVITY, SHATTER and MANA DRAIN, at the moment a hit lands
 godot res://tests/graphics/share_code_test.tscn # sharing a board, and what a pasted code costs
 godot res://tests/feature/ttl_test.tscn     # a pulse's life, and what bounds a loop
 godot res://tests/feature/charge_test.tscn  # holding the cast button buys life for mana
@@ -101,6 +102,15 @@ after that first `OUTPUT` still plays out in real time, which is what lets
   by the very speed-up it pays for, and the two would cancel.
 - `DELAY` is a cell of waiting like any other; stagger a branch against another
   by giving it further to walk.
+- `GRAVITY` pins the enemy it strikes instead of knocking it back, and drags
+  every other enemy nearby onto it — a room gathered into one place for whatever
+  the rest of the board does next.
+- `SHATTER` hits an enemy frost has already slowed far harder. It never
+  shatters the chill the same hit applied, so it is a pair: `ICE` to chill and a
+  second arrival to collect, whether that is `DUPLICATE`, an `ON HIT` branch or
+  simply the next cycle.
+- `MANA DRAIN` takes mana back off every enemy an attack connects with. A board
+  that lands often pays for its own charging.
 - `TIME DILATION` slows the world *and* the board together — it changes the
   pace of a fight rather than buffing attack speed.
 
@@ -175,8 +185,8 @@ letters, so `k` and `K` are different boards. The one character left out is `0`:
 the pixel face draws `0` and `O` with the same pixels, so a round character is
 always the letter, and typing a zero says so instead of quietly building
 something else. That face has no small letters either — it draws them as
-capitals — so on the sheet **the small letters are orange**, which survives a
-screenshot as well as it survives being read off the screen.
+capitals — so **a code on screen does not show its own case**. Use COPY to take
+one, rather than reading it off the screen and typing it back in.
 
 The last character is a check character, so **a single wrong character, one in
 the wrong case, or two neighbours swapped over is always refused** rather than

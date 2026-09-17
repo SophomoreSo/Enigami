@@ -33,7 +33,11 @@ const PAL_ORIGIN := Vector2(626, 104)
 ## and the longest part name takes 130 of a row.
 const PAL_COLS := 2
 const PAL_W := 244
-const PAL_H := 26
+## Row pitch. Seventeen rows of parts have to end above the info panel, and at
+## the 26 this was they do not: a row lost two PIXELs when the behaviour block
+## grew to four rows. A row is PAL_H - 4 tall, which still clears the 14-PIXEL
+## icon inside it.
+const PAL_H := 24
 ## A category's name is written down the gutter beside its block rather than on
 ## a header row above it: there are seven of them, and seven more rows do not
 ## fit between the header and the info panel. The spine is the rule the name
@@ -42,7 +46,7 @@ const PAL_GUTTER := 122.0
 const PAL_SPINE := 10.0
 const PAL_GROUP_GAP := 6.0
 ## The baseline of a row's text, from the top of the row: capitals stand 10
-## tall, so this leaves 6 above them and 6 under.
+## tall, so this leaves 6 above them and 4 under.
 const PAL_TEXT_Y := 16.0
 
 var boards: Array = []               ## Array[SkillBoard]

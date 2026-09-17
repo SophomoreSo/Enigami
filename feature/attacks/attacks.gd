@@ -63,6 +63,25 @@ const DASH_LUNGE_SPEED := 620.0
 ## it: the cursor decides where inside that range it lands.
 const DASH_SLASH_REACH := 170.0
 
+## GRAVITY. How far from the impact the pull reaches at size 1, and how hard it
+## drags. The far end of the field pulls harder than the near end, which is the
+## opposite of real gravity and the point of this one: an even pull leaves the
+## far enemies where they were and throws the near ones past the middle, where a
+## rising one brings the whole room in together and lands them in a heap.
+const PULL_RADIUS := 150.0
+const PULL_FORCE := 300.0
+const PULL_NEAR := 0.45
+
+## SHATTER. What a hit is worth against an enemy frost has already slowed. It
+## does not thaw them: the chill runs its own course, so a board that chills and
+## then lands twice more collects the bonus every time.
+const SHATTER_MUL := 1.8
+
+## MANA DRAIN. What one connection gives the caster back. Each connection pays,
+## so a board that lands three bolts drains three times — that is what a leech
+## build is for — and a trigger's follow-up pays like any other hit.
+const MANA_PER_HIT := 6.0
+
 ## Staggered follow-ups (DUPLICATE, multi-hit forms, triggers) are scheduled by
 ## a small node rather than a captured lambda: an attacker can die between the
 ## first strike and the last, and a node can re-check that before it fires.
@@ -283,10 +302,26 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 	# Both halves are needed: a fully deleted node fails `is_instance_valid`,
 	# and one still being torn down passes it but no longer answers to `is`.
 	var atk: Actor = attacker if is_instance_valid(attacker) and attacker is Actor else null
-	var dealt := target.apply_damage(p.damage, p.elements, atk)
+	# SHATTER reads the target's state from before this hit lands, so an attack
+	# carrying ICE and SHATTER together does not shatter the chill it is in the
+	# middle of applying. It takes two arrivals, which is what makes it a
+	# combination rather than a flat damage part.
+	var chilled := target.chill_time > 0.0
+	var damage := p.damage * SHATTER_MUL if (p.shatter and chilled) else p.damage
+	var dealt := target.apply_damage(damage, p.elements, atk)
 	if dealt <= 0.0:
 		return
-	target.knockback(dir, 120.0 + p.damage * 2.0)
+	if p.shatter and chilled:
+		Cues.at(&"shatter", pos, {"payload": p, "damage": dealt})
+	# GRAVITY drags instead of shoving: rather than being knocked away, the
+	# struck enemy becomes the point every other enemy nearby is pulled onto.
+	if p.pull:
+		_pull(p, pos, team)
+	else:
+		target.knockback(dir, 120.0 + p.damage * 2.0)
+	if p.mana_drain and atk != null and atk.has_method("gain_mana"):
+		atk.gain_mana(MANA_PER_HIT)
+		Cues.at(&"mana_drain", pos, {"amount": MANA_PER_HIT})
 	# A connection stops the clock for a frame. That is a rule — everything in
 	# the fight feels it — so it is applied here and not left to the screen.
 	TimeCtl.hitstop(CHAIN_HITSTOP if p.follow_up else HITSTOP)
@@ -304,6 +339,26 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 		_schedule_spawn(TRIGGER_DELAY, _follow(p.on_hit), ctx)
 	if killed and p.on_kill != null:
 		_schedule_spawn(TRIGGER_DELAY, _follow(p.on_kill), ctx)
+
+## Everything `team` may hurt, dragged towards `pos`.
+##
+## An arc, a burst and a lunge all resolve their hit at the target's own
+## position, so the enemy that was struck is normally standing on `pos` itself:
+## it is the anchor the rest of the room is drawn onto, neither pulled nor
+## knocked back. (A bolt resolves where the bolt is, a little short of the
+## target, so there it takes a small pull of its own — which is the same rule,
+## not an exception to it.)
+static func _pull(p: Payload, pos: Vector2, team: int) -> void:
+	var radius := PULL_RADIUS * p.size
+	for a in targets(team):
+		var to: Vector2 = pos - a.global_position
+		var d := to.length()
+		if d > radius:
+			continue
+		if d < 0.01:
+			continue   # already there; a zero direction would be a shove nowhere
+		a.knockback(to / d, PULL_FORCE * lerpf(PULL_NEAR, 1.0, d / radius))
+	Cues.at(&"pull", pos, {"radius": radius})
 
 ## A link of a chain, marked as belonging to the blow that caused it rather than
 ## being one of its own. A parry's riposte is deliberately not marked: that is a
