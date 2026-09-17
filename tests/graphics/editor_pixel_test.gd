@@ -109,8 +109,9 @@ func _ready() -> void:
 	await frames(4)
 	var ed: SkillEditor = Views.of(sb).editor
 	check(ed.boards.size() == 4, "the bench brings four boards (%d)" % ed.boards.size())
-	check(ed._tab_rect(ed.boards.size() - 1).end.x <= ed._close_rect().position.x,
-		"four tabs fit before CLOSE (%.0f of %.0f)" % [ed._tab_rect(3).end.x, ed._close_rect().position.x])
+	check(ed._tab_rect(ed.boards.size() - 1).end.x <= ed._share_rect().position.x,
+		"four tabs fit before CODE (%.0f of %.0f)" % [ed._tab_rect(3).end.x, ed._share_rect().position.x])
+	check(ed._share_rect().end.x <= ed._close_rect().position.x, "and CODE before CLOSE")
 	check(PixelDraw.text_width(ed.title_text) <= SkillEditor.TAB_ORIGIN.x - 64.0, "the bench's title fits before the tabs")
 	var b := ed.current_board()
 	for c in b.cells.keys().duplicate():
@@ -180,6 +181,35 @@ func _ready() -> void:
 	hidden = isolate(wb)
 	await blocks("workbench")
 	restore(hidden)
+
+	# --- the share sheet, over the same board ---------------------------------
+	# Both boxes full, a button under the cursor and something to say, so every
+	# piece of it is on screen at once.
+	wb._open_share()
+	wb._share.entry = BoardCode.clean(BoardCode.encode(big))
+	wb._share.note("Short of 2 more FIRE, 1 more DUPLICATE x3 — nothing has been spent.", UiKit.BAD)
+	wb._share._hover = "build"
+	wb._share._caret = 0.0
+	hidden = isolate(wb)
+	await blocks("share")
+	restore(hidden)
+	var sheet := wb._share._layout()
+	var panel_rect: Rect2 = sheet["panel"]
+	var screen := get_viewport().get_visible_rect().size
+	check(panel_rect.position.x >= 0.0 and panel_rect.end.x <= screen.x
+		and panel_rect.position.y >= 0.0 and panel_rect.end.y <= screen.y,
+		"the share sheet fits on screen (%s in %s)" % [str(panel_rect.size), str(screen)])
+	for pair in [["copy", "paste"], ["paste", "build"]]:
+		check(not (sheet[pair[0]] as Rect2).intersects(sheet[pair[1]] as Rect2),
+			"the sheet's %s and %s buttons do not overlap" % pair)
+	# The widest line the alphabet can spell, which is what the box is sized for.
+	var widest := "W".repeat(ShareCodePanel.CHARS_PER_LINE) + "_"
+	check((sheet["code_box"] as Rect2).size.x - ShareCodePanel.BOX_PAD * 2.0
+		>= PixelDraw.text_width(widest),
+		"the widest line the alphabet can spell, caret and all, fits the code box")
+	check(PixelDraw.text_width(ShareCodePanel.HINT) <= float(sheet["text_width"]),
+		"and the sheet's own controls line fits it")
+	wb._close_share()
 
 	# --- layout -------------------------------------------------------------
 	var vp := get_viewport().get_visible_rect().size

@@ -31,6 +31,8 @@ godot res://tests/graphics/menu_fit_test.tscn # menus stay on screen and scroll 
 godot res://tests/graphics/editor_pixel_test.tscn # every pixel of the assembly screen is on the grid
 godot res://tests/graphics/hideout_pixel_test.tscn # the hideout's pixel look, and everything on it fits
 godot res://tests/graphics/bench_pixel_test.tscn # the bench panel's pixel look and layout
+godot res://tests/feature/code_test.tscn    # a board survives being written down as a code
+godot res://tests/graphics/share_code_test.tscn # sharing a board, and what a pasted code costs
 godot res://tests/feature/ttl_test.tscn     # a pulse's life, and what bounds a loop
 godot res://tests/feature/charge_test.tscn  # holding the cast button buys life for mana
 godot res://tests/feature/npc_test.tscn     # talking to an NPC, line by line
@@ -52,6 +54,7 @@ SHOTS_DIR=/tmp/shots godot res://tests/graphics/shots.tscn   # ...or wherever yo
 | RMB | hold to charge the armed skill, release to cast it — a tap is a charge of nothing; a skill still recovering cannot be charged, and a weapon refuses skills it cannot carry |
 | mouse / right stick | aim, and where a lunge lands |
 | TAB | open assembly — **the raid keeps running**; TAB, ESC or the CLOSE button leaves it |
+| C | in assembly: the board as a share code — copy it out, or build someone else's board from theirs |
 | F | interact: talk to an NPC (again for the next line), and hold to extract |
 | W / S, ↑ / ↓ | when an NPC asks a question, move between answers; F gives the highlighted one |
 | ESC | pause |
@@ -151,6 +154,48 @@ would produce, the trigger payloads, and total heat.
 
 Monsters run boards through the exact same simulator, and a kill can drop the
 components its attack was visibly built from.
+
+## Sharing a board
+
+`C` in the assembly screen — or the **CODE** button beside CLOSE — writes the
+board on the grid out as a short code:
+
+```
+7kDaN29S5g3bfg66lONvD
+```
+
+Every part, where it sits and which way it faces, in about twenty characters for
+an ordinary skill — one unbroken run, with no dashes or spaces to copy along with
+it, so it is a single word to a double-click. COPY takes it, and the same sheet
+builds somebody else's board from theirs: paste it, or type it in and press
+ENTER.
+
+**Case matters** — the alphabet is the digits, the capitals and the small
+letters, so `k` and `K` are different boards. The one character left out is `0`:
+the pixel face draws `0` and `O` with the same pixels, so a round character is
+always the letter, and typing a zero says so instead of quietly building
+something else. That face has no small letters either — it draws them as
+capitals — so on the sheet **the small letters are orange**, which survives a
+screenshot as well as it survives being read off the screen.
+
+The last character is a check character, so **a single wrong character, one in
+the wrong case, or two neighbours swapped over is always refused** rather than
+quietly building a different board. A board is always the same code however it
+was built up, so two players can compare codes by eye. Paste the code on its own
+rather than the line it came in: the letters of the words around it are code
+characters too.
+
+What a code does *not* carry is the name — that travels in the message beside it
+— or the grid: a build arrives on your workbench's own board, and one laid out
+on a bigger one is turned away whole rather than in pieces. **A code is a
+blueprint, not the parts.** Pasting one at the workbench spends the stash
+exactly as building the same board by hand would, the board it replaces goes
+back into the stash as it goes, and one you cannot afford changes nothing at all
+and says what it is short of. At the bench, where parts are free, it never asks.
+
+The format is `feature/core/board_code.gd`. The alphabet is fixed for good, and
+the table that numbers the parts may only ever be appended to, or every code
+anyone has written down stops meaning what it meant.
 
 ## The dragon test
 

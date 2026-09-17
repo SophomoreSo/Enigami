@@ -133,6 +133,34 @@ func return_component(id: String, pool: Dictionary) -> void:
 	pool[id] = int(pool.get(id, 0)) + 1
 	stash_changed.emit()
 
+## Trading one board in for another against a pool of parts: everything `have`
+## is built out of goes back, everything `want` needs comes out. A shared code
+## is a blueprint and not the parts, so pasting one costs exactly what building
+## it by hand would have — which is also why the sandbox, where parts are free,
+## never asks.
+##
+## All or nothing. If the pool cannot cover the difference nothing moves at all,
+## so a refused paste leaves the bag exactly as it found it, and what is missing
+## comes back instead: id -> how many more are needed. `{}` means it went
+## through. `have` may be null, for a board being filled from nothing.
+func trade_board(have: SkillBoard, want: SkillBoard, pool: Dictionary) -> Dictionary:
+	var need: Dictionary = want.used_components()
+	var back: Dictionary = have.used_components() if have != null else {}
+	var missing: Dictionary = {}
+	for id in need:
+		var short := int(need[id]) - int(back.get(id, 0)) - int(pool.get(id, 0))
+		if short > 0:
+			missing[id] = short
+	if not missing.is_empty():
+		return missing
+	for id in back:
+		for i in int(back[id]):
+			return_component(id, pool)
+	for id in need:
+		for i in int(need[id]):
+			take_component(id, pool)
+	return {}
+
 ## Forge: spend scrap and three spare parts for one random better part.
 func forge_component(inputs: Array[String]) -> String:
 	if inputs.size() < 3 or scrap < 25:

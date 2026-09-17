@@ -15,6 +15,11 @@ extends Control
 ## The parts on the right are grouped by the category the rules give them —
 ## forms, elements, stats and the rest — each block named down the gutter beside
 ## it in the category's own colour, which is the colour its parts wear.
+##
+## CODE, in the header, drops the share sheet (`ShareCodePanel`) over all of it:
+## the board on the grid written out as a code, and a field to build somebody
+## else's board from theirs. What a pasted code costs is decided here — see
+## `_build_from_code`.
 
 signal board_changed(slot: int)
 signal closed()
@@ -54,6 +59,7 @@ var _hover_cell: Vector2i = Vector2i(-1, -1)
 var _hover_pal: int = -1
 var _hover_tab: int = -1
 var _hover_close: bool = false
+var _hover_share: bool = false
 ## Drag state. `_drag_source` is -1 for a part pulled off the palette and 1 for
 ## one lifted off the board (which remembers where it came from so a bad drop
 ## can put it back instead of destroying it).
@@ -74,6 +80,8 @@ var _pal_blocks: Array = []
 var _pal_height: float = 0.0
 var _ports: Array = []               ## PORT turned to face each direction
 var _arrows: Array = []              ## ARROW likewise, for the drag chip
+## The share sheet, built the first time it is asked for and kept after that.
+var _share: ShareCodePanel = null
 var _px := PixelDraw.new(self)
 
 func _ready() -> void:
@@ -93,6 +101,9 @@ func configure(b: Array, inv: Dictionary, unlim: bool, rs: Array = []) -> void:
 	runners = rs
 	slot = clampi(slot, 0, maxi(boards.size() - 1, 0))
 	_sim_dirty = true
+	# The hosts that keep an editor between openings call this every time they
+	# raise it: a share sheet left up would come back over a different board.
+	_close_share()
 
 func current_board() -> SkillBoard:
 	if slot < 0 or slot >= boards.size():
@@ -135,7 +146,16 @@ func _input(event: InputEvent) -> void:
 		return
 	if not (event is InputEventKey) or not event.is_pressed() or event.is_echo():
 		return
+	# The share sheet takes the whole keyboard while it is up, its own ESC
+	# included: a key falling through it would turn a part or close the editor
+	# behind the sheet, and ESC would leave the sheet standing over nothing.
+	if _share_open():
+		_share.handle_key(event as InputEventKey)
+		get_viewport().set_input_as_handled()
+		return
 	match (event as InputEventKey).keycode:
+		KEY_C:
+			_open_share()
 		KEY_R:
 			_rotate(CCW)
 		KEY_1, KEY_2, KEY_3, KEY_4:
@@ -150,17 +170,19 @@ func _input(event: InputEvent) -> void:
 			return
 	get_viewport().set_input_as_handled()
 
-## The slot tabs share the header's top row with the title and CLOSE.
+## The slot tabs share the header's top row with the title, CODE and CLOSE.
 const TAB_ORIGIN := Vector2(420, 14)
 const TAB_H := 30.0
 const TAB_GAP := 8.0
 const TAB_MAX_W := 236.0
 const CLOSE_W := 100.0
+const SHARE_W := 92.0
+const BTN_GAP := 8.0
 
-## Each tab as wide as the room between the title and CLOSE allows, up to
+## Each tab as wide as the room between the title and the buttons allows, up to
 ## TAB_MAX_W: the sandbox can bring four boards.
 func _tab_rect(i: int) -> Rect2:
-	var room := _close_rect().position.x - 16.0 - TAB_ORIGIN.x
+	var room := _share_rect().position.x - 16.0 - TAB_ORIGIN.x
 	var n := maxi(boards.size(), 1)
 	var w := minf(TAB_MAX_W, floorf((room + TAB_GAP) / n / PX) * PX - TAB_GAP)
 	return Rect2(TAB_ORIGIN + Vector2(i * (w + TAB_GAP), 0), Vector2(w, TAB_H))
@@ -168,12 +190,17 @@ func _tab_rect(i: int) -> Rect2:
 func _close_rect() -> Rect2:
 	return Rect2(get_viewport_rect().size.x - 16.0 - CLOSE_W, 14.0, CLOSE_W, 30.0)
 
+## Beside CLOSE, because a board is shared from the same place it is left.
+func _share_rect() -> Rect2:
+	return Rect2(_close_rect().position.x - BTN_GAP - SHARE_W, 14.0, SHARE_W, 30.0)
+
 func _update_hover(pos: Vector2) -> void:
 	_hover_cell = Vector2i(-1, -1)
 	_hover_pal = -1
 	_hover_tab = -1
+	_hover_share = _share_rect().has_point(pos)
 	_hover_close = _close_rect().has_point(pos)
-	if _hover_close:
+	if _hover_close or _hover_share:
 		return
 	for i in boards.size():
 		if _tab_rect(i).has_point(pos):
@@ -249,6 +276,9 @@ func _press_left() -> void:
 	if _hover_close:
 		Audio.play("ui")
 		closed.emit()
+		return
+	if _hover_share:
+		_open_share()
 		return
 	if _hover_tab >= 0:
 		slot = _hover_tab
@@ -371,6 +401,86 @@ func _notify(msg: String) -> void:
 	_message = msg
 	_message_time = 2.2
 
+## --- sharing ----------------------------------------------------------------
+## A board is a circuit, and a circuit is something a player wants to hand to
+## another player. `BoardCode` turns this one into a code and back; the sheet
+## shows them and collects them, and everything the game has a say in — whether
+## the build fits this workbench's grid, and whether the bag can pay for it —
+## is decided here, where the board and the pool are.
+func _share_open() -> bool:
+	return _share != null and is_instance_valid(_share) and _share.visible
+
+func _open_share() -> void:
+	# Never with a part in hand: the sheet covers the board it would be dropped
+	# on, and the release would land somewhere the player cannot see.
+	if _drag_id != "":
+		return
+	if _share == null or not is_instance_valid(_share):
+		_share = ShareCodePanel.new()
+		_share.closed.connect(_close_share)
+		_share.build_requested.connect(_build_from_code)
+		add_child(_share)
+	_hover_cell = Vector2i(-1, -1)
+	_hover_pal = -1
+	_hover_tab = -1
+	_hover_close = false
+	_hover_share = false
+	var b := current_board()
+	_share.open_with(BoardCode.encode(b) if b != null else "")
+	Audio.play("ui")
+
+func _close_share() -> void:
+	if _share != null and is_instance_valid(_share):
+		_share.visible = false
+
+func _build_from_code(entry: String) -> void:
+	var b := current_board()
+	if b == null:
+		_share.note("There is no board open to build onto.", UiKit.BAD)
+		return
+	var read := BoardCode.decode(entry)
+	if String(read["error"]) != "":
+		_share.note(String(read["error"]), UiKit.BAD)
+		Audio.play("deny")
+		return
+	var want: SkillBoard = read["board"]
+	# The grid is this workbench's, not the code's, so a build off a bigger one
+	# arrives only if none of it hangs over the edge.
+	if not b.fits(want):
+		_share.note("That build was laid out on a %dx%d board; this one is %dx%d." % [
+			want.width, want.height, b.width, b.height], UiKit.BAD)
+		Audio.play("deny")
+		return
+	# A code is a blueprint and not the parts: it costs exactly what building the
+	# same board by hand would have, and nothing moves unless all of it can be
+	# paid for. The sandbox, where parts are free, is never asked.
+	if not unlimited:
+		var missing := GameState.trade_board(b, want, inventory)
+		if not missing.is_empty():
+			_share.note("Short of %s — nothing has been spent." % _missing_text(missing), UiKit.BAD)
+			Audio.play("deny")
+			return
+	b.adopt(want)
+	_sim_dirty = true
+	_trace_cache = {}
+	# The sheet now shows this board's own code, which is not always the one that
+	# was typed: the grid it landed on may not be the grid it was drawn on.
+	_share.open_with(BoardCode.encode(b))
+	_share.note("Built — %d parts on the board." % b.cells.size(), UiKit.GOOD)
+	Audio.play("place")
+	board_changed.emit(slot)
+
+## What a refused paste is short of, in the names the palette uses. The count
+## goes in front of the name rather than after it, because several parts carry a
+## number in their own name and "DUPLICATE x3 x1" reads as neither of them.
+func _missing_text(missing: Dictionary) -> String:
+	var ids: Array = missing.keys()
+	ids.sort()
+	var parts: Array[String] = []
+	for id in ids:
+		parts.append("%d more %s" % [int(missing[id]), String(Components.get_def(id).get("name", id))])
+	return ", ".join(parts)
+
 ## --- drawing ----------------------------------------------------------------
 const PX := UiKit.PIXEL
 const LINE := PixelDraw.LINE
@@ -439,6 +549,12 @@ func _draw_header(vp: Vector2) -> void:
 		_px.text(r.position + Vector2(32, 20), b.skill_name, Color(0.9, 0.95, 1.0), r.size.x - 40.0)
 		if i == _hover_tab and not active:
 			_px.frame(r, Color(1, 1, 1, 0.35))
+	var sr := _share_rect()
+	_px.rect(sr, Color(0.16, 0.3, 0.4, 0.9) if _hover_share else Color(0.11, 0.13, 0.17, 0.9))
+	_px.frame(sr, Color(0.55, 0.9, 1.0) if _hover_share else Color(0.32, 0.4, 0.5))
+	var share_ink := Color(0.92, 0.98, 1.0) if _hover_share else Color(0.7, 0.8, 0.9)
+	_px.text(sr.position + Vector2((sr.size.x - PixelDraw.ink_width("CODE")) * 0.5, 20), "CODE",
+		share_ink)
 	var cr := _close_rect()
 	_px.rect(cr, Color(0.45, 0.18, 0.2, 0.9) if _hover_close else Color(0.14, 0.12, 0.14, 0.9))
 	_px.frame(cr, Color(1.0, 0.55, 0.55) if _hover_close else Color(0.45, 0.4, 0.44))
@@ -771,7 +887,7 @@ func _draw_info(vp: Vector2) -> void:
 	# Controls live along the bottom, clear of the slot tabs at the top.
 	_px.text(Vector2(48, vp.y - 8), HINT, Color(0.5, 0.58, 0.68), vp.x - 96.0)
 
-const HINT := "drag to place · wheel turns the part under the cursor · RMB removes · TAB or ESC closes"
+const HINT := "drag to place · wheel turns the part under the cursor · RMB removes · C shares a code · TAB or ESC closes"
 
 ## What the cycle preview says, a row each, as {text, col} and an `icon` to put
 ## before a row. There is room for INFO_ROWS of them: a preview that runs longer

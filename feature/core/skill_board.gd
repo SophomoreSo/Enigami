@@ -252,6 +252,41 @@ static func deserialize(d: Dictionary) -> SkillBoard:
 func duplicate_board() -> SkillBoard:
 	return SkillBoard.deserialize(serialize())
 
+## Whether every part of `other` would land inside this board's grid. The grid
+## belongs to the workbench that grew it, not to the build drawn on it, so a
+## board that came off a bigger one fits only if nothing hangs over the edge.
+func fits(other: SkillBoard) -> bool:
+	for origin in other.cells:
+		var entry: Dictionary = other.cells[origin]
+		for c in Components.footprint(String(entry["id"]), origin, int(entry["rot"])):
+			if not in_bounds(c):
+				return false
+	return true
+
+## Takes on `other`'s parts, keeping this board's own grid and its own name —
+## which is what a shared code hands over: a circuit, not the workbench it was
+## drawn on and not what its author called it.
+##
+## All or nothing: a build that does not fit leaves this board exactly as it
+## was. The parts are moved across rather than re-`place`d because `other` is
+## already a board — its footprints are clear of each other and it has at most
+## one INPUT — so the only thing that could have been wrong is the grid, and
+## `fits` has just settled that.
+func adopt(other: SkillBoard) -> bool:
+	if not fits(other):
+		return false
+	cells.clear()
+	occupancy.clear()
+	for origin in other.cells:
+		var entry: Dictionary = other.cells[origin]
+		var id := String(entry["id"])
+		var rot := int(entry["rot"])
+		cells[origin] = {"id": id, "rot": rot}
+		for c in Components.footprint(id, origin, rot):
+			occupancy[c] = origin
+	changed.emit()
+	return true
+
 ## Grows the grid (hideout workbench upgrades do this).
 func resize_grid(w: int, h: int) -> void:
 	width = max(width, w)
