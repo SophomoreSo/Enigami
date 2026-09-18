@@ -154,10 +154,22 @@ The workbench previews all of it by running the board rather than describing
 it: a private copy of the runner is driven through a whole cast and what it
 fires is what the preview reports, so the editor and the game cannot disagree.
 
-The board also shows what is actually wired: a green bridge on each joint that
-carries flow, a red cross where two parts touch but cannot connect, and a faint
-render for any part the flow cannot reach. When a board produces nothing the
-preview names the first fault rather than only saying nothing came out.
+The board also shows what is actually wired, by drawing it as one object.
+Parts sit flush against each other, and the seam between two of them is drawn
+only where the flow does not cross it: a wired run therefore fuses into a
+single lit shape, its edge changing colour from one part to the next along it,
+while two parts that merely touch stay two boxes with a red cross on the seam
+between them. That outline stays lit the whole time — what is joined to what
+does not change from moment to moment — and the movement is dots running a
+track laid into the edge rather than sitting on top of it. The track goes
+round everything between the INPUT and the part the flow finishes on, leaving
+the side of the start the run departs by and meeting the side of the end it
+arrives on: with a board laid out left to right the dots set off from the
+middle of the INPUT's right edge, go over and under what lies between, and
+arrive at the middle of the OUTPUT's left edge. Nothing goes round in a
+circle. A part the flow cannot reach keeps its own box, drawn faint and with
+no dots on it. When a board produces nothing the preview names the first fault
+rather than only saying nothing came out.
 
 The editor previews the whole cycle offline: cadence in seconds, every output it
 would produce, the trigger payloads, and total heat.
