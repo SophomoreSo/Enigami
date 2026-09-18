@@ -156,6 +156,9 @@ func _physics_process(delta: float) -> void:
 		"flyer": _ai_flyer(delta, spd)
 		"boss": _ai_boss(delta, spd)
 	move_and_slide()
+	# The AI above has just written `velocity` outright, so anything the world
+	# is pushing this monster with is carried separately and applied here.
+	apply_shove(delta)
 	_contact_damage(delta)
 
 func _fall(delta: float) -> void:

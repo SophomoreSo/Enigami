@@ -29,6 +29,42 @@ func dummy(at: Vector2) -> Actor:
 	a.global_position = at
 	return a
 
+## A live monster of `kind`, wired the way the sandbox wires one.
+func monster(kind: String, at: Vector2) -> Enemy:
+	var e := Enemy.new()
+	e.setup(kind, 1, "")
+	e.collision_layer = 4
+	e.collision_mask = 1
+	add_child(e)
+	e.global_position = at
+	# A patroller picks its heading with a coin toss in `_ready`, and the two
+	# halves of `pull_travel` only subtract cleanly if both walked the same way.
+	e._patrol_dir = 1
+	return e
+
+## Rooms for the live-monster checks, kept well apart so one test's pull field
+## cannot reach the next test's monster.
+var _plot := 0
+
+## How far a `kind` walks in x over half a second while `p` lands 60px to its
+## left. Run with and without GRAVITY, the difference is the drag alone — which
+## keeps a Lobber's patrol, which happens whatever is hitting it, out of it.
+func pull_travel(kind: String, p: Payload) -> float:
+	_plot += 1
+	var at := Vector2(0, float(_plot) * 4000.0)
+	var hit := dummy(at)
+	var m := monster(kind, at + Vector2(60, 0))
+	await frames(2)
+	m.global_position = at + Vector2(60, 0)
+	var x0: float = m.global_position.x
+	Attacks.resolve_hit(p, hit, hit.global_position, Vector2.RIGHT, null, null, 0)
+	for i in 30:
+		await get_tree().physics_frame
+	var moved: float = m.global_position.x - x0
+	hit.queue_free()
+	m.queue_free()
+	return moved
+
 ## A board with `ids` in a line, run through the runner so the payload under
 ## test is the one the rules actually build — not one hand-set here.
 func payload_of(ids: Array) -> Payload:
@@ -110,19 +146,31 @@ func _ready() -> void:
 	Attacks.resolve_hit(pull, struck, struck.global_position, Vector2.RIGHT, null, null, 0)
 	# An arc resolves at the target's own position, so the struck enemy is the
 	# point itself: pinned where it stands rather than knocked away.
-	check(struck.velocity.is_zero_approx(),
-		"GRAVITY pins the struck enemy instead of knocking it back (%s)" % str(struck.velocity))
-	check(near.velocity.x < 0.0 and far.velocity.x < 0.0,
+	check(struck.shove.is_zero_approx(),
+		"GRAVITY pins the struck enemy instead of knocking it back (%s)" % str(struck.shove))
+	check(near.shove.x < 0.0 and far.shove.x < 0.0,
 		"and drags every other enemy in range onto it")
-	check(outside.velocity.is_zero_approx(),
+	check(outside.shove.is_zero_approx(),
 		"but nothing past its reach (%.0f)" % Attacks.PULL_RADIUS)
-	check(absf(far.velocity.x) > absf(near.velocity.x),
+	check(absf(far.shove.x) > absf(near.shove.x),
 		"the far edge pulls harder than the near, so the room arrives together (%.0f vs %.0f)"
-			% [absf(far.velocity.x), absf(near.velocity.x)])
+			% [absf(far.shove.x), absf(near.shove.x)])
 	# Without the part the struck enemy is knocked away, as it always was.
 	var shoved := dummy(Vector2(0, 400))
 	Attacks.resolve_hit(plain, shoved, shoved.global_position, Vector2.RIGHT, null, null, 0)
-	check(shoved.velocity.x > 0.0, "a board without GRAVITY still knocks its target back")
+	check(shoved.shove.x > 0.0, "a board without GRAVITY still knocks its target back")
+
+	# --- and it has to move a real monster ----------------------------------
+	# The dummies above are inert: nothing writes their velocity but the hit.
+	# Every real monster assigns its own velocity each physics frame — a turret
+	# writes zero into it, a patroller writes its patrol speed — so a pull that
+	# only sets velocity was wiped before it moved anything, which is exactly
+	# how GRAVITY came to pass every check above and do nothing in the game.
+	# These run the monsters for half a second and look at where they ended up.
+	for kind in ["DUMMY", "CRAWLER", "LOBBER", "DRIFTER"]:
+		var travelled: float = await pull_travel(kind, pull) - await pull_travel(kind, plain)
+		check(travelled < -20.0,
+			"a %s 60px from a GRAVITY hit is dragged %.0fpx towards it" % [kind, -travelled])
 
 	# --- MANA DRAIN ---------------------------------------------------------
 	var caster := Player.new()
@@ -162,7 +210,7 @@ func _ready() -> void:
 	Attacks.resolve_hit(loaded, all_cold, all_cold.global_position, Vector2.RIGHT, caster, null, 0)
 	check(is_equal_approx(before_all - all_cold.health, loaded.damage * Attacks.SHATTER_MUL),
 		"one hit can shatter, pull and drain at once — damage")
-	check(bystander.velocity.x < 0.0 and all_cold.velocity.is_zero_approx(), "— pull")
+	check(bystander.shove.x < 0.0 and all_cold.shove.is_zero_approx(), "— pull")
 	check(is_equal_approx(caster.mana, Attacks.MANA_PER_HIT), "— and drain")
 
 	print("[IMPACT] ---- %d failures ----" % fails)

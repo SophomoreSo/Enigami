@@ -66,8 +66,43 @@ func apply_damage(amount: float, elements: Array = [], _source: Node = null, is_
 func heal(amount: float) -> void:
 	health = minf(max_health, health + amount)
 
+## A push the world is putting on this actor — a knockback, GRAVITY's drag —
+## kept apart from the motion the actor chooses for itself.
+##
+## Every body here assigns `velocity` outright each physics frame: a turret
+## writes zero into it, a patroller writes its patrol speed, a runner walks it
+## towards its quarry. A push added into `velocity` was therefore gone before it
+## had moved anything — a Sentry or a Lobber did not budge at all, and GRAVITY,
+## which is nothing but pushes, did nothing whatsoever. It has to live somewhere
+## the movement code does not write.
+var shove: Vector2 = Vector2.ZERO
+
+## How fast a push bleeds off, in pixels per second per second. A shove reads as
+## something that lands and is then over: at this rate a full-strength GRAVITY
+## drag runs for about half a second and carries an enemy some seventy pixels,
+## a good part of the way in from the edge of the field.
+const SHOVE_DECAY := 620.0
+
+## Below this there is no push left worth moving anything for.
+const SHOVE_MIN := 8.0
+
 func knockback(dir: Vector2, force: float) -> void:
-	velocity += dir.normalized() * force
+	shove += dir.normalized() * force
+
+## Moves the body by whatever the world is pushing it with, and lets that push
+## die down. A body calls this once a physics frame, straight after its own
+## `move_and_slide`, so the two motions stay separate and neither erases the
+## other.
+func apply_shove(delta: float) -> void:
+	if shove.length() < SHOVE_MIN:
+		shove = Vector2.ZERO
+		return
+	var hit := move_and_collide(shove * delta)
+	if hit != null:
+		# Run along whatever stopped it rather than sticking to it, so a drag
+		# that meets a wall still gathers the room along that wall.
+		shove = shove.slide(hit.get_normal())
+	shove = shove.move_toward(Vector2.ZERO, SHOVE_DECAY * delta)
 
 func _kill() -> void:
 	if dead:

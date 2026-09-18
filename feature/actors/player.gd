@@ -387,6 +387,9 @@ func _physics_process(delta: float) -> void:
 	current_state.perform()
 
 	move_and_slide()
+	# The state that just ran set `velocity` from the controls; a knockback is
+	# not something the player asked for, so it moves them on its own.
+	apply_shove(delta)
 
 func _change_state(new_state: FSMNode) -> void:
 	if debug_mode:
