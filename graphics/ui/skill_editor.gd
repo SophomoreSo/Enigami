@@ -65,6 +65,21 @@ var _mouse_pos: Vector2 = Vector2.ZERO
 var _sim_cache: Dictionary = {}
 var _trace_cache: Dictionary = {}
 var _sim_dirty: bool = true
+## How far each part sits from the INPUT along the joints that carry flow, and
+## the furthest of them. The edge highlight is driven off these — see
+## `_rebuild_flow` — and `_flow_time` is what walks it along.
+var _flow_depth: Dictionary = {}
+## Every boundary that carries flow, as Vector3i(cell.x, cell.y, dir). Both
+## cells sharing a boundary are filed under it: flush against each other they
+## are the same line on screen, and it is the seam neither of them draws.
+var _flow_joint: Dictionary = {}
+## The track the dots run on: the silhouette of each wired shape, cut open and
+## kept as runs rather than loops. Each is {pts, side}, ordered from the INPUT
+## end towards the far end, `side` saying which way round is the shape's inside.
+## It is worked out from the same `_fused` test that decides which seams are
+## drawn, so what looks like one shape is one outline.
+var _flow_arcs: Array = []
+var _flow_time: float = 0.0
 var _message: String = ""
 var _message_time: float = 0.0
 ## The palette, laid out once: a row per part and a block per category, both
@@ -101,6 +116,7 @@ func current_board() -> SkillBoard:
 
 func _process(delta: float) -> void:
 	UiKit.sync_screen(self)
+	_flow_time += delta
 	if _message_time > 0.0:
 		_message_time -= delta
 	queue_redraw()
@@ -390,6 +406,22 @@ const ICON_ZOOM := 2
 const CELL_FILL := Color(0.11, 0.13, 0.17)
 const CELL_EDGE := Color(0.2, 0.24, 0.3)
 
+## The two halves of the flow display. The silhouette round a wired run is lit
+## the whole time — it says what is joined to what, which does not change from
+## moment to moment — and the movement is carried by dots running that same
+## outline. The outline is the track rather than a path through the middle of
+## the parts, so a dot never crosses an icon. Both are measured in cells rather
+## than in seconds or PIXELs, so they read at the same pace whatever the board
+## is doing: a dot covers FLOW_RATE cells of outline a second, and they sit
+## FLOW_DOT_SPAN of it apart, which is one to a cell edge.
+const FLOW_EDGE := Color(0.6, 1.0, 0.85)
+const FLOW_RATE := 3.2
+const FLOW_DOT_SPAN := float(CELL)
+## A dot is a length of the edge itself rather than a mark sitting on top of
+## one: this many PIXELs of it, a PIXEL thick like the edge it replaces, so it
+## reads as the outline lighting up under it and never bulges off the shape.
+const FLOW_DOT := 3
+
 ## What the pixel face has no glyph for, as bitmaps: one string per row, `#` for
 ## a PIXEL. Arrows point east and are turned to face the others.
 const PORT := ["#..", "##.", "###", "##.", "#.."]
@@ -463,10 +495,14 @@ func _draw_board() -> void:
 			_px.rect(r.grow(-PX), CELL_FILL)
 
 	if _trace_cache.is_empty() or _sim_dirty:
-		_trace_cache = b.trace()
-	_draw_wiring()
+		_refresh_trace(b)
 	for origin in b.cells.keys():
 		_draw_component(b, origin)
+	# The faults go on after the parts rather than before them: the parts now
+	# meet with nothing between them, so a cross sits on the seam itself and
+	# would be painted over by whichever part is drawn second.
+	_draw_faults()
+	_draw_flow_dots()
 
 	# Ghost of the part about to be placed. It is suppressed over an occupied
 	# cell unless a part is genuinely in hand, so a placed part's own ports are
@@ -482,7 +518,7 @@ func _draw_board() -> void:
 		for c in Components.footprint(held, _hover_cell, rotation_step):
 			if b.in_bounds(c):
 				ghost = ghost.merge(_cell_rect(c))
-		_px.rect(ghost.grow(-4), Color(0.4, 1.0, 0.6, 0.22) if ok else Color(1.0, 0.4, 0.4, 0.22))
+		_px.rect(ghost, Color(0.4, 1.0, 0.6, 0.22) if ok else Color(1.0, 0.4, 0.4, 0.22))
 		if ok:
 			_draw_ports_preview(held, _hover_cell)
 
@@ -531,19 +567,281 @@ func _draw_port_arrow(cell: Vector2i, dir: int, col: Color) -> void:
 	var v := Vector2(Components.dir_to_vec(dir))
 	_px.icon_centered(_cell_center(cell) + v * (CELL * 0.5 - 3.0), _ports[dir % 4], col)
 
-## Live joints get a bridge across the seam; joints that touch but do not
-## connect get a cross. Without this a board that looks wired can be dead and
-## there is no way to see where.
-func _draw_wiring() -> void:
+## The wiring and the order the flow reaches it in are read off the same walk
+## of the board, and both go stale on the same edit, so they are taken together.
+func _refresh_trace(b: SkillBoard) -> void:
+	_trace_cache = b.trace()
+	_rebuild_flow(b)
+	# After the joints, never before: the outline is drawn round whatever they
+	# fused together.
+	_rebuild_outline(b)
+
+## How many joints each part sits from the INPUT. `SkillBoard.trace` walks the
+## board breadth-first and emits a link the first time the flow reaches its
+## target, so reading the links back in that order settles every part at its
+## shortest depth without walking the board a second time.
+func _rebuild_flow(b: SkillBoard) -> void:
+	_flow_depth = {}
+	_flow_joint = {}
+	var input = b.find_input()
+	if input == null:
+		return
+	_flow_depth[input] = 0
 	for link in _trace_cache.get("links", []):
-		var a: Vector2 = _cell_center(link[0])
-		var c: Vector2 = _cell_center(link[1])
-		var along := (c - a).normalized().abs()
-		var across := Vector2(along.y, along.x)
-		# Three PIXELs thick, the width that centres on the line through the
-		# middle of the cells.
-		_px.rect(Rect2((a + c) * 0.5 - along * 12.0 - across * 3.0, along * 24.0 + across * 6.0),
-			Color(0.45, 1.0, 0.75, 0.95))
+		# A link leaves by a part's exit cell, which on a two-cell part is not
+		# the cell the part is filed under; both ends are resolved to origins.
+		var exit_cell: Vector2i = link[0]
+		var to: Vector2i = link[1]
+		var from = b.origin_at(exit_cell)
+		if from == null or not _flow_depth.has(from):
+			continue
+		# A link that runs back into a part already reached — a ring closing —
+		# still fuses its own seam, which is why this is done before the depth
+		# is settled below.
+		var dir := _step_dir(to - exit_cell)
+		if dir >= 0:
+			_flow_joint[Vector3i(exit_cell.x, exit_cell.y, dir)] = true
+			var back := Components.opposite(dir)
+			_flow_joint[Vector3i(to.x, to.y, back)] = true
+		if _flow_depth.has(to):
+			continue
+		_flow_depth[to] = int(_flow_depth[from]) + 1
+
+## The silhouette of every wired shape, as closed loops of points. Only parts
+## the flow reaches are outlined: a part it cannot reach is not wired to
+## anything, so it gets no track and carries no dots.
+##
+## The track is drawn round the parts *between* the two ends, with the start and
+## the end themselves left out of it. That is what puts its two tips on the side
+## of the start the run leaves by and the side of the end it arrives on: with a
+## board running left to right, the track leaves the middle of the start's right
+## edge and meets the middle of the end's left edge, having gone over and under
+## everything in between.
+##
+## It is the boundary of that middle region rather than the lit silhouette, so
+## the sides facing the start and the end count even though they are fused and
+## never drawn — those are the two tips. Each cell contributes one directed edge
+## per open side, walked with the region on its right, and chaining those end to
+## start gives loops that run clockwise on screen. A middle with a hole in it
+## yields the hole as a loop of its own, so the dots run that too.
+##
+## The loops are then cut open, because a loop would send the dots round and
+## round: see `_cut_loop`.
+func _rebuild_outline(b: SkillBoard) -> void:
+	_flow_arcs = []
+	var ends := _flow_ends(b)
+	if ends.is_empty():
+		return
+	var mid := {}
+	for origin in b.cells.keys():
+		if not _flow_depth.has(origin) or origin == ends[0] or origin == ends[1]:
+			continue
+		var entry: Dictionary = b.cells[origin]
+		for c in Components.footprint(String(entry["id"]), origin, int(entry["rot"])):
+			mid[c] = true
+	var edges := {}
+	for c in mid.keys():
+		for d in 4:
+			if mid.has(c + Components.dir_to_vec(d)):
+				continue
+			var seg := _outline_edge(c, d)
+			var k := _point_key(seg[0])
+			if not edges.has(k):
+				edges[k] = []
+			(edges[k] as Array).append(seg)
+	# Where four cells meet corner to corner two edges start at the same point
+	# and either may be taken; whichever is, the rest still chains into loops.
+	for start in edges.keys():
+		while not (edges[start] as Array).is_empty():
+			var loop := PackedVector2Array()
+			var at: Vector2i = start
+			while true:
+				var here: Array = edges.get(at, [])
+				if here.is_empty():
+					break
+				var seg: Array = here.pop_back()
+				loop.append(seg[0])
+				at = _point_key(seg[1])
+				if at == start:
+					break
+			if loop.size() >= 4:
+				_cut_loop(loop, _part_center(b, ends[0]), _part_center(b, ends[1]))
+
+## Where the dots set off from and where they are heading: the INPUT, and the
+## part the flow finishes on — an OUTPUT if the board has one, whatever it
+## reaches last if it does not. Empty when there is nothing to run between, as
+## on a board that is only an INPUT, and then nothing is drawn at all.
+func _flow_ends(b: SkillBoard) -> Array:
+	var input = b.find_input()
+	if input == null:
+		return []
+	var best = null
+	var best_rank := -1
+	for origin in _flow_depth.keys():
+		var entry := b.comp_origin_at(origin)
+		if entry.is_empty():
+			continue
+		# An OUTPUT is the end whatever its depth, since that is where the
+		# board is actually going; failing that, the furthest part reached.
+		var rank := int(_flow_depth[origin])
+		if String(entry["id"]) == "OUTPUT":
+			rank += 1 << 16
+		if rank > best_rank:
+			best_rank = rank
+			best = origin
+	if best == null or best == input:
+		return []
+	return [input, best]
+
+## The middle of the part filed under `origin`, which on a two-cell part is the
+## middle of both its cells rather than of either one.
+func _part_center(b: SkillBoard, origin: Vector2i) -> Vector2:
+	var entry := b.comp_origin_at(origin)
+	if entry.is_empty():
+		return _cell_center(origin)
+	return _part_rect(String(entry["id"]), origin, int(entry["rot"])).get_center()
+
+## A closed outline cut into the two runs between `head` and `tail`, each kept
+## from the head end onwards. That is what stops the dots circling: they leave
+## the start both ways round the shape, and both runs arrive at the end, so
+## every dot on the board is on its way from the one to the other.
+##
+## Going forward round the loop keeps the shape on the right and going back
+## puts it on the left, which is what `side` records — the dots are drawn into
+## the edge band, and the band lies on the inside.
+func _cut_loop(loop: PackedVector2Array, head: Vector2, tail: Vector2) -> void:
+	var total := _loop_length(loop)
+	if total <= 0.0:
+		return
+	var s0 := _cut_at(loop, head)
+	var s1 := _cut_at(loop, tail)
+	# The two runs share their ends and between them cover the outline exactly
+	# once, so every part of it carries dots and none of it carries them twice.
+	for way in [1.0, -1.0]:
+		var span := fposmod((s1 - s0) * way, total)
+		if span <= 0.0:
+			continue
+		_flow_arcs.append({"loop": loop, "from": s0, "span": span, "way": way})
+
+## How far round `loop` the outline comes closest to `to`. Measured against the
+## segments rather than only the corners: a part's middle is nearer the middle
+## of its own edge than any corner of it, and going by corners put both cuts on
+## the same one whenever the two parts met there — a board whose INPUT and
+## OUTPUT sit corner to corner then came out with no runs at all.
+func _cut_at(loop: PackedVector2Array, to: Vector2) -> float:
+	var best := 0.0
+	var best_d := INF
+	var walked := 0.0
+	for i in loop.size():
+		var a := loop[i]
+		var step := loop[(i + 1) % loop.size()] - a
+		var span := step.length()
+		if span <= 0.0:
+			continue
+		var t := clampf((to - a).dot(step) / (span * span), 0.0, 1.0)
+		var d := (a + step * t).distance_squared_to(to)
+		if d < best_d:
+			best_d = d
+			best = walked + t * span
+		walked += span
+	return best
+
+func _loop_length(loop: PackedVector2Array) -> float:
+	var total := 0.0
+	for i in loop.size():
+		total += (loop[(i + 1) % loop.size()] - loop[i]).length()
+	return total
+
+## The point `s` round `loop` from its first corner, and the way the outline
+## runs there, as [point, direction]. `s` wraps.
+func _loop_sample(loop: PackedVector2Array, s: float) -> Array:
+	var at := s
+	for i in loop.size():
+		var a := loop[i]
+		var step := loop[(i + 1) % loop.size()] - a
+		var span := step.length()
+		if span <= 0.0:
+			continue
+		if at < span:
+			return [a + step * (at / span), step / span]
+		at -= span
+	return [loop[0], Vector2.RIGHT]
+
+## One side of `cell` as a directed segment with the shape on its right, which
+## is what makes the loops these chain into come out clockwise.
+func _outline_edge(cell: Vector2i, dir: int) -> Array:
+	var r := _cell_rect(cell)
+	var tr := Vector2(r.end.x, r.position.y)
+	var bl := Vector2(r.position.x, r.end.y)
+	match dir % 4:
+		0: return [tr, r.end]
+		1: return [r.end, bl]
+		2: return [bl, r.position]
+		_: return [r.position, tr]
+	return []
+
+## A corner as whole PIXELs, so two edges that meet there chain by an exact
+## match rather than by comparing floats that were arrived at two ways.
+func _point_key(p: Vector2) -> Vector2i:
+	return Vector2i(roundi(p.x), roundi(p.y))
+
+## Which of the four directions a one-cell step is, or -1 for anything else.
+func _step_dir(step: Vector2i) -> int:
+	for d in 4:
+		if Components.dir_to_vec(d) == step:
+			return d
+	return -1
+
+## Whether the boundary on `cell`'s `dir` side falls inside the silhouette
+## rather than on it — the part's own next cell, or a joint that carries flow.
+## Those are the seams nothing draws, which is what fuses a wired run into one
+## shape while two parts that merely touch stay two boxes with a cross between.
+func _fused(cells: Array, cell: Vector2i, dir: int) -> bool:
+	if cells.has(cell + Components.dir_to_vec(dir)):
+		return true
+	return _flow_joint.has(Vector3i(cell.x, cell.y, dir % 4))
+
+## The flow itself, over the top of the parts: dots running the silhouette of
+## each wired shape. The outline under them says what is joined to what; these
+## say it is live and carrying.
+##
+## They are spaced by distance along the run rather than per edge, so a corner
+## does not bunch them and a long rail does not stretch them out. Every run
+## starts at the INPUT and ends at the far end, so the start sends dots away
+## both ways round the shape and the end takes them in from both — nothing goes
+## round in a circle, and a dot anywhere on the board is on its way to the end.
+func _draw_flow_dots() -> void:
+	var travel := _flow_time * FLOW_RATE * FLOW_DOT_SPAN
+	for arc in _flow_arcs:
+		var loop: PackedVector2Array = arc["loop"]
+		var total := _loop_length(loop)
+		var way: float = arc["way"]
+		var span: float = arc["span"]
+		# Distance from the head cut, so a dot sets off from the start rather
+		# than from wherever the outline happened to be written down first.
+		var at := fmod(travel, FLOW_DOT_SPAN)
+		while at < span:
+			var hit := _loop_sample(loop, fposmod(float(arc["from"]) + at * way, total))
+			# Going back round the loop reverses the way the dot travels, and
+			# puts the shape on its left instead of its right.
+			_draw_dot(hit[0], (hit[1] as Vector2) * way, way)
+			at += FLOW_DOT_SPAN
+
+## A dot: FLOW_DOT PIXELs of the edge itself, lit. It is laid into the band the
+## outline is drawn in rather than sitting on top of it — the band is a PIXEL
+## inside the boundary, which is the half-PIXEL step inwards here — so the dot
+## clips to the edge and the shape keeps its silhouette exactly.
+func _draw_dot(at: Vector2, along: Vector2, side: float) -> void:
+	var inward := Vector2(-along.y, along.x) * side
+	var half := along.abs() * (float(FLOW_DOT * PX) * 0.5) \
+		+ inward.abs() * (float(PX) * 0.5)
+	_px.rect(Rect2(at + inward * (float(PX) * 0.5) - half, half * 2.0), FLOW_EDGE)
+
+## Only what is *wrong* is marked here: a cross where two parts touch but the
+## receiving port faces away, and a dot where the flow runs out into empty
+## space. What carries flow is not marked at all — the parts meet edge to edge,
+## so the highlight running the chain is what shows a joint is live.
+func _draw_faults() -> void:
 	for br in _trace_cache.get("breaks", []):
 		_px.icon_centered((_cell_center(br["from"]) + _cell_center(br["to"])) * 0.5, CROSS,
 			Color(1.0, 0.4, 0.4, 0.95))
@@ -556,11 +854,47 @@ func _draw_wiring() -> void:
 ## A two-cell part is one box across both of its cells rather than two boxes
 ## side by side: the seam between them would otherwise read as two parts, and
 ## run right through the icon sitting on it.
+##
+## The box is the cells themselves, with nothing trimmed off: parts that sit
+## next to each other meet, and a wired run reads as one unbroken shape rather
+## than as a row of tiles needing something drawn between them.
 func _part_rect(id: String, origin: Vector2i, rot: int) -> Rect2:
 	var r := _cell_rect(origin)
 	for c in Components.footprint(id, origin, rot):
 		r = r.merge(_cell_rect(c))
-	return r.grow(-4)
+	return r
+
+## A part's share of the silhouette, one cell edge at a time. Only the sides
+## that are not fused are drawn, so parts the flow runs through come out as a
+## single shape with no seams inside it: what is wired reads as one object, and
+## two parts that merely touch stay two boxes with a cross between them.
+##
+## Each part draws only its own stretch, in its own colour, so the colour of
+## the outline changes from one edge of the shape to the next. The whole of it
+## stays lit: what is wired does not change from moment to moment, and the
+## moving part of the picture is the dots over the top of it.
+func _draw_part_edges(id: String, origin: Vector2i, rot: int, own: Color) -> void:
+	var cells := Components.footprint(id, origin, rot)
+	for c in cells:
+		for d in 4:
+			if _fused(cells, c, d):
+				continue
+			_px.rect(_edge_rect(cells, c, d), own)
+
+## The one-PIXEL band along `cell`'s `dir` side, inside the cell. North and
+## south take the corners and east and west stop short of them, so a translucent
+## edge is never laid down twice where two sides meet — the same split
+## `PixelDraw.frame` makes. Where the silhouette carries on north or south,
+## though, there is no corner to yield: the band runs the whole height instead,
+## and the rail stays unbroken across the seam it just fused.
+func _edge_rect(cells: Array, cell: Vector2i, dir: int) -> Rect2:
+	var r := _cell_rect(cell)
+	if dir % 2 == 1:
+		return Rect2(r.position.x, r.end.y - PX if dir % 4 == 1 else r.position.y,
+			r.size.x, PX)
+	var top := r.position.y + (0.0 if _fused(cells, cell, 3) else float(PX))
+	var bot := r.end.y - (0.0 if _fused(cells, cell, 1) else float(PX))
+	return Rect2(r.end.x - PX if dir % 4 == 0 else r.position.x, top, PX, bot - top)
 
 func _draw_component(b: SkillBoard, origin: Vector2i) -> void:
 	var entry: Dictionary = b.cells[origin]
@@ -575,7 +909,12 @@ func _draw_component(b: SkillBoard, origin: Vector2i) -> void:
 	# through the tint and draw a seam across a two-cell part.
 	_px.rect(r, CELL_FILL)
 	_px.rect(r, Color(col.r, col.g, col.b, 0.28 if live else 0.08))
-	_px.frame(r, col if live else Color(col.r, col.g, col.b, 0.35))
+	# The edge is what carries the wiring now that the parts touch, so it is
+	# drawn brighter than the part it bounds, and the run lights it on its way
+	# past. A part the flow never reaches never lights: the same reading the
+	# bridges gave, moved onto the part itself.
+	_draw_part_edges(id, origin, rot,
+		col.lightened(0.45) if live else Color(col.r, col.g, col.b, 0.35))
 	# No name under the icon: none fits a cell in the pixel face. Hovering the
 	# part names it in the panel along the bottom instead. The icon is drawn at
 	# ICON_ZOOM here — a cell is wide enough for it, and at palette size it was
@@ -606,7 +945,7 @@ func _draw_live_flow(b: SkillBoard) -> void:
 	for p in r.pulses:
 		var origin: Vector2i = b.origin_at(p.cell)
 		var entry := b.comp_origin_at(origin)
-		var box := _cell_rect(p.cell).grow(-4) if entry.is_empty() \
+		var box := _cell_rect(p.cell) if entry.is_empty() \
 			else _part_rect(String(entry["id"]), origin, int(entry["rot"]))
 		var k := p.progress()
 		_px.diamond(box.get_center(), 3 + int(round(2.0 * sin(k * PI))), Color(0.6, 1.0, 0.85, 0.85))
@@ -753,7 +1092,7 @@ func _draw_info(vp: Vector2) -> void:
 		var sim := SkillRunner.new(b)
 		sim.base_payload_provider = func() -> Payload: return Weapons.base_payload(weapon_id)
 		_sim_cache = sim.simulate()
-		_trace_cache = b.trace()
+		_refresh_trace(b)
 		_sim_dirty = false
 	var rx := PAL_ORIGIN.x
 	var right := vp.x - 48.0
