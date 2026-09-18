@@ -65,8 +65,28 @@ func _ready() -> void:
 	(title._save_slot_root.get_child(1) as Button).emit_signal("pressed")
 	check(title.save_slot == 2, "picking SLOT 2 records slot 2 (got %d)" % title.save_slot)
 	await frames(6)
+	# The profile was wiped at the top of this test, so it has never been
+	# played: the pick opens the prologue rather than the hideout.
+	check(game.state == GameScript.State.INTRO,
+		"and the pick is what moves the game on — into the opening scene (state=%d)" % game.state)
+	var intro: Cutscene = game.current
+	intro.skip()
+	await frames(6)
 	check(game.state == GameScript.State.HIDEOUT,
-		"and the pick is what moves the game on (state=%d)" % game.state)
+		"which hands over to the hideout when it is done (state=%d)" % game.state)
+	check(GameState.intro_seen, "and is marked seen, so the next start skips it")
+
+	# Proved by doing it again: the same pick on a profile that has been played
+	# goes straight in.
+	game.goto_title()
+	await frames(6)
+	var again: TitleScreen = game.current
+	again._start_button.emit_signal("pressed")
+	await frames(4)
+	(again._save_slot_root.get_child(0) as Button).emit_signal("pressed")
+	await frames(6)
+	check(game.state == GameScript.State.HIDEOUT,
+		"a start on a played profile goes straight to the hideout (state=%d)" % game.state)
 
 	print("[SAVE] ---- %d failures ----" % fails)
 	get_tree().quit()

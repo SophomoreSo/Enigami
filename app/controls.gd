@@ -62,7 +62,13 @@ static func short_label_for(action: String) -> String:
 		return "—"
 	for e in InputMap.action_get_events(action):
 		if e is InputEventKey:
-			return OS.get_keycode_string((e as InputEventKey).physical_keycode)
+			# The game's own actions are bound by position on the board, so they
+			# carry a physical code. Godot's built-in `ui_*` actions carry a
+			# keycode instead and leave the physical one at zero, which read as
+			# a binding with no name at all — an empty hint under a cutscene.
+			var key := e as InputEventKey
+			var code := key.physical_keycode if key.physical_keycode != 0 else key.keycode
+			return OS.get_keycode_string(code)
 		if e is InputEventMouseButton:
 			var idx := (e as InputEventMouseButton).button_index
 			return {1: "LMB", 2: "RMB", 3: "MMB"}.get(idx, "Mouse %d" % idx)

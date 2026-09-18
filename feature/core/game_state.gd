@@ -41,6 +41,11 @@ var records: Dictionary = {
 	"raids": 0, "escapes": 0, "deaths": 0, "kills": 0, "best_haul": 0,
 }
 
+## Whether this profile has been shown the opening scene. It is kept with the
+## profile rather than with the settings on purpose: starting a new game is what
+## earns the prologue, and wiping a profile earns it again.
+var intro_seen: bool = false
+
 const FACILITY_INFO := {
 	"workbench": {"name": "Workbench", "desc": "Enlarges every skill board.", "max": 5},
 	"vault": {"name": "Vault", "desc": "Raises how many of each component the stash holds.", "max": 5},
@@ -62,6 +67,7 @@ func _new_profile() -> void:
 	stash.clear()
 	loadout_slots.clear()
 	records = {"raids": 0, "escapes": 0, "deaths": 0, "kills": 0, "best_haul": 0}
+	intro_seen = false
 	owned_weapons = ["ROCK", "SWORD", "GUN"]
 	skill_library.clear()
 	scrap = 40
@@ -315,6 +321,14 @@ func _haul_size(d: Dictionary) -> int:
 func register_kill() -> void:
 	records["kills"] = int(records["kills"]) + 1
 
+## The opening scene has been played, or skipped. Saved on the spot: a prologue
+## sat through once is never sat through again, whatever happens after it.
+func mark_intro_seen() -> void:
+	if intro_seen:
+		return
+	intro_seen = true
+	save_game()
+
 ## --- persistence ------------------------------------------------------------
 func save_game() -> void:
 	var data := {
@@ -325,6 +339,7 @@ func save_game() -> void:
 		"facilities": facilities,
 		"records": records,
 		"loadout": loadout_slots,
+		"intro_seen": intro_seen,
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f == null:
@@ -357,6 +372,9 @@ func load_game() -> bool:
 		if fac.has(k):
 			facilities[k] = int(fac[k])
 	loadout_slots = parsed.get("loadout", {})
+	# A profile saved before there was an opening scene has already played the
+	# game, so it is not shown one now.
+	intro_seen = bool(parsed.get("intro_seen", true))
 	var rec: Dictionary = parsed.get("records", {})
 	for k in records:
 		if rec.has(k):

@@ -41,6 +41,25 @@ func _run() -> void:
 	await frames(5)
 	say("title ok, state=%d" % game.state)
 
+	# The opening scene, which a wiped profile has not seen. Read a couple of
+	# beats the way a player does, then skip out of it.
+	game.goto_intro()
+	await frames(5)
+	var intro: Cutscene = game.current
+	var beats := 0
+	for i in 400:
+		if intro.done or beats >= 3:
+			break
+		if intro.waiting_for_press() and intro.line_finished():
+			intro.press()
+			beats += 1
+		await get_tree().process_frame
+	say("intro ok, read %d beats, cast=%s" % [beats, str(intro.cast.keys())])
+	intro.skip()
+	await frames(6)
+	say("intro handed over, state=%d (1 = hideout), seen=%s"
+		% [game.state, str(GameState.intro_seen)])
+
 	game.goto_hideout()
 	await frames(5)
 	say("hideout ok, weapons=%s" % str(GameState.owned_weapons))

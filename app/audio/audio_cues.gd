@@ -53,14 +53,31 @@ func _on_cue(name: StringName, d: Dictionary) -> void:
 			_line_sound(d.get("line", {}))
 		&"talk_letter":
 			_voice(d.get("line", {}))
+		&"scene_line":
+			_line_sound(d.get("beat", {}))
+		&"scene_letter":
+			_voice(d.get("beat", {}))
+		&"scene_direction":
+			_direction_sound(d.get("direction", {}))
 
-## The sound a dialogue line names for its start (`sfx`).
+## A cutscene direction that names a sound. Everything else a direction carries
+## is the picture's business and is ignored here, the same way a dialogue line's
+## camera is.
+func _direction_sound(d: Dictionary) -> void:
+	if d.has("sfx"):
+		_play_named(String(d["sfx"]), "A scene")
+
+## The sound a dialogue line or a cutscene beat names for its start (`sfx`).
 func _line_sound(line: Dictionary) -> void:
-	var id := String(line.get("sfx", ""))
+	_play_named(String(line.get("sfx", "")), "Dialogue")
+
+## Plays a sound a data file asked for by name, and says so rather than falling
+## silent when the bank has no such sound.
+func _play_named(id: String, who: String) -> void:
 	if id == "":
 		return
 	if not Audio.has(id):
-		push_warning("Dialogue asks for sound '%s', which is not in the bank" % id)
+		push_warning("%s asks for sound '%s', which is not in the bank" % [who, id])
 		return
 	Audio.play(id)
 

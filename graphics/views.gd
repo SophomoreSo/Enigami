@@ -40,6 +40,8 @@ func view_script_for(n: Node) -> GDScript:
 		return EnemyView
 	if n is Npc:
 		return NpcView
+	if n is CutsceneActor:
+		return CutsceneActorView
 	if n is Projectile:
 		return ProjectileView
 	if n is MeleeArc:
@@ -60,4 +62,6 @@ func view_script_for(n: Node) -> GDScript:
 		return SandboxView
 	if n is DragonTest:
 		return DragonTestView
+	if n is Cutscene:
+		return CutsceneView
 	return null

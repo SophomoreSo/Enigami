@@ -1,13 +1,14 @@
 extends Node
 
-## Top-level state machine: title → hideout → raid → results, with the sandbox
-## (and the dragon test off it) and the hideout's skill editor hanging off the side.
+## Top-level state machine: title → hideout → raid → results, with the opening
+## scene in front of a new profile's first hideout, the sandbox (and the dragon
+## test off it), and the hideout's skill editor hanging off the side.
 ##
 ## The composition root, and the only script allowed to know both modules: it
 ## builds screens out of `graphics/` and drives them with `feature/`. Neither
 ## module reaches the other except through here and through `Cues`.
 
-enum State { TITLE, HIDEOUT, RAID, SANDBOX, RESULTS, DRAGON_TEST }
+enum State { TITLE, HIDEOUT, RAID, SANDBOX, RESULTS, DRAGON_TEST, INTRO }
 
 var state: int = State.TITLE
 var current: Node = null
@@ -43,10 +44,36 @@ func goto_title() -> void:
 	_clear()
 	state = State.TITLE
 	var t := TitleScreen.new()
-	t.start_requested.connect(goto_hideout)
+	t.start_requested.connect(_start_game)
 	t.sandbox_requested.connect(goto_sandbox)
 	ui_layer.add_child(t)
 	current = t
+
+## START, once a save slot has been picked. A profile that has never been
+## played gets the prologue first; every start after that goes straight in.
+func _start_game() -> void:
+	if GameState.intro_seen:
+		goto_hideout()
+	else:
+		goto_intro()
+
+## The opening scene, read out of `data/scenes/intro.json`. It is a world node
+## rather than a Control: it has a floor, a cast that walks on it and a camera
+## over the top, and only its narration panel is a screen.
+func goto_intro() -> void:
+	_clear()
+	state = State.INTRO
+	var c := Cutscene.new()
+	c.scene_id = "intro"
+	c.finished.connect(_intro_finished)
+	# Set before the node enters the tree: a scene whose file is missing is over
+	# inside `_ready`, and the handler below must find the screen it built.
+	current = c
+	add_child(c)
+
+func _intro_finished() -> void:
+	GameState.mark_intro_seen()
+	goto_hideout()
 
 func goto_hideout() -> void:
 	_clear()
