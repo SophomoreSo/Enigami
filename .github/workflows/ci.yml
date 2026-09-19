@@ -104,12 +104,26 @@ jobs:
           version: ${{ env.GODOT_VERSION }}
           release: ${{ env.GODOT_RELEASE }}
 
-      - name: An X server to open a window on
-        # The libraries Godot links against come with the setup action; this is
-        # only the virtual display to put the window on.
+      - name: An X server, and fonts for the machine to have
+        # The libraries Godot links against come with the setup action. This is
+        # the virtual display to put the window on, and a CJK face.
+        #
+        # The face is not decoration. `Loc.LANGUAGES["kor"]["fonts"]` names
+        # system faces to borrow Hangul from, so playing in Korean builds a
+        # `SystemFont` over them — and every string measured then walks that
+        # chain. On a runner with no CJK font installed there is nothing for it
+        # to resolve to, and `settings_pixel_test` took 217s and then died of
+        # it. A machine with no Korean font is not a machine anyone plays on.
+        #
+        # Deliberately not installed for the rules job: `loc_test` is there to
+        # prove the *bundled* faces spell everything on their own, and a system
+        # face would quietly stand in for one that could not.
         run: |
           set -euo pipefail
-          sudo apt-get install -y -qq --no-install-recommends xvfb
+          sudo apt-get install -y -qq --no-install-recommends xvfb fontconfig fonts-noto-cjk
+          fc-cache -f >/dev/null 2>&1 || true
+          echo "fonts visible: $(fc-list | wc -l)"
+          echo "Korean resolves to: $(fc-match 'Noto Sans CJK KR')"
 
       - name: Import
         run: ./.github/scripts/import.sh
