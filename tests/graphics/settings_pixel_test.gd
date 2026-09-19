@@ -1,10 +1,12 @@
 extends Node
-## The title's settings are built in UiKit's pixel look all the way down,
-## including the controls list — which the pause menu shares and must keep
-## plain. Checked on the built tree: every piece of text is the pixel face at a
-## multiple of its native 8px, every box is square, unsmoothed and evenly
-## bordered, the sliders and scrollbars are replaced, the bindings still line
-## up and fit, and the panel fits the width it is given.
+## The title's settings and the pause menu are built in UiKit's pixel look all
+## the way down, including the controls list they share. Checked on both built
+## trees: every piece of text is the pixel face at a multiple of its native 8px,
+## every box is square, unsmoothed and evenly bordered, the sliders and
+## scrollbars are replaced, the bindings still line up and fit, and the panel
+## fits the width it is given. The pause menu is checked for one thing more —
+## that its rows sit on something solid, since the raid behind it goes on being
+## drawn and showed through them.
 
 const GameScript := preload("res://app/game.gd")
 const BOXES := ["panel", "normal", "hover", "pressed", "focus", "disabled", "slider",
@@ -37,19 +39,10 @@ func controls_under(root: Node) -> Array:
 			stack.append(c)
 	return out
 
-func _ready() -> void:
-	GameState.reset_profile()
-	game = Node.new()
-	game.set_script(GameScript)
-	add_child(game)
-	await frames(10)
-
-	var title: TitleScreen = game.current
-	title._toggle_settings()
-	await frames(8)
-	var sc: ScrollContainer = title._settings
+## Every check that says a built menu is in the pixel look, run over whatever is
+## under `sc`: the settings and the pause menu are the same kit twice.
+func audit(sc: ScrollContainer, what: String) -> void:
 	var all := controls_under(sc)
-
 	var texts := 0
 	var plain: Array = []
 	var boxes := 0
@@ -82,16 +75,31 @@ func _ready() -> void:
 					sc.get_path_to(c), sb.anti_aliasing, sb.get_corner_radius(CORNER_TOP_LEFT),
 					sb.get_border_width(SIDE_LEFT)])
 	check(texts > 20 and plain.is_empty(),
-		"every text is the pixel face at a multiple of 8px (%d checked, off: %s)" % [texts, str(plain)])
+		"%s: every text is the pixel face at a multiple of 8px (%d checked, off: %s)" % [what, texts, str(plain)])
 	check(boxes > 20 and soft.is_empty(),
-		"every box is square, unsmoothed and evenly bordered (%d checked, off: %s)" % [boxes, str(soft)])
-	check(sliders == 2 and knobs == 2, "both sliders have the square knob (%d of %d)" % [knobs, sliders])
-	check(sc.get_v_scroll_bar().has_theme_stylebox_override("grabber"), "the scrollbar is the pixel one")
+		"%s: every box is square, unsmoothed and evenly bordered (%d checked, off: %s)" % [what, boxes, str(soft)])
+	check(sliders == 2 and knobs == 2, "%s: both sliders have the square knob (%d of %d)" % [what, knobs, sliders])
+	check(sc.get_v_scroll_bar().has_theme_stylebox_override("grabber"), "%s: the scrollbar is the pixel one" % what)
 
 	var bar := sc.get_v_scroll_bar()
 	var room := sc.size.x - (bar.size.x if bar.visible else 0.0)
 	var wanted := (sc.get_child(0) as Control).get_combined_minimum_size().x
-	check(wanted <= room + 0.5, "the panel fits the width it is given (%.0f of %.0f)" % [wanted, room])
+	check(wanted <= room + 0.5, "%s: the panel fits the width it is given (%.0f of %.0f)" % [what, wanted, room])
+
+
+func _ready() -> void:
+	GameState.reset_profile()
+	game = Node.new()
+	game.set_script(GameScript)
+	add_child(game)
+	await frames(10)
+
+	var title: TitleScreen = game.current
+	title._toggle_settings()
+	await frames(8)
+	var sc: ScrollContainer = title._settings
+	var all := controls_under(sc)
+	audit(sc, "the settings")
 
 	var cp: ControlsPanel = null
 	for c in all:
@@ -149,11 +157,40 @@ func _ready() -> void:
 			await frames(8)
 			check(Loc.language == was_language, "switching back puts %s on again" % was_language)
 
-	var leaked := 0
-	for c in controls_under(game.pause_menu):
-		if (c is Label or c is Button) and c.get_theme_font("font") == UiKit.PIXEL_FONT:
-			leaked += 1
-	check(leaked == 0, "the pause menu's controls list stays plain (%d pixel texts)" % leaked)
+	# --- the pause menu -------------------------------------------------------
+	# The same kit again, from inside a raid. It is checked with the menu shown,
+	# since a scroll that has never been on screen has not laid itself out.
+	game.pause_menu.visible = true
+	await frames(6)
+	var paused := controls_under(game.pause_menu)
+	var pause_scroll: ScrollContainer = null
+	var pause_cp: ControlsPanel = null
+	var resume: Button = null
+	for c in paused:
+		if c is ScrollContainer:
+			pause_scroll = c
+		if c is ControlsPanel:
+			pause_cp = c
+		if c is Button and (c as Button).text == Loc.t("menu.pause.resume"):
+			resume = c
+	check(pause_scroll != null, "the pause menu is a scroll that fits the screen")
+	if pause_scroll != null:
+		audit(pause_scroll, "the pause menu")
+	check(pause_cp != null and pause_cp.pixel, "the pause menu's controls list is the pixel one too")
+	# The raid goes on being drawn behind it, and a stopped tree leaves whatever
+	# the HUD was saying where it was: the rows have to sit on something solid,
+	# or those words come through a button lit under the cursor.
+	var backing := ""
+	var at: Node = resume
+	while at != null and at != game.pause_menu:
+		if at is PanelContainer:
+			var sb := (at as PanelContainer).get_theme_stylebox("panel") as StyleBoxFlat
+			if sb != null and sb.bg_color.a >= 1.0:
+				backing = at.get_class()
+		at = at.get_parent()
+	check(resume != null and backing != "",
+		"and RESUME sits on a panel nothing shows through ('%s')" % backing)
+	game.pause_menu.visible = false
 
 	print("[PIXUI] ---- %d failures ----" % fails)
 	get_tree().quit()

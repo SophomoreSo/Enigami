@@ -3,8 +3,8 @@ extends PanelContainer
 
 ## Lists every action and lets one be rebound by pressing a key.
 
-## Set before it enters the tree to build it in UiKit's pixel look. The title's
-## settings do; the pause menu keeps the plain one.
+## Set before it enters the tree to build it in UiKit's pixel look. Both screens
+## that hold one do — the title's settings and the pause menu.
 var pixel: bool = false
 
 var _listening: String = ""

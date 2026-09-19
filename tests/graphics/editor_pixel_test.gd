@@ -45,6 +45,58 @@ func isolate(ed: SkillEditor) -> Array:
 			hidden.append(c)
 	return hidden
 
+## How far `p` is from the nearest point of the track the dots run on, over
+## every shape the editor has outlined. Zero means the track passes through it.
+func _on_track(ed: SkillEditor, p: Vector2) -> float:
+	var best := INF
+	for arc in ed._flow_arcs:
+		var loop: PackedVector2Array = arc["loop"]
+		for i in loop.size():
+			var a := loop[i]
+			var step := loop[(i + 1) % loop.size()] - a
+			var span := step.length()
+			if span <= 0.0:
+				continue
+			var t := clampf((p - a).dot(step) / (span * span), 0.0, 1.0)
+			best = minf(best, (a + step * t).distance_to(p))
+	return best
+
+## Which way the dots travel where they cross `p`, one entry a run passing
+## through it — two where the outline doubles back on itself, as it does down a
+## seam. Empty if no run reaches it.
+func _dot_ways(ed: SkillEditor, p: Vector2) -> Array:
+	var out: Array = []
+	for arc in ed._flow_arcs:
+		var loop: PackedVector2Array = arc["loop"]
+		var total := ed._loop_length(loop)
+		var walked := 0.0
+		for i in loop.size():
+			var a := loop[i]
+			var step := loop[(i + 1) % loop.size()] - a
+			var span := step.length()
+			if span <= 0.0:
+				continue
+			var t := clampf((p - a).dot(step) / (span * span), 0.0, 1.0)
+			var s := walked + t * span
+			walked += span
+			if (a + step * t).distance_to(p) > 0.5:
+				continue
+			# How far into the run that point is, measured the way the run goes.
+			var into := fposmod((s - float(arc["from"])) * float(arc["way"]), total)
+			if into <= float(arc["span"]) + 0.01:
+				out.append((step / span) * float(arc["way"]))
+	return out
+
+## Whether the dots crossing `p` run `way`, and only that way.
+func _runs_one_way(ed: SkillEditor, p: Vector2, way: Vector2) -> bool:
+	var ways := _dot_ways(ed, p)
+	if ways.is_empty():
+		return false
+	for w in ways:
+		if (w as Vector2).distance_to(way) > 0.01:
+			return false
+	return true
+
 func restore(hidden: Array) -> void:
 	for n in hidden:
 		if is_instance_valid(n):
@@ -281,6 +333,99 @@ func _ready() -> void:
 	hidden = isolate(wb)
 	await blocks("dead")
 	restore(hidden)
+
+	# --- the track round a branch --------------------------------------------
+	# A trigger's side branch running back the way the main line came: the two
+	# rows touch the whole way along, and the flow crosses between them at one
+	# end only. The seam is the one place they are not joined, so the track has
+	# to run its whole length rather than stopping partway and leaving the rest
+	# of it drawn as a part edge. Twice over: with the branch ending in a leak,
+	# where the seam is a slot open at the west, and with it feeding back into
+	# the form, where it is a crack with the shape closed round both ends.
+	for last_rot in [2, 3]:                          # the last part west, then north
+		for bc in big.cells.keys().duplicate():
+			big.erase_at(bc)
+		big.place("INPUT", Vector2i(0, 1), 0)
+		big.place("DASHSLASH", Vector2i(1, 1), 0)    # two cells, out east
+		big.place("ON_HIT", Vector2i(3, 1), 0)       # out east, branch south
+		big.place("OUTPUT", Vector2i(4, 1), 0)
+		big.place("OVERCLOCK", Vector2i(3, 2), 2)    # the branch, running west
+		big.place("OVERCLOCK", Vector2i(2, 2), 2)
+		big.place("OVERCLOCK", Vector2i(1, 2), last_rot)
+		wb._sim_dirty = true
+		wb._update_hover(Vector2(-1, -1))
+		await frames(2)
+		var how := "leaking" if last_rot == 2 else "fed back"
+		# Every cell of the seam the flow does not cross, which is every one the
+		# editor has left an edge on rather than fusing away.
+		for sx in [1, 2]:
+			var seam := wb._cell_center(Vector2i(sx, 1)) + Vector2(0, SkillEditor.CELL * 0.5)
+			if wb._fused_seam.has(Vector3i(sx, 1, Components.S)):
+				continue
+			check(_on_track(wb, seam) <= 0.5,
+				"%s: the track runs the seam under cell %d (%.1f off it)"
+					% [how, sx, _on_track(wb, seam)])
+		# And runs it once: a shape's two runs share their ends and cover its
+		# outline exactly, so no stretch of it carries dots twice and none none.
+		var runs: Dictionary = {}
+		for arc in wb._flow_arcs:
+			var key := str(arc["loop"])
+			runs[key] = float(runs.get(key, 0.0)) + float(arc["span"])
+		check(not runs.is_empty(), "%s: the board has a track at all" % how)
+		for arc2 in wb._flow_arcs:
+			var round_trip := wb._loop_length(arc2["loop"])
+			var covered := float(runs[str(arc2["loop"])])
+			if not is_equal_approx(covered, round_trip):
+				check(false, "%s: a shape is covered exactly once (%.0f of %.0f)"
+					% [how, covered, round_trip])
+				break
+		check(true, "%s: every shape's runs cover its outline exactly once" % how)
+		# And every stretch of it runs the way the flow runs under it: east over
+		# the parts the main line crosses east, west under the branch running
+		# home, and both at once down the seam between them, which is one side of
+		# each. The seam is the pair: the two lips are the same line on screen.
+		var half := SkillEditor.CELL * 0.5
+		check(_runs_one_way(wb, wb._cell_center(Vector2i(2, 1)) - Vector2(0, half), Vector2.RIGHT),
+			"%s: the dots run east over the main line" % how)
+		check(_runs_one_way(wb, wb._cell_center(Vector2i(2, 2)) + Vector2(0, half), Vector2.LEFT),
+			"%s: and west under the branch running home" % how)
+		var seam_ways := _dot_ways(wb, wb._cell_center(Vector2i(2, 1)) + Vector2(0, half))
+		check(seam_ways.has(Vector2.RIGHT) and seam_ways.has(Vector2.LEFT),
+			"%s: and both ways down the seam between them (%s)" % [how, str(seam_ways)])
+		# The branch only runs when the trigger fires, so it is drawn drained of
+		# the flow's colour: the parts it reaches and nothing else.
+		var drained: Array = []
+		var coloured: Array = []
+		for cx in [1, 2, 3]:
+			if wb._conditional.has(Vector2i(cx, 2)):
+				drained.append(cx)
+			if not wb._conditional.has(Vector2i(cx, 1)):
+				coloured.append(cx)
+		check(drained == [1, 2, 3] and coloured == [1, 2, 3],
+			"%s: the branch is drawn conditional and the main line is not (%s, %s)"
+				% [how, str(drained), str(coloured)])
+		if last_rot == 3:
+			# The branch hands the flow back up into the form at the west end.
+			check(_runs_one_way(wb, wb._cell_center(Vector2i(1, 2)) - Vector2(half, 0), Vector2.UP),
+				"%s: and north up the side the branch feeds back on" % how)
+
+	# A line of parts with two ends is not a circle and must not be drawn as one:
+	# the dots leave where the INPUT hands over, go both ways round the shape and
+	# meet again where the flow leaves it, so both sides of it run with the flow.
+	for lc in big.cells.keys().duplicate():
+		big.erase_at(lc)
+	big.place("INPUT", Vector2i(0, 1), 0)
+	big.place("FIRE", Vector2i(1, 1), 0)
+	big.place("DAMAGE", Vector2i(2, 1), 0)
+	big.place("SLASH", Vector2i(3, 1), 0)
+	big.place("OUTPUT", Vector2i(4, 1), 0)
+	wb._sim_dirty = true
+	await frames(2)
+	for side in [-1.0, 1.0]:
+		var edge := wb._cell_center(Vector2i(2, 1)) + Vector2(0, side * SkillEditor.CELL * 0.5)
+		check(_runs_one_way(wb, edge, Vector2.RIGHT),
+			"a straight run carries its dots east %s it too (%s)"
+				% ["over" if side < 0.0 else "under", str(_dot_ways(wb, edge))])
 
 	# --- layout -------------------------------------------------------------
 	var vp := get_viewport().get_visible_rect().size

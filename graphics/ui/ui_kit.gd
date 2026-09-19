@@ -16,8 +16,9 @@ const BAD := Color(0.95, 0.45, 0.45)
 ## A pixel look for the same kit, opted into per call with `pixel`. Text is
 ## Silkscreen at a multiple of its native 8px, borders are square and a whole
 ## number of PIXELs wide, and nothing is antialiased, so a screen built this way
-## reads as the same pixel art as the title and the world. The title's settings
-## use it; the rest of the interface does not yet.
+## reads as the same pixel art as the title and the world. The menus use it —
+## the title's settings and the pause menu, which are the same rows twice — as
+## does the assembly screen, which draws its own; the HUD does not yet.
 const PIXEL_FONT := preload("res://graphics/assets/fonts/Silkscreen-Regular.ttf")
 const PIXEL := 2
 const PIXEL_TEXT := 16
