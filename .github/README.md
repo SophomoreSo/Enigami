@@ -5,10 +5,11 @@ One workflow, [`workflows/ci.yml`](workflows/ci.yml), in one file on purpose:
 people have to keep.
 
 ```
-rules ─────────┐
-graphics ──────┼──▶ build (Linux, Windows, Android)  ──┐
-module-split   │    build (macOS, iOS)                 ├──▶ release   (tags only)
-               └────────────────────────────────────────┘
+rules ─────┬──▶ build — Linux, Windows, Android ───┬──▶ release   (tags only)
+           │                                       │
+graphics ──┴──▶ build — macOS, iOS ─ ─ ─ ─ ─ ─ ─ ─ ┘   (on tags: opt-in)
+
+module-split      runs alongside; gates nothing
 ```
 
 | Job | Runs on | What it is |
@@ -16,8 +17,26 @@ module-split   │    build (macOS, iOS)                 ├──▶ release   
 | **Rules tests** | every push, every PR | `tests/feature`, `tests/story`, `tests/shared` under `--headless` |
 | **Module split holds** | every push, every PR | the four graphics autoloads deleted, the rules tests run again |
 | **Graphics tests** | every push, every PR | `tests/graphics` under Xvfb, plus screenshots of every screen |
-| **Build** | master and `v*` tags | Linux, Windows, Android, macOS, iOS — uploaded as artifacts, kept 30 days |
-| **Release** | `v*` tags | the same artifacts, zipped per platform, attached to a GitHub Release |
+| **Build — Linux, Windows, Android** | master and `v*` tags | artifacts, kept 30 days |
+| **Build — macOS, iOS** | master always; tags only if opted in | artifacts, kept 30 days — see below |
+| **Release** | `v*` tags | whatever was built, zipped per platform, attached to a GitHub Release |
+
+### Why Apple is opt-in for releases
+
+The macOS/iOS job runs on **every push to master**, which is what keeps the
+macOS export honest. It does not run for a **tag** unless the repository
+variable `RELEASE_APPLE` is set to `true`.
+
+The reason is that what it can produce today is an unsigned `.app` that
+Gatekeeper refuses on anyone else's Mac, and an iOS step that skips itself for
+want of a team id — nothing worth attaching to a release, at ten times the
+runner cost of a Linux job. Set `RELEASE_APPLE` once there is a signing
+identity to build with, and Apple rejoins the release with no other change.
+
+The `release` job is written to tolerate that: a skipped dependency normally
+skips whatever depends on it, so it guards with `!cancelled()` and then asks
+only that the desktop build succeeded and the Apple build did not *fail*.
+Skipped is fine; broken still stops the release.
 
 ## Two things had to change before any of this meant anything
 
@@ -61,12 +80,30 @@ balance, then delete the line.
 
 ## Two tests that read their surroundings
 
-`editor_input_test` and `save_slot_test` both passed and failed on the same
-machine during this setup, depending on nothing more than where the mouse was
-sitting and which window had the keyboard. A virtual display has one window, no
-cursor and nothing to steal focus, so CI is likely a *steadier* home for them
-than a desk is — but if either turns out to be red for a reason nobody can fix
-that day, the quarantine file is a one-line answer.
+`editor_input_test` and `save_slot_test` both passed and failed on the same Mac
+during this setup, depending on nothing more than where the mouse was sitting
+and which window had the keyboard. Both have since passed on CI every time: a
+virtual display has one window, no cursor and nothing to steal focus, which
+makes it a *steadier* home for them than a desk. If either does go red for a
+reason nobody can fix that day, the quarantine file is a one-line answer.
+
+## The graphics runner needs a Korean font
+
+`Loc.LANGUAGES["kor"]["fonts"]` names system faces to borrow Hangul from, so
+playing in Korean builds a `SystemFont` over them — and every string measured
+afterwards walks that chain. A bare GitHub runner has no CJK face for it to
+resolve to, and `settings_pixel_test` took **217 seconds and then segfaulted**
+at the moment it switches language. With `fonts-noto-cjk` installed it takes
+six seconds and passes.
+
+So `fonts-noto-cjk` in that job is load-bearing, not tidiness. A machine with
+no Korean font is not a machine anyone plays on, and the step prints what
+`fc-match` resolves to so the next person can see it did.
+
+It is deliberately **not** installed for the rules job. `loc_test` is there to
+prove the *bundled* faces spell everything unaided, and a system face would
+quietly stand in for one that could not — which is the exact failure that test
+exists to catch.
 
 ## Secrets
 

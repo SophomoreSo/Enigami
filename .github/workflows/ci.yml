@@ -247,7 +247,16 @@ jobs:
   build-apple:
     name: Build — macOS, iOS
     needs: [rules, graphics]
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
+    # Every push to master, exactly as before — that is what keeps the macOS
+    # export honest. Not on a tag, though, unless RELEASE_APPLE says so: what
+    # this job can produce today is an unsigned .app that Gatekeeper refuses
+    # and an iOS step that skips itself, which is nothing worth attaching to a
+    # release at ten times the runner cost. Set the repository variable
+    # RELEASE_APPLE to `true` once there is a signing identity to build with.
+    if: >-
+      github.event_name != 'pull_request'
+      && (github.ref == 'refs/heads/master'
+          || (startsWith(github.ref, 'refs/tags/v') && vars.RELEASE_APPLE == 'true'))
     runs-on: macos-latest
     env:
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -307,7 +316,17 @@ jobs:
   release:
     name: Release
     needs: [build-linux-windows-android, build-apple]
-    if: startsWith(github.ref, 'refs/tags/v')
+    # A skipped dependency skips whatever depends on it, so without a status
+    # function here, turning the Apple job off would quietly stop releasing
+    # anything at all. `!cancelled()` lifts that default, and the two clauses
+    # below say what is actually required: the desktop build must have
+    # succeeded, and the Apple build must not have *failed* — skipped is fine,
+    # broken is not.
+    if: >-
+      !cancelled()
+      && startsWith(github.ref, 'refs/tags/v')
+      && needs.build-linux-windows-android.result == 'success'
+      && needs.build-apple.result != 'failure'
     runs-on: ubuntu-latest
     permissions:
       contents: write
