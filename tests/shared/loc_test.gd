@@ -137,8 +137,6 @@ func _check_fallbacks() -> void:
 		checked += _same(eng, "hideout.facilities.info.%s.desc" % key, String(info["desc"]))
 	for entry in Controls.ACTIONS:
 		checked += _same(eng, "controls.action.%s" % String(entry[0]), String(entry[1]))
-	for i in Raid.TUTORIAL_STEPS.size():
-		checked += _same(eng, "hud.tutorial.%d" % i, String(Raid.TUTORIAL_STEPS[i]))
 	for id in RaidMap.EXIT_NAMES:
 		checked += _same(eng, "hud.exit.%s" % id, String(RaidMap.EXIT_NAMES[id]))
 	for i in Components.DIR_NAME.size():
@@ -247,7 +245,7 @@ func _check_keys_exist() -> void:
 ## English on it. These are the calls that carry a line to the player, so a
 ## quoted string opening one of them is always a line that was missed.
 const MESSAGE_SINKS := ["noticed.emit", "show_toast", "_notify", "_say", "note",
-	"_share.note", "title_text =", "_banner =", "prompt =", "txt =", "tutorial =",
+	"_share.note", "title_text =", "_banner =", "prompt =", "txt =",
 	"toast =", "_message =", "hint ="]
 
 ## The same, for the calls that draw a line somewhere rather than hand it to a

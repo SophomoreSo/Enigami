@@ -49,7 +49,6 @@ func _process(_delta: float) -> void:
 	hud.room = raid.room
 	hud.prompt = raid.prompt
 	hud.extract_ratio = raid.extract_ratio
-	hud.tutorial = raid.tutorial_text()
 
 ## Event-driven rather than polled: when the editor consumes TAB to close
 ## itself, this must not see the same press and open it straight back up.

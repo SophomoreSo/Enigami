@@ -16,6 +16,10 @@ var ui_layer: CanvasLayer
 var overlay_layer: CanvasLayer
 var editor: SkillEditor = null
 var pause_menu: Control = null
+## The pause menu's two ways out. Which one is on screen depends on where it was
+## opened from; see `_pause`.
+var pause_abandon: Button = null
+var pause_leave: Button = null
 var hideout_ref: Hideout = null
 
 func _ready() -> void:
@@ -92,18 +96,22 @@ func goto_hideout() -> void:
 	state = State.HIDEOUT
 	var h := Hideout.new()
 	h.deploy_requested.connect(_deploy)
-	h.sandbox_requested.connect(goto_sandbox)
 	h.title_requested.connect(goto_title)
 	h.edit_requested.connect(_edit_library_skill)
 	ui_layer.add_child(h)
 	current = h
 	hideout_ref = h
 
+## The bench is opened from the title and hands back to it. It used to hand back
+## to the hideout, which was where it was opened from; with no way into it from
+## there any more, that left it emptying into a screen nobody had asked for —
+## and one showing whatever profile happened to be loaded, since the bench is
+## reached without picking a save slot at all.
 func goto_sandbox() -> void:
 	_clear()
 	state = State.SANDBOX
 	var s := Sandbox.new()
-	s.exit_requested.connect(goto_hideout)
+	s.exit_requested.connect(goto_title)
 	s.dragon_test_requested.connect(goto_dragon_test)
 	add_child(s)
 	current = s
@@ -159,8 +167,23 @@ func _close_editor() -> void:
 	editor = null
 
 ## --- pause ------------------------------------------------------------------
+
+## The menu keeps running while the tree is stopped, which makes it the only
+## thing that can still hear the key that would start it again: everything else,
+## `Game` included, is paused along with the screen underneath, so the press
+## that opens the menu cannot be the press that closes it.
+class PauseMenu extends Control:
+	var game: Node
+	func _unhandled_input(event: InputEvent) -> void:
+		if not visible or not event.is_action_pressed("pause"):
+			return
+		if game != null and is_instance_valid(game):
+			game._unpause()
+		get_viewport().set_input_as_handled()
+
 func _build_pause_menu() -> void:
-	pause_menu = Control.new()
+	pause_menu = PauseMenu.new()
+	(pause_menu as PauseMenu).game = self
 	pause_menu.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	pause_menu.visible = false
 	pause_menu.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -184,14 +207,25 @@ func _build_pause_menu() -> void:
 	cp.custom_minimum_size = Vector2(420, 0)
 	v.add_child(cp)
 	v.add_child(UiKit.spacer(8))
-	var abandon := UiKit.button(Loc.t("menu.pause.abandon"), UiKit.BAD)
-	abandon.custom_minimum_size = Vector2(280, 36)
-	abandon.pressed.connect(func() -> void:
+	# The way out, which is not the same act on every screen: forfeiting a raid
+	# costs the kit, and stepping off the bench costs nothing. Two buttons
+	# rather than one that changes its words, because they are different
+	# colours as well as different sentences — `_pause` shows the right one.
+	pause_abandon = UiKit.button(Loc.t("menu.pause.abandon"), UiKit.BAD)
+	pause_abandon.custom_minimum_size = Vector2(280, 36)
+	pause_abandon.pressed.connect(func() -> void:
 		_unpause()
 		if state == State.RAID:
 			var lost := GameState.die()
 			_raid_finished("died", lost))
-	v.add_child(abandon)
+	v.add_child(pause_abandon)
+	pause_leave = UiKit.button(Loc.t("menu.pause.leave"), UiKit.ACCENT)
+	pause_leave.custom_minimum_size = Vector2(280, 36)
+	pause_leave.pressed.connect(func() -> void:
+		_unpause()
+		if current != null and is_instance_valid(current) and current.has_method("leave"):
+			current.leave())
+	v.add_child(pause_leave)
 	overlay_layer.add_child(pause_menu)
 
 func _vol_row(name: String, getter: Callable, setter: Callable) -> Control:
@@ -213,14 +247,19 @@ func _vol_row(name: String, getter: Callable, setter: Callable) -> Control:
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("pause"):
 		return
-	if state == State.RAID:
-		if get_tree().paused:
-			_unpause()
-		else:
-			_pause()
+	# Every screen that is played rather than clicked through: a raid, and the
+	# bench. Menus have their own way back and do not want a second one over
+	# the top of them.
+	if get_tree().paused:
+		return      # the menu itself answers this one; see PauseMenu above
+	if state == State.RAID or state == State.SANDBOX:
+		_pause()
 		get_viewport().set_input_as_handled()
 
 func _pause() -> void:
+	var in_raid := state == State.RAID
+	pause_abandon.visible = in_raid
+	pause_leave.visible = not in_raid
 	get_tree().paused = true
 	pause_menu.visible = true
 	Audio.play("ui")

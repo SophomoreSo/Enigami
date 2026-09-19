@@ -6,10 +6,9 @@ signal sandbox_requested()
 
 ## The save slot picked on the way in, 1..SAVE_SLOTS, or -1 until one is.
 ##
-## Nothing reads it yet. Saving is still one profile in one file
-## (`GameState.SAVE_PATH`), so every slot opens that same profile; this screen
-## only asks the question. Read it from the `start_requested` handler — the
-## screen is freed straight after.
+## Picking one opens it — `GameState.load_slot` — so by the time
+## `start_requested` goes out, the profile being played is that slot's. Read it
+## from the handler if you need the number; the screen is freed straight after.
 var save_slot: int = -1
 
 ## One drawing, grown from a seed at boot: a circuit board, with the seal of the
@@ -34,7 +33,17 @@ const SEAL := Vector2(640, 262)
 const SEAL_R := 206.0
 const MENU_TOP := 538.0
 const SAVE_SLOT_TOP := 556.0 ## the slot chooser sits lower, under its heading
-const SAVE_SLOTS := 3
+const SAVE_SLOTS := GameState.SAVE_SLOTS
+
+## How long an armed trashcan stays armed. Throwing a profile away cannot be
+## undone, so the first press only arms it and a second one inside this is what
+## does it — long enough to mean it, short enough not to be left loaded.
+const ARM_TIME := 3.0
+
+## The slot column is wider than the main menu's. A row carries three things
+## across it — the name, a full date and time, and the can — and at the menu's
+## own 400 they sat shoulder to shoulder with the focus mark in the date.
+const SAVE_SLOT_WIDTH := 480.0
 const SETTLE_TOP := 452.0    ## where the board starts sinking into black
 
 ## The seal and the wordmark are drawn at this fraction of the screen and
@@ -57,6 +66,8 @@ const CREAM := Color(1.0, 0.85, 0.72)
 const HALO := Color(0.78, 0.86, 0.95)    ## the stipple: pale, not cyan
 const SPARK := Color(0.62, 0.94, 1.0)
 const MENU_INK := Color(0.41, 0.61, 0.95)
+## An armed trashcan, and the DELETE? in the row beside it.
+const WARN_INK := Color(0.96, 0.45, 0.42)
 
 enum { PAD, VIA, CHIP, CAP, RES, DOTS }
 
@@ -78,6 +89,11 @@ var _start_button: Button
 var _settings_button: Button
 var _first_save_slot: Button
 var _settings: Control
+## One entry per slot: {"n", "pick", "stamp", "bin"}.
+var _slot_rows: Array = []
+## The slot whose trashcan is armed, or -1, and how long it stays that way.
+var _armed_slot: int = -1
+var _armed_left: float = 0.0
 
 ## Paints the copper once, into `_board`. Nothing on the board moves — the
 ## light that runs it is drawn live, over the top — and repainting ~7000
@@ -311,28 +327,116 @@ func _build_menu() -> void:
 	quit.pressed.connect(func() -> void: get_tree().quit())
 	_start_button.grab_focus()
 
-## START asks which save slot before it hands over. The rows say which slot and
-## nothing about what is in it: all three open the one profile there is, so
-## anything like EMPTY would be untrue. See `save_slot`.
+## START asks which save slot before it hands over. Each row says which slot it
+## is, when that profile was last written, and offers a way to throw it away.
+## Picking one opens it, so what `start_requested` hands on is that profile.
 func _build_save_slots() -> void:
-	_save_slot_root = _column(SAVE_SLOT_TOP)
+	_save_slot_root = _column(SAVE_SLOT_TOP, SAVE_SLOT_WIDTH)
 	_save_slot_root.visible = false
+	_slot_rows.clear()
 	for i in SAVE_SLOTS:
-		var n := i + 1
-		var b := _menu_button(Loc.t("menu.title.slot", [n]), _save_slot_root)
-		b.pressed.connect(func() -> void:
-			save_slot = n
-			start_requested.emit())
+		var row := _slot_row(i + 1)
+		_slot_rows.append(row)
 		if i == 0:
-			_first_save_slot = b
+			_first_save_slot = row["pick"]
 	var back := _menu_button(Loc.t("menu.title.back"), _save_slot_root)
 	back.add_theme_font_size_override("font_size", Loc.text_size(back.text, 16))
 	back.pressed.connect(_hide_save_slots)
+	_refresh_slots()
 
-func _column(top: float) -> VBoxContainer:
+## One slot: its name on the left, when it was last saved on the right, and a
+## trashcan past that. A row rather than a single button because the can has to
+## be reachable on its own — by the mouse, and by the pad moving right onto it.
+func _slot_row(n: int) -> Dictionary:
+	var h := HBoxContainer.new()
+	h.custom_minimum_size = Vector2(SAVE_SLOT_WIDTH, 0)
+	h.add_theme_constant_override("separation", 0)
+	_save_slot_root.add_child(h)
+
+	# Sized to its own name rather than stretched across the row, so the marks
+	# `_draw_focus_marks` sets either side of the focused control land against
+	# SLOT 1 the way they do against every other line on this screen. Stretched,
+	# the right-hand one sat in the middle of the date.
+	var pick := _bare_button(Loc.t("menu.title.slot", [n]), 24)
+	pick.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	pick.pressed.connect(func() -> void:
+		save_slot = n
+		GameState.load_slot(n)
+		start_requested.emit())
+	h.add_child(pick)
+
+	var gap := Control.new()
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(gap)
+
+	var stamp := Label.new()
+	stamp.add_theme_font_override("font", _menu_font)
+	stamp.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	stamp.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(stamp)
+
+	# No text of its own: the can is drawn over it by `_draw_slot_bins`, the way
+	# everything else on this screen is drawn rather than dropped in as an image.
+	var bin := _bare_button("", 16)
+	bin.custom_minimum_size = Vector2(40, 28)
+	bin.pressed.connect(_bin_pressed.bind(n))
+	h.add_child(bin)
+	return {"n": n, "pick": pick, "stamp": stamp, "bin": bin}
+
+## What a slot's row says on the right.
+##
+## The stamp is the local date and time in a numeric form that reads the same in
+## every language, so there is no sentence in it to translate — only the two
+## words around it, for a slot with nothing in it and for one being thrown away.
+func _slot_stamp(n: int) -> String:
+	if _armed_slot == n:
+		return Loc.t("menu.title.slot_delete")
+	var at := int(GameState.slot_info(n).get("saved_at", 0))
+	if at <= 0:
+		return Loc.t("menu.title.slot_empty")
+	var local := at + int(Time.get_time_zone_from_system().get("bias", 0)) * 60
+	var d := Time.get_datetime_dict_from_unix_time(local)
+	return "%04d-%02d-%02d %02d:%02d" % [d["year"], d["month"], d["day"], d["hour"], d["minute"]]
+
+## Re-reads the slots off disk and puts what they say back on the rows. Cheap
+## enough to call on every open and every delete: it is three small files.
+func _refresh_slots() -> void:
+	for row in _slot_rows:
+		var n := int(row["n"])
+		var line := _slot_stamp(n)
+		var stamp: Label = row["stamp"]
+		stamp.text = line
+		stamp.add_theme_font_size_override("font_size", Loc.text_size(line, 14))
+		stamp.add_theme_color_override("font_color", WARN_INK if _armed_slot == n
+			else Color(CREAM.r, CREAM.g, CREAM.b, 0.55))
+
+## Throwing a profile away cannot be undone, so the first press only arms the
+## can: the row turns red and says DELETE?, and a second press inside ARM_TIME
+## is what actually empties the slot. Anything else lets it lapse.
+func _bin_pressed(n: int) -> void:
+	if _armed_slot == n:
+		_armed_slot = -1
+		GameState.delete_slot(n)
+		_refresh_slots()
+		Audio.play("deny")
+		return
+	_armed_slot = n
+	_armed_left = ARM_TIME
+	_refresh_slots()
+	Audio.play("ui")
+
+func _disarm() -> void:
+	if _armed_slot < 0:
+		return
+	_armed_slot = -1
+	_refresh_slots()
+
+func _column(top: float, width: float = 400.0) -> VBoxContainer:
 	var v := VBoxContainer.new()
-	v.position = Vector2(SEAL.x - 200.0, top)
-	v.custom_minimum_size = Vector2(400, 0)
+	v.position = Vector2(SEAL.x - width * 0.5, top)
+	v.custom_minimum_size = Vector2(width, 0)
 	v.add_theme_constant_override("separation", 2)
 	add_child(v)
 	return v
@@ -340,10 +444,15 @@ func _column(top: float) -> VBoxContainer:
 func _show_save_slots() -> void:
 	_menu_root.visible = false
 	_save_slot_root.visible = true
+	# Read off disk each time it opens: a profile saved since the title came up
+	# — the game was played and the player came back here — has a newer stamp.
+	_armed_slot = -1
+	_refresh_slots()
 	_first_save_slot.grab_focus()
 	Audio.play("ui")
 
 func _hide_save_slots() -> void:
+	_disarm()
 	_save_slot_root.visible = false
 	_menu_root.visible = true
 	_start_button.grab_focus()
@@ -352,10 +461,16 @@ func _hide_save_slots() -> void:
 ## No chrome at all: the menu is text that brightens, and the marks flanking it
 ## are drawn by `_draw_focus_marks` so a gamepad player can see where they are.
 func _menu_button(text: String, parent: VBoxContainer) -> Button:
+	var b := _bare_button(text, 24)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	parent.add_child(b)
+	return b
+
+## The look, without a home: the slot rows lay their buttons out themselves.
+func _bare_button(text: String, px: int) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.focus_mode = Control.FOCUS_ALL
-	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var box := StyleBoxEmpty.new()
 	box.content_margin_left = 22
 	box.content_margin_right = 22
@@ -364,14 +479,13 @@ func _menu_button(text: String, parent: VBoxContainer) -> Button:
 	for s in ["normal", "hover", "pressed", "focus", "disabled"]:
 		b.add_theme_stylebox_override(s, box)
 	b.add_theme_font_override("font", _menu_font)
-	b.add_theme_font_size_override("font_size", Loc.text_size(text, 24))
+	b.add_theme_font_size_override("font_size", Loc.text_size(text, px))
 	b.add_theme_color_override("font_color", MENU_INK)
 	b.add_theme_color_override("font_hover_color", Color.WHITE)
 	b.add_theme_color_override("font_focus_color", Color.WHITE)
 	b.add_theme_color_override("font_pressed_color", Color.WHITE)
 	b.add_theme_color_override("font_hover_pressed_color", Color.WHITE)
 	b.mouse_entered.connect(func() -> void: b.grab_focus())
-	parent.add_child(b)
 	_buttons.append(b)
 	return b
 
@@ -453,6 +567,8 @@ func _relanguage(_lang: String) -> void:
 			remove_child(old)
 			old.queue_free()
 	_buttons.clear()
+	_slot_rows.clear()
+	_armed_slot = -1
 	_menu_root = null
 	_save_slot_root = null
 	_settings = null
@@ -502,12 +618,20 @@ func _unhandled_input(event: InputEvent) -> void:
 		_toggle_settings()
 		get_viewport().set_input_as_handled()
 	elif _save_slot_root != null and _save_slot_root.visible:
-		_hide_save_slots()
+		# One press to call off an armed can, another to leave the list.
+		if _armed_slot >= 0:
+			_disarm()
+		else:
+			_hide_save_slots()
 		get_viewport().set_input_as_handled()
 
 func _process(delta: float) -> void:
 	UiKit.sync_screen(self)
 	_t += delta
+	if _armed_slot >= 0:
+		_armed_left -= delta
+		if _armed_left <= 0.0:
+			_disarm()
 	for pu in _pulses:
 		pu["t"] += float(pu["v"]) * delta
 		if pu["t"] > 1.0:
@@ -527,6 +651,7 @@ func _draw() -> void:
 		draw_texture_rect(_seal_view.get_texture(), Rect2(Vector2.ZERO, DESIGN), false)
 	_draw_focus_marks()
 	_draw_save_slot_prompt()
+	_draw_slot_bins()
 	_draw_records()
 	_draw_glass()
 
@@ -761,6 +886,40 @@ func _draw_save_slot_prompt() -> void:
 	var w := _menu_font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 	draw_string(_menu_font, Vector2(SEAL.x - w * 0.5, SAVE_SLOT_TOP - 12.0), line,
 		HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(CREAM.r, CREAM.g, CREAM.b, 0.7))
+
+## The trashcan at the end of each slot row. Drawn rather than dropped in as an
+## image, like everything else here, on a 2-pixel unit so it lands on the same
+## grid the copper does. It follows the row it belongs to: ordinary ink, white
+## under the cursor or the pad, red once it is armed.
+const BIN_UNIT := 2.0
+
+func _draw_slot_bins() -> void:
+	if _save_slot_root == null or not _save_slot_root.visible:
+		return
+	var focused := get_viewport().gui_get_focus_owner()
+	for row in _slot_rows:
+		var bin: Button = row["bin"]
+		var r := bin.get_global_rect()
+		r.position -= global_position
+		var col := MENU_INK
+		if _armed_slot == int(row["n"]):
+			col = WARN_INK
+		elif focused == bin:
+			col = Color.WHITE
+		_draw_bin(r.get_center().floor(), col)
+
+func _draw_bin(at: Vector2, col: Color) -> void:
+	var u := BIN_UNIT
+	# The handle, and the lid across the top of it.
+	draw_rect(Rect2(at + Vector2(-2, -7) * u, Vector2(4, 1) * u), col)
+	draw_rect(Rect2(at + Vector2(-5, -6) * u, Vector2(10, 1) * u), col)
+	# Two walls and a base rather than a filled block, so it reads as a can.
+	draw_rect(Rect2(at + Vector2(-4, -4) * u, Vector2(1, 9) * u), col)
+	draw_rect(Rect2(at + Vector2(3, -4) * u, Vector2(1, 9) * u), col)
+	draw_rect(Rect2(at + Vector2(-4, 5) * u, Vector2(8, 1) * u), col)
+	# And the two slots down its face.
+	draw_rect(Rect2(at + Vector2(-2, -3) * u, Vector2(1, 7) * u), col)
+	draw_rect(Rect2(at + Vector2(1, -3) * u, Vector2(1, 7) * u), col)
 
 func _draw_records() -> void:
 	if _settings != null and _settings.visible:

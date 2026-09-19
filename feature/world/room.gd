@@ -69,8 +69,11 @@ func out_of_bounds(gp: Vector2) -> bool:
 	var l := to_local(gp)
 	return l.x < -64 or l.y < -64 or l.x > W * CELL + 64 or l.y > H * CELL + 64
 
-func cell_center(x: int, y: int) -> Vector2:
+static func centre_of(x: int, y: int) -> Vector2:
 	return Vector2(float(x) + 0.5, float(y) + 0.5) * CELL
+
+func cell_center(x: int, y: int) -> Vector2:
+	return centre_of(x, y)
 
 ## Grid-marched sight line, used by monsters before they commit to a target.
 func has_line_of_sight(a: Vector2, b: Vector2) -> bool:
@@ -207,6 +210,14 @@ func _spawn_contents() -> void:
 		data["enemies"] = _roll_enemies()
 	if not data.has("loot"):
 		data["loot"] = _roll_loot()
+	# Monsters that walked in from next door join the room's own, and they join
+	# them after the roll. They are kept in a list of their own until then for
+	# exactly that reason: a wanderer that arrived in a room nobody has opened
+	# yet must not be mistaken for that room having already been filled, or it
+	# would be the only thing in it when the player finally walks in.
+	for e in data.get("arrivals", []):
+		data["enemies"].append(e)
+	data["arrivals"] = []
 	for e in data["enemies"]:
 		_spawn_enemy(e)
 	for l in data["loot"]:
@@ -266,6 +277,22 @@ func _spawn_enemy(e: Dictionary) -> void:
 	n.collision_mask = 1
 	n.set_meta("record", e)
 	add_child(n)
+	# After the node is in the tree, because `Actor._ready` fills the bar: a
+	# monster carries its wounds from one visit to the next, and only a raid
+	# that starts over hands it a whole one back.
+	if e.has("hp"):
+		n.health = clampf(float(e["hp"]), 1.0, n.max_health)
+
+## Writes what the live monsters have become back into the map's record of this
+## room, so a room walked out of and back into is the room that was left —
+## wounded monsters still wounded and standing where they were last seen —
+## rather than the same dice rolled again.
+func save_state() -> void:
+	for c in get_children():
+		if c is Enemy and not c.dead and c.has_meta("record"):
+			var rec: Dictionary = c.get_meta("record")
+			rec["pos"] = [c.global_position.x, c.global_position.y]
+			rec["hp"] = c.health
 
 func _spawn_pickup(l: Dictionary) -> void:
 	var p := Pickup.new()
@@ -333,14 +360,22 @@ func door_rect(dir: int) -> Rect2:
 		Components.S: return Rect2(DOOR_COLS[0] * CELL, (H - 1.2) * CELL, DOOR_COLS.size() * CELL, CELL * 1.2)
 	return Rect2()
 
+## Where a body arriving through `from_dir` is put down.
+##
+## Static, and paired with `centre_of` for the same reason: a monster wandering
+## into a room has to be given somewhere to stand in it, and the room it is
+## walking into is not loaded — only the one the player is in ever is.
+static func arrival_point(from_dir: int) -> Vector2:
+	match from_dir:
+		Components.W: return centre_of(2, DOOR_ROWS[1])
+		Components.E: return centre_of(W - 3, DOOR_ROWS[1])
+		Components.N: return centre_of(DOOR_COLS[1], 2)
+		Components.S: return centre_of(DOOR_COLS[1], H - 4)
+	return centre_of(int(W / 2), int(H / 2))
+
 ## Where a player arriving through `from_dir` should be put down.
 func entry_point(from_dir: int) -> Vector2:
-	match from_dir:
-		Components.W: return cell_center(2, DOOR_ROWS[1])
-		Components.E: return cell_center(W - 3, DOOR_ROWS[1])
-		Components.N: return cell_center(DOOR_COLS[1], 2)
-		Components.S: return cell_center(DOOR_COLS[1], H - 4)
-	return cell_center(int(W / 2), int(H / 2))
+	return arrival_point(from_dir)
 
 func spawn_point() -> Vector2:
 	return cell_center(int(W / 2), DOOR_ROWS[1])
@@ -388,8 +423,14 @@ func _update_extraction(delta: float) -> void:
 		_extract_active = false
 		extract_hold = maxf(0.0, extract_hold - delta * 2.0)
 
-func check_doors(p: Player) -> int:
+## Which door a point is standing in, or -1 for none. The player and every
+## monster that could walk out of here are asked the same question.
+func door_at(gp: Vector2) -> int:
+	var l := to_local(gp)
 	for dir in doors:
-		if door_rect(dir).has_point(to_local(p.global_position)):
+		if door_rect(dir).has_point(l):
 			return int(dir)
 	return -1
+
+func check_doors(p: Player) -> int:
+	return door_at(p.global_position)

@@ -106,7 +106,27 @@ func _ready() -> void:
 	await key(KEY_TAB)
 	await key(KEY_ESCAPE)
 	check(not sb.editing, "ESC closes the sandbox editor")
-	check(game.state == 3, "that ESC did not also leave the sandbox")
+	check(game.state == GameScript.State.SANDBOX, "that ESC did not also leave the sandbox")
+	check(not game.get_tree().paused, "nor did it pause behind the editor")
+
+	# ESC with nothing open pauses the bench. It used to walk out of it, which
+	# put the player in the hideout for pressing a key that should have stopped
+	# the game for a moment.
+	await key(KEY_ESCAPE)
+	check(game.get_tree().paused, "ESC on the bench pauses it")
+	check(game.state == GameScript.State.SANDBOX, "and leaves the bench standing")
+	check(game.pause_leave.visible and not game.pause_abandon.visible,
+		"the way out on offer is the one that costs nothing")
+	await key(KEY_ESCAPE)
+	check(not game.get_tree().paused, "and ESC again puts it away")
+
+	# The way out that the pause menu does offer.
+	await key(KEY_ESCAPE)
+	game.pause_leave.emit_signal("pressed")
+	await frames(10)
+	check(not game.get_tree().paused, "leaving the bench unpauses")
+	check(game.state == GameScript.State.TITLE,
+		"and hands back to the title it was opened from (state=%d)" % game.state)
 
 	# --- hideout workbench --------------------------------------------------
 	game.goto_hideout()

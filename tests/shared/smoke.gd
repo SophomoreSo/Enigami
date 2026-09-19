@@ -18,9 +18,9 @@ func fail(what: String) -> void:
 
 func _ready() -> void:
 	# Start from a clean profile so runs are repeatable.
-	if FileAccess.file_exists(GameState.SAVE_PATH):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(GameState.SAVE_PATH))
 	GameState.reset_profile()
+	for n in range(1, GameState.SAVE_SLOTS + 1):
+		GameState.delete_slot(n)
 	seed(20260911)  # deterministic map and loot for repeatable runs
 	await _run()
 	print("[SMOKE] ---- %d failures ----" % fails)

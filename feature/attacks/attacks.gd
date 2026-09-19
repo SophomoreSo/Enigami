@@ -28,6 +28,30 @@ static func nearest_target(pos: Vector2, team: int, max_dist: float = 1e9) -> Ac
 static func container() -> Node:
 	return Arena.current()
 
+## Everything an attack has put into the world and not finished with: bolts in
+## the air, arcs and lunges still swinging, bursts still opening, and the
+## follow-ups waiting their turn to fire.
+##
+## They are parented to the screen rather than to the room, because an attack
+## has to outlive the actor that made it — so nothing about a room going away
+## takes them with it, and a bolt fired on the way out of one room carried on
+## across the next one, testing itself against walls that no longer existed. A
+## screen calls this whenever the ground under them is replaced: a room change,
+## a floor reset.
+static func clear_in_flight(w: Node = null) -> void:
+	var host: Node = w if w != null else container()
+	if host == null or not is_instance_valid(host):
+		return
+	for c in host.get_children():
+		if c is Projectile or c is MeleeArc or c is DashSlash or c is AreaBurst or c is Deferred:
+			# Silenced as well as freed. A node queued for deletion still runs
+			# out the frame it was queued in, and one of these taking a last
+			# turn is not harmless: a follow-up coming due in those milliseconds
+			# spawns a fresh attack, which lands in the world *after* this sweep
+			# has been round and is the one thing it was meant to stop.
+			c.process_mode = Node.PROCESS_MODE_DISABLED
+			c.queue_free()
+
 ## A trigger's follow-up waits this long rather than going off inside the hit
 ## that caused it. Fired inline, a whole chain ran within a single frame, and
 ## every link read the attacker's position from before the current attack had

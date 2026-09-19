@@ -2,7 +2,6 @@
 	"heading": "HIDEOUT",
 	"scrap": "scrap %d",
 	"records": "raids %d · escaped %d · lost %d · kills %d",
-	"sandbox": "SANDBOX",
 	"title": "TITLE",
 	"status": "board %dx%d · max hp %d · stash cap %d",
 	"weapons": {

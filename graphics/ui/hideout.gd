@@ -16,7 +16,6 @@ extends Control
 ## cost five rows there and the stash the room to show anything.
 
 signal deploy_requested(weapon: String, slots: Array)
-signal sandbox_requested()
 signal title_requested()
 signal edit_requested(board_index: int)
 
@@ -154,9 +153,6 @@ func _header() -> Control:
 	h.add_child(_label(Loc.t("hideout.records", [
 		r["raids"], r["escapes"], r["deaths"], r["kills"]]), UiKit.DIM))
 	h.add_child(_pad())
-	var sb := _button(Loc.t("hideout.sandbox"), UiKit.GOOD)
-	sb.pressed.connect(func() -> void: sandbox_requested.emit())
-	h.add_child(sb)
 	var tb := _button(Loc.t("hideout.title"))
 	tb.pressed.connect(func() -> void: title_requested.emit())
 	h.add_child(tb)

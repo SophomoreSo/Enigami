@@ -45,10 +45,22 @@ func _ready() -> void:
 	await frames(4)
 	await shot("focus_sandbox")
 
-	# START asks for a save slot instead of leaving the screen.
+	# START asks for a save slot instead of leaving the screen. The rows are set
+	# up to show every state one can be in: two profiles with a date on them and
+	# one slot with nothing in it.
+	GameState.load_slot(1)
+	GameState.save_game()
+	GameState.load_slot(2)
+	GameState.save_game()
+	GameState.delete_slot(3)
 	title._start_button.emit_signal("pressed")
 	await frames(6)
 	await shot("save_slots")
+	# And one with its trashcan armed, which is what being asked twice looks
+	# like: the can turns red and the row asks instead of saying a date.
+	(title._slot_rows[1]["bin"] as Button).emit_signal("pressed")
+	await frames(4)
+	await shot("save_slots_armed")
 	title._hide_save_slots()
 	await frames(4)
 
