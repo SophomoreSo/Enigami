@@ -150,6 +150,5 @@ pause={
 [rendering]
 
 renderer/rendering_method="gl_compatibility"
-; arm64 targets (macOS universal, Android, iOS) refuse to export without this.
 textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0.055, 0.06, 0.08, 1)

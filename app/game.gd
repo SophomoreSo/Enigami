@@ -181,6 +181,14 @@ class PauseMenu extends Control:
 			game._unpause()
 		get_viewport().set_input_as_handled()
 
+## In UiKit's pixel look, like the title's settings — the same rows, the same
+## rebinding list — because it is the same menu reached from inside a raid, and
+## the raid behind it is pixel art.
+##
+## On a panel of its own, and an opaque one. The raid goes on drawing behind the
+## pause menu: it is stopped, so a toast caught mid-life stays where it was, and
+## with nothing behind the rows its words came through them — through the RESUME
+## button most of all, whose hover fill is a wash of colour rather than a solid.
 func _build_pause_menu() -> void:
 	pause_menu = PauseMenu.new()
 	(pause_menu as PauseMenu).game = self
@@ -191,12 +199,20 @@ func _build_pause_menu() -> void:
 	dim.color = Color(0, 0, 0, 0.72)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	pause_menu.add_child(dim)
+	# The pixel face runs up to twice as wide as the one this menu was laid out
+	# for, and the rebinding list is two columns of it: 600 holds them, as it
+	# does on the title, and the scroll adds its bar.
+	var panel := UiKit.panel(UiKit.PANEL, Color(0.22, 0.3, 0.38), true)
+	panel.custom_minimum_size = Vector2(600, 0)
+	var scroll := UiKit.screen_scroll(panel, Vector2(336, 36), 608.0)
+	UiKit.pixel_scroll(scroll)
+	pause_menu.add_child(scroll)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
-	pause_menu.add_child(UiKit.screen_scroll(v, Vector2(430, 36), 470.0))
-	v.add_child(UiKit.title(Loc.t("menu.pause.heading")))
-	v.add_child(UiKit.spacer(6))
-	var resume := UiKit.button(Loc.t("menu.pause.resume"), UiKit.GOOD)
+	v.add_theme_constant_override("separation", 8)
+	panel.add_child(v)
+	v.add_child(UiKit.title(Loc.t("menu.pause.heading"), 24, true))
+	v.add_child(UiKit.hline(true))
+	var resume := UiKit.button(Loc.t("menu.pause.resume"), UiKit.GOOD, true)
 	resume.custom_minimum_size = Vector2(280, 40)
 	resume.pressed.connect(_unpause)
 	v.add_child(resume)
@@ -204,14 +220,14 @@ func _build_pause_menu() -> void:
 	v.add_child(_vol_row(Loc.t("menu.pause.sound"), func() -> float: return Audio.sfx_volume, func(x: float) -> void: Audio.set_sfx_volume(x)))
 	v.add_child(UiKit.spacer(6))
 	var cp := ControlsPanel.new()
-	cp.custom_minimum_size = Vector2(420, 0)
+	cp.pixel = true
 	v.add_child(cp)
 	v.add_child(UiKit.spacer(8))
 	# The way out, which is not the same act on every screen: forfeiting a raid
 	# costs the kit, and stepping off the bench costs nothing. Two buttons
 	# rather than one that changes its words, because they are different
 	# colours as well as different sentences — `_pause` shows the right one.
-	pause_abandon = UiKit.button(Loc.t("menu.pause.abandon"), UiKit.BAD)
+	pause_abandon = UiKit.button(Loc.t("menu.pause.abandon"), UiKit.BAD, true)
 	pause_abandon.custom_minimum_size = Vector2(280, 36)
 	pause_abandon.pressed.connect(func() -> void:
 		_unpause()
@@ -219,7 +235,7 @@ func _build_pause_menu() -> void:
 			var lost := GameState.die()
 			_raid_finished("died", lost))
 	v.add_child(pause_abandon)
-	pause_leave = UiKit.button(Loc.t("menu.pause.leave"), UiKit.ACCENT)
+	pause_leave = UiKit.button(Loc.t("menu.pause.leave"), UiKit.ACCENT, true)
 	pause_leave.custom_minimum_size = Vector2(280, 36)
 	pause_leave.pressed.connect(func() -> void:
 		_unpause()
@@ -231,15 +247,16 @@ func _build_pause_menu() -> void:
 func _vol_row(name: String, getter: Callable, setter: Callable) -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
-	var l := UiKit.label(name, 12)
-	l.custom_minimum_size = Vector2(70, 0)
+	var l := UiKit.label(name, 16, UiKit.TEXT, true)
+	l.custom_minimum_size = Vector2(80, 0)
 	h.add_child(l)
 	var s := HSlider.new()
 	s.min_value = 0.0
 	s.max_value = 1.0
 	s.step = 0.05
 	s.value = getter.call()
-	s.custom_minimum_size = Vector2(200, 18)
+	s.custom_minimum_size = Vector2(240, 20)
+	UiKit.pixel_slider(s)
 	s.value_changed.connect(setter)
 	h.add_child(s)
 	return h
