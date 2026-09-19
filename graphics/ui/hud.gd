@@ -9,7 +9,6 @@ var map: RaidMap = null
 var room = null
 var prompt: String = ""
 var extract_ratio: float = 0.0
-var tutorial: String = ""
 var toast: String = ""
 var toast_time: float = 0.0
 var _font: Font
@@ -204,19 +203,6 @@ func _draw_prompts(vp: Vector2) -> void:
 		draw_rect(r, Color(0, 0, 0, 0.6))
 		draw_rect(Rect2(r.position, Vector2(w * extract_ratio, r.size.y)), Color(0.5, 1.0, 0.8))
 		_line(r.position + Vector2(0, -6), Loc.t("hud.extracting"), HORIZONTAL_ALIGNMENT_CENTER, w, 12, Color(0.7, 1.0, 0.9))
-	if tutorial != "":
-		# 600 wide is what the English steps were written to fit. A language
-		# drawn in a bigger face needs a wider box rather than a clipped step,
-		# so the box is measured off the line — which comes to exactly 600 for
-		# every line the default face can spell.
-		var size := Loc.text_size(tutorial, 13)
-		var w := maxf(600.0, _font.get_string_size(tutorial,
-			HORIZONTAL_ALIGNMENT_LEFT, -1, size).x + 24.0)
-		var box := Rect2(vp.x * 0.5 - w * 0.5, 136, w, maxf(40.0, float(size) + 20.0))
-		draw_rect(box, Color(0.07, 0.08, 0.11, 0.85))
-		draw_rect(box, Color(0.45, 0.8, 1.0, 0.6), false, 1.2)
-		_line(box.position + Vector2(0, box.size.y - 15.0), tutorial,
-			HORIZONTAL_ALIGNMENT_CENTER, w, 13, Color(0.8, 0.92, 1.0))
 	if toast_time > 0.0:
 		var a := clampf(toast_time / 0.8, 0.0, 1.0)
 		_line(Vector2(vp.x * 0.5 - 250, 110), toast, HORIZONTAL_ALIGNMENT_CENTER, 500, 14, Color(1, 0.95, 0.8, a))

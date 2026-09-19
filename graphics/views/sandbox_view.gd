@@ -44,9 +44,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("open_editor"):
 		sandbox.set_editing(not sandbox.editing)
 		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("pause"):
-		sandbox.leave()
-		get_viewport().set_input_as_handled()
+	# Pause is deliberately not taken here. It used to walk straight out of the
+	# bench, which meant a press people expect to stop the game for a moment
+	# instead threw the screen away and left them in the hideout. `app/game.gd`
+	# has it now, and puts the pause menu up the way it does in a raid.
 
 func _on_editing(on: bool) -> void:
 	if on:

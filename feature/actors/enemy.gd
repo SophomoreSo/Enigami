@@ -192,8 +192,13 @@ func _ai_jumper(delta: float, spd: float) -> void:
 			velocity = Vector2(dir * spd * 1.4, -560.0)
 			telegraph = 0.2
 
-func _ai_turret(_delta: float) -> void:
-	velocity = Vector2.ZERO
+## A turret holds its ground, but it is not nailed to the air: dropped in above
+## the floor — which is how the bench puts its dummy down, and how a stray gets
+## placed — it falls until something holds it up. Writing a flat zero into the
+## whole of `velocity` left the dummy hanging exactly where it was spawned.
+func _ai_turret(delta: float) -> void:
+	velocity.x = 0.0
+	_fall(delta)
 
 func _ai_flyer(delta: float, spd: float) -> void:
 	if aggro and target != null:

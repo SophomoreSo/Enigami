@@ -6,6 +6,8 @@
 		"quit": "QUIT",
 		"back": "BACK",
 		"slot": "SLOT %d",
+		"slot_empty": "EMPTY",
+		"slot_delete": "DELETE?",
 		"select_slot": "SELECT SAVE SLOT",
 		"records": "RAIDS %d   ESCAPED %d   LOST %d   KILLS %d   BEST HAUL %d"
 	},
@@ -26,6 +28,7 @@
 		"resume": "RESUME",
 		"music": "Music",
 		"sound": "Sound",
+		"leave": "LEAVE THE BENCH — nothing here is at stake",
 		"abandon": "ABANDON RAID — forfeits the kit"
 	},
 	"results": {

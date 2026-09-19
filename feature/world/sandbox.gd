@@ -72,8 +72,19 @@ func cycle_weapon() -> void:
 func current_weapon() -> String:
 	return player.weapon_id
 
+## Put down on the bench's own floor. It used to be dropped into a fixed cell
+## partway up the room, and the generator is free to lay a platform through
+## that cell — which left the dummy standing inside one, halfway up the screen
+## with nothing under it that anybody could see.
 func spawn_dummy() -> void:
-	_spawn("DUMMY", 1, room.cell_center(28, 16))
+	_spawn("DUMMY", 1, room.cell_center(28, _standing_row(28)))
+
+## The lowest cell in column `x` with room above it for a body to stand in.
+func _standing_row(x: int) -> int:
+	for y in range(Room.H - 1, 0, -1):
+		if not room.is_solid(x, y) and not room.is_solid(x, y - 1):
+			return y
+	return int(Room.H / 2)
 
 ## Dropped in above the floor and left to land, like everything else here. On no
 ## collision layer of its own, so nothing bumps into it.

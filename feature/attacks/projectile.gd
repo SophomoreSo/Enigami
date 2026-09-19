@@ -12,19 +12,34 @@ extends Node2D
 ## at. The hops cost nothing — even the fastest build needs a handful.
 const MAX_STEP := 12.0
 
+## How long a bolt stays in the air. Time rather than distance on purpose: that
+## is what makes SPEED carry a shot further, which is what the part says it
+## does. The old two and a half seconds was long enough for a volley fired in
+## one room to still be crossing the next one after the player had walked
+## through the door; this is about what the slowest bolt in the game needs to
+## cross a room, and nothing is meant to outlive the fight it was fired in.
+const LIFE := 2.0
+
+## And the furthest one may travel whatever its speed. Walls and the room edge
+## normally end a bolt long before this — it is here so that a bolt whose room
+## has stopped answering still has something that ends it.
+const MAX_TRAVEL := 1500.0
+
 var payload: Payload
 var velocity: Vector2 = Vector2.RIGHT * 400.0
 var team: int = 0
 var attacker: Actor = null
 var room = null
 var radius: float = 5.0
-var life: float = 2.6
+var life: float = LIFE
 var hits_left: int = 1
 var gravity: float = 0.0
 var homing_strength: float = 0.0
 var reverse_at: float = -1.0
 var _reversed: bool = false
 var _hit: Array = []
+## How far this bolt has flown, against MAX_TRAVEL.
+var _travelled: float = 0.0
 
 func setup(p: Payload, pos: Vector2, dir: Vector2, t: int, atk: Actor, rm) -> void:
 	payload = p
@@ -57,6 +72,10 @@ func _process(delta: float) -> void:
 	velocity.y += gravity * delta
 
 	var travel := velocity * delta
+	_travelled += travel.length()
+	if _travelled >= MAX_TRAVEL:
+		_expire()
+		return
 	var hops := maxi(1, int(ceil(travel.length() / MAX_STEP)))
 	var hop := travel / float(hops)
 	for i in hops:
@@ -67,6 +86,13 @@ func _process(delta: float) -> void:
 ## One collision sample where the bolt is standing. Returns true once the bolt
 ## is gone, so the caller stops walking it.
 func _sample() -> bool:
+	# The room a bolt was fired in can be torn down under it — walking through
+	# a door frees one room and builds the next — and a reference to a freed
+	# node still reads as non-null, so asking it anything at all is an error
+	# rather than a false. Dropped here, a stray bolt stops testing itself
+	# against walls that no longer exist and simply runs out.
+	if room != null and not is_instance_valid(room):
+		room = null
 	if room != null and room.has_method("is_solid_at") and room.is_solid_at(global_position):
 		Cues.at(&"impact", global_position, {"payload": payload, "kind": "wall"})
 		queue_free()

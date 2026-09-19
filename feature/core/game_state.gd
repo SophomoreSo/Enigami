@@ -7,7 +7,21 @@ signal stash_changed()
 signal loadout_changed()
 signal records_changed()
 
+## How many profiles can be kept side by side. The title screen offers this
+## many rows; `graphics/ui/title_screen.gd` reads it rather than counting its
+## own, so the two cannot disagree.
+const SAVE_SLOTS := 3
+
+## Where a profile saved before there were slots lives. It is read once, at
+## boot, and becomes slot 1 — see `_migrate_legacy_save`.
 const SAVE_PATH := "user://enigami_save.json"
+
+static func slot_path(n: int) -> String:
+	return "user://enigami_save_%d.json" % clampi(n, 1, SAVE_SLOTS)
+
+## Which profile is being played, 1..SAVE_SLOTS. Everything saved goes here,
+## and the title screen sets it by opening one.
+var slot: int = 1
 ## There is always another rock. It cannot be lost, so a run of bad raids never
 ## leaves the player with nothing to deploy.
 const FREE_WEAPON := "ROCK"
@@ -66,14 +80,28 @@ func facility_desc(key: String) -> String:
 		String((FACILITY_INFO.get(key, {}) as Dictionary).get("desc", "")))
 
 func _ready() -> void:
-	if not load_game():
-		_new_profile()
-	_ensure_free_weapon()
+	_migrate_legacy_save()
+	# The one last written, so the records under the title menu belong to the
+	# profile the player was last in rather than to whichever slot is first.
+	load_slot(last_played_slot())
+
+## A profile saved before there were slots becomes slot 1, so nobody loses one
+## by updating. It runs once: after the rename there is nothing left to move.
+func _migrate_legacy_save() -> void:
+	if not FileAccess.file_exists(SAVE_PATH) or FileAccess.file_exists(slot_path(1)):
+		return
+	DirAccess.rename_absolute(ProjectSettings.globalize_path(SAVE_PATH),
+		ProjectSettings.globalize_path(slot_path(1)))
 
 func _ensure_free_weapon() -> void:
 	if not owned_weapons.has(FREE_WEAPON):
 		owned_weapons.append(FREE_WEAPON)
 
+## Builds a starting profile in memory, and only in memory. It used to write
+## itself to disk on the way out, which is wrong now that a slot can be empty:
+## booting would have stamped the first slot before the player had touched it,
+## and emptying a slot would have filled it straight back in. Whoever wants this
+## one kept says so.
 func _new_profile() -> void:
 	stash.clear()
 	loadout_slots.clear()
@@ -91,7 +119,6 @@ func _new_profile() -> void:
 	utility.place("BLINK", Vector2i(1, 2), 0)
 	utility.place("OUTPUT", Vector2i(2, 2), 0)
 	skill_library.append(utility)
-	save_game()
 
 ## --- derived stats ----------------------------------------------------------
 func max_health() -> float:
@@ -343,8 +370,69 @@ func mark_intro_seen() -> void:
 	save_game()
 
 ## --- persistence ------------------------------------------------------------
+
+## What the title screen needs to draw a slot without opening it: when it was
+## last written, and what the profile in it has done. Reading a slot is not the
+## same as playing it, so this never touches the live profile.
+static func slot_info(n: int) -> Dictionary:
+	var path := slot_path(n)
+	if not FileAccess.file_exists(path):
+		return {}
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return {}
+	var parsed = JSON.parse_string(f.get_as_text())
+	f.close()
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return {}
+	var d: Dictionary = parsed
+	return {"saved_at": int(d.get("saved_at", 0)), "records": d.get("records", {})}
+
+## Whether there is a profile in slot `n` at all.
+static func slot_used(n: int) -> bool:
+	return not slot_info(n).is_empty()
+
+## The slot written to most recently, or 1 when none has been.
+static func last_played_slot() -> int:
+	var best := 1
+	var newest := 0
+	for n in range(1, SAVE_SLOTS + 1):
+		var at := int(slot_info(n).get("saved_at", 0))
+		if at > newest:
+			newest = at
+			best = n
+	return best
+
+## Opens slot `n` — its profile if it has one, a fresh one if it does not — and
+## makes it the slot everything saved from now on goes to.
+func load_slot(n: int) -> bool:
+	slot = clampi(n, 1, SAVE_SLOTS)
+	var found := _read_save(slot_path(slot))
+	if not found:
+		_new_profile()
+	_ensure_free_weapon()
+	stash_changed.emit()
+	loadout_changed.emit()
+	records_changed.emit()
+	return found
+
+## Throws a profile away. There is no undo, which is why the screen that offers
+## it asks twice. Emptying the slot being played leaves a new profile in memory,
+## so nothing goes on showing the records of a save that no longer exists.
+func delete_slot(n: int) -> void:
+	var path := slot_path(n)
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	if clampi(n, 1, SAVE_SLOTS) == slot:
+		_new_profile()
+		_ensure_free_weapon()
+		stash_changed.emit()
+		loadout_changed.emit()
+		records_changed.emit()
+
 func save_game() -> void:
 	var data := {
+		"saved_at": int(Time.get_unix_time_from_system()),
 		"stash": stash,
 		"weapons": owned_weapons,
 		"skills": skill_library.map(func(b: SkillBoard) -> Dictionary: return b.serialize()),
@@ -354,16 +442,20 @@ func save_game() -> void:
 		"loadout": loadout_slots,
 		"intro_seen": intro_seen,
 	}
-	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	var f := FileAccess.open(slot_path(slot), FileAccess.WRITE)
 	if f == null:
 		return
 	f.store_string(JSON.stringify(data, "\t"))
 	f.close()
 
+## Reads the slot being played back off disk.
 func load_game() -> bool:
-	if not FileAccess.file_exists(SAVE_PATH):
+	return _read_save(slot_path(slot))
+
+func _read_save(path: String) -> bool:
+	if not FileAccess.file_exists(path):
 		return false
-	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	var f := FileAccess.open(path, FileAccess.READ)
 	if f == null:
 		return false
 	var parsed = JSON.parse_string(f.get_as_text())
@@ -394,7 +486,10 @@ func load_game() -> bool:
 			records[k] = int(rec[k])
 	return true
 
+## Starts this slot over. The wipe is meant to stick, so it is written out.
 func reset_profile() -> void:
 	_new_profile()
+	_ensure_free_weapon()
+	save_game()
 	stash_changed.emit()
 	loadout_changed.emit()

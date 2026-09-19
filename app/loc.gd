@@ -319,7 +319,7 @@ func _flatten(d: Dictionary, prefix: String, into: Dictionary) -> void:
 		if v is Dictionary:
 			_flatten(v, key, into)
 		elif v is Array:
-			# A list is addressed by position: `hud.tutorial.0`, `.1`, `.2`…
+			# A list is addressed by position: `hud.map.pressure.0`, `.1`, `.2`…
 			for i in (v as Array).size():
 				into["%s.%d" % [key, i]] = String((v as Array)[i])
 		else:

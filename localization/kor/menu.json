@@ -6,6 +6,8 @@
 		"quit": "종료",
 		"back": "뒤로",
 		"slot": "슬롯 %d",
+		"slot_empty": "비어 있음",
+		"slot_delete": "삭제할까요?",
 		"select_slot": "저장 슬롯 선택",
 		"records": "레이드 %d   탈출 %d   사망 %d   처치 %d   최고 수확 %d"
 	},
@@ -26,6 +28,7 @@
 		"resume": "계속하기",
 		"music": "음악",
 		"sound": "효과음",
+		"leave": "연습장 나가기 — 여기서는 잃을 것이 없습니다",
 		"abandon": "레이드 포기 — 장비를 모두 잃습니다"
 	},
 	"results": {

@@ -122,9 +122,7 @@ func _on_guard_down(_kind: String, _pos: Vector2) -> void:
 ## the way the first one did.
 func reset_floor() -> void:
 	reset_in = 0.0
-	for c in get_children():
-		if c is Attacks.Deferred or c is DashSlash or c is MeleeArc or c is Projectile or c is AreaBurst:
-			c.queue_free()
+	Attacks.clear_in_flight(self)
 	for c in room.get_children():
 		if c is Enemy:
 			# Out of the target list now rather than at the end of the frame, so

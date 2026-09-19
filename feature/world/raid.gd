@@ -19,7 +19,6 @@ signal room_changed(room: Room)
 var map: RaidMap
 var room: Room = null
 var player: Player
-var rng := RandomNumberGenerator.new()
 var editing: bool = false
 var ended: bool = false
 ## What the player could do where they are standing, or "" for nothing.
@@ -28,26 +27,11 @@ var prompt: String = ""
 var extract_ratio: float = 0.0
 var _pending_dir: int = -1
 
-## First-raid onboarding. Each step clears itself once the player has actually
-## done the thing, so the game teaches by watching rather than by gating.
-const TUTORIAL_STEPS := [
-	"Move with A and D. SPACE jumps — press it again against a wall to kick off.",
-	"Hold the LEFT MOUSE BUTTON to run skill slot 1. Your board's length sets its rhythm.",
-	"Press TAB to open assembly. The raid does not pause while you build.",
-	"The glowing frames in the walls are doors. The map is yours to pick through.",
-	"Loot is only yours once you leave. Stand in an exit and hold F.",
-]
-var tutorial_step: int = 0
-var _tutorial_on: bool = false
-var _moved: float = 0.0
-var _last_pos: Vector2 = Vector2.ZERO
-
 func _ready() -> void:
 	Arena.register(self)
 	Cues.emit_cue(&"music_start")
 	map = RaidMap.new()
 	map.generate(GameState.raid_seed if GameState.raid_seed != 0 else randi())
-	rng.seed = map.seed_base
 
 	player = Player.new()
 	player.collision_layer = 2
@@ -56,13 +40,8 @@ func _ready() -> void:
 	player.died.connect(_on_player_died)
 	add_child(player)
 
-	_tutorial_on = not bool(GameState.records.get("tutorial_done", false))
 	_enter_room(map.entry, -1)
-	_last_pos = player.global_position
 	noticed.emit(Loc.t("hud.toast.deployed"))
-	if _tutorial_on:
-		for r in player.runners:
-			r.fired.connect(_on_tutorial_fire)
 
 func _process(delta: float) -> void:
 	if ended:
@@ -73,44 +52,93 @@ func _process(delta: float) -> void:
 		if dir >= 0 and _pending_dir < 0:
 			_travel(dir)
 	_update_prompt()
-	_update_tutorial(delta)
+	_update_wandering()
 
-## The onboarding line to show right now, or "" once it is done with.
-## The step's line, in the language being played. The English above is the
-## fallback under it, the way every other lookup falls back.
-func tutorial_text() -> String:
-	if not _tutorial_on:
-		return ""
-	return Loc.opt("hud.tutorial.%d" % tutorial_step, String(TUTORIAL_STEPS[tutorial_step]))
+## --- monsters that change rooms ---------------------------------------------
+## Only the room the player is standing in is ever live, so a monster that
+## leaves one is not simulated on its way anywhere: its record is handed to the
+## room it walked into, and it is standing there when that room is next opened.
+## That record is the monster — kind, modifier and wounds — so what arrives is
+## the one that left and not another roll of the same kind.
 
-func _on_tutorial_fire(_p: Payload) -> void:
-	if tutorial_step == 1:
-		_advance_tutorial()
+## How close to the door a monster has to be, when the player goes through it,
+## to come through after them. A room's width is 1280, so this is near enough
+## that only something already on the player's heels follows.
+const FOLLOW_RANGE := 260.0
 
-func _advance_tutorial() -> void:
-	tutorial_step += 1
-	Cues.emit_cue(&"ui", {"kind": "tutorial"})
-	if tutorial_step >= TUTORIAL_STEPS.size():
-		_tutorial_on = false
-		GameState.records["tutorial_done"] = true
-		GameState.save_game()
+## How far apart arrivals are spaced, in from the door they came through, so a
+## pair that follows the player does not land in one place.
+const ARRIVAL_SPACING := 30.0
 
-func _update_tutorial(delta: float) -> void:
-	if not _tutorial_on:
+## A monster standing in a doorway walks through it.
+func _update_wandering() -> void:
+	if room == null or ended:
 		return
-	match tutorial_step:
-		0:
-			_moved += player.global_position.distance_to(_last_pos)
-			_last_pos = player.global_position
-			if _moved > 260.0:
-				_advance_tutorial()
-		2:
-			if editing:
-				_advance_tutorial()
-		4:
-			if extract_ratio > 0.05:
-				_advance_tutorial()
-	_last_pos = player.global_position
+	for c in room.get_children():
+		if not (c is Enemy) or (c as Enemy).dead:
+			continue
+		var e := c as Enemy
+		if not _can_wander(e):
+			continue
+		var dir := room.door_at(e.global_position)
+		if dir < 0:
+			continue
+		var target: Vector2i = room.coord + RaidMap.dir_delta(dir)
+		if not map.has_room(target):
+			continue
+		Cues.at(&"travel", e.global_position)
+		_relocate(e, target, Room.arrival_point(RaidMap.opposite(dir)))
+
+## Whatever was chasing the player and is still at their heels when they go
+## through a door comes through after them. Returns how many did.
+func _carry_followers(target: Vector2i, dir: int) -> int:
+	var door: Vector2 = room.door_rect(dir).get_center()
+	var chasing: Array = []
+	for c in room.get_children():
+		if not (c is Enemy) or (c as Enemy).dead:
+			continue
+		var e := c as Enemy
+		if e.aggro and _can_wander(e) \
+				and room.to_local(e.global_position).distance_to(door) <= FOLLOW_RANGE:
+			chasing.append(e)
+	# In from the door rather than in the mouth of it: a monster left standing
+	# in the doorway would be walked straight back out again by the sweep above
+	# on the very frame it arrived.
+	var at := Room.arrival_point(RaidMap.opposite(dir))
+	var into := Vector2(RaidMap.dir_delta(dir)) * ARRIVAL_SPACING
+	for i in chasing.size():
+		_relocate(chasing[i], target, at + into * float(i + 1))
+	return chasing.size()
+
+## Whether a monster is one that could walk into another room at all. A boss
+## holds its arena: its gate stays sealed until it falls, and one that wandered
+## off could open that gate from anywhere on the map. Something that does not
+## walk does not wander either.
+func _can_wander(e: Enemy) -> bool:
+	return not bool(e.def.get("boss", false)) and e.ai() != "turret"
+
+## Hands one monster over to the room at `target`, standing at `at`. Its record
+## goes with it, so it is the same monster when that room is next opened, and
+## the body here goes away — the room it has walked into is not loaded, and
+## nothing outside the live room is.
+func _relocate(e: Enemy, target: Vector2i, at: Vector2) -> void:
+	var into: Dictionary = map.get_record(target)
+	if into.is_empty() or not e.has_meta("record"):
+		return
+	var rec: Dictionary = e.get_meta("record")
+	rec["pos"] = [at.x, at.y]
+	rec["hp"] = e.health
+	(room.data["enemies"] as Array).erase(rec)
+	var arrivals: Array = into.get("arrivals", [])
+	arrivals.append(rec)
+	into["arrivals"] = arrivals
+	# Out of the target list now rather than at the end of the frame, so nothing
+	# still swinging this frame can find a monster that has left the room — and
+	# silenced, so it cannot get a last attack away into a room it is no longer
+	# standing in.
+	e.remove_from_group("actors")
+	e.process_mode = Node.PROCESS_MODE_DISABLED
+	e.queue_free()
 
 func _update_prompt() -> void:
 	if room == null:
@@ -124,11 +152,28 @@ func _update_prompt() -> void:
 
 ## --- rooms ------------------------------------------------------------------
 func _enter_room(coord: Vector2i, from_dir: int) -> void:
+	var followed := 0
 	if room != null:
+		# What the room has become is written back before it is torn down, so
+		# walking back in finds the room that was left rather than a fresh one.
+		room.save_state()
+		if from_dir >= 0:
+			followed = _carry_followers(coord, from_dir)
+		# Nothing in the room being left gets another turn. A monster's board is
+		# mid-cycle when the door is crossed, and a node that has been freed
+		# still runs out the frame it was freed in — and the raid processes
+		# before its own children do, so the last thing the old room did was
+		# fire into the new one, after the sweep below had already been round.
+		room.process_mode = Node.PROCESS_MODE_DISABLED
 		room.queue_free()
 		room = null
+	# The room goes, and so does everything that was still flying around in it.
+	# Attacks hang off the raid rather than off the room, so without this a
+	# volley loosed on the way through a door arrived in the next room with the
+	# player and kept going across it. After the room is silenced, so that
+	# anything it managed to loose on its way out is swept up with the rest.
+	Attacks.clear_in_flight(self)
 	var rec: Dictionary = map.get_record(coord)
-	var first_visit := not bool(rec.get("visited", false))
 	rec["visited"] = true
 
 	room = Room.new()
@@ -141,15 +186,6 @@ func _enter_room(coord: Vector2i, from_dir: int) -> void:
 	room.extraction_done.connect(_on_extract_done)
 	room.player = player
 
-	# Staying too long draws attention: revisited rooms can pick up a stray.
-	var press := map.pressure()
-	if not first_visit and press >= 2 and rng.randf() < 0.2 * float(press):
-		var kind := Monsters.pick(rng, int(rec["danger"]) + press)
-		var extra := {"kind": kind, "mod": "", "pos": [Room.W * Room.CELL * 0.5, 120.0]}
-		rec["enemies"].append(extra)
-		room._spawn_enemy(extra)
-		noticed.emit(Loc.t("hud.toast.followed"))
-
 	player.room = room
 	if from_dir < 0:
 		player.global_position = room.spawn_point()
@@ -161,13 +197,13 @@ func _enter_room(coord: Vector2i, from_dir: int) -> void:
 			c.room = room
 	_pending_dir = -1
 	room_changed.emit(room)
+	if followed > 0:
+		noticed.emit(Loc.t("hud.toast.followed"))
 
 func _travel(dir: int) -> void:
 	var target: Vector2i = room.coord + RaidMap.dir_delta(dir)
 	if not map.has_room(target):
 		return
-	if _tutorial_on and tutorial_step == 3:
-		_advance_tutorial()
 	_pending_dir = dir
 	Cues.at(&"travel", player.global_position)
 	_enter_room(target, dir)

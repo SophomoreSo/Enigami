@@ -6,7 +6,7 @@ Every word the game says, one folder per language:
 localization/
 ├── eng/            English — the default, and the fallback under every other
 │   ├── menu.json        the title, the save slots, settings, pause, results
-│   ├── hud.json         the raid HUD, the tutorial, the bench, the dragon test
+│   ├── hud.json         the raid HUD, the bench, the dragon test
 │   ├── hideout.json     the hideout screen and its facilities
 │   ├── editor.json      skill assembly, the share sheet, what a board says
 │   ├── controls.json    the action names and what a binding is called
@@ -45,12 +45,12 @@ the same line:
 {"bag.row": "%s x%d"}             ->  hud.bag.row
 ```
 
-A list is addressed by position, which is how the tutorial's five steps and the
-map's five pressure levels are written:
+A list is addressed by position, which is how the map's five pressure levels
+are written:
 
 ```json
-{"tutorial": ["Move with A and D…", "Hold the LEFT MOUSE BUTTON…"]}
-                                  ->  hud.tutorial.0, hud.tutorial.1
+{"map": {"pressure": ["quiet", "stirring", …]}}
+                                  ->  hud.map.pressure.0, hud.map.pressure.1
 ```
 
 ## Placeholders
@@ -204,8 +204,7 @@ and a Korean skill name on an English screen still lands on whole pixels.
 That covers the screens that are not in the pixel look, too. The raid HUD and
 the results sheet draw in the default face at 9–14px, which is *below* 둥근모꼴
 and would hand back syllables with rows missing; `Hud._line` puts every one of
-their lines through the same call, and the tutorial's box is measured off its
-line so a wider language gets a wider box instead of a clipped step.
+their lines through the same call.
 The screen tests hold a language to `UiKit.PIXEL` only when it is on that grid, and
 print what they skipped and why; `loc_test` holds every language to whole
 pixels and to an import with no smoothing in it, which is the part that
