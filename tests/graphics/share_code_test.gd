@@ -251,4 +251,4 @@ func _ready() -> void:
 		% ed._share._note)
 
 	say("---- %d failures ----" % fails)
-	get_tree().quit()
+	get_tree().quit(1 if fails > 0 else 0)

@@ -270,7 +270,7 @@ func _ready() -> void:
 		"a board of nothing but structure costs nothing")
 
 	print("[CODE] ---- %d failures ----" % fails)
-	get_tree().quit()
+	get_tree().quit(1 if fails > 0 else 0)
 
 ## A code claiming to be version `v`: the version is the first three bits, so it
 ## is the leading five characters that change, and the check character with them.

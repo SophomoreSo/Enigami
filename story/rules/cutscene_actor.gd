@@ -8,7 +8,7 @@ extends CharacterBody2D
 ## Deliberately not an `Actor`, for the same reason an `Npc` is not one: attacks
 ## find their targets through the "actors" group, and nobody in a cutscene
 ## should ever be a target. Nothing here is drawn —
-## `graphics/views/cutscene_actor_view.gd` shows it.
+## `story/view/cutscene_actor_view.gd` shows it.
 
 const GRAVITY := 1700.0
 const MAX_FALL := 900.0

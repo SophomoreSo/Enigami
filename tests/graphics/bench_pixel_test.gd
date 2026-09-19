@@ -200,7 +200,7 @@ func _ready() -> void:
 		"and the meters fit inside the panel")
 
 	print("[BENCH] ---- %d failures ----" % fails)
-	get_tree().quit()
+	get_tree().quit(1 if fails > 0 else 0)
 
 func restore(hidden: Array) -> void:
 	for n in hidden:

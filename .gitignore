@@ -27,4 +27,13 @@ node_modules/
 # Godot
 .godot/
 *.translation
-export_presets.cfg
+
+# export_presets.cfg is deliberately tracked: CI builds from it, so a preset
+# that only exists on one machine is a build nobody else can reproduce. It
+# carries no keys — the Android keystore and the Apple team id come from
+# repository secrets at build time. Keep it that way.
+
+# Build and test output
+build/
+.test-logs/
+shots/

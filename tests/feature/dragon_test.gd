@@ -160,4 +160,4 @@ func _ready() -> void:
 		"and the charged cast right after it clears the floor (%d left)" % screen.guards_left)
 
 	print("[DRAGON] ---- %d failures ----" % fails)
-	get_tree().quit()
+	get_tree().quit(1 if fails > 0 else 0)

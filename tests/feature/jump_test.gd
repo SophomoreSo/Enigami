@@ -118,4 +118,4 @@ func _ready() -> void:
 	check(after_kick > 400.0, "and a wall kick refreshes the air jump (%+.0f)" % after_kick)
 
 	print("[JUMP] ---- %d failures ----" % fails)
-	get_tree().quit()
+	get_tree().quit(1 if fails > 0 else 0)

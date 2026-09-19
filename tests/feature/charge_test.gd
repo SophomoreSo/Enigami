@@ -223,4 +223,4 @@ func _ready() -> void:
 	check(p.runners[0].ttl_bonus == 0, "and the board drops back to base life")
 
 	print("[CHG] ---- %d failures ----" % fails)
-	get_tree().quit()
+	get_tree().quit(1 if fails > 0 else 0)

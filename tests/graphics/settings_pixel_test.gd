@@ -156,4 +156,4 @@ func _ready() -> void:
 	check(leaked == 0, "the pause menu's controls list stays plain (%d pixel texts)" % leaked)
 
 	print("[PIXUI] ---- %d failures ----" % fails)
-	get_tree().quit()
+	get_tree().quit(1 if fails > 0 else 0)

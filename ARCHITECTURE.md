@@ -1,35 +1,73 @@
-# Two modules
+# Three modules
 
-The project is split so that **a change to what the game does** and **a change
-to how the game looks** are edits to two disjoint sets of files. Two branches
-working in parallel — one per module — can then be merged without either one
-touching the other's lines.
+The project is split so that **a change to what the game does**, **a change to
+how the game looks** and **a change to what the game tells** are edits to three
+disjoint sets of files. Three branches working in parallel — one per module —
+can then be merged without any of them touching another's lines.
 
 ```
 feature/     the rules. What happens, and when.
 graphics/    the picture. What that looks like.
-app/         the shell both sit in: the seam, the screen flow, the sound bank.
-tests/       feature/ · graphics/ · shared/, the same split
+story/       the telling. Who speaks, what is staged, and how that reads.
+app/         the shell they sit in: the seam, the screen flow, the sound bank.
+tests/       feature/ · graphics/ · story/ · shared/, the same split
 
-data/          conversations and scenes, as files. Content both halves read.
+data/          conversations and scenes, as files. Content the modules read.
 localization/  every word the game says, one folder per language.
 ```
 
+`story/` is a whole subsystem rather than one side of one — a conversation has
+both a shape and a look — so it carries the same seam inside itself:
+
+```
+story/rules/  the conversation and the staging. What is said, and what follows.
+story/view/   the box, the portraits, the camera. What that looks like.
+```
+
+That is why it is a module and not a folder in each of the other two: everything
+about a conversation is in one place, and a branch writing one opens no file the
+other two branches touch.
+
 ## The rule
 
-**`graphics/` may read `feature/`. `feature/` may never mention `graphics/`.**
+**A picture may read the rules it draws. A rule may never mention its picture.**
 
-Nothing in `feature/` draws, names a colour, loads a sprite, plays a sound, or
-holds a reference to a screen. There is a standing check for this: delete the
-four graphics autoloads (`Sprites`, `Fx`, `Views`, `CueVisuals`) from
-`project.godot` and every test under `tests/feature` still passes — raids run,
-hits resolve, boards fire, nothing is drawn. Run it whenever the split starts
-to feel theoretical.
+One rule, applied twice — once between the modules, once inside `story/`:
 
-The shell in `app/` is the one place allowed to know both: `app/game.gd` is the
-composition root, and builds screens out of `graphics/` to drive `feature/`.
+```
+graphics/     may read  feature/
+story/rules/  may read  feature/
+story/view/   may read  story/rules/ · graphics/ · feature/
+feature/      reads none of them
+```
 
-## How the two halves talk
+Nothing in `feature/` or `story/rules/` draws, names a colour, loads a sprite,
+plays a sound, or holds a reference to a screen. There is a standing check for
+this: delete the four graphics autoloads (`Sprites`, `Fx`, `Views`,
+`CueVisuals`) from `project.godot` and every test under `tests/feature` **and
+`tests/story`** still passes — raids run, hits resolve, boards fire,
+conversations run to their last line, nothing is drawn. Run it whenever the
+split starts to feel theoretical.
+
+`story/view/` reads `graphics/` the way any screen does — `UiKit`, `PixelDraw`,
+`Style`, `Sprites`, `Fx` — and adds nothing to it. Back the other way there is
+exactly one line, `Views` handing an unrecognised node to `StoryViews`. That is
+a hand-off and not a dependency on the telling: `graphics/` names that one entry
+point and nothing else — no story node, no story view, nothing a conversation
+does — so what the box looks like and what the HUD looks like are still never
+the same edit.
+
+The shell in `app/` is the one place allowed to know all three: `app/game.gd` is
+the composition root, and builds screens out of `graphics/` and `story/view/` to
+drive `feature/` and `story/rules/`.
+
+**The one exception.** `feature/world/sandbox.gd` names `Npc`, to stand someone
+on the bench to talk to. A world that stages a character has to name one, the
+same way `app/game.gd` names `Cutscene` to play the intro. It spawns one and
+says who it is; it reaches into nothing else, and it is the only file in
+`feature/` that mentions `story/`.
+
+## How the modules talk
 
 Three mechanisms, and no others.
 
@@ -48,7 +86,11 @@ writes back. Adding a visual to something is therefore a graphics-only edit,
 and adding a monster is a feature-only edit — an unrecognised node simply gets
 no view, and a monster with no entry in `Style` draws with a fallback.
 
-To give something a view, add a case to `Views.view_script_for`.
+To give something a view, add a case to `Views.view_script_for` — or, for a
+node in `story/rules/`, to `StoryViews.view_script_for` in
+`story/view/story_views.gd`, which `Views` falls through to once its own table
+has missed. One watcher, two tables, so putting a new character on screen is an
+edit inside `story/` alone.
 
 ### 2. Cues — for moments
 
@@ -84,8 +126,9 @@ someone gives it a glyph.
 ### Text — every word, in every language
 
 Not a fourth mechanism either: like the conversations below, the words are
-data both halves read. No screen and no rule spells out what it says. `Loc` (`app/loc.gd`) reads it
-out of `localization/<lang>/<domain>.json`, and both halves ask by name:
+data every module reads. No screen and no rule spells out what it says. `Loc`
+(`app/loc.gd`) reads it out of `localization/<lang>/<domain>.json`, and each
+module asks by name:
 
 ```gdscript
 # feature/                                  # graphics/
@@ -113,26 +156,31 @@ Hangul on one, both whole pixels. `Loc.pixel_grid()` is where that number
 lives, and the pixel tests ask it before holding a screen to a grid. See **The
 face** in that README.
 
-### Dialogue files — content both halves read
+### Dialogue files — content the modules read
 
 Conversations are data, not a fourth mechanism: `data/dialogue/<id>.json`, one
-file per character, format in `data/dialogue/README.md`. Each half reads only
+file per character, format in `data/dialogue/README.md`. Each side reads only
 its own keys from a line:
 
 | Keys | Read by |
 |---|---|
-| `text` `next` `choices` `speaker` `name` `speed` | `feature/actors/dialogue.gd` and `npc.gd` — the conversation itself |
-| `emotion` `sprite` | `graphics/ui/dialogue_box.gd`, polling the NPC's current line |
-| `camera` | `graphics/views/npc_view.gd`, through `Fx.direct` / `Fx.release` |
+| `text` `next` `choices` `speaker` `name` `speed` | `story/rules/dialogue.gd` and `npc.gd` — the conversation itself |
+| `emotion` `sprite` | `story/view/dialogue_box.gd`, polling the NPC's current line |
+| `camera` | `story/view/npc_view.gd`, through `Fx.direct` / `Fx.release` |
 | `sfx` `voice` | `app/audio/audio_cues.gd`, from the `talk` and `talk_letter` cues, which carry the line |
+
+Three of those four rows are inside `story/` now. That is the point of the
+module: a new kind of direction — a key nobody reads yet — is written, read and
+drawn without leaving it, and `app/audio/` stays the one outside hand, because
+sound belongs to the shell wherever it is asked for.
 
 The `text` in those files is the English fallback. What is actually said is
 laid over it from `localization/<lang>/dialogue/<id>.json`, by node name —
 words only, never where a line leads. Scenes work the same way, by beat.
 
-`feature/` passes the rest through untouched and never names a key it does not
-use, so the rule above still holds: a new kind of direction is a new key in the
-files and a handler on the presentation side.
+`story/rules/` passes the rest through untouched and never names a key it does
+not use, so the rule above still holds: a new kind of direction is a new key in
+the files and a handler on the presentation side.
 
 ## Where does it go?
 
@@ -141,7 +189,9 @@ files and a handler on the presentation side.
 | New skill component | `feature/core/components.gd` + its rule in `skill_runner.gd`; a number on the end of `CODE_IDS` in `board_code.gd`, or no board carrying it can be shared; its colour, glyph and icon in `graphics/style.gd` |
 | The share code — what it carries, how long it is | `feature/core/board_code.gd`; the sheet that shows it, `graphics/ui/share_code_panel.gd` |
 | New monster | `feature/actors/monsters.gd`; its sprite and colour in `graphics/style.gd` |
-| New NPC or dialogue | a file in `data/dialogue/` — see its README; no code. New *kinds* of direction: `graphics/ui/dialogue_box.gd` (emotion, portrait), `graphics/views/npc_view.gd` (camera), `app/audio/audio_cues.gd` (sound) |
+| New NPC or dialogue | a file in `data/dialogue/` — see its README; no code. New *kinds* of direction: `story/view/dialogue_box.gd` (emotion, portrait), `story/view/npc_view.gd` (camera), `app/audio/audio_cues.gd` (sound) |
+| A new directed scene, or a new staging direction | a file in `data/scenes/` — see its README; no code. A new direction is a case in `story/rules/cutscene.gd` and, if it shows, `story/view/cutscene_view.gd` |
+| How a conversation behaves — range, reveal speed, who is held still | `story/rules/npc.gd`. How it reads on screen, `story/view/dialogue_box.gd` |
 | What anyone actually says, on any screen, in any language | `localization/<lang>/` — see its README. A new language is a folder and an entry in `LANGUAGES` in `app/loc.gd` |
 | What an emotion looks like | `EMOTIONS` in `graphics/style.gd` |
 | Retune damage, cooldowns, room generation | `feature/` |
@@ -175,6 +225,12 @@ nothing and live in `graphics/fx.gd`.
 | `Views` | graphics | attaches views to gameplay nodes |
 | `CueVisuals` | graphics | what each cue looks like |
 
-`project.godot` is the one file both branches may need to touch — adding an
+`story/` adds none. Its nodes are spawned by whatever stages them — `app/game.gd`
+for the intro, `Sandbox` for the bench — and their views are attached by `Views`
+like any other, so the module needs no global of its own. Keep it that way: an
+autoload is the one thing a third branch cannot add without touching
+`project.godot`.
+
+`project.godot` is the one file any branch may need to touch — adding an
 autoload, an input action or a collision layer. Its autoload block is grouped
 by module so two additions rarely collide.

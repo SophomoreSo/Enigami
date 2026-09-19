@@ -60,7 +60,7 @@ func _ready() -> void:
 	check(spawn_btn != null, "found the '%s' button" % spawn_label)
 	if spawn_btn == null:
 		print("[FOCUS] ---- %d failures ----" % fails)
-		get_tree().quit()
+		get_tree().quit(1 if fails > 0 else 0)
 		return
 	var before_enemies := 0
 	for c in sb.get_children():
@@ -154,4 +154,4 @@ func _ready() -> void:
 			% str(get_viewport().gui_get_focus_owner()))
 
 	print("[FOCUS] ---- %d failures ----" % fails)
-	get_tree().quit()
+	get_tree().quit(1 if fails > 0 else 0)

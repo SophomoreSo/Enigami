@@ -89,7 +89,7 @@ static func reload() -> void:
 
 ## Mistakes in a scene file that would otherwise show up as a beat that quietly
 ## does nothing, or a cutscene that stops halfway through. Phrased the way
-## `Dialogue.problems` phrases them, and checked by `tests/feature/intro_test`.
+## `Dialogue.problems` phrases them, and checked by `tests/story/intro_test`.
 static func problems(id: String) -> Array:
 	var path := path_for(id)
 	var def := _read(path)

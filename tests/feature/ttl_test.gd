@@ -145,4 +145,4 @@ func _ready() -> void:
 		"each live cast carries the chain its own charge built (%s, want %s)" % [str(got), str(expected)])
 
 	print("[TTL] ---- %d failures ----" % fails)
-	get_tree().quit()
+	get_tree().quit(1 if fails > 0 else 0)

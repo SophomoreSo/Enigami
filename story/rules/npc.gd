@@ -7,7 +7,7 @@ extends CharacterBody2D
 ## they say next. The player is held still while they listen — no walking,
 ## jumping, dashing or attacking — so a conversation ends by talking it through,
 ## or by something else carrying the player out of range. Nothing here is drawn:
-## `graphics/views/npc_view.gd` and `graphics/ui/dialogue_box.gd` show it.
+## `story/view/npc_view.gd` and `story/view/dialogue_box.gd` show it.
 ##
 ## What each NPC says lives in their dialogue file, `data/dialogue/<id>.json`
 ## (see `Dialogue`).

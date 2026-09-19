@@ -1,12 +1,12 @@
 extends Node
 
-## The one-way seam between the two modules.
+## The one-way seam between the modules.
 ##
-## `feature/` announces moments; `graphics/` and the audio bank decide what a
-## moment looks and sounds like. Gameplay code therefore never names a colour,
-## a particle count or a sound file, and presentation code never reaches back
-## into the rules — which is what keeps the two modules editable in parallel
-## without the two edits landing in the same file.
+## `feature/` and `story/rules/` announce moments; `graphics/`, `story/view/`
+## and the audio bank decide what a moment looks and sounds like. Gameplay code
+## therefore never names a colour, a particle count or a sound file, and
+## presentation code never reaches back into the rules — which is what keeps the
+## modules editable in parallel without two edits landing in the same file.
 ##
 ## Cue names are plain StringNames and are deliberately **not** listed in one
 ## central table: a new cue is one `emit` on the feature side and one handler on

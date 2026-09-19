@@ -13,8 +13,8 @@ extends Node2D
 ## to answer, which is what lets a writer add a new kind of direction without a
 ## line changing in `feature/`.
 ##
-## Nothing is drawn here: `graphics/views/cutscene_view.gd` shows the stage and
-## the narration, and `graphics/views/cutscene_actor_view.gd` shows the cast.
+## Nothing is drawn here: `story/view/cutscene_view.gd` shows the stage and
+## the narration, and `story/view/cutscene_actor_view.gd` shows the cast.
 
 signal finished()
 ## A beat started. The index is into `beats`, so a view can tell a new beat from

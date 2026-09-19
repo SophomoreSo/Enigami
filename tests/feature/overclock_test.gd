@@ -101,4 +101,4 @@ func _ready() -> void:
 			"live cycle matches the preview at %d overclocks (%.3f vs %.3f)" % [n, measured, predicted])
 
 	print("[OC] ---- %d failures ----" % fails)
-	get_tree().quit()
+	get_tree().quit(1 if fails > 0 else 0)

@@ -36,13 +36,29 @@ godot res://tests/feature/impact_test.tscn  # GRAVITY, SHATTER and MANA DRAIN, a
 godot res://tests/graphics/share_code_test.tscn # sharing a board, and what a pasted code costs
 godot res://tests/feature/ttl_test.tscn     # a pulse's life, and what bounds a loop
 godot res://tests/feature/charge_test.tscn  # holding the cast button buys life for mana
-godot res://tests/feature/npc_test.tscn     # talking to an NPC, line by line
+godot res://tests/story/npc_test.tscn       # talking to an NPC, line by line
 godot res://tests/shared/loc_test.tscn      # every language says everything, and can be drawn
 godot res://tests/feature/dragon_test.tscn  # one charged cast clears the whole tower
 godot res://tests/graphics/shots.tscn   # writes a screenshot of each screen to user://shots
 godot res://tests/graphics/dragon_shot.tscn  # ...and frames of the dragon test
 SHOTS_DIR=/tmp/shots godot res://tests/graphics/shots.tscn   # ...or wherever you point it
 ```
+
+Or all of them at once, which is what CI runs:
+
+```bash
+tests/run.sh tests/feature tests/story tests/shared      # the headless half
+tests/run.sh --display --exclude '*shot*' tests/graphics # these need a window
+```
+
+Every scene gets a deadline, because a test that waits for a window it will
+never get does not fail — it hangs. A log per scene lands in `.test-logs/`, and
+the run exits nonzero if anything failed that
+[isn't quarantined](tests/quarantine.txt).
+
+A fresh checkout has no `.godot/`, so nothing resolves a `class_name` until
+`godot --headless --import` has run once. That is a step in making a worktree,
+not a thing to reach for once it errors.
 
 ## Controls
 
@@ -301,11 +317,24 @@ the entry gate is free but slow, a toll gate costs scrap, the Arbiter's gate is
 sealed until it dies, and a crack in the wall is fast but sits somewhere nasty.
 Extraction needs a held input so nothing ends by accident.
 
+## Continuous integration
+
+Every push runs the rules tests headless, the graphics tests under a virtual
+display, and the standing module-split check — the four graphics autoloads
+deleted, everything in `tests/feature` and `tests/story` expected to pass
+anyway. Master and `v*` tags additionally build Linux, Windows, Android, macOS
+and iOS, and a tag turns those into a GitHub Release.
+
+See [.github/README.md](.github/README.md) for what each job does, which
+secrets improve which build, and why the iOS artifact is an Xcode project
+rather than something you can install.
+
 ## Layout
 
-Two modules, and a shell around them. `graphics/` may read `feature/`;
-`feature/` never mentions `graphics/`. See [ARCHITECTURE.md](ARCHITECTURE.md)
-for the seam between them.
+Three modules, and a shell around them. A picture may read the rules it draws;
+a rule never mentions its picture. `story/` carries both sides of one subsystem
+and so repeats that seam inside itself. See [ARCHITECTURE.md](ARCHITECTURE.md)
+for how they talk.
 
 ```
 app/               entry scene, screen flow, the cue bus, the sound bank, the words
@@ -315,10 +344,12 @@ localization/      every word the game says: eng/ and kor/, a file per screen
                    plus dialogue/ and scenes/ — format in its README
                    kor/font.woff: the Korean pixel face, Silkscreen has no Hangul
 feature/core/      components, payload, board, runner, state, time control
-feature/actors/    actor base, player, monster catalogue, monster AI, NPCs, dialogue loading
+feature/actors/    actor base, player, monster catalogue, monster AI
 feature/attacks/   projectile, melee arc, area burst, dash slash, spawner
 feature/world/     room generation, raid map graph, raid loop, sandbox, pickups
                    dragon test: the hand-laid tower and its rules
+story/rules/       conversations and directed scenes: what is said, and what follows
+story/view/        the dialogue box, the cutscene box, the portraits, the camera
 graphics/          the atlas, screen effects, the pixel camera, the palette, view attachment
 graphics/views/    one view per gameplay node: actors, attacks, rooms, loot
 graphics/ui/       skill editor, HUD, hideout, title, results, bench panel
@@ -326,6 +357,7 @@ graphics/ui/       skill editor, HUD, hideout, title, results, bench panel
                    pixel_draw: the same look for screens that draw themselves
 graphics/assets/   the sprite atlas, the actor shader, two OFL fonts
 tests/feature/     movement, board tracing, timing — rules, run headless
+tests/story/       conversations and scene files — rules, run headless
 tests/graphics/    editor input, focus, menus, the pixel camera, screenshot capture — need a window
 tests/shared/      the smoke test, which walks the whole game
 ```

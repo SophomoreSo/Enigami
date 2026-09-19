@@ -144,7 +144,7 @@ func _ready() -> void:
 		"and that mark is kept in the save, so it survives a restart")
 
 	print("[INTRO] ---- %d failures ----" % fails)
-	get_tree().quit()
+	get_tree().quit(1 if fails > 0 else 0)
 
 ## Plays the scene forward the way a player does — pressing whenever it is
 ## waiting to be read — until `cond` comes true.

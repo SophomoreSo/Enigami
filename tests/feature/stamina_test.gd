@@ -89,4 +89,4 @@ func _ready() -> void:
 
 	Input.action_release("move_right")
 	print("[STAM] ---- %d failures ----" % fails)
-	get_tree().quit()
+	get_tree().quit(1 if fails > 0 else 0)

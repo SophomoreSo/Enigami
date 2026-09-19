@@ -196,4 +196,4 @@ func _ready() -> void:
 	shot("11_ports")
 
 	say("---- %d failures ----" % fails)
-	get_tree().quit()
+	get_tree().quit(1 if fails > 0 else 0)

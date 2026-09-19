@@ -92,4 +92,4 @@ func _ready() -> void:
 		"and each link starts where the last one ended (%d started on top)" % stacked)
 
 	print("[TRIG] ---- %d failures ----" % fails)
-	get_tree().quit()
+	get_tree().quit(1 if fails > 0 else 0)

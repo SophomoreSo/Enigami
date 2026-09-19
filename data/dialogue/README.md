@@ -4,7 +4,7 @@ One file per character, named after their id in lower case: the NPC set up as
 `SAGE` reads `sage.json`. Edit these to change what anyone says, how they look
 saying it, where the camera goes and what it sounds like — no code involved.
 
-`tests/feature/npc_test.tscn` checks every file here for broken links, lines with
+`tests/story/npc_test.tscn` checks every file here for broken links, lines with
 no text and a file name that does not match its id. Run it after an edit.
 
 ## The file

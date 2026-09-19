@@ -173,4 +173,4 @@ func _ready() -> void:
 		"and so does a DELAY (%d)" % (ticks_of(["WIRE", "DELAY"]) - one))
 
 	print("[CD] ---- %d failures ----" % fails)
-	get_tree().quit()
+	get_tree().quit(1 if fails > 0 else 0)

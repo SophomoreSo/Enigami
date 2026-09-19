@@ -148,4 +148,4 @@ func _ready() -> void:
 		% [through, direct])
 
 	print("[PIXEL] ---- %d failures ----" % fails)
-	get_tree().quit()
+	get_tree().quit(1 if fails > 0 else 0)

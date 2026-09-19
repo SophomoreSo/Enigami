@@ -5,10 +5,16 @@ extends Node
 const GameScript := preload("res://app/game.gd")
 var game: Node
 var log_lines: Array[String] = []
+var fails := 0
 
 func say(s: String) -> void:
 	log_lines.append(s)
 	print("[SMOKE] ", s)
+
+## Counted as well as shouted: the count is what the exit code is made of.
+func fail(what: String) -> void:
+	fails += 1
+	push_error("SMOKE FAIL: " + what)
 
 func _ready() -> void:
 	# Start from a clean profile so runs are repeatable.
@@ -17,8 +23,8 @@ func _ready() -> void:
 	GameState.reset_profile()
 	seed(20260911)  # deterministic map and loot for repeatable runs
 	await _run()
-	print("[SMOKE] ---- complete ----")
-	get_tree().quit()
+	print("[SMOKE] ---- %d failures ----" % fails)
+	get_tree().quit(1 if fails > 0 else 0)
 
 func frames(n: int) -> void:
 	for i in n:
@@ -96,14 +102,14 @@ func _run() -> void:
 	for slot in range(1, 5):
 		var bound := Controls.short_label_for("skill_%d" % slot)
 		if bound != str(slot):
-			push_error("SMOKE FAIL: skill_%d reads as '%s', not '%d'" % [slot, bound, slot])
+			fail("skill_%d reads as '%s', not '%d'" % [slot, bound, slot])
 		for ev in InputMap.action_get_events("skill_%d" % slot):
 			if ev is InputEventMouseButton:
-				push_error("SMOKE FAIL: skill_%d must not be on a mouse button" % slot)
+				fail("skill_%d must not be on a mouse button" % slot)
 	if Controls.short_label_for("attack") != "LMB":
-		push_error("SMOKE FAIL: attack is on %s, not LMB" % Controls.short_label_for("attack"))
+		fail("attack is on %s, not LMB" % Controls.short_label_for("attack"))
 	if Controls.short_label_for("cast_skill") != "RMB":
-		push_error("SMOKE FAIL: cast_skill is on %s, not RMB" % Controls.short_label_for("cast_skill"))
+		fail("cast_skill is on %s, not RMB" % Controls.short_label_for("cast_skill"))
 	say("numbers arm a slot, LMB attacks, RMB casts")
 
 	raid.player.basic_runner.fired.connect(func(_p: Payload) -> void: fire_count[0] += 1)
@@ -128,9 +134,9 @@ func _run() -> void:
 	say("circuits fired %d times across %d castable slot(s), %d refused by the weapon"
 		% [fire_count[0], castable, refused])
 	if castable <= 0:
-		push_error("SMOKE FAIL: the weapon accepted none of its own loadout")
+		fail("the weapon accepted none of its own loadout")
 	if fire_count[0] <= 0:
-		push_error("SMOKE FAIL: casting produced no output")
+		fail("casting produced no output")
 
 	# Every attack form, straight through the spawner.
 	for form in ["PROJECTILE", "SLASH", "AREA", "DASHSLASH", "DASHSLASH_AUTO"]:
@@ -164,7 +170,7 @@ func _run() -> void:
 	red._click_left()
 	red._update_hover(Vector2(300, 200))
 	if not GameState.raid_boards[0].comp_at(Vector2i(1, 1)).has("id"):
-		push_error("SMOKE FAIL: mid-raid placement did not land on the board")
+		fail("mid-raid placement did not land on the board")
 	await frames(6)
 	raid.set_editing(false)
 	await frames(3)
@@ -214,9 +220,9 @@ func _run() -> void:
 		await get_tree().process_frame
 	say("loot in room %d -> bag=%s scrap=%d  stash untouched=%s" % [loot_here, str(GameState.raid_bag), GameState.raid_scrap, str(GameState.stash == stash_before)])
 	if GameState.stash != stash_before:
-		push_error("SMOKE FAIL: raid loot leaked into the stash")
+		fail("raid loot leaked into the stash")
 	if loot_here > 0 and GameState.raid_bag.size() <= 1 and GameState.raid_scrap <= 0:
-		push_error("SMOKE FAIL: loot on the floor could not be picked up")
+		fail("loot on the floor could not be picked up")
 
 	# Extraction at the entry gate.
 	raid._enter_room(raid.map.entry, -1)
@@ -233,7 +239,7 @@ func _run() -> void:
 	Input.action_release("interact")
 	say("state after extraction=%d (4 = results)" % game.state)
 	if game.state != 4:
-		push_error("SMOKE FAIL: holding interact at a free exit did not extract")
+		fail("holding interact at a free exit did not extract")
 
 	await frames(5)
 	if game.current is ResultsScreen:
@@ -241,7 +247,7 @@ func _run() -> void:
 	await frames(6)
 	say("results ok, stash=%s scrap=%d" % [str(GameState.stash), GameState.scrap])
 	if not GameState.skill_library[0].comp_at(Vector2i(1, 1)).has("id"):
-		push_error("SMOKE FAIL: a board edited mid-raid did not come home")
+		fail("a board edited mid-raid did not come home")
 	else:
 		say("mid-raid edit survived extraction")
 
@@ -278,7 +284,7 @@ func _run() -> void:
 	var hp_lost := dummy.max_health - dummy.health
 	say("melee damage landed: %.1f (dps %.1f)" % [hp_lost, sb.dps()])
 	if hp_lost <= 0.0:
-		push_error("SMOKE FAIL: no damage was dealt")
+		fail("no damage was dealt")
 
 	# The dragon test, off the bench: a charged cast down the tower, and the
 	# floor setting itself again. What it comes to in numbers is
@@ -308,7 +314,7 @@ func _run() -> void:
 	say("dragon test ok, %d of %d guards down, best cast %d" % [
 		dragon.total_guards - dragon.guards_left, dragon.total_guards, dragon.best_cast])
 	if dragon.best_cast < dragon.total_guards:
-		push_error("SMOKE FAIL: one charged cast did not take the whole floor (%d of %d)"
+		fail("one charged cast did not take the whole floor (%d of %d)"
 			% [dragon.best_cast, dragon.total_guards])
 	dragon.set_editing(true)
 	await frames(6)
@@ -316,12 +322,12 @@ func _run() -> void:
 	dragon.reset_floor()
 	await frames(6)
 	if dragon.guards_left != dragon.total_guards:
-		push_error("SMOKE FAIL: the dragon test did not set its floor again")
+		fail("the dragon test did not set its floor again")
 	dragon.leave()
 	await frames(12)
 	say("left the dragon test, state=%d (3 = sandbox)" % game.state)
 	if game.state != 3:
-		push_error("SMOKE FAIL: leaving the dragon test did not return to the bench")
+		fail("leaving the dragon test did not return to the bench")
 
 	# Death path.
 	var lib_before := GameState.skill_library.size()
@@ -333,7 +339,7 @@ func _run() -> void:
 	await frames(10)
 	say("death path ok, state=%d weapons=%s" % [game.state, str(GameState.owned_weapons)])
 	if GameState.skill_library.size() != lib_before - 1:
-		push_error("SMOKE FAIL: the skill carried into a lost raid survived")
+		fail("the skill carried into a lost raid survived")
 	else:
 		say("death consumed the equipped skill '%s' (library %d -> %d)" % [
 			doomed, lib_before, GameState.skill_library.size()])

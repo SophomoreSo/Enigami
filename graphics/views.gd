@@ -2,11 +2,15 @@ extends Node
 
 ## Gives every gameplay node its picture.
 ##
-## A node in `feature/` knows nothing about how it is drawn: it is spawned, it
-## enters the tree, and this hands it a view of its own. That is the whole
-## reason a change to how the player looks and a change to how the player moves
-## never land in the same file — and why the game still runs, silently and
-## invisibly, with this module absent.
+## A node in `feature/` or `story/rules/` knows nothing about how it is drawn:
+## it is spawned, it enters the tree, and this hands it a view of its own. That
+## is the whole reason a change to how the player looks and a change to how the
+## player moves never land in the same file — and why the game still runs,
+## silently and invisibly, with this module absent.
+##
+## One watcher serves every module, but the tables are owned separately: what a
+## story node is drawn with is `story/view/story_views.gd`, so the two are never
+## edited together.
 ##
 ## A view is a plain child node. It reads its parent's state every frame and
 ## draws from it; it never writes back.
@@ -38,10 +42,6 @@ func view_script_for(n: Node) -> GDScript:
 		return PlayerView
 	if n is Enemy:
 		return EnemyView
-	if n is Npc:
-		return NpcView
-	if n is CutsceneActor:
-		return CutsceneActorView
 	if n is Projectile:
 		return ProjectileView
 	if n is MeleeArc:
@@ -62,6 +62,5 @@ func view_script_for(n: Node) -> GDScript:
 		return SandboxView
 	if n is DragonTest:
 		return DragonTestView
-	if n is Cutscene:
-		return CutsceneView
-	return null
+	# Story keeps its own table, in `story/view/story_views.gd`.
+	return StoryViews.view_script_for(n)

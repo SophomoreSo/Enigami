@@ -5,7 +5,7 @@ as `intro` reads `intro.json`. Edit these to change what the opening says, who
 is on stage, where they walk, what they do and what it sounds like — no code
 involved.
 
-`tests/feature/intro_test.tscn` checks every file here for misspelt directions,
+`tests/story/intro_test.tscn` checks every file here for misspelt directions,
 people who are not in the cast, marks that do not exist and beats that do
 nothing. Run it after an edit.
 
@@ -133,7 +133,7 @@ never again: `GameState.intro_seen` is written into the save the moment the
 scene ends, however it ended. Wiping a profile earns it back.
 
 To watch it again without wiping a save, run
-`godot res://tests/feature/intro_test.tscn`, or clear the flag from the
+`godot res://tests/story/intro_test.tscn`, or clear the flag from the
 `user://enigami_save.json` the game keeps.
 
 ## Exporting
