@@ -87,11 +87,11 @@ func _assign_roles() -> void:
 	# Extractions. The way in is always a way out; the rest trade cost,
 	# condition and distance against each other.
 	rooms[entry]["extraction"] = {
-		"name": "ENTRY GATE", "cond": "free", "time": 3.0,
+		"id": "entry", "name": EXIT_NAMES["entry"], "cond": "free", "time": 3.0,
 		"x": 20, "y": Room.H - 4,
 	}
 	rooms[boss]["extraction"] = {
-		"name": "ARBITER GATE", "cond": "boss", "time": 1.2,
+		"id": "arbiter", "name": EXIT_NAMES["arbiter"], "cond": "boss", "time": 1.2,
 		"x": 20, "y": Room.H - 4,
 	}
 	var mid: Array = keys.filter(func(c: Vector2i) -> bool:
@@ -99,16 +99,33 @@ func _assign_roles() -> void:
 	if mid.size() > 0:
 		var toll: Vector2i = mid[0]
 		rooms[toll]["extraction"] = {
-			"name": "TOLL GATE", "cond": "cost", "cost": 25, "time": 1.5,
+			"id": "toll", "name": EXIT_NAMES["toll"], "cond": "cost", "cost": 25, "time": 1.5,
 			"x": 8, "y": Room.H - 4,
 		}
 	if mid.size() > 2:
 		var quick: Vector2i = mid[mid.size() - 1]
 		rooms[quick]["extraction"] = {
-			"name": "CRACK IN THE WALL", "cond": "free", "time": 1.0,
+			"id": "crack", "name": EXIT_NAMES["crack"], "cond": "free", "time": 1.0,
 			"x": 33, "y": 6,
 		}
 		rooms[quick]["danger"] = clampi(int(rooms[quick]["danger"]) + 2, 1, 5)
+
+## What each kind of exit is called, in English. This is the fallback under
+## `hud.exit.<id>` in `localization/`, gathered here rather than spelled out in
+## `generate` so `tests/shared/loc_test` can hold the two together.
+const EXIT_NAMES := {
+	"entry": "ENTRY GATE",
+	"arbiter": "ARBITER GATE",
+	"toll": "TOLL GATE",
+	"crack": "CRACK IN THE WALL",
+}
+
+## What an exit is called on the door and on the results sheet. The `name` in
+## the record above is the English fallback under it, like every other name the
+## rules invent; `id` is what the translation is keyed by.
+static func exit_name(info: Dictionary) -> String:
+	return Loc.opt("hud.exit.%s" % String(info.get("id", "")),
+		String(info.get("name", "EXIT")))
 
 func has_room(c: Vector2i) -> bool:
 	return rooms.has(c)

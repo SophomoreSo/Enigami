@@ -206,14 +206,16 @@ func _ready() -> void:
 
 	# --- and so is everything else ------------------------------------------
 	check(not BoardCode.is_valid(""), "an empty code is refused")
-	check(BoardCode.decode("").error.contains("no code"), "and says there is nothing there")
+	check(BoardCode.decode("").error == BoardCode.error_text("empty"),
+		"and says there is nothing there")
 	check(not BoardCode.is_valid(".....'"), "punctuation alone is refused")
 	check(not BoardCode.is_valid(body + alpha[0]), "a character stuck on the end is refused")
 	check(not BoardCode.is_valid(body.left(body.length() - 1)), "one missing is refused")
-	check(BoardCode.decode("abcdefg").error.contains("7 characters long"),
+	check(BoardCode.decode("abcdefg").error == BoardCode.error_text("length", [7]),
 		"a code of the wrong length says so, rather than failing on the board")
 	# A 0 is not in the alphabet at all, and the one slip worth naming.
-	check(BoardCode.decode(body.left(2) + "0" + body.substr(3)).error.contains("no zero"),
+	check(BoardCode.decode(body.left(2) + "0" + body.substr(3)).error
+			== BoardCode.error_text(BoardCode.HAS_ZERO),
 		"a 0 typed where an O was meant says so")
 	# Five characters over what 29 bits hold are not a word of a board, whatever
 	# the check character says: "zzzzz" is 61^5 - 1, far over it.
@@ -224,7 +226,7 @@ func _ready() -> void:
 	check(not BoardCode.is_valid(over), "but five characters no board could have written are refused")
 	# A code from a version that does not exist yet.
 	var future := _with_version(7)
-	check(BoardCode.decode(future).error.contains("version"),
+	check(BoardCode.decode(future).error == BoardCode.error_text("version", [7, BoardCode.VERSION]),
 		"a code from another version says which (%s)" % BoardCode.decode(future).error)
 
 	# --- taking a board on -------------------------------------------------

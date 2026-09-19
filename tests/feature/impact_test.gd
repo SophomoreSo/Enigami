@@ -92,9 +92,13 @@ func _ready() -> void:
 	var loaded := payload_of(["SLASH", "GRAVITY", "SHATTER", "MANA_DRAIN"])
 	check(loaded != null and loaded.pull and loaded.shatter and loaded.mana_drain,
 		"a board with all three carries all three")
-	check(loaded.summary().contains("pulls in") and loaded.summary().contains("chilled")
-		and loaded.summary().contains("mana"),
-		"and the workbench preview says so (%s)" % loaded.summary())
+	# The preview is a line out of `localization/`, so what to look for in it is
+	# asked for rather than spelled out here.
+	var says := loaded.summary()
+	check(says.contains(Loc.t("editor.payload.pull"))
+		and says.contains(Loc.t("editor.payload.shatter", [Attacks.SHATTER_MUL]))
+		and says.contains(Loc.t("editor.payload.mana_drain", [Attacks.MANA_PER_HIT])),
+		"and the workbench preview says so (%s)" % says)
 
 	# --- SHATTER ------------------------------------------------------------
 	var cold := dummy(Vector2(400, 0))

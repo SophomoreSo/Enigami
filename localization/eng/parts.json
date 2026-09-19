@@ -1,0 +1,140 @@
+{
+	"INPUT": {
+		"name": "INPUT",
+		"desc": "Flow origin. Starts the next pulse once the previous one has resolved."
+	},
+	"OUTPUT": {
+		"name": "OUTPUT",
+		"desc": "Converts the assembled flow into a real effect. A flow with no attack form produces no attack."
+	},
+	"WIRE": {
+		"name": "WIRE",
+		"desc": "Carries the flow straight through. Costs one tick."
+	},
+	"BEND": {
+		"name": "BEND",
+		"desc": "Turns the flow ninety degrees. Costs one tick."
+	},
+	"PROJECTILE": {
+		"name": "PROJECTILE",
+		"desc": "Fires a bolt along the aim direction. The standard ranged form."
+	},
+	"SLASH": {
+		"name": "SLASH",
+		"desc": "An instant short arc at the aim direction. Fast, but reach is short."
+	},
+	"AREA": {
+		"name": "AREA",
+		"desc": "Damages everything inside a burst radius. Uses two board cells."
+	},
+	"DASHSLASH": {
+		"name": "DASHSLASH",
+		"desc": "Lunges along the aim direction, cutting everything on the path. Uses two cells."
+	},
+	"DASHSLASH_AUTO": {
+		"name": "DASHSLASH+",
+		"desc": "Seeks the nearest visible enemy and blinks through it, cutting the path. Uses two cells."
+	},
+	"FIRE": {
+		"name": "FIRE",
+		"desc": "Adds flame. Struck enemies burn for damage over time."
+	},
+	"ICE": {
+		"name": "ICE",
+		"desc": "Adds frost. Struck enemies are slowed."
+	},
+	"DAMAGE": {
+		"name": "DAMAGE +",
+		"desc": "Raises damage. Stable and simple, but interacts with little else."
+	},
+	"SIZE": {
+		"name": "SIZE x",
+		"desc": "Scales the attack by 1.6. Melee arcs widen and reach further."
+	},
+	"SPEED": {
+		"name": "SPEED x",
+		"desc": "Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. Does nothing to a flow with no bolt in it."
+	},
+	"SHATTER": {
+		"name": "SHATTER",
+		"desc": "Hits an enemy already slowed by frost far harder. Worth nothing on its own — pair it with ICE, or with a board that lands twice."
+	},
+	"PIERCE": {
+		"name": "PIERCE",
+		"desc": "The attack continues through targets instead of stopping on the first."
+	},
+	"DASH": {
+		"name": "DASH",
+		"desc": "Lunges a short distance along the aim. Chains with melee forms into a moving arc."
+	},
+	"BLINK": {
+		"name": "BLINK",
+		"desc": "Teleports behind the nearest visible enemy. Works alone; if nothing is in sight the flow simply continues."
+	},
+	"HOMING": {
+		"name": "HOMING",
+		"desc": "Tracks the nearest enemy. Bolts curve; melee forms re-aim themselves."
+	},
+	"REVERSE": {
+		"name": "REVERSE",
+		"desc": "Flips travel direction. Bolts return to you; other forms invert in their own way."
+	},
+	"GRAVITY": {
+		"name": "GRAVITY",
+		"desc": "The enemy struck is not knocked back but pinned, and every other enemy nearby is dragged onto it. Gathers a room into one place for whatever comes next."
+	},
+	"MANA_DRAIN": {
+		"name": "MANA DRAIN",
+		"desc": "Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting."
+	},
+	"SPLIT": {
+		"name": "SPLIT",
+		"desc": "Divides one flow into two. Each branch carries half the damage."
+	},
+	"TEE": {
+		"name": "TEE",
+		"desc": "Keeps the main flow and grows one branch sideways. Both carry full damage."
+	},
+	"DUPLICATE": {
+		"name": "DUPLICATE x3",
+		"desc": "Produces the same result three times at full damage. Generates a lot of heat."
+	},
+	"OVERCLOCK": {
+		"name": "OVERCLOCK",
+		"desc": "Runs the whole board on a faster clock, at the price of a settling delay between cycles. Each one adds less speed than the last while the delay grows faster, so a few pay off and a wall of them does not."
+	},
+	"DELAY": {
+		"name": "DELAY",
+		"desc": "One cell of waiting, like every other cell. Stagger a branch against another by giving it further to walk."
+	},
+	"TIME_DILATION": {
+		"name": "TIME DILATION",
+		"desc": "Slows the world and the board alike. Not a speed buff — a change in the pace of the fight."
+	},
+	"ON_HIT": {
+		"name": "ON HIT",
+		"desc": "Runs the branch flow as a payload when this skill connects."
+	},
+	"ON_KILL": {
+		"name": "ON KILL",
+		"desc": "Runs the branch flow as a payload only when this skill kills."
+	},
+	"ON_PARRY": {
+		"name": "ON PARRY",
+		"desc": "Opens a brief guard window as the flow passes. Absorbing a hit there runs the branch flow."
+	},
+	"tag": {
+		"ranged": "ranged",
+		"melee": "melee",
+		"area": "area",
+		"mobility": "mobility",
+		"trigger": "trigger",
+		"utility": "utility"
+	},
+	"direction": {
+		"east": "east",
+		"south": "south",
+		"west": "west",
+		"north": "north"
+	}
+}

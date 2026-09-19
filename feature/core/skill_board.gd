@@ -196,26 +196,26 @@ func trace() -> Dictionary:
 func first_problem() -> String:
 	var t := trace()
 	if not bool(t["has_input"]):
-		return "No INPUT placed — the flow has nowhere to start."
+		return Loc.t("editor.problem.no_input")
 	var breaks: Array = t["breaks"]
 	if not breaks.is_empty():
 		var b: Dictionary = breaks[0]
 		var to: Vector2i = b["to"]
 		if String(b["why"]) == "side":
-			return "%s at %d,%d is entered through its tail. Flow can only go in the head cell." % [
-				Components.get_def(b["id"]).get("name", b["id"]), to.x, to.y]
+			return Loc.t("editor.problem.side_entry", [
+				Components.name_for(String(b["id"])), to.x, to.y])
 		# The only join that cannot carry flow is two outputs meeting head-on.
-		return "%s at %d,%d sends its own flow back this way. Two outputs cannot meet." % [
-			Components.get_def(b["id"]).get("name", b["id"]), to.x, to.y]
+		return Loc.t("editor.problem.head_on", [
+			Components.name_for(String(b["id"])), to.x, to.y])
 	var leaks: Array = t["leaks"]
 	if not leaks.is_empty():
 		var l: Dictionary = leaks[0]
 		var f: Vector2i = l["from"]
-		return "The flow leaves %d,%d heading %s and finds nothing there." % [
-			f.x, f.y, Components.dir_name(int(l["dir"]))]
+		return Loc.t("editor.problem.leak", [
+			f.x, f.y, Components.dir_name(int(l["dir"]))])
 	if not bool(t["reaches_output"]):
-		return "The chain never reaches an OUTPUT."
-	return "The flow reaches an OUTPUT, but no attack form is on the path."
+		return Loc.t("editor.problem.no_output")
+	return Loc.t("editor.problem.no_form")
 
 ## Tags describe what a board does, which is what weapons check for compatibility.
 func compute_tags() -> Array[String]:

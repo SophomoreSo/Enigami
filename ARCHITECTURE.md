@@ -10,6 +10,9 @@ feature/     the rules. What happens, and when.
 graphics/    the picture. What that looks like.
 app/         the shell both sit in: the seam, the screen flow, the sound bank.
 tests/       feature/ · graphics/ · shared/, the same split
+
+data/          conversations and scenes, as files. Content both halves read.
+localization/  every word the game says, one folder per language.
 ```
 
 ## The rule
@@ -78,6 +81,38 @@ Every lookup in `Style` falls back, so the two branches can land in either
 order: a part added on the feature branch draws in its category's colour until
 someone gives it a glyph.
 
+### Text — every word, in every language
+
+Not a fourth mechanism either: like the conversations below, the words are
+data both halves read. No screen and no rule spells out what it says. `Loc` (`app/loc.gd`) reads it
+out of `localization/<lang>/<domain>.json`, and both halves ask by name:
+
+```gdscript
+# feature/                                  # graphics/
+Components.name_for(id)                     Loc.t("hud.bag.title")
+Loc.t("hud.extract.needs_scrap", [20, 4])   Loc.t("menu.title.start")
+```
+
+It sits in `app/` for the same reason `Cues` does. The rules name a part, a
+monster and a facility; the picture names a button and a heading; neither
+should have to reach into the other to find out how that word is spelled today.
+The format, and how a translation falls back while it is half-written, are in
+`localization/README.md`.
+
+The English still in `Components.DEFS`, `Weapons.DEFS`, `Monsters.DEFS`,
+`GameState.FACILITY_INFO`, `Controls.ACTIONS`, `Raid.TUTORIAL_STEPS` and the
+`text` in `data/` is the **fallback** under all of it, so a part added on the
+feature branch is named on screen before anybody translates it — the same way
+a part with no glyph yet draws in its category's colour.
+`tests/shared/loc_test` compares the two and fails if they drift.
+
+Silkscreen is Latin-only, so a language whose writing it does not carry brings
+a face of its own, in its own folder — Korean ships 둥근모꼴, a 16-pixel bitmap
+face. That makes two pixel grids on one screen: Latin on `UiKit.PIXEL`'s two,
+Hangul on one, both whole pixels. `Loc.pixel_grid()` is where that number
+lives, and the pixel tests ask it before holding a screen to a grid. See **The
+face** in that README.
+
 ### Dialogue files — content both halves read
 
 Conversations are data, not a fourth mechanism: `data/dialogue/<id>.json`, one
@@ -91,6 +126,10 @@ its own keys from a line:
 | `camera` | `graphics/views/npc_view.gd`, through `Fx.direct` / `Fx.release` |
 | `sfx` `voice` | `app/audio/audio_cues.gd`, from the `talk` and `talk_letter` cues, which carry the line |
 
+The `text` in those files is the English fallback. What is actually said is
+laid over it from `localization/<lang>/dialogue/<id>.json`, by node name —
+words only, never where a line leads. Scenes work the same way, by beat.
+
 `feature/` passes the rest through untouched and never names a key it does not
 use, so the rule above still holds: a new kind of direction is a new key in the
 files and a handler on the presentation side.
@@ -103,11 +142,12 @@ files and a handler on the presentation side.
 | The share code — what it carries, how long it is | `feature/core/board_code.gd`; the sheet that shows it, `graphics/ui/share_code_panel.gd` |
 | New monster | `feature/actors/monsters.gd`; its sprite and colour in `graphics/style.gd` |
 | New NPC or dialogue | a file in `data/dialogue/` — see its README; no code. New *kinds* of direction: `graphics/ui/dialogue_box.gd` (emotion, portrait), `graphics/views/npc_view.gd` (camera), `app/audio/audio_cues.gd` (sound) |
+| What anyone actually says, on any screen, in any language | `localization/<lang>/` — see its README. A new language is a folder and an entry in `LANGUAGES` in `app/loc.gd` |
 | What an emotion looks like | `EMOTIONS` in `graphics/style.gd` |
 | Retune damage, cooldowns, room generation | `feature/` |
 | The dragon test's tower — where the guards stand, where the stairwells are | `LAYOUT` in `feature/world/dragon_tower.gd`; how it is lit and dressed, `graphics/views/tower_view.gd` |
 | Retune shake, sparks, hitstop *feel* | `graphics/cue_visuals.gd` — except hitstop and dilation, see below |
-| HUD layout, editor look, menu copy | `graphics/ui/` |
+| HUD layout, editor look — where a thing sits, not what it says | `graphics/ui/` |
 | The resolution the world is drawn at | `graphics/pixel_camera.gd` (the size comes from `Sprites.PIXEL_SCALE`) |
 | A new sound | `app/audio/audio_cues.gd` |
 | A new screen | `app/game.gd`, plus its Control in `graphics/ui/` |
@@ -124,6 +164,7 @@ nothing and live in `graphics/fx.gd`.
 
 | Name | Module | What it is |
 |---|---|---|
+| `Loc` | app | every word, in the language being played |
 | `Cues` | app | the seam |
 | `Audio`, `AudioCues` | app | the synthesised sound bank, and what each cue sounds like |
 | `Arena` | feature | the node live world objects are parented to |

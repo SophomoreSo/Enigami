@@ -54,6 +54,17 @@ const FACILITY_INFO := {
 	"medbay": {"name": "Medbay", "desc": "Raises max health and heals between raids.", "max": 5},
 }
 
+## A facility's name and what it does, in the language being played. The table
+## above is the fallback under them, so a facility added there is named before
+## anybody translates it.
+func facility_name(key: String) -> String:
+	return Loc.opt("hideout.facilities.info.%s.name" % key,
+		String((FACILITY_INFO.get(key, {}) as Dictionary).get("name", key)))
+
+func facility_desc(key: String) -> String:
+	return Loc.opt("hideout.facilities.info.%s.desc" % key,
+		String((FACILITY_INFO.get(key, {}) as Dictionary).get("desc", "")))
+
 func _ready() -> void:
 	if not load_game():
 		_new_profile()
@@ -210,7 +221,9 @@ func set_loadout(weapon_id: String, slots_arr: Array) -> void:
 ## --- skill library ----------------------------------------------------------
 func new_skill() -> SkillBoard:
 	var s := board_size()
-	var b := SkillBoard.new(s.x, s.y, "Skill %d" % (skill_library.size() + 1))
+	# The name is filled in once, here, and then belongs to the profile: a skill
+	# the player has named is theirs, and a language switch must not rename it.
+	var b := SkillBoard.new(s.x, s.y, Loc.t("hideout.skill_default", [skill_library.size() + 1]))
 	b.place("INPUT", Vector2i(0, int(s.y / 2)), 0)
 	b.place("OUTPUT", Vector2i(s.x - 1, int(s.y / 2)), 0)
 	skill_library.append(b)

@@ -74,6 +74,15 @@ func blocks(name: String) -> void:
 	var dir := OS.get_environment("SHOTS_DIR") if OS.has_environment("SHOTS_DIR") else "user://shots"
 	DirAccess.make_dir_recursive_absolute(dir)
 	im.save_png(dir.path_join("pixel_bench.png"))
+	# The grid is Silkscreen's. A language written in a finer face is still
+	# whole pixels, just smaller ones — 둥근모꼴's Hangul is a 16px body where
+	# Silkscreen's Latin is an 8px body drawn at twice the size — so the shot is
+	# still saved and looked at, and this grid is not claimed of it.
+	# `tests/shared/loc_test` is what holds those languages to whole pixels.
+	if Loc.pixel_grid() < UiKit.PIXEL:
+		print("[BENCH] skip the block check: %s is written on a %d-pixel grid, not %d"
+			% [Loc.language, Loc.pixel_grid(), UiKit.PIXEL])
+		return
 	var screen := Vector2i(get_viewport().get_visible_rect().size)
 	if im.get_size() != screen:
 		print("[BENCH] skip the block check: the frame is %s, not %s" % [im.get_size(), screen])

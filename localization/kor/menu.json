@@ -1,0 +1,45 @@
+{
+	"title": {
+		"start": "시작",
+		"sandbox": "연습장",
+		"settings": "설정",
+		"quit": "종료",
+		"back": "뒤로",
+		"slot": "슬롯 %d",
+		"select_slot": "저장 슬롯 선택",
+		"records": "레이드 %d   탈출 %d   사망 %d   처치 %d   최고 수확 %d"
+	},
+	"settings": {
+		"heading": "설정",
+		"music": "음악",
+		"sound": "효과음",
+		"language": "언어",
+		"hints": [
+			"마우스로 조준하거나, 게임패드의 오른쪽 스틱을 사용하세요.",
+			"게임패드: 왼쪽 스틱 이동, A 점프, B 대시, 트리거로 1-2번 슬롯 시전."
+		],
+		"wipe": "프로필 삭제",
+		"back": "뒤로"
+	},
+	"pause": {
+		"heading": "일시정지",
+		"resume": "계속하기",
+		"music": "음악",
+		"sound": "효과음",
+		"abandon": "레이드 포기 — 장비를 모두 잃습니다"
+	},
+	"results": {
+		"won": "탈출 성공",
+		"lost": "레이드에서 사망",
+		"won_sub": "%s(으)로 빠져나와 전리품을 챙겼습니다.",
+		"lost_sub": "장비는 그대로 남았습니다. 가져오지 못한 것은 여전히 금고 안에 있습니다.",
+		"default_exit": "정문",
+		"weapon": "무기 %s",
+		"scrap": "고철 %d",
+		"skills_lost": "잃은 스킬: %s",
+		"components": "부품",
+		"none": "없음",
+		"haul": "%s x%d",
+		"back": "은신처로 돌아가기"
+	}
+}

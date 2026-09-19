@@ -29,6 +29,14 @@ func _process(delta: float) -> void:
 		toast_time -= delta
 	queue_redraw()
 
+## Every line on the HUD, drawn in the default face — this screen is not in
+## UiKit's pixel look. A language written in a face of its own needs that face's
+## own size rather than the small one asked for here, or its letters come back
+## scaled down between whole pixels and broken. `Loc.text_size` leaves a line
+## the default face can spell exactly as it is.
+func _line(at: Vector2, s: String, align: int, width: float, size: int, col: Color) -> void:
+	draw_string(_font, at, s, align, width, Loc.text_size(s, size), col)
+
 func _draw() -> void:
 	if player == null or not is_instance_valid(player):
 		return
@@ -44,17 +52,16 @@ func _draw_health() -> void:
 	draw_rect(Rect2(24, 24, w, 18), Color(0, 0, 0, 0.55))
 	draw_rect(Rect2(24, 24, w * player.health_ratio(), 18), Color(0.9, 0.35, 0.38))
 	draw_rect(Rect2(24, 24, w, 18), Color(0.5, 0.6, 0.7, 0.8), false, 1.5)
-	draw_string(_font, Vector2(30, 38), "%d / %d" % [int(player.health), int(player.max_health)],
+	_line(Vector2(30, 38), Loc.t("hud.health", [int(player.health), int(player.max_health)]),
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.9))
 	_draw_stamina(w)
 	_draw_mana(w)
-	var wdef := Weapons.get_def(player.weapon_id)
-	draw_string(_font, Vector2(24, 86), String(wdef["name"]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 12,
-		Style.weapon_color(player.weapon_id))
+	_line(Vector2(24, 86), Weapons.name_for(player.weapon_id).to_upper(),
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Style.weapon_color(player.weapon_id))
 	if player.burn_time > 0.0:
-		draw_string(_font, Vector2(100, 86), "BURNING", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 0.5, 0.2))
+		_line(Vector2(100, 86), Loc.t("hud.burning"), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 0.5, 0.2))
 	if player.chill_time > 0.0:
-		draw_string(_font, Vector2(170, 86), "CHILLED", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.5, 0.85, 1))
+		_line(Vector2(170, 86), Loc.t("hud.chilled"), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.5, 0.85, 1))
 
 ## Slimmer and quieter than health: this is a budget, not a life. It is divided
 ## into one segment per dash, so the question it answers at a glance is "how
@@ -90,7 +97,7 @@ func _draw_slots(vp: Vector2) -> void:
 	if player.basic_runner != null:
 		# The weapon's own board is always something the weapon carries.
 		_draw_slot_card(Rect2(x, y, 128, 64), player.basic_runner,
-			Controls.short_label_for("attack"), "Weapon attack", false, true)
+			Controls.short_label_for("attack"), Loc.t("hud.slot.weapon_attack"), false, true)
 		x += 136.0
 	for i in player.runners.size():
 		var armed := i == player.selected_slot
@@ -98,9 +105,9 @@ func _draw_slots(vp: Vector2) -> void:
 		_draw_slot_card(Rect2(x, y, 128, 64), player.runners[i], key,
 			player.runners[i].board.skill_name, armed, player.can_cast(i))
 		x += 136.0
-	draw_string(_font, Vector2(24, y - 8),
-		"%s attacks · number keys arm a skill · hold %s to charge, release to cast" % [
-			Controls.short_label_for("attack"), Controls.short_label_for("cast_skill")],
+	_line(Vector2(24, y - 8),
+		Loc.t("hud.slot.hint", [
+			Controls.short_label_for("attack"), Controls.short_label_for("cast_skill")]),
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.55, 0.65, 0.78))
 
 func _draw_slot_card(rect: Rect2, r: SkillRunner, key: String, name: String,
@@ -113,18 +120,21 @@ func _draw_slot_card(rect: Rect2, r: SkillRunner, key: String, name: String,
 		title = Color(0.72, 0.55, 0.58)
 	elif armed:
 		title = Color(1, 1, 1)
-	draw_string(_font, rect.position + Vector2(8, 18), "%s  %s" % [key, name],
+	_line(rect.position + Vector2(8, 18), "%s  %s" % [key, name],
 		HORIZONTAL_ALIGNMENT_LEFT, 116, 10, title)
 	if not usable:
 		# The weapon is the reason, so name the weapon.
-		draw_string(_font, rect.position + Vector2(8, 40),
-			"NOT ON %s" % String(Weapons.get_def(player.weapon_id)["name"]).to_upper(),
+		_line(rect.position + Vector2(8, 40),
+			Loc.t("hud.slot.not_on", [Weapons.name_for(player.weapon_id).to_upper()]),
 			HORIZONTAL_ALIGNMENT_LEFT, 116, 9, Color(1.0, 0.5, 0.48))
 	elif armed:
-		draw_string(_font, rect.position + Vector2(8, 40), "ARMED",
+		_line(rect.position + Vector2(8, 40), Loc.t("hud.slot.armed"),
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.55, 1.0, 0.85))
+	# One pulse and several are two lines rather than an "s" stuck on the end:
+	# a language without plurals gives the same line twice and reads right.
 	var pulses := r.pulses.size()
-	draw_string(_font, rect.position + Vector2(8, 54), "%d pulse%s" % [pulses, "" if pulses == 1 else "s"],
+	_line(rect.position + Vector2(8, 54),
+		Loc.t("hud.slot.pulse_one" if pulses == 1 else "hud.slot.pulse_many", [pulses]),
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.6, 0.7, 0.8))
 	# Drawn last: the sheet covers the card's own text as it recedes, which is
 	# what makes a slot read as unavailable at a glance.
@@ -141,20 +151,20 @@ func _draw_bag(vp: Vector2) -> void:
 	var x := vp.x - 232.0
 	draw_rect(Rect2(x - 12, 16, 224, 150), Color(0.07, 0.08, 0.11, 0.85))
 	draw_rect(Rect2(x - 12, 16, 224, 150), Color(0.35, 0.5, 0.65, 0.6), false, 1.2)
-	draw_string(_font, Vector2(x, 38), "BAG (lost on death)", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.9, 0.75, 0.5))
-	draw_string(_font, Vector2(x, 58), "scrap %d" % GameState.raid_scrap, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.95, 0.85, 0.45))
+	_line(Vector2(x, 38), Loc.t("hud.bag.title"), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.9, 0.75, 0.5))
+	_line(Vector2(x, 58), Loc.t("hud.bag.scrap", [GameState.raid_scrap]), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.95, 0.85, 0.45))
 	var y := 78.0
 	var n := 0
 	for id in GameState.raid_bag:
 		if n >= 5:
-			draw_string(_font, Vector2(x, y), "…", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.7, 0.75, 0.8))
+			_line(Vector2(x, y), Loc.t("hud.bag.more"), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.7, 0.75, 0.8))
 			break
-		draw_string(_font, Vector2(x, y), "%s x%d" % [Components.get_def(id).get("name", id), int(GameState.raid_bag[id])],
+		_line(Vector2(x, y), Loc.t("hud.bag.row", [Components.name_for(id), int(GameState.raid_bag[id])]),
 			HORIZONTAL_ALIGNMENT_LEFT, 200, 10, Style.component_color(id))
 		y += 16.0
 		n += 1
 	if GameState.raid_bag.is_empty():
-		draw_string(_font, Vector2(x, y), "empty", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.5, 0.55, 0.6))
+		_line(Vector2(x, y), Loc.t("hud.bag.empty"), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.5, 0.55, 0.6))
 
 func _draw_map(vp: Vector2) -> void:
 	if map == null:
@@ -180,27 +190,35 @@ func _draw_map(vp: Vector2) -> void:
 		if room != null and c == room.coord:
 			draw_rect(r.grow(2), Color(1, 1, 1, 0.9), false, 1.5)
 	var press := map.pressure()
-	var ptxt: String = ["quiet", "stirring", "alert", "hunting", "swarming"][clampi(press, 0, 4)]
-	draw_string(_font, origin + Vector2(0, RaidMap.MH * cell + 20), "%02d:%02d  •  %s" % [
-		int(map.elapsed / 60.0), int(map.elapsed) % 60, ptxt],
+	var ptxt := Loc.t("hud.map.pressure.%d" % clampi(press, 0, 4))
+	_line(origin + Vector2(0, RaidMap.MH * cell + 20), Loc.t("hud.map.clock", [
+		int(map.elapsed / 60.0), int(map.elapsed) % 60, ptxt]),
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.75, 0.8, 0.9) if press < 3 else Color(1.0, 0.6, 0.5))
 
 func _draw_prompts(vp: Vector2) -> void:
 	if prompt != "":
-		draw_string(_font, Vector2(vp.x * 0.5 - 200, vp.y - 120), prompt, HORIZONTAL_ALIGNMENT_CENTER, 400, 13, Color(0.85, 0.95, 1.0))
+		_line(Vector2(vp.x * 0.5 - 200, vp.y - 120), prompt, HORIZONTAL_ALIGNMENT_CENTER, 400, 13, Color(0.85, 0.95, 1.0))
 	if extract_ratio > 0.0:
 		var w := 300.0
 		var r := Rect2(vp.x * 0.5 - w * 0.5, vp.y * 0.5 + 120, w, 14)
 		draw_rect(r, Color(0, 0, 0, 0.6))
 		draw_rect(Rect2(r.position, Vector2(w * extract_ratio, r.size.y)), Color(0.5, 1.0, 0.8))
-		draw_string(_font, r.position + Vector2(0, -6), "EXTRACTING", HORIZONTAL_ALIGNMENT_CENTER, w, 12, Color(0.7, 1.0, 0.9))
+		_line(r.position + Vector2(0, -6), Loc.t("hud.extracting"), HORIZONTAL_ALIGNMENT_CENTER, w, 12, Color(0.7, 1.0, 0.9))
 	if tutorial != "":
-		var box := Rect2(vp.x * 0.5 - 300, 136, 600, 40)
+		# 600 wide is what the English steps were written to fit. A language
+		# drawn in a bigger face needs a wider box rather than a clipped step,
+		# so the box is measured off the line — which comes to exactly 600 for
+		# every line the default face can spell.
+		var size := Loc.text_size(tutorial, 13)
+		var w := maxf(600.0, _font.get_string_size(tutorial,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, size).x + 24.0)
+		var box := Rect2(vp.x * 0.5 - w * 0.5, 136, w, maxf(40.0, float(size) + 20.0))
 		draw_rect(box, Color(0.07, 0.08, 0.11, 0.85))
 		draw_rect(box, Color(0.45, 0.8, 1.0, 0.6), false, 1.2)
-		draw_string(_font, box.position + Vector2(0, 25), tutorial, HORIZONTAL_ALIGNMENT_CENTER, 600, 13, Color(0.8, 0.92, 1.0))
+		_line(box.position + Vector2(0, box.size.y - 15.0), tutorial,
+			HORIZONTAL_ALIGNMENT_CENTER, w, 13, Color(0.8, 0.92, 1.0))
 	if toast_time > 0.0:
 		var a := clampf(toast_time / 0.8, 0.0, 1.0)
-		draw_string(_font, Vector2(vp.x * 0.5 - 250, 110), toast, HORIZONTAL_ALIGNMENT_CENTER, 500, 14, Color(1, 0.95, 0.8, a))
-	draw_string(_font, Vector2(24, get_viewport_rect().size.y - 16), "TAB assemble   F interact   SHIFT dash",
+		_line(Vector2(vp.x * 0.5 - 250, 110), toast, HORIZONTAL_ALIGNMENT_CENTER, 500, 14, Color(1, 0.95, 0.8, a))
+	_line(Vector2(24, get_viewport_rect().size.y - 16), Loc.t("hud.footer"),
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.5, 0.58, 0.66))

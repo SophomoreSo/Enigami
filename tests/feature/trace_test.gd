@@ -35,7 +35,10 @@ func _ready() -> void:
 	check((th["breaks"] as Array).size() == 1, "outputs meeting head-on is a break")
 	var msg := h.first_problem()
 	print("[TRACE] message: ", msg)
-	check(msg.contains("cannot meet"), "the message explains the head-on case")
+	# The break is named at the part that would not take the flow — the WIRE
+	# turned back on the INPUT — not at the one that sent it.
+	check(msg == Loc.t("editor.problem.head_on", [Components.name_for("WIRE"), 1, 2]),
+		"the message explains the head-on case")
 
 	# Nothing may feed back into the INPUT.
 	var fb := SkillBoard.new(7, 5, "feedback")
@@ -203,26 +206,30 @@ func _ready() -> void:
 	d.place("AREA", Vector2i(0, 1), 0)
 	var t3 := d.trace()
 	check((t3["breaks"] as Array).size() == 1, "entering a two-cell tail is a break")
-	check(d.first_problem().contains("tail"), "and the message explains it")
+	check(d.first_problem() == Loc.t("editor.problem.side_entry",
+			[Components.name_for("AREA"), 1, 1]), "and the message explains it")
 
 	# A flow running into empty space is a leak, not a break.
 	var e := SkillBoard.new(7, 5, "leak")
 	e.place("INPUT", Vector2i(0, 2), 0)
 	var t4 := e.trace()
 	check((t4["leaks"] as Array).size() == 1, "a dangling output is reported as a leak")
-	check(e.first_problem().contains("finds nothing"), "and the message says so")
+	check(e.first_problem() == Loc.t("editor.problem.leak",
+			[0, 2, Components.dir_name(0)]), "and the message says so")
 
 	# No INPUT at all.
 	var f := SkillBoard.new(7, 5, "noinput")
 	f.place("SLASH", Vector2i(2, 2), 0)
-	check(f.first_problem().contains("No INPUT"), "a board with no INPUT says so")
+	check(f.first_problem() == Loc.t("editor.problem.no_input"),
+		"a board with no INPUT says so")
 
 	# A wired board with no attack form reports that, not a wiring fault.
 	var g := SkillBoard.new(7, 5, "noform")
 	g.place("INPUT", Vector2i(0, 2), 0)
 	g.place("WIRE", Vector2i(1, 2), 0)
 	g.place("OUTPUT", Vector2i(2, 2), 0)
-	check(g.first_problem().contains("no attack form"), "a formless chain says what is missing")
+	check(g.first_problem() == Loc.t("editor.problem.no_form"),
+		"a formless chain says what is missing")
 
 	print("[TRACE] ---- %d failures ----" % fails)
 	get_tree().quit()

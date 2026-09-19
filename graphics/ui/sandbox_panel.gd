@@ -40,23 +40,23 @@ func _ready() -> void:
 	v.position = BUTTONS_AT
 	v.add_theme_constant_override("separation", 4)
 	add_child(v)
-	var wb := UiKit.overlay_button("SWAP WEAPON", UiKit.ACCENT, true)
+	var wb := UiKit.overlay_button(Loc.t("hud.sandbox.swap_weapon"), UiKit.ACCENT, true)
 	wb.pressed.connect(func() -> void: sandbox.cycle_weapon())
 	v.add_child(wb)
-	var dt := UiKit.overlay_button("DRAGON TEST ▶", UiKit.ACCENT, true)
+	var dt := UiKit.overlay_button(Loc.t("hud.sandbox.dragon_test"), UiKit.ACCENT, true)
 	dt.pressed.connect(func() -> void: sandbox.open_dragon_test())
 	v.add_child(dt)
 	for kind in Sandbox.MONSTER_BUTTONS:
-		var b := UiKit.overlay_button("spawn %s" % Monsters.get_def(kind)["name"], UiKit.WARN, true)
+		var b := UiKit.overlay_button(Loc.t("hud.sandbox.spawn", [Monsters.name_for(kind)]), UiKit.WARN, true)
 		b.pressed.connect(func() -> void: sandbox.spawn_monster(kind))
 		v.add_child(b)
-	var db := UiKit.overlay_button("spawn dummy", UiKit.GOOD, true)
+	var db := UiKit.overlay_button(Loc.t("hud.sandbox.spawn_dummy"), UiKit.GOOD, true)
 	db.pressed.connect(func() -> void: sandbox.spawn_dummy())
 	v.add_child(db)
-	var cb := UiKit.overlay_button("clear", UiKit.BAD, true)
+	var cb := UiKit.overlay_button(Loc.t("hud.sandbox.clear"), UiKit.BAD, true)
 	cb.pressed.connect(func() -> void: sandbox.clear_monsters())
 	v.add_child(cb)
-	var xb := UiKit.overlay_button("leave (ESC)", UiKit.ACCENT, true)
+	var xb := UiKit.overlay_button(Loc.t("hud.sandbox.leave"), UiKit.ACCENT, true)
 	xb.pressed.connect(func() -> void: sandbox.leave())
 	v.add_child(xb)
 
@@ -75,13 +75,13 @@ func _draw_readout() -> void:
 	_px.frame(PANEL, Color(0.35, 0.5, 0.65, 0.6))
 	var weapon := sandbox.current_weapon()
 	var width := PANEL.size.x - (TEXT_X - PANEL.position.x) * 2.0
-	_px.text(Vector2(TEXT_X, 40), "SANDBOX · %s" % String(Weapons.get_def(weapon)["name"]).to_upper(),
+	_px.text(Vector2(TEXT_X, 40), Loc.t("hud.sandbox.heading", [Weapons.name_for(weapon).to_upper()]),
 		Style.weapon_color(weapon), width)
-	_px.text(Vector2(TEXT_X, 60), "damage/sec (3s avg): %.1f" % sandbox.dps(), UiKit.GOOD, width)
+	_px.text(Vector2(TEXT_X, 60), Loc.t("hud.sandbox.dps", [sandbox.dps()]), UiKit.GOOD, width)
 	# Two rows for the keys, since a rebound one can be a whole gamepad axis.
-	var hint := "%s assemble · %s attacks · 1-3 arm · hold %s to charge" % [
+	var hint := Loc.t("hud.sandbox.hint", [
 		Controls.short_label_for("open_editor"), Controls.short_label_for("attack"),
-		Controls.short_label_for("cast_skill")]
+		Controls.short_label_for("cast_skill")])
 	var rows := PixelDraw.wrap(hint, width, 2)
 	for i in rows.size():
 		_px.text(Vector2(TEXT_X, 80 + i * PixelDraw.LINE), rows[i], UiKit.DIM)
@@ -115,11 +115,12 @@ func _draw_cards() -> void:
 		# Two characters of marker either way, so the name does not shift as the
 		# armed slot moves. An X where the weapon will not carry the board.
 		var text_w := card.size.x - 16.0
-		_px.text(card.position + Vector2(8, 24), "%s%d · %s%s" % [
-			"> " if armed else "  ", i + 1, r.board.skill_name, "" if usable else "  X"],
+		_px.text(card.position + Vector2(8, 24), Loc.t("hud.sandbox.card", [
+			"> " if armed else "  ", i + 1, r.board.skill_name,
+			"" if usable else Loc.t("hud.sandbox.unusable")]),
 			title, text_w)
-		_px.text(card.position + Vector2(8, 44), "cycle %.2fs · out %d" % [
-			float(_preview(i, r)["cycle_seconds"]), (_preview(i, r)["outputs"] as Array).size()],
+		_px.text(card.position + Vector2(8, 44), Loc.t("hud.sandbox.cycle", [
+			float(_preview(i, r)["cycle_seconds"]), (_preview(i, r)["outputs"] as Array).size()]),
 			UiKit.DIM, text_w)
 		var border := Color(0.3, 0.35, 0.42)
 		if not usable:

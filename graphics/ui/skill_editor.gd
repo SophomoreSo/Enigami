@@ -54,7 +54,9 @@ var slot: int = 0
 var inventory: Dictionary = {}       ## component id -> count (the live pool)
 var unlimited: bool = false          ## sandbox
 var runners: Array = []              ## Array[SkillRunner] for live flow display
-var title_text: String = "SKILL ASSEMBLY"
+## The heading over the screen. Left empty it reads "SKILL ASSEMBLY" in the
+## language being played; `app/game.gd` sets the workbench's own heading.
+var title_text: String = ""
 var weapon_id: String = "SWORD"
 
 var selected: String = ""
@@ -104,6 +106,8 @@ var _share: ShareCodePanel = null
 var _px := PixelDraw.new(self)
 
 func _ready() -> void:
+	if title_text == "":
+		title_text = Loc.t("editor.heading")
 	UiKit.fill_screen(self)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_ALL
@@ -281,7 +285,7 @@ func _rotate_placed(b: SkillBoard, cell: Vector2i, dir: int) -> void:
 	if not b.can_place(id, origin, new_rot):
 		# A two-cell part may have nowhere to swing; leave it as it was.
 		b.place(id, origin, old_rot)
-		_notify("No room to turn %s there." % id)
+		_notify(Loc.t("editor.no_room_turn", [Components.name_for(id)]))
 		Audio.play("deny")
 		return
 	b.place(id, origin, new_rot)
@@ -369,11 +373,11 @@ func _drop_on(id: String, src: int, cell: Vector2i) -> bool:
 	var b := current_board()
 	if b == null or not b.can_place(id, cell, rotation_step):
 		if src == -1:
-			_notify("No room for %s there." % id)
+			_notify(Loc.t("editor.no_room_place", [Components.name_for(id)]))
 			Audio.play("deny")
 		return false
 	if src == -1 and not _take(id):
-		_notify("No %s left in the bag." % id)
+		_notify(Loc.t("editor.none_left", [Components.name_for(id)]))
 		Audio.play("deny")
 		return false
 	# Dropping onto an occupied cell returns the part underneath to the pool.
@@ -456,7 +460,7 @@ func _close_share() -> void:
 func _build_from_code(entry: String) -> void:
 	var b := current_board()
 	if b == null:
-		_share.note("There is no board open to build onto.", UiKit.BAD)
+		_share.note(Loc.t("editor.share.no_board"), UiKit.BAD)
 		return
 	var read := BoardCode.decode(entry)
 	if String(read["error"]) != "":
@@ -467,8 +471,8 @@ func _build_from_code(entry: String) -> void:
 	# The grid is this workbench's, not the code's, so a build off a bigger one
 	# arrives only if none of it hangs over the edge.
 	if not b.fits(want):
-		_share.note("That build was laid out on a %dx%d board; this one is %dx%d." % [
-			want.width, want.height, b.width, b.height], UiKit.BAD)
+		_share.note(Loc.t("editor.share.wrong_size", [
+			want.width, want.height, b.width, b.height]), UiKit.BAD)
 		Audio.play("deny")
 		return
 	# A code is a blueprint and not the parts: it costs exactly what building the
@@ -477,7 +481,7 @@ func _build_from_code(entry: String) -> void:
 	if not unlimited:
 		var missing := GameState.trade_board(b, want, inventory)
 		if not missing.is_empty():
-			_share.note("Short of %s — nothing has been spent." % _missing_text(missing), UiKit.BAD)
+			_share.note(Loc.t("editor.share.short_of", [_missing_text(missing)]), UiKit.BAD)
 			Audio.play("deny")
 			return
 	b.adopt(want)
@@ -486,7 +490,7 @@ func _build_from_code(entry: String) -> void:
 	# The sheet now shows this board's own code, which is not always the one that
 	# was typed: the grid it landed on may not be the grid it was drawn on.
 	_share.open_with(BoardCode.encode(b))
-	_share.note("Built — %d parts on the board." % b.cells.size(), UiKit.GOOD)
+	_share.note(Loc.t("editor.share.built", [b.cells.size()]), UiKit.GOOD)
 	Audio.play("place")
 	board_changed.emit(slot)
 
@@ -498,8 +502,8 @@ func _missing_text(missing: Dictionary) -> String:
 	ids.sort()
 	var parts: Array[String] = []
 	for id in ids:
-		parts.append("%d more %s" % [int(missing[id]), String(Components.get_def(id).get("name", id))])
-	return ", ".join(parts)
+		parts.append(Loc.t("editor.share.more_of", [int(missing[id]), Components.name_for(id)]))
+	return Loc.t("editor.payload.separator").join(parts)
 
 ## --- drawing ----------------------------------------------------------------
 const PX := UiKit.PIXEL
@@ -589,16 +593,18 @@ func _draw_header(vp: Vector2) -> void:
 	_px.rect(sr, Color(0.16, 0.3, 0.4, 0.9) if _hover_share else Color(0.11, 0.13, 0.17, 0.9))
 	_px.frame(sr, Color(0.55, 0.9, 1.0) if _hover_share else Color(0.32, 0.4, 0.5))
 	var share_ink := Color(0.92, 0.98, 1.0) if _hover_share else Color(0.7, 0.8, 0.9)
-	_px.text(sr.position + Vector2((sr.size.x - PixelDraw.ink_width("CODE")) * 0.5, 20), "CODE",
+	var code_label := Loc.t("editor.code")
+	_px.text(sr.position + Vector2((sr.size.x - PixelDraw.ink_width(code_label)) * 0.5, 20), code_label,
 		share_ink)
 	var cr := _close_rect()
 	_px.rect(cr, Color(0.45, 0.18, 0.2, 0.9) if _hover_close else Color(0.14, 0.12, 0.14, 0.9))
 	_px.frame(cr, Color(1.0, 0.55, 0.55) if _hover_close else Color(0.45, 0.4, 0.44))
 	var ink := Color(1, 0.9, 0.9) if _hover_close else Color(0.8, 0.78, 0.8)
+	var close_label := Loc.t("editor.close")
 	var mark := CROSS[0].length() * PX + 8.0
-	var at := _px.snap(cr.position + Vector2((cr.size.x - mark - PixelDraw.ink_width("CLOSE")) * 0.5, 10))
+	var at := _px.snap(cr.position + Vector2((cr.size.x - mark - PixelDraw.ink_width(close_label)) * 0.5, 10))
 	_px.icon(at, CROSS, ink)
-	_px.text(at + Vector2(mark, 10), "CLOSE", ink)
+	_px.text(at + Vector2(mark, 10), close_label, ink)
 
 func _draw_board() -> void:
 	var b := current_board()
@@ -661,7 +667,7 @@ func _draw_drag() -> void:
 	if _drag_id == "":
 		return
 	var col := Style.component_color(_drag_id)
-	var part_name := String(Components.get_def(_drag_id)["name"])
+	var part_name := Components.name_for(_drag_id)
 	# Icon, name, then a rotation readout, since the wheel turns the part while it
 	# is in hand.
 	var r := Rect2(_px.snap(_mouse_pos + Vector2(14, -16)), Vector2(60.0 + PixelDraw.ink_width(part_name), 30.0))
@@ -1152,7 +1158,7 @@ func _draw_palette() -> void:
 		_px.frame(r, c if have else Color(0.3, 0.32, 0.36))
 		_px.icon(r.position + Vector2(8, 4), Style.component_icon(id), c)
 		_draw_count(r.end - Vector2(8, 6), id)
-		_px.text(r.position + Vector2(30, PAL_TEXT_Y), String(Components.get_def(id)["name"]),
+		_px.text(r.position + Vector2(30, PAL_TEXT_Y), Components.name_for(id),
 			Color(0.92, 0.95, 1.0) if have else Color(0.45, 0.48, 0.52), _pal_name_width(i))
 		if i == _hover_pal:
 			_px.frame(r, Color(1, 1, 1, 0.5))
@@ -1180,7 +1186,7 @@ func _draw_count(right: Vector2, id: String) -> void:
 	if _endless(id):
 		_px.icon(at + Vector2(0, -5 * PX), INFINITY, col)
 	else:
-		_px.text(at, "x%d" % int(inventory.get(id, 0)), col)
+		_px.text(at, Loc.t("editor.count", [int(inventory.get(id, 0))]), col)
 
 func _draw_info(vp: Vector2) -> void:
 	var y := vp.y - INFO_H
@@ -1197,12 +1203,12 @@ func _draw_info(vp: Vector2) -> void:
 		describe = String(b.comp_at(_hover_cell)["id"])
 	if describe != "":
 		var def := Components.get_def(describe)
-		_px.text(Vector2(48, y + 26), String(def["name"]), Style.component_color(describe), INFO_LEFT_W)
-		var desc := PixelDraw.wrap(String(def["desc"]), INFO_LEFT_W, 2)
+		_px.text(Vector2(48, y + 26), Components.name_for(describe), Style.component_color(describe), INFO_LEFT_W)
+		var desc := PixelDraw.wrap(Components.desc_for(describe), INFO_LEFT_W, 2)
 		for i in desc.size():
 			_px.text(Vector2(48, y + 46 + i * LINE), desc[i], Color(0.72, 0.78, 0.86))
-		_px.text(Vector2(48, y + 86), "cells %d   cost %d ticks, one per cell   heat %.1f" % [
-			int(def["cells"]), Components.tick_cost(describe), float(def["heat"])],
+		_px.text(Vector2(48, y + 86), Loc.t("editor.part_stats", [
+			int(def["cells"]), Components.tick_cost(describe), float(def["heat"])]),
 			Color(0.55, 0.65, 0.75), INFO_LEFT_W)
 
 	if b == null:
@@ -1228,9 +1234,7 @@ func _draw_info(vp: Vector2) -> void:
 	if _message_time > 0.0:
 		_px.text(Vector2(48, y + 106), _message, Color(1.0, 0.65, 0.55), INFO_LEFT_W)
 	# Controls live along the bottom, clear of the slot tabs at the top.
-	_px.text(Vector2(48, vp.y - 8), HINT, Color(0.5, 0.58, 0.68), vp.x - 96.0)
-
-const HINT := "drag to place · wheel turns the part under the cursor · RMB removes · C shares a code · TAB or ESC closes"
+	_px.text(Vector2(48, vp.y - 8), Loc.t("editor.hint"), Color(0.5, 0.58, 0.68), vp.x - 96.0)
 
 ## What the cycle preview says, a row each, as {text, col} and an `icon` to put
 ## before a row. There is room for INFO_ROWS of them: a preview that runs longer
@@ -1241,8 +1245,8 @@ func _preview_rows(b: SkillBoard, result: Dictionary, width: float) -> Array:
 		_add_rows(rows, String(result["error"]), Color(1.0, 0.55, 0.5), width, INFO_ROWS)
 		return rows
 	var outs: Array = result["outputs"]
-	rows.append({"text": "CYCLE %.2fs   outputs %d   heat %.1f" % [
-		float(result["cycle_seconds"]), outs.size(), float(result["heat"])],
+	rows.append({"text": Loc.t("editor.readout.cycle", [
+		float(result["cycle_seconds"]), outs.size(), float(result["heat"])]),
 		"col": Color(0.7, 0.95, 0.85)})
 	# A weapon that will not carry the board matters more than anything under it,
 	# so it goes straight under the cycle rather than wherever rows are left.
@@ -1253,20 +1257,20 @@ func _preview_rows(b: SkillBoard, result: Dictionary, width: float) -> Array:
 		# `first_problem` would go looking for one that is not there.
 		var why := b.first_problem()
 		if bool(result.get("expired", false)):
-			why = "The flow runs out of life (%d) before it reaches an OUTPUT. Shorten it, or hold the cast button to charge it further." % int(result.get("ttl", 0))
+			why = Loc.t("editor.problem.expired", [int(result.get("ttl", 0))])
 		_add_rows(rows, why, Color(1.0, 0.62, 0.45), width, 3)
 	for i in mini(outs.size(), 3):
 		var p: Payload = Weapons.finalize(weapon_id, (outs[i] as Payload).clone())
-		rows.append({"text": "• %s" % p.summary(), "col": Color(0.82, 0.88, 0.95)})
+		rows.append({"text": Loc.t("editor.readout.payload", [p.summary()]), "col": Color(0.82, 0.88, 0.95)})
 	# Overclocking is a trade, so show both halves of it.
 	if int(result.get("overclock", 0)) > 0:
-		rows.append({"text": "OVERCLOCK x%d · clock x%.2f · +%.2fs settle" % [
-			int(result["overclock"]), float(result["speed_mul"]), float(result["penalty_seconds"])],
+		rows.append({"text": Loc.t("editor.readout.overclock", [
+			int(result["overclock"]), float(result["speed_mul"]), float(result["penalty_seconds"])]),
 			"col": Style.flow_color()})
 	# What holding the cast button buys this board, in the board's own terms. The
 	# binding is named so the row fits, and stays true after a rebind.
-	rows.append({"text": "LIFE %d · hold %s for more, release to fire" % [
-		int(result.get("ttl", 0)), Controls.short_label_for("cast_skill")],
+	rows.append({"text": Loc.t("editor.readout.life", [
+		int(result.get("ttl", 0)), Controls.short_label_for("cast_skill")]),
 		"col": Color(0.78, 0.68, 1.0)})
 	var trig: Dictionary = result.get("triggers", {})
 	for k in trig:
@@ -1276,15 +1280,15 @@ func _preview_rows(b: SkillBoard, result: Dictionary, width: float) -> Array:
 		var q = trig[k]
 		var n := 0
 		while q != null:
-			var label: String = String(Components.get_def(k).get("name", k)) if n == 0 else "then"
-			rows.append({"text": "%s: %s" % [label, (q as Payload).summary()],
+			var label := Components.name_for(String(k)) if n == 0 else Loc.t("editor.payload.then")
+			rows.append({"text": Loc.t("editor.readout.trigger", [label, (q as Payload).summary()]),
 				"col": Color(1.0, 0.7, 0.85), "icon": CHAIN})
 			n += 1
 			q = q.on_hit
 	if rows.size() > INFO_ROWS:
 		var cut := rows.size() - INFO_ROWS + 1
 		rows.resize(INFO_ROWS - 1)
-		rows.append({"text": "… %d more" % cut, "col": Color(0.55, 0.65, 0.75)})
+		rows.append({"text": Loc.t("editor.readout.more", [cut]), "col": Color(0.55, 0.65, 0.75)})
 	return rows
 
 func _add_rows(rows: Array, text: String, col: Color, width: float, most: int) -> void:

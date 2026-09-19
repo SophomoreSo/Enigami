@@ -49,8 +49,11 @@ func _ready() -> void:
 	var rows: Array = []
 	for c in title._save_slot_root.get_children():
 		rows.append((c as Button).text)
-	check(rows == ["SLOT 1", "SLOT 2", "SLOT 3", "BACK"],
-		"three slots and a way back (%s)" % str(rows))
+	var want: Array = []
+	for i in TitleScreen.SAVE_SLOTS:
+		want.append(Loc.t("menu.title.slot", [i + 1]))
+	want.append(Loc.t("menu.title.back"))
+	check(rows == want, "three slots and a way back (%s)" % str(rows))
 	check(focus_owner() == title._first_save_slot,
 		"the keyboard lands on SLOT 1 (owner=%s)" % str(focus_owner()))
 

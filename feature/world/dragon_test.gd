@@ -51,7 +51,7 @@ var _chain_cache: Dictionary = {}
 ## OVERCLOCKs back round into it. Every lap the cast has life for is one more
 ## lunge at the nearest guard still standing.
 static func dragon_board() -> SkillBoard:
-	var b := SkillBoard.new(7, 5, "Dragon Dash")
+	var b := SkillBoard.new(7, 5, Loc.t("hud.dragon.board"))
 	b.place("INPUT", Vector2i(0, 2), 0)
 	b.place("DASHSLASH_AUTO", Vector2i(1, 2), 0)
 	b.place("ON_HIT", Vector2i(3, 2), 0)

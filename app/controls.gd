@@ -26,6 +26,14 @@ const ACTIONS := [
 
 static var _defaults: Dictionary = {}
 
+## What to call an action on the rebinding screen. The English in ACTIONS is
+## the fallback, so an action added there is named before it is translated.
+static func action_name(action: String) -> String:
+	for entry in ACTIONS:
+		if String(entry[0]) == action:
+			return Loc.opt("controls.action.%s" % action, String(entry[1]))
+	return Loc.opt("controls.action.%s" % action, action)
+
 ## Snapshot the project defaults once, so "reset" can restore them later.
 static func capture_defaults() -> void:
 	if not _defaults.is_empty():
@@ -37,21 +45,21 @@ static func capture_defaults() -> void:
 
 static func label_for(action: String) -> String:
 	if not InputMap.has_action(action):
-		return "—"
+		return Loc.t("controls.none")
 	var names: Array[String] = []
 	for e in InputMap.action_get_events(action):
 		if e is InputEventKey:
 			names.append(OS.get_keycode_string((e as InputEventKey).physical_keycode))
 		elif e is InputEventMouseButton:
 			var idx := (e as InputEventMouseButton).button_index
-			names.append({1: "LMB", 2: "RMB", 3: "MMB"}.get(idx, "Mouse %d" % idx))
+			names.append({1: "LMB", 2: "RMB", 3: "MMB"}.get(idx, Loc.t("controls.mouse", [idx])))
 		elif e is InputEventJoypadButton:
-			names.append("Pad %d" % (e as InputEventJoypadButton).button_index)
+			names.append(Loc.t("controls.pad_button", [(e as InputEventJoypadButton).button_index]))
 		elif e is InputEventJoypadMotion:
 			var m := e as InputEventJoypadMotion
-			names.append("Pad axis %d%s" % [m.axis, "+" if m.axis_value > 0 else "-"])
+			names.append(Loc.t("controls.pad_axis", [m.axis, "+" if m.axis_value > 0 else "-"]))
 	if names.is_empty():
-		return "unbound"
+		return Loc.t("controls.unbound")
 	return " / ".join(names)
 
 ## The single binding a HUD should print: the first keyboard or mouse one, with
@@ -59,7 +67,7 @@ static func label_for(action: String) -> String:
 ## right for the rebinding screen and far too long for a slot card.
 static func short_label_for(action: String) -> String:
 	if not InputMap.has_action(action):
-		return "—"
+		return Loc.t("controls.none")
 	for e in InputMap.action_get_events(action):
 		if e is InputEventKey:
 			# The game's own actions are bound by position on the board, so they
@@ -71,8 +79,8 @@ static func short_label_for(action: String) -> String:
 			return OS.get_keycode_string(code)
 		if e is InputEventMouseButton:
 			var idx := (e as InputEventMouseButton).button_index
-			return {1: "LMB", 2: "RMB", 3: "MMB"}.get(idx, "Mouse %d" % idx)
-	return "—"
+			return {1: "LMB", 2: "RMB", 3: "MMB"}.get(idx, Loc.t("controls.mouse", [idx]))
+	return Loc.t("controls.none")
 
 ## Replaces the keyboard/mouse binding of `action`, leaving the gamepad one.
 static func rebind(action: String, event: InputEvent) -> bool:

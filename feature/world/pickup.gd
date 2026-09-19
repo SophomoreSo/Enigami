@@ -58,4 +58,4 @@ func _process(delta: float) -> void:
 func label() -> String:
 	if scrap_amount > 0:
 		return "%d scrap" % scrap_amount
-	return String(Components.get_def(component_id).get("name", component_id))
+	return Components.name_for(component_id)

@@ -54,8 +54,34 @@ static func scene(id: String) -> Dictionary:
 		push_warning("CutsceneScript: no readable file at %s" % path_for(id))
 		return {}
 	_fill_defaults(def)
+	_translate(def, id)
 	_cache[id] = def
 	return def
+
+## Lays the language's words over the scene's own, from
+## `localization/<lang>/scenes/<id>.json`. What is said and the names on the
+## tab move; the staging — who walks where, the camera, the sound — stays in
+## `data/`. Beats are addressed by their position in the file, so a beat
+## inserted in the middle moves every translation under it: that is what
+## `tests/shared/loc_test` checks the default language against the file for.
+static func _translate(def: Dictionary, id: String) -> void:
+	var over := Loc.overlay("scenes", id)
+	if over.is_empty():
+		return
+	var names: Dictionary = over.get("cast", {})
+	var cast: Dictionary = def.get("cast", {})
+	for who in names:
+		if cast.has(who) and cast[who] is Dictionary:
+			(cast[who] as Dictionary)["name"] = String(names[who])
+	var lines: Dictionary = over.get("beats", {})
+	var beats: Array = def.get("beats", [])
+	for i in beats.size():
+		var line = lines.get(str(i), null)
+		if not (line is Dictionary) or not (beats[i] is Dictionary):
+			continue
+		for k in ["text", "name"]:
+			if (line as Dictionary).has(k):
+				(beats[i] as Dictionary)[k] = String((line as Dictionary)[k])
 
 ## Forgets what has been read, so an edited file is picked up without a restart.
 static func reload() -> void:

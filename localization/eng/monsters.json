@@ -1,0 +1,11 @@
+{
+	"CRAWLER": "Crawler",
+	"SENTRY": "Sentry",
+	"LOBBER": "Lobber",
+	"HOPPER": "Hopper",
+	"DRIFTER": "Drifter",
+	"WARDEN": "Warden",
+	"DUMMY": "Test Dummy",
+	"GRUNT": "Grunt",
+	"ARBITER": "Arbiter"
+}

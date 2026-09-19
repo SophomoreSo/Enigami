@@ -25,7 +25,7 @@ func _ready() -> void:
 	add_child(layer)
 	editor = SkillEditor.new()
 	editor.visible = false
-	editor.title_text = "SANDBOX · parts are free"
+	editor.title_text = Loc.t("editor.title.sandbox")
 	editor.closed.connect(func() -> void: sandbox.set_editing(false))
 	editor.board_changed.connect(func(slot: int) -> void: sandbox.on_board_changed(slot))
 	layer.add_child(editor)

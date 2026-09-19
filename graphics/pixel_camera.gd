@@ -61,6 +61,10 @@ var _image: Sprite2D
 ## SCALE× transform puts each glyph pixel on exactly one buffer pixel instead.
 static func draw_text(c: CanvasItem, at: Vector2, text: String, color: Color,
 		shadow: Color = Color(0, 0, 0, 0), size: int = TEXT_SIZE, font: Font = FONT) -> void:
+	# TEXT_SIZE is Silkscreen's own 8px, one art pixel per glyph pixel. A line
+	# in writing Silkscreen does not have is drawn in the language's face, which
+	# has its own size — see `Loc.text_size`.
+	size = Loc.text_size(text, size)
 	var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 	var o := (at / SCALE - Vector2(w * 0.5, 0.0)).round()
 	c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE * SCALE)

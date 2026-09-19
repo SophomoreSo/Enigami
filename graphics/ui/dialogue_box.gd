@@ -24,9 +24,19 @@ const MAX_WIDTH := 600.0
 const MIN_WIDTH := 420.0
 const PAD := 14.0
 const PORTRAIT := 112.0
-const TEXT_SIZE := 18
-const NAME_SIZE := 15
-const HINT_SIZE := 12
+## Silkscreen, like the rest of the game's own text, at the one size that every
+## face the game carries divides: twice Silkscreen's native 8px, and once
+## 둥근모꼴's 16px. A face has exactly one correct shape per pixel, so a size
+## either of them did not draw comes back with some strokes a pixel wider than
+## others — see `Loc.pixel_size`, and `tests/shared/loc_test`, which checks
+## these three against every language.
+const TEXT_SIZE := UiKit.PIXEL_TEXT
+const NAME_SIZE := UiKit.PIXEL_TEXT
+const HINT_SIZE := UiKit.PIXEL_TEXT
+## Baseline to baseline, on the PIXEL grid. The face's own height is 20.48px at
+## this size, and a row placed on a fraction of a pixel is a row drawn between
+## two of them. `PixelDraw.LINE` is the same spacing the assembly screen uses.
+const LINE_H := PixelDraw.LINE
 const TAB_HEIGHT := 24.0
 ## How far an answer sits in from the line, to leave room for the marker.
 const CHOICE_INDENT := 22.0
@@ -53,7 +63,7 @@ func _ready() -> void:
 	UiKit.fill_screen(self)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_font = ThemeDB.fallback_font
+	_font = UiKit.PIXEL_FONT
 
 func _process(delta: float) -> void:
 	UiKit.sync_screen(self)
@@ -89,7 +99,7 @@ func _draw() -> void:
 		return
 	var w := clampf(size.x - SIDE_CLEAR * 2.0, MIN_WIDTH, MAX_WIDTH)
 	var text_w := w - PORTRAIT - PAD * 3.0
-	var line_h := _font.get_height(TEXT_SIZE)
+	var line_h := LINE_H
 	# Wrapped from the whole line, not the part revealed so far, so a word never
 	# jumps to the next row halfway through coming in.
 	var rows := _wrap(npc.current_line(), text_w, TEXT_SIZE)
@@ -101,7 +111,7 @@ func _draw() -> void:
 	# once the question is out, so the box never grows under the reader's eye.
 	var text_h := line_h * rows.size()
 	if not options.is_empty():
-		text_h += CHOICE_GAP * 2.0 + _font.get_height(HINT_SIZE)
+		text_h += CHOICE_GAP * 2.0 + LINE_H
 		for opt in options:
 			text_h += line_h * opt.size()
 	var h := maxf(PORTRAIT, text_h) + PAD * 2.0
@@ -164,7 +174,7 @@ func _draw_name_tab(portrait: Rect2, on_right: bool) -> void:
 	var x := portrait.end.x - tab_w if on_right else portrait.position.x
 	var tab := Rect2(Vector2(x, portrait.position.y - PAD - TAB_HEIGHT + 2.0), Vector2(tab_w, TAB_HEIGHT))
 	draw_rect(tab, Style.DIALOGUE_TAB)
-	_text(tab.position + Vector2(12.0, (TAB_HEIGHT - _font.get_height(NAME_SIZE)) * 0.5), speaker,
+	_text(tab.position + Vector2(12.0, (TAB_HEIGHT - LINE_H) * 0.5), speaker,
 		NAME_SIZE, Style.DIALOGUE_NAME)
 
 ## Whose face goes in the frame: the line's own `sprite` if it names one the
@@ -244,7 +254,7 @@ func _draw_mark(kind: String, at: Vector2) -> void:
 ## out (see `_track_arrivals`), trembling or rippling as the emotion asks.
 func _draw_line(pen: Vector2, rows: PackedStringArray, line_h: float, mood: Dictionary) -> void:
 	var shown := mini(int(npc.revealed), _arrived.size())
-	var ascent := _font.get_ascent(TEXT_SIZE)
+	var ascent := roundf(_font.get_ascent(TEXT_SIZE))
 	var jitter := float(mood.get("jitter", 0.0))
 	var wave := float(mood.get("wave", 0.0))
 	var i := 0
@@ -270,12 +280,14 @@ func _draw_line(pen: Vector2, rows: PackedStringArray, line_h: float, mood: Dict
 
 ## How to answer, in whatever the player has the keys bound to.
 func _choice_hint() -> String:
-	return "%s/%s choose  ·  %s answer" % [Controls.short_label_for("move_up"),
-		Controls.short_label_for("move_down"), Controls.short_label_for("interact")]
+	return Loc.t("hud.dialogue.choose", [Controls.short_label_for("move_up"),
+		Controls.short_label_for("move_down"), Controls.short_label_for("interact")])
 
 ## Draws `text` with its top-left corner at `pos`.
 func _text(pos: Vector2, text: String, font_size: int, color: Color) -> void:
-	draw_string(_font, pos + Vector2(0, _font.get_ascent(font_size)), text,
+	# Rounded onto whole pixels: the face's ascent is 16.48px, and a baseline
+	# half a pixel down draws the whole row between two rows of them.
+	draw_string(_font, (pos + Vector2(0, _font.get_ascent(font_size))).round(), text,
 		HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
 
 func _width(text: String, font_size: int) -> float:

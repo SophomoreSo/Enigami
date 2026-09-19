@@ -115,6 +115,7 @@ func _ready() -> void:
 	_build_menu()
 	_build_save_slots()
 	_build_settings()
+	Loc.language_changed.connect(_relanguage)
 	Audio.play_music()
 
 func _breath() -> float:
@@ -300,13 +301,13 @@ func _arc_slice(pts: PackedVector2Array, a: float, b: float) -> PackedVector2Arr
 ## --- the menu ---------------------------------------------------------------
 func _build_menu() -> void:
 	_menu_root = _column(MENU_TOP)
-	_start_button = _menu_button("START", _menu_root)
+	_start_button = _menu_button(Loc.t("menu.title.start"), _menu_root)
 	_start_button.pressed.connect(_show_save_slots)
-	var sandbox := _menu_button("SANDBOX", _menu_root)
+	var sandbox := _menu_button(Loc.t("menu.title.sandbox"), _menu_root)
 	sandbox.pressed.connect(func() -> void: sandbox_requested.emit())
-	_settings_button = _menu_button("SETTINGS", _menu_root)
+	_settings_button = _menu_button(Loc.t("menu.title.settings"), _menu_root)
 	_settings_button.pressed.connect(_toggle_settings)
-	var quit := _menu_button("QUIT", _menu_root)
+	var quit := _menu_button(Loc.t("menu.title.quit"), _menu_root)
 	quit.pressed.connect(func() -> void: get_tree().quit())
 	_start_button.grab_focus()
 
@@ -318,14 +319,14 @@ func _build_save_slots() -> void:
 	_save_slot_root.visible = false
 	for i in SAVE_SLOTS:
 		var n := i + 1
-		var b := _menu_button("SLOT %d" % n, _save_slot_root)
+		var b := _menu_button(Loc.t("menu.title.slot", [n]), _save_slot_root)
 		b.pressed.connect(func() -> void:
 			save_slot = n
 			start_requested.emit())
 		if i == 0:
 			_first_save_slot = b
-	var back := _menu_button("BACK", _save_slot_root)
-	back.add_theme_font_size_override("font_size", 16)
+	var back := _menu_button(Loc.t("menu.title.back"), _save_slot_root)
+	back.add_theme_font_size_override("font_size", Loc.text_size(back.text, 16))
 	back.pressed.connect(_hide_save_slots)
 
 func _column(top: float) -> VBoxContainer:
@@ -363,7 +364,7 @@ func _menu_button(text: String, parent: VBoxContainer) -> Button:
 	for s in ["normal", "hover", "pressed", "focus", "disabled"]:
 		b.add_theme_stylebox_override(s, box)
 	b.add_theme_font_override("font", _menu_font)
-	b.add_theme_font_size_override("font_size", 24)
+	b.add_theme_font_size_override("font_size", Loc.text_size(text, 24))
 	b.add_theme_color_override("font_color", MENU_INK)
 	b.add_theme_color_override("font_hover_color", Color.WHITE)
 	b.add_theme_color_override("font_focus_color", Color.WHITE)
@@ -390,32 +391,82 @@ func _build_settings() -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
 	panel.add_child(v)
-	v.add_child(UiKit.label("SETTINGS", 24, UiKit.ACCENT, true))
+	v.add_child(UiKit.label(Loc.t("menu.settings.heading"), 24, UiKit.ACCENT, true))
 	v.add_child(UiKit.hline(true))
-	v.add_child(_slider("Music", Audio.music_volume, func(val: float) -> void: Audio.set_music_volume(val)))
-	v.add_child(_slider("Sound", Audio.sfx_volume, func(val: float) -> void:
+	v.add_child(_slider(Loc.t("menu.settings.music"), Audio.music_volume,
+		func(val: float) -> void: Audio.set_music_volume(val)))
+	v.add_child(_slider(Loc.t("menu.settings.sound"), Audio.sfx_volume, func(val: float) -> void:
 		Audio.set_sfx_volume(val)
 		Audio.play("ui")))
+	v.add_child(_language_row())
 	v.add_child(UiKit.spacer(6))
-	for hint in ["Aim with the mouse, or the right stick on a gamepad.",
-			"Gamepad: left stick moves, A jumps, B dashes, triggers fire slots 1-2."]:
-		var l := UiKit.label(hint, 16, UiKit.DIM, true)
+	var hint_i := 0
+	while Loc.has("menu.settings.hints.%d" % hint_i):
+		var l := UiKit.label(Loc.t("menu.settings.hints.%d" % hint_i), 16, UiKit.DIM, true)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l)
+		hint_i += 1
 	v.add_child(UiKit.spacer(6))
 	var controls := ControlsPanel.new()
 	controls.pixel = true
 	v.add_child(controls)
 	v.add_child(UiKit.spacer(8))
-	var rb := UiKit.button("WIPE PROFILE", UiKit.BAD, true)
+	var rb := UiKit.button(Loc.t("menu.settings.wipe"), UiKit.BAD, true)
 	rb.pressed.connect(func() -> void:
 		GameState.reset_profile()
 		Audio.play("deny"))
 	v.add_child(rb)
 	v.add_child(UiKit.spacer(4))
-	var back := UiKit.button("BACK", UiKit.ACCENT, true)
+	var back := UiKit.button(Loc.t("menu.settings.back"), UiKit.ACCENT, true)
 	back.pressed.connect(_toggle_settings)
 	v.add_child(back)
+
+## One button per language, laid out like a slider row: the label on the left
+## and the choices beside it. Each language is written in itself, so somebody
+## who has landed in the wrong one can still find their way back.
+func _language_row() -> Control:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 8)
+	var l := UiKit.label(Loc.t("menu.settings.language"), 16, UiKit.TEXT, true)
+	l.custom_minimum_size = Vector2(80, 0)
+	h.add_child(l)
+	for lang in Loc.languages():
+		var picked: bool = lang == Loc.language
+		var b := UiKit.button(Loc.language_name(lang),
+			UiKit.ACCENT if picked else UiKit.DIM, true)
+		b.disabled = picked
+		b.pressed.connect(func() -> void:
+			Audio.play("ui")
+			Loc.set_language(lang))
+		h.add_child(b)
+	return h
+
+## The whole menu, in the new language. Everything here is text laid out once
+## in `_ready`, so a change of language is a rebuild rather than a refresh —
+## and the settings panel is put back open, because that is where the switch
+## was just pressed.
+func _relanguage(_lang: String) -> void:
+	var was_settings: bool = _settings != null and _settings.visible
+	var was_slots: bool = _save_slot_root != null and _save_slot_root.visible
+	for old in [_menu_root, _save_slot_root, _settings]:
+		if old != null and is_instance_valid(old):
+			remove_child(old)
+			old.queue_free()
+	_buttons.clear()
+	_menu_root = null
+	_save_slot_root = null
+	_settings = null
+	_start_button = null
+	_settings_button = null
+	_first_save_slot = null
+	_build_menu()
+	_build_save_slots()
+	_build_settings()
+	if was_settings:
+		_settings.visible = true
+		_menu_root.visible = false
+	elif was_slots:
+		_show_save_slots()
 
 func _slider(name: String, value: float, cb: Callable) -> Control:
 	var h := HBoxContainer.new()
@@ -705,10 +756,11 @@ func _draw_focus_marks() -> void:
 func _draw_save_slot_prompt() -> void:
 	if _save_slot_root == null or not _save_slot_root.visible:
 		return
-	var line := "SELECT SAVE SLOT"
-	var w := _menu_font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+	var line := Loc.t("menu.title.select_slot")
+	var size := Loc.text_size(line, 16)
+	var w := _menu_font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 	draw_string(_menu_font, Vector2(SEAL.x - w * 0.5, SAVE_SLOT_TOP - 12.0), line,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(CREAM.r, CREAM.g, CREAM.b, 0.7))
+		HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(CREAM.r, CREAM.g, CREAM.b, 0.7))
 
 func _draw_records() -> void:
 	if _settings != null and _settings.visible:
@@ -716,11 +768,12 @@ func _draw_records() -> void:
 	if _save_slot_root != null and _save_slot_root.visible:
 		return
 	var rec: Dictionary = GameState.records
-	var line := "RAIDS %d   ESCAPED %d   LOST %d   KILLS %d   BEST HAUL %d" % [
-		rec["raids"], rec["escapes"], rec["deaths"], rec["kills"], rec["best_haul"]]
-	var w := _menu_font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+	var line := Loc.t("menu.title.records", [
+		rec["raids"], rec["escapes"], rec["deaths"], rec["kills"], rec["best_haul"]])
+	var size := Loc.text_size(line, 12)
+	var w := _menu_font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 	draw_string(_menu_font, Vector2(SEAL.x - w * 0.5, 708.0), line,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.30, 0.42, 0.62, 0.75))
+		HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(0.30, 0.42, 0.62, 0.75))
 
 ## Scanlines and a vignette, to sit the whole thing behind glass.
 func _draw_glass() -> void:

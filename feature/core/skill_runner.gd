@@ -530,7 +530,7 @@ func simulate() -> Dictionary:
 		"ttl": cycle_ttl(), "expired": false, "error": "",
 	}
 	if board.find_input() == null:
-		blank["error"] = "No INPUT placed"
+		blank["error"] = Loc.t("editor.problem.no_input_short")
 		return blank
 
 	var dry := SkillRunner.new(board)

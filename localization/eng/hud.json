@@ -1,0 +1,94 @@
+{
+	"health": "%d / %d",
+	"burning": "BURNING",
+	"chilled": "CHILLED",
+	"slot": {
+		"weapon_attack": "Weapon attack",
+		"not_on": "NOT ON %s",
+		"armed": "ARMED",
+		"pulse_one": "%d pulse",
+		"pulse_many": "%d pulses",
+		"hint": "%s attacks · number keys arm a skill · hold %s to charge, release to cast"
+	},
+	"bag": {
+		"title": "BAG (lost on death)",
+		"scrap": "scrap %d",
+		"row": "%s x%d",
+		"more": "…",
+		"empty": "empty"
+	},
+	"map": {
+		"clock": "%02d:%02d  •  %s",
+		"pressure": [
+			"quiet",
+			"stirring",
+			"alert",
+			"hunting",
+			"swarming"
+		]
+	},
+	"extracting": "EXTRACTING",
+	"footer": "TAB assemble   F interact   SHIFT dash",
+	"extract": {
+		"hold": "hold F to extract",
+		"no_exit": "no exit",
+		"needs_scrap": "needs %d scrap (have %d)",
+		"sealed": "sealed until the Arbiter falls"
+	},
+	"tutorial": [
+		"Move with A and D. SPACE jumps — press it again against a wall to kick off.",
+		"Hold the LEFT MOUSE BUTTON to run skill slot 1. Your board's length sets its rhythm.",
+		"Press TAB to open assembly. The raid does not pause while you build.",
+		"The glowing frames in the walls are doors. The map is yours to pick through.",
+		"Loot is only yours once you leave. Stand in an exit and hold F."
+	],
+	"dialogue": {
+		"choose": "%s/%s choose  ·  %s answer",
+		"player": "You"
+	},
+	"cutscene": {
+		"hint": "%s continue  ·  %s skip"
+	},
+	"sandbox": {
+		"swap_weapon": "SWAP WEAPON",
+		"dragon_test": "DRAGON TEST >",
+		"spawn": "spawn %s",
+		"spawn_dummy": "spawn dummy",
+		"clear": "clear",
+		"leave": "leave (ESC)",
+		"dps": "damage/sec (3s avg): %.1f",
+		"hint": "%s assemble · %s attacks · 1-3 arm · hold %s to charge",
+		"card": "%s%d · %s%s",
+		"unusable": "  X",
+		"cycle": "cycle %.2fs · out %d",
+		"heading": "SANDBOX · %s"
+	},
+	"dragon": {
+		"play": "PLAY",
+		"guards": "GUARDS",
+		"chain": "CHAIN %d / %d",
+		"hold": "HOLD TO CHARGE",
+		"release": "RELEASE TO CAST",
+		"keys": "R RESET  TAB EDIT  ESC BACK",
+		"title": "DRAGON TEST",
+		"subtitle": "%d GUARDS   ONE CAST",
+		"rewind": "REWIND",
+		"one_cast": "ALL %d IN ONE CAST",
+		"clear": "FLOOR CLEAR   BEST CAST %d OF %d",
+		"board": "Dragon Dash"
+	},
+	"pickup": "Recovered %s — assemble it with TAB",
+	"exit": {
+		"sign": "EXIT",
+		"entry": "ENTRY GATE",
+		"arbiter": "ARBITER GATE",
+		"toll": "TOLL GATE",
+		"crack": "CRACK IN THE WALL"
+	},
+	"toast": {
+		"deployed": "Deployed. Hold F at an exit to leave with what you carry.",
+		"followed": "Something followed you in here.",
+		"boss_down": "The Arbiter is down. Its gate is open.",
+		"scrap": "+%d scrap"
+	}
+}

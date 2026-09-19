@@ -59,8 +59,6 @@ const BOX_EDGE := Color(0.24, 0.3, 0.38)
 ## One ink for the whole code, capitals, small letters and digits alike.
 const CODE_INK := Color(0.86, 0.94, 1.0)
 
-const HINT := "type either case · ENTER builds · ESC closes"
-
 var _hover: String = ""
 var _note: String = ""
 var _note_col: Color = UiKit.DIM
@@ -126,7 +124,7 @@ func handle_key(e: InputEventKey) -> bool:
 	# the only way to tell an `a` from an `A` without knowing the keyboard.
 	var typed := char(e.unicode) if e.unicode > 0 else ""
 	if typed == "0":
-		note(BoardCode.HAS_ZERO, UiKit.WARN)
+		note(BoardCode.error_text(BoardCode.HAS_ZERO), UiKit.WARN)
 		Audio.play("deny")
 	elif BoardCode.holds(typed) and entry.length() < BoardCode.max_chars():
 		_set_entry(entry + typed)
@@ -165,19 +163,19 @@ func _copy() -> void:
 	if code.is_empty():
 		return
 	if not DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD):
-		note("There is no clipboard here — read the code off the sheet.", UiKit.WARN)
+		note(Loc.t("editor.share.no_clipboard_read"), UiKit.WARN)
 		return
 	DisplayServer.clipboard_set(code)
-	note("Code copied — %d characters." % BoardCode.clean(code).length(), UiKit.GOOD)
+	note(Loc.t("editor.share.copied", [BoardCode.clean(code).length()]), UiKit.GOOD)
 	Audio.play("ui")
 
 func _paste() -> void:
 	if not DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD):
-		note("There is no clipboard here — type the code in.", UiKit.WARN)
+		note(Loc.t("editor.share.no_clipboard_write"), UiKit.WARN)
 		return
 	var got := BoardCode.clean(DisplayServer.clipboard_get())
 	if got.is_empty():
-		note("There is no code on the clipboard.", UiKit.WARN)
+		note(Loc.t("editor.share.clipboard_empty"), UiKit.WARN)
 		Audio.play("deny")
 		return
 	_set_entry(got.left(BoardCode.max_chars()))
@@ -187,7 +185,7 @@ func _paste() -> void:
 ## makes of the code comes back through `note`.
 func _build() -> void:
 	if entry.is_empty():
-		note("Nothing to build — type or paste a code first.", UiKit.WARN)
+		note(Loc.t("editor.share.nothing_to_build"), UiKit.WARN)
 		Audio.play("deny")
 		return
 	build_requested.emit(entry)
@@ -211,21 +209,22 @@ func _layout() -> Dictionary:
 	var x := at.x + PAD
 	var y := at.y + PAD
 	l["title"] = Vector2(x, y + BTN_TEXT_Y)
-	l["close"] = Rect2(at.x + w - PAD - _button_width("CLOSE"), y, _button_width("CLOSE"), BTN_H)
+	var close_w := _button_width(Loc.t("editor.share.close"))
+	l["close"] = Rect2(at.x + w - PAD - close_w, y, close_w, BTN_H)
 	y += BTN_H + GAP
 	l["code_label"] = Vector2(x, y + 14.0)
 	y += LINE
 	l["code_box"] = Rect2(x, y, box_w, code_h)
 	y += code_h + GAP_SMALL
-	l["copy"] = Rect2(x, y, _button_width("COPY"), BTN_H)
+	l["copy"] = Rect2(x, y, _button_width(Loc.t("editor.share.copy")), BTN_H)
 	l["copy_note"] = Vector2((l["copy"] as Rect2).end.x + BTN_GAP, y + BTN_TEXT_Y)
 	y += BTN_H + GAP
 	l["entry_label"] = Vector2(x, y + 14.0)
 	y += LINE
 	l["entry_box"] = Rect2(x, y, box_w, entry_h)
 	y += entry_h + GAP_SMALL
-	l["paste"] = Rect2(x, y, _button_width("PASTE"), BTN_H)
-	l["build"] = Rect2((l["paste"] as Rect2).end.x + BTN_GAP, y, _button_width("BUILD"), BTN_H)
+	l["paste"] = Rect2(x, y, _button_width(Loc.t("editor.share.paste")), BTN_H)
+	l["build"] = Rect2((l["paste"] as Rect2).end.x + BTN_GAP, y, _button_width(Loc.t("editor.share.build")), BTN_H)
 	y += BTN_H + GAP
 	l["note"] = Vector2(x, y + 14.0)
 	# A gap before the controls line, or a note that wraps to its second line
@@ -261,33 +260,33 @@ func _draw() -> void:
 	_px.rect(panel, BG)
 	_px.frame(panel, EDGE)
 
-	_px.text(l["title"], "SHARE CODE", Color(0.85, 0.92, 1.0))
-	_draw_button(l["close"], "CLOSE", Color(1.0, 0.6, 0.6), _hover == "close", true)
+	_px.text(l["title"], Loc.t("editor.share.heading"), Color(0.85, 0.92, 1.0))
+	_draw_button(l["close"], Loc.t("editor.share.close"), Color(1.0, 0.6, 0.6), _hover == "close", true)
 
 	var width: float = l["text_width"]
-	_px.text(l["code_label"], "THIS BOARD", UiKit.ACCENT, width)
+	_px.text(l["code_label"], Loc.t("editor.share.this_board"), UiKit.ACCENT, width)
 	var c := BoardCode.clean(code)
 	if c.is_empty():
 		_px.text((l["code_box"] as Rect2).position + Vector2(BOX_PAD, BOX_PAD + 14.0),
-			"— this board cannot be put into a code —", UiKit.BAD, width)
+			Loc.t("editor.share.uncodeable"), UiKit.BAD, width)
 		_px.rect(l["code_box"], Color(0, 0, 0, 0))
 		_px.frame(l["code_box"], BOX_EDGE)
 	else:
 		_draw_box(l["code_box"], _lines(c, CODE_LINES, false))
-	_draw_button(l["copy"], "COPY", UiKit.GOOD, _hover == "copy", not c.is_empty())
+	_draw_button(l["copy"], Loc.t("editor.share.copy"), UiKit.GOOD, _hover == "copy", not c.is_empty())
 	if not c.is_empty():
-		_px.text(l["copy_note"], "%d characters" % c.length(), UiKit.DIM)
+		_px.text(l["copy_note"], Loc.t("editor.share.characters", [c.length()]), UiKit.DIM)
 
-	_px.text(l["entry_label"], "BUILD FROM A CODE", UiKit.ACCENT, width)
+	_px.text(l["entry_label"], Loc.t("editor.share.entry"), UiKit.ACCENT, width)
 	var typed := _lines(entry, ENTRY_LINES, true)
 	# A block caret on the end of what has been typed, blinking, so an empty
 	# field reads as one waiting for a code rather than as one that is broken.
 	if fmod(_caret, 1.0) < 0.6:
 		typed[typed.size() - 1] = String(typed[typed.size() - 1]) + "_"
 	_draw_box(l["entry_box"], typed)
-	_draw_button(l["paste"], "PASTE", UiKit.ACCENT, _hover == "paste",
+	_draw_button(l["paste"], Loc.t("editor.share.paste"), UiKit.ACCENT, _hover == "paste",
 		DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD))
-	_draw_button(l["build"], "BUILD", UiKit.GOOD, _hover == "build", not entry.is_empty())
+	_draw_button(l["build"], Loc.t("editor.share.build"), UiKit.GOOD, _hover == "build", not entry.is_empty())
 
 	var says := _note if _note != "" else _live_note()
 	var col := _note_col if _note != "" else UiKit.DIM
@@ -295,23 +294,23 @@ func _draw() -> void:
 	var rows := PixelDraw.wrap(says, width, NOTE_LINES)
 	for i in rows.size():
 		_px.text(note_at + Vector2(0, i * LINE), rows[i], col)
-	_px.text(l["hint"], HINT, Color(0.5, 0.58, 0.68), width)
+	_px.text(l["hint"], Loc.t("editor.share.hint"), Color(0.5, 0.58, 0.68), width)
 
 ## What the sheet says about the code so far, with no action behind it: a code
 ## still being typed is not a mistake, so nothing is called wrong until it is
 ## the length of a whole one.
 func _live_note() -> String:
 	if entry.is_empty():
-		return "Type a code in, or PASTE one from the clipboard."
+		return Loc.t("editor.share.prompt")
 	if entry.length() < BoardCode.WORD_CHARS + 1 or entry.length() % BoardCode.WORD_CHARS != 1:
-		return "%d characters so far…" % entry.length()
+		return Loc.t("editor.share.typing", [entry.length()])
 	var read := BoardCode.decode(entry)
 	if String(read["error"]) != "":
 		return String(read["error"])
 	var board: SkillBoard = read["board"]
 	var tags := board.compute_tags()
-	return "%dx%d · %d parts · %s" % [board.width, board.height, board.cells.size(),
-		", ".join(tags) if tags.size() > 0 else "utility"]
+	return Loc.t("editor.share.summary", [board.width, board.height, board.cells.size(),
+		Components.tag_names(tags) if tags.size() > 0 else Loc.t("editor.share.utility")])
 
 func _draw_box(r: Rect2, rows: PackedStringArray) -> void:
 	_px.rect(r, BOX_FILL)

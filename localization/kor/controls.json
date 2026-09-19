@@ -1,0 +1,27 @@
+{
+	"heading": "조작 — 항목을 누른 뒤 원하는 키를 누르세요",
+	"reset": "기본값으로 되돌리기",
+	"listening": "키를 누르세요…",
+	"unbound": "없음",
+	"none": "—",
+	"mouse": "마우스 %d",
+	"pad_button": "패드 %d",
+	"pad_axis": "패드 축 %d%s",
+	"action": {
+		"move_left": "왼쪽 이동",
+		"move_right": "오른쪽 이동",
+		"move_up": "위 조준",
+		"move_down": "아래 조준 / 내려가기",
+		"jump": "점프",
+		"dash": "대시",
+		"attack": "공격 (무기)",
+		"cast_skill": "장착 스킬 시전",
+		"skill_1": "1번 슬롯 장착",
+		"skill_2": "2번 슬롯 장착",
+		"skill_3": "3번 슬롯 장착",
+		"skill_4": "4번 슬롯 장착",
+		"open_editor": "스킬 조립",
+		"interact": "상호작용 / 탈출",
+		"pause": "일시정지"
+	}
+}

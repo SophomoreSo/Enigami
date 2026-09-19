@@ -42,8 +42,24 @@ static func character(id: String) -> Dictionary:
 		push_warning("Dialogue: no file for '%s', talking like %s" % [id, FALLBACK])
 		return character(FALLBACK)
 	_fill_defaults(def)
+	_translate(def, id)
 	_cache[id] = def
 	return def
+
+## Forgets what has been read, so an edited file — or a change of language — is
+## picked up without a restart. `CutsceneScript.reload` is the same for scenes.
+static func reload() -> void:
+	_cache.clear()
+
+## Lays the language's words over the file's own, from
+## `localization/<lang>/dialogue/<id>.json`.
+##
+## Only the words move: what is said, the names on the tab and the answers on a
+## question. Where a line leads, what the camera does and what it sounds like
+## stay in `data/`, so a translator never touches the shape of a conversation
+## and a writer never touches six languages. A line the language has not
+## reached keeps what `data/` says, which is what lets a new conversation be
+## written and played before any of it is translated.
 
 ## Mistakes in a character's file that would otherwise only show up as a
 ## conversation cut short, and only for whoever took that path through it.
@@ -77,6 +93,31 @@ static func problems(id: String) -> Array:
 			if String(to) != "" and not all.has(to):
 				found.append("%s -> %s" % [key, to])
 	return found
+
+static func _translate(def: Dictionary, id: String) -> void:
+	var over := Loc.overlay("dialogue", id)
+	if over.is_empty():
+		return
+	for k in ["name", "player_name"]:
+		if over.has(k):
+			def[k] = String(over[k])
+	var nodes: Dictionary = def.get("nodes", {})
+	var lines: Dictionary = over.get("nodes", {})
+	for key in nodes:
+		if not (nodes[key] is Dictionary) or not lines.has(key):
+			continue
+		var node: Dictionary = nodes[key]
+		var line: Dictionary = lines[key]
+		for k in ["text", "name"]:
+			if line.has(k):
+				node[k] = String(line[k])
+		var answers: Array = line.get("choices", [])
+		var choices: Array = node.get("choices", [])
+		# Position for position: an answer the language has not reached keeps
+		# the words in `data/`, and where each one leads is never touched.
+		for i in mini(answers.size(), choices.size()):
+			if choices[i] is Dictionary:
+				(choices[i] as Dictionary)["text"] = String(answers[i])
 
 static func _fill_defaults(def: Dictionary) -> void:
 	var defaults: Dictionary = def.get("defaults", {})

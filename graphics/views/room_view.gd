@@ -85,7 +85,7 @@ func _draw() -> void:
 	for i in 3:
 		var rad: float = 20.0 + float(i) * 12.0 + sin(t + float(i)) * 3.0
 		draw_arc(c, rad, 0, TAU, 28, Color(col.r, col.g, col.b, 0.45 - 0.1 * float(i)), 2.0)
-	var title := String(room.extraction.get("name", "EXIT"))
+	var title := RaidMap.exit_name(room.extraction)
 	PixelCamera.draw_text(self, c + Vector2(0, -60), title, col)
 	if room.extract_hold > 0.0:
 		var need := float(room.extraction.get("time", 2.5))

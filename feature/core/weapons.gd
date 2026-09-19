@@ -58,6 +58,15 @@ const DEFS := {
 static func get_def(id: String) -> Dictionary:
 	return DEFS.get(id, DEFS["SWORD"])
 
+## The weapon's name and what it is like to swing, in the language being
+## played. The `name` and `desc` above are the fallback under them, the same
+## way `Components.name_for` falls back.
+static func name_for(id: String) -> String:
+	return Loc.opt("weapons.%s.name" % id, String(get_def(id)["name"]))
+
+static func desc_for(id: String) -> String:
+	return Loc.opt("weapons.%s.desc" % id, String(get_def(id)["desc"]))
+
 static func ids() -> Array:
 	return DEFS.keys()
 
@@ -83,7 +92,7 @@ static func rejection_reason(weapon_id: String, board: SkillBoard) -> String:
 	if accepts_board(weapon_id, board):
 		return ""
 	var tags := board.compute_tags()
-	return "%s will not carry a %s skill." % [get_def(weapon_id)["name"], ", ".join(tags)]
+	return Loc.t("weapons.rejection", [name_for(weapon_id), Components.tag_names(tags)])
 
 ## The same refusal, short enough to float over a fight. `rejection_reason` is
 ## a sentence for the loadout screen; this is a label for the moment a player
@@ -91,8 +100,8 @@ static func rejection_reason(weapon_id: String, board: SkillBoard) -> String:
 static func rejection_note(weapon_id: String, board: SkillBoard) -> String:
 	if accepts_board(weapon_id, board):
 		return ""
-	return "%s: no %s" % [String(get_def(weapon_id)["name"]).to_upper(),
-		", ".join(board.compute_tags())]
+	return Loc.t("weapons.rejection_note", [name_for(weapon_id).to_upper(),
+		Components.tag_names(board.compute_tags())])
 
 ## The starting payload every flow on this weapon begins with.
 static func base_payload(weapon_id: String) -> Payload:
@@ -124,7 +133,7 @@ static func uses_gravity_shots(weapon_id: String) -> bool:
 ## the whole build.
 static func make_innate_board(weapon_id: String) -> SkillBoard:
 	var kind: String = get_def(weapon_id)["innate"]
-	var b := SkillBoard.new(7, 5, "%s Basic" % get_def(weapon_id)["name"])
+	var b := SkillBoard.new(7, 5, Loc.t("weapons.basic_board", [name_for(weapon_id)]))
 	match kind:
 		"slash":
 			b.place("INPUT", Vector2i(0, 2), 0)

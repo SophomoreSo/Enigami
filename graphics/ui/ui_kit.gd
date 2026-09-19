@@ -50,7 +50,7 @@ static func button(text: String, accent: Color = ACCENT, pixel: bool = false) ->
 	b.add_theme_color_override("font_disabled_color", Color(0.4, 0.42, 0.46))
 	if pixel:
 		b.add_theme_font_override("font", PIXEL_FONT)
-	b.add_theme_font_size_override("font_size", PIXEL_TEXT if pixel else 13)
+	b.add_theme_font_size_override("font_size", Loc.text_size(text, PIXEL_TEXT) if pixel else 13)
 	return b
 
 ## A button layered over a running game. It never takes keyboard focus, so the
@@ -92,9 +92,10 @@ static func label(text: String, size: int = 13, color: Color = TEXT, pixel: bool
 	l.text = text
 	l.add_theme_color_override("font_color", color)
 	if pixel:
-		# Silkscreen only draws clean at multiples of its native 8px.
+		# Silkscreen only draws clean at multiples of its native 8px, and a
+		# language writing in a face of its own only at multiples of that.
 		l.add_theme_font_override("font", PIXEL_FONT)
-		size = maxi(PIXEL_TEXT, snappedi(size, 8))
+		size = Loc.text_size(text, maxi(PIXEL_TEXT, snappedi(size, 8)))
 	l.add_theme_font_size_override("font_size", size)
 	return l
 

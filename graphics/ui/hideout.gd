@@ -42,12 +42,19 @@ func _ready() -> void:
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 	set_process(true)
+	Loc.language_changed.connect(_relanguage)
 	if weapon_id == "" or not GameState.owned_weapons.has(weapon_id):
 		weapon_id = GameState.owned_weapons[0] if GameState.owned_weapons.size() > 0 else "SWORD"
 	rebuild()
 
 func _process(_d: float) -> void:
 	UiKit.sync_screen(self)
+
+## Every label here is written once in `rebuild`, so a change of language is
+## the same rebuild a purchase or a slot change already asks for.
+func _relanguage(_lang: String) -> void:
+	_message = ""
+	rebuild()
 
 func rebuild() -> void:
 	if _root != null:
@@ -129,9 +136,9 @@ func _explain(c: Control, text: String) -> void:
 func _idle_status() -> String:
 	if _message != "":
 		return _message
-	return "board %dx%d · max hp %d · stash cap %d" % [
+	return Loc.t("hideout.status", [
 		GameState.board_size().x, GameState.board_size().y,
-		int(GameState.max_health()), GameState.stash_cap()]
+		int(GameState.max_health()), GameState.stash_cap()])
 
 func _say(msg: String) -> void:
 	_message = msg
@@ -141,16 +148,16 @@ func _say(msg: String) -> void:
 func _header() -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 16)
-	h.add_child(UiKit.title("HIDEOUT", 22, true))
-	h.add_child(_label("scrap %d" % GameState.scrap, UiKit.WARN))
+	h.add_child(UiKit.title(Loc.t("hideout.heading"), 22, true))
+	h.add_child(_label(Loc.t("hideout.scrap", [GameState.scrap]), UiKit.WARN))
 	var r: Dictionary = GameState.records
-	h.add_child(_label("raids %d · escaped %d · lost %d · kills %d" % [
-		r["raids"], r["escapes"], r["deaths"], r["kills"]], UiKit.DIM))
+	h.add_child(_label(Loc.t("hideout.records", [
+		r["raids"], r["escapes"], r["deaths"], r["kills"]]), UiKit.DIM))
 	h.add_child(_pad())
-	var sb := _button("SANDBOX", UiKit.GOOD)
+	var sb := _button(Loc.t("hideout.sandbox"), UiKit.GOOD)
 	sb.pressed.connect(func() -> void: sandbox_requested.emit())
 	h.add_child(sb)
-	var tb := _button("TITLE")
+	var tb := _button(Loc.t("hideout.title"))
 	tb.pressed.connect(func() -> void: title_requested.emit())
 	h.add_child(tb)
 	return h
@@ -163,23 +170,23 @@ func _weapons_column() -> Control:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
 	p.add_child(v)
-	v.add_child(_label("WEAPON — one per raid", UiKit.ACCENT))
+	v.add_child(_label(Loc.t("hideout.weapons.heading"), UiKit.ACCENT))
 	v.add_child(UiKit.hline(true))
 	for id in Weapons.ids():
 		var owned: bool = GameState.owned_weapons.has(id)
-		var d := Weapons.get_def(id)
 		var selected: bool = id == weapon_id
 		var wc := Style.weapon_color(id)
 		# Two characters either way, so the name does not shift as the mark moves.
-		var b := _button("%s%s%s" % ["> " if selected else "  ", d["name"],
-			"" if owned else "  (lost)"], wc if selected else UiKit.DIM)
+		var b := _button(Loc.t("hideout.weapons.row", ["> " if selected else "  ",
+			Weapons.name_for(id), "" if owned else Loc.t("hideout.weapons.lost")]),
+			wc if selected else UiKit.DIM)
 		b.disabled = not owned
 		b.custom_minimum_size = Vector2(0, 40 if selected else 34)
 		if selected:
 			b.add_theme_color_override("font_color", wc)
 			b.add_theme_stylebox_override("normal", UiKit.style(
 				Color(wc.r, wc.g, wc.b, 0.2), wc, 2, 3, true))
-		_explain(b, String(d["desc"]))
+		_explain(b, Weapons.desc_for(id))
 		b.pressed.connect(func() -> void:
 			weapon_id = id
 			focus_slot = 0
@@ -187,18 +194,18 @@ func _weapons_column() -> Control:
 		v.add_child(b)
 	v.add_child(UiKit.spacer(6))
 	var d := Weapons.get_def(weapon_id)
-	v.add_child(_wrapped(String(d["desc"])))
+	v.add_child(_wrapped(Weapons.desc_for(weapon_id)))
 	v.add_child(UiKit.spacer(4))
 	# Slots and what they take read as one fact about the weapon, and as two
 	# labels they were two wrapped blocks with a gap down the middle.
-	v.add_child(_wrapped("slots %d · accepts %s" % [int(d["slots"]), ", ".join(d["accepts"])],
-		UiKit.TEXT))
-	v.add_child(_wrapped("melee x%.2f · ranged x%.2f · bolt speed x%.2f" % [
-		float(d["melee_mul"]), float(d["ranged_mul"]), float(d["projectile_speed"])]))
+	v.add_child(_wrapped(Loc.t("hideout.weapons.slots",
+		[int(d["slots"]), Components.tag_names(d["accepts"])]), UiKit.TEXT))
+	v.add_child(_wrapped(Loc.t("hideout.weapons.multipliers", [
+		float(d["melee_mul"]), float(d["ranged_mul"]), float(d["projectile_speed"])])))
 	if bool(d["gravity_shots"]):
-		v.add_child(_wrapped("thrown: shots arc under gravity", UiKit.WARN))
+		v.add_child(_wrapped(Loc.t("hideout.weapons.gravity"), UiKit.WARN))
 	v.add_child(UiKit.spacer(8))
-	v.add_child(_wrapped("Dying loses this weapon and the skills slotted into it.", UiKit.BAD))
+	v.add_child(_wrapped(Loc.t("hideout.weapons.warning"), UiKit.BAD))
 	return p
 
 ## --- loadout + library ------------------------------------------------------
@@ -211,7 +218,7 @@ func _loadout_column() -> Control:
 	p.add_child(v)
 
 	var slots := GameState.get_loadout(weapon_id)
-	v.add_child(_label("SKILL SLOTS", UiKit.ACCENT))
+	v.add_child(_label(Loc.t("hideout.loadout.heading"), UiKit.ACCENT))
 	v.add_child(UiKit.hline(true))
 	for i in slots.size():
 		var row := HBoxContainer.new()
@@ -220,21 +227,22 @@ func _loadout_column() -> Control:
 		# The tags ride in the button with the name rather than in a label beside
 		# it: at this size the pair ran past the panel, and the button is the one
 		# of the two that can give ground.
-		var name_txt := "— empty —"
+		var name_txt := Loc.t("hideout.loadout.empty")
 		if idx >= 0:
 			var b: SkillBoard = GameState.skill_library[idx]
-			name_txt = "%s  [%s]" % [b.skill_name, ", ".join(b.compute_tags())]
-		var sel := _row_button("%s %d: %s" % [">" if i == focus_slot else " ", i + 1, name_txt],
+			name_txt = Loc.t("hideout.loadout.named",
+				[b.skill_name, Components.tag_names(b.compute_tags())])
+		var sel := _row_button(Loc.t("hideout.loadout.row", [">" if i == focus_slot else " ", i + 1, name_txt]),
 			UiKit.ACCENT if i == focus_slot else UiKit.DIM)
 		sel.pressed.connect(func() -> void:
 			focus_slot = i
 			rebuild())
 		row.add_child(sel)
 		if idx >= 0:
-			var ed := _button("EDIT", UiKit.GOOD)
+			var ed := _button(Loc.t("hideout.loadout.edit"), UiKit.GOOD)
 			ed.pressed.connect(func() -> void: edit_requested.emit(idx))
 			row.add_child(ed)
-			var cl := _button("CLEAR", UiKit.BAD)
+			var cl := _button(Loc.t("hideout.loadout.clear"), UiKit.BAD)
 			cl.pressed.connect(func() -> void:
 				var s := GameState.get_loadout(weapon_id)
 				s[i] = -1
@@ -245,9 +253,9 @@ func _loadout_column() -> Control:
 
 	v.add_child(UiKit.spacer(8))
 	var lib_head := HBoxContainer.new()
-	lib_head.add_child(_label("SKILL LIBRARY — fits slot %d" % (focus_slot + 1), UiKit.ACCENT))
+	lib_head.add_child(_label(Loc.t("hideout.loadout.library", [focus_slot + 1]), UiKit.ACCENT))
 	lib_head.add_child(_pad())
-	var nb := _button("NEW SKILL", UiKit.GOOD)
+	var nb := _button(Loc.t("hideout.loadout.new"), UiKit.GOOD)
 	nb.pressed.connect(func() -> void:
 		GameState.new_skill()
 		edit_requested.emit(GameState.skill_library.size() - 1))
@@ -270,8 +278,8 @@ func _loadout_column() -> Control:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 6)
 		var tags := board.compute_tags()
-		var btn := _row_button("%s   [%s]" % [board.skill_name,
-			", ".join(tags) if tags.size() > 0 else "utility"],
+		var btn := _row_button(Loc.t("hideout.loadout.entry", [board.skill_name,
+			Components.tag_names(tags) if tags.size() > 0 else Loc.t("hideout.loadout.utility")]),
 			UiKit.GOOD if compatible else UiKit.BAD)
 		btn.disabled = not compatible
 		# Why it will not fit goes to the status line: the row it used to sit on
@@ -288,11 +296,11 @@ func _loadout_column() -> Control:
 			focus_slot = mini(focus_slot + 1, s.size() - 1)
 			rebuild())
 		row.add_child(btn)
-		var ed := _button("EDIT")
+		var ed := _button(Loc.t("hideout.loadout.edit"))
 		ed.pressed.connect(func() -> void: edit_requested.emit(i))
 		row.add_child(ed)
 		# The pixel face has no ✕; an X in it is the same mark and one glyph.
-		var del := _button("X", UiKit.BAD)
+		var del := _button(Loc.t("hideout.loadout.delete"), UiKit.BAD)
 		del.pressed.connect(func() -> void:
 			GameState.delete_skill(i)
 			rebuild())
@@ -308,7 +316,7 @@ func _facilities_column() -> Control:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 5)
 	p.add_child(v)
-	v.add_child(_label("FACILITIES", UiKit.ACCENT))
+	v.add_child(_label(Loc.t("hideout.facilities.heading"), UiKit.ACCENT))
 	v.add_child(UiKit.hline(true))
 	for key in GameState.FACILITY_INFO:
 		var info: Dictionary = GameState.FACILITY_INFO[key]
@@ -316,32 +324,32 @@ func _facilities_column() -> Control:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 6)
 		row.mouse_filter = Control.MOUSE_FILTER_PASS
-		_explain(row, String(info["desc"]))
-		var lbl := _label("%s  lv%d" % [info["name"], lvl])
+		_explain(row, GameState.facility_desc(key))
+		var lbl := _label(Loc.t("hideout.facilities.row", [GameState.facility_name(key), lvl]))
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(lbl)
 		if lvl >= int(info["max"]):
-			row.add_child(_label("max", UiKit.DIM))
+			row.add_child(_label(Loc.t("hideout.facilities.max"), UiKit.DIM))
 		else:
 			var b := _button("%d" % GameState.facility_cost(key), UiKit.WARN)
 			b.disabled = not GameState.can_upgrade(key)
-			_explain(b, String(info["desc"]))
+			_explain(b, GameState.facility_desc(key))
 			b.pressed.connect(func() -> void:
 				if GameState.upgrade_facility(key):
 					Audio.play("pickup")
-					_say("%s is level %d." % [info["name"], GameState.facilities[key]])
+					_say(Loc.t("hideout.facilities.upgraded", [GameState.facility_name(key), GameState.facilities[key]]))
 					rebuild())
 			row.add_child(b)
 		v.add_child(row)
 
 	v.add_child(UiKit.spacer(8))
 	var sh := HBoxContainer.new()
-	sh.add_child(_label("STASH", UiKit.ACCENT))
+	sh.add_child(_label(Loc.t("hideout.stash.heading"), UiKit.ACCENT))
 	sh.add_child(_pad())
 	# No arrow in the pixel face: three of them go in, one comes out.
-	var fb := _button("FORGE 3>1 (25)", UiKit.WARN)
+	var fb := _button(Loc.t("hideout.stash.forge"), UiKit.WARN)
 	fb.disabled = GameState.scrap < 25 or _stash_total() < 3
-	_explain(fb, "Melts three spare components into one, for 25 scrap.")
+	_explain(fb, Loc.t("hideout.stash.forge_hint"))
 	fb.pressed.connect(_forge)
 	sh.add_child(fb)
 	v.add_child(sh)
@@ -363,23 +371,23 @@ func _facilities_column() -> Control:
 		any = true
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 6)
-		var l := _label("%s x%d" % [Components.get_def(id)["name"], n], Style.component_color(id))
+		var l := _label(Loc.t("hideout.stash.row", [Components.name_for(id), n]), Style.component_color(id))
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		l.clip_text = true
-		_explain(l, String(Components.get_def(id)["desc"]))
+		_explain(l, Components.desc_for(id))
 		row.add_child(l)
-		var sc := _button("scrap", UiKit.DIM)
-		_explain(sc, "Breaks one down for scrap.")
+		var sc := _button(Loc.t("hideout.stash.scrap"), UiKit.DIM)
+		_explain(sc, Loc.t("hideout.stash.scrap_hint"))
 		sc.pressed.connect(func() -> void:
 			var gain := GameState.scrap_component(id)
 			if gain > 0:
 				Audio.play("erase")
-				_say("Scrapped %s for %d." % [Components.get_def(id)["name"], gain])
+				_say(Loc.t("hideout.stash.scrapped", [Components.name_for(id), gain]))
 			rebuild())
 		row.add_child(sc)
 		list.add_child(row)
 	if not any:
-		list.add_child(_wrapped("Nothing stored. Bring something home."))
+		list.add_child(_wrapped(Loc.t("hideout.stash.empty")))
 	return p
 
 func _stash_total() -> int:
@@ -404,7 +412,7 @@ func _forge() -> void:
 	var made := GameState.forge_component(pick)
 	if made != "":
 		Audio.play("pickup")
-		_say("The forge yielded %s." % Components.get_def(made)["name"])
+		_say(Loc.t("hideout.stash.forged", [Components.name_for(made)]))
 	rebuild()
 
 ## --- deploy -----------------------------------------------------------------
@@ -413,10 +421,10 @@ func _footer() -> Control:
 	h.add_theme_constant_override("separation", 12)
 	var slots := GameState.get_loadout(weapon_id)
 	var filled := slots.filter(func(i: int) -> bool: return int(i) >= 0)
-	h.add_child(_label("%d of %d slots filled" % [filled.size(), slots.size()], UiKit.DIM))
+	h.add_child(_label(Loc.t("hideout.footer.filled", [filled.size(), slots.size()]), UiKit.DIM))
 	h.add_child(_pad())
-	h.add_child(_label("Everything you take can be lost.", UiKit.BAD))
-	var b := _button("DEPLOY >", UiKit.GOOD)
+	h.add_child(_label(Loc.t("hideout.footer.warning"), UiKit.BAD))
+	var b := _button(Loc.t("hideout.footer.deploy"), UiKit.GOOD)
 	b.custom_minimum_size = Vector2(180, 40)
 	b.disabled = filled.is_empty() or not GameState.owned_weapons.has(weapon_id)
 	b.pressed.connect(func() -> void:

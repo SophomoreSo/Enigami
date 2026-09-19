@@ -17,6 +17,7 @@ config/icon="res://icon.svg"
 
 [autoload]
 
+Loc="*res://app/loc.gd"
 Cues="*res://app/cues.gd"
 Audio="*res://app/audio/audio.gd"
 AudioCues="*res://app/audio/audio_cues.gd"

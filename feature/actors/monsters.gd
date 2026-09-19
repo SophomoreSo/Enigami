@@ -89,9 +89,14 @@ const NORMAL_POOL := ["CRAWLER", "SENTRY", "LOBBER", "HOPPER", "DRIFTER"]
 static func get_def(id: String) -> Dictionary:
 	return DEFS.get(id, DEFS["CRAWLER"])
 
+## What to call a monster on screen. The `name` in DEFS is the fallback, so a
+## monster added here is named before anybody translates it.
+static func name_for(id: String) -> String:
+	return Loc.opt("monsters.%s" % id, String(get_def(id)["name"]))
+
 static func build_board(id: String, key: String = "board") -> SkillBoard:
 	var d := get_def(id)
-	var b := SkillBoard.new(7, 5, String(d["name"]))
+	var b := SkillBoard.new(7, 5, name_for(id))
 	for e in d.get(key, []):
 		b.place(String(e[0]), Vector2i(int(e[1]), int(e[2])), int(e[3]))
 	return b

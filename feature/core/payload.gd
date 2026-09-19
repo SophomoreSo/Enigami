@@ -65,28 +65,28 @@ func is_productive() -> bool:
 
 func summary() -> String:
 	var parts: Array[String] = []
-	parts.append("%s" % (form if form != "" else "no form"))
-	parts.append("dmg %.0f" % damage)
+	parts.append(Components.name_for(form) if form != "" else Loc.t("editor.payload.no_form"))
+	parts.append(Loc.t("editor.payload.damage", [damage]))
 	if size != 1.0:
-		parts.append("x%.1f size" % size)
+		parts.append(Loc.t("editor.payload.size", [size]))
 	if duplicates > 1:
-		parts.append("x%d" % duplicates)
+		parts.append(Loc.t("editor.payload.duplicates", [duplicates]))
 	for e in elements:
-		parts.append(e.to_lower())
+		parts.append(Components.name_for(e).to_lower())
 	if pierce > 0:
-		parts.append("pierce %d" % pierce)
+		parts.append(Loc.t("editor.payload.pierce", [pierce]))
 	if homing:
-		parts.append("homing")
+		parts.append(Loc.t("editor.payload.homing"))
 	if reverse:
-		parts.append("reverse")
+		parts.append(Loc.t("editor.payload.reverse"))
 	if dash:
-		parts.append("dash")
+		parts.append(Loc.t("editor.payload.dash"))
 	if blink:
-		parts.append("blink")
+		parts.append(Loc.t("editor.payload.blink"))
 	if pull:
-		parts.append("pulls in")
+		parts.append(Loc.t("editor.payload.pull"))
 	if shatter:
-		parts.append("x%.1f on chilled" % Attacks.SHATTER_MUL)
+		parts.append(Loc.t("editor.payload.shatter", [Attacks.SHATTER_MUL]))
 	if mana_drain:
-		parts.append("+%.0f mana a hit" % Attacks.MANA_PER_HIT)
-	return ", ".join(parts)
+		parts.append(Loc.t("editor.payload.mana_drain", [Attacks.MANA_PER_HIT]))
+	return Loc.t("editor.payload.separator").join(parts)

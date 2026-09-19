@@ -1,0 +1,94 @@
+{
+	"health": "%d / %d",
+	"burning": "화상",
+	"chilled": "냉각",
+	"slot": {
+		"weapon_attack": "무기 공격",
+		"not_on": "%s 사용 불가",
+		"armed": "장착됨",
+		"pulse_one": "펄스 %d",
+		"pulse_many": "펄스 %d",
+		"hint": "%s 공격 · 숫자 키로 스킬 장착 · %s 길게 눌러 충전, 떼면 시전"
+	},
+	"bag": {
+		"title": "가방 (사망 시 소실)",
+		"scrap": "고철 %d",
+		"row": "%s x%d",
+		"more": "…",
+		"empty": "비어 있음"
+	},
+	"map": {
+		"clock": "%02d:%02d  •  %s",
+		"pressure": [
+			"조용함",
+			"술렁임",
+			"경계",
+			"추적",
+			"몰려듦"
+		]
+	},
+	"extracting": "탈출 중",
+	"footer": "TAB 조립   F 상호작용   SHIFT 대시",
+	"extract": {
+		"hold": "F를 길게 눌러 탈출",
+		"no_exit": "출구 없음",
+		"needs_scrap": "고철 %d 필요 (보유 %d)",
+		"sealed": "중재자를 쓰러뜨려야 열립니다"
+	},
+	"tutorial": [
+		"A와 D로 움직입니다. SPACE로 점프 — 벽에 붙어 다시 누르면 벽을 차고 오릅니다.",
+		"마우스 왼쪽 버튼을 누르고 있으면 1번 스킬 슬롯이 돌아갑니다. 보드의 길이가 그 박자를 정합니다.",
+		"TAB을 눌러 조립 화면을 엽니다. 조립하는 동안에도 레이드는 멈추지 않습니다.",
+		"벽에서 빛나는 틀이 문입니다. 어느 길로 갈지는 당신이 고릅니다.",
+		"전리품은 빠져나와야 당신 것이 됩니다. 출구에 서서 F를 길게 누르세요."
+	],
+	"dialogue": {
+		"choose": "%s/%s 선택  ·  %s 대답",
+		"player": "나"
+	},
+	"cutscene": {
+		"hint": "%s 계속  ·  %s 건너뛰기"
+	},
+	"sandbox": {
+		"swap_weapon": "무기 교체",
+		"dragon_test": "드래곤 테스트 >",
+		"spawn": "%s 소환",
+		"spawn_dummy": "허수아비 소환",
+		"clear": "비우기",
+		"leave": "나가기 (ESC)",
+		"dps": "초당 피해 (3초 평균): %.1f",
+		"hint": "%s 조립 · %s 공격 · 1-3 장착 · %s 길게 눌러 충전",
+		"card": "%s%d · %s%s",
+		"unusable": "  X",
+		"cycle": "주기 %.2f초 · 출력 %d",
+		"heading": "연습장 · %s"
+	},
+	"dragon": {
+		"play": "재생",
+		"guards": "경비병",
+		"chain": "연계 %d / %d",
+		"hold": "길게 눌러 충전",
+		"release": "떼면 시전",
+		"keys": "R 초기화  TAB 편집  ESC 뒤로",
+		"title": "드래곤 테스트",
+		"subtitle": "경비병 %d   단 한 번의 시전",
+		"rewind": "되감기",
+		"one_cast": "한 번의 시전으로 %d 전원 처치",
+		"clear": "층 클리어   최고 기록 %d / %d",
+		"board": "드래곤 대시"
+	},
+	"pickup": "%s을(를) 주웠습니다 — TAB으로 조립하세요",
+	"exit": {
+		"sign": "비상구",
+		"entry": "입구 관문",
+		"arbiter": "중재자의 관문",
+		"toll": "통행료 관문",
+		"crack": "벽의 틈"
+	},
+	"toast": {
+		"deployed": "출격했습니다. 출구에서 F를 길게 눌러 챙긴 것을 들고 나가세요.",
+		"followed": "무언가 당신을 따라 들어왔습니다.",
+		"boss_down": "중재자가 쓰러졌습니다. 그 관문이 열렸습니다.",
+		"scrap": "고철 +%d"
+	}
+}

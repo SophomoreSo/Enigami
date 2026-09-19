@@ -353,14 +353,15 @@ func extraction_rect() -> Rect2:
 
 func extraction_blocked_reason() -> String:
 	if extraction.is_empty():
-		return "no exit"
+		return Loc.t("hud.extract.no_exit")
 	match String(extraction.get("cond", "free")):
 		"cost":
 			if GameState.raid_scrap < int(extraction.get("cost", 20)):
-				return "needs %d scrap (have %d)" % [int(extraction.get("cost", 20)), GameState.raid_scrap]
+				return Loc.t("hud.extract.needs_scrap",
+					[int(extraction.get("cost", 20)), GameState.raid_scrap])
 		"boss":
 			if not bool(data.get("boss_dead", false)):
-				return "sealed until the Arbiter falls"
+				return Loc.t("hud.extract.sealed")
 	return ""
 
 func _process(delta: float) -> void:

@@ -1,0 +1,27 @@
+{
+	"heading": "CONTROLS — click a binding, then press a key",
+	"reset": "RESET TO DEFAULTS",
+	"listening": "press a key…",
+	"unbound": "unbound",
+	"none": "—",
+	"mouse": "Mouse %d",
+	"pad_button": "Pad %d",
+	"pad_axis": "Pad axis %d%s",
+	"action": {
+		"move_left": "Move left",
+		"move_right": "Move right",
+		"move_up": "Aim up",
+		"move_down": "Aim down / drop",
+		"jump": "Jump",
+		"dash": "Dash",
+		"attack": "Attack (weapon)",
+		"cast_skill": "Cast armed skill",
+		"skill_1": "Arm slot 1",
+		"skill_2": "Arm slot 2",
+		"skill_3": "Arm slot 3",
+		"skill_4": "Arm slot 4",
+		"open_editor": "Skill assembly",
+		"interact": "Interact / extract",
+		"pause": "Pause"
+	}
+}

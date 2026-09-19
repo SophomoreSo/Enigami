@@ -30,10 +30,10 @@ func _ready() -> void:
 
 func show_clear(one_cast: bool) -> void:
 	if one_cast:
-		_banner = "ALL %d IN ONE CAST" % screen.total_guards
+		_banner = Loc.t("hud.dragon.one_cast", [screen.total_guards])
 		_banner_color = CYAN
 	else:
-		_banner = "FLOOR CLEAR   BEST CAST %d OF %d" % [screen.best_cast, screen.total_guards]
+		_banner = Loc.t("hud.dragon.clear", [screen.best_cast, screen.total_guards])
 		_banner_color = AMBER
 	_banner_time = DragonTest.RESET_DELAY
 
@@ -66,7 +66,7 @@ func _text(at: Vector2, s: String, col: Color, size: int = SIZE,
 func _draw_tape() -> void:
 	if fmod(screen.elapsed, 1.0) < 0.62:
 		draw_rect(Rect2(24, 16, 12, 12), RED)
-	_text(Vector2(46, 30), "PLAY", INK)
+	_text(Vector2(46, 30), Loc.t("hud.dragon.play"), INK)
 	var tip := Vector2(114, 22)
 	draw_colored_polygon(PackedVector2Array([tip + Vector2(-10, -7), tip + Vector2(0, 0),
 		tip + Vector2(-10, 7)]), INK)
@@ -78,7 +78,7 @@ func _draw_guards(vp: Vector2) -> void:
 	var n := screen.total_guards
 	var step := 16.0
 	var x0 := vp.x * 0.5 - float(n) * step * 0.5 + 60.0
-	_text(Vector2(x0 - 118.0, 30), "GUARDS", DIM)
+	_text(Vector2(x0 - 118.0, 30), Loc.t("hud.dragon.guards"), DIM)
 	for i in n:
 		var at := Vector2(x0 + float(i) * step, 12)
 		if i < screen.guards_left:
@@ -98,7 +98,7 @@ func _draw_chain(vp: Vector2) -> void:
 	var n := screen.cast_chain if not p.runners[p.selected_slot].is_ready() \
 		else screen.chain_length(int(p.charge))
 	var need := screen.total_guards
-	_text(Vector2(vp.x - 424.0, 30), "CHAIN %d / %d" % [n, need], CYAN if n >= need else PINK,
+	_text(Vector2(vp.x - 424.0, 30), Loc.t("hud.dragon.chain", [n, need]), CYAN if n >= need else PINK,
 		SIZE, HORIZONTAL_ALIGNMENT_RIGHT, 400.0)
 
 ## The armed skill on the ground: its card and cooldown, the charge with a mark
@@ -128,9 +128,9 @@ func _draw_skill(vp: Vector2) -> void:
 	draw_rect(Rect2(mana.position, Vector2(mana.size.x * p.mana_ratio(), mana.size.y)),
 		Color(0.38, 0.55, 0.95))
 
-	_text(Vector2(656, y + 18), "HOLD TO CHARGE", DIM)
-	_text(Vector2(656, y + 38), "RELEASE TO CAST", DIM)
-	_text(Vector2(vp.x - 424.0, y + 38), "R RESET  TAB EDIT  ESC BACK", DIM,
+	_text(Vector2(656, y + 18), Loc.t("hud.dragon.hold"), DIM)
+	_text(Vector2(656, y + 38), Loc.t("hud.dragon.release"), DIM)
+	_text(Vector2(vp.x - 424.0, y + 38), Loc.t("hud.dragon.keys"), DIM,
 		SIZE, HORIZONTAL_ALIGNMENT_RIGHT, 400.0)
 
 func _draw_banners(vp: Vector2) -> void:
@@ -138,8 +138,8 @@ func _draw_banners(vp: Vector2) -> void:
 	# four seconds used to print the result straight over the title.
 	if screen.elapsed < 4.0 and _rewind_time <= 0.0 and _banner_time <= 0.0:
 		var a := clampf((4.0 - screen.elapsed) / 0.6, 0.0, 1.0)
-		_neon(Vector2(0, 96), "DRAGON TEST", Color(CYAN, a), BIG)
-		_text(Vector2(0, 124), "%d GUARDS   ONE CAST" % screen.total_guards, Color(INK, a),
+		_neon(Vector2(0, 96), Loc.t("hud.dragon.title"), Color(CYAN, a), BIG)
+		_text(Vector2(0, 124), Loc.t("hud.dragon.subtitle", [screen.total_guards]), Color(INK, a),
 			SIZE, HORIZONTAL_ALIGNMENT_CENTER, vp.x)
 	if _banner_time > 0.0:
 		var a := clampf(_banner_time / 0.4, 0.0, 1.0)
@@ -152,7 +152,7 @@ func _draw_banners(vp: Vector2) -> void:
 				var tip := at + Vector2(float(i) * 16.0, 0)
 				draw_colored_polygon(PackedVector2Array([tip, tip + Vector2(16, -12),
 					tip + Vector2(16, 12)]), INK)
-			_text(at + Vector2(44, 12), "REWIND", INK, BIG)
+			_text(at + Vector2(44, 12), Loc.t("hud.dragon.rewind"), INK, BIG)
 
 ## Neon: the colour laid over a pink ghost of itself, a little off register.
 func _neon(at: Vector2, s: String, col: Color, size: int) -> void:

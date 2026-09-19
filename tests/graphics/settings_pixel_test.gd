@@ -108,6 +108,47 @@ func _ready() -> void:
 		check(columns.size() == 1, "the bindings line up in one column (%d x positions)" % columns.size())
 		check(tight.is_empty(), "every binding fits its button (too tight: %s)" % str(tight))
 
+	# --- the language switch ------------------------------------------------
+	# It lives in this panel, and pressing it has to rebuild the panel it was
+	# pressed in, the menu behind it and the pause menu that outlives both —
+	# none of which redraw themselves, since every word on them is written once.
+	var was_language := Loc.language
+	var other := ""
+	for lang in Loc.languages():
+		if lang != Loc.language:
+			other = lang
+	check(other != "", "there is a second language to switch to")
+	if other != "":
+		var pick: Button = null
+		for c in controls_under(title._settings):
+			if c is Button and (c as Button).text == Loc.language_name(other):
+				pick = c
+		check(pick != null, "the settings offer %s, written in itself ('%s')"
+			% [other, Loc.language_name(other)])
+		if pick != null:
+			pick.emit_signal("pressed")
+			await frames(8)
+			check(Loc.language == other, "pressing it switches the game to %s" % other)
+			check(title._settings != null and title._settings.visible,
+				"and leaves the settings open, where the button was")
+			var heading := ""
+			for c in controls_under(title._settings):
+				if c is Label and (c as Label).text == Loc.t("menu.settings.heading"):
+					heading = (c as Label).text
+			check(heading != "", "the panel is rebuilt in %s ('%s')" % [other, heading])
+			check(title._start_button != null
+					and title._start_button.text == Loc.t("menu.title.start"),
+				"and so is the menu behind it ('%s')"
+					% ("" if title._start_button == null else title._start_button.text))
+			var paused_in := 0
+			for c in controls_under(game.pause_menu):
+				if c is Button and (c as Button).text == Loc.t("menu.pause.resume"):
+					paused_in += 1
+			check(paused_in == 1, "and the pause menu, which no screen owns (%d)" % paused_in)
+			Loc.set_language(was_language)
+			await frames(8)
+			check(Loc.language == was_language, "switching back puts %s on again" % was_language)
+
 	var leaked := 0
 	for c in controls_under(game.pause_menu):
 		if (c is Label or c is Button) and c.get_theme_font("font") == UiKit.PIXEL_FONT:

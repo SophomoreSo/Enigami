@@ -53,10 +53,15 @@ func _ready() -> void:
 
 	# Click one the way a player does, then check the keys still reach the game.
 	var spawn_btn: Button = null
+	var spawn_label := Loc.t("hud.sandbox.spawn", [Monsters.name_for("CRAWLER")])
 	for b in btns:
-		if String(b.text).begins_with("spawn Crawler"):
+		if String(b.text) == spawn_label:
 			spawn_btn = b
-	check(spawn_btn != null, "found the 'spawn Crawler' button")
+	check(spawn_btn != null, "found the '%s' button" % spawn_label)
+	if spawn_btn == null:
+		print("[FOCUS] ---- %d failures ----" % fails)
+		get_tree().quit()
+		return
 	var before_enemies := 0
 	for c in sb.get_children():
 		if c is Enemy:

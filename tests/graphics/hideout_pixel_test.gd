@@ -151,7 +151,7 @@ func _ready() -> void:
 		hideout.weapon_id = id
 		hideout.focus_slot = 0
 		hideout.rebuild()
-		await audit(String(Weapons.get_def(id)["name"]))
+		await audit(Weapons.name_for(id))
 
 	# --- the status line ----------------------------------------------------
 	hideout.weapon_id = "SWORD"
@@ -160,10 +160,10 @@ func _ready() -> void:
 	var idle := hideout._idle_status()
 	check(hideout._status.text == idle, "with the mouse on nothing it shows the profile ('%s')" % idle)
 
-	var row := label_with("Workbench")
+	var row := label_with(GameState.facility_name("workbench"))
 	check(row != null, "the facilities list is there")
 	if row != null:
-		var desc: String = GameState.FACILITY_INFO["workbench"]["desc"]
+		var desc: String = GameState.facility_desc("workbench")
 		var over := status_over(row)
 		check(over == desc, "hovering a facility explains it ('%s')" % over)
 		check(status_at(Vector2(4, 4)) == idle, "and moving off puts the profile back")
@@ -171,7 +171,7 @@ func _ready() -> void:
 	# The Sword refuses the Gun's ranged board, and the row has no room to say so.
 	var refused: Button = null
 	for c in controls_under(hideout):
-		if c is Button and (c as Button).disabled and (c as Button).text.begins_with("Gun Basic"):
+		if c is Button and (c as Button).disabled and (c as Button).text.begins_with(GameState.skill_library[1].skill_name):
 			refused = c
 	check(refused != null, "the sword shows the gun's board as refused")
 	if refused != null:
@@ -181,12 +181,12 @@ func _ready() -> void:
 		status_at(Vector2(4, 4))
 
 	# Keyboard and gamepad reach the same line, since they never hover.
-	var gun := button_with("  Gun")
+	var gun := button_with("  " + Weapons.name_for("GUN"))
 	check(gun != null, "the gun is on the weapon list")
 	if gun != null:
 		gun.grab_focus()
 		await frames(2)
-		check(hideout._status.text == String(Weapons.get_def("GUN")["desc"]),
+		check(hideout._status.text == Weapons.desc_for("GUN"),
 			"focusing a weapon explains it, with no mouse involved ('%s')" % hideout._status.text)
 		gun.release_focus()
 		await frames(2)
@@ -196,8 +196,16 @@ func _ready() -> void:
 	var before := int(GameState.stash.get("SLASH", 0))
 	hideout._forge()
 	await frames(4)
-	check(hideout._status.text.begins_with("The forge yielded"),
-		"the forge says what it made, after the rebuild ('%s')" % hideout._status.text)
+	# Which part came out decides what the line says, and the line reads
+	# differently in every language — so the line is rebuilt for every part it
+	# could name, rather than matched against a prefix that only holds in
+	# English. (The stash cannot say which: the forge may well hand back one of
+	# the three it just melted, and that part ends up two down, not one up.)
+	var forged := false
+	for id in Components.LOOT_POOL:
+		if hideout._status.text == Loc.t("hideout.stash.forged", [Components.name_for(String(id))]):
+			forged = true
+	check(forged, "the forge says what it made, after the rebuild ('%s')" % hideout._status.text)
 	check(int(GameState.stash.get("SLASH", 0)) != before or GameState.scrap < 99999,
 		"and it really spent the parts")
 

@@ -59,7 +59,7 @@ func _ready() -> void:
 	_tutorial_on = not bool(GameState.records.get("tutorial_done", false))
 	_enter_room(map.entry, -1)
 	_last_pos = player.global_position
-	noticed.emit("Deployed. Hold F at an exit to leave with what you carry.")
+	noticed.emit(Loc.t("hud.toast.deployed"))
 	if _tutorial_on:
 		for r in player.runners:
 			r.fired.connect(_on_tutorial_fire)
@@ -76,10 +76,12 @@ func _process(delta: float) -> void:
 	_update_tutorial(delta)
 
 ## The onboarding line to show right now, or "" once it is done with.
+## The step's line, in the language being played. The English above is the
+## fallback under it, the way every other lookup falls back.
 func tutorial_text() -> String:
 	if not _tutorial_on:
 		return ""
-	return TUTORIAL_STEPS[tutorial_step]
+	return Loc.opt("hud.tutorial.%d" % tutorial_step, String(TUTORIAL_STEPS[tutorial_step]))
 
 func _on_tutorial_fire(_p: Payload) -> void:
 	if tutorial_step == 1:
@@ -117,7 +119,7 @@ func _update_prompt() -> void:
 	if not room.extraction.is_empty():
 		var reason := room.extraction_blocked_reason()
 		if room.extraction_rect().has_point(player.global_position):
-			txt = "hold F to extract" if reason == "" else reason
+			txt = Loc.t("hud.extract.hold") if reason == "" else reason
 	prompt = txt
 
 ## --- rooms ------------------------------------------------------------------
@@ -146,7 +148,7 @@ func _enter_room(coord: Vector2i, from_dir: int) -> void:
 		var extra := {"kind": kind, "mod": "", "pos": [Room.W * Room.CELL * 0.5, 120.0]}
 		rec["enemies"].append(extra)
 		room._spawn_enemy(extra)
-		noticed.emit("Something followed you in here.")
+		noticed.emit(Loc.t("hud.toast.followed"))
 
 	player.room = room
 	if from_dir < 0:
@@ -174,14 +176,14 @@ func _travel(dir: int) -> void:
 func _on_pickup(p: Pickup) -> void:
 	if p.scrap_amount > 0:
 		GameState.raid_scrap += p.scrap_amount
-		noticed.emit("+%d scrap" % p.scrap_amount)
+		noticed.emit(Loc.t("hud.toast.scrap", [p.scrap_amount]))
 	else:
 		GameState.add_component(p.component_id, 1, GameState.raid_bag)
-		noticed.emit("Recovered %s — assemble it with TAB" % Components.get_def(p.component_id).get("name", p.component_id))
+		noticed.emit(Loc.t("hud.pickup", [Components.name_for(p.component_id)]))
 
 func _on_enemy_killed(kind: String, _pos: Vector2) -> void:
 	if Monsters.get_def(kind).get("boss", false):
-		noticed.emit("The Arbiter is down. Its gate is open.")
+		noticed.emit(Loc.t("hud.toast.boss_down"))
 
 func _on_extract_progress(ratio: float, _info: Dictionary) -> void:
 	extract_ratio = ratio
@@ -195,7 +197,7 @@ func _on_extract_done(info: Dictionary) -> void:
 	Cues.emit_cue(&"extract_done")
 	TimeCtl.clear()
 	var result := GameState.extract()
-	result["exit"] = info.get("name", "EXIT")
+	result["exit"] = RaidMap.exit_name(info)
 	finished.emit("extracted", result)
 
 func _on_player_died(_a: Actor) -> void:

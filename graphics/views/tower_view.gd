@@ -286,8 +286,16 @@ func _paint_door(c: CanvasItem) -> void:
 		var at := Vector2((float(d.x) + 0.5) * C, foot)
 		c.draw_rect(Rect2(at + Vector2(-22, -76), Vector2(44, 76)), Color(0.02, 0.015, 0.04))
 		c.draw_rect(Rect2(at + Vector2(-22, -76), Vector2(44, 76)), FRAME, false, 4.0)
-		c.draw_rect(Rect2(at + Vector2(-18, -96), Vector2(36, 14)), Color(0.04, 0.1, 0.06))
-		PixelCamera.draw_text(c, at + Vector2(0, -85), "EXIT", EXIT)
+		var sign := Loc.t("hud.exit.sign")
+		# The lit plate behind the sign grows with the face the language is
+		# written in — 36x14 for Silkscreen's 8px, which is the plate this sign
+		# was drawn with and what `k` comes out at for every language Silkscreen
+		# can spell.
+		var k := float(Loc.text_size(sign, PixelCamera.TEXT_SIZE)) / float(PixelCamera.TEXT_SIZE)
+		var plate := Vector2(36.0, 14.0) * k
+		c.draw_rect(Rect2(at + Vector2(-plate.x * 0.5, -82.0 - plate.y), plate),
+			Color(0.04, 0.1, 0.06))
+		PixelCamera.draw_text(c, at + Vector2(0, -85), sign, EXIT)
 
 ## --- the live half ----------------------------------------------------------
 func _draw() -> void:

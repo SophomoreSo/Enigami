@@ -144,7 +144,8 @@ func _ready() -> void:
 	key(KEY_ENTER)
 	await frames(2)
 	check(same_parts(want, b), "a code with one character wrong leaves the board alone")
-	check(ed._share._note.contains("check out"), "and says so (%s)" % ed._share._note)
+	check(ed._share._note == BoardCode.error_text(BoardCode.MISTYPED),
+		"and says so (%s)" % ed._share._note)
 
 	# Case is half the alphabet: the same letters in the wrong case is a
 	# different code, and must be refused the same way.
@@ -161,7 +162,8 @@ func _ready() -> void:
 	type_char("0")
 	await frames(2)
 	check(ed._share.entry.is_empty(), "a 0 never lands in the field")
-	check(ed._share._note.contains("zero"), "and the sheet says why (%s)" % ed._share._note)
+	check(ed._share._note == BoardCode.error_text(BoardCode.HAS_ZERO),
+		"and the sheet says why (%s)" % ed._share._note)
 
 	# ESC closes the sheet, and only the sheet.
 	key(KEY_ESCAPE)
@@ -220,7 +222,7 @@ func _ready() -> void:
 	await frames(2)
 	check(same_parts(before, lib), "a build you cannot afford leaves the board as it was")
 	check(int(GameState.stash.get("FIRE", 0)) == 1, "and does not spend the parts it could afford")
-	check(ed._share._note.contains("DUPLICATE"), "the refusal names what is missing (%s)"
+	check(ed._share._note.contains(Components.name_for("DUPLICATE")), "the refusal names what is missing (%s)"
 		% ed._share._note)
 
 	# With the missing part in the stash it goes through, and the swap is paid

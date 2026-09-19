@@ -202,7 +202,7 @@ func speaker_name() -> String:
 	if node.has("name"):
 		return String(node["name"])
 	if speaker() == "player":
-		return String(data.get("player_name", "You"))
+		return String(data.get("player_name", Loc.t("hud.dialogue.player")))
 	return display_name
 
 ## The answers the current line offers; empty when it is not a question.

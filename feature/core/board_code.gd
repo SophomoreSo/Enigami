@@ -110,10 +110,21 @@ const CHECK_MOD := 61
 ## Both ways a mistyped code shows up before it means anything, said the once:
 ## the check character failing and five characters no board could have written
 ## are the same news to the player.
-const MISTYPED := "That code does not check out — a character is wrong, its case is wrong, or two of them have swapped."
-const TRUNCATED := "That code stops in the middle of a board."
-const IMPOSSIBLE := "That code does not describe a board that can be built."
-const HAS_ZERO := "There is a 0 in that. A code has no zero in it — the round character is the letter O, capital or small."
+##
+## These are the names of the lines, not the lines: what a refusal actually
+## says is in `localization/<lang>/editor.json` under `code_error`, so a code
+## typed wrong is complained about in the language it was typed in. Read one
+## with `error_text`.
+const MISTYPED := "mistyped"
+const TRUNCATED := "truncated"
+const IMPOSSIBLE := "impossible"
+const HAS_ZERO := "has_zero"
+
+## One of the refusals above, spelled out. `decode` already returns its `error`
+## this way; this is for a screen that wants to say one before it has a code to
+## decode — the sheet warning about a 0 as it is typed.
+static func error_text(key: String, args: Array = []) -> String:
+	return Loc.t("editor.code_error.%s" % key, args)
 
 ## --- writing ----------------------------------------------------------------
 
@@ -170,11 +181,11 @@ static func decode(code: String) -> Dictionary:
 		return _fail(HAS_ZERO)
 	var c := clean(code)
 	if c.is_empty():
-		return _fail("There is no code in that.")
+		return _fail("empty")
 	# Words of five and the check character: any other length is not a code at
 	# all, and saying so beats failing later on with something about the board.
 	if c.length() % WORD_CHARS != 1:
-		return _fail("No code is %d characters long — one has been missed out, or one added." % c.length())
+		return _fail("length", [c.length()])
 	if not _checks_out(c):
 		return _fail(MISTYPED)
 
@@ -194,7 +205,7 @@ static func decode(code: String) -> Dictionary:
 	if not r.ok:
 		return _fail(TRUNCATED)
 	if ver != VERSION:
-		return _fail("That code is version %d; this game reads version %d." % [ver, VERSION])
+		return _fail("version", [ver, VERSION])
 
 	var board := SkillBoard.new(w, h, name_for(c))
 	var cell_bits := _cell_bits(w, h)
@@ -205,7 +216,7 @@ static func decode(code: String) -> Dictionary:
 		if not r.ok:
 			return _fail(TRUNCATED)
 		if part >= CODE_IDS.size():
-			return _fail("That code carries a part this version of the game does not have.")
+			return _fail("unknown_part")
 		if pos >= w * h:
 			return _fail(IMPOSSIBLE)
 		var origin := Vector2i(pos % w, int(pos / w))
@@ -320,8 +331,8 @@ static func _put(bits: Array[int], value: int, n: int) -> void:
 	for i in range(n - 1, -1, -1):
 		bits.append((value >> i) & 1)
 
-static func _fail(why: String) -> Dictionary:
-	return {"board": null, "error": why}
+static func _fail(key: String, args: Array = []) -> Dictionary:
+	return {"board": null, "error": error_text(key, args)}
 
 ## A cursor over the bits, which reports running off the end rather than
 ## returning a zero that would read as a real part in an empty corner.

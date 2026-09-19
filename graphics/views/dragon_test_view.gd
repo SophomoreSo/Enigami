@@ -50,7 +50,7 @@ func _ready() -> void:
 	layer.add_child(hud)
 	editor = SkillEditor.new()
 	editor.visible = false
-	editor.title_text = "DRAGON TEST · parts are free"
+	editor.title_text = Loc.t("editor.title.dragon")
 	editor.closed.connect(func() -> void: screen.set_editing(false))
 	editor.board_changed.connect(func(slot: int) -> void: screen.on_board_changed(slot))
 	layer.add_child(editor)

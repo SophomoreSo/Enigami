@@ -1,0 +1,75 @@
+{
+	"heading": "HIDEOUT",
+	"scrap": "scrap %d",
+	"records": "raids %d · escaped %d · lost %d · kills %d",
+	"sandbox": "SANDBOX",
+	"title": "TITLE",
+	"status": "board %dx%d · max hp %d · stash cap %d",
+	"weapons": {
+		"heading": "WEAPON — one per raid",
+		"row": "%s%s%s",
+		"lost": "  (lost)",
+		"slots": "slots %d · accepts %s",
+		"multipliers": "melee x%.2f · ranged x%.2f · bolt speed x%.2f",
+		"gravity": "thrown: shots arc under gravity",
+		"warning": "Dying loses this weapon and the skills slotted into it."
+	},
+	"loadout": {
+		"heading": "SKILL SLOTS",
+		"empty": "— empty —",
+		"named": "%s  [%s]",
+		"row": "%s %d: %s",
+		"edit": "EDIT",
+		"clear": "CLEAR",
+		"library": "SKILL LIBRARY — fits slot %d",
+		"new": "NEW SKILL",
+		"entry": "%s   [%s]",
+		"utility": "utility",
+		"delete": "X"
+	},
+	"facilities": {
+		"heading": "FACILITIES",
+		"row": "%s  lv%d",
+		"max": "max",
+		"upgraded": "%s is level %d.",
+		"info": {
+			"workbench": {
+				"name": "Workbench",
+				"desc": "Enlarges every skill board."
+			},
+			"vault": {
+				"name": "Vault",
+				"desc": "Raises how many of each component the stash holds."
+			},
+			"forge": {
+				"name": "Forge",
+				"desc": "Melts spare components into new ones."
+			},
+			"scrapper": {
+				"name": "Scrapper",
+				"desc": "Breaks gear down for more scrap."
+			},
+			"medbay": {
+				"name": "Medbay",
+				"desc": "Raises max health and heals between raids."
+			}
+		}
+	},
+	"stash": {
+		"heading": "STASH",
+		"forge": "FORGE 3>1 (25)",
+		"forge_hint": "Melts three spare components into one, for 25 scrap.",
+		"row": "%s x%d",
+		"scrap": "scrap",
+		"scrap_hint": "Breaks one down for scrap.",
+		"scrapped": "Scrapped %s for %d.",
+		"forged": "The forge yielded %s.",
+		"empty": "Nothing stored. Bring something home."
+	},
+	"footer": {
+		"filled": "%d of %d slots filled",
+		"warning": "Everything you take can be lost.",
+		"deploy": "DEPLOY >"
+	},
+	"skill_default": "Skill %d"
+}

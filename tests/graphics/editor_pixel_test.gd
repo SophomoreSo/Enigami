@@ -54,11 +54,17 @@ func restore(hidden: Array) -> void:
 ## The frame is saved either way, next to the other shots.
 func blocks(name: String) -> void:
 	await frames(4)
-	await RenderingServer.frame_post_draw
-	var im := get_viewport().get_texture().get_image()
-	var dir := OS.get_environment("SHOTS_DIR") if OS.has_environment("SHOTS_DIR") else "user://shots"
-	DirAccess.make_dir_recursive_absolute(dir)
-	im.save_png(dir.path_join("pixel_editor_%s.png" % name))
+	# The grid is Silkscreen's. A language written in a finer face is still
+	# whole pixels, just smaller ones — 둥근모꼴's Hangul is a 16px body where
+	# Silkscreen's Latin is an 8px body drawn at twice the size — so the shot is
+	# still saved and looked at, and this grid is not claimed of it.
+	# `tests/shared/loc_test` is what holds those languages to whole pixels.
+	if Loc.pixel_grid() < UiKit.PIXEL:
+		await _save_shot(name)
+		print("[PIXED] skip %s block check: %s is written on a %d-pixel grid, not %d"
+			% [name, Loc.language, Loc.pixel_grid(), UiKit.PIXEL])
+		return
+	var im := await _save_shot(name)
 	var screen := Vector2i(get_viewport().get_visible_rect().size)
 	if im.get_size() != screen:
 		print("[PIXED] skip %s block check: the frame is %s, not %s" % [name, im.get_size(), screen])
@@ -85,6 +91,28 @@ func blocks(name: String) -> void:
 						first = Vector2i(x, y)
 	check(same, "%s: every %d×%d block on screen is one colour (%d split, the first at %s)"
 		% [name, s, s, split, first])
+
+func _save_shot(name: String) -> Image:
+	await RenderingServer.frame_post_draw
+	var im := get_viewport().get_texture().get_image()
+	var dir := OS.get_environment("SHOTS_DIR") if OS.has_environment("SHOTS_DIR") else "user://shots"
+	DirAccess.make_dir_recursive_absolute(dir)
+	im.save_png(dir.path_join("pixel_editor_%s.png" % name))
+	return im
+
+## One line as another language spells it, read straight off disk: a fit check
+## is about the words, and switching the game into a language to read one would
+## rebuild every screen listening, including the one being measured.
+func _in(lang: String, key: String) -> String:
+	var domain := key.get_slice(".", 0)
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(
+		Loc.DIR.path_join(lang).path_join(domain + ".json")))
+	var at = parsed
+	for part in key.split(".").slice(1):
+		if not (at is Dictionary) or not (at as Dictionary).has(part):
+			return ""
+		at = (at as Dictionary)[part]
+	return String(at)
 
 func _ready() -> void:
 	GameState.reset_profile()
@@ -214,8 +242,11 @@ func _ready() -> void:
 	check((sheet["code_box"] as Rect2).size.x - ShareCodePanel.BOX_PAD * 2.0
 		>= PixelDraw.text_width(widest),
 		"the widest line the alphabet can spell, caret and all, fits the code box")
-	check(PixelDraw.text_width(ShareCodePanel.HINT) <= float(sheet["text_width"]),
-		"and the sheet's own controls line fits it")
+	# In every language: a translation is free to reword the line, not to run it
+	# off the sheet, and the widest face is not always the one being played in.
+	for lang in Loc.languages():
+		check(PixelDraw.text_width(_in(lang, "editor.share.hint")) <= float(sheet["text_width"]),
+			"and the sheet's own controls line fits it in %s" % lang)
 	wb._close_share()
 
 	# --- layout -------------------------------------------------------------
@@ -269,7 +300,7 @@ func _ready() -> void:
 		var id: String = ids[i]
 		# The widest count a row can show.
 		wb.inventory[id] = 99
-		var part_name := String(Components.get_def(id)["name"])
+		var part_name := Components.name_for(id)
 		if PixelDraw.text_width(part_name) > wb._pal_name_width(i):
 			tight.append("%s (%.0f of %.0f)" % [part_name, PixelDraw.text_width(part_name), wb._pal_name_width(i)])
 	check(tight.is_empty(), "every part's name fits its palette row beside a count of 99 (too tight: %s)" % str(tight))
@@ -279,7 +310,9 @@ func _ready() -> void:
 		if PixelDraw.text_width(wb._traits_text()) > vp.x - 96.0:
 			long_traits.append(w)
 	check(long_traits.is_empty(), "every weapon's traits fit the header (too long: %s)" % str(long_traits))
-	check(PixelDraw.text_width(SkillEditor.HINT) <= vp.x - 96.0, "the controls line fits the screen")
+	for lang in Loc.languages():
+		check(PixelDraw.text_width(_in(lang, "editor.hint")) <= vp.x - 96.0,
+			"the controls line fits the screen in %s" % lang)
 
 	# A preview with more rows than the panel has: the refusal, three outputs,
 	# an overclock and the life.

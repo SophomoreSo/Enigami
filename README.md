@@ -37,6 +37,7 @@ godot res://tests/graphics/share_code_test.tscn # sharing a board, and what a pa
 godot res://tests/feature/ttl_test.tscn     # a pulse's life, and what bounds a loop
 godot res://tests/feature/charge_test.tscn  # holding the cast button buys life for mana
 godot res://tests/feature/npc_test.tscn     # talking to an NPC, line by line
+godot res://tests/shared/loc_test.tscn      # every language says everything, and can be drawn
 godot res://tests/feature/dragon_test.tscn  # one charged cast clears the whole tower
 godot res://tests/graphics/shots.tscn   # writes a screenshot of each screen to user://shots
 godot res://tests/graphics/dragon_shot.tscn  # ...and frames of the dragon test
@@ -296,8 +297,12 @@ Two modules, and a shell around them. `graphics/` may read `feature/`;
 for the seam between them.
 
 ```
-app/               entry scene, screen flow, the cue bus, the sound bank
+app/               entry scene, screen flow, the cue bus, the sound bank, the words
 data/dialogue/     conversations, one JSON file per character — format in its README
+data/scenes/       directed scenes, one JSON file per scene — format in its README
+localization/      every word the game says: eng/ and kor/, a file per screen
+                   plus dialogue/ and scenes/ — format in its README
+                   kor/font.woff: the Korean pixel face, Silkscreen has no Hangul
 feature/core/      components, payload, board, runner, state, time control
 feature/actors/    actor base, player, monster catalogue, monster AI, NPCs, dialogue loading
 feature/attacks/   projectile, melee arc, area burst, dash slash, spawner
@@ -315,4 +320,18 @@ tests/shared/      the smoke test, which walks the whole game
 ```
 
 `tests/feature` runs under `--headless`; `tests/graphics` drives the mouse and
-needs a real window.
+needs a real window. `tests/shared/loc_test` runs headless too.
+
+## Language
+
+English and Korean, picked in **SETTINGS** on the title screen and remembered
+in `user://enigami_language.json` — outside the save, so wiping a profile
+cannot strand you in a language you do not read. With nothing saved yet, the
+game starts in the machine's own language if it has it.
+
+Nothing on screen is spelled out in the code: every word comes from
+`localization/<lang>/`, and a language is a folder and one entry in
+`LANGUAGES` in `app/loc.gd`. Korean draws in **둥근모꼴 + Fixedsys**, a public
+domain 16-pixel bitmap face carried in `localization/kor/` — Silkscreen has no
+Hangul at all. See [localization/README.md](localization/README.md), in
+particular **The face**, and [its credits](localization/CREDITS.md).

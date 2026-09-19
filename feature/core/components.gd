@@ -223,6 +223,28 @@ const LOOT_POOL := [
 static func get_def(id: String) -> Dictionary:
 	return DEFS.get(id, {})
 
+## What to call a part on screen, and what to say it does, in the language
+## being played. The `name` and `desc` in DEFS above are the fallback under
+## these: a part added here draws with its English name until somebody writes
+## one for it, rather than drawing as its key or not at all.
+static func name_for(id: String) -> String:
+	return Loc.opt("parts.%s.name" % id, String(get_def(id).get("name", id)))
+
+static func desc_for(id: String) -> String:
+	return Loc.opt("parts.%s.desc" % id, String(get_def(id).get("desc", "")))
+
+## A board's tags — `ranged`, `melee`, `trigger` — spelled for a reader. The tag
+## itself stays the id the compatibility rules match on; only the label moves.
+static func tag_name(tag: String) -> String:
+	return Loc.opt("parts.tag.%s" % tag, tag)
+
+## The same list, joined the way the language joins a list.
+static func tag_names(tags: Array) -> String:
+	var out: Array[String] = []
+	for t in tags:
+		out.append(tag_name(String(t)))
+	return Loc.t("editor.payload.separator").join(out)
+
 static func exists(id: String) -> bool:
 	return DEFS.has(id)
 
@@ -290,4 +312,4 @@ static func exit_cell(id: String, origin: Vector2i, rot: int) -> Vector2i:
 const DIR_NAME := ["east", "south", "west", "north"]
 
 static func dir_name(dir: int) -> String:
-	return DIR_NAME[dir % 4]
+	return Loc.opt("parts.direction.%s" % DIR_NAME[dir % 4], DIR_NAME[dir % 4])

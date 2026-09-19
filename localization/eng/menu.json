@@ -1,0 +1,45 @@
+{
+	"title": {
+		"start": "START",
+		"sandbox": "SANDBOX",
+		"settings": "SETTINGS",
+		"quit": "QUIT",
+		"back": "BACK",
+		"slot": "SLOT %d",
+		"select_slot": "SELECT SAVE SLOT",
+		"records": "RAIDS %d   ESCAPED %d   LOST %d   KILLS %d   BEST HAUL %d"
+	},
+	"settings": {
+		"heading": "SETTINGS",
+		"music": "Music",
+		"sound": "Sound",
+		"language": "Language",
+		"hints": [
+			"Aim with the mouse, or the right stick on a gamepad.",
+			"Gamepad: left stick moves, A jumps, B dashes, triggers fire slots 1-2."
+		],
+		"wipe": "WIPE PROFILE",
+		"back": "BACK"
+	},
+	"pause": {
+		"heading": "PAUSED",
+		"resume": "RESUME",
+		"music": "Music",
+		"sound": "Sound",
+		"abandon": "ABANDON RAID — forfeits the kit"
+	},
+	"results": {
+		"won": "EXTRACTED",
+		"lost": "LOST IN THE RAID",
+		"won_sub": "You carried it home through %s.",
+		"lost_sub": "The kit stayed behind. What you never took is still in the vault.",
+		"default_exit": "the gate",
+		"weapon": "weapon %s",
+		"scrap": "scrap %d",
+		"skills_lost": "skills lost: %s",
+		"components": "COMPONENTS",
+		"none": "none",
+		"haul": "%s x%d",
+		"back": "BACK TO THE HIDEOUT"
+	}
+}

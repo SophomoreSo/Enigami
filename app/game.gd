@@ -30,7 +30,19 @@ func _ready() -> void:
 	add_child(overlay_layer)
 	_build_pause_menu()
 	UiKit.fill_screen(pause_menu)
+	# The pause menu is built once and outlives every screen, so it is the one
+	# thing a language switch on the title screen cannot reach by itself.
+	Loc.language_changed.connect(_rebuild_pause_menu)
 	goto_title()
+
+func _rebuild_pause_menu(_lang: String) -> void:
+	var was_open: bool = pause_menu != null and pause_menu.visible
+	if pause_menu != null and is_instance_valid(pause_menu):
+		overlay_layer.remove_child(pause_menu)
+		pause_menu.queue_free()
+	_build_pause_menu()
+	UiKit.fill_screen(pause_menu)
+	pause_menu.visible = was_open
 
 func _clear() -> void:
 	if current != null and is_instance_valid(current):
@@ -130,7 +142,7 @@ func _edit_library_skill(index: int) -> void:
 		return
 	_close_editor()
 	editor = SkillEditor.new()
-	editor.title_text = "WORKBENCH · parts from stash"
+	editor.title_text = Loc.t("editor.title.workbench")
 	editor.weapon_id = hideout_ref.weapon_id if hideout_ref != null else "SWORD"
 	editor.configure([GameState.skill_library[index]], GameState.stash, false, [])
 	editor.closed.connect(_close_editor)
@@ -159,20 +171,20 @@ func _build_pause_menu() -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)
 	pause_menu.add_child(UiKit.screen_scroll(v, Vector2(430, 36), 470.0))
-	v.add_child(UiKit.title("PAUSED"))
+	v.add_child(UiKit.title(Loc.t("menu.pause.heading")))
 	v.add_child(UiKit.spacer(6))
-	var resume := UiKit.button("RESUME", UiKit.GOOD)
+	var resume := UiKit.button(Loc.t("menu.pause.resume"), UiKit.GOOD)
 	resume.custom_minimum_size = Vector2(280, 40)
 	resume.pressed.connect(_unpause)
 	v.add_child(resume)
-	v.add_child(_vol_row("Music", func() -> float: return Audio.music_volume, func(x: float) -> void: Audio.set_music_volume(x)))
-	v.add_child(_vol_row("Sound", func() -> float: return Audio.sfx_volume, func(x: float) -> void: Audio.set_sfx_volume(x)))
+	v.add_child(_vol_row(Loc.t("menu.pause.music"), func() -> float: return Audio.music_volume, func(x: float) -> void: Audio.set_music_volume(x)))
+	v.add_child(_vol_row(Loc.t("menu.pause.sound"), func() -> float: return Audio.sfx_volume, func(x: float) -> void: Audio.set_sfx_volume(x)))
 	v.add_child(UiKit.spacer(6))
 	var cp := ControlsPanel.new()
 	cp.custom_minimum_size = Vector2(420, 0)
 	v.add_child(cp)
 	v.add_child(UiKit.spacer(8))
-	var abandon := UiKit.button("ABANDON RAID — forfeits the kit", UiKit.BAD)
+	var abandon := UiKit.button(Loc.t("menu.pause.abandon"), UiKit.BAD)
 	abandon.custom_minimum_size = Vector2(280, 36)
 	abandon.pressed.connect(func() -> void:
 		_unpause()
