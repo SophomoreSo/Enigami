@@ -2,8 +2,9 @@ extends Node
 ## The assembly screen is drawn in UiKit's pixel look. On the frame, in all three
 ## places it opens — the bench, a raid and the workbench — with every part on a
 ## board, joints and breaks, live pulses, a drag, the hovers and a message on
-## screen: every PIXEL×PIXEL block of the picture is one colour, so nothing it
-## draws is off the grid. On the layout: the biggest board a Workbench grows and
+## screen, and a pair of rings the flow can never leave with the dead-code
+## notice up over one of them: every PIXEL×PIXEL block of the picture is one
+## colour, so nothing it draws is off the grid. On the layout: the biggest board a Workbench grows and
 ## the palette both end above the info panel, the palette is one block a part
 ## category with its name beside it in the gutter, every part's name fits its
 ## palette row, the header's lines fit, and a preview with more to say than rows
@@ -248,6 +249,38 @@ func _ready() -> void:
 		check(PixelDraw.text_width(_in(lang, "editor.share.hint")) <= float(sheet["text_width"]),
 			"and the sheet's own controls line fits it in %s" % lang)
 	wb._close_share()
+
+	# --- rings the flow can never leave ---------------------------------------
+	# Two of them: the board from the report, fed by its INPUT, and an unfed one
+	# beside it. Both are drawn switched off, both come out as one shape rather
+	# than as a box a part, and the notice is up over the one under the cursor.
+	for dc in big.cells.keys().duplicate():
+		big.erase_at(dc)
+	big.place("INPUT", Vector2i(0, 2), 0)
+	big.place("DUPLICATE", Vector2i(1, 2), 3)   # in from the west, out north
+	big.place("FIRE", Vector2i(1, 1), 0)
+	big.place("DAMAGE", Vector2i(2, 1), 1)
+	big.place("FIRE", Vector2i(2, 2), 2)        # closing the ring
+	big.place("OUTPUT", Vector2i(3, 2), 0)      # stranded, and drawn faint
+	big.place("WIRE", Vector2i(5, 1), 0)
+	big.place("WIRE", Vector2i(6, 1), 1)
+	big.place("WIRE", Vector2i(6, 2), 2)
+	big.place("WIRE", Vector2i(5, 2), 3)        # a ring with nothing feeding it
+	wb._sim_dirty = true
+	wb._update_hover(wb._cell_center(Vector2i(2, 1)))
+	wb._mouse_pos = wb._cell_center(Vector2i(2, 1))
+	await frames(2)
+	var caught: Dictionary = wb._trace_cache["dead"]
+	check(caught.size() == 8, "both rings are marked as dead code (%d parts)" % caught.size())
+	# The notice is hung off the whole ring, so it never covers what it names —
+	# measured at the tallest the box can be, which is the worst case for it.
+	var ring := wb._dead_group_rect(big, Vector2i(2, 1))
+	var note := wb._dead_hint_box(get_viewport().get_visible_rect().size, ring,
+		SkillEditor.DEAD_BOX_ROWS)
+	check(not note.intersects(ring), "and the notice sits clear of the ring it names")
+	hidden = isolate(wb)
+	await blocks("dead")
+	restore(hidden)
 
 	# --- layout -------------------------------------------------------------
 	var vp := get_viewport().get_visible_rect().size

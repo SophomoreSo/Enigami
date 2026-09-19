@@ -37,7 +37,7 @@ const CAT_TRIGGER := "trigger"
 ##   name, cat, heat, cells (1 or 2), inp (local input dirs),
 ##   outs (local output dirs),
 ##   payload_out (local dir of a trigger's secondary branch, -1 if none),
-##   desc
+##   acts_on_entry (the part does its work on the way in; see below), desc
 ##
 ## Behaviour only. The colour and glyph a part is drawn with are in
 ## `graphics/style.gd`, keyed by the same id, and a part added here draws in
@@ -187,7 +187,7 @@ const DEFS := {
 	},
 	"TIME_DILATION": {
 		"name": "TIME DILATION", "cat": CAT_FLOW, "heat": 2.0, "cells": 1,
-		"outs": [E], "payload_out": -1,
+		"outs": [E], "payload_out": -1, "acts_on_entry": true,
 		"desc": "Slows the world and the board alike. Not a speed buff — a change in the pace of the fight.",
 	},
 
@@ -203,7 +203,7 @@ const DEFS := {
 	},
 	"ON_PARRY": {
 		"name": "ON PARRY", "cat": CAT_TRIGGER, "heat": 0.8, "cells": 1,
-		"outs": [E], "payload_out": S,
+		"outs": [E], "payload_out": S, "acts_on_entry": true,
 		"desc": "Opens a brief guard window as the flow passes. Absorbing a hit there runs the branch flow.",
 	},
 }
@@ -250,6 +250,14 @@ static func exists(id: String) -> bool:
 
 static func is_structural(id: String) -> bool:
 	return STRUCTURAL.has(id)
+
+## Whether a part does its work the moment a flow enters it, rather than by
+## carrying that flow on to an OUTPUT. `SkillRunner._apply` is where those two
+## effects happen; the flag is declared beside the part so that a board can tell
+## a loop still doing something every lap from one that only swallows the flow —
+## see `SkillBoard.dead_loops`.
+static func acts_on_entry(id: String) -> bool:
+	return bool(get_def(id).get("acts_on_entry", false))
 
 ## Ticks a flow spends inside a component: one for every cell it covers. Read
 ## from the footprint rather than stored beside it, so the two cannot drift.

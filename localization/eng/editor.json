@@ -11,6 +11,10 @@
 	"hint": "drag to place · wheel turns the part under the cursor · RMB removes · C shares a code · TAB or ESC closes",
 	"count": "x%d",
 	"part_stats": "cells %d   cost %d ticks, one per cell   heat %.1f",
+	"dead": {
+		"title": "DEAD CODE",
+		"body": "These parts are wired in a ring with no way out. A flow that gets in goes round until its life runs out, and nothing comes of it."
+	},
 	"no_room_turn": "No room to turn %s there.",
 	"no_room_place": "No room for %s there.",
 	"none_left": "No %s left in the bag.",
@@ -80,6 +84,7 @@
 		"side_entry": "%s at %d,%d is entered through its tail. Flow can only go in the head cell.",
 		"head_on": "%s at %d,%d sends its own flow back this way. Two outputs cannot meet.",
 		"leak": "The flow leaves %d,%d heading %s and finds nothing there.",
+		"dead_loop": "The flow runs into a ring with no way out and goes round there until its life runs out. Turn a part in the ring so that something leads out of it.",
 		"no_output": "The chain never reaches an OUTPUT.",
 		"no_form": "The flow reaches an OUTPUT, but no attack form is on the path.",
 		"expired": "The flow runs out of life (%d) before it reaches an OUTPUT. Shorten it, or hold the cast button to charge it further."

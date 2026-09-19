@@ -136,14 +136,28 @@ func analyze() -> Dictionary:
 ##   links      [exit_cell, entry_cell] pairs that genuinely carry flow
 ##   breaks     joints where two parts touch but the receiving port faces away
 ##   leaks      places where the flow runs into empty space or off the board
+##   dead       origin -> true, for every part caught in a loop with no way out
+##   dead_links the links inside those loops, so the editor can draw one round
+##              them instead of a box round each
 func trace() -> Dictionary:
 	var reachable: Dictionary = {}
 	var links: Array = []
 	var breaks: Array = []
 	var leaks: Array = []
+	# A loop is a property of the wiring and not of what the INPUT happens to
+	# reach, so it is found over the whole board and before the walk below.
+	# Every link out of a caught part stays inside its loop — that is what being
+	# caught means — so its ports are exactly the loop's own seams.
+	var dead := dead_loops()
+	var dead_links: Array = []
+	for origin in dead:
+		for port in _ports_from(origin):
+			if String(port["why"]) == "":
+				dead_links.append([port["from"], port["to"]])
 	var input_cell = find_input()
 	if input_cell == null:
 		return {"reachable": reachable, "links": links, "breaks": breaks, "leaks": leaks,
+			"dead": dead, "dead_links": dead_links,
 			"has_input": false, "reaches_output": false}
 
 	var reaches_output := false
@@ -156,41 +170,131 @@ func trace() -> Dictionary:
 		var entry: Dictionary = cells.get(origin, {})
 		if entry.is_empty():
 			continue
-		var id: String = entry["id"]
-		var rot: int = entry["rot"]
-		if id == "OUTPUT":
+		if String(entry["id"]) == "OUTPUT":
 			reaches_output = true
 			continue
-		var ex := Components.exit_cell(id, origin, rot)
-		var dirs: Array = Components.world_outputs(id, rot)
-		var pd := Components.world_payload_out(id, rot)
-		if pd >= 0:
-			dirs = dirs + [pd]
-		for d in dirs:
-			var target: Vector2i = ex + Components.dir_to_vec(d)
-			if not in_bounds(target):
-				leaks.append({"from": ex, "dir": d, "why": "edge"})
+		for port in _ports_from(origin):
+			var why := String(port["why"])
+			if why == "edge" or why == "empty":
+				leaks.append(port)
 				continue
-			var t: Dictionary = comp_origin_at(target)
-			if t.is_empty():
-				var occ = occupancy.get(target, null)
-				if occ == null:
-					leaks.append({"from": ex, "dir": d, "why": "empty"})
-				else:
-					# Ran into the tail half of a two-cell part, which has no port.
-					breaks.append({"from": ex, "to": target, "dir": d,
-						"id": String(cells[occ]["id"]), "why": "side"})
+			if why != "":
+				breaks.append(port)
 				continue
-			if not Components.world_inputs(t["id"], t["rot"]).has(Components.opposite(d)):
-				breaks.append({"from": ex, "to": target, "dir": d,
-					"id": String(t["id"]), "why": "facing"})
-				continue
-			links.append([ex, target])
-			if not reachable.has(target):
-				reachable[target] = true
-				queue.append(target)
+			var to: Vector2i = port["to"]
+			links.append([port["from"], to])
+			if not reachable.has(to):
+				reachable[to] = true
+				queue.append(to)
 	return {"reachable": reachable, "links": links, "breaks": breaks, "leaks": leaks,
+		"dead": dead, "dead_links": dead_links,
 		"has_input": true, "reaches_output": reaches_output}
+
+## Where one part's ports lead, a port at a time. Every entry carries `from` —
+## the cell the flow leaves by, which on a two-cell part is not the cell the
+## part is filed under — and `dir`, the way it goes. A port that lands on a part
+## also carries `to`, that part's origin, and `id`. `why` is what stopped the
+## flow, or "" when nothing did:
+##
+##   edge    the board runs out
+##   empty   there is nothing there
+##   side    the tail half of a two-cell part, which has no port
+##   facing  the receiving part sends its own flow back this way
+##
+## One place knows how a port resolves, so the walk above and the loop check
+## below cannot come to different answers about the same joint.
+func _ports_from(origin: Vector2i) -> Array:
+	var entry: Dictionary = cells.get(origin, {})
+	if entry.is_empty():
+		return []
+	var id: String = entry["id"]
+	var rot: int = entry["rot"]
+	var ex := Components.exit_cell(id, origin, rot)
+	var dirs: Array = Components.world_outputs(id, rot)
+	var pd := Components.world_payload_out(id, rot)
+	if pd >= 0:
+		dirs = dirs + [pd]
+	var out: Array = []
+	for d in dirs:
+		var target: Vector2i = ex + Components.dir_to_vec(d)
+		if not in_bounds(target):
+			out.append({"from": ex, "dir": d, "why": "edge"})
+			continue
+		var t: Dictionary = comp_origin_at(target)
+		if t.is_empty():
+			var occ = occupancy.get(target, null)
+			if occ == null:
+				out.append({"from": ex, "dir": d, "why": "empty"})
+			else:
+				out.append({"from": ex, "to": target, "dir": d,
+					"id": String(cells[occ]["id"]), "why": "side"})
+			continue
+		if not Components.world_inputs(String(t["id"]), int(t["rot"])).has(Components.opposite(d)):
+			out.append({"from": ex, "to": target, "dir": d,
+				"id": String(t["id"]), "why": "facing"})
+			continue
+		out.append({"from": ex, "to": target, "dir": d, "id": String(t["id"]), "why": ""})
+	return out
+
+## Every part caught in a loop the flow can never leave, as origin -> true.
+##
+## A part is caught when it can reach itself and everything it can reach can
+## reach it back: whatever goes in goes round and round, and nothing past it
+## ever sees anything. A ring with a branch out of it is not caught — that
+## branch is where the flow leaves, and a ring running its payload back through
+## its own stat parts on the way to an OUTPUT is the whole point of building
+## one.
+##
+## Read off the whole board rather than out from the INPUT, because a ring with
+## nothing feeding it is the same trap with nothing in it yet.
+##
+## The exception is a part that does its work on the way in rather than at an
+## OUTPUT — TIME DILATION, ON PARRY. A loop with one of those in it fires it
+## once a lap for as long as the pulse's life holds out, so the parts round it
+## are working, not dead.
+func dead_loops() -> Dictionary:
+	var out: Dictionary = {}
+	var links: Dictionary = {}
+	for origin in cells:
+		var to: Array = []
+		for port in _ports_from(origin):
+			if String(port["why"]) == "":
+				to.append(port["to"])
+		links[origin] = to
+	# What each part leads to, however far away. A board is a few dozen cells at
+	# most, so this is one walk per part and no cleverness.
+	var reach: Dictionary = {}
+	for origin in cells:
+		reach[origin] = _reach_from(links, origin)
+	for origin in cells:
+		var seen: Dictionary = reach[origin]
+		if not seen.has(origin):
+			continue                                    # not on a loop at all
+		var trapped := true
+		for other in seen:
+			if not (reach[other] as Dictionary).has(origin):
+				trapped = false                         # and there is the way out
+				break
+			if Components.acts_on_entry(String(cells[other]["id"])):
+				trapped = false                         # going nowhere, but working
+				break
+		if trapped:
+			out[origin] = true
+	return out
+
+## Everything `start` leads to, directly or through others. Seeded with what
+## `start` links to rather than with `start` itself, so a part turns up in its
+## own answer only when the wiring really does come back round to it.
+static func _reach_from(links: Dictionary, start: Vector2i) -> Dictionary:
+	var seen: Dictionary = {}
+	var queue: Array = (links.get(start, []) as Array).duplicate()
+	while not queue.is_empty():
+		var at: Vector2i = queue.pop_front()
+		if seen.has(at):
+			continue
+		seen[at] = true
+		queue.append_array(links.get(at, []))
+	return seen
 
 ## The first thing wrong with this board, phrased for the player.
 func first_problem() -> String:
@@ -213,6 +317,13 @@ func first_problem() -> String:
 		var f: Vector2i = l["from"]
 		return Loc.t("editor.problem.leak", [
 			f.x, f.y, Components.dir_name(int(l["dir"]))])
+	# A flow that has run into a loop it cannot leave never reaches an OUTPUT,
+	# and saying only that sends the player hunting for a part that is missing
+	# instead of looking at the ring the editor has just greyed out.
+	var dead: Dictionary = t["dead"]
+	for origin in t["reachable"]:
+		if dead.has(origin):
+			return Loc.t("editor.problem.dead_loop")
 	if not bool(t["reaches_output"]):
 		return Loc.t("editor.problem.no_output")
 	return Loc.t("editor.problem.no_form")

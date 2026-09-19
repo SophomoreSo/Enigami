@@ -127,6 +127,58 @@ func _ready() -> void:
 	check(absf(per_cycle - float(want_shots)) < 0.5,
 		"and fires as many shots as it promised (%.1f vs %d)" % [per_cycle, want_shots])
 
+	# --- loops the flow can never leave ----------------------------------------
+	# The board from the report: a trigger feeding a four-part ring that never
+	# hands the flow back. Every part of the ring is dead code; nothing outside
+	# it is — the INPUT is doing its job, and the stranded OUTPUT is unreached
+	# rather than caught.
+	var dl := SkillBoard.new(7, 5, "deadloop")
+	dl.place("INPUT", Vector2i(0, 2), 0)
+	dl.place("DUPLICATE", Vector2i(1, 2), 3)     # in from the west, out north
+	dl.place("FIRE", Vector2i(1, 1), 0)          # east
+	dl.place("DAMAGE", Vector2i(2, 1), 1)        # south
+	dl.place("FIRE", Vector2i(2, 2), 2)          # west, closing the ring
+	dl.place("OUTPUT", Vector2i(3, 2), 0)
+	var td := dl.trace()
+	var caught: Dictionary = td["dead"]
+	check(caught.size() == 4, "every part of a ring with no way out is dead code (%d)"
+		% caught.size())
+	check(not caught.has(Vector2i(0, 2)) and not caught.has(Vector2i(3, 2)),
+		"and neither the INPUT feeding it nor the OUTPUT it never reaches is")
+	check((td["dead_links"] as Array).size() == 4,
+		"the ring's own seams come back with it, so one silhouette can go round it")
+	check(dl.first_problem() == Loc.t("editor.problem.dead_loop"),
+		"and the board names the trap rather than only saying nothing comes out")
+
+	# The same ring with nothing feeding it: a trap is a trap before anything
+	# falls into it, so this is marked too.
+	var orphan := SkillBoard.new(7, 5, "orphan")
+	orphan.place("WIRE", Vector2i(1, 0), 0)
+	orphan.place("WIRE", Vector2i(2, 0), 1)
+	orphan.place("WIRE", Vector2i(2, 1), 2)
+	orphan.place("WIRE", Vector2i(1, 1), 3)
+	check((orphan.trace()["dead"] as Dictionary).size() == 4,
+		"a ring with nothing feeding it is dead code all the same")
+	check((tr["dead"] as Dictionary).size() == 4, "and so is the one the INPUT feeds")
+
+	# The ring that pays for itself is left alone. Laps through the stat parts
+	# and out through a TEE is the pattern charging a skill exists to buy, and
+	# calling it dead code would be calling the game dead code.
+	check((lp.trace()["dead"] as Dictionary).is_empty(),
+		"a ring with a branch out of it is not dead code")
+	check((b.trace()["dead"] as Dictionary).is_empty(), "and neither is a plain chain")
+
+	# Nor is a ring whose work is done on the way in rather than at an OUTPUT:
+	# trapped or not, it dilates time once a lap for as long as the life lasts.
+	var spin := SkillBoard.new(7, 5, "dilate")
+	spin.place("INPUT", Vector2i(0, 0), 0)
+	spin.place("WIRE", Vector2i(1, 0), 0)
+	spin.place("TIME_DILATION", Vector2i(2, 0), 1)
+	spin.place("WIRE", Vector2i(2, 1), 2)
+	spin.place("WIRE", Vector2i(1, 1), 3)
+	check((spin.trace()["dead"] as Dictionary).is_empty(),
+		"a ring with TIME DILATION in it is doing something every lap, not nothing")
+
 	# A loop through a trigger's branch queues one follow-up per lap. It used to
 	# overwrite a single stored payload instead, so four laps through four
 	# DAMAGE parts collapsed into one enormous strike rather than the four

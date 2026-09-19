@@ -56,4 +56,21 @@ func _ready() -> void:
 	ed._sim_dirty = true
 	await frames(6)
 	await shot("16_overclock")
+
+	# The board from the third report: a trigger feeding a ring that never hands
+	# the flow back, with an OUTPUT stranded beside it. The ring is drawn
+	# switched off, the cursor is on it, and the notice says why.
+	for c3 in b.cells.keys().duplicate():
+		b.erase_at(c3)
+	b.place("INPUT", Vector2i(0, 2), 0)
+	b.place("DUPLICATE", Vector2i(1, 2), 3)   # in from the west, out north
+	b.place("FIRE", Vector2i(1, 1), 0)        # east
+	b.place("DAMAGE", Vector2i(2, 1), 1)      # south
+	b.place("FIRE", Vector2i(2, 2), 2)        # west, closing the ring
+	b.place("OUTPUT", Vector2i(3, 2), 0)
+	ed._sim_dirty = true
+	ed._update_hover(ed._cell_center(Vector2i(2, 1)))
+	ed._mouse_pos = ed._cell_center(Vector2i(2, 1))
+	await frames(6)
+	await shot("17_dead_loop")
 	get_tree().quit()

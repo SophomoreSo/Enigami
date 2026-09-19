@@ -81,10 +81,12 @@ var _sim_dirty: bool = true
 ## the furthest of them. The edge highlight is driven off these — see
 ## `_rebuild_flow` — and `_flow_time` is what walks it along.
 var _flow_depth: Dictionary = {}
-## Every boundary that carries flow, as Vector3i(cell.x, cell.y, dir). Both
-## cells sharing a boundary are filed under it: flush against each other they
-## are the same line on screen, and it is the seam neither of them draws.
-var _flow_joint: Dictionary = {}
+## Every boundary the silhouette does not draw, as Vector3i(cell.x, cell.y,
+## dir). Both cells sharing a boundary are filed under it: flush against each
+## other they are the same line on screen, and it is the seam neither of them
+## draws. A joint that carries flow is one, and so is a seam inside a loop the
+## flow can never leave — what is switched off is still one shape.
+var _fused_seam: Dictionary = {}
 ## The track the dots run on: the silhouette of each wired shape, cut open and
 ## kept as runs rather than loops. Each is {pts, side}, ordered from the INPUT
 ## end towards the far end, `side` saying which way round is the shape's inside.
@@ -524,6 +526,15 @@ const ICON_ZOOM := 2
 const CELL_FILL := Color(0.11, 0.13, 0.17)
 const CELL_EDGE := Color(0.2, 0.24, 0.3)
 
+## A part caught in a loop the flow can never leave. It is not drawn faint, the
+## way a part nothing reaches is — it is drawn switched off: the category colour
+## comes out of it altogether, and the silhouette round it goes to the red the
+## faults are marked in, which is what says the loop is the fault. Hovering it
+## says so in words.
+const DEAD_FILL := Color(0.46, 0.48, 0.53)
+const DEAD_EDGE := Color(0.95, 0.35, 0.35)
+const DEAD_INK := Color(0.55, 0.57, 0.62)
+
 ## The two halves of the flow display. The silhouette round a wired run is lit
 ## the whole time — it says what is joined to what, which does not change from
 ## moment to moment — and the movement is carried by dots running that same
@@ -574,6 +585,7 @@ func _draw() -> void:
 	_draw_board()
 	_draw_palette()
 	_draw_info(vp)
+	_draw_dead_hint(vp)
 	_draw_drag()
 
 ## Traits matter more than flavour here: the preview below is computed with them.
@@ -677,6 +689,87 @@ func _draw_ports_preview(id: String, origin: Vector2i) -> void:
 	if p >= 0:
 		_draw_port_arrow(ex, p, Color(1.0, 0.6, 0.85, 0.8))
 
+## The notice, and the room it is given. The English takes four rows at this
+## width; the box is sized to however many the language being played actually
+## takes, so a translation that words it longer gets a taller box rather than
+## an ellipsis, and only one longer than DEAD_BOX_ROWS is cut short at all.
+const DEAD_BOX_W := 380.0
+const DEAD_BOX_ROWS := 6
+const DEAD_BOX_PAD := 8.0
+## Between the notice and the ring it is about, which it never covers.
+const DEAD_BOX_GAP := 8.0
+
+## Why a switched-off part is switched off, said under the cursor. Nothing is
+## wrong with the part — what is wrong is the wiring round it — so it is said at
+## the wiring, and the info panel along the bottom goes on naming the part like
+## any other.
+func _draw_dead_hint(vp: Vector2) -> void:
+	# Never with a part in hand or the share sheet up: the first is already
+	# saying something under the cursor, and the second covers the board.
+	if _drag_id != "" or _share_open() or _hover_cell.x < 0:
+		return
+	var b := current_board()
+	if b == null:
+		return
+	var origin = b.origin_at(_hover_cell)
+	if origin == null or not _dead_at(origin):
+		return
+	var head := Loc.t("editor.dead.title")
+	var body := PixelDraw.wrap(Loc.t("editor.dead.body"),
+		DEAD_BOX_W - DEAD_BOX_PAD * 2.0, DEAD_BOX_ROWS)
+	var box := _dead_hint_box(vp, _dead_group_rect(b, origin), body.size())
+	# Opaque, like the drag chip and for the same reason: it lands over the
+	# board and the panel alike, and two rows of pixel text through each other
+	# are unreadable.
+	_px.rect(box, Color(0.07, 0.08, 0.11))
+	_px.rect(box, Color(DEAD_EDGE.r, DEAD_EDGE.g, DEAD_EDGE.b, 0.12))
+	_px.frame(box, DEAD_EDGE)
+	_px.text(box.position + Vector2(DEAD_BOX_PAD, 20.0), head, DEAD_EDGE)
+	for i in body.size():
+		_px.text(box.position + Vector2(DEAD_BOX_PAD, 20.0 + float(i + 1) * LINE),
+			body[i], Color(0.82, 0.86, 0.92))
+
+## Where the notice goes for the ring boxed by `on`: hung off the ring rather
+## than off the cursor, since it is the whole ring the notice is about and a box
+## under the pointer would sit on the very thing it names. Below it and to the
+## right, flipped back over it when either would run off the screen.
+func _dead_hint_box(vp: Vector2, on: Rect2, rows: int) -> Rect2:
+	var size := Vector2(DEAD_BOX_W, 28.0 + rows * LINE)
+	var at := on.end + Vector2(DEAD_BOX_GAP, DEAD_BOX_GAP)
+	if at.x + size.x > vp.x - DEAD_BOX_PAD:
+		at.x = on.position.x - DEAD_BOX_GAP - size.x
+	if at.y + size.y > vp.y - DEAD_BOX_PAD:
+		at.y = on.position.y - DEAD_BOX_GAP - size.y
+	return Rect2(_px.snap(Vector2(
+		clampf(at.x, DEAD_BOX_PAD, vp.x - size.x - DEAD_BOX_PAD),
+		clampf(at.y, DEAD_BOX_PAD, vp.y - size.y - DEAD_BOX_PAD))), size)
+
+## The box round the whole ring the part at `origin` is caught in. The seams
+## that came back with the loop are what holds it together: a part is in this
+## ring if a seam joins it to something already in it, which is grown until
+## nothing more joins. Two separate rings on one board therefore stay separate.
+func _dead_group_rect(b: SkillBoard, origin: Vector2i) -> Rect2:
+	var group := {origin: true}
+	var grew := true
+	while grew:
+		grew = false
+		for link in _trace_cache.get("dead_links", []):
+			var from = b.origin_at(link[0])
+			var to: Vector2i = link[1]
+			if from == null or group.has(from) == group.has(to):
+				continue
+			group[from] = true
+			group[to] = true
+			grew = true
+	var r := Rect2()
+	for o in group:
+		var entry := b.comp_origin_at(o)
+		if entry.is_empty():
+			continue
+		var box := _part_rect(String(entry["id"]), o, int(entry["rot"]))
+		r = box if r.size == Vector2.ZERO else r.merge(box)
+	return r
+
 ## A chip under the cursor, so a dragged part is visible away from the grid.
 func _draw_drag() -> void:
 	if _drag_id == "":
@@ -723,7 +816,12 @@ func _refresh_trace(b: SkillBoard) -> void:
 ## shortest depth without walking the board a second time.
 func _rebuild_flow(b: SkillBoard) -> void:
 	_flow_depth = {}
-	_flow_joint = {}
+	_fused_seam = {}
+	# A ring with no way out is one shape whether or not anything feeds it, so
+	# its own seams are taken off the wiring rather than off the walk below —
+	# an unfed one would otherwise come out as a box round each of its parts.
+	for link in _trace_cache.get("dead_links", []):
+		_fuse(link[0], link[1])
 	var input = b.find_input()
 	if input == null:
 		return
@@ -738,19 +836,35 @@ func _rebuild_flow(b: SkillBoard) -> void:
 			continue
 		# A link that runs back into a part already reached — a ring closing —
 		# still fuses its own seam, which is why this is done before the depth
-		# is settled below.
-		var dir := _step_dir(to - exit_cell)
-		if dir >= 0:
-			_flow_joint[Vector3i(exit_cell.x, exit_cell.y, dir)] = true
-			var back := Components.opposite(dir)
-			_flow_joint[Vector3i(to.x, to.y, back)] = true
+		# is settled below. The one seam left drawn is the one onto a dead ring:
+		# the live wiring stops at its edge and the red goes right round it,
+		# rather than the two running into each other as a single shape.
+		var from_origin: Vector2i = from
+		if _dead_at(from_origin) == _dead_at(to):
+			_fuse(exit_cell, to)
 		if _flow_depth.has(to):
 			continue
 		_flow_depth[to] = int(_flow_depth[from]) + 1
 
+## The boundary between two cells that sit against each other, filed under both.
+func _fuse(exit_cell: Vector2i, to: Vector2i) -> void:
+	var dir := _step_dir(to - exit_cell)
+	if dir < 0:
+		return
+	_fused_seam[Vector3i(exit_cell.x, exit_cell.y, dir)] = true
+	_fused_seam[Vector3i(to.x, to.y, Components.opposite(dir))] = true
+
+## Whether the part filed under `origin` is caught in a loop the flow can never
+## leave. `SkillBoard.dead_loops` is what works that out; this is the editor
+## asking the board about one part.
+func _dead_at(origin: Vector2i) -> bool:
+	return (_trace_cache.get("dead", {}) as Dictionary).has(origin)
+
 ## The silhouette of every wired shape, as closed loops of points. Only parts
 ## the flow reaches are outlined: a part it cannot reach is not wired to
-## anything, so it gets no track and carries no dots.
+## anything, so it gets no track and carries no dots. Nor is a ring the flow
+## reaches but can never leave — the flow really does go round it, and a track
+## running dots round and round is exactly the reading it must not have.
 ##
 ## The track is drawn round the parts *between* the two ends, with the start and
 ## the end themselves left out of it. That is what puts its two tips on the side
@@ -788,7 +902,7 @@ func _rebuild_outline(b: SkillBoard) -> void:
 	var terminal := String(b.comp_origin_at(ends[1]).get("id", "")) == "OUTPUT"
 	var mid := {}
 	for origin in b.cells.keys():
-		if not _flow_depth.has(origin) or origin == ends[0]:
+		if not _flow_depth.has(origin) or origin == ends[0] or _dead_at(origin):
 			continue
 		if terminal and origin == ends[1]:
 			continue
@@ -873,7 +987,9 @@ func _flow_ends(b: SkillBoard) -> Array:
 	var best_rank := -1
 	for origin in _flow_depth.keys():
 		var entry := b.comp_origin_at(origin)
-		if entry.is_empty():
+		# A dead ring is where the run stops, never where it is going: the dots
+		# end on the last part that still leads somewhere.
+		if entry.is_empty() or _dead_at(origin):
 			continue
 		# An OUTPUT is the end whatever its depth, since that is where the
 		# board is actually going; failing that, the furthest part reached.
@@ -1038,7 +1154,7 @@ func _step_dir(step: Vector2i) -> int:
 func _fused(cells: Array, cell: Vector2i, dir: int) -> bool:
 	if cells.has(cell + Components.dir_to_vec(dir)):
 		return true
-	return _flow_joint.has(Vector3i(cell.x, cell.y, dir % 4))
+	return _fused_seam.has(Vector3i(cell.x, cell.y, dir % 4))
 
 ## The flow itself, over the top of the parts: dots running the silhouette of
 ## each wired shape. The outline under them says what is joined to what; these
@@ -1321,35 +1437,42 @@ func _draw_component(b: SkillBoard, origin: Vector2i) -> void:
 	var id: String = entry["id"]
 	var rot: int = entry["rot"]
 	var col := Style.component_color(id)
+	# Caught in a loop with no way out. It is drawn switched off whatever else
+	# is true of it — being fed by the INPUT is the very thing that makes it
+	# dead code rather than a part waiting to be wired up.
+	var dead := _dead_at(origin)
 	# A part the flow cannot reach is drawn faint: it is on the board but dead.
-	var live: bool = not bool(_trace_cache.get("has_input", false)) \
-		or _trace_cache.get("reachable", {}).has(origin)
+	var live: bool = not dead and (not bool(_trace_cache.get("has_input", false)) \
+		or _trace_cache.get("reachable", {}).has(origin))
 	var r := _part_rect(id, origin, rot)
 	var cut := _port_cut(b, id, origin, rot)
 	# The part's own ground under its tint, so the grid it covers does not show
 	# through the tint and draw a seam across a two-cell part.
 	_draw_part_body(r, cut, CELL_FILL)
-	_draw_part_body(r, cut, Color(col.r, col.g, col.b, 0.28 if live else 0.08))
+	_draw_part_body(r, cut, Color(DEAD_FILL.r, DEAD_FILL.g, DEAD_FILL.b, 0.2) if dead \
+		else Color(col.r, col.g, col.b, 0.28 if live else 0.08))
 	# The edge is what carries the wiring now that the parts touch, so it is
 	# drawn brighter than the part it bounds, and the run lights it on its way
 	# past. A part the flow never reaches never lights: the same reading the
 	# bridges gave, moved onto the part itself.
-	_draw_part_edges(id, origin, rot,
-		col.lightened(0.45) if live else Color(col.r, col.g, col.b, 0.35), cut)
+	_draw_part_edges(id, origin, rot, DEAD_EDGE if dead \
+		else (col.lightened(0.45) if live else Color(col.r, col.g, col.b, 0.35)), cut)
 	# No name under the icon: none fits a cell in the pixel face. Hovering the
 	# part names it in the panel along the bottom instead. The icon is drawn at
 	# ICON_ZOOM here — a cell is wide enough for it, and at palette size it was
 	# lost in the middle of one.
-	_px.icon_centered(r.get_center(), Style.component_icon(id),
-		col.lightened(0.3) if live else Color(col.r, col.g, col.b, 0.4), ICON_ZOOM)
+	_px.icon_centered(r.get_center(), Style.component_icon(id), DEAD_INK if dead \
+		else (col.lightened(0.3) if live else Color(col.r, col.g, col.b, 0.4)), ICON_ZOOM)
 
 	var ex := Components.exit_cell(id, origin, rot)
-	var arrow_col := col.lightened(0.4) if live else Color(col.r, col.g, col.b, 0.35)
+	var arrow_col := DEAD_EDGE if dead \
+		else (col.lightened(0.4) if live else Color(col.r, col.g, col.b, 0.35))
 	for d in Components.world_outputs(id, rot):
 		_draw_port_arrow(ex, d, arrow_col)
 	var pd := Components.world_payload_out(id, rot)
 	if pd >= 0:
-		_draw_port_arrow(ex, pd, Color(1.0, 0.55, 0.8) if live else Color(1.0, 0.55, 0.8, 0.35))
+		_draw_port_arrow(ex, pd, DEAD_EDGE if dead \
+			else (Color(1.0, 0.55, 0.8) if live else Color(1.0, 0.55, 0.8, 0.35)))
 
 ## Live pulses from the running circuit, so the board shows its own timing: a
 ## diamond that swells as the pulse crosses a part, and the part's border lit
@@ -1549,9 +1672,12 @@ func _preview_rows(b: SkillBoard, result: Dictionary, width: float) -> Array:
 		_add_rows(rows, Weapons.rejection_reason(weapon_id, b), Color(1.0, 0.5, 0.5), width, 2)
 	if outs.is_empty():
 		# A flow that simply ran out of life is not a wiring fault, and
-		# `first_problem` would go looking for one that is not there.
+		# `first_problem` would go looking for one that is not there — unless
+		# what it ran out of life in is a ring it could never have left. That
+		# is a fault, and the one worth naming: charging the cast further only
+		# buys more laps of the same ring.
 		var why := b.first_problem()
-		if bool(result.get("expired", false)):
+		if bool(result.get("expired", false)) and not _flow_trapped():
 			why = Loc.t("editor.problem.expired", [int(result.get("ttl", 0))])
 		_add_rows(rows, why, Color(1.0, 0.62, 0.45), width, 3)
 	for i in mini(outs.size(), 3):
@@ -1585,6 +1711,16 @@ func _preview_rows(b: SkillBoard, result: Dictionary, width: float) -> Array:
 		rows.resize(INFO_ROWS - 1)
 		rows.append({"text": Loc.t("editor.readout.more", [cut]), "col": Color(0.55, 0.65, 0.75)})
 	return rows
+
+## Whether the flow runs into a loop it can never leave. On a board like that,
+## running out of life is what a trap looks like from the runner's side, and the
+## readout has to say which of the two it is.
+func _flow_trapped() -> bool:
+	var dead: Dictionary = _trace_cache.get("dead", {})
+	for origin in _trace_cache.get("reachable", {}):
+		if dead.has(origin):
+			return true
+	return false
 
 func _add_rows(rows: Array, text: String, col: Color, width: float, most: int) -> void:
 	for line in PixelDraw.wrap(text, width, most):

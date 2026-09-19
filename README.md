@@ -172,6 +172,17 @@ circle. A part the flow cannot reach keeps its own box, drawn faint and with
 no dots on it. When a board produces nothing the preview names the first fault
 rather than only saying nothing came out.
 
+A ring the flow can never leave is **dead code**, and is drawn switched off:
+the colour comes out of the parts, the silhouette round the whole ring goes
+red, and the cursor anywhere on it brings up a box saying why — whatever gets
+in goes round until its life runs out, and nothing comes of it. It counts
+whether or not the INPUT feeds it, and being fed is exactly what makes it dead
+code rather than a part waiting to be wired up. A ring with a branch out of it
+is not one of these and is drawn as it always was: laps through the stat parts
+and out through a TEE is the pattern charging a skill exists to buy. Nor is one
+with TIME DILATION or ON PARRY in it, which do their work on the way in and go
+on doing it once a lap however trapped the flow is.
+
 The editor previews the whole cycle offline: cadence in seconds, every output it
 would produce, the trigger payloads, and total heat.
 
