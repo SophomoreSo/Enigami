@@ -134,6 +134,7 @@ printf '%s\n' "-----------------------------------------------------------------
 
 passed=0; failed=0; quarantined=0
 FAILED_SCENES=()
+FAILED_LOGS=()
 SUMMARY_ROWS=()
 
 for scene in "${SCENES[@]}"; do
@@ -178,7 +179,7 @@ for scene in "${SCENES[@]}"; do
 	case "$verdict" in
 		PASS)       passed=$((passed + 1)) ;;
 		QUARANTINE) quarantined=$((quarantined + 1)) ;;
-		*)          failed=$((failed + 1)); FAILED_SCENES+=("$scene") ;;
+		*)          failed=$((failed + 1)); FAILED_SCENES+=("$scene"); FAILED_LOGS+=("$log") ;;
 	esac
 
 	printf '%-44s %-9s %9s %8s  %s\n' "$scene" "$verdict" "${summary:--}" "$secs" "$note"
@@ -190,7 +191,21 @@ echo "$passed passed, $failed failed, $quarantined quarantined  (logs in $LOG_DI
 if [ ${#FAILED_SCENES[@]} -gt 0 ]; then
 	echo
 	echo "Failed:"
-	for s in "${FAILED_SCENES[@]}"; do echo "  $s"; done
+	for fs in "${FAILED_SCENES[@]}"; do echo "  $fs"; done
+
+	# The per-scene log is where the diagnosis lives, and it reaches a person
+	# only if the artifact survives — which in the first CI run it did not. So
+	# put the end of it in the run's own output as well, where nothing can drop
+	# it. A crash prints its backtrace here; an assertion prints what it wanted.
+	for i in "${!FAILED_SCENES[@]}"; do
+		fs="${FAILED_SCENES[$i]}"
+		fl="${FAILED_LOGS[$i]}"
+		echo
+		[ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::last 60 lines — $fs"
+		echo "----- $fl -----"
+		tail -60 "$fl" 2>/dev/null || echo "(no log)"
+		[ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
+	done
 fi
 
 # A readable table on the run's summary page, when there is one.

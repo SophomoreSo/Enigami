@@ -35,7 +35,7 @@ runs:
 
     - name: Restore Godot from cache
       id: cache
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: |
           ~/godot-ci
