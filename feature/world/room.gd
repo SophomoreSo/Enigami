@@ -133,13 +133,18 @@ func _generate() -> void:
 		for x in range(W - 4, W - 1):
 			_set_cell(x, floor_row, 1)
 
-	var platform_count := rng.randi_range(3, 6)
-	for i in platform_count:
-		var len_p := rng.randi_range(4, 10)
-		var px := rng.randi_range(3, W - 4 - len_p)
-		var py := rng.randi_range(5, H - 5)
-		for x in range(px, px + len_p):
-			_set_cell(x, py, 1)
+	# Ledges to fight over — unless the record asks for a flat room. The hideout
+	# does: it is somewhere to stand and shop, and slabs hanging over the
+	# counter are scenery nobody can use. Only a room that asks skips them, so
+	# every raid room is laid out from the same rolls it always was.
+	if not bool(data.get("flat", false)):
+		var platform_count := rng.randi_range(3, 6)
+		for i in platform_count:
+			var len_p := rng.randi_range(4, 10)
+			var px := rng.randi_range(3, W - 4 - len_p)
+			var py := rng.randi_range(5, H - 5)
+			for x in range(px, px + len_p):
+				_set_cell(x, py, 1)
 
 	# A climbable stack under a top door, so a north exit is always reachable.
 	if doors.has(Components.N):

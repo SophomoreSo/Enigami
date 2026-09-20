@@ -131,10 +131,11 @@ func _check_fallbacks() -> void:
 		checked += _same(eng, "weapons.%s.desc" % id, String(Weapons.DEFS[id]["desc"]))
 	for id in Monsters.DEFS:
 		checked += _same(eng, "monsters.%s" % id, String(Monsters.DEFS[id]["name"]))
+	# A facility has a name and nothing else to say: what each one does used to
+	# be written on the counter's status line, and went out with it.
 	for key in GameState.FACILITY_INFO:
 		var info: Dictionary = GameState.FACILITY_INFO[key]
 		checked += _same(eng, "hideout.facilities.info.%s.name" % key, String(info["name"]))
-		checked += _same(eng, "hideout.facilities.info.%s.desc" % key, String(info["desc"]))
 	for entry in Controls.ACTIONS:
 		checked += _same(eng, "controls.action.%s" % String(entry[0]), String(entry[1]))
 	for id in RaidMap.EXIT_NAMES:

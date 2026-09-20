@@ -16,9 +16,11 @@ const BAD := Color(0.95, 0.45, 0.45)
 ## A pixel look for the same kit, opted into per call with `pixel`. Text is
 ## Silkscreen at a multiple of its native 8px, borders are square and a whole
 ## number of PIXELs wide, and nothing is antialiased, so a screen built this way
-## reads as the same pixel art as the title and the world. The menus use it —
-## the title's settings and the pause menu, which are the same rows twice — as
-## does the assembly screen, which draws its own; the HUD does not yet.
+## reads as the same pixel art as the title and the world. Everything uses it
+## now: the menus — the title's settings and the pause menu, which are the same
+## rows twice — the hideout's panels, and the screens that draw themselves
+## rather than being built out of Controls, which is the assembly screen, the
+## bench readout and the raid HUD (see `PixelDraw`).
 const PIXEL_FONT := preload("res://graphics/assets/fonts/Silkscreen-Regular.ttf")
 const PIXEL := 2
 const PIXEL_TEXT := 16
@@ -122,26 +124,61 @@ static func sync_screen(c: Control) -> void:
 	if c.size != want:
 		c.size = want
 
-## A column that always fits the screen, scrolling whatever will not.
+## A panel that fits the screen with its page pinned at both ends: a head, a
+## foot, and between them the rows — the one part of it that scrolls.
 ##
-## The menus here are built as a VBox at a fixed position, which quietly grows
-## off the bottom as soon as a row is added: two new rebindable actions were
-## enough to push the ABANDON RAID button out of the pause menu entirely, with
-## nothing on screen to say it was there. Keeping the height tied to the
-## viewport means that cannot happen again, on any window size.
-class ScreenScroll extends ScrollContainer:
-	var top_left := Vector2(430, 40)
-	var content_width := 470.0
+## Every menu here is that shape: a title, a list, and the way out of it. Built
+## as one column inside a scroll, which is what they all were, a list long
+## enough to need a bar takes the title off the top of the screen and the way
+## out off the bottom, and nothing on the screen says either is there. Pinning
+## the ends is also what keeps a menu that grows — two new rebindable actions
+## were enough, once — from pushing its own ABANDON RAID button out of the
+## viewport.
+class ScreenFrame extends PanelContainer:
+	var content_width := 668.0
+	## How much of the screen the frame leaves alone: it hangs no higher than
+	## `top_margin` and stops `bottom_margin` short of the bottom. Between those
+	## it is as tall as what it holds, and no taller — a short page sits in the
+	## middle of the screen rather than filling it.
+	var top_margin := 40.0
 	var bottom_margin := 28.0
-	## Off, a page hangs from `top_left` and fills the screen below it, so a
-	## short one sits up against the top. On, the scroll is only as tall as the
-	## page inside it and sits in the middle of the screen — until the page
-	## outgrows the room it has, when it fills that room from `top_left` again
-	## and scrolls, exactly as it always did.
-	var centered := false
+	## The three boxes a page is made of, ready to fill the moment the frame is
+	## made. `head` and `foot` are pinned; `rows` is what scrolls between them.
+	var head: VBoxContainer
+	var rows: VBoxContainer
+	var foot: VBoxContainer
+	## The scroll `rows` sits in, for anything that needs to drive it.
+	var body: ScrollContainer
+
+	func _init() -> void:
+		var v := VBoxContainer.new()
+		v.add_theme_constant_override("separation", 8)
+		add_child(v)
+		head = _box()
+		v.add_child(head)
+		rows = _box()
+		rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		body = ScrollContainer.new()
+		body.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		# So a row reached by keyboard or gamepad is scrolled to rather than
+		# focused somewhere off the top of the box.
+		body.follow_focus = true
+		body.add_child(rows)
+		UiKit.pixel_scroll(body)
+		v.add_child(body)
+		foot = _box()
+		v.add_child(foot)
+
+	func _box() -> VBoxContainer:
+		var b := VBoxContainer.new()
+		b.add_theme_constant_override("separation", 8)
+		return b
 
 	func _ready() -> void:
-		horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		# Top-left anchors, explicit size: full-rect anchors refuse a direct
+		# resize, and a Control under a CanvasLayer inherits no rect to fill.
+		set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 		_fit()
 
 	func _process(_delta: float) -> void:
@@ -149,33 +186,31 @@ class ScreenScroll extends ScrollContainer:
 
 	func _fit() -> void:
 		var vp := get_viewport_rect().size
-		var room := maxf(vp.y - top_left.y - bottom_margin, 120.0)
-		if not centered:
-			position = top_left
-			size = Vector2(content_width, room)
-			return
-		# The scroll has to shrink to its page before it can be centred: a
-		# scroll taller than what it holds would centre its own empty box and
-		# leave the panel drawn at the top of it.
-		var page := get_child(0) as Control
-		size = Vector2(content_width,
-			room if page == null else minf(page.get_combined_minimum_size().y, room))
+		var room := maxf(vp.y - top_margin - bottom_margin, 160.0)
+		size = Vector2(content_width, minf(_wanted_height(), room))
 		# Whole pixels, or the pixel face lands between two of them.
 		position = Vector2(floorf((vp.x - size.x) * 0.5),
-			maxf(floorf((vp.y - size.y) * 0.5), top_left.y))
+			maxf(floorf((vp.y - size.y) * 0.5), top_margin))
 
-## `centered` is `ScreenScroll.centered` above: the page sits in the middle of
-## the screen rather than hanging from `at`, which then says only how much room
-## it has before it must scroll.
-static func screen_scroll(content: Control, at: Vector2, width: float,
-		centered: bool = false) -> ScrollContainer:
-	var sc := ScreenScroll.new()
-	sc.top_left = at
-	sc.content_width = width
-	sc.centered = centered
-	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sc.add_child(content)
-	return sc
+	## How tall the frame would be with nothing scrolled, so a page the screen
+	## has room for is shown whole and only a longer one grows a bar. A
+	## ScrollContainer asks for no height of its own — that is what makes it a
+	## scroll — so the rows in it are measured and counted back in.
+	func _wanted_height() -> float:
+		return get_combined_minimum_size().y \
+			+ rows.get_combined_minimum_size().y - body.get_combined_minimum_size().y
+
+## A frame in the middle of the screen, `width` wide, with its `head`, `rows`
+## and `foot` waiting to be filled.
+static func screen_frame(width: float, top: float, bottom: float,
+		pixel: bool = false) -> ScreenFrame:
+	var f := ScreenFrame.new()
+	f.content_width = width
+	f.top_margin = top
+	f.bottom_margin = bottom
+	f.add_theme_stylebox_override("panel",
+		style(PANEL, Color(0.22, 0.3, 0.38), 1, 3, pixel))
+	return f
 
 static func spacer(h: int = 8) -> Control:
 	var c := Control.new()

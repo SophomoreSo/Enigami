@@ -8,6 +8,14 @@ extends Node
 ## own column (so the lists and their buttons are all still there), the gate
 ## refuses to open until there is a kit to carry through it, and buying a part
 ## at the counter costs scrap and puts the part in the stash.
+##
+## And that the names on the signs are legible, which is a question about how
+## they are drawn: world text goes into the pixel buffer at the buffer's own
+## resolution (`PixelCamera.draw_text`), never at world size to be shrunk into
+## it. Shrunk, it arrives blended — soft grey edges where a pixel face has none
+## — and Hangul, whose face stands twice as tall, arrived unreadable.
+##
+## Needs a real renderer: that check reads the frame back.
 
 const GameScript := preload("res://app/game.gd")
 
@@ -46,6 +54,58 @@ func buttons_under(root: Node) -> Array:
 func stand_at(id: String) -> void:
 	world.player.global_position = (world.stations[id] as Station).global_position
 	await frames(3)
+
+## How the ink on the plates meets their ground. A glyph drawn at the buffer's
+## own resolution puts down the ink colour and nothing else; one shrunk into the
+## buffer leaves a fringe of everything in between. So this counts both, over
+## the rows that run through a plate — the ones with the plate's own colour at
+## each end and a name between them.
+func sign_ink() -> void:
+	await RenderingServer.frame_post_draw
+	var im := get_viewport().get_texture().get_image()
+	var ground := Style.HIDEOUT_PLATE
+	var inked := 0
+	var blended := 0
+	for y in im.get_height():
+		var first := -1
+		var last := -1
+		for x in im.get_width():
+			# Near, not equal: the frame comes back as 8-bit colour, and a
+			# ground of 0.06 is 15/255 by the time it is read.
+			if mix_of(im.get_pixel(x, y), ground, Style.HIDEOUT_SIGN) == 0.0 \
+					and _near(im.get_pixel(x, y), ground):
+				if first < 0:
+					first = x
+				last = x
+		if first < 0 or last - first < 100:
+			continue
+		for x in range(first, last):
+			var c := im.get_pixel(x, y)
+			for ink in [Style.HIDEOUT_SIGN, Style.HIDEOUT_SIGN_LIT]:
+				var t := mix_of(c, ground, ink)
+				if t > 0.9:
+					inked += 1
+				elif t > 0.15:
+					blended += 1
+	check(inked > 200, "the plates carry names at all (%d pixels of ink)" % inked)
+	check(blended * 20 < inked,
+		"and every one of them is ink or ground, never the wash in between (%d blended of %d)"
+			% [blended, inked])
+
+## Two colours the same to the eye, and to 8-bit colour.
+func _near(a: Color, b: Color) -> bool:
+	return absf(a.r - b.r) < 0.01 and absf(a.g - b.g) < 0.01 and absf(a.b - b.b) < 0.01
+
+## How far along `ground` → `ink` the colour `c` sits, or 0 if it is not on that
+## line at all. What a pixel of a glyph drawn straight into the buffer answers is
+## 1; what the filter leaves behind on the way down answers somewhere in between.
+func mix_of(c: Color, ground: Color, ink: Color) -> float:
+	var d := Vector3(ink.r - ground.r, ink.g - ground.g, ink.b - ground.b)
+	var v := Vector3(c.r - ground.r, c.g - ground.g, c.b - ground.b)
+	var t := v.dot(d) / d.dot(d)
+	if t < 0.0 or t > 1.05:
+		return 0.0
+	return 0.0 if (v - d * t).length() > 0.03 else t
 
 func _ready() -> void:
 	GameState.reset_profile()
@@ -131,6 +191,17 @@ func _ready() -> void:
 		"a part costs more than breaking one down ever pays back")
 	GameState.scrap = scrap_was
 	world.close_panel()
+	await frames(6)
+
+	# --- the words on the signs ----------------------------------------------
+	# In Korean, where it shows: Silkscreen at twice its size shrinks back to
+	# exactly itself, so English survived being drawn the wrong way and 둥근모꼴
+	# did not.
+	var was_language := Loc.language
+	Loc.set_language("kor")
+	await frames(10)
+	await sign_ink()
+	Loc.set_language(was_language)
 	await frames(6)
 
 	# --- the gate ------------------------------------------------------------

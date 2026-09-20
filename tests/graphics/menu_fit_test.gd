@@ -8,6 +8,12 @@ extends Node
 ## settings keep the volumes and language behind GENERAL SETTINGS and the
 ## rebinding list behind CONTROL SETTINGS, the pause menu the list alone. The
 ## pages behind the buttons are the long ones, so every page of both is checked.
+##
+## Fitting the screen is not enough on its own: a page that scrolled whole kept
+## its heading and its way out inside the scroll, and the rebinding list is long
+## enough to carry both of them off the screen. So each page is also scrolled to
+## its end, and what is pinned around the rows is looked for on the screen
+## afterwards.
 
 const GameScript := preload("res://app/game.gd")
 
@@ -25,36 +31,44 @@ func frames(n: int) -> void:
 	for i in n:
 		await get_tree().process_frame
 
-## Every menu here is a ScrollContainer so it can outgrow the screen safely.
-func audit(name: String, sc: ScrollContainer) -> void:
+## Every menu here is a `UiKit.ScreenFrame` so it can outgrow the screen safely:
+## it fits the screen, its rows scroll, and its head and foot do not move.
+func audit(name: String, f: UiKit.ScreenFrame) -> void:
 	var vp := get_viewport().get_visible_rect().size
-	check(sc.position.y >= 0.0 and sc.position.y + sc.size.y <= vp.y + 0.5,
+	check(f.position.y >= 0.0 and f.position.y + f.size.y <= vp.y + 0.5,
 		"%s stays inside the viewport (%.0f..%.0f of %.0f)"
-			% [name, sc.position.y, sc.position.y + sc.size.y, vp.y])
-	check(sc.position.x >= 0.0 and sc.position.x + sc.size.x <= vp.x + 0.5,
+			% [name, f.position.y, f.position.y + f.size.y, vp.y])
+	check(f.position.x >= 0.0 and f.position.x + f.size.x <= vp.x + 0.5,
 		"%s stays inside it sideways too" % name)
-	var content: Control = sc.get_child(0)
-	var wanted := content.get_combined_minimum_size().y
+	var wanted := f.rows.get_combined_minimum_size().y
 	# Whatever will not fit has to be reachable by scrolling, not lost.
-	sc.scroll_vertical = 100000
+	f.body.scroll_vertical = 100000
 	await frames(3)
-	var reach := float(sc.scroll_vertical) + sc.size.y
+	var reach := float(f.body.scroll_vertical) + f.body.size.y
 	check(reach >= wanted - 1.0,
 		"%s can scroll to its last row (reaches %.0f of %.0f)" % [name, reach, wanted])
-	sc.scroll_vertical = 0
+	# And with the rows at their end, what is pinned around them is still there:
+	# the heading over the page and the way out from under it.
+	var screen := Rect2(Vector2.ZERO, vp)
+	for named in [["head", f.head], ["foot", f.foot]]:
+		var box: Control = named[1]
+		check(box.get_child_count() > 0 and screen.encloses(box.get_global_rect()),
+			"%s keeps its %s on the screen with the rows scrolled to the end (%s)"
+				% [name, named[0], box.get_global_rect()])
+	f.body.scroll_vertical = 0
 	await frames(2)
 
 ## The settings pages and the pause menu sit in the middle of the screen, so the
 ## gap above one is the gap below it. Only a page that fits is centred — a
 ## longer one fills the room it has and scrolls — so this is for the short ones.
-func centred(name: String, sc: ScrollContainer) -> void:
+func centred(name: String, f: UiKit.ScreenFrame) -> void:
 	var vp := get_viewport().get_visible_rect().size
-	check(absf(sc.position.x - (vp.x - sc.size.x) * 0.5) <= 1.0,
+	check(absf(f.position.x - (vp.x - f.size.x) * 0.5) <= 1.0,
 		"%s is centred across the screen (%.0f..%.0f of %.0f)"
-			% [name, sc.position.x, sc.position.x + sc.size.x, vp.x])
-	check(absf(sc.position.y - (vp.y - sc.size.y) * 0.5) <= 1.0,
+			% [name, f.position.x, f.position.x + f.size.x, vp.x])
+	check(absf(f.position.y - (vp.y - f.size.y) * 0.5) <= 1.0,
 		"%s is centred down it too (%.0f above, %.0f below)"
-			% [name, sc.position.y, vp.y - sc.position.y - sc.size.y])
+			% [name, f.position.y, vp.y - f.position.y - f.size.y])
 
 func _ready() -> void:
 	GameState.reset_profile()
@@ -66,20 +80,20 @@ func _ready() -> void:
 	var title = game.current
 	title._toggle_settings()
 	await frames(8)
-	check(title._settings is ScrollContainer, "the title's settings panel scrolls")
-	await audit("title settings", title._settings as ScrollContainer)
-	centred("title settings", title._settings as ScrollContainer)
+	check(title._settings is UiKit.ScreenFrame, "the title's settings panel is a frame")
+	await audit("title settings", title._settings)
+	centred("title settings", title._settings)
 	title._toggle_general()
 	await frames(8)
-	check(title._general is ScrollContainer, "the title's general page scrolls")
-	await audit("title general", title._general as ScrollContainer)
-	centred("title general", title._general as ScrollContainer)
+	check(title._general is UiKit.ScreenFrame, "the title's general page is one too")
+	await audit("title general", title._general)
+	centred("title general", title._general)
 	title._toggle_general()
 	await frames(4)
 	title._toggle_controls()
 	await frames(8)
-	check(title._controls is ScrollContainer, "the title's controls page scrolls")
-	await audit("title controls", title._controls as ScrollContainer)
+	check(title._controls is UiKit.ScreenFrame, "and so is the rebinding page")
+	await audit("title controls", title._controls)
 	title._toggle_controls()
 	await frames(4)
 	title._toggle_settings()
@@ -89,15 +103,15 @@ func _ready() -> void:
 	await frames(24)
 	game._pause()
 	await frames(8)
-	var sc: ScrollContainer = game.pause_main as ScrollContainer
-	check(sc != null, "the pause menu scrolls")
+	var sc: UiKit.ScreenFrame = game.pause_main as UiKit.ScreenFrame
+	check(sc != null, "the pause menu is a frame")
 	if sc != null:
 		await audit("pause menu", sc)
 		centred("pause menu", sc)
 	game._pause_general(true)
 	await frames(8)
-	var gc: ScrollContainer = game.pause_general as ScrollContainer
-	check(gc != null, "the pause menu's general page scrolls")
+	var gc: UiKit.ScreenFrame = game.pause_general as UiKit.ScreenFrame
+	check(gc != null, "the pause menu's general page is one")
 	if gc != null:
 		await audit("pause general", gc)
 		centred("pause general", gc)
@@ -105,8 +119,8 @@ func _ready() -> void:
 	await frames(4)
 	game._pause_controls(true)
 	await frames(8)
-	var cc: ScrollContainer = game.pause_controls as ScrollContainer
-	check(cc != null, "and so does the controls page behind it")
+	var cc: UiKit.ScreenFrame = game.pause_controls as UiKit.ScreenFrame
+	check(cc != null, "and so is the controls page behind it")
 	if cc != null:
 		await audit("pause controls", cc)
 	game._pause_controls(false)

@@ -3,7 +3,6 @@
 	"scrap": "scrap %d",
 	"records": "raids %d · escaped %d · lost %d · kills %d",
 	"title": "TITLE",
-	"status": "board %dx%d · max hp %d · stash cap %d",
 	"weapons": {
 		"heading": "WEAPON — one per raid",
 		"row": "%s%s%s",
@@ -30,39 +29,29 @@
 		"heading": "FACILITIES",
 		"row": "%s  lv%d",
 		"max": "max",
-		"upgraded": "%s is level %d.",
 		"info": {
 			"workbench": {
-				"name": "Workbench",
-				"desc": "Enlarges every skill board."
+				"name": "Workbench"
 			},
 			"vault": {
-				"name": "Vault",
-				"desc": "Raises how many of each component the stash holds."
+				"name": "Vault"
 			},
 			"forge": {
-				"name": "Forge",
-				"desc": "Melts spare components into new ones."
+				"name": "Forge"
 			},
 			"scrapper": {
-				"name": "Scrapper",
-				"desc": "Breaks gear down for more scrap."
+				"name": "Scrapper"
 			},
 			"medbay": {
-				"name": "Medbay",
-				"desc": "Raises max health and heals between raids."
+				"name": "Medbay"
 			}
 		}
 	},
 	"stash": {
 		"heading": "STASH",
 		"forge": "FORGE 3>1 (25)",
-		"forge_hint": "Melts three spare components into one, for 25 scrap.",
 		"row": "%s x%d",
 		"scrap": "scrap",
-		"scrap_hint": "Breaks one down for scrap.",
-		"scrapped": "Scrapped %s for %d.",
-		"forged": "The forge yielded %s.",
 		"empty": "Nothing stored. Bring something home."
 	},
 	"footer": {
@@ -88,9 +77,6 @@
 	},
 	"shop": {
 		"heading": "FOR SALE",
-		"price": "%d",
-		"buy_hint": "Buys one %s for %d scrap.",
-		"full": "The vault will hold no more %s.",
-		"bought": "Bought %s for %d."
+		"price": "%d"
 	}
 }

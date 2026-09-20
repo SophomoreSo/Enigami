@@ -93,9 +93,9 @@ var _first_save_slot: Button
 ## are nothing but the way to them, and only ever one of the three is up. Each
 ## is a scroll around its panel, so a page too long for the screen can still be
 ## reached — see `_settings_page`.
-var _settings: ScrollContainer
-var _general: ScrollContainer
-var _controls: ScrollContainer
+var _settings: UiKit.ScreenFrame
+var _general: UiKit.ScreenFrame
+var _controls: UiKit.ScreenFrame
 ## One entry per slot: {"n", "pick", "stamp", "bin"}.
 var _slot_rows: Array = []
 ## The slot whose trashcan is armed, or -1, and how long it stays that way.
@@ -509,10 +509,10 @@ func _build_settings() -> void:
 	var to_controls := UiKit.button(Loc.t("controls.open"), UiKit.ACCENT, true)
 	to_controls.pressed.connect(_toggle_controls)
 	v.add_child(to_controls)
-	v.add_child(UiKit.spacer(8))
+	_settings.foot.add_child(UiKit.spacer(8))
 	var back := UiKit.button(Loc.t("menu.settings.back"), UiKit.ACCENT, true)
 	back.pressed.connect(_toggle_settings)
-	v.add_child(back)
+	_settings.foot.add_child(back)
 
 ## The volumes and the language, on the page behind GENERAL SETTINGS.
 func _build_general() -> void:
@@ -524,10 +524,10 @@ func _build_general() -> void:
 		Audio.set_sfx_volume(val)
 		Audio.play("ui")))
 	v.add_child(_language_row())
-	v.add_child(UiKit.spacer(8))
+	_general.foot.add_child(UiKit.spacer(8))
 	var back := UiKit.button(Loc.t("menu.settings.back"), UiKit.ACCENT, true)
 	back.pressed.connect(_toggle_general)
-	v.add_child(back)
+	_general.foot.add_child(back)
 
 ## The rebinding list, on the page behind CONTROL SETTINGS. It is fifteen rows
 ## of two columns — longer than every other setting put together — and inline
@@ -540,39 +540,34 @@ func _build_controls() -> void:
 	var controls := ControlsPanel.new()
 	controls.pixel = true
 	v.add_child(controls)
-	v.add_child(UiKit.spacer(8))
+	_controls.foot.add_child(UiKit.spacer(8))
 	var back := UiKit.button(Loc.t("controls.back"), UiKit.ACCENT, true)
 	back.pressed.connect(_toggle_controls)
-	v.add_child(back)
+	_controls.foot.add_child(back)
 
 ## An empty settings page, hidden until its button is pressed: UiKit's pixel
 ## look, like the menu that opens it. The pixel face runs up to twice as wide as
 ## the one it replaced, so the panel is wide — 600 holds the controls list's two
-## columns, and the scroll around it adds its bar. The page keeps its full
-## height inside that scroll, and the scroll is what fits the screen.
+## columns, and the frame adds its bar.
 ##
 ## Centred, since the pages are three very different heights: SETTINGS is three
 ## buttons and the rebinding list is fifteen rows, and hung from a common top
 ## the short ones floated in the upper third of the screen. The rebinding list
-## is taller than the room it has either way, so it goes on filling that room
-## from 56 and scrolling.
-func _settings_page() -> ScrollContainer:
-	var panel := UiKit.panel(UiKit.PANEL, Color(0.22, 0.3, 0.38), true)
-	panel.custom_minimum_size = Vector2(600, 0)
-	var sc := UiKit.screen_scroll(panel, Vector2(336, 56), 608.0, true)
-	UiKit.pixel_scroll(sc)
-	sc.visible = false
-	add_child(sc)
-	return sc
+## is taller than the room it has either way, so it fills that room from 56 and
+## scrolls — its rows do, that is. The heading over them and the way back out
+## from under them are pinned to the frame and go nowhere.
+func _settings_page() -> UiKit.ScreenFrame:
+	var f := UiKit.screen_frame(608.0, 56.0, 28.0, true)
+	f.visible = false
+	add_child(f)
+	return f
 
-## The column a page's rows go in, under a heading and a rule.
-func _settings_column(page: ScrollContainer, heading: String) -> VBoxContainer:
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 8)
-	(page.get_child(0) as PanelContainer).add_child(v)
-	v.add_child(UiKit.label(heading, 24, UiKit.ACCENT, true))
-	v.add_child(UiKit.hline(true))
-	return v
+## The column a page's rows go in, under a heading and a rule pinned above it.
+## What the caller then puts in the page's `foot` is pinned under it.
+func _settings_column(page: UiKit.ScreenFrame, heading: String) -> VBoxContainer:
+	page.head.add_child(UiKit.label(heading, 24, UiKit.ACCENT, true))
+	page.head.add_child(UiKit.hline(true))
+	return page.rows
 
 ## One button per language, laid out like a slider row: the label on the left
 ## and the choices beside it. Each language is written in itself, so somebody

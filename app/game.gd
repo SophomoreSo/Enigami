@@ -266,45 +266,41 @@ func _build_pause_menu() -> void:
 	pause_menu.add_child(dim)
 	# The pixel face runs up to twice as wide as the one this menu was laid out
 	# for, and the rebinding list is two columns of it: 600 holds them, as it
-	# does on the title, and the scroll adds its bar.
-	var panel := UiKit.panel(UiKit.PANEL, Color(0.22, 0.3, 0.38), true)
-	panel.custom_minimum_size = Vector2(600, 0)
-	var scroll := UiKit.screen_scroll(panel, Vector2(336, 36), 608.0, true)
-	UiKit.pixel_scroll(scroll)
-	pause_menu.add_child(scroll)
-	pause_main = scroll
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 8)
-	panel.add_child(v)
-	v.add_child(_pause_heading(Loc.t("menu.pause.heading"), _unpause))
-	v.add_child(UiKit.hline(true))
+	# does on the title, and the frame adds its bar.
+	var frame := UiKit.screen_frame(608.0, 36.0, 28.0, true)
+	pause_menu.add_child(frame)
+	pause_main = frame
+	frame.head.add_child(_pause_heading(Loc.t("menu.pause.heading"), _unpause))
+	frame.head.add_child(UiKit.hline(true))
 	var to_general := UiKit.button(Loc.t("menu.pause.general"), UiKit.ACCENT, true)
 	to_general.custom_minimum_size = Vector2(280, 36)
 	to_general.pressed.connect(func() -> void: _pause_general(true))
-	v.add_child(to_general)
+	frame.rows.add_child(to_general)
 	var to_controls := UiKit.button(Loc.t("controls.open"), UiKit.ACCENT, true)
 	to_controls.custom_minimum_size = Vector2(280, 36)
 	to_controls.pressed.connect(func() -> void: _pause_controls(true))
-	v.add_child(to_controls)
-	v.add_child(UiKit.spacer(8))
+	frame.rows.add_child(to_controls)
 	# The ways out of the menu, gathered at the bottom and ordered by what they
 	# cost: back into the game, out to the title, and last the one that forfeits
-	# a raid — its own act and its own colour, so it stays its own button.
+	# a raid — its own act and its own colour, so it stays its own button. They
+	# sit in the frame's foot, which is pinned: whatever is added to this menu
+	# above them, they stay on the screen.
 	#
 	# Everywhere but a raid, leaving is leaving, and the button says where it
 	# lands rather than what it is walking out of. The bench used to word it
 	# LEAVE THE BENCH, which was the same act under a name that did not say
 	# where it went. `_pause` shows whichever of these apply.
+	frame.foot.add_child(UiKit.spacer(8))
 	var resume := UiKit.button(Loc.t("menu.pause.resume"), UiKit.GOOD, true)
 	resume.custom_minimum_size = Vector2(280, 40)
 	resume.pressed.connect(_unpause)
-	v.add_child(resume)
+	frame.foot.add_child(resume)
 	pause_title = UiKit.button(Loc.t("menu.pause.title"), UiKit.ACCENT, true)
 	pause_title.custom_minimum_size = Vector2(280, 36)
 	pause_title.pressed.connect(func() -> void:
 		_unpause()
 		goto_title())
-	v.add_child(pause_title)
+	frame.foot.add_child(pause_title)
 	# The same destination from inside a raid, and the raid survives it: the run
 	# is written into the save slot as it stands and walked back into when that
 	# slot is opened again. It is the only way out of a raid that costs nothing,
@@ -316,7 +312,7 @@ func _build_pause_menu() -> void:
 		if state == State.RAID and current != null and is_instance_valid(current):
 			GameState.park_raid((current as Raid).park())
 		goto_title())
-	v.add_child(pause_park)
+	frame.foot.add_child(pause_park)
 	pause_abandon = UiKit.button(Loc.t("menu.pause.abandon"), UiKit.BAD, true)
 	pause_abandon.custom_minimum_size = Vector2(280, 36)
 	pause_abandon.pressed.connect(func() -> void:
@@ -324,7 +320,7 @@ func _build_pause_menu() -> void:
 		if state == State.RAID:
 			var lost := GameState.die()
 			_raid_finished("died", lost))
-	v.add_child(pause_abandon)
+	frame.foot.add_child(pause_abandon)
 	_build_pause_general()
 	_build_pause_controls()
 	overlay_layer.add_child(pause_menu)
@@ -340,51 +336,45 @@ func _build_pause_menu() -> void:
 ## the bench's buttons, and the hideout's signs. Each rebuilds itself on the
 ## signal.
 func _build_pause_general() -> void:
-	var panel := UiKit.panel(UiKit.PANEL, Color(0.22, 0.3, 0.38), true)
-	panel.custom_minimum_size = Vector2(600, 0)
-	pause_general = UiKit.screen_scroll(panel, Vector2(336, 36), 608.0, true)
-	UiKit.pixel_scroll(pause_general)
-	pause_general.visible = false
-	pause_menu.add_child(pause_general)
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 8)
-	panel.add_child(v)
-	v.add_child(_pause_heading(Loc.t("menu.pause.general"),
+	var frame := UiKit.screen_frame(608.0, 36.0, 28.0, true)
+	frame.visible = false
+	pause_general = frame
+	pause_menu.add_child(frame)
+	frame.head.add_child(_pause_heading(Loc.t("menu.pause.general"),
 		func() -> void: _pause_general(false)))
-	v.add_child(UiKit.hline(true))
-	v.add_child(_vol_row(Loc.t("menu.pause.music"), func() -> float: return Audio.music_volume, func(x: float) -> void: Audio.set_music_volume(x)))
-	v.add_child(_vol_row(Loc.t("menu.pause.sound"), func() -> float: return Audio.sfx_volume, func(x: float) -> void: Audio.set_sfx_volume(x)))
-	v.add_child(_pause_language_row())
-	v.add_child(UiKit.spacer(8))
+	frame.head.add_child(UiKit.hline(true))
+	frame.rows.add_child(_vol_row(Loc.t("menu.pause.music"), func() -> float: return Audio.music_volume, func(x: float) -> void: Audio.set_music_volume(x)))
+	frame.rows.add_child(_vol_row(Loc.t("menu.pause.sound"), func() -> float: return Audio.sfx_volume, func(x: float) -> void: Audio.set_sfx_volume(x)))
+	frame.rows.add_child(_pause_language_row())
+	frame.foot.add_child(UiKit.spacer(8))
 	var back := UiKit.button(Loc.t("menu.pause.back"), UiKit.ACCENT, true)
 	back.custom_minimum_size = Vector2(280, 36)
 	back.pressed.connect(func() -> void: _pause_general(false))
-	v.add_child(back)
+	frame.foot.add_child(back)
 
 ## The second page: the rebinding list, and the way back to the first. Built as
-## a sibling scroll rather than a panel swapped into the first one, so each page
+## a sibling frame rather than a panel swapped into the first one, so each page
 ## scrolls on its own and neither inherits the other's scroll position.
+##
+## Fifteen rows of two columns is longer than the screen on any window worth
+## the name, so this is the page that shows what the frame is for: the list
+## scrolls and the heading and the way back off it do not move.
 func _build_pause_controls() -> void:
-	var panel := UiKit.panel(UiKit.PANEL, Color(0.22, 0.3, 0.38), true)
-	panel.custom_minimum_size = Vector2(600, 0)
-	pause_controls = UiKit.screen_scroll(panel, Vector2(336, 36), 608.0, true)
-	UiKit.pixel_scroll(pause_controls)
-	pause_controls.visible = false
-	pause_menu.add_child(pause_controls)
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 8)
-	panel.add_child(v)
-	v.add_child(_pause_heading(Loc.t("controls.open"),
+	var frame := UiKit.screen_frame(608.0, 36.0, 28.0, true)
+	frame.visible = false
+	pause_controls = frame
+	pause_menu.add_child(frame)
+	frame.head.add_child(_pause_heading(Loc.t("controls.open"),
 		func() -> void: _pause_controls(false)))
-	v.add_child(UiKit.hline(true))
+	frame.head.add_child(UiKit.hline(true))
 	var cp := ControlsPanel.new()
 	cp.pixel = true
-	v.add_child(cp)
-	v.add_child(UiKit.spacer(8))
+	frame.rows.add_child(cp)
+	frame.foot.add_child(UiKit.spacer(8))
 	var back := UiKit.button(Loc.t("controls.back"), UiKit.ACCENT, true)
 	back.custom_minimum_size = Vector2(280, 36)
 	back.pressed.connect(func() -> void: _pause_controls(false))
-	v.add_child(back)
+	frame.foot.add_child(back)
 
 ## Which of the pause menu's pages is on screen. Only one ever is: `page` is
 ## the one to show, or null for PAUSED itself.
