@@ -10,14 +10,8 @@
 		"pulse_many": "%d pulses",
 		"hint": "%s attacks · number keys arm a skill · hold %s to charge, release to cast"
 	},
-	"bag": {
-		"title": "BAG (lost on death)",
-		"scrap": "scrap %d",
-		"row": "%s x%d",
-		"more": "…",
-		"empty": "empty"
-	},
 	"map": {
+		"title": "MAP",
 		"clock": "%02d:%02d  •  %s",
 		"pressure": [
 			"quiet",
@@ -25,10 +19,19 @@
 			"alert",
 			"hunting",
 			"swarming"
-		]
+		],
+		"legend": {
+			"you": "YOU",
+			"entry": "ENTRY",
+			"boss": "ARBITER",
+			"treasure": "CACHE",
+			"exit": "EXIT",
+			"unseen": "UNSEEN"
+		},
+		"close": "%s OR ESC TO CLOSE"
 	},
 	"extracting": "EXTRACTING",
-	"footer": "TAB assemble   F interact   SHIFT dash",
+	"footer": "TAB assemble   M map   F interact   SHIFT dash",
 	"extract": {
 		"hold": "hold F to extract",
 		"no_exit": "no exit",
@@ -80,6 +83,7 @@
 	},
 	"toast": {
 		"deployed": "Deployed. Hold F at an exit to leave with what you carry.",
+		"resumed": "Back where you left off. The raid kept going without you.",
 		"followed": "Something followed you in here.",
 		"boss_down": "The Arbiter is down. Its gate is open.",
 		"scrap": "+%d scrap"

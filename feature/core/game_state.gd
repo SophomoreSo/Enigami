@@ -49,6 +49,14 @@ var raid_board_sources: Array[int] = []   ## library index each raid board came 
 var raid_bag: Dictionary = {}             ## loose components found this raid
 var raid_scrap: int = 0
 var raid_seed: int = 0
+## A raid put down mid-run, or {}. MAIN MENU inside a raid writes the run here
+## instead of ending it, and opening the slot again walks back into it.
+##
+## The map is rebuilt from `raid_seed`, so none of it is in here: what a run
+## changes is which rooms hold what, where the player is standing and how they
+## are doing, and the clock. See `Raid.park` for the shape, `RaidMap.to_save`
+## for the rooms inside it.
+var raid_progress: Dictionary = {}
 
 ## --- records ----------------------------------------------------------------
 var records: Dictionary = {
@@ -105,6 +113,7 @@ func _ensure_free_weapon() -> void:
 func _new_profile() -> void:
 	stash.clear()
 	loadout_slots.clear()
+	_forget_raid()
 	records = {"raids": 0, "escapes": 0, "deaths": 0, "kills": 0, "best_haul": 0}
 	intro_seen = false
 	owned_weapons = ["ROCK", "SWORD", "GUN"]
@@ -219,6 +228,45 @@ func forge_component(inputs: Array[String]) -> String:
 	save_game()
 	return out
 
+## --- the merchant -----------------------------------------------------------
+## What a part costs at the counter, by what kind of part it is. Every price is
+## above what breaking one down pays — a scrapper at its cap returns 25 — so
+## buying a part to scrap it is never a trade, at any level of the hideout.
+const SHOP_PRICES := {
+	Components.CAT_FORM: 60,
+	Components.CAT_ELEMENT: 55,
+	Components.CAT_STAT: 40,
+	Components.CAT_BEHAVIOR: 65,
+	Components.CAT_FLOW: 70,
+	Components.CAT_TRIGGER: 55,
+	Components.CAT_STRUCT: 30,
+}
+
+## What the counter is selling: the lootable parts, in palette order. Structural
+## parts are not among them — the editor hands those out for nothing, so a price
+## on one would be a price on drawing a wire.
+static func shop_stock() -> Array:
+	return Components.LOOT_POOL
+
+func shop_price(id: String) -> int:
+	var cat := String(Components.get_def(id).get("cat", Components.CAT_STAT))
+	return int(SHOP_PRICES.get(cat, 50))
+
+func can_buy(id: String) -> bool:
+	return Components.exists(id) and scrap >= shop_price(id) \
+		and component_count(id, stash) < stash_cap()
+
+## One part, bought. False when the scrap is short or the vault has no room for
+## another of that part — the stash cap is per component, and a purchase that
+## silently vanished into a full shelf would be scrap for nothing.
+func buy_component(id: String) -> bool:
+	if not can_buy(id):
+		return false
+	scrap -= shop_price(id)
+	add_component(id, 1)
+	save_game()
+	return true
+
 func scrap_component(id: String) -> int:
 	if not take_component(id, stash):
 		return 0
@@ -285,6 +333,9 @@ func deploy(weapon_id: String, slot_indices: Array) -> void:
 	raid_bag.clear()
 	raid_scrap = 0
 	raid_seed = randi()
+	# A fresh deployment, not the one that was put down: nothing of the last
+	# raid's progress belongs to this one.
+	raid_progress = {}
 	if weapon_id != FREE_WEAPON:
 		owned_weapons.erase(weapon_id)
 	records["raids"] = int(records["raids"]) + 1
@@ -343,13 +394,43 @@ func _shift_loadouts_after(removed: int) -> void:
 
 func _end_raid() -> void:
 	_ensure_free_weapon()
+	_forget_raid()
+	records_changed.emit()
+
+## Everything a raid holds, dropped. On its own this is not an outcome — the
+## kit is neither carried home nor lost by it — so only `extract`, `die` and a
+## new profile call it, each having already settled what became of the kit.
+func _forget_raid() -> void:
 	in_raid = false
 	raid_weapon = ""
 	raid_boards.clear()
 	raid_board_sources.clear()
 	raid_bag.clear()
 	raid_scrap = 0
-	records_changed.emit()
+	raid_progress = {}
+
+## Puts the raid down where it stands, and writes it out. `where` is what the
+## raid knows about itself; the kit it was carrying is already here.
+##
+## The run is not over: `in_raid` stays true, the weapon stays checked out of
+## the vault, and nothing is counted. Picking the slot back up resumes it.
+func park_raid(where: Dictionary) -> void:
+	if not in_raid:
+		return
+	raid_progress = where
+	save_game()
+
+## Whether opening this slot walks back into a raid rather than the hideout.
+func has_parked_raid() -> bool:
+	return in_raid and not raid_progress.is_empty()
+
+## A raid left in memory with nothing written down cannot be resumed — the app
+## was closed mid-run rather than parked. The kit went with it, the way it
+## always has; this only stops the flag outliving the raid it describes.
+func drop_unparked_raid() -> void:
+	if in_raid and raid_progress.is_empty():
+		_end_raid()
+		save_game()
 	save_game()
 
 func _haul_size(d: Dictionary) -> int:
@@ -441,6 +522,17 @@ func save_game() -> void:
 		"records": records,
 		"loadout": loadout_slots,
 		"intro_seen": intro_seen,
+		# The raid in progress, if there is one. It used to be left out, so a
+		# profile saved mid-raid came back with the weapon gone from the vault
+		# and no raid to account for it.
+		"in_raid": in_raid,
+		"raid_weapon": raid_weapon,
+		"raid_boards": raid_boards.map(func(b: SkillBoard) -> Dictionary: return b.serialize()),
+		"raid_board_sources": raid_board_sources,
+		"raid_bag": raid_bag,
+		"raid_scrap": raid_scrap,
+		"raid_seed": raid_seed,
+		"raid_progress": raid_progress,
 	}
 	var f := FileAccess.open(slot_path(slot), FileAccess.WRITE)
 	if f == null:
@@ -484,7 +576,27 @@ func _read_save(path: String) -> bool:
 	for k in records:
 		if rec.has(k):
 			records[k] = int(rec[k])
+	_read_raid(parsed)
 	return true
+
+## The raid half of a save. A profile written before raids were kept has none
+## of these keys, which reads as a profile standing in the hideout — which is
+## what it was.
+func _read_raid(parsed: Dictionary) -> void:
+	_forget_raid()
+	if not bool(parsed.get("in_raid", false)):
+		return
+	in_raid = true
+	raid_weapon = String(parsed.get("raid_weapon", ""))
+	for b in parsed.get("raid_boards", []):
+		raid_boards.append(SkillBoard.deserialize(b))
+	for i in parsed.get("raid_board_sources", []):
+		raid_board_sources.append(int(i))
+	for k in parsed.get("raid_bag", {}):
+		raid_bag[String(k)] = int(parsed["raid_bag"][k])
+	raid_scrap = int(parsed.get("raid_scrap", 0))
+	raid_seed = int(parsed.get("raid_seed", 0))
+	raid_progress = parsed.get("raid_progress", {})
 
 ## Starts this slot over. The wipe is meant to stick, so it is written out.
 func reset_profile() -> void:

@@ -158,3 +158,35 @@ func pressure() -> int:
 
 func advance(delta: float) -> void:
 	elapsed += delta
+
+## --- putting the map down ---------------------------------------------------
+## Only what the run has changed. The layout is `generate(seed_base)` all over
+## again, so what is written down is the records it filled in: which rooms have
+## been opened, what is still standing in them and what is still on their floor.
+##
+## A record's `coord` is left out and put back from its key — a `Vector2i` does
+## not survive JSON, and the key already says which room it is.
+func to_save() -> Dictionary:
+	var out: Dictionary = {}
+	for c: Vector2i in rooms:
+		var rec: Dictionary = (rooms[c] as Dictionary).duplicate(true)
+		rec.erase("coord")
+		out["%d,%d" % [c.x, c.y]] = rec
+	return {"rooms": out, "elapsed": elapsed}
+
+## The other half: the map is generated first, then this writes the run back
+## over it. A room the save does not mention keeps the one `generate` made,
+## so a save from an older map is missing rooms rather than broken by them.
+func restore(saved: Dictionary) -> void:
+	elapsed = float(saved.get("elapsed", 0.0))
+	var saved_rooms: Dictionary = saved.get("rooms", {})
+	for key in saved_rooms:
+		var parts := String(key).split(",")
+		if parts.size() != 2:
+			continue
+		var c := Vector2i(int(parts[0]), int(parts[1]))
+		if not rooms.has(c):
+			continue
+		var rec: Dictionary = (saved_rooms[key] as Dictionary).duplicate(true)
+		rec["coord"] = c
+		rooms[c] = rec

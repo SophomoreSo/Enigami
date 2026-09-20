@@ -133,6 +133,12 @@ class ScreenScroll extends ScrollContainer:
 	var top_left := Vector2(430, 40)
 	var content_width := 470.0
 	var bottom_margin := 28.0
+	## Off, a page hangs from `top_left` and fills the screen below it, so a
+	## short one sits up against the top. On, the scroll is only as tall as the
+	## page inside it and sits in the middle of the screen — until the page
+	## outgrows the room it has, when it fills that room from `top_left` again
+	## and scrolls, exactly as it always did.
+	var centered := false
 
 	func _ready() -> void:
 		horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -142,14 +148,31 @@ class ScreenScroll extends ScrollContainer:
 		_fit()
 
 	func _fit() -> void:
-		position = top_left
 		var vp := get_viewport_rect().size
-		size = Vector2(content_width, maxf(vp.y - top_left.y - bottom_margin, 120.0))
+		var room := maxf(vp.y - top_left.y - bottom_margin, 120.0)
+		if not centered:
+			position = top_left
+			size = Vector2(content_width, room)
+			return
+		# The scroll has to shrink to its page before it can be centred: a
+		# scroll taller than what it holds would centre its own empty box and
+		# leave the panel drawn at the top of it.
+		var page := get_child(0) as Control
+		size = Vector2(content_width,
+			room if page == null else minf(page.get_combined_minimum_size().y, room))
+		# Whole pixels, or the pixel face lands between two of them.
+		position = Vector2(floorf((vp.x - size.x) * 0.5),
+			maxf(floorf((vp.y - size.y) * 0.5), top_left.y))
 
-static func screen_scroll(content: Control, at: Vector2, width: float) -> ScrollContainer:
+## `centered` is `ScreenScroll.centered` above: the page sits in the middle of
+## the screen rather than hanging from `at`, which then says only how much room
+## it has before it must scroll.
+static func screen_scroll(content: Control, at: Vector2, width: float,
+		centered: bool = false) -> ScrollContainer:
 	var sc := ScreenScroll.new()
 	sc.top_left = at
 	sc.content_width = width
+	sc.centered = centered
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sc.add_child(content)
 	return sc

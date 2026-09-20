@@ -1,12 +1,14 @@
 class_name Hud
 extends Control
 
-## Raid HUD: health, the live state of each skill circuit, the bag you stand to
-## lose, and a map of what you have walked through.
+## Raid HUD: health, and the live state of each skill circuit.
+##
+## What is not here is deliberate. The map is a window of its own now — see
+## `MapPanel`, opened from `RaidView` — and the bag is gone: a list of parts
+## nobody can spend until they are at the workbench was five lines of the screen
+## saying nothing the assembly screen does not say better.
 
 var player: Player = null
-var map: RaidMap = null
-var room = null
 var prompt: String = ""
 var extract_ratio: float = 0.0
 var toast: String = ""
@@ -42,8 +44,6 @@ func _draw() -> void:
 	var vp := get_viewport_rect().size
 	_draw_health()
 	_draw_slots(vp)
-	_draw_bag(vp)
-	_draw_map(vp)
 	_draw_prompts(vp)
 
 func _draw_health() -> void:
@@ -145,54 +145,6 @@ func _draw_slot_card(rect: Rect2, r: SkillRunner, key: String, name: String,
 	elif armed:
 		border = Color(0.45, 0.95, 0.8)
 	UiKit.draw_cooldown(self, rect, r.ready_ratio(), r.ready_flash, border)
-
-func _draw_bag(vp: Vector2) -> void:
-	var x := vp.x - 232.0
-	draw_rect(Rect2(x - 12, 16, 224, 150), Color(0.07, 0.08, 0.11, 0.85))
-	draw_rect(Rect2(x - 12, 16, 224, 150), Color(0.35, 0.5, 0.65, 0.6), false, 1.2)
-	_line(Vector2(x, 38), Loc.t("hud.bag.title"), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.9, 0.75, 0.5))
-	_line(Vector2(x, 58), Loc.t("hud.bag.scrap", [GameState.raid_scrap]), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.95, 0.85, 0.45))
-	var y := 78.0
-	var n := 0
-	for id in GameState.raid_bag:
-		if n >= 5:
-			_line(Vector2(x, y), Loc.t("hud.bag.more"), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.7, 0.75, 0.8))
-			break
-		_line(Vector2(x, y), Loc.t("hud.bag.row", [Components.name_for(id), int(GameState.raid_bag[id])]),
-			HORIZONTAL_ALIGNMENT_LEFT, 200, 10, Style.component_color(id))
-		y += 16.0
-		n += 1
-	if GameState.raid_bag.is_empty():
-		_line(Vector2(x, y), Loc.t("hud.bag.empty"), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.5, 0.55, 0.6))
-
-func _draw_map(vp: Vector2) -> void:
-	if map == null:
-		return
-	var cell := 20.0
-	var origin := Vector2(vp.x - 232.0, 182.0)
-	draw_rect(Rect2(origin - Vector2(12, 12), Vector2(RaidMap.MW * cell + 24, RaidMap.MH * cell + 44)), Color(0.07, 0.08, 0.11, 0.85))
-	draw_rect(Rect2(origin - Vector2(12, 12), Vector2(RaidMap.MW * cell + 24, RaidMap.MH * cell + 44)), Color(0.35, 0.5, 0.65, 0.6), false, 1.2)
-	for c in map.rooms:
-		var rec: Dictionary = map.rooms[c]
-		var r := Rect2(origin + Vector2(c.x * cell, c.y * cell), Vector2(cell - 3, cell - 3))
-		var visited := bool(rec.get("visited", false))
-		var col := Color(0.2, 0.24, 0.3)
-		if visited:
-			match String(rec["kind"]):
-				"entry": col = Color(0.4, 0.8, 0.6)
-				"boss": col = Color(0.9, 0.4, 0.5)
-				"treasure": col = Color(0.9, 0.8, 0.4)
-				_: col = Color(0.4, 0.5, 0.62)
-		draw_rect(r, col)
-		if visited and rec.has("extraction"):
-			draw_circle(r.get_center(), 3.5, Color(0.5, 1.0, 0.75))
-		if room != null and c == room.coord:
-			draw_rect(r.grow(2), Color(1, 1, 1, 0.9), false, 1.5)
-	var press := map.pressure()
-	var ptxt := Loc.t("hud.map.pressure.%d" % clampi(press, 0, 4))
-	_line(origin + Vector2(0, RaidMap.MH * cell + 20), Loc.t("hud.map.clock", [
-		int(map.elapsed / 60.0), int(map.elapsed) % 60, ptxt]),
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.75, 0.8, 0.9) if press < 3 else Color(1.0, 0.6, 0.5))
 
 func _draw_prompts(vp: Vector2) -> void:
 	if prompt != "":

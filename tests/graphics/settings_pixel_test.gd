@@ -1,12 +1,17 @@
 extends Node
 ## The title's settings and the pause menu are built in UiKit's pixel look all
-## the way down, including the controls list they share. Checked on both built
-## trees: every piece of text is the pixel face at a multiple of its native 8px,
-## every box is square, unsmoothed and evenly bordered, the sliders and
-## scrollbars are replaced, the bindings still line up and fit, and the panel
-## fits the width it is given. The pause menu is checked for one thing more —
-## that its rows sit on something solid, since the raid behind it goes on being
-## drawn and showed through them.
+## the way down, including the controls list they share. The title's settings
+## are three pages now — the two buttons themselves, the volumes and language
+## behind GENERAL SETTINGS, and the rebinding list behind CONTROL SETTINGS —
+## and the pause menu is two, so all five are checked: every piece of text is
+## the pixel face at a multiple of its native 8px, every box is square,
+## unsmoothed and evenly bordered, the sliders and scrollbars are replaced, the
+## bindings still line up and fit, and the panel fits the width it is given. The
+## pause menu is checked for one thing more — that its rows sit on something
+## solid, since the raid behind it goes on being drawn and showed through them.
+##
+## Each button and its page are checked too: one page at a time is on screen,
+## the button leads to it and BACK leads out of it.
 
 const GameScript := preload("res://app/game.gd")
 const BOXES := ["panel", "normal", "hover", "pressed", "focus", "disabled", "slider",
@@ -39,9 +44,24 @@ func controls_under(root: Node) -> Array:
 			stack.append(c)
 	return out
 
+## The first Control under `root` that `pick` says yes to, or null.
+func find_under(root: Node, pick: Callable) -> Node:
+	for c in controls_under(root):
+		if pick.call(c):
+			return c
+	return null
+
+func button_named(root: Node, text: String) -> Button:
+	return find_under(root, func(c: Node) -> bool: return c is Button and (c as Button).text == text) as Button
+
 ## Every check that says a built menu is in the pixel look, run over whatever is
-## under `sc`: the settings and the pause menu are the same kit twice.
-func audit(sc: ScrollContainer, what: String) -> void:
+## under `sc`: the settings, the pause menu and the rebinding page each screen
+## keeps behind its CONTROL SETTINGS button are all the same kit.
+##
+## `sliders` and `min_texts` are what that page is expected to hold — the title
+## keeps nothing on its front page but the buttons onto the other two, while the
+## pause menu still carries its volume rows itself.
+func audit(sc: ScrollContainer, what: String, sliders_want: int, min_texts: int) -> void:
 	var all := controls_under(sc)
 	var texts := 0
 	var plain: Array = []
@@ -74,11 +94,12 @@ func audit(sc: ScrollContainer, what: String) -> void:
 				soft.append("%s.%s at %s (aa=%s radius=%d border=%d)" % [c.get_class(), name,
 					sc.get_path_to(c), sb.anti_aliasing, sb.get_corner_radius(CORNER_TOP_LEFT),
 					sb.get_border_width(SIDE_LEFT)])
-	check(texts > 20 and plain.is_empty(),
+	check(texts >= min_texts and plain.is_empty(),
 		"%s: every text is the pixel face at a multiple of 8px (%d checked, off: %s)" % [what, texts, str(plain)])
 	check(boxes > 20 and soft.is_empty(),
 		"%s: every box is square, unsmoothed and evenly bordered (%d checked, off: %s)" % [what, boxes, str(soft)])
-	check(sliders == 2 and knobs == 2, "%s: both sliders have the square knob (%d of %d)" % [what, knobs, sliders])
+	check(sliders == sliders_want and knobs == sliders_want,
+		"%s: every slider has the square knob (%d knobs on %d of %d sliders)" % [what, knobs, sliders, sliders_want])
 	check(sc.get_v_scroll_bar().has_theme_stylebox_override("grabber"), "%s: the scrollbar is the pixel one" % what)
 
 	var bar := sc.get_v_scroll_bar()
@@ -97,29 +118,29 @@ func _ready() -> void:
 	var title: TitleScreen = game.current
 	title._toggle_settings()
 	await frames(8)
-	var sc: ScrollContainer = title._settings
-	var all := controls_under(sc)
-	audit(sc, "the settings")
+	audit(title._settings as ScrollContainer, "the settings", 0, 4)
 
-	var cp: ControlsPanel = null
-	for c in all:
-		if c is ControlsPanel:
-			cp = c
-	check(cp != null and cp.pixel, "the settings build their controls list in the pixel look")
-	if cp != null:
-		var columns := {}
-		var tight: Array = []
-		for b: Button in cp._rows.values():
-			columns[int(round(b.global_position.x))] = true
-			if b.get_minimum_size().x > b.size.x + 0.5:
-				tight.append(b.text)
-		check(columns.size() == 1, "the bindings line up in one column (%d x positions)" % columns.size())
-		check(tight.is_empty(), "every binding fits its button (too tight: %s)" % str(tight))
+	# --- the general page ----------------------------------------------------
+	# The volumes and the language are not on the settings any more either: the
+	# settings are two buttons and the way back, and nothing else.
+	check(find_under(title._settings, func(c: Node) -> bool: return c is HSlider) == null,
+		"the settings no longer carry the volume rows themselves")
+	var open_general := button_named(title._settings, Loc.t("menu.settings.general"))
+	check(open_general != null, "the settings offer '%s'" % Loc.t("menu.settings.general"))
+	check(title._general != null and not title._general.visible,
+		"and the page behind it starts closed")
+	if open_general != null:
+		open_general.emit_signal("pressed")
+		await frames(8)
+	check(title._general.visible and not title._settings.visible,
+		"pressing it swaps the settings for the general page")
+	audit(title._general as ScrollContainer, "the general page", 2, 7)
 
 	# --- the language switch ------------------------------------------------
-	# It lives in this panel, and pressing it has to rebuild the panel it was
-	# pressed in, the menu behind it and the pause menu that outlives both —
-	# none of which redraw themselves, since every word on them is written once.
+	# It lives on the general page, and pressing it has to rebuild the page it
+	# was pressed on, the settings and menu behind it and the pause menu that
+	# outlives all of them — none of which redraw themselves, since every word
+	# on them is written once.
 	var was_language := Loc.language
 	var other := ""
 	for lang in Loc.languages():
@@ -128,22 +149,22 @@ func _ready() -> void:
 	check(other != "", "there is a second language to switch to")
 	if other != "":
 		var pick: Button = null
-		for c in controls_under(title._settings):
+		for c in controls_under(title._general):
 			if c is Button and (c as Button).text == Loc.language_name(other):
 				pick = c
-		check(pick != null, "the settings offer %s, written in itself ('%s')"
+		check(pick != null, "the general page offers %s, written in itself ('%s')"
 			% [other, Loc.language_name(other)])
 		if pick != null:
 			pick.emit_signal("pressed")
 			await frames(8)
 			check(Loc.language == other, "pressing it switches the game to %s" % other)
-			check(title._settings != null and title._settings.visible,
-				"and leaves the settings open, where the button was")
+			check(title._general != null and title._general.visible,
+				"and leaves the general page open, where the button was")
 			var heading := ""
-			for c in controls_under(title._settings):
-				if c is Label and (c as Label).text == Loc.t("menu.settings.heading"):
+			for c in controls_under(title._general):
+				if c is Label and (c as Label).text == Loc.t("menu.settings.general"):
 					heading = (c as Label).text
-			check(heading != "", "the panel is rebuilt in %s ('%s')" % [other, heading])
+			check(heading != "", "the page is rebuilt in %s ('%s')" % [other, heading])
 			check(title._start_button != null
 					and title._start_button.text == Loc.t("menu.title.start"),
 				"and so is the menu behind it ('%s')"
@@ -157,30 +178,161 @@ func _ready() -> void:
 			await frames(8)
 			check(Loc.language == was_language, "switching back puts %s on again" % was_language)
 
+	var general_back := button_named(title._general, Loc.t("menu.settings.back"))
+	check(general_back != null, "the general page offers '%s'" % Loc.t("menu.settings.back"))
+	if general_back != null:
+		general_back.emit_signal("pressed")
+		await frames(8)
+	check(title._settings.visible and not title._general.visible,
+		"and it leads back to the settings")
+
+	# --- the controls page ---------------------------------------------------
+	# The rebinding list is not on the settings any more: it is a page of its
+	# own, and CONTROL SETTINGS is the only way onto it.
+	check(find_under(title._settings, func(c: Node) -> bool: return c is ControlsPanel) == null,
+		"the settings no longer carry the rebinding list themselves")
+	var open_controls := button_named(title._settings, Loc.t("controls.open"))
+	check(open_controls != null, "the settings offer '%s'" % Loc.t("controls.open"))
+	check(title._controls != null and not title._controls.visible,
+		"and the page behind it starts closed")
+	if open_controls != null:
+		open_controls.emit_signal("pressed")
+		await frames(8)
+	check(title._controls.visible and not title._settings.visible,
+		"pressing it swaps the settings for the controls page")
+	audit(title._controls as ScrollContainer, "the controls page", 0, 25)
+
+	var cp: ControlsPanel = find_under(title._controls, func(c: Node) -> bool: return c is ControlsPanel) as ControlsPanel
+	check(cp != null and cp.pixel, "the controls page builds its list in the pixel look")
+	if cp != null:
+		var columns := {}
+		var tight: Array = []
+		for b: Button in cp._rows.values():
+			columns[int(round(b.global_position.x))] = true
+			if b.get_minimum_size().x > b.size.x + 0.5:
+				tight.append(b.text)
+		check(columns.size() == 1, "the bindings line up in one column (%d x positions)" % columns.size())
+		check(tight.is_empty(), "every binding fits its button (too tight: %s)" % str(tight))
+
+	var back := button_named(title._controls, Loc.t("controls.back"))
+	check(back != null, "the controls page offers '%s'" % Loc.t("controls.back"))
+	if back != null:
+		back.emit_signal("pressed")
+		await frames(8)
+	check(title._settings.visible and not title._controls.visible,
+		"and it leads back to the settings")
+
 	# --- the pause menu -------------------------------------------------------
-	# The same kit again, from inside a raid. It is checked with the menu shown,
-	# since a scroll that has never been on screen has not laid itself out.
+	# The same kit again, from inside a raid, and the same three pages. It is
+	# checked with each page shown, since a scroll that has never been on screen
+	# has not laid itself out.
 	game.pause_menu.visible = true
+	game._pause_controls(false)
 	await frames(6)
-	var paused := controls_under(game.pause_menu)
-	var pause_scroll: ScrollContainer = null
-	var pause_cp: ControlsPanel = null
-	var resume: Button = null
-	for c in paused:
-		if c is ScrollContainer:
-			pause_scroll = c
-		if c is ControlsPanel:
-			pause_cp = c
-		if c is Button and (c as Button).text == Loc.t("menu.pause.resume"):
-			resume = c
+	var pause_scroll: ScrollContainer = game.pause_main as ScrollContainer
+	var resume := button_named(game.pause_main, Loc.t("menu.pause.resume"))
 	check(pause_scroll != null, "the pause menu is a scroll that fits the screen")
 	if pause_scroll != null:
-		audit(pause_scroll, "the pause menu")
+		audit(pause_scroll, "the pause menu", 0, 5)
+	check(find_under(game.pause_main, func(c: Node) -> bool: return c is ControlsPanel) == null,
+		"PAUSED no longer carries the rebinding list itself")
+	check(find_under(game.pause_main, func(c: Node) -> bool: return c is HSlider) == null,
+		"nor the volume rows, which are behind GENERAL SETTINGS now")
+
+	var pause_general := button_named(game.pause_main, Loc.t("menu.pause.general"))
+	check(pause_general != null, "the pause menu offers '%s'" % Loc.t("menu.pause.general"))
+	if pause_general != null:
+		pause_general.emit_signal("pressed")
+		await frames(6)
+	check(game.pause_general.visible and not game.pause_main.visible,
+		"pressing it swaps PAUSED for the general page")
+	audit(game.pause_general as ScrollContainer, "the pause general page", 2, 4)
+	# --- the language switch, from inside a game -----------------------------
+	# It is on this page as well as the title's, and pressing it rebuilds the
+	# menu it was pressed in — so the page that comes back has to be this one,
+	# not PAUSED. Everything else on screen either draws its words every frame
+	# or rebuilds itself on the same signal.
+	var pause_was := Loc.language
+	var pause_other := ""
+	for lang in Loc.languages():
+		if lang != Loc.language:
+			pause_other = lang
+	var pause_pick: Button = button_named(game.pause_general, Loc.language_name(pause_other))
+	check(pause_pick != null, "the pause menu's general page offers %s" % pause_other)
+	if pause_pick != null:
+		pause_pick.emit_signal("pressed")
+		await frames(8)
+		check(Loc.language == pause_other, "pressing it switches the game to %s" % pause_other)
+		check(game.pause_general != null and game.pause_general.visible
+				and not game.pause_main.visible,
+			"and leaves the general page open, where the button was")
+		check(button_named(game.pause_general, Loc.t("menu.pause.language")) == null
+				and find_under(game.pause_general, func(c: Node) -> bool:
+					return c is Label and (c as Label).text == Loc.t("menu.pause.language")) != null,
+			"the page is rebuilt in %s" % pause_other)
+		Loc.set_language(pause_was)
+		await frames(8)
+		check(Loc.language == pause_was, "switching back puts %s on again" % pause_was)
+
+	var pause_general_back := button_named(game.pause_general, Loc.t("menu.pause.back"))
+	if pause_general_back != null:
+		pause_general_back.emit_signal("pressed")
+		await frames(6)
+	check(pause_general_back != null and game.pause_main.visible and not game.pause_general.visible,
+		"and BACK leads to PAUSED again")
+
+	# --- the way out, and the arrow ------------------------------------------
+	# BACK TO GAME sits directly above MAIN MENU, and every page carries an
+	# arrow in its top-left corner that means one level up.
+	var back_to_game := button_named(game.pause_main, Loc.t("menu.pause.resume"))
+	var to_menu := button_named(game.pause_main, Loc.t("menu.pause.park")) \
+		if game.state == GameScript.State.RAID \
+		else button_named(game.pause_main, Loc.t("menu.pause.title"))
+	check(back_to_game != null and to_menu != null,
+		"PAUSED offers '%s' and the way to the menu" % Loc.t("menu.pause.resume"))
+	if back_to_game != null and to_menu != null:
+		var column := back_to_game.get_parent()
+		check(to_menu.get_parent() == column
+				and to_menu.get_index() == back_to_game.get_index() + 1,
+			"with the way out of the menu directly under it (%d, %d)"
+				% [back_to_game.get_index(), to_menu.get_index()])
+	for page in [game.pause_main, game.pause_general, game.pause_controls]:
+		check(button_named(page, Loc.t("menu.pause.arrow")) != null,
+			"every pause page carries the arrow in its corner")
+	var arrow := button_named(game.pause_main, Loc.t("menu.pause.arrow"))
+	if arrow != null:
+		arrow.emit_signal("pressed")
+		await frames(6)
+		check(not game.get_tree().paused and not game.pause_menu.visible,
+			"and on PAUSED it is the way back into the game")
+		game.pause_menu.visible = true
+		game._pause_controls(false)
+		await frames(6)
+
+	var pause_open := button_named(game.pause_main, Loc.t("controls.open"))
+	check(pause_open != null, "the pause menu offers '%s'" % Loc.t("controls.open"))
+	if pause_open != null:
+		pause_open.emit_signal("pressed")
+		await frames(6)
+	check(game.pause_controls.visible and not game.pause_main.visible,
+		"pressing it swaps PAUSED for the controls page")
+	audit(game.pause_controls as ScrollContainer, "the pause controls page", 0, 25)
+	var pause_cp: ControlsPanel = find_under(game.pause_controls, func(c: Node) -> bool: return c is ControlsPanel) as ControlsPanel
 	check(pause_cp != null and pause_cp.pixel, "the pause menu's controls list is the pixel one too")
+	var pause_back := button_named(game.pause_controls, Loc.t("controls.back"))
+	if pause_back != null:
+		pause_back.emit_signal("pressed")
+		await frames(6)
+	check(pause_back != null and game.pause_main.visible and not game.pause_controls.visible,
+		"and BACK leads to PAUSED again")
 	# The raid goes on being drawn behind it, and a stopped tree leaves whatever
 	# the HUD was saying where it was: the rows have to sit on something solid,
 	# or those words come through a button lit under the cursor.
+	#
+	# Looked up again rather than kept from earlier: the language switch above
+	# rebuilt this menu, and every button on it is a different object now.
 	var backing := ""
+	resume = button_named(game.pause_main, Loc.t("menu.pause.resume"))
 	var at: Node = resume
 	while at != null and at != game.pause_menu:
 		if at is PanelContainer:

@@ -132,7 +132,7 @@ module asks by name:
 
 ```gdscript
 # feature/                                  # graphics/
-Components.name_for(id)                     Loc.t("hud.bag.title")
+Components.name_for(id)                     Loc.t("hud.map.title")
 Loc.t("hud.extract.needs_scrap", [20, 4])   Loc.t("menu.title.start")
 ```
 

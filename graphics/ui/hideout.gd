@@ -18,6 +18,10 @@ extends Control
 signal deploy_requested(weapon: String, slots: Array)
 signal title_requested()
 signal edit_requested(board_index: int)
+## The rack was left on a different weapon. On the whole screen nobody needs to
+## know — the columns beside it are rebuilt with it — but as a station's panel
+## the room outside it is what carries the choice to the gate.
+signal weapon_changed(weapon: String)
 
 ## Wide enough for the longest line each column cannot wrap: a weapon's name on
 ## a button, and a stash row's part with a count beside it.
@@ -26,6 +30,12 @@ const COL_FACILITIES := 348.0
 
 var weapon_id: String = ""
 var focus_slot: int = 0
+## Which of the three columns this screen is. "" builds all of them under a
+## header and a deploy footer — the screen the hideout used to be, kept for
+## anything that still wants it whole. Set to "weapons", "loadout" or "shop" and
+## it builds that column alone, which is how the hideout's stations open them:
+## the room is the header and the gate is the footer now.
+var section: String = ""
 var _root: VBoxContainer
 var _status: Label
 ## What the status line says with nothing under the mouse: the last thing to
@@ -35,12 +45,21 @@ var _status: Label
 var _message: String = ""
 
 func _ready() -> void:
-	UiKit.fill_screen(self)
-	var bg := ColorRect.new()
-	bg.color = UiKit.BG
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
-	set_process(true)
+	# Whole, this is the screen and owns the viewport. As one section it is the
+	# contents of somebody else's panel: no screen-filling, no ground of its own
+	# and no resizing itself every frame, or it would lay its column out against
+	# the viewport while sitting in a box a third of the size.
+	if section == "":
+		UiKit.fill_screen(self)
+		var bg := ColorRect.new()
+		bg.color = UiKit.BG
+		bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		add_child(bg)
+	# Off, and not merely un-asked-for: a script with a `_process` is processing
+	# from the moment it enters the tree, so leaving it alone left `sync_screen`
+	# stretching a panel's column back out to the whole viewport every frame,
+	# with its buttons a screen and a half off to the right.
+	set_process(section == "")
 	Loc.language_changed.connect(_relanguage)
 	if weapon_id == "" or not GameState.owned_weapons.has(weapon_id):
 		weapon_id = GameState.owned_weapons[0] if GameState.owned_weapons.size() > 0 else "SWORD"
@@ -48,6 +67,15 @@ func _ready() -> void:
 
 func _process(_d: float) -> void:
 	UiKit.sync_screen(self)
+
+## Whole, this fills the viewport and its size is not up for discussion. As one
+## section it is a block of rows inside somebody else's panel, and a plain
+## Control reports no size at all — which let the column run straight out of the
+## bottom of the frame it was put in, taking the way out with it.
+func _get_minimum_size() -> Vector2:
+	if section == "" or _root == null or not is_instance_valid(_root):
+		return Vector2.ZERO
+	return _root.get_combined_minimum_size()
 
 ## Every label here is written once in `rebuild`, so a change of language is
 ## the same rebuild a purchase or a slot change already asks for.
@@ -59,13 +87,22 @@ func rebuild() -> void:
 	if _root != null:
 		_root.queue_free()
 	_root = VBoxContainer.new()
-	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_root.offset_left = 28
-	_root.offset_right = -28
-	_root.offset_top = 20
-	_root.offset_bottom = -20
+	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	if section == "":
+		_root.offset_left = 28
+		_root.offset_right = -28
+		_root.offset_top = 20
+		_root.offset_bottom = -20
 	_root.add_theme_constant_override("separation", 10)
 	add_child(_root)
+
+	if section != "":
+		_root.add_child(_section_column())
+		_status = _label(_idle_status(), UiKit.DIM)
+		_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_root.add_child(_status)
+		update_minimum_size()
+		return
 
 	_root.add_child(_header())
 	_root.add_child(UiKit.hline(true))
@@ -81,6 +118,20 @@ func rebuild() -> void:
 	_status = _label(_idle_status(), UiKit.DIM)
 	_root.add_child(_status)
 	_root.add_child(_footer())
+
+## The one column this screen was asked for, filling what it is given. On the
+## whole screen a column is one of three side by side and keeps its own width;
+## alone in a station's panel it takes the panel.
+func _section_column() -> Control:
+	var c: Control
+	match section:
+		"weapons": c = _weapons_column()
+		"loadout": c = _loadout_column()
+		_: c = _facilities_column()
+	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	c.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	c.custom_minimum_size = Vector2(0, 0)
+	return c
 
 ## --- the kit, in the pixel look ---------------------------------------------
 func _label(text: String, color: Color = UiKit.TEXT, size: int = UiKit.PIXEL_TEXT) -> Label:
@@ -186,6 +237,7 @@ func _weapons_column() -> Control:
 		b.pressed.connect(func() -> void:
 			weapon_id = id
 			focus_slot = 0
+			weapon_changed.emit(id)
 			rebuild())
 		v.add_child(b)
 	v.add_child(UiKit.spacer(6))
@@ -261,6 +313,8 @@ func _loadout_column() -> Control:
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.custom_minimum_size = Vector2(0, 132)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	UiKit.pixel_scroll(scroll)
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -339,6 +393,8 @@ func _facilities_column() -> Control:
 		v.add_child(row)
 
 	v.add_child(UiKit.spacer(8))
+	v.add_child(_shop_shelf())
+	v.add_child(UiKit.spacer(8))
 	var sh := HBoxContainer.new()
 	sh.add_child(_label(Loc.t("hideout.stash.heading"), UiKit.ACCENT))
 	sh.add_child(_pad())
@@ -353,6 +409,8 @@ func _facilities_column() -> Control:
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.custom_minimum_size = Vector2(0, 104)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	UiKit.pixel_scroll(scroll)
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -385,6 +443,59 @@ func _facilities_column() -> Control:
 	if not any:
 		list.add_child(_wrapped(Loc.t("hideout.stash.empty")))
 	return p
+
+## --- the merchant's shelf ---------------------------------------------------
+## Parts for scrap, which the hideout had no way to buy: everything in it was
+## either found in a raid or melted out of three things that were. A part you
+## are one short of is now a thing you can go and get.
+##
+## Priced by `GameState`, never here — what a part is worth is a rule.
+func _shop_shelf() -> Control:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	var head := HBoxContainer.new()
+	head.add_child(_label(Loc.t("hideout.shop.heading"), UiKit.ACCENT))
+	head.add_child(_pad())
+	head.add_child(_label(Loc.t("hideout.scrap", [GameState.scrap]), UiKit.WARN))
+	v.add_child(head)
+	v.add_child(UiKit.hline(true))
+
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(0, 104)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	UiKit.pixel_scroll(scroll)
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 4)
+	scroll.add_child(list)
+	v.add_child(scroll)
+
+	for id in GameState.shop_stock():
+		var price: int = GameState.shop_price(id)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		var l := _label(Components.name_for(id), Style.component_color(id))
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		l.clip_text = true
+		_explain(l, Components.desc_for(id))
+		row.add_child(l)
+		var b := _button(Loc.t("hideout.shop.price", [price]), UiKit.WARN)
+		b.disabled = not GameState.can_buy(id)
+		# A part the vault is already full of is refused for a different reason
+		# than one you cannot afford, and a disabled button says neither.
+		_explain(b, Loc.t("hideout.shop.full", [Components.name_for(id)])
+			if GameState.component_count(id, GameState.stash) >= GameState.stash_cap()
+			else Loc.t("hideout.shop.buy_hint", [Components.name_for(id), price]))
+		b.pressed.connect(func() -> void:
+			if GameState.buy_component(id):
+				Audio.play("pickup")
+				_say(Loc.t("hideout.shop.bought", [Components.name_for(id), price]))
+			else:
+				Audio.play("deny")
+			rebuild())
+		row.add_child(b)
+		list.add_child(row)
+	return v
 
 func _stash_total() -> int:
 	var n := 0

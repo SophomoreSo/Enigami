@@ -536,6 +536,17 @@ const DIALOGUE_CHOICE := Color(0.55, 0.55, 0.6)
 const DIALOGUE_MARK := Color(0.72, 0.6, 0.98)
 const DIALOGUE_HINT := Color(0.5, 0.5, 0.56)
 
+## --- the hideout's stations -------------------------------------------------
+## The furniture you walk up to, and the sign over it. Lit when the player is
+## close enough for a press to count, so the room says what it will answer to
+## before the key is pressed.
+const HIDEOUT_STATION := Color(0.10, 0.13, 0.18)
+const HIDEOUT_PLATE := Color(0.06, 0.08, 0.11)
+const HIDEOUT_SIGN := Color(0.38, 0.52, 0.66)
+const HIDEOUT_SIGN_LIT := Color(0.55, 0.88, 1.0)
+## A station that is standing there shut, and why.
+const HIDEOUT_SIGN_SHUT := Color(0.86, 0.46, 0.44)
+
 ## How each `emotion` a dialogue line names shows, on the portrait and in the
 ## letters. An emotion missing here is neutral, so a writer's typo is a calm face
 ## rather than an error.

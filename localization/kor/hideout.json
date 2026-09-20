@@ -70,5 +70,27 @@
 		"warning": "가져가는 모든 것을 잃을 수 있습니다.",
 		"deploy": "출격 >"
 	},
-	"skill_default": "스킬 %d"
+	"skill_default": "스킬 %d",
+	"station": {
+		"weapons": "무기 거치대",
+		"weapons_prompt": "F를 눌러 들고 갈 무기를 고르세요",
+		"bench": "작업대",
+		"bench_prompt": "F를 눌러 슬롯을 채우세요",
+		"shop": "상점",
+		"shop_prompt": "F를 눌러 고철을 쓰세요",
+		"gate": "관문",
+		"gate_prompt": "F를 눌러 출격하세요",
+		"back": "방으로 돌아가기"
+	},
+	"gate": {
+		"no_weapon": "금고에 그 무기가 없습니다",
+		"no_skills": "장착된 스킬이 없습니다"
+	},
+	"shop": {
+		"heading": "판매 중",
+		"price": "%d",
+		"buy_hint": "%s 하나를 고철 %d에 삽니다.",
+		"full": "금고에 %s을(를) 더 넣을 수 없습니다.",
+		"bought": "%s을(를) 고철 %d에 샀습니다."
+	}
 }

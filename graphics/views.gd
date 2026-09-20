@@ -60,6 +60,8 @@ func view_script_for(n: Node) -> GDScript:
 		return RaidView
 	if n is Sandbox:
 		return SandboxView
+	if n is HideoutWorld:
+		return HideoutWorldView
 	if n is DragonTest:
 		return DragonTestView
 	# Story keeps its own table, in `story/view/story_views.gd`.

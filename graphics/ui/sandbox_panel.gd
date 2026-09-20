@@ -26,6 +26,10 @@ const CARD_BOTTOM := 80.0
 var sandbox: Sandbox
 var _sim: Array = []
 var _px := PixelDraw.new(self)
+## The column of buttons down the left. Everything else here is drawn every
+## frame and so is already in whatever language is on; these are words written
+## once, and a switch has to build them again.
+var _buttons: VBoxContainer = null
 
 ## The cached cycle previews are only as good as the loadout they were run
 ## against; the bench clears them whenever it changes underneath.
@@ -36,10 +40,18 @@ func _ready() -> void:
 	UiKit.fill_screen(self)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_build_buttons()
+	Loc.language_changed.connect(func(_l: String) -> void: _build_buttons())
+
+func _build_buttons() -> void:
+	if _buttons != null and is_instance_valid(_buttons):
+		remove_child(_buttons)
+		_buttons.queue_free()
 	var v := VBoxContainer.new()
 	v.position = BUTTONS_AT
 	v.add_theme_constant_override("separation", 4)
 	add_child(v)
+	_buttons = v
 	var wb := UiKit.overlay_button(Loc.t("hud.sandbox.swap_weapon"), UiKit.ACCENT, true)
 	wb.pressed.connect(func() -> void: sandbox.cycle_weapon())
 	v.add_child(wb)

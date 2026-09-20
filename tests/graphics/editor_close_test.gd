@@ -86,6 +86,33 @@ func _ready() -> void:
 	await frames(6)
 	check(not raid.editing, "button-close is not undone")
 
+	# --- the map window, which has the same hazard ---------------------------
+	await key(KEY_M)
+	check(raid.reading_map, "M opens the map in a raid")
+	check(Views.of(raid).map_panel.visible, "and the window is on screen")
+	check(raid.player.input_locked, "the player stands still while reading it")
+	await key(KEY_M)
+	check(not raid.reading_map, "M closes it")
+	await frames(10)
+	check(not raid.reading_map and not Views.of(raid).map_panel.visible,
+		"it stays closed after 10 frames")
+	check(not raid.player.input_locked, "and the player can move again")
+
+	await key(KEY_M)
+	check(raid.reading_map, "reopens on the next M")
+	await key(KEY_ESCAPE)
+	check(not raid.reading_map, "ESC closes it too")
+	check(not game.get_tree().paused, "ESC that closed the map did not also pause")
+
+	# One pair of hands: the workbench takes the map's place rather than opening
+	# behind it, and closing the workbench leaves nothing holding the controls.
+	await key(KEY_M)
+	await key(KEY_TAB)
+	check(raid.editing and not raid.reading_map, "TAB over the map swaps it for the workbench")
+	await key(KEY_TAB)
+	check(not raid.editing and not raid.player.input_locked,
+		"and closing the workbench hands the controls back")
+
 	# ESC with no editor open should still reach the pause menu.
 	await key(KEY_ESCAPE)
 	check(game.get_tree().paused, "ESC still pauses when no editor is open")
@@ -115,14 +142,14 @@ func _ready() -> void:
 	await key(KEY_ESCAPE)
 	check(game.get_tree().paused, "ESC on the bench pauses it")
 	check(game.state == GameScript.State.SANDBOX, "and leaves the bench standing")
-	check(game.pause_leave.visible and not game.pause_abandon.visible,
+	check(game.pause_title.visible and not game.pause_abandon.visible,
 		"the way out on offer is the one that costs nothing")
 	await key(KEY_ESCAPE)
 	check(not game.get_tree().paused, "and ESC again puts it away")
 
 	# The way out that the pause menu does offer.
 	await key(KEY_ESCAPE)
-	game.pause_leave.emit_signal("pressed")
+	game.pause_title.emit_signal("pressed")
 	await frames(10)
 	check(not game.get_tree().paused, "leaving the bench unpauses")
 	check(game.state == GameScript.State.TITLE,
@@ -140,11 +167,34 @@ func _ready() -> void:
 	await frames(6)
 	await key(KEY_ESCAPE)
 	check(game.editor == null, "ESC closes the workbench editor")
+	check(not game.get_tree().paused, "and does not pause the hideout behind it")
 	game._edit_library_skill(0)
 	await frames(6)
 	var ed: SkillEditor = game.editor
 	await click(ed._close_rect().get_center())
 	check(game.editor == null, "the CLOSE button closes the workbench editor")
+
+	# --- the hideout pauses too ----------------------------------------------
+	# It is a menu, but it is the one the player stands in between raids, and
+	# the volume and the rebinding list are behind this key everywhere else.
+	await frames(6)
+	await key(KEY_ESCAPE)
+	check(game.get_tree().paused, "ESC in the hideout pauses it")
+	check(game.state == GameScript.State.HIDEOUT, "and leaves the hideout standing")
+	check(game.pause_title.visible, "the way out on offer is the one to the title")
+	check(not game.pause_abandon.visible, "and it is the only one on offer")
+	await key(KEY_ESCAPE)
+	check(not game.get_tree().paused, "ESC again puts it away")
+	check(game.state == GameScript.State.HIDEOUT, "with the hideout still there")
+
+	# The way out that menu does offer, which costs nothing: the vault keeps
+	# everything the hideout holds.
+	await key(KEY_ESCAPE)
+	game.pause_title.emit_signal("pressed")
+	await frames(10)
+	check(not game.get_tree().paused, "leaving the hideout unpauses")
+	check(game.state == GameScript.State.TITLE,
+		"and hands back to the title (state=%d)" % game.state)
 
 	say("---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)

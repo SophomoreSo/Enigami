@@ -134,11 +134,14 @@ func _ready() -> void:
 		await frames(4)
 	game._pause()
 	await frames(4)
+	# A button on the page that is actually up: the menu keeps its rebinding
+	# list on a second page, hidden until CONTROL SETTINGS is pressed, and a
+	# button nobody can see is not what this is asking about.
 	var pause_btn: Button = null
 	var stack: Array = [game.pause_menu]
 	while not stack.is_empty():
 		var n: Node = stack.pop_back()
-		if n is Button and pause_btn == null:
+		if n is Button and pause_btn == null and (n as Button).is_visible_in_tree():
 			pause_btn = n
 		for c in n.get_children():
 			stack.append(c)

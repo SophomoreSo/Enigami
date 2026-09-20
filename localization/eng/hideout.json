@@ -70,5 +70,27 @@
 		"warning": "Everything you take can be lost.",
 		"deploy": "DEPLOY >"
 	},
-	"skill_default": "Skill %d"
+	"skill_default": "Skill %d",
+	"station": {
+		"weapons": "WEAPON RACK",
+		"weapons_prompt": "press F to pick what you carry",
+		"bench": "WORKBENCH",
+		"bench_prompt": "press F to fill the slots",
+		"shop": "COUNTER",
+		"shop_prompt": "press F to spend scrap",
+		"gate": "THE GATE",
+		"gate_prompt": "press F to deploy",
+		"back": "BACK TO THE ROOM"
+	},
+	"gate": {
+		"no_weapon": "the vault has no such weapon",
+		"no_skills": "nothing is armed"
+	},
+	"shop": {
+		"heading": "FOR SALE",
+		"price": "%d",
+		"buy_hint": "Buys one %s for %d scrap.",
+		"full": "The vault will hold no more %s.",
+		"bought": "Bought %s for %d."
+	}
 }

@@ -62,9 +62,14 @@ func _ready() -> void:
 	await shot("05_raid_editor")
 	raid.set_editing(false)
 
+	raid.set_reading_map(true)
+	await frames(10)
+	await shot("06_raid_map")
+	raid.set_reading_map(false)
+
 	raid._enter_room(raid.map.entry, -1)
 	await frames(10)
-	await shot("06_extraction")
+	await shot("07_extraction")
 
 	game.goto_sandbox()
 	await frames(20)
@@ -72,15 +77,15 @@ func _ready() -> void:
 	sb.spawn_monster("ARBITER")
 	sb.spawn_monster("CRAWLER")
 	await frames(40)
-	await shot("07_sandbox")
+	await shot("08_sandbox")
 
 	sb.set_editing(true)
 	var sed: SkillEditor = Views.of(sb).editor
 	sed.selected = "FIRE"
 	sed._update_hover(Vector2(300, 200))
 	await frames(20)
-	await shot("08_sandbox_editor")
+	await shot("09_sandbox_editor")
 	sb.set_editing(false)
 	await frames(10)
-	await shot("09_sandbox_closed")
+	await shot("10_sandbox_closed")
 	get_tree().quit()
