@@ -20,6 +20,7 @@ const ACTIONS := [
 	["skill_3", "Arm slot 3"],
 	["skill_4", "Arm slot 4"],
 	["open_editor", "Skill assembly"],
+	["open_map", "Map"],
 	["interact", "Interact / extract"],
 	["pause", "Pause"],
 ]

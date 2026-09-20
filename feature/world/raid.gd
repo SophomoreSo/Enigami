@@ -13,6 +13,8 @@ signal finished(result: String, payload: Dictionary)
 signal noticed(text: String)
 ## The assembly overlay opened or closed. The raid keeps running either way.
 signal editing_changed(on: bool)
+## The map opened or closed. The raid keeps running either way, as above.
+signal reading_map_changed(on: bool)
 ## A new room is live and populated.
 signal room_changed(room: Room)
 
@@ -20,6 +22,7 @@ var map: RaidMap
 var room: Room = null
 var player: Player
 var editing: bool = false
+var reading_map: bool = false
 var ended: bool = false
 ## What the player could do where they are standing, or "" for nothing.
 var prompt: String = ""
@@ -32,6 +35,11 @@ func _ready() -> void:
 	Cues.emit_cue(&"music_start")
 	map = RaidMap.new()
 	map.generate(GameState.raid_seed if GameState.raid_seed != 0 else randi())
+	# A run put down with MAIN MENU: the map above is the same map, since it
+	# grew from the same seed, and this writes back what the run had made of it.
+	var parked: Dictionary = GameState.raid_progress if GameState.has_parked_raid() else {}
+	if not parked.is_empty():
+		map.restore(parked)
 
 	player = Player.new()
 	player.collision_layer = 2
@@ -40,8 +48,40 @@ func _ready() -> void:
 	player.died.connect(_on_player_died)
 	add_child(player)
 
-	_enter_room(map.entry, -1)
-	noticed.emit(Loc.t("hud.toast.deployed"))
+	if parked.is_empty():
+		_enter_room(map.entry, -1)
+		noticed.emit(Loc.t("hud.toast.deployed"))
+		return
+	# Back into the room it was left in, standing where it was left standing.
+	# `_enter_room` puts the player on the room's own spawn point, which is the
+	# right answer for walking in and the wrong one for never having left.
+	_enter_room(_parked_coord(parked), -1)
+	var at: Array = parked.get("pos", [])
+	if at.size() == 2:
+		player.global_position = Vector2(float(at[0]), float(at[1]))
+		player.velocity = Vector2.ZERO
+	player.health = clampf(float(parked.get("health", player.health)), 1.0, player.max_health)
+	noticed.emit(Loc.t("hud.toast.resumed"))
+
+func _parked_coord(parked: Dictionary) -> Vector2i:
+	var c: Array = parked.get("room", [])
+	if c.size() != 2:
+		return map.entry
+	var coord := Vector2i(int(c[0]), int(c[1]))
+	return coord if map.has_room(coord) else map.entry
+
+## The run, written down where it stands, for `GameState.park_raid`. The room on
+## screen is the one room whose record is out of date — what is still standing
+## in it and where it has got to is in the room, not in the map — so it is
+## written back first, exactly as walking through a door writes it back.
+func park() -> Dictionary:
+	if room != null:
+		room.save_state()
+	var saved := map.to_save()
+	saved["room"] = [room.coord.x, room.coord.y] if room != null else [map.entry.x, map.entry.y]
+	saved["pos"] = [player.global_position.x, player.global_position.y]
+	saved["health"] = player.health
+	return saved
 
 func _process(delta: float) -> void:
 	if ended:
@@ -251,10 +291,25 @@ func _on_player_died(_a: Actor) -> void:
 func set_editing(on: bool) -> void:
 	if editing == on:
 		return
+	# One pair of hands: the workbench takes over from the map rather than
+	# standing on top of it, so closing either one gives the controls back.
+	if on:
+		set_reading_map(false)
 	editing = on
-	player.input_locked = on
+	player.input_locked = editing or reading_map
 	Cues.emit_cue(&"ui", {"kind": "editor"})
 	editing_changed.emit(on)
+
+## --- the map ----------------------------------------------------------------
+## Reading the map costs exactly what the workbench costs: the raid runs on, the
+## clock keeps climbing and the player stands still while they look.
+func set_reading_map(on: bool) -> void:
+	if reading_map == on or (on and editing):
+		return
+	reading_map = on
+	player.input_locked = editing or reading_map
+	Cues.emit_cue(&"ui", {"kind": "map"})
+	reading_map_changed.emit(on)
 
 func on_board_changed(slot: int) -> void:
 	player.rebuild_runner(slot)

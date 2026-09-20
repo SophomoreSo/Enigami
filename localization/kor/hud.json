@@ -10,14 +10,8 @@
 		"pulse_many": "펄스 %d",
 		"hint": "%s 공격 · 숫자 키로 스킬 장착 · %s 길게 눌러 충전, 떼면 시전"
 	},
-	"bag": {
-		"title": "가방 (사망 시 소실)",
-		"scrap": "고철 %d",
-		"row": "%s x%d",
-		"more": "…",
-		"empty": "비어 있음"
-	},
 	"map": {
+		"title": "지도",
 		"clock": "%02d:%02d  •  %s",
 		"pressure": [
 			"조용함",
@@ -25,10 +19,19 @@
 			"경계",
 			"추적",
 			"몰려듦"
-		]
+		],
+		"legend": {
+			"you": "현재 위치",
+			"entry": "입구",
+			"boss": "중재자",
+			"treasure": "보급품",
+			"exit": "출구",
+			"unseen": "미탐색"
+		},
+		"close": "%s 또는 ESC로 닫기"
 	},
 	"extracting": "탈출 중",
-	"footer": "TAB 조립   F 상호작용   SHIFT 대시",
+	"footer": "TAB 조립   M 지도   F 상호작용   SHIFT 대시",
 	"extract": {
 		"hold": "F를 길게 눌러 탈출",
 		"no_exit": "출구 없음",
@@ -80,6 +83,7 @@
 	},
 	"toast": {
 		"deployed": "출격했습니다. 출구에서 F를 길게 눌러 챙긴 것을 들고 나가세요.",
+		"resumed": "떠났던 자리로 돌아왔습니다. 레이드는 그대로 남아 있었습니다.",
 		"followed": "무언가 당신을 따라 들어왔습니다.",
 		"boss_down": "중재자가 쓰러졌습니다. 그 관문이 열렸습니다.",
 		"scrap": "고철 +%d"

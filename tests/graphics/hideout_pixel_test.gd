@@ -1,11 +1,16 @@
 extends Node
-## The hideout is built in UiKit's pixel look and everything on it fits, with
-## the profile at its widest: every facility maxed (the longest numbers), a full
-## stash, a skill with a name too long for its row, and each weapon selected in
-## turn. Checked on the built tree — every piece of text is the pixel face at a
-## multiple of its native 8px, every box is square, unsmoothed and evenly
-## bordered, no column is taller than the screen leaves it, and no text is wider
-## than what holds it unless it is allowed to wrap or be cut short.
+## The hideout's panels are built in UiKit's pixel look and everything on them
+## fits, with the profile at its widest: every facility maxed (the longest
+## numbers), a full stash, a skill with a name too long for its row, and each
+## weapon selected in turn. Checked on the built tree — every piece of text is
+## the pixel face at a multiple of its native 8px, every box is square,
+## unsmoothed and evenly bordered, the panel stays on the screen, and no text is
+## wider than what holds it unless it is allowed to wrap or be cut short.
+##
+## The hideout is a room now, so these are the panels its stations open — the
+## rack, the workbench and the counter, one column each. They are the columns
+## the old screen showed all three of at once, which is why one test still
+## covers all of them.
 ##
 ## Also the status line, which is what pays for all that: it says what the mouse
 ## is on, and keeps the last thing that happened when the mouse is on nothing.
@@ -15,6 +20,8 @@ const BOXES := ["panel", "normal", "hover", "pressed", "focus", "disabled",
 	"scroll", "scroll_focus", "grabber", "grabber_highlight", "grabber_pressed"]
 
 var game: Node
+var world: HideoutWorld
+## The column on screen: whichever station was opened last.
 var hideout: Hideout
 var fails := 0
 
@@ -55,6 +62,21 @@ func controls_under(root: Node) -> Array:
 			stack.append(c)
 	return out
 
+## Opens a station and hands back the column inside its panel. That column is a
+## `Hideout` built with `section` set — the same object the old screen was, with
+## two of its three columns left out — so everything below reads it the same way
+## it always did.
+func open_section(id: String) -> Hideout:
+	world.close_panel()
+	await frames(2)
+	world.open_station(id)
+	await frames(6)
+	var view = Views.of(world)
+	for c in controls_under(view.panel):
+		if c is Hideout:
+			return c
+	return null
+
 func label_with(prefix: String) -> Label:
 	for c in controls_under(hideout):
 		if c is Label and (c as Label).text.begins_with(prefix):
@@ -67,8 +89,11 @@ func button_with(prefix: String) -> Button:
 			return c
 	return null
 
-## The pixel look, and the fit, over whatever is on screen right now.
-func audit(what: String) -> void:
+## The pixel look, and the fit, over the column on screen right now. `least` and
+## `boxes_least` are how much text and how many styled boxes that column is
+## expected to carry — the rack is a handful of weapons, the counter is two long
+## lists — so a column that quietly came up empty is still a failure.
+func audit(what: String, least: int, boxes_least: int) -> void:
 	await frames(4)
 	var all := controls_under(hideout)
 	var plain: Array = []
@@ -103,27 +128,23 @@ func audit(what: String) -> void:
 			if bad:
 				soft.append("%s.%s (aa=%s radius=%d border=%d)" % [c.get_class(), name,
 					sb.anti_aliasing, sb.get_corner_radius(CORNER_TOP_LEFT), sb.get_border_width(SIDE_LEFT)])
-	check(texts > 30 and plain.is_empty(),
+	check(texts > least and plain.is_empty(),
 		"%s: every text is the pixel face at a multiple of 8px (%d checked, off: %s)" % [what, texts, str(plain)])
-	check(boxes > 20 and soft.is_empty(),
+	check(boxes > boxes_least and soft.is_empty(),
 		"%s: every box is square, unsmoothed and evenly bordered (%d checked, off: %s)" % [what, boxes, str(soft)])
 	check(wide.is_empty(), "%s: every text fits what holds it (too wide: %s)" % [what, str(wide)])
 
-	# The columns have to fit the height the screen leaves them, and the whole
-	# screen has to fit the screen.
+	# The column has to fit the frame it was given, and the frame has to fit the
+	# screen. A column longer than the frame is not a failure by itself — the
+	# frame scrolls — but one wider than it is, since nothing scrolls sideways.
 	var vp := get_viewport().get_visible_rect().size
-	var tall: Array = []
-	for c in hideout._root.get_children():
-		if c is HBoxContainer:
-			for col in (c as HBoxContainer).get_children():
-				var want := (col as Control).get_combined_minimum_size().y
-				if want > (col as Control).size.y + 0.5:
-					tall.append("%.0f of %.0f" % [want, (col as Control).size.y])
-	check(tall.is_empty(), "%s: no column outgrows the room it is given (%s)" % [what, str(tall)])
-	var root_rect := hideout._root.get_global_rect()
-	check(root_rect.position.x >= -0.5 and root_rect.position.y >= -0.5
-		and root_rect.end.x <= vp.x + 0.5 and root_rect.end.y <= vp.y + 0.5,
-		"%s: the screen stays on the screen (%s in %s)" % [what, root_rect, vp])
+	check(hideout.get_combined_minimum_size().x <= hideout.size.x + 0.5,
+		"%s: the column fits the width of its panel (%.0f of %.0f)"
+			% [what, hideout.get_combined_minimum_size().x, hideout.size.x])
+	var frame := (Views.of(world).panel as Control).get_global_rect()
+	check(frame.position.x >= -0.5 and frame.position.y >= -0.5
+		and frame.end.x <= vp.x + 0.5 and frame.end.y <= vp.y + 0.5,
+		"%s: the panel stays on the screen (%s in %s)" % [what, frame, vp])
 
 func _ready() -> void:
 	GameState.reset_profile()
@@ -144,18 +165,24 @@ func _ready() -> void:
 	add_child(game)
 	await frames(6)
 	game.goto_hideout()
-	await frames(8)
-	hideout = game.current
+	await frames(14)
+	world = game.current
 
+	# --- the rack, on every weapon in turn -----------------------------------
+	hideout = await open_section("weapons")
+	check(hideout != null, "the rack opens a column of its own")
 	for id in Weapons.ids():
 		hideout.weapon_id = id
 		hideout.focus_slot = 0
 		hideout.rebuild()
-		await audit(Weapons.name_for(id))
+		await audit(Weapons.name_for(id), 8, 12)
+
+	# --- the counter, which carries the longest lists ------------------------
+	world.set_weapon("SWORD")
+	hideout = await open_section("shop")
+	await audit("the counter", 40, 40)
 
 	# --- the status line ----------------------------------------------------
-	hideout.weapon_id = "SWORD"
-	hideout.rebuild()
 	await frames(4)
 	var idle := hideout._idle_status()
 	check(hideout._status.text == idle, "with the mouse on nothing it shows the profile ('%s')" % idle)
@@ -169,6 +196,10 @@ func _ready() -> void:
 		check(status_at(Vector2(4, 4)) == idle, "and moving off puts the profile back")
 
 	# The Sword refuses the Gun's ranged board, and the row has no room to say so.
+	# That list is the bench's.
+	hideout = await open_section("bench")
+	await audit("the bench", 8, 40)
+	var idle_bench := hideout._idle_status()
 	var refused: Button = null
 	for c in controls_under(hideout):
 		if c is Button and (c as Button).disabled and (c as Button).text.begins_with(GameState.skill_library[1].skill_name):
@@ -180,7 +211,9 @@ func _ready() -> void:
 			"hovering it says why ('%s')" % why)
 		status_at(Vector2(4, 4))
 
-	# Keyboard and gamepad reach the same line, since they never hover.
+	# Keyboard and gamepad reach the same line, since they never hover. Back on
+	# the rack, which is where the weapons are.
+	hideout = await open_section("weapons")
 	var gun := button_with("  " + Weapons.name_for("GUN"))
 	check(gun != null, "the gun is on the weapon list")
 	if gun != null:
@@ -190,9 +223,12 @@ func _ready() -> void:
 			"focusing a weapon explains it, with no mouse involved ('%s')" % hideout._status.text)
 		gun.release_focus()
 		await frames(2)
-		check(hideout._status.text == idle, "and leaving it puts the profile back")
+		check(hideout._status.text == hideout._idle_status(),
+			"and leaving it puts the profile back")
 
 	# --- the forge's message outlives the rebuild it triggers ----------------
+	# The forge is the counter's, like everything else that costs scrap.
+	hideout = await open_section("shop")
 	var before := int(GameState.stash.get("SLASH", 0))
 	hideout._forge()
 	await frames(4)

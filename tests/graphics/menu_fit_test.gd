@@ -3,6 +3,11 @@ extends Node
 ## title's settings are a fixed-position column that grows with its contents,
 ## and two new rebindable actions were enough to push the ABANDON RAID button
 ## clean out of the viewport with nothing on screen to say it was there.
+##
+## Each is pages now — itself, and what sits behind its buttons: the title's
+## settings keep the volumes and language behind GENERAL SETTINGS and the
+## rebinding list behind CONTROL SETTINGS, the pause menu the list alone. The
+## pages behind the buttons are the long ones, so every page of both is checked.
 
 const GameScript := preload("res://app/game.gd")
 
@@ -39,6 +44,18 @@ func audit(name: String, sc: ScrollContainer) -> void:
 	sc.scroll_vertical = 0
 	await frames(2)
 
+## The settings pages and the pause menu sit in the middle of the screen, so the
+## gap above one is the gap below it. Only a page that fits is centred — a
+## longer one fills the room it has and scrolls — so this is for the short ones.
+func centred(name: String, sc: ScrollContainer) -> void:
+	var vp := get_viewport().get_visible_rect().size
+	check(absf(sc.position.x - (vp.x - sc.size.x) * 0.5) <= 1.0,
+		"%s is centred across the screen (%.0f..%.0f of %.0f)"
+			% [name, sc.position.x, sc.position.x + sc.size.x, vp.x])
+	check(absf(sc.position.y - (vp.y - sc.size.y) * 0.5) <= 1.0,
+		"%s is centred down it too (%.0f above, %.0f below)"
+			% [name, sc.position.y, vp.y - sc.position.y - sc.size.y])
+
 func _ready() -> void:
 	GameState.reset_profile()
 	game = Node.new()
@@ -51,6 +68,20 @@ func _ready() -> void:
 	await frames(8)
 	check(title._settings is ScrollContainer, "the title's settings panel scrolls")
 	await audit("title settings", title._settings as ScrollContainer)
+	centred("title settings", title._settings as ScrollContainer)
+	title._toggle_general()
+	await frames(8)
+	check(title._general is ScrollContainer, "the title's general page scrolls")
+	await audit("title general", title._general as ScrollContainer)
+	centred("title general", title._general as ScrollContainer)
+	title._toggle_general()
+	await frames(4)
+	title._toggle_controls()
+	await frames(8)
+	check(title._controls is ScrollContainer, "the title's controls page scrolls")
+	await audit("title controls", title._controls as ScrollContainer)
+	title._toggle_controls()
+	await frames(4)
 	title._toggle_settings()
 	await frames(4)
 
@@ -58,13 +89,28 @@ func _ready() -> void:
 	await frames(24)
 	game._pause()
 	await frames(8)
-	var sc: ScrollContainer = null
-	for c in game.pause_menu.get_children():
-		if c is ScrollContainer:
-			sc = c
+	var sc: ScrollContainer = game.pause_main as ScrollContainer
 	check(sc != null, "the pause menu scrolls")
 	if sc != null:
 		await audit("pause menu", sc)
+		centred("pause menu", sc)
+	game._pause_general(true)
+	await frames(8)
+	var gc: ScrollContainer = game.pause_general as ScrollContainer
+	check(gc != null, "the pause menu's general page scrolls")
+	if gc != null:
+		await audit("pause general", gc)
+		centred("pause general", gc)
+	game._pause_general(false)
+	await frames(4)
+	game._pause_controls(true)
+	await frames(8)
+	var cc: ScrollContainer = game.pause_controls as ScrollContainer
+	check(cc != null, "and so does the controls page behind it")
+	if cc != null:
+		await audit("pause controls", cc)
+	game._pause_controls(false)
+	await frames(4)
 	# The dimmer behind it still has to cover the whole screen.
 	var vp := get_viewport().get_visible_rect().size
 	for c in game.pause_menu.get_children():

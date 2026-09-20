@@ -16,11 +16,22 @@ var ui_layer: CanvasLayer
 var overlay_layer: CanvasLayer
 var editor: SkillEditor = null
 var pause_menu: Control = null
-## The pause menu's two ways out. Which one is on screen depends on where it was
-## opened from; see `_pause`.
+## The pause menu's two pages: PAUSED, and the rebinding list behind its
+## CONTROL SETTINGS button. Exactly one of them is on screen; see
+## `_pause_controls`.
+var pause_main: Control = null
+var pause_general: Control = null
+var pause_controls: Control = null
+## The pause menu's three ways out. Exactly one is on screen, and which one
+## depends on where the menu was opened from; see `_pause`.
 var pause_abandon: Button = null
-var pause_leave: Button = null
-var hideout_ref: Hideout = null
+## MAIN MENU. It goes to the title from wherever it is pressed, so it is one
+## button rather than a word-swap per screen — see `_pause` for which screens
+## offer it. In a raid it is `pause_park` instead, which says what it costs
+## (nothing) and is a different act (the run is written down, not ended).
+var pause_title: Button = null
+var pause_park: Button = null
+var hideout_ref: HideoutWorld = null
 
 func _ready() -> void:
 	randomize()
@@ -41,12 +52,22 @@ func _ready() -> void:
 
 func _rebuild_pause_menu(_lang: String) -> void:
 	var was_open: bool = pause_menu != null and pause_menu.visible
+	# Which page was up, not just whether the menu was. The language switch is
+	# on the general page, so a rebuild that always landed on PAUSED would throw
+	# the player out of the page they were standing in to press it.
+	var was_general: bool = pause_general != null and pause_general.visible
+	var was_controls: bool = pause_controls != null and pause_controls.visible
 	if pause_menu != null and is_instance_valid(pause_menu):
 		overlay_layer.remove_child(pause_menu)
 		pause_menu.queue_free()
 	_build_pause_menu()
 	UiKit.fill_screen(pause_menu)
 	pause_menu.visible = was_open
+	if was_open and (was_general or was_controls):
+		pause_main.visible = false
+		pause_general.visible = was_general
+		pause_controls.visible = was_controls
+	_pause_exits()
 
 func _clear() -> void:
 	if current != null and is_instance_valid(current):
@@ -65,13 +86,32 @@ func goto_title() -> void:
 	ui_layer.add_child(t)
 	current = t
 
-## START, once a save slot has been picked. A profile that has never been
-## played gets the prologue first; every start after that goes straight in.
+## START, once a save slot has been picked. A slot put down mid-raid walks
+## straight back into that raid — before the prologue check, since a profile
+## deep enough in to be carrying a kit has long since seen it. A profile that
+## has never been played gets the prologue; every start after that goes to the
+## hideout.
 func _start_game() -> void:
-	if GameState.intro_seen:
+	if GameState.has_parked_raid():
+		_resume_raid()
+	elif GameState.intro_seen:
+		# A raid the app was closed on rather than parked cannot be walked back
+		# into. The kit went with it, as it always has.
+		GameState.drop_unparked_raid()
 		goto_hideout()
 	else:
 		goto_intro()
+
+## The raid the slot was put down in. `Raid` reads the parked run out of
+## `GameState` itself, the same way it reads the kit — deploying and resuming
+## differ in what is already there, not in how the raid is built.
+func _resume_raid() -> void:
+	_clear()
+	state = State.RAID
+	var r := Raid.new()
+	r.finished.connect(_raid_finished)
+	add_child(r)
+	current = r
 
 ## The opening scene, read out of `data/scenes/intro.json`. It is a world node
 ## rather than a Control: it has a floor, a cast that walks on it and a camera
@@ -91,14 +131,21 @@ func _intro_finished() -> void:
 	GameState.mark_intro_seen()
 	goto_hideout()
 
+## Between raids, as a room you stand in: the weapon rack, the workbench, the
+## counter and the gate are places you walk to. The panels behind them are the
+## columns the old screen showed all at once — `graphics/ui/hideout.gd` still
+## owns what is in them — and the view opens them.
+##
+## It is a world node rather than a Control, like the bench and the raid, so it
+## is added to the tree rather than to `ui_layer` and gets its view from `Views`.
 func goto_hideout() -> void:
 	_clear()
 	state = State.HIDEOUT
-	var h := Hideout.new()
+	var h := HideoutWorld.new()
 	h.deploy_requested.connect(_deploy)
 	h.title_requested.connect(goto_title)
 	h.edit_requested.connect(_edit_library_skill)
-	ui_layer.add_child(h)
+	add_child(h)
 	current = h
 	hideout_ref = h
 
@@ -162,8 +209,10 @@ func _close_editor() -> void:
 	if editor != null and is_instance_valid(editor):
 		editor.queue_free()
 		GameState.save_game()
+		# The board that came back may have a different name and different tags
+		# on it, and the bench's panel is showing the old ones.
 		if state == State.HIDEOUT and hideout_ref != null and is_instance_valid(hideout_ref):
-			hideout_ref.rebuild()
+			hideout_ref.refresh_panel()
 	editor = null
 
 ## --- pause ------------------------------------------------------------------
@@ -178,7 +227,15 @@ class PauseMenu extends Control:
 		if not visible or not event.is_action_pressed("pause"):
 			return
 		if game != null and is_instance_valid(game):
-			game._unpause()
+			# One level at a time: from a page behind PAUSED the key goes back
+			# to PAUSED, the way that page's BACK button does, rather than
+			# dropping straight into a raid the player cannot see behind it.
+			if game.pause_general != null and game.pause_general.visible:
+				game._pause_general(false)
+			elif game.pause_controls != null and game.pause_controls.visible:
+				game._pause_controls(false)
+			else:
+				game._unpause()
 		get_viewport().set_input_as_handled()
 
 ## In UiKit's pixel look, like the title's settings — the same rows, the same
@@ -189,6 +246,14 @@ class PauseMenu extends Control:
 ## pause menu: it is stopped, so a toast caught mid-life stays where it was, and
 ## with nothing behind the rows its words came through them — through the RESUME
 ## button most of all, whose hover fill is a wash of colour rather than a solid.
+##
+## Three pages, not one. The rebinding list is fifteen rows of two columns,
+## which is longer than everything else on the menu put together: inline, it
+## pushed the way out so far down that the menu was a scrollbar with a RESUME
+## button at the top. It sits behind CONTROL SETTINGS instead, on a page of its
+## own, and the volumes sit behind GENERAL SETTINGS on another — the same two
+## pages the title's settings keep, reached the same way, so the menu the player
+## pauses into is the menu they already know.
 func _build_pause_menu() -> void:
 	pause_menu = PauseMenu.new()
 	(pause_menu as PauseMenu).game = self
@@ -204,29 +269,54 @@ func _build_pause_menu() -> void:
 	# does on the title, and the scroll adds its bar.
 	var panel := UiKit.panel(UiKit.PANEL, Color(0.22, 0.3, 0.38), true)
 	panel.custom_minimum_size = Vector2(600, 0)
-	var scroll := UiKit.screen_scroll(panel, Vector2(336, 36), 608.0)
+	var scroll := UiKit.screen_scroll(panel, Vector2(336, 36), 608.0, true)
 	UiKit.pixel_scroll(scroll)
 	pause_menu.add_child(scroll)
+	pause_main = scroll
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
 	panel.add_child(v)
-	v.add_child(UiKit.title(Loc.t("menu.pause.heading"), 24, true))
+	v.add_child(_pause_heading(Loc.t("menu.pause.heading"), _unpause))
 	v.add_child(UiKit.hline(true))
+	var to_general := UiKit.button(Loc.t("menu.pause.general"), UiKit.ACCENT, true)
+	to_general.custom_minimum_size = Vector2(280, 36)
+	to_general.pressed.connect(func() -> void: _pause_general(true))
+	v.add_child(to_general)
+	var to_controls := UiKit.button(Loc.t("controls.open"), UiKit.ACCENT, true)
+	to_controls.custom_minimum_size = Vector2(280, 36)
+	to_controls.pressed.connect(func() -> void: _pause_controls(true))
+	v.add_child(to_controls)
+	v.add_child(UiKit.spacer(8))
+	# The ways out of the menu, gathered at the bottom and ordered by what they
+	# cost: back into the game, out to the title, and last the one that forfeits
+	# a raid — its own act and its own colour, so it stays its own button.
+	#
+	# Everywhere but a raid, leaving is leaving, and the button says where it
+	# lands rather than what it is walking out of. The bench used to word it
+	# LEAVE THE BENCH, which was the same act under a name that did not say
+	# where it went. `_pause` shows whichever of these apply.
 	var resume := UiKit.button(Loc.t("menu.pause.resume"), UiKit.GOOD, true)
 	resume.custom_minimum_size = Vector2(280, 40)
 	resume.pressed.connect(_unpause)
 	v.add_child(resume)
-	v.add_child(_vol_row(Loc.t("menu.pause.music"), func() -> float: return Audio.music_volume, func(x: float) -> void: Audio.set_music_volume(x)))
-	v.add_child(_vol_row(Loc.t("menu.pause.sound"), func() -> float: return Audio.sfx_volume, func(x: float) -> void: Audio.set_sfx_volume(x)))
-	v.add_child(UiKit.spacer(6))
-	var cp := ControlsPanel.new()
-	cp.pixel = true
-	v.add_child(cp)
-	v.add_child(UiKit.spacer(8))
-	# The way out, which is not the same act on every screen: forfeiting a raid
-	# costs the kit, and stepping off the bench costs nothing. Two buttons
-	# rather than one that changes its words, because they are different
-	# colours as well as different sentences — `_pause` shows the right one.
+	pause_title = UiKit.button(Loc.t("menu.pause.title"), UiKit.ACCENT, true)
+	pause_title.custom_minimum_size = Vector2(280, 36)
+	pause_title.pressed.connect(func() -> void:
+		_unpause()
+		goto_title())
+	v.add_child(pause_title)
+	# The same destination from inside a raid, and the raid survives it: the run
+	# is written into the save slot as it stands and walked back into when that
+	# slot is opened again. It is the only way out of a raid that costs nothing,
+	# which is why it says so on it.
+	pause_park = UiKit.button(Loc.t("menu.pause.park"), UiKit.ACCENT, true)
+	pause_park.custom_minimum_size = Vector2(280, 36)
+	pause_park.pressed.connect(func() -> void:
+		_unpause()
+		if state == State.RAID and current != null and is_instance_valid(current):
+			GameState.park_raid((current as Raid).park())
+		goto_title())
+	v.add_child(pause_park)
 	pause_abandon = UiKit.button(Loc.t("menu.pause.abandon"), UiKit.BAD, true)
 	pause_abandon.custom_minimum_size = Vector2(280, 36)
 	pause_abandon.pressed.connect(func() -> void:
@@ -235,14 +325,113 @@ func _build_pause_menu() -> void:
 			var lost := GameState.die()
 			_raid_finished("died", lost))
 	v.add_child(pause_abandon)
-	pause_leave = UiKit.button(Loc.t("menu.pause.leave"), UiKit.ACCENT, true)
-	pause_leave.custom_minimum_size = Vector2(280, 36)
-	pause_leave.pressed.connect(func() -> void:
-		_unpause()
-		if current != null and is_instance_valid(current) and current.has_method("leave"):
-			current.leave())
-	v.add_child(pause_leave)
+	_build_pause_general()
+	_build_pause_controls()
 	overlay_layer.add_child(pause_menu)
+
+## The page behind GENERAL SETTINGS: the volumes, the language, and the way back
+## to PAUSED. The same three the title's settings hold, since this is the same
+## menu reached from inside a game.
+##
+## A language switched here has to reach everything already on screen. Most of
+## it costs nothing — the HUD and the bench's readout write their words in
+## `_draw` and so are in whatever language is on by the next frame — and what is
+## left is the handful of places that write once: this menu (`_rebuild_pause_menu`),
+## the bench's buttons, and the hideout's signs. Each rebuilds itself on the
+## signal.
+func _build_pause_general() -> void:
+	var panel := UiKit.panel(UiKit.PANEL, Color(0.22, 0.3, 0.38), true)
+	panel.custom_minimum_size = Vector2(600, 0)
+	pause_general = UiKit.screen_scroll(panel, Vector2(336, 36), 608.0, true)
+	UiKit.pixel_scroll(pause_general)
+	pause_general.visible = false
+	pause_menu.add_child(pause_general)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	panel.add_child(v)
+	v.add_child(_pause_heading(Loc.t("menu.pause.general"),
+		func() -> void: _pause_general(false)))
+	v.add_child(UiKit.hline(true))
+	v.add_child(_vol_row(Loc.t("menu.pause.music"), func() -> float: return Audio.music_volume, func(x: float) -> void: Audio.set_music_volume(x)))
+	v.add_child(_vol_row(Loc.t("menu.pause.sound"), func() -> float: return Audio.sfx_volume, func(x: float) -> void: Audio.set_sfx_volume(x)))
+	v.add_child(_pause_language_row())
+	v.add_child(UiKit.spacer(8))
+	var back := UiKit.button(Loc.t("menu.pause.back"), UiKit.ACCENT, true)
+	back.custom_minimum_size = Vector2(280, 36)
+	back.pressed.connect(func() -> void: _pause_general(false))
+	v.add_child(back)
+
+## The second page: the rebinding list, and the way back to the first. Built as
+## a sibling scroll rather than a panel swapped into the first one, so each page
+## scrolls on its own and neither inherits the other's scroll position.
+func _build_pause_controls() -> void:
+	var panel := UiKit.panel(UiKit.PANEL, Color(0.22, 0.3, 0.38), true)
+	panel.custom_minimum_size = Vector2(600, 0)
+	pause_controls = UiKit.screen_scroll(panel, Vector2(336, 36), 608.0, true)
+	UiKit.pixel_scroll(pause_controls)
+	pause_controls.visible = false
+	pause_menu.add_child(pause_controls)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	panel.add_child(v)
+	v.add_child(_pause_heading(Loc.t("controls.open"),
+		func() -> void: _pause_controls(false)))
+	v.add_child(UiKit.hline(true))
+	var cp := ControlsPanel.new()
+	cp.pixel = true
+	v.add_child(cp)
+	v.add_child(UiKit.spacer(8))
+	var back := UiKit.button(Loc.t("controls.back"), UiKit.ACCENT, true)
+	back.custom_minimum_size = Vector2(280, 36)
+	back.pressed.connect(func() -> void: _pause_controls(false))
+	v.add_child(back)
+
+## Which of the pause menu's pages is on screen. Only one ever is: `page` is
+## the one to show, or null for PAUSED itself.
+func _pause_page(page: Control) -> void:
+	pause_main.visible = page == null
+	pause_general.visible = page == pause_general
+	pause_controls.visible = page == pause_controls
+	Audio.play("ui")
+
+func _pause_general(on: bool) -> void:
+	_pause_page(pause_general if on else null)
+
+func _pause_controls(on: bool) -> void:
+	_pause_page(pause_controls if on else null)
+
+## A page's heading, with the way back out of it on its left: one press of the
+## arrow is one level up, which on PAUSED itself is back into the game. Every
+## page here has one, so the top-left corner always means the same thing.
+func _pause_heading(text: String, back: Callable) -> Control:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 10)
+	var arrow := UiKit.button(Loc.t("menu.pause.arrow"), UiKit.ACCENT, true)
+	arrow.custom_minimum_size = Vector2(44, 34)
+	arrow.pressed.connect(back)
+	h.add_child(arrow)
+	h.add_child(UiKit.title(text, 24, true))
+	return h
+
+## One button per language, written in itself, like the title's. Switching is a
+## rebuild of everything holding words — see `_build_pause_general` — and this
+## menu is one of them, so the button pressed is freed by its own press.
+func _pause_language_row() -> Control:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 8)
+	var l := UiKit.label(Loc.t("menu.pause.language"), 16, UiKit.TEXT, true)
+	l.custom_minimum_size = Vector2(80, 0)
+	h.add_child(l)
+	for lang in Loc.languages():
+		var picked: bool = lang == Loc.language
+		var b := UiKit.button(Loc.language_name(lang),
+			UiKit.ACCENT if picked else UiKit.DIM, true)
+		b.disabled = picked
+		b.pressed.connect(func() -> void:
+			Audio.play("ui")
+			Loc.set_language(lang))
+		h.add_child(b)
+	return h
 
 func _vol_row(name: String, getter: Callable, setter: Callable) -> Control:
 	var h := HBoxContainer.new()
@@ -264,22 +453,40 @@ func _vol_row(name: String, getter: Callable, setter: Callable) -> Control:
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("pause"):
 		return
-	# Every screen that is played rather than clicked through: a raid, and the
-	# bench. Menus have their own way back and do not want a second one over
-	# the top of them.
+	# Every screen the player lives on: a raid, the bench, and the hideout —
+	# which is a menu, but the one they stand in between raids, and the place
+	# they are most likely to want the volume or a rebind from. The title and
+	# the screens hanging off it have their own way back and do not want a
+	# second one over the top of them. The workbench raised over the hideout
+	# needs no guard here: it answers ESC by closing, and marks the press
+	# handled, so this never sees the one that shut it.
 	if get_tree().paused:
 		return      # the menu itself answers this one; see PauseMenu above
-	if state == State.RAID or state == State.SANDBOX:
+	if state == State.RAID or state == State.SANDBOX or state == State.HIDEOUT:
 		_pause()
 		get_viewport().set_input_as_handled()
 
 func _pause() -> void:
-	var in_raid := state == State.RAID
-	pause_abandon.visible = in_raid
-	pause_leave.visible = not in_raid
+	_pause_exits()
+	# Always on PAUSED, however it was left last time.
+	pause_main.visible = true
+	pause_general.visible = false
+	pause_controls.visible = false
 	get_tree().paused = true
 	pause_menu.visible = true
 	Audio.play("ui")
+
+## Which ways out this screen offers. A raid forfeits or parks; everywhere else
+## leaving is leaving, and lands on the title — the bench and the dragon test as
+## surely as the hideout, and the dragon test had no way out of its pause menu
+## at all. Called on opening the menu and after a rebuild, which is a new set of
+## buttons that have never been told.
+func _pause_exits() -> void:
+	if pause_abandon == null or not is_instance_valid(pause_abandon):
+		return
+	pause_abandon.visible = state == State.RAID
+	pause_title.visible = state != State.RAID
+	pause_park.visible = state == State.RAID
 
 func _unpause() -> void:
 	get_tree().paused = false

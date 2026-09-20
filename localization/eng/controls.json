@@ -1,5 +1,7 @@
 {
 	"heading": "CONTROLS — click a binding, then press a key",
+	"open": "CONTROL SETTINGS",
+	"back": "BACK",
 	"reset": "RESET TO DEFAULTS",
 	"listening": "press a key…",
 	"unbound": "unbound",
@@ -21,6 +23,7 @@
 		"skill_3": "Arm slot 3",
 		"skill_4": "Arm slot 4",
 		"open_editor": "Skill assembly",
+		"open_map": "Map",
 		"interact": "Interact / extract",
 		"pause": "Pause"
 	}

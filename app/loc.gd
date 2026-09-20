@@ -6,7 +6,7 @@ extends Node
 ## one file per part of the game. A screen asks for a line by name:
 ##
 ##     Loc.t("menu.title.start")            # "START"  ·  "시작"
-##     Loc.t("hud.bag.row", [name, count])  # "%s x%d" filled in
+##     Loc.t("hud.slot.pulse_many", [n])  # "%d pulses" filled in
 ##
 ## Both modules may read it. It sits in `app/` for the same reason `Cues` does:
 ## the rules name a part and a monster, the picture names a button and a
@@ -310,7 +310,7 @@ func _read_language(lang: String) -> Dictionary:
 		_flatten(file, domain, out)
 	return out
 
-## `{"bag": {"row": "%s x%d"}}` in `hud.json` becomes `hud.bag.row`. Nesting is
+## `{"slot": {"armed": "ARMED"}}` in `hud.json` becomes `hud.slot.armed`. Nesting is
 ## for whoever reads the file; the lookup only ever sees one flat name.
 func _flatten(d: Dictionary, prefix: String, into: Dictionary) -> void:
 	for k in d:

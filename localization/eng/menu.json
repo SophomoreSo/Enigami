@@ -16,20 +16,21 @@
 		"music": "Music",
 		"sound": "Sound",
 		"language": "Language",
-		"hints": [
-			"Aim with the mouse, or the right stick on a gamepad.",
-			"Gamepad: left stick moves, A jumps, B dashes, triggers fire slots 1-2."
-		],
-		"wipe": "WIPE PROFILE",
+		"general": "GENERAL SETTINGS",
 		"back": "BACK"
 	},
 	"pause": {
 		"heading": "PAUSED",
-		"resume": "RESUME",
+		"resume": "BACK TO GAME",
 		"music": "Music",
 		"sound": "Sound",
-		"leave": "LEAVE THE BENCH — nothing here is at stake",
-		"abandon": "ABANDON RAID — forfeits the kit"
+		"general": "GENERAL SETTINGS",
+		"back": "BACK",
+		"title": "MAIN MENU",
+		"park": "MAIN MENU — the raid is kept where you left it",
+		"abandon": "ABANDON RAID — forfeits the kit",
+		"language": "Language",
+		"arrow": "<"
 	},
 	"results": {
 		"won": "EXTRACTED",

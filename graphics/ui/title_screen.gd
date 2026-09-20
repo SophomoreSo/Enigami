@@ -88,7 +88,14 @@ var _buttons: Array = []
 var _start_button: Button
 var _settings_button: Button
 var _first_save_slot: Button
-var _settings: Control
+## The settings, and the two pages behind them, one per button: the volumes and
+## the language on one, the rebinding list on the other. The settings themselves
+## are nothing but the way to them, and only ever one of the three is up. Each
+## is a scroll around its panel, so a page too long for the screen can still be
+## reached — see `_settings_page`.
+var _settings: ScrollContainer
+var _general: ScrollContainer
+var _controls: ScrollContainer
 ## One entry per slot: {"n", "pick", "stamp", "bin"}.
 var _slot_rows: Array = []
 ## The slot whose trashcan is armed, or -1, and how long it stays that way.
@@ -131,6 +138,8 @@ func _ready() -> void:
 	_build_menu()
 	_build_save_slots()
 	_build_settings()
+	_build_general()
+	_build_controls()
 	Loc.language_changed.connect(_relanguage)
 	Audio.play_music()
 
@@ -489,51 +498,81 @@ func _bare_button(text: String, px: int) -> Button:
 	_buttons.append(b)
 	return b
 
+## SETTINGS holds nothing of its own any more: it is two buttons and the way
+## back, and every setting lives on the page behind one of them.
 func _build_settings() -> void:
-	# The panel keeps its full height inside a scroll that fits the screen: the
-	# rebinding list is long enough to run off the bottom on its own.
-	#
-	# It is built in UiKit's pixel look, like the menu that opens it. The pixel
-	# face runs up to twice as wide as the one it replaced, so the panel is wider
-	# too: 600 holds the controls list's two columns, and the scroll adds its bar.
-	var panel := UiKit.panel(UiKit.PANEL, Color(0.22, 0.3, 0.38), true)
-	panel.custom_minimum_size = Vector2(600, 0)
-	_settings = UiKit.screen_scroll(panel, Vector2(336, 56), 608.0)
-	UiKit.pixel_scroll(_settings)
-	_settings.visible = false
-	add_child(_settings)
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 8)
-	panel.add_child(v)
-	v.add_child(UiKit.label(Loc.t("menu.settings.heading"), 24, UiKit.ACCENT, true))
-	v.add_child(UiKit.hline(true))
+	_settings = _settings_page()
+	var v := _settings_column(_settings, Loc.t("menu.settings.heading"))
+	var to_general := UiKit.button(Loc.t("menu.settings.general"), UiKit.ACCENT, true)
+	to_general.pressed.connect(_toggle_general)
+	v.add_child(to_general)
+	var to_controls := UiKit.button(Loc.t("controls.open"), UiKit.ACCENT, true)
+	to_controls.pressed.connect(_toggle_controls)
+	v.add_child(to_controls)
+	v.add_child(UiKit.spacer(8))
+	var back := UiKit.button(Loc.t("menu.settings.back"), UiKit.ACCENT, true)
+	back.pressed.connect(_toggle_settings)
+	v.add_child(back)
+
+## The volumes and the language, on the page behind GENERAL SETTINGS.
+func _build_general() -> void:
+	_general = _settings_page()
+	var v := _settings_column(_general, Loc.t("menu.settings.general"))
 	v.add_child(_slider(Loc.t("menu.settings.music"), Audio.music_volume,
 		func(val: float) -> void: Audio.set_music_volume(val)))
 	v.add_child(_slider(Loc.t("menu.settings.sound"), Audio.sfx_volume, func(val: float) -> void:
 		Audio.set_sfx_volume(val)
 		Audio.play("ui")))
 	v.add_child(_language_row())
-	v.add_child(UiKit.spacer(6))
-	var hint_i := 0
-	while Loc.has("menu.settings.hints.%d" % hint_i):
-		var l := UiKit.label(Loc.t("menu.settings.hints.%d" % hint_i), 16, UiKit.DIM, true)
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(l)
-		hint_i += 1
-	v.add_child(UiKit.spacer(6))
+	v.add_child(UiKit.spacer(8))
+	var back := UiKit.button(Loc.t("menu.settings.back"), UiKit.ACCENT, true)
+	back.pressed.connect(_toggle_general)
+	v.add_child(back)
+
+## The rebinding list, on the page behind CONTROL SETTINGS. It is fifteen rows
+## of two columns — longer than every other setting put together — and inline
+## it left the buttons under it somewhere off the bottom of a long scroll. A
+## page of its own, as a sibling scroll rather than a panel swapped into the
+## settings, so no page inherits another's scroll position.
+func _build_controls() -> void:
+	_controls = _settings_page()
+	var v := _settings_column(_controls, Loc.t("controls.open"))
 	var controls := ControlsPanel.new()
 	controls.pixel = true
 	v.add_child(controls)
 	v.add_child(UiKit.spacer(8))
-	var rb := UiKit.button(Loc.t("menu.settings.wipe"), UiKit.BAD, true)
-	rb.pressed.connect(func() -> void:
-		GameState.reset_profile()
-		Audio.play("deny"))
-	v.add_child(rb)
-	v.add_child(UiKit.spacer(4))
-	var back := UiKit.button(Loc.t("menu.settings.back"), UiKit.ACCENT, true)
-	back.pressed.connect(_toggle_settings)
+	var back := UiKit.button(Loc.t("controls.back"), UiKit.ACCENT, true)
+	back.pressed.connect(_toggle_controls)
 	v.add_child(back)
+
+## An empty settings page, hidden until its button is pressed: UiKit's pixel
+## look, like the menu that opens it. The pixel face runs up to twice as wide as
+## the one it replaced, so the panel is wide — 600 holds the controls list's two
+## columns, and the scroll around it adds its bar. The page keeps its full
+## height inside that scroll, and the scroll is what fits the screen.
+##
+## Centred, since the pages are three very different heights: SETTINGS is three
+## buttons and the rebinding list is fifteen rows, and hung from a common top
+## the short ones floated in the upper third of the screen. The rebinding list
+## is taller than the room it has either way, so it goes on filling that room
+## from 56 and scrolling.
+func _settings_page() -> ScrollContainer:
+	var panel := UiKit.panel(UiKit.PANEL, Color(0.22, 0.3, 0.38), true)
+	panel.custom_minimum_size = Vector2(600, 0)
+	var sc := UiKit.screen_scroll(panel, Vector2(336, 56), 608.0, true)
+	UiKit.pixel_scroll(sc)
+	sc.visible = false
+	add_child(sc)
+	return sc
+
+## The column a page's rows go in, under a heading and a rule.
+func _settings_column(page: ScrollContainer, heading: String) -> VBoxContainer:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	(page.get_child(0) as PanelContainer).add_child(v)
+	v.add_child(UiKit.label(heading, 24, UiKit.ACCENT, true))
+	v.add_child(UiKit.hline(true))
+	return v
 
 ## One button per language, laid out like a slider row: the label on the left
 ## and the choices beside it. Each language is written in itself, so somebody
@@ -557,12 +596,14 @@ func _language_row() -> Control:
 
 ## The whole menu, in the new language. Everything here is text laid out once
 ## in `_ready`, so a change of language is a rebuild rather than a refresh —
-## and the settings panel is put back open, because that is where the switch
-## was just pressed.
+## and whichever settings page was up is put back open, because that is where
+## the switch was just pressed.
 func _relanguage(_lang: String) -> void:
 	var was_settings: bool = _settings != null and _settings.visible
+	var was_general: bool = _general != null and _general.visible
+	var was_controls: bool = _controls != null and _controls.visible
 	var was_slots: bool = _save_slot_root != null and _save_slot_root.visible
-	for old in [_menu_root, _save_slot_root, _settings]:
+	for old in [_menu_root, _save_slot_root, _settings, _general, _controls]:
 		if old != null and is_instance_valid(old):
 			remove_child(old)
 			old.queue_free()
@@ -572,14 +613,20 @@ func _relanguage(_lang: String) -> void:
 	_menu_root = null
 	_save_slot_root = null
 	_settings = null
+	_general = null
+	_controls = null
 	_start_button = null
 	_settings_button = null
 	_first_save_slot = null
 	_build_menu()
 	_build_save_slots()
 	_build_settings()
-	if was_settings:
-		_settings.visible = true
+	_build_general()
+	_build_controls()
+	if was_settings or was_general or was_controls:
+		_settings.visible = was_settings
+		_general.visible = was_general
+		_controls.visible = was_controls
 		_menu_root.visible = false
 	elif was_slots:
 		_show_save_slots()
@@ -606,15 +653,39 @@ func _toggle_settings() -> void:
 	# put back when it closes.
 	_settings.visible = not _settings.visible
 	_menu_root.visible = not _settings.visible
+	# Leaving the settings leaves the pages behind them as well: reopening them
+	# has to land on the settings, not on whichever page was last looked at.
+	for page in [_general, _controls]:
+		if page != null:
+			page.visible = false
 	if not _settings.visible and _settings_button != null:
 		_settings_button.grab_focus()
 	Audio.play("ui")
 
-## Backing out: settings first, then the save slots.
+## The page behind GENERAL SETTINGS, in and out. The settings are the only way
+## to it, so they are what comes back.
+func _toggle_general() -> void:
+	_general.visible = not _general.visible
+	_settings.visible = not _general.visible
+	Audio.play("ui")
+
+## The page behind CONTROL SETTINGS, the same way.
+func _toggle_controls() -> void:
+	_controls.visible = not _controls.visible
+	_settings.visible = not _controls.visible
+	Audio.play("ui")
+
+## Backing out: whichever page is up, then the settings, then the save slots.
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("ui_cancel"):
 		return
-	if _settings != null and _settings.visible:
+	if _general != null and _general.visible:
+		_toggle_general()
+		get_viewport().set_input_as_handled()
+	elif _controls != null and _controls.visible:
+		_toggle_controls()
+		get_viewport().set_input_as_handled()
+	elif _settings != null and _settings.visible:
 		_toggle_settings()
 		get_viewport().set_input_as_handled()
 	elif _save_slot_root != null and _save_slot_root.visible:
@@ -922,8 +993,9 @@ func _draw_bin(at: Vector2, col: Color) -> void:
 	draw_rect(Rect2(at + Vector2(1, -3) * u, Vector2(1, 7) * u), col)
 
 func _draw_records() -> void:
-	if _settings != null and _settings.visible:
-		return
+	for page in [_settings, _general, _controls]:
+		if page != null and page.visible:
+			return
 	if _save_slot_root != null and _save_slot_root.visible:
 		return
 	var rec: Dictionary = GameState.records
