@@ -1,7 +1,7 @@
 class_name ControlsPanel
 extends PanelContainer
 
-## The input settings: how far the pointer travels, and which key does what.
+## The input settings: how fast the pointer moves, and which key does what.
 ##
 ## The pointer sits at the top rather than with the volumes, because what it
 ## belongs with is this — it is a control, and this is the page controls are on.
@@ -25,14 +25,15 @@ func _ready() -> void:
 ## Built rather than refreshed, so a change of language reaches the action
 ## names as well as the two buttons. Whatever was being listened for is
 ## dropped: the panel it was going to land in no longer exists.
-## How far the pointer travels for a given push of the mouse. It answers while
-## the slider is being dragged, which is the only setting in the game that acts
-## on the hand that is setting it — so it is set by feel and needs no number
-## beside it. RESET below is the bindings' own; it does not reach up here.
+## How fast the game's own pointer moves — the crosshair, while the player has
+## the controls. Menus are the system pointer's and stay as the desk has them,
+## so this is aim speed; `app/pointer.gd` says why it can be nothing else. It
+## answers while the slider is being dragged, so it is set by feel and needs no
+## number beside it. RESET below is the bindings' own and does not reach up.
 func _pointer_row(name_width: int, bind_width: int) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
-	var l := UiKit.label(Loc.t("controls.mouse"), 11, UiKit.TEXT, pixel)
+	var l := UiKit.label(Loc.t("controls.sensitivity"), 11, UiKit.TEXT, pixel)
 	l.custom_minimum_size = Vector2(name_width, 0)
 	row.add_child(l)
 	var s := HSlider.new()

@@ -381,10 +381,15 @@ func _update_aim() -> void:
 		aim = stick.normalized()
 		aim_point = global_position + aim * STICK_AIM_REACH
 	else:
-		var m := get_global_mouse_position() - global_position
+		# `Pointer` rather than the viewport: while the player has the controls
+		# the game is doing the pointing, at whatever speed the setting asks
+		# for. It answers the system's own pointer the rest of the time, and at
+		# 1.0 the two are the same thing.
+		var at := Pointer.world_point(self)
+		var m := at - global_position
 		if m.length() > 4.0:
 			aim = m.normalized()
-		aim_point = get_global_mouse_position()
+		aim_point = at
 
 func _physics_process(delta: float) -> void:
 	if dead:

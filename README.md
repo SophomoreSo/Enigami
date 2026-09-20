@@ -89,17 +89,26 @@ from Settings (title screen) or the pause menu.
 
 The mouse pointer is the game's own: a crosshair, drawn at boot from a table of
 characters like every other asset here that is not a sprite or a font, with the
-gap in the middle left open so what you are aiming at stays visible. **Pointer
-speed** sits at the top of the control settings, with the keys rather than with
-the volumes, and decides how far the pointer travels for a given push of the
-mouse, from 0.4 to 2.5. It is kept per machine rather than per save — a property
-of the desk, like the language and the bindings.
+gap in the middle left open so what you are aiming at stays visible. **Mouse
+sensitivity**, at the top of the control settings, decides how far it travels
+for a given push of the mouse, from 0.4 to 2.5, and is kept per machine rather
+than per save — a property of the desk, like the language and the bindings.
 
-The system pointer is what moves, so menus, the aim and the crosshair are always
-the same pointer, and at 1.0 nothing intervenes at all. Nothing holds it in the
-window either: on the way past the edge the extra distance is dropped, so the
-pointer leaves for another screen or another window exactly as it would from any
-other program.
+It moves the game crosshair, not the system pointer, which is the whole of the
+design. While the player has the controls the game takes the mouse — the system
+arrow gives way to the crosshair, and that is what the setting drives. Let go of
+the controls for a menu, a map or a conversation and the system pointer comes
+back for the buttons, at whatever speed the desk runs it at. Setting it is
+therefore something you see in the game rather than on the settings page, the
+way a shooter'''s sensitivity slider never moves its own menu cursor.
+
+It was built the other way first — the game moving the system pointer — which
+works on a bench and not on a desk. The macOS call that moves a pointer unhooks
+it from the mouse underneath and swallows what the hand does for a moment after,
+so the two drift apart and the pointer is put back wherever the mouse had got
+to; keeping it on the window instead unhooks it outright and it stops following
+the mouse at all. Both were measured, and `app/pointer.gd` holds the finding so
+nobody spends that week again.
 
 ## How a skill works
 

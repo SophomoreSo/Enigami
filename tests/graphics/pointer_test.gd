@@ -1,12 +1,18 @@
 extends Node2D
-## The mouse pointer: the picture the game draws for it, and the setting that
-## decides how far it moves.
+## The mouse pointer the game draws for itself.
 ##
-## A window is needed for both halves. The picture is built from an Image, which
-## would work anywhere, but the interesting half is the arithmetic that turns a
-## place on the 1280x720 the game is drawn at into a place in whatever size the
-## window happens to be — and a window is the only thing that can say whether
-## that came out right.
+## The game never moves the system pointer. It drove it once, to serve a
+## sensitivity setting, and on macOS that cannot be made to behave: the call
+## that moves a pointer unhooks it from the mouse underneath, and keeping it on
+## the window unhooks it outright. `app/pointer.gd` has the whole finding. So
+## the game keeps a pointer of its own instead, moves that at whatever speed the
+## setting asks for, and takes the mouse only while the player has the controls.
+##
+## What is checked here: the picture, the speed, and that nothing has crept back
+## in that touches the system pointer.
+##
+## A window is needed: an Image would build anywhere, but a cursor is only a
+## cursor once something is showing it.
 
 var fails := 0
 
@@ -28,21 +34,15 @@ func frames(n: int) -> void:
 		await get_tree().process_frame
 
 func _ready() -> void:
-	# The setting and the pointer both belong to whoever is at this desk. Both
-	# go back the way they were found.
 	var was := Pointer.sensitivity
-	var was_at := DisplayServer.mouse_get_position()
 	_picture()
-	_setting()
-	await _window()
-	await _wiring()
-	await _where_it_lives()
+	_speed()
+	await _in_play()
+	_hands_off()
 	Pointer.set_sensitivity(was)
-	DisplayServer.warp_mouse(was_at)
 	print("[PTR] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)
 
-## --- what it looks like -----------------------------------------------------
 func _picture() -> void:
 	var tex := Pointer.texture()
 	check(tex != null, "the pointer is built rather than loaded")
@@ -77,169 +77,86 @@ func _picture() -> void:
 	check(inked > 0 and edged > inked,
 		"every bright pixel is carried by a darker edge (%d ink, %d edge)" % [inked, edged])
 	check(clear > inked + edged, "and most of it is still see-through (%d clear)" % clear)
+	check(Pointer._tex != null, "and the window was handed one at boot")
 
-## --- how far it moves -------------------------------------------------------
-func _setting() -> void:
+## How far the mouse carries the game's own pointer.
+func _speed() -> void:
+	var bounds := Vector2(1280, 720)
 	var at := Vector2(600, 400)
 	var moved := Vector2(10, -6)
 
 	Pointer.set_sensitivity(1.0)
-	check(Pointer.target_for(at, moved) == at,
-		"at 1.0 the pointer is left exactly where the mouse put it")
-
+	check(Pointer.carry(at, moved, bounds) == at + moved,
+		"at 1.0 the pointer goes exactly as far as the mouse did")
 	Pointer.set_sensitivity(2.0)
-	check(Pointer.target_for(at, moved) == at + moved,
-		"at 2.0 it is carried the same distance again (%s)"
-			% str(Pointer.target_for(at, moved)))
-
+	check(Pointer.carry(at, moved, bounds) == at + moved * 2.0,
+		"at 2.0 it goes twice as far (%s)" % str(Pointer.carry(at, moved, bounds)))
 	Pointer.set_sensitivity(0.5)
-	check(Pointer.target_for(at, moved) == at - moved * 0.5,
-		"at 0.5 it is pulled back half of what the hand did (%s)"
-			% str(Pointer.target_for(at, moved)))
+	check(Pointer.carry(at, moved, bounds) == at + moved * 0.5,
+		"at 0.5 it goes half as far (%s)" % str(Pointer.carry(at, moved, bounds)))
+
+	Pointer.set_sensitivity(2.5)
+	var corner := Pointer.carry(Vector2(1275, 5), Vector2(40, -40), bounds)
+	check(corner.x <= bounds.x - 1.0 and corner.y >= 0.0,
+		"and it is kept on the screen it is drawn on (%s)" % str(corner))
 
 	Pointer.set_sensitivity(99.0)
 	check(Pointer.sensitivity <= Pointer.MAX_SENS,
 		"the setting is held between %.1f and %.1f (%.1f)"
 			% [Pointer.MIN_SENS, Pointer.MAX_SENS, Pointer.sensitivity])
-	Pointer.set_sensitivity(0.0)
-	check(Pointer.sensitivity >= Pointer.MIN_SENS, "at both ends (%.1f)" % Pointer.sensitivity)
-
-	# It outlives the run that set it.
-	Pointer.set_sensitivity(1.6)
+	Pointer.set_sensitivity(1.7)
 	Pointer.sensitivity = 1.0
 	Pointer.load_saved()
-	check(is_equal_approx(Pointer.sensitivity, 1.6),
+	check(is_equal_approx(Pointer.sensitivity, 1.7),
 		"and is written down, so the desk keeps it (%.1f)" % Pointer.sensitivity)
 
-## --- the window -------------------------------------------------------------
-func _window() -> void:
-	var win := get_window()
-	var was_size := win.size
-	var view := Vector2(get_viewport().get_visible_rect().size)
+	# Nobody has the controls in this scene, so the system is doing the
+	# pointing and the game's pointer is simply where that is.
+	check(not Pointer.game_is_pointing(),
+		"with nobody holding the controls, the system does the pointing")
+	check(Pointer._crosshair != null and not Pointer._crosshair.visible,
+		"and the game's own crosshair is not drawn over it")
 
-	# The game is drawn at one size into a window of another, so a place in the
-	# first has to be turned into a place in the second before the pointer can
-	# be put there. This is that conversion, checked on a window deliberately
-	# the wrong size for it.
-	win.size = Vector2i(int(view.x) + 320, int(view.y) + 180)
-	await frames(3)
-	var to_window := win.get_final_transform()
-	var far: Vector2 = to_window * view
-	check(far.distance_to(Vector2(win.size)) < 8.0,
-		"the far corner of the game lands on the far corner of the window (%s of %s)"
-			% [str(far.round()), str(win.size)])
-	check((to_window * Vector2.ZERO).length() < 8.0, "and the near corner on the near one")
-
-	# And the pointer actually goes where it is sent. The desk's own pointer is
-	# put back where it was found.
-	var want := Vector2(int(view.x * 0.5), int(view.y * 0.5))
-	Input.warp_mouse(to_window * want)
-	await frames(3)
-	var landed := get_viewport().get_mouse_position()
-	check(landed.distance_to(want) < 6.0,
-		"a pointer sent to %s arrives at %s" % [str(want), str(landed.round())])
-	win.size = was_size
+## A real player holding the controls, which is the only time the setting does
+## anything — and the thing that has to be checked, because a settings screen is
+## never in that state. Every screen the player stands on builds one of these.
+func _in_play() -> void:
+	var held := Player.new()
+	add_child(held)
 	await frames(2)
+	check(Pointer.game_is_pointing(), "with the controls held, the game does the pointing")
+	check(Input.mouse_mode == Input.MOUSE_MODE_CAPTURED,
+		"so the game takes the mouse (mode %d)" % Input.mouse_mode)
+	check(Pointer._crosshair.visible, "and draws its own crosshair")
 
-## --- the wiring -------------------------------------------------------------
-## The one link the pieces above do not cover on their own: that the pointer is
-## in the tree, hears the mouse and carries it the extra distance.
-func _wiring() -> void:
-	check(Pointer._tex != null, "the pointer was handed to the window at boot")
 	Pointer.set_sensitivity(2.0)
-	var start := Vector2(400, 300)
-	Input.warp_mouse(start)
-	await frames(2)
-	var moved := Vector2(40, 0)
+	Pointer.point = Vector2(400, 300)
 	var e := InputEventMouseMotion.new()
-	e.position = start + moved
-	e.relative = moved
-	Input.parse_input_event(e)
+	e.relative = Vector2(30, -10)
+	Pointer._input(e)
+	check(Pointer.point.is_equal_approx(Vector2(460, 280)),
+		"a mouse moved (30,-10) at 2.0 carries it (60,-20) (%s)" % str(Pointer.point))
+
+	Pointer.set_sensitivity(0.5)
+	Pointer.point = Vector2(400, 300)
+	Pointer._input(e)
+	check(Pointer.point.is_equal_approx(Vector2(415, 295)),
+		"and at 0.5, half of it (%s)" % str(Pointer.point))
+
+	await frames(2)
+	check(Pointer._crosshair.position.is_equal_approx(Pointer.point - Pointer.hotspot()),
+		"the crosshair is drawn where the game is pointing")
+
+	held.queue_free()
 	await frames(3)
-	var now := get_viewport().get_mouse_position()
-	check(now.x > start.x + moved.x * 1.5,
-		"a mouse moved %.0f px at 2.0 carries the pointer about twice that (%s)"
-			% [moved.x, str(now.round())])
+	check(not Pointer.game_is_pointing() and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE,
+		"and the system has its pointer back the moment the controls are let go")
 
-	# And at 1.0 the game does not touch the pointer at all. A parsed event says
-	# the mouse moved without the desk's pointer having gone anywhere, so what
-	# is being watched here is whether the game moves it — and at 1.0 it must
-	# not, which is what the game ships at.
-	Pointer.set_sensitivity(1.0)
-	Input.warp_mouse(start)
-	await frames(2)
-	var quiet := InputEventMouseMotion.new()
-	quiet.position = start + moved
-	quiet.relative = moved
-	Input.parse_input_event(quiet)
-	await frames(3)
-	check(get_viewport().get_mouse_position().distance_to(start) < 6.0,
-		"and at 1.0 it leaves the pointer exactly where the mouse had it (%s)"
-			% str(get_viewport().get_mouse_position().round()))
-
-	# On the way out of the window the extra distance is dropped, so nothing
-	# holds the pointer against the border: the desk gets it back.
-	var view := Vector2(get_viewport().get_visible_rect().size)
-	var edge := Vector2(view.x - 12.0, view.y * 0.5)
-	Pointer.set_sensitivity(2.5)
-	Input.warp_mouse(edge)
-	await frames(2)
-	var out := InputEventMouseMotion.new()
-	out.position = edge + Vector2(8, 0)
-	out.relative = Vector2(8, 0)
-	Input.parse_input_event(out)
-	await frames(3)
-	check(get_viewport().get_mouse_position().distance_to(edge) < 6.0,
-		"a move that would carry the pointer off the window is not helped along (%s)"
-			% str(get_viewport().get_mouse_position().round()))
-	check(not get_viewport().get_visible_rect().has_point(
-			Pointer.target_for(edge + Vector2(8, 0), Vector2(8, 0))),
-		"because where it would have gone is off the edge (%s)"
-			% str(Pointer.target_for(edge + Vector2(8, 0), Vector2(8, 0))))
-
-	# And a pointer already gone is not fetched back, which is what a setting
-	# below 1.0 would otherwise do with it.
-	Pointer.set_sensitivity(0.4)
-	Input.warp_mouse(edge)
-	await frames(2)
-	var gone := InputEventMouseMotion.new()
-	gone.position = Vector2(view.x + 30.0, view.y * 0.5)
-	gone.relative = Vector2(40, 0)
-	Input.parse_input_event(gone)
-	await frames(3)
-	check(get_viewport().get_mouse_position().distance_to(edge) < 6.0,
-		"a pointer that has left the window is left alone (%s)"
-			% str(get_viewport().get_mouse_position().round()))
-
-## --- where the setting lives ------------------------------------------------
-## On the control settings page, in both screens that have one: it is a control,
-## and a player looking for it will look where the keys are.
-func _where_it_lives() -> void:
-	var panel := ControlsPanel.new()
-	panel.pixel = true
-	add_child(panel)
-	await frames(2)
-	var found: HSlider = null
-	for node in _all_under(panel):
-		if node is HSlider:
-			found = node as HSlider
-	check(found != null, "the controls panel carries the pointer's own slider")
-	if found == null:
-		return
-	check(is_equal_approx(found.min_value, Pointer.MIN_SENS)
-			and is_equal_approx(found.max_value, Pointer.MAX_SENS),
-		"set to the range the pointer allows (%.1f to %.1f)" % [found.min_value, found.max_value])
-	check(is_equal_approx(found.value, Pointer.sensitivity),
-		"and showing what the pointer is set to (%.1f)" % found.value)
-	found.value = Pointer.MIN_SENS
-	await frames(2)
-	check(is_equal_approx(Pointer.sensitivity, Pointer.MIN_SENS),
-		"moving it moves the pointer's own setting (%.1f)" % Pointer.sensitivity)
-	panel.queue_free()
-	await frames(2)
-
-func _all_under(n: Node) -> Array:
-	var out: Array = [n]
-	for c in n.get_children():
-		out.append_array(_all_under(c))
-	return out
+## The rule the week cost: the system pointer is the system's. Nothing here
+## moves it, holds it, or argues with it.
+func _hands_off() -> void:
+	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE,
+		"while the system is pointing, the pointer is visible and free")
+	var src := FileAccess.get_file_as_string("res://app/pointer.gd")
+	check(not src.contains("warp_mouse"), "nothing in the pointer moves it")
+	check(not src.contains("CONFINED"), "and nothing in the pointer holds it on the window")

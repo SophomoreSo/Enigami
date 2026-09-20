@@ -61,9 +61,6 @@ func button_named(root: Node, text: String) -> Button:
 ## `sliders` and `min_texts` are what that page is expected to hold — the title
 ## keeps nothing on its front page but the buttons onto the other two, while the
 ## pause menu still carries its volume rows itself.
-## `sliders_want` is what the page is meant to hold: two volumes on a general
-## page, and one on a controls page — the pointer's, which is a control and
-## lives with the keys rather than with the volumes.
 func audit(sc: ScrollContainer, what: String, sliders_want: int, min_texts: int) -> void:
 	var all := controls_under(sc)
 	var texts := 0
