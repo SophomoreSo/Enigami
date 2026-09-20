@@ -55,6 +55,10 @@
 		"name": "SPEED x",
 		"desc": "Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. Does nothing to a flow with no bolt in it."
 	},
+	"RANGE": {
+		"name": "RANGE x",
+		"desc": "Bolts carry 1.75x as far before they fade. Does nothing to a flow with no bolt in it."
+	},
 	"SHATTER": {
 		"name": "SHATTER",
 		"desc": "Hits an enemy already slowed by frost far harder. Worth nothing on its own — pair it with ICE, or with a board that lands twice."

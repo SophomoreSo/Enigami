@@ -117,6 +117,11 @@ const DEFS := {
 		"desc": "Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. Does nothing to a flow with no bolt in it.",
 	},
 
+	"RANGE": {
+		"name": "RANGE x", "cat": CAT_STAT, "heat": 0.35, "cells": 1,
+		"outs": [E], "payload_out": -1,
+		"desc": "Bolts carry 1.75x as far before they fade. Does nothing to a flow with no bolt in it.",
+	},
 	"SHATTER": {
 		"name": "SHATTER", "cat": CAT_STAT, "heat": 0.45, "cells": 1,
 		"outs": [E], "payload_out": -1,
@@ -214,7 +219,7 @@ const STRUCTURAL := ["INPUT", "OUTPUT", "WIRE", "BEND"]
 ## Loot-able components, in the order the palette shows them.
 const LOOT_POOL := [
 	"PROJECTILE", "SLASH", "AREA", "DASHSLASH", "DASHSLASH_AUTO",
-	"FIRE", "ICE", "DAMAGE", "SIZE", "SPEED", "SHATTER",
+	"FIRE", "ICE", "DAMAGE", "SIZE", "SPEED", "RANGE", "SHATTER",
 	"PIERCE", "DASH", "BLINK", "HOMING", "REVERSE", "GRAVITY", "MANA_DRAIN",
 	"SPLIT", "TEE", "DUPLICATE", "OVERCLOCK", "DELAY", "TIME_DILATION",
 	"ON_HIT", "ON_KILL", "ON_PARRY",

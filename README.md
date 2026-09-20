@@ -20,12 +20,16 @@ godot                      # opens the project
 godot res://tests/shared/smoke.tscn   # drives every screen and asserts the core rules
 godot res://tests/feature/jump_test.tscn    # ground jump, wall kick and the air jump
 godot res://tests/graphics/focus_test.tscn   # in-game buttons never steal the keyboard
+godot res://tests/graphics/pointer_test.tscn # the drawn cursor, and how far it moves
 godot res://tests/feature/trigger_test.tscn # a trigger chain lands as separate attacks
 godot res://tests/feature/cooldown_test.tscn # the numbers behind the slot cooldown wipe
 godot res://tests/feature/speed_test.tscn   # the SPEED part, and bolt collision at speed
+godot res://tests/feature/range_test.tscn   # how far a bolt carries before it fades
 godot res://tests/feature/dash_test.tscn    # where a lunge lands, aimed and auto-aimed
 godot res://tests/feature/dash_move_test.tscn # the dash key: flat, a step long, briefly untouchable
 godot res://tests/feature/hurt_test.tscn    # the second of grace a blow that lands buys
+godot res://tests/feature/lost_kit_test.tscn # dying drops the kit, and the next run goes back for it
+godot res://tests/feature/climb_test.tscn   # going up a room and staying there
 godot res://tests/feature/select_test.tscn  # arming a slot, and what each button fires
 godot res://tests/feature/weapon_fit_test.tscn  # a weapon refuses skills it cannot carry
 godot res://tests/feature/stamina_test.tscn # the dash budget under the health bar
@@ -83,6 +87,20 @@ Gamepad: left stick moves, A jumps, B dashes, the right trigger attacks and the
 left one casts, X/Y arm slots 1–2, select opens assembly, RB interacts. Every keyboard binding is remappable
 from Settings (title screen) or the pause menu.
 
+The mouse pointer is the game's own: a crosshair, drawn at boot from a table of
+characters like every other asset here that is not a sprite or a font, with the
+gap in the middle left open so what you are aiming at stays visible. **Pointer
+speed** sits at the top of the control settings, with the keys rather than with
+the volumes, and decides how far the pointer travels for a given push of the
+mouse, from 0.4 to 2.5. It is kept per machine rather than per save — a property
+of the desk, like the language and the bindings.
+
+The system pointer is what moves, so menus, the aim and the crosshair are always
+the same pointer, and at 1.0 nothing intervenes at all. Nothing holds it in the
+window either: on the way past the edge the extra distance is dropped, so the
+pointer leaves for another screen or another window exactly as it would from any
+other program.
+
 ## How a skill works
 
 A board is a circuit. A pulse leaves `INPUT`, spends **one tick in every cell**
@@ -121,6 +139,17 @@ after that first `OUTPUT` still plays out in real time, which is what lets
   by the very speed-up it pays for, and the two would cancel.
 - `DELAY` is a cell of waiting like any other; stagger a branch against another
   by giving it further to walk.
+- A bolt carries a fixed distance and then fades — a quarter of a room as
+  standard, and the weapon scales it: a good third of a room off the Gun, a
+  quarter off the Rock, a sixth off the Sword. You fight inside a part of a
+  room rather than across it, and closing the gap is most of what a ranged
+  build does with its feet.
+  Range is not speed. A fast bolt arrives sooner, not further, which is why
+  `SPEED` extends the reach a little as well: enough that a fast build does not
+  run out of range on the way in. `RANGE` is the part for it — 1.75x a shot's
+  reach and nothing else, so a board that cannot get close buys its distance
+  outright. A monster is given whatever reach its own attack range needs, so
+  nothing ever fires a shot that cannot arrive.
 - `GRAVITY` pins the enemy it strikes instead of knocking it back, and drags
   every other enemy nearby onto it — a room gathered into one place for whatever
   the rest of the board does next.
@@ -310,9 +339,27 @@ The PRD left eight questions open. This build answers them as follows.
 ## Losing a raid
 
 Deploying binds the weapon and the skills in its slots into one kit. Dying
-loses the weapon, those skills (and every component built into them), and
-everything found along the way. Anything left at home is untouched. There is
-always another rock, so a bad run never leaves you unable to deploy.
+costs you the weapon, those skills (and every component built into them), and
+everything found along the way — but none of it is destroyed. It is left lying
+on the spot you fell on, and the next deployment goes back in after it: the
+same floor, grown from the same seed, with the room you died in still in the
+same place and the drop still lying in it. The map marks the room; the hideout says how
+much is waiting before you commit to the run.
+
+Picking it up does not end the story. A recovered kit is **carried**, not
+returned — the skills cannot be slotted mid-raid and the weapon cannot be
+drawn — so it only becomes yours again at an exit. Die on the way out and the
+whole lot goes down a second time, wherever you fell that time; the older drop
+is gone. There is one drop at a time, and dying is what moves it — extracting
+without it does not lose it, it just leaves it there, and the run after that
+goes back to the same floor again.
+
+Abandoning a raid from the pause menu still forfeits the kit outright: walking
+away is a decision, and a decision leaves no trail to follow back.
+
+Anything left at home is untouched. There is always another rock, so a bad run
+never leaves you unable to deploy — which is also what makes the trip back for
+your own sword possible.
 
 Extracting is a place, not a menu: gates sit in the map with different terms —
 the entry gate is free but slow, a toll gate costs scrap, the Arbiter's gate is
@@ -340,6 +387,7 @@ for how they talk.
 
 ```
 app/               entry scene, screen flow, the cue bus, the sound bank, the words
+                   pointer: the drawn cursor and how fast it moves
 data/dialogue/     conversations, one JSON file per character — format in its README
 data/scenes/       directed scenes, one JSON file per scene — format in its README
 localization/      every word the game says: eng/ and kor/, a file per screen
@@ -349,6 +397,7 @@ feature/core/      components, payload, board, runner, state, time control
 feature/actors/    actor base, player, monster catalogue, monster AI
 feature/attacks/   projectile, melee arc, area burst, dash slash, spawner
 feature/world/     room generation, raid map graph, raid loop, sandbox, pickups
+                   lost kit: what a death leaves on the floor for the next run
                    dragon test: the hand-laid tower and its rules
 story/rules/       conversations and directed scenes: what is said, and what follows
 story/view/        the dialogue box, the cutscene box, the portraits, the camera

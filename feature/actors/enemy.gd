@@ -80,11 +80,17 @@ func _make_runner() -> void:
 	var dmg_scale := 1.0 + 0.14 * float(max(_danger - 1, 0))
 	if modifier == "armored":
 		dmg_scale *= 1.15
+	# A quarter past the furthest it will ever shoot from, so a bolt loosed at
+	# the edge of its range still lands on someone backing away — and never less
+	# than an ordinary bolt carries, so the ones that fight up close are not
+	# firing shorter shots than anybody else.
+	var reach := maxf(float(def.get("attack_range", 0.0)) * 1.25, Payload.BASE_RANGE)
 	runner.base_payload_provider = func() -> Payload:
 		var p := Payload.new()
 		p.damage = 7.0 * dmg_scale
 		p.speed = 0.85
 		p.size = 1.0
+		p.range_px = reach
 		return p
 	runner.fired.connect(_on_fired)
 

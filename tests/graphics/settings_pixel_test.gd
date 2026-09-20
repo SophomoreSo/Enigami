@@ -61,6 +61,9 @@ func button_named(root: Node, text: String) -> Button:
 ## `sliders` and `min_texts` are what that page is expected to hold — the title
 ## keeps nothing on its front page but the buttons onto the other two, while the
 ## pause menu still carries its volume rows itself.
+## `sliders_want` is what the page is meant to hold: two volumes on a general
+## page, and one on a controls page — the pointer's, which is a control and
+## lives with the keys rather than with the volumes.
 func audit(sc: ScrollContainer, what: String, sliders_want: int, min_texts: int) -> void:
 	var all := controls_under(sc)
 	var texts := 0
@@ -200,7 +203,7 @@ func _ready() -> void:
 		await frames(8)
 	check(title._controls.visible and not title._settings.visible,
 		"pressing it swaps the settings for the controls page")
-	audit(title._controls as ScrollContainer, "the controls page", 0, 25)
+	audit(title._controls as ScrollContainer, "the controls page", 1, 25)
 
 	var cp: ControlsPanel = find_under(title._controls, func(c: Node) -> bool: return c is ControlsPanel) as ControlsPanel
 	check(cp != null and cp.pixel, "the controls page builds its list in the pixel look")
@@ -316,7 +319,7 @@ func _ready() -> void:
 		await frames(6)
 	check(game.pause_controls.visible and not game.pause_main.visible,
 		"pressing it swaps PAUSED for the controls page")
-	audit(game.pause_controls as ScrollContainer, "the pause controls page", 0, 25)
+	audit(game.pause_controls as ScrollContainer, "the pause controls page", 1, 25)
 	var pause_cp: ControlsPanel = find_under(game.pause_controls, func(c: Node) -> bool: return c is ControlsPanel) as ControlsPanel
 	check(pause_cp != null and pause_cp.pixel, "the pause menu's controls list is the pixel one too")
 	var pause_back := button_named(game.pause_controls, Loc.t("controls.back"))

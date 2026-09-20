@@ -8,6 +8,8 @@ extends Node2D
 signal door_entered(dir: int)
 signal enemy_killed(kind: String, pos: Vector2)
 signal pickup_collected(pickup: Pickup)
+## The drop a death left in this room, picked back up.
+signal lost_kit_collected(kit: LostKit)
 signal extraction_progress(ratio: float, info: Dictionary)
 signal extraction_done(info: Dictionary)
 ## Raised once the grid, the collision and the contents are all in place. A
@@ -222,6 +224,11 @@ func _spawn_contents() -> void:
 		_spawn_enemy(e)
 	for l in data["loot"]:
 		_spawn_pickup(l)
+	# Put down before the room was built, by `Raid`, out of what a death left
+	# behind. It is not rolled and it is not loot: this room holds one only
+	# because the player died standing in it.
+	if data.has("lost_kit"):
+		_spawn_lost_kit(data["lost_kit"])
 
 func _roll_enemies() -> Array:
 	var out: Array = []
@@ -306,6 +313,30 @@ func _spawn_pickup(l: Dictionary) -> void:
 	p.collected.connect(_on_pickup_collected)
 	add_child(p)
 
+## The kit a death left here, on the spot it fell on. That spot was somewhere
+## the player was standing, so it is open floor — but a drop carried across a
+## change to how rooms are built could land inside the rock, and a drop nobody
+## can reach is worse than one in the wrong place. Anything but open floor
+## falls back to where the room puts a player who walks in.
+func _spawn_lost_kit(rec: Dictionary) -> void:
+	var at := spawn_point()
+	var p: Array = rec.get("pos", [])
+	if p.size() == 2:
+		var want := Vector2(float(p[0]), float(p[1]))
+		if not is_solid_at(want) and not out_of_bounds(want):
+			at = want
+	var k := LostKit.new()
+	k.setup(rec, at)
+	k.room = self
+	k.collected.connect(_on_lost_kit_collected)
+	add_child(k)
+
+func _on_lost_kit_collected(k: LostKit) -> void:
+	# Out of the record as well as off the floor: walking back into this room
+	# must not find it lying here again.
+	data.erase("lost_kit")
+	lost_kit_collected.emit(k)
+
 func _on_pickup_collected(p: Pickup) -> void:
 	# Drops created by a kill carry no record; only pre-placed loot does.
 	if p.has_meta("record"):
@@ -373,12 +404,65 @@ static func arrival_point(from_dir: int) -> Vector2:
 		Components.S: return centre_of(DOOR_COLS[1], H - 4)
 	return centre_of(int(W / 2), int(H / 2))
 
-## Where a player arriving through `from_dir` should be put down.
+## Where a player arriving through `from_dir` should be put down: the door's own
+## arrival point, or the nearest floor to it when nothing under that point would
+## catch them.
+##
+## A room is entered from below through the hole its own south door is — the
+## floor is carved away across those columns so a body can drop through to the
+## room underneath — so a player walking up into one was put down standing in
+## the shaft they had just come up. They fell straight back down it, the room
+## below took them, and going north simply could not be done. The north door has
+## the same hole under it in any room that has both, which is the same fall one
+## room further on.
 func entry_point(from_dir: int) -> Vector2:
-	return arrival_point(from_dir)
+	return standing_near(arrival_point(from_dir))
 
 func spawn_point() -> Vector2:
-	return cell_center(int(W / 2), DOOR_ROWS[1])
+	return standing_near(cell_center(int(W / 2), DOOR_ROWS[1]))
+
+## `at`, or the nearest place to it a body can stand.
+##
+## A point with something solid somewhere below it is left exactly where it is:
+## dropping in is how a room is entered from above, and a body that will land is
+## not lost. Only one with nothing under it at all is moved, and then to the
+## closest cell that is open, has headroom, and has floor under it — measured in
+## cells, nearest first, and settled downward before sideways, so a body put
+## down over a hole steps onto the floor beside it rather than onto whatever
+## platform happens to be level with the doorway.
+func standing_near(at: Vector2) -> Vector2:
+	var cell := Vector2i(int(floor(at.x / CELL)), int(floor(at.y / CELL)))
+	if _catches(cell):
+		return at
+	for r in range(1, maxi(W, H)):
+		# Sideways steps in order of how far they are, so the ring is walked
+		# from under the doorway outward rather than from one corner across.
+		var spread: Array[int] = [0]
+		for k in range(1, r + 1):
+			spread.append(k)
+			spread.append(-k)
+		for dy in range(r, -r - 1, -1):
+			for dx in spread:
+				if maxi(absi(dx), absi(dy)) != r:
+					continue
+				var c := cell + Vector2i(dx, dy)
+				if _standable(c):
+					return cell_center(c.x, c.y)
+	return at
+
+## Whether a body dropped on this cell lands in this room at all, rather than
+## falling out through the door in the floor.
+func _catches(c: Vector2i) -> bool:
+	for y in range(maxi(c.y + 1, 0), H):
+		if is_solid(c.x, y):
+			return true
+	return false
+
+## Room to stand: the cell and the one above it open, and floor underneath.
+func _standable(c: Vector2i) -> bool:
+	if c.x < 1 or c.x >= W - 1 or c.y < 1 or c.y >= H - 1:
+		return false
+	return not is_solid(c.x, c.y) and not is_solid(c.x, c.y - 1) and is_solid(c.x, c.y + 1)
 
 func extraction_rect() -> Rect2:
 	if extraction.is_empty():

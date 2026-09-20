@@ -530,7 +530,14 @@ func _footer() -> Control:
 	var filled := slots.filter(func(i: int) -> bool: return int(i) >= 0)
 	h.add_child(_label(Loc.t("hideout.footer.filled", [filled.size(), slots.size()]), UiKit.DIM))
 	h.add_child(_pad())
-	h.add_child(_label(Loc.t("hideout.footer.warning"), UiKit.BAD))
+	# The standing warning, unless there is something more pressing to say: a
+	# kit still lying in a raid is what this deployment is for, and it is the
+	# last thing read before the button that starts one.
+	if GameState.has_lost_kit():
+		h.add_child(_label(Loc.t("hideout.footer.kit_waiting",
+			[GameState.lost_kit_size()]), UiKit.WARN))
+	else:
+		h.add_child(_label(Loc.t("hideout.footer.warning"), UiKit.BAD))
 	var b := _button(Loc.t("hideout.footer.deploy"), UiKit.GOOD)
 	b.custom_minimum_size = Vector2(180, 40)
 	b.disabled = filled.is_empty() or not GameState.owned_weapons.has(weapon_id)

@@ -4,9 +4,22 @@ extends RefCounted
 ## The value that travels along a skill flow. Every component mutates it; the
 ## OUTPUT turns whatever arrives into a real effect in the world.
 
+## How far a bolt carries before it fades, in pixels. A room is 40 cells of 32
+## across, so the standard reach is a quarter of one: you fight inside a part of
+## the room rather than across the whole of it, and closing the distance is most
+## of what a ranged build spends its time doing. Every weapon scales it
+## (`Weapons.finalize`), SPEED extends it, and a monster's shot is given the
+## reach its own attack range needs (`Enemy._make_runner`).
+##
+## It is a property of the shot rather than a constant on the bolt because that
+## is where the answer differs: a gun outranges a thrown rock, and a Sentry
+## outranges both or it could never hit anything from where it sits.
+const BASE_RANGE := 320.0
+
 var damage: float = 10.0
 var size: float = 1.0
 var speed: float = 1.0
+var range_px: float = BASE_RANGE
 var form: String = ""              ## "", PROJECTILE, SLASH, AREA, DASHSLASH, DASHSLASH_AUTO
 var elements: Array[String] = []   ## FIRE / ICE
 var pierce: int = 0                ## extra targets an attack passes through
@@ -37,6 +50,7 @@ func clone() -> Payload:
 	p.damage = damage
 	p.size = size
 	p.speed = speed
+	p.range_px = range_px
 	p.form = form
 	p.elements = elements.duplicate()
 	p.pierce = pierce
