@@ -15,6 +15,12 @@ signal parry_success()
 ## The silhouette the sprite has to stand on, and the reach of a hit against it.
 const BODY := Vector2(20.0, 30.0)
 const HURT_RADIUS := 13.0
+## How long a blow that gets through leaves the player untouchable. A full
+## second is room to pick the body up and walk it out of whatever landed the
+## hit, rather than be chain-hit where they stand. It is also the gate a
+## monster leaning on the player deals its contact damage through, so it sets
+## how fast being stood on wears the health bar down.
+const HURT_INVULN := 1.0
 
 const RUN_SPEED := 250.0
 const AIR_ACCEL := 1800.0
@@ -30,11 +36,25 @@ const WALL_SLIDE_SPEED := 120.0
 const WALL_JUMP_PUSH := 300.0
 ## The dash is a movement tool first: it wants to be over almost before it has
 ## registered, and to be there again the moment it is wanted. Speed carries the
-## reach so the window can stay short, and the recovery is deliberately shorter
-## than the dash is long, which is what makes chaining them feel free.
+## reach so the window can stay short, and the recovery runs from the press
+## rather than from the end of the move, so a third of it is gone before the
+## dash has even let go — which is what makes chaining them feel free.
+##
+## It goes left or right and nothing else. A dash that could be aimed upward was
+## a second way to fly, and it left the key meaning two different things — "get
+## past that" on the ground, "climb" in the air. Flat, it reads as one move, and
+## the jump stays the only way up.
+##
+## The reach is about two and a half cells of the room grid: far enough to be
+## through something and out the other side, short enough to be a step rather
+## than a jump across the room.
 const DASH_SPEED := 880.0
-const DASH_TIME := 0.13
+const DASH_TIME := 0.09
 const DASH_COOLDOWN := 0.30
+## What a dash is worth as a dodge, counted from the press. It is set a hair
+## longer than the dash itself so the move is covered end to end, and a blow
+## arriving as the dash finishes still passes through.
+const DASH_INVULN := 0.10
 ## How much longer the weapon's own attack waits between swings than its board alone would.
 ## The innate boards are three or four cells long, so left alone they come round
 ## again in a fortieth of a second — a held button became a blur with no swing
@@ -361,10 +381,15 @@ func _update_aim() -> void:
 		aim = stick.normalized()
 		aim_point = global_position + aim * STICK_AIM_REACH
 	else:
-		var m := get_global_mouse_position() - global_position
+		# `Pointer` rather than the viewport: while the player has the controls
+		# the game is doing the pointing, at whatever speed the setting asks
+		# for. It answers the system's own pointer the rest of the time, and at
+		# 1.0 the two are the same thing.
+		var at := Pointer.world_point(self)
+		var m := at - global_position
 		if m.length() > 4.0:
 			aim = m.normalized()
-		aim_point = get_global_mouse_position()
+		aim_point = at
 
 func _physics_process(delta: float) -> void:
 	if dead:
@@ -452,7 +477,6 @@ func _action_wall_slide() -> void:
 func _action_dash() -> void:
 	_dash_time -= get_physics_process_delta_time()
 	velocity = _dash_dir * DASH_SPEED
-	invuln = maxf(invuln, 0.05)
 
 func _steer_air(delta: float) -> void:
 	if _dir != 0.0:
@@ -501,12 +525,17 @@ func _jump_and_dash() -> void:
 		else:
 			stamina -= DASH_STAMINA
 			_stamina_pause = STAMINA_PAUSE
-			var d := Vector2(_dir, Input.get_axis("move_up", "move_down"))
-			if d.length() < 0.2:
-				d = Vector2(facing, 0)
-			_dash_dir = d.normalized()
+			# Whichever way they are held, or the way they last faced if they are
+			# not: `facing` is set from `_dir` at the top of the frame, so it is
+			# already what a moving player is asking for. Up and down are not read
+			# at all — they aim, they do not steer a dash.
+			_dash_dir = Vector2(facing, 0)
 			_dash_time = DASH_TIME
 			_dash_cd = DASH_COOLDOWN
+			# Armed once, at the press, rather than topped up every frame of the
+			# dash: what the move is worth as a dodge is then a window of its own
+			# length, and not the dash's length plus whatever the top-up was.
+			invuln = maxf(invuln, DASH_INVULN)
 			Cues.at(&"dash", global_position)
 
 ## A guard window opened by ON PARRY swallows the hit and runs the branch flow.
@@ -535,7 +564,7 @@ func apply_damage(amount: float, elements: Array = [], source: Node = null, is_h
 	# being on fire the safest place in the game.
 	if dealt > 0.0 and is_hit:
 		Cues.at(&"hurt", global_position, {"team": team})
-		invuln = maxf(invuln, 0.45)
+		invuln = maxf(invuln, HURT_INVULN)
 	return dealt
 
 ## --- read by the view -------------------------------------------------------

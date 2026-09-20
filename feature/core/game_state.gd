@@ -49,6 +49,12 @@ var raid_board_sources: Array[int] = []   ## library index each raid board came 
 var raid_bag: Dictionary = {}             ## loose components found this raid
 var raid_scrap: int = 0
 var raid_seed: int = 0
+## Skills and weapons picked back up off a previous death, riding along. They
+## are cargo rather than kit: a recovered board cannot be slotted mid-raid and a
+## recovered weapon cannot be drawn, so both only become the player's again by
+## being walked out of the raid — and are dropped again by dying with them.
+var raid_carried_boards: Array[SkillBoard] = []
+var raid_carried_weapons: Array[String] = []
 ## A raid put down mid-run, or {}. MAIN MENU inside a raid writes the run here
 ## instead of ending it, and opening the slot again walks back into it.
 ##
@@ -57,6 +63,22 @@ var raid_seed: int = 0
 ## are doing, and the clock. See `Raid.park` for the shape, `RaidMap.to_save`
 ## for the rooms inside it.
 var raid_progress: Dictionary = {}
+
+## --- what a death leaves behind ---------------------------------------------
+## Dying does not destroy the kit any more; it drops it. Everything the run was
+## carrying is left lying on the spot the player fell on, and the next
+## deployment goes back into the same map to fetch it: the seed is kept, so the
+## floor is the same floor, the room is in the same place, and the drop is in
+## the room it was left in.
+##
+## One drop at a time. Dying on the way back to it leaves a newer one and the
+## older one is gone, which is what a second death costs. It is written into the
+## save, because outliving the run that made it is the whole point of it.
+##
+## The shape:
+##   {"seed": int, "room": [x, y], "pos": [x, y],
+##    "weapons": [id], "boards": [serialized], "bag": {id: n}, "scrap": int}
+var lost_kit: Dictionary = {}
 
 ## --- records ----------------------------------------------------------------
 var records: Dictionary = {
@@ -113,6 +135,7 @@ func _new_profile() -> void:
 	stash.clear()
 	loadout_slots.clear()
 	_forget_raid()
+	lost_kit = {}
 	records = {"raids": 0, "escapes": 0, "deaths": 0, "kills": 0, "best_haul": 0}
 	intro_seen = false
 	owned_weapons = ["ROCK", "SWORD", "GUN"]
@@ -331,7 +354,15 @@ func deploy(weapon_id: String, slot_indices: Array) -> void:
 		raid_board_sources.append(-1)
 	raid_bag.clear()
 	raid_scrap = 0
-	raid_seed = randi()
+	raid_carried_boards.clear()
+	raid_carried_weapons.clear()
+	# A kit still lying where a death left it decides which map this is. The
+	# same seed builds the same floor, so the room it was dropped in is in the
+	# same place with the same way in — going back for it is a route the player
+	# has already walked. With nothing waiting, the floor is rolled fresh.
+	raid_seed = int(lost_kit.get("seed", 0)) if has_lost_kit() else randi()
+	if raid_seed == 0:
+		raid_seed = 1   # 0 reads as "no seed" to the raid; never hand it one
 	# A fresh deployment, not the one that was put down: nothing of the last
 	# raid's progress belongs to this one.
 	raid_progress = {}
@@ -348,6 +379,17 @@ func extract() -> Dictionary:
 		var src: int = raid_board_sources[i]
 		if src >= 0 and src < skill_library.size() and i < raid_boards.size():
 			skill_library[src] = raid_boards[i]
+	# Whatever was recovered from an earlier death comes home as its own. The
+	# boards arrive as new entries rather than into the slots they were lost
+	# from: those slots were cleared when they were lost, and a library that has
+	# been edited since would put them back over somebody else.
+	var recovered: Array[String] = []
+	for b in raid_carried_boards:
+		recovered.append(b.skill_name)
+		skill_library.append(b)
+	for w in raid_carried_weapons:
+		if not owned_weapons.has(w):
+			owned_weapons.append(w)
 	var haul := raid_bag.duplicate()
 	for id in haul:
 		add_component(id, int(haul[id]))
@@ -356,13 +398,20 @@ func extract() -> Dictionary:
 		owned_weapons.append(raid_weapon)
 	records["escapes"] = int(records["escapes"]) + 1
 	records["best_haul"] = max(int(records["best_haul"]), _haul_size(haul))
-	var result := {"haul": haul, "scrap": raid_scrap, "weapon": raid_weapon}
+	var result := {"haul": haul, "scrap": raid_scrap, "weapon": raid_weapon,
+		"recovered": recovered}
 	_end_raid()
 	return result
 
-func die() -> Dictionary:
-	# The whole kit is gone: the weapon, the skills that were slotted into it
-	# (and every component built into them), and everything found on the way.
+## The whole kit leaves with the run: the weapon, the skills that were slotted
+## into it (and every component built into them), and everything found on the
+## way. None of it is destroyed — it is put down where the player fell, and
+## `where` is that spot, as `{"room": [x, y], "pos": [x, y]}` from the raid.
+##
+## Called with nowhere to leave it, the kit is simply gone, which is what it has
+## always been and what ABANDON RAID still means: forfeiting is a decision, and
+## a decision does not leave a trail to follow back.
+func die(where: Dictionary = {}) -> Dictionary:
 	var lost_skills: Array[String] = []
 	var indices := raid_board_sources.duplicate()
 	indices.sort()
@@ -374,11 +423,83 @@ func die() -> Dictionary:
 			_shift_loadouts_after(src)
 	var lost := {
 		"weapon": raid_weapon, "haul": raid_bag.duplicate(), "scrap": raid_scrap,
-		"skills": lost_skills,
+		"skills": lost_skills, "dropped": false,
 	}
+	if _can_drop(where):
+		lost_kit = _drop_at(where)
+		lost["dropped"] = true
 	records["deaths"] = int(records["deaths"]) + 1
 	_end_raid()
 	return lost
+
+func has_lost_kit() -> bool:
+	return not lost_kit.is_empty()
+
+## Whether there is a spot to leave the kit on at all. A room and a position in
+## it are what the next raid needs to put it back on the floor; without both
+## there is nowhere to go and get it.
+func _can_drop(where: Dictionary) -> bool:
+	return (where.get("room", []) as Array).size() == 2 \
+		and (where.get("pos", []) as Array).size() == 2
+
+## Everything this run was carrying, written down as one drop.
+##
+## What is dropped is the raid's own copies of the boards, edits and all, the
+## same ones extracting would have written home — and only the ones that came
+## out of the library, never the innate board a slotless deployment is handed,
+## which was never the player's to lose or to find.
+func _drop_at(where: Dictionary) -> Dictionary:
+	var boards: Array = []
+	for i in raid_boards.size():
+		if i < raid_board_sources.size() and raid_board_sources[i] >= 0:
+			boards.append(raid_boards[i].serialize())
+	for b in raid_carried_boards:
+		boards.append(b.serialize())
+	var weapons: Array = []
+	if raid_weapon != "" and raid_weapon != FREE_WEAPON:
+		weapons.append(raid_weapon)
+	for w in raid_carried_weapons:
+		if not weapons.has(w):
+			weapons.append(w)
+	return {
+		"seed": raid_seed,
+		"room": (where["room"] as Array).duplicate(),
+		"pos": (where["pos"] as Array).duplicate(),
+		"weapons": weapons,
+		"boards": boards,
+		"bag": raid_bag.duplicate(),
+		"scrap": raid_scrap,
+	}
+
+## Picking a drop up puts it back into the run, not into the vault: what is
+## recovered is being carried, and it has to be walked out of the raid like
+## everything else found down here. Dying with it drops the lot again.
+##
+## Returns what was in it, for whoever is announcing it, or {} when there was
+## nothing to pick up.
+func recover_lost_kit() -> Dictionary:
+	if not has_lost_kit():
+		return {}
+	var kit := lost_kit.duplicate(true)
+	for id in kit.get("bag", {}):
+		add_component(String(id), int((kit["bag"] as Dictionary)[id]), raid_bag)
+	raid_scrap += int(kit.get("scrap", 0))
+	for b in kit.get("boards", []):
+		raid_carried_boards.append(SkillBoard.deserialize(b))
+	for w in kit.get("weapons", []):
+		raid_carried_weapons.append(String(w))
+	lost_kit = {}
+	save_game()
+	return kit
+
+## How much is lying out there, as one number, for a screen that wants to say
+## whether a drop is worth the walk rather than list it.
+func lost_kit_size() -> int:
+	if not has_lost_kit():
+		return 0
+	var n: int = (lost_kit.get("boards", []) as Array).size() \
+		+ (lost_kit.get("weapons", []) as Array).size()
+	return n + _haul_size(lost_kit.get("bag", {}))
 
 ## Keeps saved loadouts pointing at the right skills after one is destroyed.
 func _shift_loadouts_after(removed: int) -> void:
@@ -391,10 +512,15 @@ func _shift_loadouts_after(removed: int) -> void:
 			elif v > removed:
 				arr[i] = v - 1
 
+## A raid is over and what it cost or paid has been settled. Written out on the
+## spot: the drop a death leaves is the one piece of a run that is meant to be
+## found by a later one, and a kit that only existed until the app closed would
+## be a promise the save could not keep.
 func _end_raid() -> void:
 	_ensure_free_weapon()
 	_forget_raid()
 	records_changed.emit()
+	save_game()
 
 ## Everything a raid holds, dropped. On its own this is not an outcome — the
 ## kit is neither carried home nor lost by it — so only `extract`, `die` and a
@@ -406,6 +532,8 @@ func _forget_raid() -> void:
 	raid_board_sources.clear()
 	raid_bag.clear()
 	raid_scrap = 0
+	raid_carried_boards.clear()
+	raid_carried_weapons.clear()
 	raid_progress = {}
 
 ## Puts the raid down where it stands, and writes it out. `where` is what the
@@ -532,6 +660,11 @@ func save_game() -> void:
 		"raid_scrap": raid_scrap,
 		"raid_seed": raid_seed,
 		"raid_progress": raid_progress,
+		"raid_carried_boards": raid_carried_boards.map(func(b: SkillBoard) -> Dictionary: return b.serialize()),
+		"raid_carried_weapons": raid_carried_weapons,
+		# Not raid state: a drop is what is left of a raid that is over, and it
+		# has to still be there when the next one is deployed.
+		"lost_kit": lost_kit,
 	}
 	var f := FileAccess.open(slot_path(slot), FileAccess.WRITE)
 	if f == null:
@@ -575,6 +708,7 @@ func _read_save(path: String) -> bool:
 	for k in records:
 		if rec.has(k):
 			records[k] = int(rec[k])
+	lost_kit = parsed.get("lost_kit", {})
 	_read_raid(parsed)
 	return true
 
@@ -593,6 +727,10 @@ func _read_raid(parsed: Dictionary) -> void:
 		raid_board_sources.append(int(i))
 	for k in parsed.get("raid_bag", {}):
 		raid_bag[String(k)] = int(parsed["raid_bag"][k])
+	for b in parsed.get("raid_carried_boards", []):
+		raid_carried_boards.append(SkillBoard.deserialize(b))
+	for w in parsed.get("raid_carried_weapons", []):
+		raid_carried_weapons.append(String(w))
 	raid_scrap = int(parsed.get("raid_scrap", 0))
 	raid_seed = int(parsed.get("raid_seed", 0))
 	raid_progress = parsed.get("raid_progress", {})

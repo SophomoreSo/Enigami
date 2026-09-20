@@ -23,6 +23,7 @@ const DEFS := {
 		"melee_mul": 1.45,
 		"ranged_mul": 0.7,
 		"projectile_speed": 0.8,
+		"reach_mul": 0.7,
 		"size_mul": 1.15,
 		"gravity_shots": false,
 		"innate": "slash",
@@ -36,6 +37,7 @@ const DEFS := {
 		"melee_mul": 0.6,
 		"ranged_mul": 1.3,
 		"projectile_speed": 1.6,
+		"reach_mul": 1.5,
 		"size_mul": 0.95,
 		"gravity_shots": false,
 		"innate": "bolt",
@@ -49,6 +51,7 @@ const DEFS := {
 		"melee_mul": 1.1,
 		"ranged_mul": 1.15,
 		"projectile_speed": 0.9,
+		"reach_mul": 1.0,
 		"size_mul": 1.25,
 		"gravity_shots": true,
 		"innate": "lob",
@@ -121,6 +124,11 @@ static func finalize(weapon_id: String, p: Payload) -> Payload:
 		"PROJECTILE":
 			p.damage *= float(d["ranged_mul"])
 			p.speed *= float(d["projectile_speed"])
+			# How far the thing throws, which is the weapon's own answer and not
+			# a side effect of how fast it throws: the gun reaches across most
+			# of a room, the rock a good throw, and a bolt off the sword barely
+			# clears the space a swing would have covered.
+			p.range_px *= float(d["reach_mul"])
 		"AREA":
 			p.damage *= float(d["ranged_mul"])
 	return p

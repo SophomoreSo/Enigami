@@ -1,7 +1,12 @@
 class_name ControlsPanel
 extends PanelContainer
 
-## Lists every action and lets one be rebound by pressing a key.
+## The input settings: how fast the pointer moves, and which key does what.
+##
+## The pointer sits at the top rather than with the volumes, because what it
+## belongs with is this — it is a control, and this is the page controls are on.
+## It is drawn in the same two columns as the bindings under it, so the name and
+## the thing that sets it line up all the way down the panel.
 
 ## Set before it enters the tree to build it in UiKit's pixel look. Both screens
 ## that hold one do — the title's settings and the pause menu.
@@ -20,6 +25,28 @@ func _ready() -> void:
 ## Built rather than refreshed, so a change of language reaches the action
 ## names as well as the two buttons. Whatever was being listened for is
 ## dropped: the panel it was going to land in no longer exists.
+## How fast the game's own pointer moves — the crosshair, while the player has
+## the controls. Menus are the system pointer's and stay as the desk has them,
+## so this is aim speed; `app/pointer.gd` says why it can be nothing else. It
+## answers while the slider is being dragged, so it is set by feel and needs no
+## number beside it. RESET below is the bindings' own and does not reach up.
+func _pointer_row(name_width: int, bind_width: int) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var l := UiKit.label(Loc.t("controls.sensitivity"), 11, UiKit.TEXT, pixel)
+	l.custom_minimum_size = Vector2(name_width, 0)
+	row.add_child(l)
+	var s := HSlider.new()
+	s.min_value = Pointer.MIN_SENS
+	s.max_value = Pointer.MAX_SENS
+	s.step = Pointer.STEP
+	s.value = Pointer.sensitivity
+	s.custom_minimum_size = Vector2(bind_width, 24)
+	UiKit.pixel_slider(s)
+	s.value_changed.connect(func(v: float) -> void: Pointer.set_sensitivity(v))
+	row.add_child(s)
+	return row
+
 func _relanguage(_lang: String) -> void:
 	if is_queued_for_deletion():
 		return
@@ -41,6 +68,8 @@ func _build() -> void:
 	# 200 holds the longest action name, 352 the longest default binding.
 	var name_width := 200 if pixel else 150
 	var bind_width := 352 if pixel else 200
+	v.add_child(_pointer_row(name_width, bind_width))
+	v.add_child(UiKit.hline(pixel))
 	for entry in Controls.ACTIONS:
 		var action: String = entry[0]
 		var row := HBoxContainer.new()

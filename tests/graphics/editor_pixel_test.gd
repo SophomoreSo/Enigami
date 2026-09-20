@@ -200,8 +200,9 @@ func _ready() -> void:
 	# Every part at once no longer fits the 7x5 a starting Workbench grows — the
 	# parts fill it to the last cell, leaving none for the hovered ghost below —
 	# so the shot is taken on a bigger one. It is still a board the editor draws
-	# exactly as it draws any other.
-	b.resize_grid(9, 6)
+	# exactly as it draws any other. It grows a row whenever the palette does;
+	# the check below is what says when.
+	b.resize_grid(9, 7)
 	# Row by row in palette order, so every icon is on the board at once and the
 	# parts meet in joints, breaks and dead ends.
 	var at := Vector2i.ZERO
@@ -211,9 +212,13 @@ func _ready() -> void:
 			at = Vector2i(0, at.y + 1)
 		b.place(id, at, 0)
 		at.x += w
-	check(at.y < b.height and at.x < b.width,
-		"every part fits on the bench's board with a cell to spare (ended at %s of %dx%d)"
-			% [str(at), b.width, b.height])
+	# Where the next part would land is where the hovered ghost is drawn, so what
+	# has to be free is that cell — not the rest of the row the last part happens
+	# to have filled.
+	var ghost := at if at.x < b.width else Vector2i(0, at.y + 1)
+	check(ghost.y < b.height,
+		"every part fits on the bench's board with a cell to spare for the ghost (%s of %dx%d)"
+			% [str(ghost), b.width, b.height])
 	ed._sim_dirty = true
 	# Pulses at three points of crossing a part. A long timer holds them there.
 	var runner: SkillRunner = ed.runners[ed.slot]

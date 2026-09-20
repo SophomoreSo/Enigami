@@ -19,9 +19,16 @@ func _on_cue(name: StringName, d: Dictionary) -> void:
 			Fx.burst(pos, Style.element_color(d.get("payload")), 6, 150.0)
 			Fx.shake(3.0)
 		&"impact":
-			var spent: bool = String(d.get("kind", "")) == "spent"
-			Fx.burst(pos, Style.element_color(d.get("payload")),
-				6 if spent else 5, 130.0 if spent else 110.0)
+			# A bolt that ran out of range rather than into something goes out
+			# with a smaller, slower puff: the same colour, so it reads as the
+			# same shot, but plainly not a hit.
+			var kind := String(d.get("kind", ""))
+			var col := Style.element_color(d.get("payload"))
+			if kind == "fade":
+				Fx.burst(pos, col, 5, 55.0)
+			else:
+				Fx.burst(pos, col, 6 if kind == "spent" else 5,
+					130.0 if kind == "spent" else 110.0)
 		&"melee_arc":
 			Fx.shake(2.5)
 		&"area_blast":
@@ -65,6 +72,11 @@ func _on_cue(name: StringName, d: Dictionary) -> void:
 			Fx.text(pos + Vector2(0, -60), String(d.get("text", "")), Style.BOSS_TEXT)
 		&"pickup":
 			Fx.burst(pos, Style.loot_color(String(d.get("id", "")), int(d.get("scrap", 0))), 6, 120.0)
+		&"kit_back":
+			# Bigger than a part being picked up, because it is: everything a
+			# run was carrying, coming back in one go.
+			Fx.burst(pos, Style.LOST_KIT, 18, 240.0)
+			Fx.ring(pos, Style.LOST_KIT, 120.0)
 		&"travel":
 			Fx.burst(pos, Style.TRAVEL_DUST, 8, 120.0)
 		&"extract_tick":

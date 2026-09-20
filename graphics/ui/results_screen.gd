@@ -47,6 +47,18 @@ func _draw() -> void:
 		y += 26.0
 		_line(Vector2(120, y), Loc.t("menu.results.skills_lost", [Loc.t("editor.payload.separator").join(lost_skills)]),
 			HORIZONTAL_ALIGNMENT_LEFT, 700, 13, UiKit.BAD)
+	# What came back out with the player, and what is still down there. Both are
+	# the same fact from either end of a run: a kit is only ever lost until
+	# somebody walks back in for it.
+	var recovered: Array = payload.get("recovered", [])
+	if win and not recovered.is_empty():
+		y += 26.0
+		_line(Vector2(120, y), Loc.t("menu.results.recovered", [Loc.t("editor.payload.separator").join(recovered)]),
+			HORIZONTAL_ALIGNMENT_LEFT, 700, 13, UiKit.GOOD)
+	if not win and bool(payload.get("dropped", false)):
+		y += 26.0
+		_line(Vector2(120, y), Loc.t("menu.results.kit_waits"),
+			HORIZONTAL_ALIGNMENT_LEFT, 700, 13, UiKit.WARN)
 	y += 34.0
 	_line(Vector2(120, y), Loc.t("menu.results.components"), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, UiKit.ACCENT)
 	y += 24.0

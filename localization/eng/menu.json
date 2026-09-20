@@ -41,6 +41,8 @@
 		"weapon": "weapon %s",
 		"scrap": "scrap %d",
 		"skills_lost": "skills lost: %s",
+		"kit_waits": "It is all lying where you fell. Deploy again and the floor is the one you know.",
+		"recovered": "carried back out: %s",
 		"components": "COMPONENTS",
 		"none": "none",
 		"haul": "%s x%d",

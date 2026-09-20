@@ -40,6 +40,11 @@ func _ready() -> void:
 	var parked: Dictionary = GameState.raid_progress if GameState.has_parked_raid() else {}
 	if not parked.is_empty():
 		map.restore(parked)
+	# After the restore, so a run that is being walked back into finds the drop
+	# in the room the map says it is in rather than in whatever the save last
+	# wrote there. Collecting it clears it from both at once, so this can never
+	# put a kit back that has already been picked up.
+	var waiting := _place_lost_kit()
 
 	player = Player.new()
 	player.collision_layer = 2
@@ -50,7 +55,7 @@ func _ready() -> void:
 
 	if parked.is_empty():
 		_enter_room(map.entry, -1)
-		noticed.emit(Loc.t("hud.toast.deployed"))
+		noticed.emit(Loc.t("hud.toast.kit_waiting") if waiting else Loc.t("hud.toast.deployed"))
 		return
 	# Back into the room it was left in, standing where it was left standing.
 	# `_enter_room` puts the player on the room's own spawn point, which is the
@@ -62,6 +67,28 @@ func _ready() -> void:
 		player.velocity = Vector2.ZERO
 	player.health = clampf(float(parked.get("health", player.health)), 1.0, player.max_health)
 	noticed.emit(Loc.t("hud.toast.resumed"))
+
+## Puts a previous death's drop into the room it was left in, and says whether
+## it did. The map is that same map — the deployment reused the seed that built
+## it — so the room is there, in the same place, with the same way in. What is
+## written is the room's own record, which is what `Room.build` reads its
+## contents out of.
+##
+## A drop from another map is left where it is rather than moved here: it
+## belongs to a floor the player can still go back to, and dragging it onto
+## this one would quietly turn a recovery run into a free delivery.
+func _place_lost_kit() -> bool:
+	var kit: Dictionary = GameState.lost_kit
+	if kit.is_empty() or int(kit.get("seed", 0)) != map.seed_base:
+		return false
+	var c: Array = kit.get("room", [])
+	if c.size() != 2:
+		return false
+	var coord := Vector2i(int(c[0]), int(c[1]))
+	if not map.has_room(coord):
+		return false
+	(map.get_record(coord) as Dictionary)["lost_kit"] = kit.duplicate(true)
+	return true
 
 func _parked_coord(parked: Dictionary) -> Vector2i:
 	var c: Array = parked.get("room", [])
@@ -221,6 +248,7 @@ func _enter_room(coord: Vector2i, from_dir: int) -> void:
 	add_child(room)
 	room.build(coord, rec, map.doors_for(coord), map.seed_base)
 	room.pickup_collected.connect(_on_pickup)
+	room.lost_kit_collected.connect(_on_lost_kit)
 	room.enemy_killed.connect(_on_enemy_killed)
 	room.extraction_progress.connect(_on_extract_progress)
 	room.extraction_done.connect(_on_extract_done)
@@ -257,6 +285,15 @@ func _on_pickup(p: Pickup) -> void:
 		GameState.add_component(p.component_id, 1, GameState.raid_bag)
 		noticed.emit(Loc.t("hud.pickup", [Components.name_for(p.component_id)]))
 
+## The drop, picked back up. What was in it goes into the run rather than
+## straight home — a recovered kit is being carried, and it still has to be
+## walked out — so the raid says so and leaves the rest to the exit.
+func _on_lost_kit(k: LostKit) -> void:
+	var kit := GameState.recover_lost_kit()
+	if kit.is_empty():
+		return
+	noticed.emit(Loc.t("hud.toast.kit_back", [k.size()]))
+
 func _on_enemy_killed(kind: String, _pos: Vector2) -> void:
 	if Monsters.get_def(kind).get("boss", false):
 		noticed.emit(Loc.t("hud.toast.boss_down"))
@@ -276,13 +313,20 @@ func _on_extract_done(info: Dictionary) -> void:
 	result["exit"] = RaidMap.exit_name(info)
 	finished.emit("extracted", result)
 
-func _on_player_died(_a: Actor) -> void:
+## Where the player fell is where the kit stays. The room and the spot in it go
+## with the death, because they are what the next deployment needs to put it
+## back on the floor — see `GameState.die`.
+func _on_player_died(a: Actor) -> void:
 	if ended:
 		return
 	ended = true
 	TimeCtl.clear()
 	Cues.emit_cue(&"raid_lost")
-	var lost := GameState.die()
+	var where: Dictionary = {}
+	if room != null:
+		where = {"room": [room.coord.x, room.coord.y],
+			"pos": [a.global_position.x, a.global_position.y]}
+	var lost := GameState.die(where)
 	finished.emit("died", lost)
 
 ## --- assembly ---------------------------------------------------------------

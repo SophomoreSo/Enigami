@@ -208,7 +208,7 @@ func _ready() -> void:
 		await frames(8)
 	check(title._controls.visible and not title._settings.visible,
 		"pressing it swaps the settings for the controls page")
-	audit(title._controls, "the controls page", 0, 25)
+	audit(title._controls, "the controls page", 1, 25)
 
 	var cp: ControlsPanel = find_under(title._controls, func(c: Node) -> bool: return c is ControlsPanel) as ControlsPanel
 	check(cp != null and cp.pixel, "the controls page builds its list in the pixel look")
@@ -324,7 +324,7 @@ func _ready() -> void:
 		await frames(6)
 	check(game.pause_controls.visible and not game.pause_main.visible,
 		"pressing it swaps PAUSED for the controls page")
-	audit(game.pause_controls as UiKit.ScreenFrame, "the pause controls page", 0, 25)
+	audit(game.pause_controls as UiKit.ScreenFrame, "the pause controls page", 1, 25)
 	var pause_cp: ControlsPanel = find_under(game.pause_controls, func(c: Node) -> bool: return c is ControlsPanel) as ControlsPanel
 	check(pause_cp != null and pause_cp.pixel, "the pause menu's controls list is the pixel one too")
 	var pause_back := button_named(game.pause_controls, Loc.t("controls.back"))

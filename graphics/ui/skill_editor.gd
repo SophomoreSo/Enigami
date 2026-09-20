@@ -44,7 +44,12 @@ const PAL_H := 24
 ## and the block hang off, PAL_SPINE short of the first column.
 const PAL_GUTTER := 122.0
 const PAL_SPINE := 10.0
-const PAL_GROUP_GAP := 6.0
+## The space between one category's block and the next. Cut from 6 to 4 when the
+## stat block took a fifth part and grew a row: a block is already told apart by
+## its spine and its name, so the gap is the first thing worth spending when the
+## palette has to find another row's height. `editor_pixel_test` is what says
+## when it has run out — it fails the moment the rows reach the info panel.
+const PAL_GROUP_GAP := 4.0
 ## The baseline of a row's text, from the top of the row: capitals stand 10
 ## tall, so this leaves 6 above them and 4 under.
 const PAL_TEXT_Y := 16.0

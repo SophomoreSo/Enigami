@@ -4,6 +4,7 @@
 	"back": "뒤로",
 	"reset": "기본값으로 되돌리기",
 	"listening": "키를 누르세요…",
+	"sensitivity": "마우스 감도",
 	"unbound": "없음",
 	"none": "—",
 	"mouse": "마우스 %d",

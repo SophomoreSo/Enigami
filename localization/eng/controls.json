@@ -4,6 +4,7 @@
 	"back": "BACK",
 	"reset": "RESET TO DEFAULTS",
 	"listening": "press a key…",
+	"sensitivity": "Mouse sensitivity",
 	"unbound": "unbound",
 	"none": "—",
 	"mouse": "Mouse %d",

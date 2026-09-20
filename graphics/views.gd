@@ -52,6 +52,8 @@ func view_script_for(n: Node) -> GDScript:
 		return DashSlashView
 	if n is Pickup:
 		return PickupView
+	if n is LostKit:
+		return LostKitView
 	if n is DragonTower:
 		return TowerView
 	if n is Room:

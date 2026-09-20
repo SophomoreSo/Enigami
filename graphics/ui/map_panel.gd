@@ -50,6 +50,11 @@ const ROOM_EDGE := Color(0.14, 0.17, 0.22)
 const PLAIN := Color(0.4, 0.5, 0.62)
 const EXIT_MARK := Color(0.5, 1.0, 0.75)
 const YOU := Color(1, 1, 1)
+## The room a death left the kit in. Drawn whether or not the room has been
+## opened: the whole reason this raid is the same floor as the last one is that
+## the player can go back for it, and a marker they have to find first would be
+## no help at all.
+const KIT_MARK := Color(1.0, 0.86, 0.62)
 
 ## What a room is worth walking into, by the kind the rules gave it. Anything
 ## not named here is an ordinary room.
@@ -86,7 +91,7 @@ func window_rect() -> Rect2:
 	var size := Vector2(
 		RaidMap.MW * CELL + (RaidMap.MW - 1) * GAP + PAD * 2.0,
 		HEADER_H + RaidMap.MH * CELL + (RaidMap.MH - 1) * GAP
-			+ LEGEND_TOP_GAP + LEGEND_ROW * 2.0 + FOOT_H)
+			+ LEGEND_TOP_GAP + LEGEND_ROW * float(_legend_rows()) + FOOT_H)
 	var screen := get_viewport_rect().size
 	return Rect2(_px.snap((screen - size) * 0.5), size)
 
@@ -169,11 +174,44 @@ func _draw_rooms(grid: Vector2) -> void:
 		# it is marked on the room rather than left to the room's own colour.
 		if visited and rec.has("extraction"):
 			_px.diamond(r.get_center(), 4, EXIT_MARK)
+		# What a death left here. Under the "you are here" box and over
+		# everything else, because between the two of them they are the whole
+		# route this map is being opened to plan.
+		if rec.has("lost_kit"):
+			_px.diamond(r.get_center(), 6, KIT_MARK)
+			_px.frame(r.grow(-PX), KIT_MARK)
 		# Where the player is standing, drawn last and two PIXELs thick: it has
 		# to be findable in one glance at a window full of rooms.
 		if room != null and c == room.coord:
 			_px.frame(r, YOU)
 			_px.frame(r.grow(-PX), YOU)
+
+## What is worth explaining on this map. The drop is in the list only while
+## there is one to find, so an ordinary raid's legend is the two rows it has
+## always been.
+func _legend_items() -> Array:
+	var items := [
+		["you", YOU, true],
+		["entry", KIND_COLORS["entry"], false],
+		["boss", KIND_COLORS["boss"], false],
+		["treasure", KIND_COLORS["treasure"], false],
+		["exit", EXIT_MARK, false],
+		["unseen", UNSEEN, false],
+	]
+	if _has_kit():
+		items.append(["kit", KIT_MARK, false])
+	return items
+
+func _legend_rows() -> int:
+	return int(ceil(float(_legend_items().size()) / float(LEGEND_COLS)))
+
+func _has_kit() -> bool:
+	if map == null:
+		return false
+	for key in map.rooms:
+		if (map.rooms[key] as Dictionary).has("lost_kit"):
+			return true
+	return false
 
 func _visited(c: Vector2i) -> bool:
 	return bool((map.rooms[c] as Dictionary).get("visited", false))
@@ -185,14 +223,7 @@ func _kind_color(kind: String) -> Color:
 ## What the colours mean, three to a row. Every room on the plan is one of
 ## these, and a map nobody can read is a map that was not worth opening.
 func _draw_legend(at: Vector2, width: float) -> void:
-	var items := [
-		["you", YOU, true],
-		["entry", KIND_COLORS["entry"], false],
-		["boss", KIND_COLORS["boss"], false],
-		["treasure", KIND_COLORS["treasure"], false],
-		["exit", EXIT_MARK, false],
-		["unseen", UNSEEN, false],
-	]
+	var items := _legend_items()
 	var col_w := floorf(width / float(LEGEND_COLS) / PX) * PX
 	for i in items.size():
 		var item: Array = items[i]

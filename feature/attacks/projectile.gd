@@ -12,18 +12,13 @@ extends Node2D
 ## at. The hops cost nothing — even the fastest build needs a handful.
 const MAX_STEP := 12.0
 
-## How long a bolt stays in the air. Time rather than distance on purpose: that
-## is what makes SPEED carry a shot further, which is what the part says it
-## does. The old two and a half seconds was long enough for a volley fired in
-## one room to still be crossing the next one after the player had walked
-## through the door; this is about what the slowest bolt in the game needs to
-## cross a room, and nothing is meant to outlive the fight it was fired in.
-const LIFE := 2.0
-
-## And the furthest one may travel whatever its speed. Walls and the room edge
-## normally end a bolt long before this — it is here so that a bolt whose room
-## has stopped answering still has something that ends it.
-const MAX_TRAVEL := 1500.0
+## How long a bolt may stay in the air whatever it is doing. Range is what
+## actually ends a shot now — see `Payload.range_px` — and this is the backstop
+## under it: a bolt that is barely moving, or one arcing at the top of a lob,
+## would otherwise sit there spending its range a pixel at a time. It is set
+## past what the slowest bolt in the game needs to fly its longest range, so it
+## never cuts a shot short; it only stops one hanging about.
+const LIFE := 3.0
 
 var payload: Payload
 var velocity: Vector2 = Vector2.RIGHT * 400.0
@@ -31,6 +26,9 @@ var team: int = 0
 var attacker: Actor = null
 var room = null
 var radius: float = 5.0
+## How far this bolt carries before it fades, taken off the payload at spawn so
+## nothing has to ask a payload that may be gone.
+var range_px: float = Payload.BASE_RANGE
 var life: float = LIFE
 var hits_left: int = 1
 var gravity: float = 0.0
@@ -38,7 +36,7 @@ var homing_strength: float = 0.0
 var reverse_at: float = -1.0
 var _reversed: bool = false
 var _hit: Array = []
-## How far this bolt has flown, against MAX_TRAVEL.
+## How far this bolt has flown, against `range_px`.
 var _travelled: float = 0.0
 
 func setup(p: Payload, pos: Vector2, dir: Vector2, t: int, atk: Actor, rm) -> void:
@@ -48,6 +46,7 @@ func setup(p: Payload, pos: Vector2, dir: Vector2, t: int, atk: Actor, rm) -> vo
 	attacker = atk
 	room = rm
 	radius = 5.0 * p.size
+	range_px = maxf(p.range_px, 1.0)
 	velocity = dir.normalized() * 420.0 * p.speed
 	hits_left = 1 + p.pierce
 	homing_strength = 5.0 if p.homing else 0.0
@@ -71,9 +70,13 @@ func _process(delta: float) -> void:
 			velocity = velocity.lerp(want, clampf(homing_strength * delta, 0.0, 1.0))
 	velocity.y += gravity * delta
 
+	# Out of range: the shot is spent, and says so. A bolt that simply blinked
+	# out would read as the game dropping it rather than as a rule the player
+	# can shoot around.
 	var travel := velocity * delta
 	_travelled += travel.length()
-	if _travelled >= MAX_TRAVEL:
+	if _travelled >= range_px:
+		Cues.at(&"impact", global_position, {"payload": payload, "kind": "fade"})
 		_expire()
 		return
 	var hops := maxi(1, int(ceil(travel.length() / MAX_STEP)))

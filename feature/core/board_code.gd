@@ -91,6 +91,7 @@ const CODE_IDS := [
 	"SPLIT", "TEE", "DUPLICATE", "OVERCLOCK", "DELAY", "TIME_DILATION",
 	"ON_HIT", "ON_KILL", "ON_PARRY",
 	"SHATTER", "GRAVITY", "MANA_DRAIN",
+	"RANGE",
 ]
 
 ## The last character makes the whole code weigh nothing: every character is

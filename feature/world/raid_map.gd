@@ -27,7 +27,7 @@ func generate(s: int) -> void:
 	while rooms.size() < target and not frontier.is_empty():
 		var from: Vector2i = frontier[rng.randi() % frontier.size()]
 		var dirs := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
-		dirs.shuffle()
+		_shuffle(dirs)
 		var placed := false
 		for d in dirs:
 			var c: Vector2i = from + d
@@ -50,6 +50,18 @@ func generate(s: int) -> void:
 			rooms[a]["extra_links"].append(a + d)
 
 	_assign_roles()
+
+## Shuffled with this map's own generator rather than with `Array.shuffle`,
+## which draws on the global one. The seed is a promise — a raid put down and
+## picked back up is the same floor, and so is the one a death left a kit lying
+## on — and a promise that only holds until the next `randomize()` is no promise
+## at all. It is the one draw in here that was not already `rng`'s.
+func _shuffle(a: Array) -> void:
+	for i in range(a.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var t = a[i]
+		a[i] = a[j]
+		a[j] = t
 
 func _record(c: Vector2i, kind: String, dist: int) -> Dictionary:
 	return {

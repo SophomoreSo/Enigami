@@ -55,6 +55,7 @@ const COMPONENT := {
 	"DAMAGE": {"glyph": "+"},
 	"SIZE": {"glyph": "⤢"},
 	"SPEED": {"glyph": "⏩"},
+	"RANGE": {"glyph": "↔"},
 	"SHATTER": {"glyph": "✶"},
 
 	"PIERCE": {"glyph": "⇢"},
@@ -228,6 +229,15 @@ const COMPONENT_ICON := {
 		"###.###",
 		"##..##.",
 		"#...#..",
+		".......",
+	],
+	"RANGE": [
+		".......",
+		"..#.#..",
+		".#...#.",
+		"#######",
+		".#...#.",
+		"..#.#..",
 		".......",
 	],
 
@@ -598,6 +608,10 @@ const EXIT_SEALED := Color(0.85, 0.5, 0.5)
 
 ## --- loot -------------------------------------------------------------------
 const SCRAP := Color(0.95, 0.85, 0.45)
+## What a death left behind. Warm and pale rather than gold: a drop is not one
+## more piece of loot on the floor, it is the player's own kit waiting for them,
+## and it has to read that way from across a room full of scrap.
+const LOST_KIT := Color(1.0, 0.86, 0.62)
 
 static func loot_color(component_id: String, scrap: int) -> Color:
 	if scrap > 0:

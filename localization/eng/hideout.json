@@ -53,6 +53,7 @@
 	"footer": {
 		"filled": "%d of %d slots filled",
 		"warning": "Everything you take can be lost.",
+		"kit_waiting": "Your kit is still down there (%d).",
 		"deploy": "DEPLOY >"
 	},
 	"skill_default": "Skill %d",

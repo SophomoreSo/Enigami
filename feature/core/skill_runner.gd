@@ -57,6 +57,16 @@ const MAX_TTL_BONUS := 36
 const READY_FLASH := 0.45
 ## What one SPEED part multiplies a bolt's velocity by.
 const SPEED_MUL := 1.5
+## And what it does to how far that bolt carries. Gentler than the speed it
+## buys, because range is the thing being spent here: the part is worth taking
+## for the speed, and the extra reach is what keeps a fast bolt from running out
+## of range before it arrives — which is what the part has always said it does.
+const SPEED_RANGE_MUL := 1.2
+## What one RANGE part multiplies that distance by. Worth more than the reach
+## SPEED throws in, because reach is all this one buys: it does nothing to how
+## hard or how fast the bolt arrives, so the part has to be the answer when the
+## thing you cannot do is reach.
+const RANGE_MUL := 1.75
 ## How long the guard window ON PARRY opens stays open. Real seconds, like the
 ## overclock settling delay and for the same reason: a window denominated in
 ## ticks would be shortened by a faster clock, and it used to be read off ON
@@ -441,6 +451,9 @@ func _apply(id: String, p: Payload) -> void:
 			p.size *= 1.6
 		"SPEED":
 			p.speed *= SPEED_MUL
+			p.range_px *= SPEED_RANGE_MUL
+		"RANGE":
+			p.range_px *= RANGE_MUL
 		"PIERCE":
 			p.pierce += 2
 		"DASH":
@@ -575,7 +588,10 @@ func _sim_apply(id: String, p: Payload) -> void:
 				p.elements.append("ICE")
 		"DAMAGE": p.damage += 8.0
 		"SIZE": p.size *= 1.6
-		"SPEED": p.speed *= SPEED_MUL
+		"SPEED":
+			p.speed *= SPEED_MUL
+			p.range_px *= SPEED_RANGE_MUL
+		"RANGE": p.range_px *= RANGE_MUL
 		"PIERCE": p.pierce += 2
 		"DASH": p.dash = true
 		"BLINK": p.blink = true
