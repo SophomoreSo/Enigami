@@ -6,11 +6,7 @@
 	"weapons": {
 		"heading": "무기 — 레이드당 하나",
 		"row": "%s%s%s",
-		"lost": "  (분실)",
-		"slots": "슬롯 %d · 허용 %s",
-		"multipliers": "근접 x%.2f · 원거리 x%.2f · 탄속 x%.2f",
-		"gravity": "투척: 탄이 중력을 받아 포물선을 그립니다",
-		"warning": "사망하면 이 무기와 여기 끼운 스킬을 모두 잃습니다."
+		"lost": "  (분실)"
 	},
 	"loadout": {
 		"heading": "스킬 슬롯",

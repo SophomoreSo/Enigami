@@ -209,20 +209,11 @@ func _weapons_column() -> Control:
 			weapon_changed.emit(id)
 			rebuild())
 		v.add_child(b)
+	# What the weapon is, and nothing more. The numbers behind it — how many
+	# slots, what they take, what it multiplies, what it costs to die carrying
+	# it — were four more wrapped blocks under this one, and are gone.
 	v.add_child(UiKit.spacer(6))
-	var d := Weapons.get_def(weapon_id)
 	v.add_child(_wrapped(Weapons.desc_for(weapon_id)))
-	v.add_child(UiKit.spacer(4))
-	# Slots and what they take read as one fact about the weapon, and as two
-	# labels they were two wrapped blocks with a gap down the middle.
-	v.add_child(_wrapped(Loc.t("hideout.weapons.slots",
-		[int(d["slots"]), Components.tag_names(d["accepts"])]), UiKit.TEXT))
-	v.add_child(_wrapped(Loc.t("hideout.weapons.multipliers", [
-		float(d["melee_mul"]), float(d["ranged_mul"]), float(d["projectile_speed"])])))
-	if bool(d["gravity_shots"]):
-		v.add_child(_wrapped(Loc.t("hideout.weapons.gravity"), UiKit.WARN))
-	v.add_child(UiKit.spacer(8))
-	v.add_child(_wrapped(Loc.t("hideout.weapons.warning"), UiKit.BAD))
 	return p
 
 ## --- loadout + library ------------------------------------------------------

@@ -6,11 +6,7 @@
 	"weapons": {
 		"heading": "WEAPON — one per raid",
 		"row": "%s%s%s",
-		"lost": "  (lost)",
-		"slots": "slots %d · accepts %s",
-		"multipliers": "melee x%.2f · ranged x%.2f · bolt speed x%.2f",
-		"gravity": "thrown: shots arc under gravity",
-		"warning": "Dying loses this weapon and the skills slotted into it."
+		"lost": "  (lost)"
 	},
 	"loadout": {
 		"heading": "SKILL SLOTS",

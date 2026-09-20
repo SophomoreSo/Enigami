@@ -93,8 +93,9 @@ func text_in(root: Node, text: String) -> Control:
 ## and the frame around it both, since the title, the status line and the way
 ## out are the frame's and are as much a part of the panel as the rows are.
 ## `least` and `boxes_least` are how much text and how many styled boxes that
-## panel is expected to carry — the rack is a handful of weapons, the counter is
-## two long lists — so a panel that quietly came up empty is still a failure.
+## panel is expected to carry — the rack is a handful of weapons and the line
+## that says what one is, the counter is two long lists — so a panel that
+## quietly came up empty is still a failure.
 func audit(what: String, least: int, boxes_least: int) -> void:
 	await frames(4)
 	var all := controls_under(Views.of(world).panel)
@@ -204,7 +205,7 @@ func _ready() -> void:
 		hideout.weapon_id = id
 		hideout.focus_slot = 0
 		hideout.rebuild()
-		await audit(Weapons.name_for(id), 8, 12)
+		await audit(Weapons.name_for(id), 6, 12)
 
 	# --- the counter, which carries the longest lists ------------------------
 	world.set_weapon("SWORD")
