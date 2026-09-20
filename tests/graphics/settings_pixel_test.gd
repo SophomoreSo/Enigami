@@ -55,14 +55,15 @@ func button_named(root: Node, text: String) -> Button:
 	return find_under(root, func(c: Node) -> bool: return c is Button and (c as Button).text == text) as Button
 
 ## Every check that says a built menu is in the pixel look, run over whatever is
-## under `sc`: the settings, the pause menu and the rebinding page each screen
-## keeps behind its CONTROL SETTINGS button are all the same kit.
+## under `frame`: the settings, the pause menu and the rebinding page each
+## screen keeps behind its CONTROL SETTINGS button are all the same kit, and all
+## the same frame — a pinned head, the rows in a scroll, a pinned foot.
 ##
 ## `sliders` and `min_texts` are what that page is expected to hold — the title
 ## keeps nothing on its front page but the buttons onto the other two, while the
 ## pause menu still carries its volume rows itself.
-func audit(sc: ScrollContainer, what: String, sliders_want: int, min_texts: int) -> void:
-	var all := controls_under(sc)
+func audit(frame: UiKit.ScreenFrame, what: String, sliders_want: int, min_texts: int) -> void:
+	var all := controls_under(frame)
 	var texts := 0
 	var plain: Array = []
 	var boxes := 0
@@ -92,7 +93,7 @@ func audit(sc: ScrollContainer, what: String, sliders_want: int, min_texts: int)
 					bad = true
 			if bad:
 				soft.append("%s.%s at %s (aa=%s radius=%d border=%d)" % [c.get_class(), name,
-					sc.get_path_to(c), sb.anti_aliasing, sb.get_corner_radius(CORNER_TOP_LEFT),
+					frame.get_path_to(c), sb.anti_aliasing, sb.get_corner_radius(CORNER_TOP_LEFT),
 					sb.get_border_width(SIDE_LEFT)])
 	check(texts >= min_texts and plain.is_empty(),
 		"%s: every text is the pixel face at a multiple of 8px (%d checked, off: %s)" % [what, texts, str(plain)])
@@ -100,12 +101,19 @@ func audit(sc: ScrollContainer, what: String, sliders_want: int, min_texts: int)
 		"%s: every box is square, unsmoothed and evenly bordered (%d checked, off: %s)" % [what, boxes, str(soft)])
 	check(sliders == sliders_want and knobs == sliders_want,
 		"%s: every slider has the square knob (%d knobs on %d of %d sliders)" % [what, knobs, sliders, sliders_want])
-	check(sc.get_v_scroll_bar().has_theme_stylebox_override("grabber"), "%s: the scrollbar is the pixel one" % what)
+	check(frame.body.get_v_scroll_bar().has_theme_stylebox_override("grabber"),
+		"%s: the scrollbar is the pixel one" % what)
 
-	var bar := sc.get_v_scroll_bar()
-	var room := sc.size.x - (bar.size.x if bar.visible else 0.0)
-	var wanted := (sc.get_child(0) as Control).get_combined_minimum_size().x
-	check(wanted <= room + 0.5, "%s: the panel fits the width it is given (%.0f of %.0f)" % [what, wanted, room])
+	var bar := frame.body.get_v_scroll_bar()
+	var room := frame.body.size.x - (bar.size.x if bar.visible else 0.0)
+	var wanted := frame.rows.get_combined_minimum_size().x
+	check(wanted <= room + 0.5, "%s: the rows fit the width they are given (%.0f of %.0f)" % [what, wanted, room])
+	# The head and the foot are outside the scroll and have the panel to
+	# themselves, bar and all.
+	for box: Control in [frame.head, frame.foot]:
+		check(box.get_combined_minimum_size().x <= box.size.x + 0.5,
+			"%s: what is pinned fits the panel too (%.0f of %.0f)"
+				% [what, box.get_combined_minimum_size().x, box.size.x])
 
 
 func _ready() -> void:
@@ -118,7 +126,7 @@ func _ready() -> void:
 	var title: TitleScreen = game.current
 	title._toggle_settings()
 	await frames(8)
-	audit(title._settings as ScrollContainer, "the settings", 0, 4)
+	audit(title._settings, "the settings", 0, 4)
 
 	# --- the general page ----------------------------------------------------
 	# The volumes and the language are not on the settings any more either: the
@@ -134,7 +142,7 @@ func _ready() -> void:
 		await frames(8)
 	check(title._general.visible and not title._settings.visible,
 		"pressing it swaps the settings for the general page")
-	audit(title._general as ScrollContainer, "the general page", 2, 7)
+	audit(title._general, "the general page", 2, 7)
 
 	# --- the language switch ------------------------------------------------
 	# It lives on the general page, and pressing it has to rebuild the page it
@@ -200,7 +208,7 @@ func _ready() -> void:
 		await frames(8)
 	check(title._controls.visible and not title._settings.visible,
 		"pressing it swaps the settings for the controls page")
-	audit(title._controls as ScrollContainer, "the controls page", 0, 25)
+	audit(title._controls, "the controls page", 0, 25)
 
 	var cp: ControlsPanel = find_under(title._controls, func(c: Node) -> bool: return c is ControlsPanel) as ControlsPanel
 	check(cp != null and cp.pixel, "the controls page builds its list in the pixel look")
@@ -229,11 +237,11 @@ func _ready() -> void:
 	game.pause_menu.visible = true
 	game._pause_controls(false)
 	await frames(6)
-	var pause_scroll: ScrollContainer = game.pause_main as ScrollContainer
+	var pause_frame: UiKit.ScreenFrame = game.pause_main as UiKit.ScreenFrame
 	var resume := button_named(game.pause_main, Loc.t("menu.pause.resume"))
-	check(pause_scroll != null, "the pause menu is a scroll that fits the screen")
-	if pause_scroll != null:
-		audit(pause_scroll, "the pause menu", 0, 5)
+	check(pause_frame != null, "the pause menu is a frame that fits the screen")
+	if pause_frame != null:
+		audit(pause_frame, "the pause menu", 0, 5)
 	check(find_under(game.pause_main, func(c: Node) -> bool: return c is ControlsPanel) == null,
 		"PAUSED no longer carries the rebinding list itself")
 	check(find_under(game.pause_main, func(c: Node) -> bool: return c is HSlider) == null,
@@ -246,7 +254,7 @@ func _ready() -> void:
 		await frames(6)
 	check(game.pause_general.visible and not game.pause_main.visible,
 		"pressing it swaps PAUSED for the general page")
-	audit(game.pause_general as ScrollContainer, "the pause general page", 2, 4)
+	audit(game.pause_general as UiKit.ScreenFrame, "the pause general page", 2, 4)
 	# --- the language switch, from inside a game -----------------------------
 	# It is on this page as well as the title's, and pressing it rebuilds the
 	# menu it was pressed in — so the page that comes back has to be this one,
@@ -316,7 +324,7 @@ func _ready() -> void:
 		await frames(6)
 	check(game.pause_controls.visible and not game.pause_main.visible,
 		"pressing it swaps PAUSED for the controls page")
-	audit(game.pause_controls as ScrollContainer, "the pause controls page", 0, 25)
+	audit(game.pause_controls as UiKit.ScreenFrame, "the pause controls page", 0, 25)
 	var pause_cp: ControlsPanel = find_under(game.pause_controls, func(c: Node) -> bool: return c is ControlsPanel) as ControlsPanel
 	check(pause_cp != null and pause_cp.pixel, "the pause menu's controls list is the pixel one too")
 	var pause_back := button_named(game.pause_controls, Loc.t("controls.back"))

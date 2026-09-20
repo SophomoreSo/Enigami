@@ -20,17 +20,38 @@ const SIGN_W := 150.0
 const SIGN_H := 26.0
 ## How far above the station's feet the plate hangs.
 const SIGN_LIFT := 78.0
+## What the line under the plate is allowed to run to. It is a sentence, not a
+## name, and held to the plate's own width it lost its last two words.
+const SIGN_BAND := SIGN_W * 2.4
 
 var world: HideoutWorld
 ## The pixel grid, bound to this node: the signs are drawn, not built, so they
 ## stand in the room and move with it.
 var _px := PixelDraw.new(self)
+## What the signs say, on its own layer over the pixel picture — and its own
+## grid, bound to that layer.
+##
+## The plates are world art: blocks two units wide, which is one pixel of the
+## buffer the world is drawn into at half the screen's resolution. Text cannot
+## be. A glyph drawn in the world is rasterised at world size and shrunk into
+## that buffer through a filter, so it arrives blurred before the picture is
+## ever blown back up — and Hangul, whose face stands 16px where Silkscreen
+## stands 8, arrived unreadable. Drawing it into the buffer at the buffer's own
+## resolution is sharp, but then a Hangul name is twice the size of an English
+## one, which is a high price for a sign.
+##
+## So the words go over the picture instead, at the screen's resolution, where a
+## glyph pixel is a screen pixel: the same face at the same size the menus write
+## it in, sharp, in any language. An NPC's talk prompt is drawn this way for the
+## same reason (`NpcView`), and like it, this layer is not part of the world the
+## pixel camera copies.
+var _words: Node2D
+var _words_px: PixelDraw
 var camera: Camera2D
 var pixels: PixelCamera
 var layer: CanvasLayer
 ## The station panel on screen, or null. One at a time, like the stations.
 var panel: Control = null
-var _panel_host: PanelContainer = null
 
 func _ready() -> void:
 	world = get_parent() as HideoutWorld
@@ -41,6 +62,14 @@ func _ready() -> void:
 	Fx.register_camera(camera)
 	pixels = PixelCamera.new()
 	add_child(pixels)
+	var words_layer := CanvasLayer.new()
+	words_layer.layer = PixelCamera.LAYER + 1
+	words_layer.follow_viewport_enabled = true
+	add_child(words_layer)
+	_words = Node2D.new()
+	_words.draw.connect(_draw_words)
+	words_layer.add_child(_words)
+	_words_px = PixelDraw.new(_words)
 
 	layer = CanvasLayer.new()
 	layer.layer = 10
@@ -54,6 +83,11 @@ func _process(_delta: float) -> void:
 	# and as the kit fills up: `queue_redraw` every frame is what the raid's own
 	# prompts do, and the whole screen is four plates.
 	queue_redraw()
+	if _words != null and is_instance_valid(_words):
+		# The words hang over the picture rather than in it, so they are told
+		# where the room is every frame.
+		_words.position = global_position
+		_words.queue_redraw()
 
 ## --- the room ---------------------------------------------------------------
 func _draw() -> void:
@@ -65,9 +99,8 @@ func _draw() -> void:
 func _draw_station(s: Station) -> void:
 	if s == null or not is_instance_valid(s):
 		return
-	var lit: bool = s.near and s.open
-	var ink: Color = Style.HIDEOUT_SIGN_LIT if lit else Style.HIDEOUT_SIGN
 	var at := s.global_position - global_position
+	var ink := _sign_ink(s)
 
 	# The thing itself: a block on the floor with a lit edge, so a station reads
 	# as furniture before it reads as a sign.
@@ -75,24 +108,48 @@ func _draw_station(s: Station) -> void:
 	draw_rect(body, Style.HIDEOUT_STATION)
 	draw_rect(body, ink, false, 2.0)
 
-	# The plate over it, on its post.
-	var plate := Rect2(at + Vector2(-SIGN_W * 0.5, -SIGN_LIFT), Vector2(SIGN_W, SIGN_H))
+	# The plate over it, on its post. What it says is `_draw_words`' half.
+	var plate := _plate(s)
 	draw_line(Vector2(at.x, at.y - s.extent.y), Vector2(at.x, plate.end.y), ink, 2.0)
 	_px.rect(plate, Style.HIDEOUT_PLATE)
 	draw_rect(plate, ink, false, 2.0)
+
+## --- what the signs say -----------------------------------------------------
+## The other half of every sign, over the picture rather than in it. See `_words`
+## for why the words are not drawn with the plate that carries them.
+func _draw_words() -> void:
+	if world == null or not is_instance_valid(world):
+		return
+	for id in world.stations:
+		_draw_station_words(world.stations[id] as Station)
+
+func _draw_station_words(s: Station) -> void:
+	if s == null or not is_instance_valid(s):
+		return
+	var at := s.global_position - global_position
+	var plate := _plate(s)
 	# `text` takes a baseline, not a top: the plate is SIGN_H tall and capitals
 	# stand 10 of it, so this sits them in the middle of it.
-	_px.text_centered(Vector2(plate.position.x, plate.position.y + 18.0),
-		s.label, ink, SIGN_W)
+	_words_px.text_centered(Vector2(plate.position.x, plate.position.y + 18.0),
+		s.label, _sign_ink(s), SIGN_W)
 
 	# The line under the plate runs wider than the plate: it is a sentence, not a
 	# name, and clipped to the plate's own width it lost its last two words.
-	var band := SIGN_W * 2.4
-	var under := Vector2(at.x - band * 0.5, plate.end.y + 18.0)
+	var under := Vector2(at.x - SIGN_BAND * 0.5, plate.end.y + 18.0)
 	if not s.open and s.closed_reason != "":
-		_px.text_centered(under, s.closed_reason, Style.HIDEOUT_SIGN_SHUT, band)
-	elif lit:
-		_px.text_centered(under, s.prompt, Style.HIDEOUT_SIGN_LIT, band)
+		_words_px.text_centered(under, s.closed_reason, Style.HIDEOUT_SIGN_SHUT, SIGN_BAND)
+	elif s.near and s.open:
+		_words_px.text_centered(under, s.prompt, Style.HIDEOUT_SIGN_LIT, SIGN_BAND)
+
+## The plate's rect, in this view's own coordinates. Both halves of a sign ask
+## for it: the one drawn into the picture and the words drawn over it.
+func _plate(s: Station) -> Rect2:
+	var at := s.global_position - global_position
+	return Rect2(at + Vector2(-SIGN_W * 0.5, -SIGN_LIFT), Vector2(SIGN_W, SIGN_H))
+
+## A station in reach and open for business is lit; everything else is not.
+func _sign_ink(s: Station) -> Color:
+	return Style.HIDEOUT_SIGN_LIT if s.near and s.open else Style.HIDEOUT_SIGN
 
 ## --- the panels -------------------------------------------------------------
 func _on_panel_changed(id: String) -> void:
@@ -123,36 +180,35 @@ func _column(section: String) -> Hideout:
 	return h
 
 ## Puts a station's panel on screen inside the pixel frame every menu here uses,
-## with the way out along the bottom. The panel itself never learns it is in a
-## frame — it is the same column the whole screen used to hold.
-func _host(inner: Control, heading: String) -> void:
-	_panel_host = UiKit.panel(UiKit.PANEL, Color(0.22, 0.3, 0.38), true)
-	_panel_host.custom_minimum_size = Vector2(660, 0)
-	var scroll := UiKit.screen_scroll(_panel_host, Vector2(310, 40), 668.0, true)
-	UiKit.pixel_scroll(scroll)
-	layer.add_child(scroll)
-	panel = scroll
+## with the title along the top and the way out along the bottom. The panel
+## itself never learns it is in a frame — it is the same column the whole screen
+## used to hold.
+##
+## The rows are the only part of it that scrolls. The whole panel used to, and
+## a list long enough to need a bar — the counter's, on any honest profile —
+## carried its own title off the top of the screen and the way back to the room
+## off the bottom.
+func _host(inner: Hideout, heading: String) -> void:
+	var frame := UiKit.screen_frame(668.0, 40.0, 28.0, true)
+	layer.add_child(frame)
+	panel = frame
 
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 8)
-	_panel_host.add_child(v)
 	var head := HBoxContainer.new()
 	head.add_child(UiKit.label(heading, 24, UiKit.ACCENT, true))
 	head.add_child(_pad())
 	head.add_child(UiKit.label(Loc.t("hideout.scrap", [GameState.scrap]), 16, UiKit.WARN, true))
-	v.add_child(head)
-	v.add_child(UiKit.hline(true))
+	frame.head.add_child(head)
+	frame.head.add_child(UiKit.hline(true))
 
 	# The column says how tall it is (`Hideout._get_minimum_size`), the frame
-	# grows to it, and the scroll around the frame is what keeps a long one on a
-	# short screen.
-	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	v.add_child(inner)
+	# grows to it as far as the screen allows, and the scroll is what takes the
+	# rest.
+	frame.rows.add_child(inner)
 
-	v.add_child(UiKit.spacer(8))
+	frame.foot.add_child(UiKit.spacer(8))
 	var back := UiKit.button(Loc.t("hideout.station.back"), UiKit.ACCENT, true)
 	back.pressed.connect(func() -> void: world.close_panel())
-	v.add_child(back)
+	frame.foot.add_child(back)
 
 func _pad() -> Control:
 	var c := Control.new()
@@ -163,7 +219,6 @@ func _clear_panel() -> void:
 	if panel != null and is_instance_valid(panel):
 		panel.queue_free()
 	panel = null
-	_panel_host = null
 
 ## The way out of a panel, by key rather than by the button. ESC is what closes
 ## every other screen here, and a panel that only a mouse could leave would be

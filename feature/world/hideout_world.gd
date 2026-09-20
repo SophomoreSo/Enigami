@@ -52,13 +52,14 @@ func _ready() -> void:
 	Cues.emit_cue(&"music_start")
 
 	# One room, flat and empty: a hideout is somewhere to stand, and a generated
-	# raid room's pits and platforms would put the merchant on a ledge. `entry`
-	# is the kind with no monsters and no loot in it.
+	# raid room's platforms would put the merchant on a ledge. `entry` is the
+	# kind with no monsters and no loot in it, and `flat` is the room asking the
+	# generator for a floor and four walls and nothing else.
 	room = Room.new()
 	add_child(room)
 	room.build(Vector2i.ZERO, {
 		"kind": "entry", "danger": 1, "region": 0, "variant": 3,
-		"enemies": [], "loot": [],
+		"flat": true, "enemies": [], "loot": [],
 	}, {}, 20260920)
 	# The generator lays spikes along the floor of about half the rooms it
 	# makes. A raid wants them; the room the player shops in does not.

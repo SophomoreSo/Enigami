@@ -9,11 +9,13 @@ extends Control
 ## square and unsmoothed.
 ##
 ## The pixel face runs up to twice as wide as the one it replaced, which this
-## screen — three columns of dense text — has no room for. Two things give it
-## back: a line that ran past its column now wraps inside it, and everything
-## that only explains something moved to the status line along the bottom,
-## which says what the mouse is on (see `_explain`). A description per facility
-## cost five rows there and the stash the room to show anything.
+## screen — three columns of dense text — has no room for: a line that ran past
+## its column wraps inside it rather than widening it.
+##
+## Nothing here explains itself. There was a status line along the bottom that
+## said what the mouse was on — a facility's effect, why a board would not fit,
+## what a purchase cost — and it was taken out by hand: a panel is its rows and
+## the way out of them, and nothing else.
 
 signal deploy_requested(weapon: String, slots: Array)
 signal title_requested()
@@ -37,12 +39,6 @@ var focus_slot: int = 0
 ## the room is the header and the gate is the footer now.
 var section: String = ""
 var _root: VBoxContainer
-var _status: Label
-## What the status line says with nothing under the mouse: the last thing to
-## happen, else the profile's own numbers. Held here rather than on the label
-## because a rebuild throws the label away — which is why the forge's own
-## message never used to survive the rebuild that followed it.
-var _message: String = ""
 
 func _ready() -> void:
 	# Whole, this is the screen and owns the viewport. As one section it is the
@@ -80,7 +76,6 @@ func _get_minimum_size() -> Vector2:
 ## Every label here is written once in `rebuild`, so a change of language is
 ## the same rebuild a purchase or a slot change already asks for.
 func _relanguage(_lang: String) -> void:
-	_message = ""
 	rebuild()
 
 func rebuild() -> void:
@@ -98,9 +93,6 @@ func rebuild() -> void:
 
 	if section != "":
 		_root.add_child(_section_column())
-		_status = _label(_idle_status(), UiKit.DIM)
-		_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_root.add_child(_status)
 		update_minimum_size()
 		return
 
@@ -115,8 +107,6 @@ func rebuild() -> void:
 	cols.add_child(_loadout_column())
 	cols.add_child(_facilities_column())
 
-	_status = _label(_idle_status(), UiKit.DIM)
-	_root.add_child(_status)
 	_root.add_child(_footer())
 
 ## The one column this screen was asked for, filling what it is given. On the
@@ -160,40 +150,20 @@ func _pad() -> Control:
 	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return c
 
-## --- the status line --------------------------------------------------------
-## `c` explains itself here while the mouse is on it: a facility's effect, a
-## weapon's warning, why a skill will not fit. In place, each of those cost a
-## row of its own, and five of them cost the stash its list.
-##
-## The exit only clears what this control put there, so moving from a row onto
-## the button inside it does not blank the line on the way.
-func _explain(c: Control, text: String) -> void:
-	if text == "":
-		return
-	if c is Label:
-		(c as Label).mouse_filter = Control.MOUSE_FILTER_PASS
-	var show := func() -> void: _status.text = text
-	var clear := func() -> void:
-		if _status.text == text:
-			_status.text = _idle_status()
-	c.mouse_entered.connect(show)
-	c.mouse_exited.connect(clear)
-	# And on focus, so the line works for a player who never touches the mouse.
-	if c.focus_mode != Control.FOCUS_NONE:
-		c.focus_entered.connect(show)
-		c.focus_exited.connect(clear)
-
-func _idle_status() -> String:
-	if _message != "":
-		return _message
-	return Loc.t("hideout.status", [
-		GameState.board_size().x, GameState.board_size().y,
-		int(GameState.max_health()), GameState.stash_cap()])
-
-func _say(msg: String) -> void:
-	_message = msg
-	if _status != null and is_instance_valid(_status):
-		_status.text = _idle_status()
+## The box a long list sits in. On the whole screen, where three columns share
+## one screen, it is a short window `window` tall with a bar of its own. In a
+## station's panel the panel already scrolls, and a bar inside a bar is one too
+## many: there the list runs its full length and the panel is what gives.
+func _scrolled(list: Control, window: int) -> Control:
+	if section != "":
+		return list
+	var sc := ScrollContainer.new()
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sc.custom_minimum_size = Vector2(0, window)
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	UiKit.pixel_scroll(sc)
+	sc.add_child(list)
+	return sc
 
 func _header() -> Control:
 	var h := HBoxContainer.new()
@@ -233,27 +203,17 @@ func _weapons_column() -> Control:
 			b.add_theme_color_override("font_color", wc)
 			b.add_theme_stylebox_override("normal", UiKit.style(
 				Color(wc.r, wc.g, wc.b, 0.2), wc, 2, 3, true))
-		_explain(b, Weapons.desc_for(id))
 		b.pressed.connect(func() -> void:
 			weapon_id = id
 			focus_slot = 0
 			weapon_changed.emit(id)
 			rebuild())
 		v.add_child(b)
+	# What the weapon is, and nothing more. The numbers behind it — how many
+	# slots, what they take, what it multiplies, what it costs to die carrying
+	# it — were four more wrapped blocks under this one, and are gone.
 	v.add_child(UiKit.spacer(6))
-	var d := Weapons.get_def(weapon_id)
 	v.add_child(_wrapped(Weapons.desc_for(weapon_id)))
-	v.add_child(UiKit.spacer(4))
-	# Slots and what they take read as one fact about the weapon, and as two
-	# labels they were two wrapped blocks with a gap down the middle.
-	v.add_child(_wrapped(Loc.t("hideout.weapons.slots",
-		[int(d["slots"]), Components.tag_names(d["accepts"])]), UiKit.TEXT))
-	v.add_child(_wrapped(Loc.t("hideout.weapons.multipliers", [
-		float(d["melee_mul"]), float(d["ranged_mul"]), float(d["projectile_speed"])])))
-	if bool(d["gravity_shots"]):
-		v.add_child(_wrapped(Loc.t("hideout.weapons.gravity"), UiKit.WARN))
-	v.add_child(UiKit.spacer(8))
-	v.add_child(_wrapped(Loc.t("hideout.weapons.warning"), UiKit.BAD))
 	return p
 
 ## --- loadout + library ------------------------------------------------------
@@ -311,16 +271,10 @@ func _loadout_column() -> Control:
 	v.add_child(lib_head)
 	v.add_child(UiKit.hline(true))
 
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.custom_minimum_size = Vector2(0, 132)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	UiKit.pixel_scroll(scroll)
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", 4)
-	scroll.add_child(list)
-	v.add_child(scroll)
+	v.add_child(_scrolled(list, 132))
 
 	for i in GameState.skill_library.size():
 		var board: SkillBoard = GameState.skill_library[i]
@@ -332,9 +286,6 @@ func _loadout_column() -> Control:
 			Components.tag_names(tags) if tags.size() > 0 else Loc.t("hideout.loadout.utility")]),
 			UiKit.GOOD if compatible else UiKit.BAD)
 		btn.disabled = not compatible
-		# Why it will not fit goes to the status line: the row it used to sit on
-		# had no space left for it, and a tooltip is the theme's, not ours.
-		_explain(btn, Weapons.rejection_reason(weapon_id, board) if not compatible else "")
 		btn.pressed.connect(func() -> void:
 			var s := GameState.get_loadout(weapon_id)
 			# One skill cannot sit in two slots at once.
@@ -373,8 +324,6 @@ func _facilities_column() -> Control:
 		var lvl: int = GameState.facilities[key]
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 6)
-		row.mouse_filter = Control.MOUSE_FILTER_PASS
-		_explain(row, GameState.facility_desc(key))
 		var lbl := _label(Loc.t("hideout.facilities.row", [GameState.facility_name(key), lvl]))
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(lbl)
@@ -383,11 +332,9 @@ func _facilities_column() -> Control:
 		else:
 			var b := _button("%d" % GameState.facility_cost(key), UiKit.WARN)
 			b.disabled = not GameState.can_upgrade(key)
-			_explain(b, GameState.facility_desc(key))
 			b.pressed.connect(func() -> void:
 				if GameState.upgrade_facility(key):
 					Audio.play("pickup")
-					_say(Loc.t("hideout.facilities.upgraded", [GameState.facility_name(key), GameState.facilities[key]]))
 					rebuild())
 			row.add_child(b)
 		v.add_child(row)
@@ -401,22 +348,15 @@ func _facilities_column() -> Control:
 	# No arrow in the pixel face: three of them go in, one comes out.
 	var fb := _button(Loc.t("hideout.stash.forge"), UiKit.WARN)
 	fb.disabled = GameState.scrap < 25 or _stash_total() < 3
-	_explain(fb, Loc.t("hideout.stash.forge_hint"))
 	fb.pressed.connect(_forge)
 	sh.add_child(fb)
 	v.add_child(sh)
 	v.add_child(UiKit.hline(true))
 
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.custom_minimum_size = Vector2(0, 104)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	UiKit.pixel_scroll(scroll)
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", 4)
-	scroll.add_child(list)
-	v.add_child(scroll)
+	v.add_child(_scrolled(list, 104))
 	var any := false
 	for id in Components.LOOT_POOL:
 		var n := int(GameState.stash.get(id, 0))
@@ -428,15 +368,11 @@ func _facilities_column() -> Control:
 		var l := _label(Loc.t("hideout.stash.row", [Components.name_for(id), n]), Style.component_color(id))
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		l.clip_text = true
-		_explain(l, Components.desc_for(id))
 		row.add_child(l)
 		var sc := _button(Loc.t("hideout.stash.scrap"), UiKit.DIM)
-		_explain(sc, Loc.t("hideout.stash.scrap_hint"))
 		sc.pressed.connect(func() -> void:
-			var gain := GameState.scrap_component(id)
-			if gain > 0:
+			if GameState.scrap_component(id) > 0:
 				Audio.play("erase")
-				_say(Loc.t("hideout.stash.scrapped", [Components.name_for(id), gain]))
 			rebuild())
 		row.add_child(sc)
 		list.add_child(row)
@@ -460,15 +396,10 @@ func _shop_shelf() -> Control:
 	v.add_child(head)
 	v.add_child(UiKit.hline(true))
 
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(0, 104)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	UiKit.pixel_scroll(scroll)
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", 4)
-	scroll.add_child(list)
-	v.add_child(scroll)
+	v.add_child(_scrolled(list, 104))
 
 	for id in GameState.shop_stock():
 		var price: int = GameState.shop_price(id)
@@ -477,21 +408,11 @@ func _shop_shelf() -> Control:
 		var l := _label(Components.name_for(id), Style.component_color(id))
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		l.clip_text = true
-		_explain(l, Components.desc_for(id))
 		row.add_child(l)
 		var b := _button(Loc.t("hideout.shop.price", [price]), UiKit.WARN)
 		b.disabled = not GameState.can_buy(id)
-		# A part the vault is already full of is refused for a different reason
-		# than one you cannot afford, and a disabled button says neither.
-		_explain(b, Loc.t("hideout.shop.full", [Components.name_for(id)])
-			if GameState.component_count(id, GameState.stash) >= GameState.stash_cap()
-			else Loc.t("hideout.shop.buy_hint", [Components.name_for(id), price]))
 		b.pressed.connect(func() -> void:
-			if GameState.buy_component(id):
-				Audio.play("pickup")
-				_say(Loc.t("hideout.shop.bought", [Components.name_for(id), price]))
-			else:
-				Audio.play("deny")
+			Audio.play("pickup" if GameState.buy_component(id) else "deny")
 			rebuild())
 		row.add_child(b)
 		list.add_child(row)
@@ -516,10 +437,8 @@ func _forge() -> void:
 				pick.append(String(id))
 	if pick.size() < 3:
 		return
-	var made := GameState.forge_component(pick)
-	if made != "":
+	if GameState.forge_component(pick) != "":
 		Audio.play("pickup")
-		_say(Loc.t("hideout.stash.forged", [Components.name_for(made)]))
 	rebuild()
 
 ## --- deploy -----------------------------------------------------------------

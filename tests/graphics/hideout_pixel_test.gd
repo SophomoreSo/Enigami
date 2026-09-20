@@ -12,8 +12,11 @@ extends Node
 ## the old screen showed all three of at once, which is why one test still
 ## covers all of them.
 ##
-## Also the status line, which is what pays for all that: it says what the mouse
-## is on, and keeps the last thing that happened when the mouse is on nothing.
+## And where each of those sits: a panel is a pinned title, the rows and the way
+## out, and only the rows scroll. Scrolled whole, as it was, the counter's list
+## carried its own title and the way back to the room clean off the screen — so
+## every panel here is scrolled to its end and both pinned pieces are looked for
+## on the screen afterwards.
 
 const GameScript := preload("res://app/game.gd")
 const BOXES := ["panel", "normal", "hover", "pressed", "focus", "disabled",
@@ -23,6 +26,8 @@ var game: Node
 var world: HideoutWorld
 ## The column on screen: whichever station was opened last.
 var hideout: Hideout
+## What the title of the panel around it says, which is the station's name.
+var heading := ""
 var fails := 0
 
 func check(ok: bool, what: String) -> void:
@@ -35,20 +40,6 @@ func check(ok: bool, what: String) -> void:
 func frames(n: int) -> void:
 	for i in n:
 		await get_tree().process_frame
-
-## What the status line says the moment the mouse lands somewhere. Read straight
-## back rather than a frame later: the control answers the motion while
-## `push_input` is still running, and a real cursor sitting over the window
-## moves the mouse-over off again on the very next frame.
-func status_at(p: Vector2) -> String:
-	var e := InputEventMouseMotion.new()
-	e.position = p
-	e.global_position = p
-	get_viewport().push_input(e)
-	return hideout._status.text
-
-func status_over(c: Control) -> String:
-	return status_at(c.get_global_rect().get_center())
 
 ## Every Control under `root`, scrollbars included: they are internal children.
 func controls_under(root: Node) -> Array:
@@ -69,6 +60,7 @@ func controls_under(root: Node) -> Array:
 func open_section(id: String) -> Hideout:
 	world.close_panel()
 	await frames(2)
+	heading = Loc.t("hideout.station.%s" % id)
 	world.open_station(id)
 	await frames(6)
 	var view = Views.of(world)
@@ -89,13 +81,24 @@ func button_with(prefix: String) -> Button:
 			return c
 	return null
 
-## The pixel look, and the fit, over the column on screen right now. `least` and
-## `boxes_least` are how much text and how many styled boxes that column is
-## expected to carry — the rack is a handful of weapons, the counter is two long
-## lists — so a column that quietly came up empty is still a failure.
+## The one thing on the panel — column, frame or either end of it — whose text
+## is exactly `text`.
+func text_in(root: Node, text: String) -> Control:
+	for c in controls_under(root):
+		if (c is Label and (c as Label).text == text) or (c is Button and (c as Button).text == text):
+			return c
+	return null
+
+## The pixel look, and the fit, over the panel on screen right now: the column
+## and the frame around it both, since the title, the status line and the way
+## out are the frame's and are as much a part of the panel as the rows are.
+## `least` and `boxes_least` are how much text and how many styled boxes that
+## panel is expected to carry — the rack is a handful of weapons and the line
+## that says what one is, the counter is two long lists — so a panel that
+## quietly came up empty is still a failure.
 func audit(what: String, least: int, boxes_least: int) -> void:
 	await frames(4)
-	var all := controls_under(hideout)
+	var all := controls_under(Views.of(world).panel)
 	var plain: Array = []
 	var soft: Array = []
 	var wide: Array = []
@@ -141,10 +144,37 @@ func audit(what: String, least: int, boxes_least: int) -> void:
 	check(hideout.get_combined_minimum_size().x <= hideout.size.x + 0.5,
 		"%s: the column fits the width of its panel (%.0f of %.0f)"
 			% [what, hideout.get_combined_minimum_size().x, hideout.size.x])
-	var frame := (Views.of(world).panel as Control).get_global_rect()
+	var panel := Views.of(world).panel as UiKit.ScreenFrame
+	var frame := panel.get_global_rect()
 	check(frame.position.x >= -0.5 and frame.position.y >= -0.5
 		and frame.end.x <= vp.x + 0.5 and frame.end.y <= vp.y + 0.5,
 		"%s: the panel stays on the screen (%s in %s)" % [what, frame, vp])
+
+	# The rows are the one part of the panel that scrolls, and the title, the
+	# status line and the way out are pinned around them. Scrolled to the end is
+	# where a panel that scrolled whole lost the first and the last of those:
+	# both were off the screen, with nothing on it to say where they had gone.
+	var body := panel.body
+	check(body != null and body.is_ancestor_of(hideout),
+		"%s: the rows inside the panel are what scrolls" % what)
+	if body == null:
+		return
+	body.scroll_vertical = 1000000
+	await frames(3)
+	var screen := Rect2(Vector2.ZERO, vp)
+	for named in [["the title", text_in(panel, heading)],
+			["the way out", text_in(panel, Loc.t("hideout.station.back"))]]:
+		var c: Control = named[1]
+		check(c != null and screen.encloses(c.get_global_rect()),
+			"%s: %s stays on the screen with the list scrolled to the end (%s)"
+				% [what, named[0], "missing" if c == null else str(c.get_global_rect())])
+	# And what scrolled out of the top is all still reachable at the bottom.
+	var reach := float(body.scroll_vertical) + body.size.y
+	var wanted := hideout.get_combined_minimum_size().y
+	check(reach >= wanted - 1.0,
+		"%s: the list scrolls to its last row (reaches %.0f of %.0f)" % [what, reach, wanted])
+	body.scroll_vertical = 0
+	await frames(2)
 
 func _ready() -> void:
 	GameState.reset_profile()
@@ -175,75 +205,34 @@ func _ready() -> void:
 		hideout.weapon_id = id
 		hideout.focus_slot = 0
 		hideout.rebuild()
-		await audit(Weapons.name_for(id), 8, 12)
+		await audit(Weapons.name_for(id), 6, 12)
 
 	# --- the counter, which carries the longest lists ------------------------
 	world.set_weapon("SWORD")
 	hideout = await open_section("shop")
 	await audit("the counter", 40, 40)
 
-	# --- the status line ----------------------------------------------------
-	await frames(4)
-	var idle := hideout._idle_status()
-	check(hideout._status.text == idle, "with the mouse on nothing it shows the profile ('%s')" % idle)
-
-	var row := label_with(GameState.facility_name("workbench"))
-	check(row != null, "the facilities list is there")
-	if row != null:
-		var desc: String = GameState.facility_desc("workbench")
-		var over := status_over(row)
-		check(over == desc, "hovering a facility explains it ('%s')" % over)
-		check(status_at(Vector2(4, 4)) == idle, "and moving off puts the profile back")
-
-	# The Sword refuses the Gun's ranged board, and the row has no room to say so.
-	# That list is the bench's.
+	# The bench, whose list is the one a weapon can refuse: the Sword will not
+	# carry the Gun's ranged board, and the row says so by being dead.
 	hideout = await open_section("bench")
 	await audit("the bench", 8, 40)
-	var idle_bench := hideout._idle_status()
 	var refused: Button = null
 	for c in controls_under(hideout):
 		if c is Button and (c as Button).disabled and (c as Button).text.begins_with(GameState.skill_library[1].skill_name):
 			refused = c
 	check(refused != null, "the sword shows the gun's board as refused")
-	if refused != null:
-		var why := status_over(refused)
-		check(why == Weapons.rejection_reason("SWORD", GameState.skill_library[1]),
-			"hovering it says why ('%s')" % why)
-		status_at(Vector2(4, 4))
 
-	# Keyboard and gamepad reach the same line, since they never hover. Back on
-	# the rack, which is where the weapons are.
-	hideout = await open_section("weapons")
-	var gun := button_with("  " + Weapons.name_for("GUN"))
-	check(gun != null, "the gun is on the weapon list")
-	if gun != null:
-		gun.grab_focus()
-		await frames(2)
-		check(hideout._status.text == Weapons.desc_for("GUN"),
-			"focusing a weapon explains it, with no mouse involved ('%s')" % hideout._status.text)
-		gun.release_focus()
-		await frames(2)
-		check(hideout._status.text == hideout._idle_status(),
-			"and leaving it puts the profile back")
-
-	# --- the forge's message outlives the rebuild it triggers ----------------
-	# The forge is the counter's, like everything else that costs scrap.
+	# --- the forge, and the rebuild it triggers ------------------------------
+	# The forge is the counter's, like everything else that costs scrap. The
+	# panel is rebuilt under it, so this is also the check that a rebuild in the
+	# middle of a press leaves a panel standing.
 	hideout = await open_section("shop")
 	var before := int(GameState.stash.get("SLASH", 0))
 	hideout._forge()
 	await frames(4)
-	# Which part came out decides what the line says, and the line reads
-	# differently in every language — so the line is rebuilt for every part it
-	# could name, rather than matched against a prefix that only holds in
-	# English. (The stash cannot say which: the forge may well hand back one of
-	# the three it just melted, and that part ends up two down, not one up.)
-	var forged := false
-	for id in Components.LOOT_POOL:
-		if hideout._status.text == Loc.t("hideout.stash.forged", [Components.name_for(String(id))]):
-			forged = true
-	check(forged, "the forge says what it made, after the rebuild ('%s')" % hideout._status.text)
 	check(int(GameState.stash.get("SLASH", 0)) != before or GameState.scrap < 99999,
-		"and it really spent the parts")
+		"the forge really spends the parts")
+	await audit("the counter after the forge", 40, 40)
 
 	var dir := OS.get_environment("SHOTS_DIR") if OS.has_environment("SHOTS_DIR") else "user://shots"
 	DirAccess.make_dir_recursive_absolute(dir)

@@ -15,7 +15,9 @@ extends RefCounted
 ##     var _px := PixelDraw.new(self)
 ##     _px.rect(Rect2(0, 0, 100, 20), Color.BLACK)
 ##
-## Screens using it: `SkillEditor`, `SandboxPanel`.
+## Screens using it: `SkillEditor`, `SandboxPanel`, `Hud`, and the hideout's
+## station signs — which draw it over the world rather than on a screen, and say
+## in `HideoutWorldView` why the words cannot go into the world itself.
 
 const PX := UiKit.PIXEL
 const FONT := UiKit.PIXEL_FONT

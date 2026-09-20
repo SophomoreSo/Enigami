@@ -69,23 +69,22 @@ var records: Dictionary = {
 var intro_seen: bool = false
 
 const FACILITY_INFO := {
-	"workbench": {"name": "Workbench", "desc": "Enlarges every skill board.", "max": 5},
-	"vault": {"name": "Vault", "desc": "Raises how many of each component the stash holds.", "max": 5},
-	"forge": {"name": "Forge", "desc": "Melts spare components into new ones.", "max": 5},
-	"scrapper": {"name": "Scrapper", "desc": "Breaks gear down for more scrap.", "max": 5},
-	"medbay": {"name": "Medbay", "desc": "Raises max health and heals between raids.", "max": 5},
+	"workbench": {"name": "Workbench", "max": 5},
+	"vault": {"name": "Vault", "max": 5},
+	"forge": {"name": "Forge", "max": 5},
+	"scrapper": {"name": "Scrapper", "max": 5},
+	"medbay": {"name": "Medbay", "max": 5},
 }
 
-## A facility's name and what it does, in the language being played. The table
-## above is the fallback under them, so a facility added there is named before
-## anybody translates it.
+## A facility's name, in the language being played. The table above is the
+## fallback under it, so a facility added there is named before anybody
+## translates it.
+##
+## What each one does is not written anywhere: the counter had a line along the
+## bottom that said so while the mouse was on a row, and it was taken out.
 func facility_name(key: String) -> String:
 	return Loc.opt("hideout.facilities.info.%s.name" % key,
 		String((FACILITY_INFO.get(key, {}) as Dictionary).get("name", key)))
-
-func facility_desc(key: String) -> String:
-	return Loc.opt("hideout.facilities.info.%s.desc" % key,
-		String((FACILITY_INFO.get(key, {}) as Dictionary).get("desc", "")))
 
 func _ready() -> void:
 	_migrate_legacy_save()
