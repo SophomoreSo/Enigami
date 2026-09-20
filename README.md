@@ -24,6 +24,8 @@ godot res://tests/feature/trigger_test.tscn # a trigger chain lands as separate 
 godot res://tests/feature/cooldown_test.tscn # the numbers behind the slot cooldown wipe
 godot res://tests/feature/speed_test.tscn   # the SPEED part, and bolt collision at speed
 godot res://tests/feature/dash_test.tscn    # where a lunge lands, aimed and auto-aimed
+godot res://tests/feature/dash_move_test.tscn # the dash key: flat, a step long, briefly untouchable
+godot res://tests/feature/hurt_test.tscn    # the second of grace a blow that lands buys
 godot res://tests/feature/select_test.tscn  # arming a slot, and what each button fires
 godot res://tests/feature/weapon_fit_test.tscn  # a weapon refuses skills it cannot carry
 godot res://tests/feature/stamina_test.tscn # the dash budget under the health bar
@@ -66,7 +68,7 @@ not a thing to reach for once it errors.
 |---|---|
 | A / D, ← / → | move |
 | SPACE | jump; again in mid-air to double jump; against a wall to kick off |
-| SHIFT | dash (brief invulnerability); spends stamina, four dashes to a full bar |
+| SHIFT | dash — left or right only, never up; brief invulnerability from the press; spends stamina, four dashes to a full bar |
 | LMB | attack with the weapon's own board — always available, never lost |
 | 1 / 2 / 3 / 4 | arm a skill slot (numpad works too); arming does not fire it |
 | RMB | hold to charge the armed skill, release to cast it — a tap is a charge of nothing; a skill still recovering cannot be charged, and a weapon refuses skills it cannot carry |
