@@ -135,7 +135,11 @@ func _process(_delta: float) -> void:
 			point = vp.get_mouse_position()
 	if _crosshair != null:
 		_crosshair.visible = _taken
-		_crosshair.position = point - hotspot()
+		# Snapped to the grid the rest of the picture is on. The art is drawn at
+		# SCALE, so an odd screen pixel puts every art pixel of it across two
+		# screen ones — the crosshair was the only thing on screen doing that,
+		# and `pixel_camera_test` counts exactly that and nothing else.
+		_crosshair.position = ((point - hotspot()) / float(SCALE)).floor() * SCALE
 
 func _input(event: InputEvent) -> void:
 	if not _taken:
