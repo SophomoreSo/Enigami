@@ -81,6 +81,10 @@ func _exit_tree() -> void:
 	_live -= 1
 	if _live == 0:
 		get_viewport().canvas_cull_mask |= WORLD_LAYER
+		# Nothing is drawing the world any more, so the grid left for whatever is
+		# drawn over it is the screen's own.
+		if is_instance_valid(Pointer):
+			Pointer.pixel_origin = Vector2.ZERO
 
 func _ready() -> void:
 	layer = LAYER
@@ -117,3 +121,9 @@ func _follow() -> void:
 		-grid / SCALE + Vector2.ONE * BORDER)
 	_image.scale = Vector2.ONE * zoom * SCALE
 	_image.position = -Vector2.ONE * BORDER * SCALE * zoom - (leftover * zoom).round()
+	# The crosshair is drawn over this picture, at this picture's scale, by the
+	# shell — which has no other way to learn where this grid starts. Handed over
+	# rather than fetched: `PixelCamera` is a graphics class and the pointer is
+	# not, and the standing check deletes the graphics autoloads this file needs.
+	# See `Pointer.on_grid`.
+	Pointer.pixel_origin = _image.position

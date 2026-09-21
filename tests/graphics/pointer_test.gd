@@ -37,6 +37,7 @@ func _ready() -> void:
 	var was := Pointer.sensitivity
 	_picture()
 	_speed()
+	_on_grid()
 	await _in_play()
 	_hands_off()
 	Pointer.set_sensitivity(was)
@@ -144,13 +145,56 @@ func _in_play() -> void:
 		"and at 0.5, half of it (%s)" % str(Pointer.point))
 
 	await frames(2)
-	check(Pointer._crosshair.position.is_equal_approx(Pointer.point - Pointer.hotspot()),
-		"the crosshair is drawn where the game is pointing")
+	check(Pointer._crosshair.position.is_equal_approx(Pointer.on_grid(Pointer.point - Pointer.hotspot())),
+		"the crosshair is drawn where the game is pointing (%s)" % str(Pointer._crosshair.position))
+
+	# And it follows the picture's grid rather than the screen's. Nothing draws
+	# the world in this scene, so the slide is set by hand; in a raid the camera
+	# hands one over every frame, and half of them are odd.
+	var odd := Vector2(-3, -3)
+	Pointer.pixel_origin = odd
+	await frames(2)
+	var drawn := Pointer._crosshair.position
+	check(posmod(int(drawn.x - odd.x), Pointer.SCALE) == 0
+			and posmod(int(drawn.y - odd.y), Pointer.SCALE) == 0,
+		"and onto the odd pixels with the picture when the slide is odd (%s)" % str(drawn))
+	Pointer.pixel_origin = Vector2.ZERO
 
 	held.queue_free()
 	await frames(3)
 	check(not Pointer.game_is_pointing() and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE,
 		"and the system has its pointer back the moment the controls are let go")
+
+## The crosshair is drawn over the picture at the picture's own scale, so it has
+## to sit on the picture's grid — and that grid is not the screen's. A
+## `PixelCamera` slides its image by whatever the real camera had left over, so
+## the grid starts on an odd screen pixel about half the time. Snapping to the
+## screen's own corner instead passed on the even half and put every art pixel
+## of the crosshair across two screen ones on the odd half, which is exactly
+## what `pixel_camera_test` counts.
+func _on_grid() -> void:
+	var s := Pointer.SCALE
+	for origin: Vector2 in [Vector2.ZERO, Vector2(-2, -2), Vector2(-3, -2), Vector2(-3, -3)]:
+		Pointer.pixel_origin = origin
+		var on := 0
+		var near := 0
+		var tries := 0
+		for i in 2 * s:
+			for j in 2 * s:
+				var at := Vector2(100.0 + float(i), 60.0 + float(j))
+				var landed := Pointer.on_grid(at)
+				var back := at - landed
+				tries += 1
+				if posmod(int(landed.x - origin.x), s) == 0 and posmod(int(landed.y - origin.y), s) == 0:
+					on += 1
+				# On the grid is not enough on its own — the far corner of the
+				# screen is on it too. It has to be the corner `at` sits in.
+				if back.x >= 0.0 and back.x < float(s) and back.y >= 0.0 and back.y < float(s):
+					near += 1
+		check(on == tries and near == tries,
+			"with the picture's grid starting at %s, the crosshair lands on the corner it is in (%d and %d of %d)"
+				% [str(origin), on, near, tries])
+	Pointer.pixel_origin = Vector2.ZERO
 
 ## The rule the week cost: the system pointer is the system's. Nothing here
 ## moves it, holds it, or argues with it.

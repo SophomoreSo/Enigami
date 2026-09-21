@@ -12,6 +12,17 @@ const GameScript := preload("res://app/game.gd")
 var game: Node
 var fails := 0
 
+## Fx eases the camera's offset back towards zero every frame, and a block check
+## reads its frame back several frames after asking for one, so an offset that
+## has to survive that is re-pinned here — after the easing and before
+## `PixelCamera._follow` reads the transform, whose priority is 100.
+var _pin := Vector2.ZERO
+var _pinning := false
+
+func _process(_delta: float) -> void:
+	if _pinning and Fx.camera != null:
+		Fx.camera.offset = _pin
+
 func check(ok: bool, what: String) -> void:
 	if ok:
 		print("[PIXEL] PASS ", what)
@@ -65,6 +76,13 @@ func audit(name: String, pixels: PixelCamera) -> void:
 ## the slide is a single colour. The HUD is sharp on purpose, so it is hidden —
 ## and so is an NPC's talk prompt, reading text drawn over the picture at the
 ## screen's resolution for the same reason.
+##
+## Run at all four parities of the slide. `_image.position` is
+## `-BORDER*SCALE - round(leftover)`, so the grid the picture sits on starts on
+## an odd screen pixel about half the time, and one run only ever sees whichever
+## the camera happened to land on. That is how a crosshair snapped to the
+## screen's own corner — rather than to the picture's grid — passed here on a
+## desk and split blocks in CI, on a different scene each time.
 func blocks(name: String, pixels: PixelCamera, hud_layer: CanvasLayer) -> void:
 	if pixels == null or not is_instance_valid(pixels):
 		return
@@ -75,31 +93,50 @@ func blocks(name: String, pixels: PixelCamera, hud_layer: CanvasLayer) -> void:
 			sharp.append(v.prompt_layer)
 	for layer in sharp:
 		layer.visible = false
-	await frames(6)
-	await RenderingServer.frame_post_draw
-	var im := get_viewport().get_texture().get_image()
-	var pos := Vector2i(pixels._image.position)
-	for layer in sharp:
-		layer.visible = true
 	var screen := Vector2i(get_viewport().get_visible_rect().size)
-	if im.get_size() != screen:
-		print("[PIXEL] skip %s block check: the frame is %s, not %s" % [name, im.get_size(), screen])
-		return
 	var s := PixelCamera.SCALE
 	var seen := 0
 	var split := 0
-	for y in range(posmod(pos.y, s), screen.y - s + 1, 3 * s):
-		for x in range(posmod(pos.x, s), screen.x - s + 1, 3 * s):
-			seen += 1
-			var c := im.get_pixel(x, y)
-			var same := true
-			for dy in s:
-				for dx in s:
-					if im.get_pixel(x + dx, y + dy) != c:
-						same = false
-			if not same:
-				split += 1
+	var slides: Array = []
+	# Half of SCALE is what flips `round(leftover)`, and so the parity of the
+	# slide, whatever the camera happened to be sitting on to begin with.
+	var flip := float(s) * 0.5
+	_pinning = true
+	for pin: Vector2 in [Vector2.ZERO, Vector2(flip, 0.0), Vector2(0.0, flip), Vector2(flip, flip)]:
+		_pin = pin
+		await frames(6)
+		await RenderingServer.frame_post_draw
+		var im := get_viewport().get_texture().get_image()
+		var pos := Vector2i(pixels._image.position)
+		if im.get_size() != screen:
+			print("[PIXEL] skip %s block check: the frame is %s, not %s" % [name, im.get_size(), screen])
+			break
+		slides.append("%d%d" % [posmod(pos.x, s), posmod(pos.y, s)])
+		for y in range(posmod(pos.y, s), screen.y - s + 1, 3 * s):
+			for x in range(posmod(pos.x, s), screen.x - s + 1, 3 * s):
+				seen += 1
+				var c := im.get_pixel(x, y)
+				var same := true
+				for dy in s:
+					for dx in s:
+						if im.get_pixel(x + dx, y + dy) != c:
+							same = false
+				if not same:
+					split += 1
+	_pinning = false
+	_pin = Vector2.ZERO
+	for layer in sharp:
+		layer.visible = true
+	if slides.is_empty():
+		return
 	check(split == 0, "%s: every %d×%d block on screen is one colour (%d of %d split)" % [name, s, s, split, seen])
+	# Four readings are only worth four if they were not the same reading four
+	# times over.
+	var parities := {}
+	for p in slides:
+		parities[p] = true
+	check(parities.size() == 4, "%s: and that held at every parity of the slide (%s)"
+		% [name, ", ".join(slides)])
 
 func frame_ms(n: int = 240) -> float:
 	await frames(30)
@@ -108,6 +145,7 @@ func frame_ms(n: int = 240) -> float:
 	return float(Time.get_ticks_usec() - t0) / float(n) / 1000.0
 
 func _ready() -> void:
+	process_priority = 50
 	GameState.reset_profile()
 	seed(4242)
 	game = Node.new()

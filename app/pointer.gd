@@ -80,6 +80,16 @@ var sensitivity: float = 1.0
 ## doing it, this is what the mouse has been moving.
 var point: Vector2 = Vector2.ZERO
 
+## Where the grid the picture is drawn on starts, in screen pixels.
+##
+## The world is drawn through a `PixelCamera`, which lays its buffer over the
+## screen slid by whatever the real camera had left over — so the grid the
+## picture sits on is not anchored at the screen's corner. It moves with the
+## camera, and it starts on an odd screen pixel about half the time. The camera
+## hands its slide over here every frame; zero is what is left when no camera is
+## up, and it is what the menus want, which are drawn on the screen's own grid.
+var pixel_origin: Vector2 = Vector2.ZERO
+
 ## Kept so the picture outlives nothing: handed to the window and held here, it
 ## goes when this node goes, which is before the renderer that owns it does.
 var _tex: ImageTexture = null
@@ -135,11 +145,7 @@ func _process(_delta: float) -> void:
 			point = vp.get_mouse_position()
 	if _crosshair != null:
 		_crosshair.visible = _taken
-		# Snapped to the grid the rest of the picture is on. The art is drawn at
-		# SCALE, so an odd screen pixel puts every art pixel of it across two
-		# screen ones — the crosshair was the only thing on screen doing that,
-		# and `pixel_camera_test` counts exactly that and nothing else.
-		_crosshair.position = ((point - hotspot()) / float(SCALE)).floor() * SCALE
+		_crosshair.position = on_grid(point - hotspot())
 
 func _input(event: InputEvent) -> void:
 	if not _taken:
@@ -159,6 +165,18 @@ func carry(from: Vector2, by: Vector2, bounds: Vector2) -> Vector2:
 	var to: Vector2 = from + by * sensitivity
 	return Vector2(clampf(to.x, 0.0, maxf(bounds.x - 1.0, 0.0)),
 		clampf(to.y, 0.0, maxf(bounds.y - 1.0, 0.0)))
+
+## `at`, moved back to the nearest corner of the grid the picture is on. The
+## crosshair's art is drawn at SCALE, so landing between two of the picture's
+## pixels puts every art pixel of it across two screen ones — it would be the
+## only thing on screen at a finer grain than everything else, which is the one
+## thing drawing it at SCALE is for.
+##
+## Snapping to the screen's own corner is not the same thing and is not enough:
+## the picture's grid slides with the camera, and half the time it is on the odd
+## screen pixels. That half passed on a desk and split blocks in CI.
+func on_grid(at: Vector2) -> Vector2:
+	return pixel_origin + ((at - pixel_origin) / float(SCALE)).floor() * SCALE
 
 ## Where the game is pointing, in the world `node` stands in — what
 ## `get_global_mouse_position` answers, asked of the game's pointer instead of
