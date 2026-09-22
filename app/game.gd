@@ -366,6 +366,8 @@ func _build_pause_general() -> void:
 	frame.rows.add_child(_vol_row(Loc.t("menu.pause.music"), func() -> float: return Audio.music_volume, func(x: float) -> void: Audio.set_music_volume(x)))
 	frame.rows.add_child(_vol_row(Loc.t("menu.pause.sound"), func() -> float: return Audio.sfx_volume, func(x: float) -> void: Audio.set_sfx_volume(x)))
 	frame.rows.add_child(_pause_language_row())
+	for row in VideoRows.rows():
+		frame.rows.add_child(row)
 	frame.foot.add_child(UiKit.spacer(8))
 	var back := UiKit.button(Loc.t("menu.pause.back"), UiKit.ACCENT, true)
 	back.custom_minimum_size = Vector2(280, 36)
@@ -430,13 +432,14 @@ func _pause_language_row() -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
 	var l := UiKit.label(Loc.t("menu.pause.language"), 16, UiKit.TEXT, true)
-	l.custom_minimum_size = Vector2(80, 0)
+	l.custom_minimum_size = Vector2(UiKit.SETTING_LABEL_W, 0)
 	h.add_child(l)
 	for lang in Loc.languages():
 		var picked: bool = lang == Loc.language
 		var b := UiKit.button(Loc.language_name(lang),
 			UiKit.ACCENT if picked else UiKit.DIM, true)
-		b.disabled = picked
+		if picked:
+			UiKit.mark_chosen(b)
 		b.pressed.connect(func() -> void:
 			Audio.play("ui")
 			Loc.set_language(lang))
@@ -447,7 +450,7 @@ func _vol_row(name: String, getter: Callable, setter: Callable) -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
 	var l := UiKit.label(name, 16, UiKit.TEXT, true)
-	l.custom_minimum_size = Vector2(80, 0)
+	l.custom_minimum_size = Vector2(UiKit.SETTING_LABEL_W, 0)
 	h.add_child(l)
 	var s := HSlider.new()
 	s.min_value = 0.0

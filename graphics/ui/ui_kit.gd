@@ -212,6 +212,94 @@ static func screen_frame(width: float, top: float, bottom: float,
 		style(PANEL, Color(0.22, 0.3, 0.38), 1, 3, pixel))
 	return f
 
+## Marks a button as the answer already in force: unpressable, because it is
+## what is already set, but lit rather than greyed — a button greyed the way an
+## unavailable one is greyed reads as the one you cannot have rather than the
+## one you have.
+static func mark_chosen(b: Button) -> void:
+	b.disabled = true
+	b.add_theme_color_override("font_disabled_color", ACCENT)
+
+## How wide the name of a setting is given, so every row on a page lines its
+## answers up in the same column. Wide enough for the longest of them in the
+## pixel face, which runs up to twice as wide as the one the menus used to be
+## written in.
+const SETTING_LABEL_W := 160.0
+
+## A setting answered by picking one of a few words: the name, then a button
+## each, with the answer in force accented and unpressable. It is the shape the
+## language row has always had, made once here because the title's settings and
+## the pause menu both carry these rows and a setting that looked like two
+## different things in the two screens would read as two settings.
+##
+## No tick and no box: a disabled accented button says which answer is in force
+## without a second widget to theme, and every answer stays a thing you can
+## reach with a gamepad.
+class ChoiceRow extends HBoxContainer:
+	## Called with the index picked. Set through `UiKit.choice_row`.
+	var on_pick: Callable
+	var _name := ""
+	var _options: PackedStringArray = PackedStringArray()
+	var _picked := 0
+
+	func setup(name: String, options: PackedStringArray, picked: int, cb: Callable) -> void:
+		_name = name
+		_options = options
+		_picked = picked
+		on_pick = cb
+		add_theme_constant_override("separation", 8)
+		_build(false)
+
+	## What the row is showing. Set it to follow a setting changed somewhere
+	## else; picking a button calls this on the way through.
+	func show_picked(i: int) -> void:
+		if i == _picked:
+			return
+		_picked = i
+		# The button just pressed is about to be freed by its own press, and the
+		# one that takes its place is disabled and cannot hold focus. So the
+		# keyboard is handed to the next answer along rather than dropped on the
+		# floor — otherwise one press ends gamepad navigation of the page.
+		_build(_holds_focus())
+
+	func _holds_focus() -> bool:
+		if not is_inside_tree():
+			return false
+		var focused: Control = get_viewport().gui_get_focus_owner()
+		return focused != null and is_ancestor_of(focused)
+
+	func _build(refocus: bool) -> void:
+		for c in get_children():
+			remove_child(c)
+			c.queue_free()
+		var l := UiKit.label(_name, 16, UiKit.TEXT, true)
+		l.custom_minimum_size = Vector2(UiKit.SETTING_LABEL_W, 0)
+		add_child(l)
+		var first: Button = null
+		for i in _options.size():
+			var in_force: bool = i == _picked
+			var b := UiKit.button(_options[i], UiKit.ACCENT if in_force else UiKit.DIM, true)
+			if in_force:
+				UiKit.mark_chosen(b)
+			b.pressed.connect(func() -> void:
+				Audio.play("ui")
+				show_picked(i)
+				if on_pick.is_valid():
+					on_pick.call(i))
+			add_child(b)
+			if first == null and not in_force:
+				first = b
+		if refocus and first != null:
+			first.grab_focus()
+
+## A `ChoiceRow`, set up. `picked` is the index of the answer in force and
+## `on_pick` is handed the index of the one pressed.
+static func choice_row(name: String, options: PackedStringArray, picked: int,
+		on_pick: Callable) -> ChoiceRow:
+	var r := ChoiceRow.new()
+	r.setup(name, options, picked, on_pick)
+	return r
+
 static func spacer(h: int = 8) -> Control:
 	var c := Control.new()
 	c.custom_minimum_size = Vector2(0, h)

@@ -12,6 +12,13 @@ extends Node
 ##
 ## Each button and its page are checked too: one page at a time is on screen,
 ## the button leads to it and BACK leads out of it.
+##
+## And the two settings that are about the machine rather than the game — the
+## screen mode and whether an impact may move the camera — which both screens
+## carry and which have to agree with `Video` about what is set. Camera shake is
+## pressed and followed all the way down to `Fx`; the screen mode is not, since
+## a test that took the whole display twice a run is a test that gets switched
+## off. See the note where it is checked.
 
 const GameScript := preload("res://app/game.gd")
 const BOXES := ["panel", "normal", "hover", "pressed", "focus", "disabled", "slider",
@@ -53,6 +60,33 @@ func find_under(root: Node, pick: Callable) -> Node:
 
 func button_named(root: Node, text: String) -> Button:
 	return find_under(root, func(c: Node) -> bool: return c is Button and (c as Button).text == text) as Button
+
+## The two rows that answer to `Video`, checked wherever settings are shown.
+## Both screens build them from `VideoRows`, so a page missing one is a page
+## that forgot to ask rather than a row that was written differently.
+##
+## The answer in force is the button that cannot be pressed, which is the whole
+## of how these rows say what is set: `Video` is read for what it should be and
+## the page for what it is showing.
+func video_rows(page: Node, where: String) -> void:
+	for named in [
+			[Loc.t("menu.video.screen"), Loc.t("menu.video.windowed"),
+				Loc.t("menu.video.fullscreen"), Video.fullscreen],
+			[Loc.t("menu.video.shake"), Loc.t("menu.video.off"),
+				Loc.t("menu.video.on"), Video.screen_shake]]:
+		var name := String(named[0])
+		var off := button_named(page, String(named[1]))
+		var on := button_named(page, String(named[2]))
+		var set_on: bool = bool(named[3])
+		check(find_under(page, func(c: Node) -> bool:
+				return c is Label and (c as Label).text == name) != null,
+			"%s carries '%s'" % [where, name])
+		check(off != null and on != null, "%s: with both answers on it" % where)
+		if off == null or on == null:
+			continue
+		check(on.disabled == set_on and off.disabled != set_on,
+			"%s: and the one in force is the one that cannot be pressed (%s)"
+				% [where, "on" if set_on else "off"])
 
 ## Every check that says a built menu is in the pixel look, run over whatever is
 ## under `frame`: the settings, the pause menu and the rebinding page each
@@ -186,6 +220,50 @@ func _ready() -> void:
 			await frames(8)
 			check(Loc.language == was_language, "switching back puts %s on again" % was_language)
 
+	# --- the settings that are about the machine -----------------------------
+	# Screen mode and camera shake, on the same page as the volumes and the
+	# language, and the same two rows in the pause menu below.
+	video_rows(title._general, "the general page")
+
+	# Shake off is the answer the game ships with, and off has to mean off all
+	# the way down: `Fx` is the one place that reads the setting, so nothing that
+	# asks for a shake has to know whether one is wanted.
+	var shake_was: bool = Video.screen_shake
+	Video.set_screen_shake(false)
+	Fx._shake = 0.0
+	Fx.shake(6.0)
+	check(is_equal_approx(Fx._shake, 0.0),
+		"with camera shake off, a hit that asks for one does not get it (%.1f)" % Fx._shake)
+	var shake_on := button_named(title._general, Loc.t("menu.video.on"))
+	check(shake_on != null and not shake_on.disabled,
+		"the page offers '%s' while it is off" % Loc.t("menu.video.on"))
+	if shake_on != null:
+		shake_on.emit_signal("pressed")
+		await frames(6)
+	check(Video.screen_shake, "pressing it turns camera shake on")
+	video_rows(title._general, "the general page, with shake on")
+	Fx._shake = 0.0
+	Fx.shake(6.0)
+	check(is_equal_approx(Fx._shake, 6.0), "and the same hit now gets one (%.1f)" % Fx._shake)
+	Fx._shake = 0.0
+
+	# The screen row is not pressed here. It would take the whole display and
+	# give it back, twice, in every run of this file — a test nobody would leave
+	# switched on. What can be checked without a window changing under the run is
+	# that the setting is kept where the language and the bindings are kept.
+	var full_was: bool = Video.fullscreen
+	Video.fullscreen = not full_was
+	Video._save()
+	Video.fullscreen = full_was
+	Video.screen_shake = not Video.screen_shake
+	Video._load()
+	check(Video.fullscreen == (not full_was),
+		"the screen setting is written to %s and read back" % Video.PATH.get_file())
+	Video.fullscreen = full_was
+	Video.set_screen_shake(shake_was)
+	Video._save()
+	await frames(4)
+
 	var general_back := button_named(title._general, Loc.t("menu.settings.back"))
 	check(general_back != null, "the general page offers '%s'" % Loc.t("menu.settings.back"))
 	if general_back != null:
@@ -281,6 +359,8 @@ func _ready() -> void:
 		Loc.set_language(pause_was)
 		await frames(8)
 		check(Loc.language == pause_was, "switching back puts %s on again" % pause_was)
+
+	video_rows(game.pause_general, "the pause menu's general page")
 
 	var pause_general_back := button_named(game.pause_general, Loc.t("menu.pause.back"))
 	if pause_general_back != null:

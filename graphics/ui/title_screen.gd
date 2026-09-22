@@ -524,6 +524,8 @@ func _build_general() -> void:
 		Audio.set_sfx_volume(val)
 		Audio.play("ui")))
 	v.add_child(_language_row())
+	for row in VideoRows.rows():
+		v.add_child(row)
 	_general.foot.add_child(UiKit.spacer(8))
 	var back := UiKit.button(Loc.t("menu.settings.back"), UiKit.ACCENT, true)
 	back.pressed.connect(_toggle_general)
@@ -576,13 +578,14 @@ func _language_row() -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
 	var l := UiKit.label(Loc.t("menu.settings.language"), 16, UiKit.TEXT, true)
-	l.custom_minimum_size = Vector2(80, 0)
+	l.custom_minimum_size = Vector2(UiKit.SETTING_LABEL_W, 0)
 	h.add_child(l)
 	for lang in Loc.languages():
 		var picked: bool = lang == Loc.language
 		var b := UiKit.button(Loc.language_name(lang),
 			UiKit.ACCENT if picked else UiKit.DIM, true)
-		b.disabled = picked
+		if picked:
+			UiKit.mark_chosen(b)
 		b.pressed.connect(func() -> void:
 			Audio.play("ui")
 			Loc.set_language(lang))
@@ -630,7 +633,7 @@ func _slider(name: String, value: float, cb: Callable) -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
 	var l := UiKit.label(name, 16, UiKit.TEXT, true)
-	l.custom_minimum_size = Vector2(80, 0)
+	l.custom_minimum_size = Vector2(UiKit.SETTING_LABEL_W, 0)
 	h.add_child(l)
 	var s := HSlider.new()
 	s.min_value = 0.0

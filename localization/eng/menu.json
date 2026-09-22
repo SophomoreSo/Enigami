@@ -18,6 +18,14 @@
 		"general": "GENERAL SETTINGS",
 		"back": "BACK"
 	},
+	"video": {
+		"screen": "Screen",
+		"windowed": "WINDOWED",
+		"fullscreen": "FULL SCREEN",
+		"shake": "Camera shake",
+		"on": "ON",
+		"off": "OFF"
+	},
 	"pause": {
 		"heading": "PAUSED",
 		"resume": "BACK TO GAME",

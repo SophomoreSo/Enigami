@@ -18,6 +18,14 @@
 		"general": "일반 설정",
 		"back": "뒤로"
 	},
+	"video": {
+		"screen": "화면",
+		"windowed": "창 모드",
+		"fullscreen": "전체 화면",
+		"shake": "화면 흔들림",
+		"on": "켜짐",
+		"off": "꺼짐"
+	},
 	"pause": {
 		"heading": "일시정지",
 		"resume": "게임으로 돌아가기",
