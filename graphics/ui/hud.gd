@@ -210,9 +210,22 @@ func _draw_prompts(vp: Vector2) -> void:
 	# The two lines of keys, along the bottom where the cards used to be. They
 	# are the same kind of thing the footer is — what a press would do — and the
 	# slots said it from the middle of the screen only because they were there.
+	#
+	# Both are for a keyboard: they say which key does what. With the console up
+	# the keys are on the screen with their names written on them, so the legend
+	# is a line telling the player to press a button they are looking at — and on
+	# a phone it costs two rows of a small screen.
+	if Touch.up():
+		return
 	_px.text(Vector2(BAR_AT.x, vp.y - 14.0 - PixelDraw.LINE),
 		Loc.t("hud.slot.hint", [
 			Controls.short_label_for("attack"), Controls.short_label_for("cast_skill")]),
 		Color(0.55, 0.65, 0.78), vp.x - BAR_AT.x * 2.0)
+	# Read from the bindings rather than written out, like the slots above: the
+	# line used to spell out TAB and SHIFT, which was wrong the moment anybody
+	# rebound one.
 	_px.text(Vector2(BAR_AT.x, vp.y - 14.0),
-		footer if footer != "" else Loc.t("hud.footer"), Color(0.5, 0.58, 0.66))
+		footer if footer != "" else Loc.t("hud.footer", [
+			Controls.short_label_for("open_editor"), Controls.short_label_for("open_map"),
+			Controls.short_label_for("interact"), Controls.short_label_for("dash")]),
+		Color(0.5, 0.58, 0.66))

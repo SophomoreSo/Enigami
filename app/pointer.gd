@@ -132,7 +132,11 @@ func game_is_pointing() -> bool:
 	return false
 
 func _process(_delta: float) -> void:
-	var take := game_is_pointing()
+	# Not while the console is on the screen. A phone aims with the movement
+	# keys — `TouchPad._aim` says why it can be nothing else — so there is no
+	# pointer to move, and a crosshair nothing moves would sit wherever the
+	# last thing to touch it left it.
+	var take := game_is_pointing() and not Touch.wanted()
 	if take != _taken:
 		_taken = take
 		# Taken, not confined and not warped: Godot hands over raw movement and

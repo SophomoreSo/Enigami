@@ -28,10 +28,10 @@
 		"close": "%s OR ESC TO CLOSE"
 	},
 	"extracting": "EXTRACTING",
-	"footer": "TAB assemble   M map   F interact   SHIFT dash",
+	"footer": "%s assemble   %s map   %s interact   %s dash",
 	"footer_lobby": "TAB assemble   F interact   SHIFT dash",
 	"extract": {
-		"hold": "hold F to extract",
+		"hold": "hold %s to extract",
 		"no_exit": "no exit",
 		"needs_scrap": "needs %d scrap (have %d)",
 		"sealed": "sealed until the Arbiter falls"
@@ -80,7 +80,7 @@
 		"crack": "CRACK IN THE WALL"
 	},
 	"toast": {
-		"deployed": "Deployed. Hold F at an exit to leave with what you carry.",
+		"deployed": "Deployed. Hold %s at an exit to leave with what you carry.",
 		"resumed": "Back where you left off. The raid kept going without you.",
 		"followed": "Something followed you in here.",
 		"boss_down": "The Arbiter is down. Its gate is open.",

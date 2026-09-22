@@ -55,6 +55,45 @@ func diamond(c: Vector2, radius: int, col: Color) -> void:
 		var half := radius - absi(dy)
 		_c.draw_rect(Rect2(mid.x - half * PX, mid.y + dy * PX, (2 * half + 1) * PX, PX), col)
 
+## A filled circle on the grid, `radius` from its middle to its edge.
+##
+## Rasterised a pixel row at a time rather than drawn with `draw_circle`, which
+## is a smooth polygon: a circle on this grid has one correct shape per radius,
+## and it is made of whole blocks like everything else here. The on-screen
+## console is what wants them — a thumbstick is the one thing in this game that
+## has to be round.
+func disc(c: Vector2, radius: float, col: Color) -> void:
+	_circle(c, radius, 0.0, col)
+
+## The same circle with a hole in it, `thick` PIXELs of edge left standing.
+func ring(c: Vector2, radius: float, thick: float, col: Color) -> void:
+	_circle(c, radius, maxf(radius - thick, 0.0), col)
+
+## The rows of a circle of `outer`, minus those of one of `inner`. Symmetric
+## about the row and column the middle lands on, so a disc and the ring around
+## it share a centre exactly.
+func _circle(c: Vector2, outer: float, inner: float, col: Color) -> void:
+	var o := snap(c)
+	var steps := int(outer / PX)
+	for i in range(-steps, steps + 1):
+		var y := float(i) * PX
+		var wide := _half(outer, y)
+		if wide <= 0.0:
+			continue
+		var hole := _half(inner, y)
+		if hole <= 0.0:
+			_c.draw_rect(Rect2(o.x - wide, o.y + y, wide * 2.0, PX), col)
+		else:
+			_c.draw_rect(Rect2(o.x - wide, o.y + y, wide - hole, PX), col)
+			_c.draw_rect(Rect2(o.x + hole, o.y + y, wide - hole, PX), col)
+
+## Half the width of the row `y` of a circle of `radius`, in whole PIXELs.
+func _half(radius: float, y: float) -> float:
+	var w := radius * radius - y * y
+	if radius <= 0.0 or w <= 0.0:
+		return 0.0
+	return floorf(sqrt(w) / PX) * PX
+
 ## The border of `r` lit clockwise from the middle of its top edge, `k` of the
 ## way round. Each side after the first starts a PIXEL past its corner, so no
 ## corner is lit twice and doubled up in a translucent colour.

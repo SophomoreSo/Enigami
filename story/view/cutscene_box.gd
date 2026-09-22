@@ -112,8 +112,12 @@ func _draw_mark(box: Rect2) -> void:
 		at + Vector2(-7, -5), at + Vector2(3, -5), at + Vector2(-2, 3)]), c)
 
 func _draw_hint(box: Rect2) -> void:
+	# `interact` rather than `ui_accept`: a scene answers either — see
+	# `Cutscene._unhandled_input` — and `interact` is the one every other prompt
+	# in the game names, the one the rebinding screen can move, and the one that
+	# is on the console when there is no keyboard to press the other with.
 	var hint := Loc.t("hud.cutscene.hint", [
-		Controls.short_label_for("ui_accept"), Controls.short_label_for("ui_cancel")])
+		Controls.short_label_for("interact"), Controls.short_label_for("ui_cancel")])
 	var c := Color(UiKit.DIM.r, UiKit.DIM.g, UiKit.DIM.b, 0.8 * _open)
 	_text(Vector2(box.position.x, box.end.y + 7.0), hint, HINT_SIZE, c)
 

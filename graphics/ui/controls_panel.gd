@@ -1,12 +1,14 @@
 class_name ControlsPanel
 extends PanelContainer
 
-## The input settings: how fast the pointer moves, and which key does what.
+## The input settings: how fast the pointer moves, whether the controls are
+## drawn on the screen, and which key does what.
 ##
-## The pointer sits at the top rather than with the volumes, because what it
-## belongs with is this — it is a control, and this is the page controls are on.
-## It is drawn in the same two columns as the bindings under it, so the name and
-## the thing that sets it line up all the way down the panel.
+## The pointer and the console sit at the top rather than with the volumes,
+## because what they belong with is this — they are controls, and this is the
+## page controls are on. They are drawn in the same two columns as the bindings
+## under them, so the name and the thing that sets it line up all the way down
+## the panel.
 
 ## Set before it enters the tree to build it in UiKit's pixel look. Both screens
 ## that hold one do — the title's settings and the pause menu.
@@ -22,9 +24,6 @@ func _ready() -> void:
 	# away in that rebuild bows out below rather than redressing a corpse.
 	Loc.language_changed.connect(_relanguage)
 
-## Built rather than refreshed, so a change of language reaches the action
-## names as well as the two buttons. Whatever was being listened for is
-## dropped: the panel it was going to land in no longer exists.
 ## How fast the game's own pointer moves — the crosshair, while the player has
 ## the controls. Menus are the system pointer's and stay as the desk has them,
 ## so this is aim speed; `app/pointer.gd` says why it can be nothing else. It
@@ -47,9 +46,45 @@ func _pointer_row(name_width: int, bind_width: int) -> Control:
 	row.add_child(s)
 	return row
 
+## Whether the game puts a console on the screen for a thumb to play on —
+## `graphics/ui/touch_pad.gd`, and `app/touch.gd` for what a key on it does.
+##
+## Three answers rather than a switch, because the right one is usually neither:
+## AUTO is on wherever the machine is one you touch and off everywhere else,
+## which is what a phone wants without anybody having to find this row first.
+## OFF and ON are for the machines that are both — a tablet with a keyboard, a
+## desk with a touchscreen — and for looking at the thing on a desk.
+##
+## Laid out like the language row and rebuilt like it: the button that was
+## pressed is the one that has to come back disabled, so the panel is built
+## again rather than refreshed.
+func _touch_row(name_width: int) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var l := UiKit.label(Loc.t("controls.touch.label"), 11, UiKit.TEXT, pixel)
+	l.custom_minimum_size = Vector2(name_width, 0)
+	row.add_child(l)
+	for m in Touch.MODE_KEYS.size():
+		var picked: bool = m == Touch.mode
+		var b := UiKit.button(Touch.mode_name(m), UiKit.ACCENT if picked else UiKit.DIM, pixel)
+		b.disabled = picked
+		b.pressed.connect(func() -> void:
+			Audio.play("ui")
+			Touch.set_mode(m)
+			_rebuild())
+		row.add_child(b)
+	return row
+
 func _relanguage(_lang: String) -> void:
 	if is_queued_for_deletion():
 		return
+	_rebuild()
+
+## Built rather than refreshed, so a change of language reaches the action
+## names as well as the two buttons, and a console mode picked above comes back
+## as the one that is on. Whatever was being listened for is dropped: the panel
+## it was going to land in no longer exists.
+func _rebuild() -> void:
 	_listening = ""
 	_rows.clear()
 	for child in get_children():
@@ -69,6 +104,7 @@ func _build() -> void:
 	var name_width := 200 if pixel else 150
 	var bind_width := 352 if pixel else 200
 	v.add_child(_pointer_row(name_width, bind_width))
+	v.add_child(_touch_row(name_width))
 	v.add_child(UiKit.hline(pixel))
 	for entry in Controls.ACTIONS:
 		var action: String = entry[0]
