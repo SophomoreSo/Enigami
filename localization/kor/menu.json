@@ -8,8 +8,7 @@
 		"slot": "슬롯 %d",
 		"slot_empty": "비어 있음",
 		"slot_delete": "삭제할까요?",
-		"select_slot": "저장 슬롯 선택",
-		"records": "레이드 %d   탈출 %d   사망 %d   처치 %d   최고 수확 %d"
+		"select_slot": "저장 슬롯 선택"
 	},
 	"settings": {
 		"heading": "설정",

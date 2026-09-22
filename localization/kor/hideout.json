@@ -66,7 +66,8 @@
 		"shop_prompt": "F를 눌러 고철을 쓰세요",
 		"gate": "관문",
 		"gate_prompt": "F를 눌러 출격하세요",
-		"back": "방으로 돌아가기"
+		"back": "방으로 돌아가기",
+		"arrow": "<"
 	},
 	"gate": {
 		"no_weapon": "금고에 그 무기가 없습니다",

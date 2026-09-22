@@ -151,10 +151,21 @@ func _ready() -> void:
 	check(world.weapon_id == "GUN",
 		"picking one is what the room carries to the gate (%s)" % world.weapon_id)
 
-	world.close_panel()
+	# The way out is in the corner, where the pause menu's pages keep theirs.
+	# Pressing it is walking away from the station: the same close the key does.
+	var arrow: Button = null
+	for b: Button in buttons_under(view.panel):
+		if b.text == Loc.t("hideout.station.arrow"):
+			arrow = b
+			break
+	check(arrow != null, "a back arrow stands in the panel's top-left corner")
+	if arrow != null:
+		arrow.emit_signal("pressed")
+	else:
+		world.close_panel()
 	await frames(6)
 	check(world.open_panel == "" and not world.player.controls_locked(),
-		"closing it gives the room and the keys back")
+		"and pressing it gives the room and the keys back")
 
 	# --- the counter sells parts --------------------------------------------
 	await stand_at("shop")

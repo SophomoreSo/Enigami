@@ -194,6 +194,8 @@ func _host(inner: Hideout, heading: String) -> void:
 	panel = frame
 
 	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 10)
+	head.add_child(_back_arrow())
 	head.add_child(UiKit.label(heading, 24, UiKit.ACCENT, true))
 	head.add_child(_pad())
 	head.add_child(UiKit.label(Loc.t("hideout.scrap", [GameState.scrap]), 16, UiKit.WARN, true))
@@ -209,6 +211,18 @@ func _host(inner: Hideout, heading: String) -> void:
 	var back := UiKit.button(Loc.t("hideout.station.back"), UiKit.ACCENT, true)
 	back.pressed.connect(func() -> void: world.close_panel())
 	frame.foot.add_child(back)
+
+## The way out in the corner, the shape the pause menu's pages already use: one
+## press is one level up, which from a station is back into the room. These
+## panels were the last menus here with nothing in that corner.
+##
+## The button along the foot stays. It says where it goes in words, and at the
+## end of the counter's list it is where the scroll has already put you.
+func _back_arrow() -> Button:
+	var b := UiKit.button(Loc.t("hideout.station.arrow"), UiKit.ACCENT, true)
+	b.custom_minimum_size = Vector2(44, 34)
+	b.pressed.connect(func() -> void: world.close_panel())
+	return b
 
 func _pad() -> Control:
 	var c := Control.new()

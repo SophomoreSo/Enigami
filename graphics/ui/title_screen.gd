@@ -718,7 +718,6 @@ func _draw() -> void:
 	_draw_focus_marks()
 	_draw_save_slot_prompt()
 	_draw_slot_bins()
-	_draw_records()
 	_draw_glass()
 
 func _paint_copper(cv: CanvasItem) -> void:
@@ -986,20 +985,6 @@ func _draw_bin(at: Vector2, col: Color) -> void:
 	# And the two slots down its face.
 	draw_rect(Rect2(at + Vector2(-2, -3) * u, Vector2(1, 7) * u), col)
 	draw_rect(Rect2(at + Vector2(1, -3) * u, Vector2(1, 7) * u), col)
-
-func _draw_records() -> void:
-	for page in [_settings, _general, _controls]:
-		if page != null and page.visible:
-			return
-	if _save_slot_root != null and _save_slot_root.visible:
-		return
-	var rec: Dictionary = GameState.records
-	var line := Loc.t("menu.title.records", [
-		rec["raids"], rec["escapes"], rec["deaths"], rec["kills"], rec["best_haul"]])
-	var size := Loc.text_size(line, 12)
-	var w := _menu_font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
-	draw_string(_menu_font, Vector2(SEAL.x - w * 0.5, 708.0), line,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(0.30, 0.42, 0.62, 0.75))
 
 ## Scanlines and a vignette, to sit the whole thing behind glass.
 func _draw_glass() -> void:
