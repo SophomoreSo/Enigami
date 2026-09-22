@@ -38,6 +38,10 @@ enum { OFF, AUTO, ON }
 ## The modes in menu order, by the name they are saved and translated under.
 const MODE_KEYS := ["off", "auto", "on"]
 
+## The smallest change in how hard a key is held that is worth sending. A thumb
+## on glass is never still, and an event a frame per pixel of tremor is noise.
+const STEP := 0.02
+
 ## Which stick the pad aims with. The right one, because that is the one the
 ## player already aims with on a gamepad — see `Player._update_aim`, which
 ## needs no line changed for any of this.
@@ -45,8 +49,9 @@ const AIM_AXES := [JOY_AXIS_RIGHT_X, JOY_AXIS_RIGHT_Y]
 
 static var mode: int = AUTO
 
-## Every action the pad is holding down, so it never lets go of one it never
-## pressed and always lets go of all of them when it leaves the screen.
+## Every action the pad is holding down and how hard, so it never lets go of one
+## it never pressed, always lets go of all of them when it leaves the screen,
+## and can lean on one harder without letting go of it first.
 static var _held: Dictionary = {}
 static var _aim: Vector2 = Vector2.ZERO
 static var _up: bool = false
@@ -106,11 +111,18 @@ static func up() -> bool:
 
 ## --- what a key does --------------------------------------------------------
 
-static func press(action: String) -> void:
-	if _held.has(action):
+## Holds `action` down. `strength` is how far the stick driving it is pushed:
+## the game reads movement through `Input.get_axis`, which is the strength of
+## the two actions either side of it, so a stick half over walks and a stick all
+## the way over runs. A press already held is leant on rather than pressed
+## again — the same event with a new strength, which moves the axis without
+## reporting a second press to anything watching for one.
+static func press(action: String, strength: float = 1.0) -> void:
+	var want := clampf(strength, 0.0, 1.0)
+	if _held.has(action) and absf(float(_held[action]) - want) < STEP:
 		return
-	_held[action] = true
-	_send(action, true)
+	_held[action] = want
+	_send(action, true, want)
 
 static func release(action: String) -> void:
 	if not _held.has(action):
@@ -120,6 +132,10 @@ static func release(action: String) -> void:
 
 static func holding(action: String) -> bool:
 	return _held.has(action)
+
+## How hard `action` is being held, or 0 where it is not.
+static func held_strength(action: String) -> float:
+	return float(_held.get(action, 0.0))
 
 ## Let go of everything, and stop aiming. A thumb lifted by the game rather than
 ## by its owner — the pad hidden, the screen changed — must not leave an action
@@ -147,13 +163,13 @@ static func aim(at: Vector2) -> void:
 static func aiming() -> Vector2:
 	return _aim
 
-static func _send(action: String, pressed: bool) -> void:
+static func _send(action: String, pressed: bool, strength: float = 1.0) -> void:
 	if not InputMap.has_action(action):
 		return
 	var e := InputEventAction.new()
 	e.action = action
 	e.pressed = pressed
-	e.strength = 1.0 if pressed else 0.0
+	e.strength = strength if pressed else 0.0
 	Input.parse_input_event(e)
 
 ## --- keeping the setting ----------------------------------------------------

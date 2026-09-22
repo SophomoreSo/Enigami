@@ -89,45 +89,70 @@ from Settings (title screen) or the pause menu.
 
 ### Touch — the console on the glass
 
-**Touch controls**, the second row of the control settings, draws the whole
-console on the screen for a thumb to play on: a movement cross bottom-left, the
-hand that fights bottom-right — CAST, USE, DASH, HIT, JUMP — the four slots in a
-row under the health bars, and KIT, MAP and MENU in the far corner. Three
-answers rather than a switch: **AUTO** is on wherever the machine is one you
-touch and off everywhere else, so an Android or iOS build has controls before
-anyone finds this row; **ON** and **OFF** are for the machines that are both,
-and for looking at the thing on a desk.
+**Touch controls**, the second row of the control settings, draws a console on
+the screen for two thumbs to play on. Three answers rather than a switch:
+**AUTO** is on wherever the machine is one you touch and off everywhere else,
+so an Android or iOS build has controls before anyone finds this row; **ON** and
+**OFF** are for the machines that are both, and for looking at the thing on a
+desk.
 
-A key on the console presses the same action a key on a keyboard does, so the
-rules never learn what a finger is. What changes while it is up:
+It is laid out the way a phone MOBA is, because that is the scheme this game's
+controls turn out to fit:
 
-* **Aim is the cross, not a pointer.** A phone has nothing on the glass until a
-  finger lands, and where it lands is where it is going, so the console aims the
-  way a gamepad does — the cross while a thumb is on it, and the way the player
-  is facing while none is. The crosshair and the pointer setting stand down.
+* **The left thumb is a stick, and there is nothing there until it lands.** The
+  lower-left of the screen is empty; a thumb put down anywhere in it grows the
+  stick under itself, and lifting takes it away again — so it is never somewhere
+  to reach for and never in the way of the fight. It is analog — the game reads
+  movement as the strength of two actions — so a stick half over walks and a
+  stick hard over runs, which four keys could never say.
+* **A skill button is a stick too.** Press one and the slot is armed and begins
+  to charge; drag and the charge aims; let go and it casts, where you were
+  pointing, carrying everything the hold paid for. The game's own
+  hold-to-charge is already press-drag-release, so the two are one gesture and
+  nothing had to be invented for the phone. The weapon key (**HIT**) is the same
+  stick without the arming. The two hands are independent: you can run right and
+  throw a skill up and to the left in the same moment.
+* **Everything else is a key.** JUMP, DASH, USE, and KIT / MAP / MENU in the far
+  corner take no direction, so they are buttons and nothing more.
+
+A slot the player is not carrying is not drawn; one the weapon refuses is drawn
+in the same red the slot card uses, so a button that means *cast* says whether
+it can before the thumb goes down.
+
+A control on the console presses the same action a keyboard does, so the rules
+never learn what a finger is. What changes while it is up:
+
+* **Aim is the throw, not a pointer.** A phone has nothing on the glass until a
+  finger lands, and where it lands is where it is going. So the console aims the
+  way a gamepad does — the skill being thrown if one is, the movement stick if
+  it is pushed, and the way the player is facing otherwise, so a tap with no
+  throw in it still goes somewhere they meant. `Player._update_aim` needed no
+  line changed for any of it; the crosshair and the pointer setting stand down.
 * **A click stops attacking.** The system turns every touch into a click, and
-  `attack` is bound to one, so a thumb resting on the cross would swing the
-  weapon for as long as it rested there. The mouse bindings are set aside for
-  as long as the console is up and handed straight back when it goes; the
-  rebinding screen still shows them, and they are still what gets saved.
-* **Every prompt names the key on the glass.** The slot cards, the extract
+  `attack` is bound to one, so a thumb resting on the stick would swing the
+  weapon for as long as it rested there. The mouse bindings are set aside for as
+  long as the console is up and handed straight back when it goes; the rebinding
+  screen still shows them, and they are still what gets saved.
+* **Every prompt names the control on the glass.** The slot cards, the extract
   prompt, the hint over an NPC — all of them ask `Controls.short_label_for`,
   which answers with the console's own word, so a card reads `HIT weapon attack`
   rather than `LMB weapon attack`. The two keyboard legends along the bottom of
-  the HUD are dropped outright: with the keys drawn on the screen with their
+  the HUD are dropped outright: with the controls drawn on the screen with their
   names on them, a line telling you to press one is two rows of a small screen
   spent saying nothing.
 * **What is on the console follows the screen.** Playing shows everything; a
-  conversation or a scene shows the two keys that pick an answer and the one
-  that turns the page; a window that has taken the controls — the map, the
-  assembly bench — keeps only the keys that close it again, since the map is
-  opened and shut with the same key and on a phone that key is on the console or
-  it is nowhere. The pause menu replaces it: those are buttons you tap.
+  conversation or a scene shows the stick that picks an answer and the key that
+  turns the page; a window that has taken the controls — the map, the assembly
+  bench — keeps only the keys that close it again, since the map is opened and
+  shut with the same key and on a phone that key is on the console or it is
+  nowhere. The pause menu replaces it: those are buttons you tap.
 
-Where the keys sit is checked rather than eyeballed —
-`tests/graphics/touch_pad_test` measures every key against the HUD's two bands,
-against every other key, and against its own word in both languages, and drives
-real fingers through the pad to see which actions come out.
+None of it is eyeballed. `tests/graphics/touch_pad_test` measures every control
+against the HUD's two bands, against every other control, and against its own
+word in both languages — then drives real fingers through a real raid: the stick
+walks and runs, a stick dragged over a button does not press it, a skill button
+arms its slot, charges while it is held, aims where it is thrown and casts what
+the hold paid for.
 
 The mouse pointer is the game's own: a crosshair, drawn at boot from a table of
 characters like every other asset here that is not a sprite or a font, with the
@@ -456,7 +481,7 @@ story/view/        the dialogue box, the cutscene box, the portraits, the camera
 graphics/          the atlas, screen effects, the pixel camera, the palette, view attachment
 graphics/views/    one view per gameplay node: actors, attacks, rooms, loot
 graphics/ui/       skill editor, HUD, hideout, title, results, bench panel
-                   touch_pad: the console drawn on the glass, for Android and iOS
+                   touch_pad: the two-thumb console drawn on the glass, for Android and iOS
                    ui_kit: one look for screens built of Controls
                    pixel_draw: the same look for screens that draw themselves
 graphics/assets/   the sprite atlas, the actor shader, two OFL fonts

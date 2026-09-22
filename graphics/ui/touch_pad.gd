@@ -1,113 +1,134 @@
 class_name TouchPad
 extends Control
 
-## The console the game draws on the glass: a movement cross under the left
-## thumb, the hand that fights under the right, the four slots under the health
-## bars and the three screens in the far corner.
+## The console the game draws on the glass: a thumbstick under the left thumb,
+## and under the right a stick per skill, one for the weapon, and the keys that
+## take no direction.
+##
+## Laid out the way a phone MOBA is, because that is the scheme this game's
+## controls actually fit:
+##
+##   * **The left thumb is a stick, and there is nothing there until it lands.**
+##     The left of the screen is empty; a thumb put down anywhere in it grows
+##     the stick under itself, and lifting takes it away again. So it is never
+##     somewhere to reach for and never in the way of the fight. It is analog —
+##     the game reads movement as the strength of two actions, so a stick half
+##     over walks and a stick hard over runs, which a cross of four keys could
+##     never say.
+##   * **A skill button is a stick too.** Press it and the slot is armed and
+##     begins to charge; drag and the charge aims; let go and it casts, where
+##     you were pointing, with everything the hold paid for. The game's own
+##     hold-to-charge is what a phone MOBA already asks a thumb to do — press,
+##     drag, release — so the two are the same gesture and nothing had to be
+##     invented. The weapon key is the same stick without the charge.
+##   * **Everything else is a key.** Jump, dash, interact and the three screens
+##     take no direction, so they are buttons and nothing more.
 ##
 ## Drawn rather than built, in UiKit's pixel look — `PixelDraw`, Silkscreen at
-## its own size, square unsmoothed edges a PIXEL wide — so a phone is playing
-## the same game a desk is, and not a mobile port of it laid over the top. It
-## is translucent for the same reason the HUD is sparse: the fight is behind it.
+## its own size, whole blocks — so a phone is playing the same game a desk is.
+## The sticks are round because a stick is round; `PixelDraw.disc` and `ring`
+## rasterise a circle on the grid rather than drawing a smooth one.
 ##
-## What it does to the game is not decided here. A key says which action it is
-## holding and `Touch` (`app/touch.gd`) sends that action, so this file knows
-## nothing about jumping and the player knows nothing about thumbs.
+## What a press does to the game is not decided here. A control says which
+## actions it is holding and `Touch` (`app/touch.gd`) sends them, so this file
+## knows nothing about charging and the player knows nothing about thumbs.
 ##
-## **Where the keys sit is the whole design.** The screen is 1280x720 whatever
-## the window is doing — `canvas_items` stretch, aspect kept — so the layout is
-## written out in that space, once, and checked against the HUD rather than
-## guessed at. The HUD owns two bands of the screen and neither is negotiable:
-## the bars and the weapon down the top-left corner, and the row of slot cards
-## with its hint line across the bottom, which begins at y=592. So the thumbs
-## sit higher than they would on a phone with nothing else on the screen —
-## y=380 to y=580 — and `tests/graphics/touch_pad_test` holds them there.
-##
-## The cross is four keys and not eight. Movement in this game is left and
-## right — `Player` reads one axis — and up and down are aim, so a thumb that
-## wants to shoot upwards stops walking, the way it has in every game shaped
-## like this one. Two thumbs on the cross still press two of them.
+## **Where the controls sit is the whole design.** The screen is 1280x720
+## whatever the window is doing — `canvas_items` stretch, aspect kept — so the
+## layout is written out in that space, once, and checked against the HUD rather
+## than guessed at. The HUD owns the top-left corner down to y=112 and
+## everything below y=592, so the hand sits between them.
+## `tests/graphics/touch_pad_test` holds it all there.
 
-## Which keys are on the screen. The shell picks it — `Game._touch_face` — since
-## which of these the player is standing in is the shell's question and not the
-## picture's.
+## What a control is.
+##
+##   KEY   a button. Pressed while a thumb is on it, and nothing more.
+##   MOVE  the movement stick. It has a zone rather than a place: it is drawn
+##         nowhere until a thumb lands somewhere in that zone, grows there, and
+##         is gone again the moment the thumb lifts.
+##   AIM   a button that is also a stick. It holds its action the whole time and
+##         the drag off it is where the cast goes.
+enum Kind { KEY, MOVE, AIM }
+
+## Which controls are on the screen. The shell picks it — `Game._touch_face` —
+## since which of these the player is standing in is the shell's question and
+## not the picture's.
 ##
 ##   PLAY    somebody has the controls: everything.
-##   TALK    a conversation or a scene has them: the two keys that pick an
-##           answer, and the one that turns the page.
+##   TALK    a conversation or a scene has them: the stick, which picks an
+##           answer, and the key that turns the page.
 ##   SCREEN  a screen has them — the map, the assembly bench. Only the keys that
 ##           close it again, or a phone would have no way out of a window it
 ##           opened.
 enum Face { NONE, PLAY, TALK, SCREEN }
 
-## One arrow, turned four ways by `PixelDraw.turn`: 0 up, 1 right, 2 down, 3 left.
-const ARROW := [
-	"...#...",
-	"..###..",
-	".#####.",
-	"#######",
-	"...#...",
-	"...#...",
-	"...#...",
+## Every control: what it presses, where it sits in the 1280x720 the game is
+## drawn at, and which faces it appears on.
+##
+## A round control carries `at` and `radius`; the three screens carry a `rect`
+## instead, because they are labelled plates rather than things a thumb rests
+## on, and looking different is how they say so. An `arm` is an action pressed
+## alongside the held one — a slot stick arms its slot and charges through
+## `cast_skill`, which is what makes one button a whole skill. A `slot` is which
+## of the player's slots it is, so a button for a slot they do not carry is not
+## drawn and does not answer.
+const CONTROLS := [
+	# The stick. It has no place of its own — only a `zone` a thumb may summon
+	# it anywhere inside, which is the whole left of the screen between the
+	# health bars and the slot cards. That is the point of it: the hand goes
+	# where it likes and the stick comes to the hand.
+	{"kind": Kind.MOVE, "radius": 78.0, "knob": 30.0,
+		"zone": Rect2(0, 120, 456, 472), "faces": [Face.PLAY, Face.TALK]},
+	# One stick per slot, in a row above the hand. Press to arm and charge, drag
+	# to aim, let go to cast.
+	{"kind": Kind.AIM, "action": "cast_skill", "arm": "skill_1", "slot": 0,
+		"at": Vector2(988, 320), "radius": 32.0, "text": "1", "faces": [Face.PLAY]},
+	{"kind": Kind.AIM, "action": "cast_skill", "arm": "skill_2", "slot": 1,
+		"at": Vector2(1064, 320), "radius": 32.0, "text": "2", "faces": [Face.PLAY]},
+	{"kind": Kind.AIM, "action": "cast_skill", "arm": "skill_3", "slot": 2,
+		"at": Vector2(1140, 320), "radius": 32.0, "text": "3", "faces": [Face.PLAY]},
+	{"kind": Kind.AIM, "action": "cast_skill", "arm": "skill_4", "slot": 3,
+		"at": Vector2(1216, 320), "radius": 32.0, "text": "4", "faces": [Face.PLAY]},
+	# The hand. USE and DASH take no direction; the weapon does, so it is a
+	# stick; JUMP is the biggest and sits where the thumb rests.
+	{"kind": Kind.KEY, "action": "interact", "at": Vector2(1102, 430), "radius": 34.0,
+		"faces": [Face.PLAY, Face.TALK]},
+	{"kind": Kind.KEY, "action": "dash", "at": Vector2(1206, 430), "radius": 34.0,
+		"faces": [Face.PLAY]},
+	{"kind": Kind.AIM, "action": "attack", "at": Vector2(1084, 522), "radius": 42.0,
+		"faces": [Face.PLAY]},
+	{"kind": Kind.KEY, "action": "jump", "at": Vector2(1196, 522), "radius": 46.0,
+		"faces": [Face.PLAY]},
+	# The screens, in the far corner where nothing is reached for by accident.
+	{"kind": Kind.KEY, "action": "open_editor", "rect": Rect2(1048, 24, 64, 44),
+		"faces": [Face.PLAY, Face.SCREEN]},
+	{"kind": Kind.KEY, "action": "open_map", "rect": Rect2(1120, 24, 64, 44),
+		"faces": [Face.PLAY, Face.SCREEN]},
+	{"kind": Kind.KEY, "action": "pause", "rect": Rect2(1192, 24, 64, 44),
+		"faces": [Face.PLAY, Face.SCREEN]},
 ]
-## How many PIXELs an arrow pixel covers. 7 art pixels at 3 is 42 across a 64
-## key — read at arm's length, and still whole blocks.
-const ARROW_ZOOM := 3
 
-## How far outside its edge a key still answers. Half the gap between two of
-## them, so the cross has no dead line down the middle of it and no two keys
-## overlap. Larger than that and a thumb on the gap would press whichever key
-## the table happens to list first.
-const SLOP := 2.0
+## How far a thumb rides out from a skill button before the cast has a direction
+## of its own, and how far out the knob is drawn. Generous, because a short
+## throw makes a fine aim impossible — the ring is drawn over whatever is beside
+## it, which costs nothing for the moment it is up.
+const AIM_DEAD := 16.0
+const AIM_REACH := 92.0
+const AIM_KNOB := 22.0
+
+## How far the movement stick must be pushed before it says anything. Sideways
+## it is small, since the strength past it is remapped back to a full range and
+## a walk should start as soon as the thumb moves. Up and down it is firm: those
+## two only pick an answer in a conversation, and a thumb running sideways
+## wanders across them.
+const STICK_DEAD := 0.22
+const STICK_UPDOWN := 0.5
+
+## How far outside its edge a control still answers.
+const SLOP := 4.0
 
 ## The mouse, as a finger. A desk has one pointer and no index to tell it by.
 const MOUSE := -1
-
-## Every key: the action it holds down, where it sits in the 1280x720 the game
-## is drawn at, what is written on it, and which faces it appears on.
-##
-## What is written on a key is an arrow, a slot number, or — where it is neither
-## — the word `controls.pad` gives that action. The HUD reads the same words
-## through `Controls.short_label_for`, so a key and everything that tells the
-## player to press it say the same thing.
-const KEYS := [
-	# The movement cross, under the left thumb.
-	{"action": "move_up", "rect": Rect2(92, 380, 64, 64), "arrow": 0,
-		"faces": [Face.PLAY, Face.TALK]},
-	{"action": "move_left", "rect": Rect2(24, 448, 64, 64), "arrow": 3,
-		"faces": [Face.PLAY]},
-	{"action": "move_right", "rect": Rect2(160, 448, 64, 64), "arrow": 1,
-		"faces": [Face.PLAY]},
-	{"action": "move_down", "rect": Rect2(92, 516, 64, 64), "arrow": 2,
-		"faces": [Face.PLAY, Face.TALK]},
-	# The hand that fights, under the right. CAST is above JUMP rather than
-	# beside it because it is held: a charge lasts, and a thumb holding one
-	# should not be sitting on the key it jumps with.
-	{"action": "cast_skill", "rect": Rect2(1124, 380, 64, 64),
-		"faces": [Face.PLAY]},
-	{"action": "interact", "rect": Rect2(1192, 380, 64, 64),
-		"faces": [Face.PLAY, Face.TALK]},
-	{"action": "dash", "rect": Rect2(1056, 448, 64, 64),
-		"faces": [Face.PLAY]},
-	{"action": "attack", "rect": Rect2(1192, 448, 64, 64),
-		"faces": [Face.PLAY]},
-	{"action": "jump", "rect": Rect2(1124, 516, 64, 64),
-		"faces": [Face.PLAY]},
-	# The four slots, in a row under the health bars. They say the same numbers
-	# the cards along the bottom of the screen say, because they are the same
-	# four slots and the cards are what they arm.
-	{"action": "skill_1", "rect": Rect2(24, 150, 52, 48), "text": "1", "faces": [Face.PLAY]},
-	{"action": "skill_2", "rect": Rect2(84, 150, 52, 48), "text": "2", "faces": [Face.PLAY]},
-	{"action": "skill_3", "rect": Rect2(144, 150, 52, 48), "text": "3", "faces": [Face.PLAY]},
-	{"action": "skill_4", "rect": Rect2(204, 150, 52, 48), "text": "4", "faces": [Face.PLAY]},
-	# The screens, in the far corner where nothing is reached for by accident.
-	{"action": "open_editor", "rect": Rect2(1048, 24, 64, 44),
-		"faces": [Face.PLAY, Face.SCREEN]},
-	{"action": "open_map", "rect": Rect2(1120, 24, 64, 44),
-		"faces": [Face.PLAY, Face.SCREEN]},
-	{"action": "pause", "rect": Rect2(1192, 24, 64, 44),
-		"faces": [Face.PLAY, Face.SCREEN]},
-]
 
 const FILL := Color(0.05, 0.06, 0.09, 0.55)
 const FILL_HELD := Color(0.16, 0.34, 0.44, 0.82)
@@ -115,8 +136,15 @@ const EDGE := Color(0.45, 0.85, 1.0, 0.38)
 const EDGE_HELD := Color(0.6, 0.95, 1.0, 0.95)
 const INK := Color(0.74, 0.84, 0.95, 0.8)
 const INK_HELD := Color(1, 1, 1, 1)
+## A slot the weapon refuses. The same red the slot cards use for it, quieted:
+## the button is still there and still presses, it just says beforehand what the
+## card below it says after.
+const EDGE_OFF := Color(0.85, 0.42, 0.44, 0.34)
+const INK_OFF := Color(0.82, 0.5, 0.52, 0.55)
+## The ring a skill aims in, and the pips that walk out to the knob.
+const AIM_EDGE := Color(0.55, 0.92, 1.0, 0.5)
 
-## Which keys are up. Set by the shell every frame; changing it lets go of
+## Which controls are up. Set by the shell every frame; changing it lets go of
 ## everything, so a key that was being held when the screen changed does not
 ## stay down behind the screen that replaced it.
 var face: int = Face.NONE:
@@ -126,11 +154,32 @@ var face: int = Face.NONE:
 		face = value
 		_let_go()
 
-## Finger (or MOUSE) -> the index into KEYS it is resting on.
+## Finger (or MOUSE) -> the index into CONTROLS it is resting on.
 var _down: Dictionary = {}
+## Where the thumb that summoned the movement stick landed, where the ring is
+## drawn, and how far it is pushed, -1 to 1. All meaningless while no thumb is
+## on it: see `stick_showing`.
+##
+## The two places are usually the same one and are not always: a thumb landing
+## within a radius of the edge of the zone would draw a ring half off the screen
+## or over the slot cards, so the ring slides in to fit. **The push is measured
+## from where the thumb landed either way**, or a stick summoned in the corner
+## would read as shoved the moment it appeared, and the player would walk off
+## without having asked to.
+var _stick_from: Vector2 = Vector2.ZERO
+var _stick_at: Vector2 = Vector2.ZERO
+var _stick: Vector2 = Vector2.ZERO
+## The skill or weapon stick being aimed, and the thumb's throw off its middle.
+var _aim_from: int = -1
+var _aim_off: Vector2 = Vector2.ZERO
+## Whoever is being played and how many slots they carry, read once a frame
+## rather than once per control: the pad asks three questions of them while it
+## draws, and walking the tree for each would be three walks a frame.
+var _player: Player = null
+var _slots: int = 0
 ## Whether this machine has ever reported a finger. The system turns a touch
 ## into a mouse click as well as reporting the touch, and answering both would
-## press every key twice; once there are fingers the mouse is one of them.
+## press every control twice; once there are fingers the mouse is one of them.
 var _fingers: bool = false
 var _px := PixelDraw.new(self)
 
@@ -164,14 +213,65 @@ func _process(_delta: float) -> void:
 		Touch.set_up(up)
 	if not up:
 		return
-	Touch.aim(_aim())
+	_player = _find_player()
+	_slots = 0 if _player == null else _player.runners.size()
+	_drive()
+	Touch.aim(aim())
 	queue_redraw()
+
+## --- what the sticks say ----------------------------------------------------
+
+## The movement stick, as the four actions the game reads movement through.
+##
+## Sideways is analog: the strength is how far the stick is over, remapped so it
+## runs the whole way from nothing to everything past the deadzone rather than
+## jumping to a fifth the moment it is felt. Up and down are not — they only
+## pick an answer in a conversation, and an answer is picked or it is not.
+func _drive() -> void:
+	_lean("move_right", _stick.x, STICK_DEAD)
+	_lean("move_left", -_stick.x, STICK_DEAD)
+	_lean("move_down", _stick.y, STICK_UPDOWN)
+	_lean("move_up", -_stick.y, STICK_UPDOWN)
+
+func _lean(action: String, amount: float, dead: float) -> void:
+	if amount < dead:
+		Touch.release(action)
+		return
+	Touch.press(action, clampf((amount - dead) / (1.0 - dead), 0.0, 1.0))
+
+## Where the player is pointing, as a stick: the skill being aimed if one is,
+## the movement stick if it is pushed, and the way they are facing otherwise.
+##
+## A pointer is the one control a phone cannot offer — there is nothing on the
+## glass until a finger lands, and where it lands is where it is going. So the
+## pad aims the way a gamepad does, which the game already understands and
+## `Player._update_aim` needed no line changed for.
+##
+## The skill being aimed wins, which is the whole of the scheme: a thumb can run
+## right and throw a skill up and to the left in the same moment. Facing is the
+## last resort, so a tap with no throw in it still goes somewhere the player
+## meant — forwards, where they are walking.
+func aim() -> Vector2:
+	if _aim_from >= 0 and _aim_off.length() >= AIM_DEAD:
+		return _aim_off.normalized()
+	if _stick.length() >= STICK_DEAD:
+		return _stick.normalized()
+	return Vector2(_facing(), 0.0)
+
+func _facing() -> float:
+	return 1.0 if _player == null else float(_player.facing)
+
+func _find_player() -> Player:
+	for p in get_tree().get_nodes_in_group("player"):
+		if p is Player:
+			return p as Player
+	return null
 
 ## --- fingers ----------------------------------------------------------------
 
 ## Handled here rather than in `_gui_input` for two reasons: the GUI hands one
 ## pointer to one Control, and the pad needs two thumbs at once; and a press
-## that lands on a key is marked handled so it reaches nothing behind the pad.
+## that lands on a control is marked handled so it reaches nothing behind it.
 func _input(event: InputEvent) -> void:
 	if not visible:
 		return
@@ -198,14 +298,14 @@ func _input(event: InputEvent) -> void:
 ## The first finger this machine has ever reported.
 ##
 ## The system turns a touch into a click as well, and hands over the click
-## first, so the first finger of all lands on its key twice: once as itself and
-## once as a mouse that is not there. The phantom would then never lift — every
-## mouse event after this one is ignored — and a key something is still holding
-## is a key the finger that really lifted cannot let go of.
+## first, so the first finger of all lands on its control twice: once as itself
+## and once as a mouse that is not there. The phantom would then never lift —
+## every mouse event after this one is ignored — and a control something is
+## still holding is one the finger that really lifted cannot let go of.
 ##
-## So the key is handed over rather than let go of. Releasing it and pressing it
-## again would be a release inside the same frame as the press, and on the key
-## that casts a skill, a release is a cast.
+## So the control is handed over rather than let go of. Releasing it and pressing
+## it again would be a release inside the same frame as the press, and on a
+## skill stick a release is a cast.
 func _saw_a_finger(index: int) -> void:
 	if _fingers:
 		return
@@ -214,12 +314,17 @@ func _saw_a_finger(index: int) -> void:
 		_down[index] = _down[MOUSE]
 		_down.erase(MOUSE)
 
-## One finger, where it is now and whether it is still down. A finger that slides
-## off one key and onto another lets go of the first and presses the second,
-## which is what makes the cross playable without lifting a thumb off the glass.
+## One finger: where it is now, and whether it is still down.
 func _finger(index: int, at: Vector2, pressed: bool) -> void:
 	var was: int = _down.get(index, -1)
-	var now: int = _key_at(at) if pressed else -1
+	# A stick keeps the finger that started it, however far out it is dragged —
+	# that is what makes it a stick rather than a button you slid off. A key
+	# lets go the moment the thumb leaves it, and may take the next key along.
+	if pressed and was >= 0 and _is_stick(was):
+		_drag(was, at)
+		get_viewport().set_input_as_handled()
+		return
+	var now: int = _under(at) if pressed else -1
 	if now == was:
 		if now >= 0:
 			get_viewport().set_input_as_handled()
@@ -228,94 +333,229 @@ func _finger(index: int, at: Vector2, pressed: bool) -> void:
 		_down.erase(index)
 	else:
 		_down[index] = now
-	# Let go first, then press: a second thumb already on the key being left
-	# keeps it down, and a key being taken up is never released by this one.
-	if was >= 0 and not _held_by_a_finger(was):
-		Touch.release(String(KEYS[was]["action"]))
+	# Let go first, then take: a second thumb already on what is being left
+	# keeps it down, and what is being taken up is never released by this one.
+	if was >= 0:
+		_drop(was)
 	if now >= 0:
-		Touch.press(String(KEYS[now]["action"]))
-		Audio.play("ui")
+		_take(now, at)
 	if now >= 0 or was >= 0:
 		get_viewport().set_input_as_handled()
 
-func _held_by_a_finger(key: int) -> bool:
-	for other in _down.values():
-		if int(other) == key:
-			return true
-	return false
+func _is_stick(i: int) -> bool:
+	return int(CONTROLS[i]["kind"]) != Kind.KEY
 
-## The key under `at`, or -1. Only the keys on the face that is up answer: a
-## thumb on the corner where JUMP sits during a conversation presses nothing.
-func _key_at(at: Vector2) -> int:
-	for i in KEYS.size():
-		if not on_face(KEYS[i]):
+## A thumb has landed on `i`.
+func _take(i: int, at: Vector2) -> void:
+	var c: Dictionary = CONTROLS[i]
+	match int(c["kind"]):
+		Kind.MOVE:
+			# The stick grows under the thumb. The ring slides in where it must
+			# to stay on the screen; what the thumb is asking for is measured
+			# from the thumb regardless — see `_stick_from`.
+			var r: float = c["radius"]
+			var zone: Rect2 = c["zone"]
+			_stick_from = at
+			_stick_at = Vector2(
+				clampf(at.x, zone.position.x + r, zone.end.x - r),
+				clampf(at.y, zone.position.y + r, zone.end.y - r))
+			_stick = Vector2.ZERO
+			return          # a stick makes no click; a thumb resting is not a press
+		Kind.AIM:
+			if c.has("arm"):
+				Touch.press(String(c["arm"]))
+			Touch.press(String(c["action"]))
+			_aim_from = i
+			_aim_off = Vector2.ZERO
+		_:
+			Touch.press(String(c["action"]))
+	Audio.play("ui")
+
+## The thumb on `i` has gone. Called after the finger has been taken out of
+## `_down`, so what is left there is what is still being held.
+func _drop(i: int) -> void:
+	var c: Dictionary = CONTROLS[i]
+	match int(c["kind"]):
+		Kind.MOVE:
+			_stick = Vector2.ZERO
+			_stick_at = Vector2.ZERO
+			_stick_from = Vector2.ZERO
+			_drive()
+		Kind.AIM:
+			_let_go_of(String(c["action"]))
+			if c.has("arm"):
+				_let_go_of(String(c["arm"]))
+			if _aim_from == i:
+				_aim_from = -1
+				_aim_off = Vector2.ZERO
+		_:
+			_let_go_of(String(c["action"]))
+
+## The thumb on `i` has moved to `at`.
+func _drag(i: int, at: Vector2) -> void:
+	var c: Dictionary = CONTROLS[i]
+	if int(c["kind"]) == Kind.MOVE:
+		var v: Vector2 = (at - _stick_from) / float(c["radius"])
+		_stick = v if v.length() <= 1.0 else v.normalized()
+	else:
+		_aim_from = i
+		_aim_off = at - Vector2(c["at"])
+
+## Lets go of `action` unless some other finger is still holding it. Two
+## controls can press the same one: every slot stick charges through
+## `cast_skill`, so one thumb lifting must not cast another thumb's skill.
+func _let_go_of(action: String) -> void:
+	for f in _down.values():
+		var c: Dictionary = CONTROLS[int(f)]
+		if String(c.get("action", "")) == action or String(c.get("arm", "")) == action:
+			return
+	Touch.release(action)
+
+## The control under `at`, or -1. Only what is on the face that is up answers: a
+## thumb where JUMP sits during a conversation presses nothing. The stick is
+## asked last, so its zone never takes a press meant for a button inside it.
+func _under(at: Vector2) -> int:
+	var stick := -1
+	for i in CONTROLS.size():
+		var c: Dictionary = CONTROLS[i]
+		if not shown(c):
 			continue
-		if (KEYS[i]["rect"] as Rect2).grow(SLOP).has_point(at):
+		if int(c["kind"]) == Kind.MOVE:
+			if (c["zone"] as Rect2).has_point(at):
+				stick = i
+		elif c.has("rect"):
+			if (c["rect"] as Rect2).grow(SLOP).has_point(at):
+				return i
+		elif at.distance_to(Vector2(c["at"])) <= float(c["radius"]) + SLOP:
 			return i
-	return -1
+	return stick
 
 func _let_go() -> void:
 	_down.clear()
+	_stick = Vector2.ZERO
+	_stick_at = Vector2.ZERO
+	_stick_from = Vector2.ZERO
+	_aim_from = -1
+	_aim_off = Vector2.ZERO
 	Touch.release_all()
-
-## --- aiming -----------------------------------------------------------------
-
-## Where the player is pointing, as a stick: the cross while a thumb is on it,
-## and the way they are facing while none is.
-##
-## A pointer is the one control a phone cannot offer — there is nothing on the
-## glass until a finger lands, and where it lands is where it is going. So the
-## pad aims the way a gamepad does, which the game already understands, and the
-## keys that say "aim up" and "aim down" on the rebinding screen finally do.
-## Facing is the fallback so a shot always goes somewhere the player meant:
-## forwards, where they are walking.
-func _aim() -> Vector2:
-	var v := Vector2(
-		(1.0 if Touch.holding("move_right") else 0.0)
-			- (1.0 if Touch.holding("move_left") else 0.0),
-		(1.0 if Touch.holding("move_down") else 0.0)
-			- (1.0 if Touch.holding("move_up") else 0.0))
-	if v == Vector2.ZERO:
-		v = Vector2(_facing(), 0.0)
-	return v.normalized()
-
-func _facing() -> float:
-	for p in get_tree().get_nodes_in_group("player"):
-		if p is Actor:
-			return float((p as Actor).facing)
-	return 1.0
 
 ## --- the picture ------------------------------------------------------------
 
-## Whether `key` is on the face that is up.
-func on_face(key: Dictionary) -> bool:
-	return (key["faces"] as Array).has(face)
+## Whether the movement stick is on the screen at all, which is exactly whether
+## a thumb is on it. There is nothing drawn where it waits, because it does not
+## wait anywhere — see `_draw_stick`.
+func stick_showing() -> bool:
+	for f in _down.values():
+		if int(CONTROLS[int(f)]["kind"]) == Kind.MOVE:
+			return true
+	return false
 
-## What is written on a key: an arrow draws itself, a slot says its number, and
-## everything else is a word short enough to fit — checked, not hoped for.
-static func label_of(key: Dictionary) -> String:
-	if key.has("arrow"):
+## Whether `c` can do anything if it is pressed. A weapon refuses some boards,
+## and a button that means "cast" should say so before the thumb goes down
+## rather than after — the slot card below it only says so once it is armed.
+func usable(c: Dictionary) -> bool:
+	if not c.has("slot") or _player == null:
+		return true
+	return _player.can_cast(int(c["slot"]))
+
+## Whether `c` is on the screen: on the face that is up, and, for a slot stick,
+## a slot the player is actually carrying. A slot they carry but cannot cast is
+## still drawn — see `usable` — because it is theirs and a weapon away from
+## working.
+func shown(c: Dictionary) -> bool:
+	if not (c["faces"] as Array).has(face):
+		return false
+	if c.has("slot"):
+		return int(c["slot"]) < _slots
+	return true
+
+## The square of screen a control covers, for anything that has to know it does
+## not cover something else.
+static func area(c: Dictionary) -> Rect2:
+	if c.has("rect"):
+		return c["rect"]
+	if int(c["kind"]) == Kind.MOVE:
+		return c["zone"]
+	var r: float = c["radius"]
+	return Rect2(Vector2(c["at"]) - Vector2.ONE * r, Vector2.ONE * r * 2.0)
+
+## What is written on a control: a slot says its number, and everything else is
+## the word `controls.pad` gives its action — the same word the HUD prints
+## through `Controls.short_label_for`, so a key and everything that tells the
+## player to press it say the same thing. The stick says nothing; it is a stick.
+static func label_of(c: Dictionary) -> String:
+	if int(c["kind"]) == Kind.MOVE:
 		return ""
-	if key.has("text"):
-		return String(key["text"])
-	return Controls.word_for(String(key["action"]))
+	if c.has("text"):
+		return String(c["text"])
+	return Controls.word_for(String(c["action"]))
 
 func _draw() -> void:
-	for key in KEYS:
-		if on_face(key):
-			_draw_key(key)
+	for i in CONTROLS.size():
+		var c: Dictionary = CONTROLS[i]
+		if not shown(c):
+			continue
+		match int(c["kind"]):
+			Kind.MOVE:
+				if stick_showing():
+					_draw_stick(c)
+			_:
+				_draw_button(c, _held(c), usable(c))
+	# The throw is drawn last and over everything, since it reaches across
+	# whatever is beside the button it came from.
+	if _aim_from >= 0 and _aim_off.length() >= AIM_DEAD:
+		_draw_throw(CONTROLS[_aim_from])
 
-func _draw_key(key: Dictionary) -> void:
-	var r: Rect2 = key["rect"]
-	var held := Touch.holding(String(key["action"]))
-	_px.rect(r, FILL_HELD if held else FILL)
-	_px.frame(r, EDGE_HELD if held else EDGE)
-	var ink := INK_HELD if held else INK
-	if key.has("arrow"):
-		_px.icon_centered(r.get_center(), PixelDraw.turn(ARROW, int(key["arrow"])),
-			ink, ARROW_ZOOM)
+func _held(c: Dictionary) -> bool:
+	for f in _down.values():
+		if CONTROLS[int(f)] == c:
+			return true
+	return false
+
+## The movement stick: the ring it swings in, and the knob inside it — drawn
+## only while a thumb is on it, and only where that thumb put it. Nothing is
+## drawn while none is, which is the whole of the design: an empty left half is
+## a left half you can see the fight through, and a stick that grows under the
+## thumb is never a stick anybody has to find first.
+func _draw_stick(c: Dictionary) -> void:
+	var r: float = c["radius"]
+	var knob: float = c["knob"]
+	_px.disc(_stick_at, r, FILL)
+	_px.ring(_stick_at, r, PixelDraw.PX, EDGE_HELD)
+	var at := _stick_at + _stick * (r - knob)
+	_px.disc(at, knob, FILL_HELD)
+	_px.ring(at, knob, PixelDraw.PX * 2, EDGE_HELD)
+
+## A button, round or plated, with its word in the middle of it.
+func _draw_button(c: Dictionary, held: bool, live: bool) -> void:
+	var ink := INK_HELD if held else (INK if live else INK_OFF)
+	var edge := EDGE_HELD if held else (EDGE if live else EDGE_OFF)
+	if c.has("rect"):
+		var r: Rect2 = c["rect"]
+		_px.rect(r, FILL_HELD if held else FILL)
+		_px.frame(r, edge)
+		_px.text_centered(r.position + Vector2(0, r.size.y * 0.5 + 5.0),
+			label_of(c), ink, r.size.x)
 		return
+	var at := Vector2(c["at"])
+	var radius: float = c["radius"]
+	_px.disc(at, radius, FILL_HELD if held else FILL)
+	_px.ring(at, radius, PixelDraw.PX, edge)
 	# Capitals stand 10 high in this face and nothing descends, so a baseline
-	# five below the middle puts a word in the middle of its key.
-	_px.text_centered(r.position + Vector2(0, r.size.y * 0.5 + 5.0),
-		label_of(key), ink, r.size.x)
+	# five below the middle puts a word in the middle of its button.
+	_px.text_centered(at - Vector2(radius, -5.0), label_of(c), ink, radius * 2.0)
+
+## Where a held skill is pointing: the ring it is thrown within, a few pips
+## walking out along the throw, and the knob at the end of it. Big enough to
+## read out of the corner of an eye during a fight, which is the only time it
+## is ever up.
+func _draw_throw(c: Dictionary) -> void:
+	var at := Vector2(c["at"])
+	var d := _aim_off.normalized()
+	_px.ring(at, AIM_REACH, PixelDraw.PX, AIM_EDGE)
+	var step := (AIM_REACH - float(c["radius"])) / 4.0
+	for i in 3:
+		_px.disc(at + d * (float(c["radius"]) + step * float(i + 1)), 7.0, AIM_EDGE)
+	var knob := at + d * AIM_REACH
+	_px.disc(knob, AIM_KNOB, FILL_HELD)
+	_px.ring(knob, AIM_KNOB, PixelDraw.PX * 2, EDGE_HELD)
