@@ -57,6 +57,7 @@
 		"deploy": "DEPLOY >"
 	},
 	"skill_default": "Skill %d",
+	"no_kit": "nothing is armed — the workbench fills the slots",
 	"station": {
 		"weapons": "WEAPON RACK",
 		"weapons_prompt": "press F to pick what you carry",

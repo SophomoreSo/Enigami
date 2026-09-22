@@ -34,6 +34,22 @@ func frames(n: int) -> void:
 	for i in n:
 		await get_tree().process_frame
 
+## A key down and up. Both codes are filled in: the bindings are read off the
+## physical key, and the editor closes itself off the labelled one.
+func tap_key(code: int) -> void:
+	var d := InputEventKey.new()
+	d.physical_keycode = code
+	d.keycode = code
+	d.pressed = true
+	Input.parse_input_event(d)
+	await frames(4)
+	var u := InputEventKey.new()
+	u.physical_keycode = code
+	u.keycode = code
+	u.pressed = false
+	Input.parse_input_event(u)
+	await frames(4)
+
 ## Every Control under `root`, scrollbars included.
 func controls_under(root: Node) -> Array:
 	var out: Array = []
@@ -167,6 +183,16 @@ func _ready() -> void:
 	check(world.open_panel == "" and not world.player.controls_locked(),
 		"and pressing it gives the room and the keys back")
 
+	# Nothing is armed yet, so assembly has nothing to open over. The press is
+	# answered all the same: a key that does nothing is indistinguishable from a
+	# key that is broken.
+	check(world.armed_boards().is_empty(), "nothing is armed yet")
+	await tap_key(KEY_TAB)
+	check(game.editor == null, "TAB with an empty kit opens nothing")
+	var hud: Hud = Views.of(world).hud
+	check(hud != null and hud.toast == Loc.t("hideout.no_kit") and hud.toast_time > 0.0,
+		"and the room says why (%s)" % ("no readout" if hud == null else hud.toast))
+
 	# --- the counter sells parts --------------------------------------------
 	await stand_at("shop")
 	(world.stations["shop"] as Station).interact()
@@ -237,6 +263,31 @@ func _ready() -> void:
 	world.set_weapon("GUN")
 	await frames(4)
 	check(gate.open, "arming a skill opens it")
+
+	# --- the kit, on the player and on the key -------------------------------
+	# The readout over the room reads the player rather than the profile, so what
+	# the gate would carry has to be on them before it can be shown: a runner per
+	# armed slot, put back by whatever changed one.
+	var armed: Array = world.armed_boards()
+	check(armed.size() == 1 and world.player.runners.size() == armed.size(),
+		"the player standing in the room carries what the gate would carry (%d of %d)"
+			% [world.player.runners.size(), armed.size()])
+	check(hud != null and hud.player == world.player,
+		"and the readout over the room is reading them")
+
+	# The key that opens assembly in a raid opens it here, over those same
+	# boards. The second press is the editor closing itself, and this must not
+	# see it and open the editor straight back up.
+	await tap_key(KEY_TAB)
+	check(game.editor != null and is_instance_valid(game.editor),
+		"TAB opens assembly over the room")
+	if game.editor != null and is_instance_valid(game.editor):
+		check(game.editor.boards.size() == armed.size(),
+			"on the armed boards, a tab each (%d of %d)"
+				% [game.editor.boards.size(), armed.size()])
+	await tap_key(KEY_TAB)
+	check(game.editor == null, "and a second press puts it away")
+
 	gate.interact()
 	await frames(4)
 	check(deployed.size() == 2 and String(deployed[0]) == "GUN",

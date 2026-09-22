@@ -52,6 +52,11 @@ var pixels: PixelCamera
 var layer: CanvasLayer
 ## The station panel on screen, or null. One at a time, like the stations.
 var panel: Control = null
+## The same readout the raid draws, over the same room: health, the weapon in
+## hand and a card per armed slot. What the gate would carry is a thing to look
+## at while you are still deciding, and the player standing here is carrying it
+## already — `HideoutWorld.refresh_kit` is what keeps that true.
+var hud: Hud
 
 func _ready() -> void:
 	world = get_parent() as HideoutWorld
@@ -74,11 +79,21 @@ func _ready() -> void:
 	layer = CanvasLayer.new()
 	layer.layer = 10
 	add_child(layer)
+	# Added before any panel is, so a station's panel opens over the readout
+	# rather than under it: on one layer, later is higher.
+	hud = Hud.new()
+	layer.add_child(hud)
 
 	world.panel_changed.connect(_on_panel_changed)
+	world.noticed.connect(func(text: String) -> void: hud.show_toast(text))
 	set_process(true)
 
 func _process(_delta: float) -> void:
+	if hud != null and is_instance_valid(hud):
+		hud.player = world.player if world != null and is_instance_valid(world) else null
+		# There is no map here and nothing to extract from, so the line along the
+		# bottom names the keys this room actually answers to.
+		hud.footer = Loc.t("hud.footer_lobby")
 	# The signs say what a press would do, and that changes as the player walks
 	# and as the kit fills up: `queue_redraw` every frame is what the raid's own
 	# prompts do, and the whole screen is four plates.

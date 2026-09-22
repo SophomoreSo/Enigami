@@ -57,6 +57,7 @@
 		"deploy": "출격 >"
 	},
 	"skill_default": "스킬 %d",
+	"no_kit": "장착된 스킬이 없습니다 — 작업대에서 슬롯을 채우세요",
 	"station": {
 		"weapons": "무기 거치대",
 		"weapons_prompt": "F를 눌러 들고 갈 무기를 고르세요",

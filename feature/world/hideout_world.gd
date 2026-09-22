@@ -22,6 +22,13 @@ signal station_used(id: String)
 ## A board in the library was asked for. The editor belongs to `app/game.gd` —
 ## the same one the workbench has always opened — so this only passes the ask on.
 signal edit_requested(board_index: int)
+## Assembly was asked for by key rather than by walking to the bench. Same
+## editor, same owner; what it opens over is `armed_boards`.
+signal assembly_requested()
+## Something the room wants to say, for the HUD to toast. The raid says things
+## the same way (`Raid.noticed`), and this is the same kind of thing: an answer
+## to a press that would otherwise be silence.
+signal noticed(text: String)
 ## The panel over the room opened or closed. The room keeps standing either way.
 signal panel_changed(id: String)
 
@@ -73,7 +80,7 @@ func _ready() -> void:
 	player.collision_mask = 1
 	add_child(player)
 	player.room = room
-	player.setup(weapon_id, [])
+	refresh_kit()
 	# Nothing here can hurt anybody, and a player who walked in wounded should
 	# not be reading their health bar while they shop. The medbay is what heals
 	# between raids; this is only the hideout refusing to be a fight.
@@ -86,6 +93,9 @@ func _ready() -> void:
 		_build_station(String(id))
 	_refresh_gate()
 	GameState.loadout_changed.connect(_refresh_gate)
+	# The player standing in the room carries what the gate would carry, so a
+	# slot filled at the bench has to reach them before the HUD can show it.
+	GameState.loadout_changed.connect(refresh_kit)
 	GameState.stash_changed.connect(_refresh_gate)
 	# The signs are words written once, unlike everything the view draws every
 	# frame, so a language switched from the pause menu has to reach them.
@@ -142,6 +152,28 @@ func filled_slots() -> Array:
 	var slots := GameState.get_loadout(weapon_id)
 	return slots.filter(func(i: int) -> bool: return int(i) >= 0)
 
+## The boards behind those slots, in slot order. `get_loadout` has already
+## dropped any index the library no longer has, so every one of these is real.
+##
+## The library's own boards, not copies. A raid carries copies because a raid
+## writes on them; here they are only read — to be shown on the HUD and to be
+## edited, which is editing the library and is meant to be.
+func armed_boards() -> Array:
+	var out: Array = []
+	for i in filled_slots():
+		out.append(GameState.skill_library[int(i)])
+	return out
+
+## Puts the kit back on the player in the room: the weapon the rack was left on
+## and the boards in its slots. Nothing in here fights, but the HUD over the
+## room reads the player rather than the profile, so anything that changes the
+## kit — the rack, the bench, a board coming back from the editor — comes
+## through here afterwards.
+func refresh_kit() -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	player.setup(weapon_id, armed_boards())
+
 func _on_station_used(s: Station) -> void:
 	if open_panel != "":
 		return
@@ -182,8 +214,7 @@ func close_panel() -> void:
 ## weapon with nothing in its slots is a raid nobody should be let into.
 func set_weapon(id: String) -> void:
 	weapon_id = id
-	if player != null and is_instance_valid(player):
-		player.setup(id, [])
+	refresh_kit()
 	_refresh_gate()
 
 ## Whether the player is being held still by something on screen. The view asks
@@ -195,7 +226,20 @@ func leave() -> void:
 	title_requested.emit()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not event.is_action_pressed("interact") or reading():
+	if reading():
+		return
+	# The key that opens assembly in a raid opens it here too, over the boards
+	# the gate would carry. With none of them armed there is nothing to open, and
+	# a key that does nothing is the one thing a key must never do — so the room
+	# says so, and says where the slots are filled.
+	if event.is_action_pressed("open_editor"):
+		if armed_boards().is_empty():
+			noticed.emit(Loc.t("hideout.no_kit"))
+		else:
+			assembly_requested.emit()
+		get_viewport().set_input_as_handled()
+		return
+	if not event.is_action_pressed("interact"):
 		return
 	for id in stations:
 		var s: Station = stations[id]
