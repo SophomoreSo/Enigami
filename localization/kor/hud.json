@@ -3,11 +3,7 @@
 	"burning": "화상",
 	"chilled": "냉각",
 	"slot": {
-		"weapon_attack": "무기 공격",
 		"not_on": "%s 사용 불가",
-		"armed": "장착됨",
-		"pulse_one": "펄스 %d",
-		"pulse_many": "펄스 %d",
 		"hint": "%s 공격 · 숫자 키로 스킬 장착 · %s 길게 눌러 충전, 떼면 시전"
 	},
 	"map": {
@@ -33,6 +29,7 @@
 	},
 	"extracting": "탈출 중",
 	"footer": "TAB 조립   M 지도   F 상호작용   SHIFT 대시",
+	"footer_lobby": "TAB 조립   F 상호작용   SHIFT 대시",
 	"extract": {
 		"hold": "F를 길게 눌러 탈출",
 		"no_exit": "출구 없음",

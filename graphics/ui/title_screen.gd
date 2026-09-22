@@ -524,6 +524,8 @@ func _build_general() -> void:
 		Audio.set_sfx_volume(val)
 		Audio.play("ui")))
 	v.add_child(_language_row())
+	for row in VideoRows.rows():
+		v.add_child(row)
 	_general.foot.add_child(UiKit.spacer(8))
 	var back := UiKit.button(Loc.t("menu.settings.back"), UiKit.ACCENT, true)
 	back.pressed.connect(_toggle_general)
@@ -576,13 +578,14 @@ func _language_row() -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
 	var l := UiKit.label(Loc.t("menu.settings.language"), 16, UiKit.TEXT, true)
-	l.custom_minimum_size = Vector2(80, 0)
+	l.custom_minimum_size = Vector2(UiKit.SETTING_LABEL_W, 0)
 	h.add_child(l)
 	for lang in Loc.languages():
 		var picked: bool = lang == Loc.language
 		var b := UiKit.button(Loc.language_name(lang),
 			UiKit.ACCENT if picked else UiKit.DIM, true)
-		b.disabled = picked
+		if picked:
+			UiKit.mark_chosen(b)
 		b.pressed.connect(func() -> void:
 			Audio.play("ui")
 			Loc.set_language(lang))
@@ -630,7 +633,7 @@ func _slider(name: String, value: float, cb: Callable) -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
 	var l := UiKit.label(name, 16, UiKit.TEXT, true)
-	l.custom_minimum_size = Vector2(80, 0)
+	l.custom_minimum_size = Vector2(UiKit.SETTING_LABEL_W, 0)
 	h.add_child(l)
 	var s := HSlider.new()
 	s.min_value = 0.0
@@ -718,7 +721,6 @@ func _draw() -> void:
 	_draw_focus_marks()
 	_draw_save_slot_prompt()
 	_draw_slot_bins()
-	_draw_records()
 	_draw_glass()
 
 func _paint_copper(cv: CanvasItem) -> void:
@@ -986,20 +988,6 @@ func _draw_bin(at: Vector2, col: Color) -> void:
 	# And the two slots down its face.
 	draw_rect(Rect2(at + Vector2(-2, -3) * u, Vector2(1, 7) * u), col)
 	draw_rect(Rect2(at + Vector2(1, -3) * u, Vector2(1, 7) * u), col)
-
-func _draw_records() -> void:
-	for page in [_settings, _general, _controls]:
-		if page != null and page.visible:
-			return
-	if _save_slot_root != null and _save_slot_root.visible:
-		return
-	var rec: Dictionary = GameState.records
-	var line := Loc.t("menu.title.records", [
-		rec["raids"], rec["escapes"], rec["deaths"], rec["kills"], rec["best_haul"]])
-	var size := Loc.text_size(line, 12)
-	var w := _menu_font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
-	draw_string(_menu_font, Vector2(SEAL.x - w * 0.5, 708.0), line,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(0.30, 0.42, 0.62, 0.75))
 
 ## Scanlines and a vignette, to sit the whole thing behind glass.
 func _draw_glass() -> void:

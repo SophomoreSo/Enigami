@@ -57,6 +57,7 @@
 		"deploy": "DEPLOY >"
 	},
 	"skill_default": "Skill %d",
+	"no_kit": "nothing is armed — the workbench fills the slots",
 	"station": {
 		"weapons": "WEAPON RACK",
 		"weapons_prompt": "press F to pick what you carry",
@@ -66,7 +67,8 @@
 		"shop_prompt": "press F to spend scrap",
 		"gate": "THE GATE",
 		"gate_prompt": "press F to deploy",
-		"back": "BACK TO THE ROOM"
+		"back": "BACK TO THE ROOM",
+		"arrow": "<"
 	},
 	"gate": {
 		"no_weapon": "the vault has no such weapon",

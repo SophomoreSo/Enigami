@@ -38,7 +38,14 @@ func register_camera(c: Camera2D) -> void:
 	_directing = false
 	_releasing = false
 
+## Nothing asks whether shake is wanted before asking for it: every cue that
+## lands one is describing the hit, not the setting. The setting is read here,
+## once, so turning it off is one answer rather than a flag threaded through
+## `CueVisuals` — and a shake already running settles back to nothing either
+## way, which `_process` is what does.
 func shake(amount: float) -> void:
+	if not Video.screen_shake:
+		return
 	_shake = maxf(_shake, amount)
 
 ## Takes the screen's camera for a while — a conversation framing who is

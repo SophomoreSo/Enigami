@@ -8,8 +8,7 @@
 		"slot": "SLOT %d",
 		"slot_empty": "EMPTY",
 		"slot_delete": "DELETE?",
-		"select_slot": "SELECT SAVE SLOT",
-		"records": "RAIDS %d   ESCAPED %d   LOST %d   KILLS %d   BEST HAUL %d"
+		"select_slot": "SELECT SAVE SLOT"
 	},
 	"settings": {
 		"heading": "SETTINGS",
@@ -18,6 +17,14 @@
 		"language": "Language",
 		"general": "GENERAL SETTINGS",
 		"back": "BACK"
+	},
+	"video": {
+		"screen": "Screen",
+		"windowed": "WINDOWED",
+		"fullscreen": "FULL SCREEN",
+		"shake": "Camera shake",
+		"on": "ON",
+		"off": "OFF"
 	},
 	"pause": {
 		"heading": "PAUSED",

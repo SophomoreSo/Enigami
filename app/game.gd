@@ -145,6 +145,7 @@ func goto_hideout() -> void:
 	h.deploy_requested.connect(_deploy)
 	h.title_requested.connect(goto_title)
 	h.edit_requested.connect(_edit_library_skill)
+	h.assembly_requested.connect(_edit_kit)
 	add_child(h)
 	current = h
 	hideout_ref = h
@@ -192,14 +193,30 @@ func _raid_finished(result: String, payload: Dictionary) -> void:
 	current = rs
 
 ## --- hideout skill editing --------------------------------------------------
+## One board, picked off the bench's library list by its EDIT button.
 func _edit_library_skill(index: int) -> void:
 	if index < 0 or index >= GameState.skill_library.size():
 		return
+	_open_boards([GameState.skill_library[index]])
+
+## The armed kit, opened with the key a raid opens assembly with. Tabs, one per
+## slot, the same way the raid shows the boards it carries — and the same boards
+## the bench edits one at a time, so this is that reached without the walk.
+func _edit_kit() -> void:
+	if hideout_ref == null or not is_instance_valid(hideout_ref):
+		return
+	var boards: Array = hideout_ref.armed_boards()
+	if boards.is_empty():
+		return
+	_open_boards(boards)
+
+## The workbench editor over whatever boards it is given, spending the stash.
+func _open_boards(boards: Array) -> void:
 	_close_editor()
 	editor = SkillEditor.new()
 	editor.title_text = Loc.t("editor.title.workbench")
 	editor.weapon_id = hideout_ref.weapon_id if hideout_ref != null else "SWORD"
-	editor.configure([GameState.skill_library[index]], GameState.stash, false, [])
+	editor.configure(boards, GameState.stash, false, [])
 	editor.closed.connect(_close_editor)
 	editor.board_changed.connect(func(_s: int) -> void: GameState.save_game())
 	overlay_layer.add_child(editor)
@@ -212,6 +229,9 @@ func _close_editor() -> void:
 		# The board that came back may have a different name and different tags
 		# on it, and the bench's panel is showing the old ones.
 		if state == State.HIDEOUT and hideout_ref != null and is_instance_valid(hideout_ref):
+			# And the player in the room is carrying it, so the HUD is showing
+			# the board as it was before it went in.
+			hideout_ref.refresh_kit()
 			hideout_ref.refresh_panel()
 	editor = null
 
@@ -346,6 +366,8 @@ func _build_pause_general() -> void:
 	frame.rows.add_child(_vol_row(Loc.t("menu.pause.music"), func() -> float: return Audio.music_volume, func(x: float) -> void: Audio.set_music_volume(x)))
 	frame.rows.add_child(_vol_row(Loc.t("menu.pause.sound"), func() -> float: return Audio.sfx_volume, func(x: float) -> void: Audio.set_sfx_volume(x)))
 	frame.rows.add_child(_pause_language_row())
+	for row in VideoRows.rows():
+		frame.rows.add_child(row)
 	frame.foot.add_child(UiKit.spacer(8))
 	var back := UiKit.button(Loc.t("menu.pause.back"), UiKit.ACCENT, true)
 	back.custom_minimum_size = Vector2(280, 36)
@@ -410,13 +432,14 @@ func _pause_language_row() -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
 	var l := UiKit.label(Loc.t("menu.pause.language"), 16, UiKit.TEXT, true)
-	l.custom_minimum_size = Vector2(80, 0)
+	l.custom_minimum_size = Vector2(UiKit.SETTING_LABEL_W, 0)
 	h.add_child(l)
 	for lang in Loc.languages():
 		var picked: bool = lang == Loc.language
 		var b := UiKit.button(Loc.language_name(lang),
 			UiKit.ACCENT if picked else UiKit.DIM, true)
-		b.disabled = picked
+		if picked:
+			UiKit.mark_chosen(b)
 		b.pressed.connect(func() -> void:
 			Audio.play("ui")
 			Loc.set_language(lang))
@@ -427,7 +450,7 @@ func _vol_row(name: String, getter: Callable, setter: Callable) -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
 	var l := UiKit.label(name, 16, UiKit.TEXT, true)
-	l.custom_minimum_size = Vector2(80, 0)
+	l.custom_minimum_size = Vector2(UiKit.SETTING_LABEL_W, 0)
 	h.add_child(l)
 	var s := HSlider.new()
 	s.min_value = 0.0

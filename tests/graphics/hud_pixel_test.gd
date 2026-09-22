@@ -11,9 +11,9 @@ extends Node
 ## under way — so nothing that only shows sometimes goes unchecked.
 ##
 ## And the numbers the layout stands on, which the pixel face is what decides:
-## a card wide enough for the longest title it carries, a row of them that fits
-## the screen with the most slots a weapon has, and a health bar that holds the
-## longest reading it can show.
+## a row of squares as wide as the bars over it at the most slots a weapon has,
+## a square wide enough for the bindings the game ships with, and a health bar
+## that holds the longest reading it can show.
 ##
 ## Needs a real renderer: the block check reads the frame back.
 
@@ -135,20 +135,32 @@ func _ready() -> void:
 
 	# --- what the pixel face costs the layout --------------------------------
 	var vp := get_viewport().get_visible_rect().size
-	var title := "%s  %s" % [Controls.short_label_for("attack"), Loc.t("hud.slot.weapon_attack")]
-	var room := Hud.CARD.x - 16.0
-	check(PixelDraw.text_width(title) <= room,
-		"a card holds its longest title, '%s' (%.0f of %.0f)"
-			% [title, PixelDraw.text_width(title), room])
+	# The slots are squares under the bars now, so what the layout stands on is
+	# the column's own width rather than any card's: the widest weapon's slots,
+	# plus the weapon's own attack, have to come to the width of the bars over
+	# them or the corner stops reading as one column.
 	var most := 0
 	for id in Weapons.ids():
 		most = maxi(most, Weapons.slots(String(id)))
-	var right := Hud.BAR_AT.x + float(most + 1) * (Hud.CARD.x + Hud.CARD_GAP)
-	check(right <= vp.x, "the row of cards fits the screen at %d slots (%.0f of %.0f)"
-		% [most, right, vp.x])
-	var top := vp.y - Hud.CARD.y - Hud.CARD_LIFT
-	check(top + Hud.CARD.y <= vp.y - 24.0,
-		"and stops clear of the footer under it (%.0f of %.0f)" % [top + Hud.CARD.y, vp.y - 24.0])
+	var row := float(most + 1) * Hud.SLOT.x + float(most) * Hud.SLOT_GAP
+	check(row <= Hud.BAR_W + 0.5,
+		"the row of slots is no wider than the bars over it at %d slots (%.0f of %.0f)"
+			% [most, row, Hud.BAR_W])
+	# The only text in a square is the binding, centred and cut short if it has
+	# to be — but the bindings the game ships with have to fit whole, or every
+	# square starts life with an ellipsis in it.
+	var pad := 16.0
+	for action in ["attack", "skill_1", "skill_2", "skill_3", "skill_4"]:
+		var label := Controls.short_label_for(action)
+		check(PixelDraw.text_width(label) <= Hud.SLOT.x - pad,
+			"a slot square holds its binding whole, '%s' (%.0f of %.0f)"
+				% [label, PixelDraw.text_width(label), Hud.SLOT.x - pad])
+	# And the whole corner — bars, weapon, squares, the armed slot's name and the
+	# reason under it — stays clear of the two lines of keys along the bottom.
+	var column := Hud.SLOT_TOP + Hud.SLOT.y + 18.0 + PixelDraw.LINE
+	check(column <= vp.y - 34.0,
+		"the corner stops clear of the key hints under it (%.0f of %.0f)"
+			% [column, vp.y - 34.0])
 	var reading := Loc.t("hud.health", [999, 999])
 	check(PixelDraw.text_width(reading) <= Hud.BAR_W - 16.0,
 		"the health bar holds its longest reading, '%s' (%.0f of %.0f)"

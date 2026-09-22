@@ -57,6 +57,7 @@
 		"deploy": "출격 >"
 	},
 	"skill_default": "스킬 %d",
+	"no_kit": "장착된 스킬이 없습니다 — 작업대에서 슬롯을 채우세요",
 	"station": {
 		"weapons": "무기 거치대",
 		"weapons_prompt": "F를 눌러 들고 갈 무기를 고르세요",
@@ -66,7 +67,8 @@
 		"shop_prompt": "F를 눌러 고철을 쓰세요",
 		"gate": "관문",
 		"gate_prompt": "F를 눌러 출격하세요",
-		"back": "방으로 돌아가기"
+		"back": "방으로 돌아가기",
+		"arrow": "<"
 	},
 	"gate": {
 		"no_weapon": "금고에 그 무기가 없습니다",

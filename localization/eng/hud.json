@@ -3,11 +3,7 @@
 	"burning": "BURNING",
 	"chilled": "CHILLED",
 	"slot": {
-		"weapon_attack": "Weapon attack",
 		"not_on": "NOT ON %s",
-		"armed": "ARMED",
-		"pulse_one": "%d pulse",
-		"pulse_many": "%d pulses",
 		"hint": "%s attacks · number keys arm a skill · hold %s to charge, release to cast"
 	},
 	"map": {
@@ -33,6 +29,7 @@
 	},
 	"extracting": "EXTRACTING",
 	"footer": "TAB assemble   M map   F interact   SHIFT dash",
+	"footer_lobby": "TAB assemble   F interact   SHIFT dash",
 	"extract": {
 		"hold": "hold F to extract",
 		"no_exit": "no exit",
