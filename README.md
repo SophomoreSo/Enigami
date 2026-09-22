@@ -87,6 +87,48 @@ Gamepad: left stick moves, A jumps, B dashes, the right trigger attacks and the
 left one casts, X/Y arm slots 1–2, select opens assembly, RB interacts. Every keyboard binding is remappable
 from Settings (title screen) or the pause menu.
 
+### Touch — the console on the glass
+
+**Touch controls**, the second row of the control settings, draws the whole
+console on the screen for a thumb to play on: a movement cross bottom-left, the
+hand that fights bottom-right — CAST, USE, DASH, HIT, JUMP — the four slots in a
+row under the health bars, and KIT, MAP and MENU in the far corner. Three
+answers rather than a switch: **AUTO** is on wherever the machine is one you
+touch and off everywhere else, so an Android or iOS build has controls before
+anyone finds this row; **ON** and **OFF** are for the machines that are both,
+and for looking at the thing on a desk.
+
+A key on the console presses the same action a key on a keyboard does, so the
+rules never learn what a finger is. What changes while it is up:
+
+* **Aim is the cross, not a pointer.** A phone has nothing on the glass until a
+  finger lands, and where it lands is where it is going, so the console aims the
+  way a gamepad does — the cross while a thumb is on it, and the way the player
+  is facing while none is. The crosshair and the pointer setting stand down.
+* **A click stops attacking.** The system turns every touch into a click, and
+  `attack` is bound to one, so a thumb resting on the cross would swing the
+  weapon for as long as it rested there. The mouse bindings are set aside for
+  as long as the console is up and handed straight back when it goes; the
+  rebinding screen still shows them, and they are still what gets saved.
+* **Every prompt names the key on the glass.** The slot cards, the extract
+  prompt, the hint over an NPC — all of them ask `Controls.short_label_for`,
+  which answers with the console's own word, so a card reads `HIT weapon attack`
+  rather than `LMB weapon attack`. The two keyboard legends along the bottom of
+  the HUD are dropped outright: with the keys drawn on the screen with their
+  names on them, a line telling you to press one is two rows of a small screen
+  spent saying nothing.
+* **What is on the console follows the screen.** Playing shows everything; a
+  conversation or a scene shows the two keys that pick an answer and the one
+  that turns the page; a window that has taken the controls — the map, the
+  assembly bench — keeps only the keys that close it again, since the map is
+  opened and shut with the same key and on a phone that key is on the console or
+  it is nowhere. The pause menu replaces it: those are buttons you tap.
+
+Where the keys sit is checked rather than eyeballed —
+`tests/graphics/touch_pad_test` measures every key against the HUD's two bands,
+against every other key, and against its own word in both languages, and drives
+real fingers through the pad to see which actions come out.
+
 The mouse pointer is the game's own: a crosshair, drawn at boot from a table of
 characters like every other asset here that is not a sprite or a font, with the
 gap in the middle left open so what you are aiming at stays visible. **Mouse
@@ -397,6 +439,7 @@ for how they talk.
 ```
 app/               entry scene, screen flow, the cue bus, the sound bank, the words
                    pointer: the drawn cursor and how fast it moves
+                   touch: whether the console is on the glass, and what a key on it presses
 data/dialogue/     conversations, one JSON file per character — format in its README
 data/scenes/       directed scenes, one JSON file per scene — format in its README
 localization/      every word the game says: eng/ and kor/, a file per screen
@@ -413,6 +456,7 @@ story/view/        the dialogue box, the cutscene box, the portraits, the camera
 graphics/          the atlas, screen effects, the pixel camera, the palette, view attachment
 graphics/views/    one view per gameplay node: actors, attacks, rooms, loot
 graphics/ui/       skill editor, HUD, hideout, title, results, bench panel
+                   touch_pad: the console drawn on the glass, for Android and iOS
                    ui_kit: one look for screens built of Controls
                    pixel_draw: the same look for screens that draw themselves
 graphics/assets/   the sprite atlas, the actor shader, two OFL fonts

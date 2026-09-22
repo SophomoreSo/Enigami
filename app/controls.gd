@@ -27,6 +27,11 @@ const ACTIONS := [
 
 static var _defaults: Dictionary = {}
 
+## The mouse bindings while the on-screen pad has the screen, and whether it
+## has. See `set_mouse_aside`.
+static var _aside: Dictionary = {}
+static var _mouse_aside: bool = false
+
 ## What to call an action on the rebinding screen. The English in ACTIONS is
 ## the fallback, so an action added there is named before it is translated.
 static func action_name(action: String) -> String:
@@ -44,11 +49,74 @@ static func capture_defaults() -> void:
 		if InputMap.has_action(a):
 			_defaults[a] = InputMap.action_get_events(a).duplicate()
 
+## --- the glass --------------------------------------------------------------
+
+## Puts the mouse bindings away while the on-screen console is up, and hands
+## them back when it goes.
+##
+## A finger is not a mouse, but the system says it is: a touch is turned into a
+## click at the point it landed on, and `attack` is bound to a click. A thumb
+## resting on the movement keys would swing the weapon for as long as it rested
+## there, and so would every tap on every other key. The pad presses those
+## actions itself, so nothing is lost by taking the click away for as long as it
+## is up.
+##
+## The bindings are kept rather than deleted: `events_for` still reports them,
+## so the rebinding screen shows what the player chose and `save` writes it, and
+## the drawer is emptied back into the InputMap the moment the pad leaves.
+static func set_mouse_aside(aside: bool) -> void:
+	if aside == _mouse_aside:
+		return
+	_mouse_aside = aside
+	if aside:
+		_take_mouse()
+		return
+	for a in _aside:
+		for e in _aside[a]:
+			InputMap.action_add_event(a, e)
+	_aside.clear()
+
+static func mouse_aside() -> bool:
+	return _mouse_aside
+
+## Everything bound to `action`, whether or not the pad is holding the mouse.
+## The bindings a screen shows and a file keeps are the player's, and the pad
+## borrowing the mouse for a while is not a rebinding.
+static func events_for(action: String) -> Array:
+	var list := InputMap.action_get_events(action)
+	if _aside.has(action):
+		list.append_array(_aside[action])
+	return list
+
+## Moves every mouse binding into the drawer. Idempotent, so it can be run again
+## after anything that puts events back into the InputMap.
+static func _take_mouse() -> void:
+	for entry in ACTIONS:
+		var a: String = entry[0]
+		if not InputMap.has_action(a):
+			continue
+		for e in InputMap.action_get_events(a):
+			if not (e is InputEventMouseButton):
+				continue
+			InputMap.action_erase_event(a, e)
+			if not _aside.has(a):
+				_aside[a] = []
+			(_aside[a] as Array).append(e)
+
+## --- what a binding is called -----------------------------------------------
+
+## What the key on the glass for `action` says, or "" where the console has no
+## word for it. The words are `controls.pad.<action>`, so the file the console
+## is written in is also the list of which actions it names — a direction is an
+## arrow and a slot is its own number, and neither has a word here.
+static func word_for(action: String) -> String:
+	return Loc.opt("controls.pad.%s" % action, "")
+
 static func label_for(action: String) -> String:
 	if not InputMap.has_action(action):
 		return Loc.t("controls.none")
 	var names: Array[String] = []
-	for e in InputMap.action_get_events(action):
+	for e in events_for(action):
 		if e is InputEventKey:
 			names.append(OS.get_keycode_string((e as InputEventKey).physical_keycode))
 		elif e is InputEventMouseButton:
@@ -69,7 +137,16 @@ static func label_for(action: String) -> String:
 static func short_label_for(action: String) -> String:
 	if not InputMap.has_action(action):
 		return Loc.t("controls.none")
-	for e in InputMap.action_get_events(action):
+	# While the console has the screen there is no key to name: what the player
+	# presses is the one under their thumb, so that is what a HUD should print.
+	# Everything that tells the player which control does what reads this, so
+	# one answer here is the whole difference between a slot card that says
+	# "LMB weapon attack" on a phone and one that says "HIT weapon attack".
+	if _mouse_aside:
+		var word := word_for(action)
+		if word != "":
+			return word
+	for e in events_for(action):
 		if e is InputEventKey:
 			# The game's own actions are bound by position on the board, so they
 			# carry a physical code. Godot's built-in `ui_*` actions carry a
@@ -92,16 +169,24 @@ static func rebind(action: String, event: InputEvent) -> bool:
 	for e in InputMap.action_get_events(action):
 		if e is InputEventKey or e is InputEventMouseButton:
 			InputMap.action_erase_event(action, e)
+	_aside.erase(action)
 	InputMap.action_add_event(action, event)
+	# Bound while the pad is up: the binding is the player's and is kept, but
+	# it goes straight into the drawer with the others until the pad goes.
+	if _mouse_aside:
+		_take_mouse()
 	save()
 	return true
 
 static func reset() -> void:
 	capture_defaults()
+	_aside.clear()
 	for a in _defaults:
 		InputMap.action_erase_events(a)
 		for e in _defaults[a]:
 			InputMap.action_add_event(a, e)
+	if _mouse_aside:
+		_take_mouse()
 	save()
 
 static func save() -> void:
@@ -111,7 +196,7 @@ static func save() -> void:
 		if not InputMap.has_action(a):
 			continue
 		var list: Array = []
-		for e in InputMap.action_get_events(a):
+		for e in events_for(a):
 			if e is InputEventKey:
 				list.append({"t": "key", "k": (e as InputEventKey).physical_keycode})
 			elif e is InputEventMouseButton:
@@ -138,6 +223,7 @@ static func load_saved() -> void:
 	for a in parsed:
 		if not InputMap.has_action(a):
 			continue
+		_aside.erase(a)
 		for e in InputMap.action_get_events(a):
 			if e is InputEventKey or e is InputEventMouseButton:
 				InputMap.action_erase_event(a, e)
@@ -150,3 +236,5 @@ static func load_saved() -> void:
 				var m := InputEventMouseButton.new()
 				m.button_index = int(entry["b"])
 				InputMap.action_add_event(a, m)
+	if _mouse_aside:
+		_take_mouse()

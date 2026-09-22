@@ -14,6 +14,10 @@ var state: int = State.TITLE
 var current: Node = null
 var ui_layer: CanvasLayer
 var overlay_layer: CanvasLayer
+## The console on the glass, and the layer it is drawn on: over the game and
+## every window the game opens, under the pause menu, which replaces it.
+var touch_layer: CanvasLayer
+var touch_pad: TouchPad = null
 var editor: SkillEditor = null
 var pause_menu: Control = null
 ## The pause menu's two pages: PAUSED, and the rebinding list behind its
@@ -36,6 +40,7 @@ var hideout_ref: HideoutWorld = null
 func _ready() -> void:
 	randomize()
 	Controls.load_saved()
+	Touch.load_saved()
 	ui_layer = CanvasLayer.new()
 	ui_layer.layer = 5
 	add_child(ui_layer)
@@ -43,6 +48,7 @@ func _ready() -> void:
 	overlay_layer.layer = 20
 	overlay_layer.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(overlay_layer)
+	_build_touch_pad()
 	_build_pause_menu()
 	UiKit.fill_screen(pause_menu)
 	# The pause menu is built once and outlives every screen, so it is the one
@@ -68,6 +74,41 @@ func _rebuild_pause_menu(_lang: String) -> void:
 		pause_general.visible = was_general
 		pause_controls.visible = was_controls
 	_pause_exits()
+
+## --- the console on the glass ------------------------------------------------
+
+## Built once and outliving every screen, like the pause menu: a phone has the
+## same controls in a raid, on the hideout floor and at the bench, and no screen
+## should have to know that. Whether it is on the screen at all is the setting's
+## answer and the pad asks it itself; what is on it is the question below.
+func _build_touch_pad() -> void:
+	touch_layer = CanvasLayer.new()
+	touch_layer.layer = 15
+	touch_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(touch_layer)
+	touch_pad = TouchPad.new()
+	touch_layer.add_child(touch_pad)
+
+func _process(_delta: float) -> void:
+	if touch_pad != null and is_instance_valid(touch_pad):
+		touch_pad.face = _touch_face()
+
+## Which keys the pad shows. The shell answers because the shell is the one
+## thing that knows both what screen is up and who has the controls.
+##
+## A scene has no player to ask — the prologue is a cast and a camera — and it
+## turns its own pages on `interact`, so it wears the same face a conversation
+## does. A screen that has taken the controls keeps only the keys that close it
+## again: the map is opened and shut with the same key, and on a phone that key
+## is on the pad or it is nowhere.
+func _touch_face() -> int:
+	if state == State.INTRO:
+		return TouchPad.Face.TALK
+	for p in get_tree().get_nodes_in_group("player"):
+		if not p.controls_locked():
+			return TouchPad.Face.PLAY
+		return TouchPad.Face.TALK if p.talk_locked else TouchPad.Face.SCREEN
+	return TouchPad.Face.NONE
 
 func _clear() -> void:
 	if current != null and is_instance_valid(current):

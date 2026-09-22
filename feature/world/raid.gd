@@ -55,7 +55,8 @@ func _ready() -> void:
 
 	if parked.is_empty():
 		_enter_room(map.entry, -1)
-		noticed.emit(Loc.t("hud.toast.kit_waiting") if waiting else Loc.t("hud.toast.deployed"))
+		noticed.emit(Loc.t("hud.toast.kit_waiting") if waiting
+			else Loc.t("hud.toast.deployed", [Controls.short_label_for("interact")]))
 		return
 	# Back into the room it was left in, standing where it was left standing.
 	# `_enter_room` puts the player on the room's own spawn point, which is the
@@ -214,7 +215,11 @@ func _update_prompt() -> void:
 	if not room.extraction.is_empty():
 		var reason := room.extraction_blocked_reason()
 		if room.extraction_rect().has_point(player.global_position):
-			txt = Loc.t("hud.extract.hold") if reason == "" else reason
+			# Named rather than spelled out: the line used to say "hold F", which
+			# is wrong after a rebind and wrong on a phone, where the key that
+			# extracts is one on the console.
+			txt = Loc.t("hud.extract.hold", [Controls.short_label_for("interact")]) \
+				if reason == "" else reason
 	prompt = txt
 
 ## --- rooms ------------------------------------------------------------------

@@ -5,11 +5,29 @@
 	"reset": "기본값으로 되돌리기",
 	"listening": "키를 누르세요…",
 	"sensitivity": "마우스 감도",
+	"touch": {
+		"label": "터치 조작",
+		"off": "끄기",
+		"auto": "자동",
+		"on": "켜기"
+	},
 	"unbound": "없음",
 	"none": "—",
 	"mouse": "마우스 %d",
 	"pad_button": "패드 %d",
 	"pad_axis": "패드 축 %d%s",
+	"pad": {
+		"move_up": "위",
+		"move_down": "아래",
+		"jump": "점프",
+		"dash": "대시",
+		"attack": "공격",
+		"cast_skill": "시전",
+		"interact": "사용",
+		"open_editor": "조립",
+		"open_map": "지도",
+		"pause": "메뉴"
+	},
 	"action": {
 		"move_left": "왼쪽 이동",
 		"move_right": "오른쪽 이동",

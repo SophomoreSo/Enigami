@@ -136,6 +136,12 @@ func _draw_slots(vp: Vector2) -> void:
 		_draw_slot_card(Rect2(x, y, CARD.x, CARD.y), player.runners[i], key,
 			player.runners[i].board.skill_name, armed, player.can_cast(i))
 		x += CARD.x + CARD_GAP
+	# The two legends below are for a keyboard: they say which key does what.
+	# With the console up the keys are on the screen with their names written on
+	# them, so the legend is a line telling the player to press a button they
+	# are looking at — and on a phone it costs two rows of a small screen.
+	if Touch.up():
+		return
 	_px.text(Vector2(BAR_AT.x, y - 10.0),
 		Loc.t("hud.slot.hint", [
 			Controls.short_label_for("attack"), Controls.short_label_for("cast_skill")]),
@@ -195,4 +201,12 @@ func _draw_prompts(vp: Vector2) -> void:
 	if toast_time > 0.0:
 		var a := clampf(toast_time / 0.8, 0.0, 1.0)
 		_px.text_centered(Vector2((vp.x - band) * 0.5, 120.0), toast, Color(1, 0.95, 0.8, a), band)
-	_px.text(Vector2(BAR_AT.x, vp.y - 14.0), Loc.t("hud.footer"), Color(0.5, 0.58, 0.66))
+	if Touch.up():
+		return          # the console is its own legend; see `_draw_slots`
+	# Read from the bindings rather than written out, like the cards above: the
+	# line used to spell out TAB and SHIFT, which was wrong the moment anybody
+	# rebound one.
+	_px.text(Vector2(BAR_AT.x, vp.y - 14.0), Loc.t("hud.footer", [
+		Controls.short_label_for("open_editor"), Controls.short_label_for("open_map"),
+		Controls.short_label_for("interact"), Controls.short_label_for("dash")]),
+		Color(0.5, 0.58, 0.66))

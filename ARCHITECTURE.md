@@ -200,6 +200,7 @@ the files and a handler on the presentation side.
 | HUD layout, editor look — where a thing sits, not what it says | `graphics/ui/` |
 | The resolution the world is drawn at | `graphics/pixel_camera.gd` (the size comes from `Sprites.PIXEL_SCALE`) |
 | A new sound | `app/audio/audio_cues.gd` |
+| A key on the on-screen console — where it sits, what it says | `KEYS` in `graphics/ui/touch_pad.gd`, and its word in `controls.pad` in `localization/`. What pressing it does to the game is `app/touch.gd`, which sends the action a keyboard would and is the only thing that knows a finger from a key |
 | A new screen | `app/game.gd`, plus its Control in `graphics/ui/` |
 
 ### The one thing that looks like a picture but is not

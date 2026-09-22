@@ -5,11 +5,29 @@
 	"reset": "RESET TO DEFAULTS",
 	"listening": "press a key…",
 	"sensitivity": "Mouse sensitivity",
+	"touch": {
+		"label": "Touch controls",
+		"off": "OFF",
+		"auto": "AUTO",
+		"on": "ON"
+	},
 	"unbound": "unbound",
 	"none": "—",
 	"mouse": "Mouse %d",
 	"pad_button": "Pad %d",
 	"pad_axis": "Pad axis %d%s",
+	"pad": {
+		"move_up": "UP",
+		"move_down": "DOWN",
+		"jump": "JUMP",
+		"dash": "DASH",
+		"attack": "HIT",
+		"cast_skill": "CAST",
+		"interact": "USE",
+		"open_editor": "KIT",
+		"open_map": "MAP",
+		"pause": "MENU"
+	},
 	"action": {
 		"move_left": "Move left",
 		"move_right": "Move right",
