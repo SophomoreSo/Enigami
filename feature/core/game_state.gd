@@ -266,7 +266,7 @@ const SHOP_PRICES := {
 
 ## What the counter is selling: the lootable parts, in palette order. Structural
 ## parts are not among them — the editor hands those out for nothing, so a price
-## on one would be a price on drawing a wire.
+## on one would be a price on having a board at all.
 static func shop_stock() -> Array:
 	return Components.LOOT_POOL
 

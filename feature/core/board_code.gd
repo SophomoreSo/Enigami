@@ -80,9 +80,10 @@ const MAX_PARTS := 127
 ## Every component's number in a code. **Only ever append to this.** A code
 ## written today has to mean the same board next year, so a part keeps its
 ## number for good, and a part that is one day retired keeps its number with it
-## rather than letting the ones after it shuffle down. ID_BITS leaves room for
-## 64; `tests/feature/code_test.tscn` fails the moment a part here has no
-## definition, or a definition has no number here.
+## rather than letting the ones after it shuffle down — as WIRE and BEND have,
+## see `Components.RETIRED`. ID_BITS leaves room for 64;
+## `tests/feature/code_test.tscn` fails the moment a part here is neither
+## defined nor retired, or a definition has no number here.
 const CODE_IDS := [
 	"INPUT", "OUTPUT", "WIRE", "BEND",
 	"PROJECTILE", "SLASH", "AREA", "DASHSLASH", "DASHSLASH_AUTO",
@@ -210,6 +211,7 @@ static func decode(code: String) -> Dictionary:
 
 	var board := SkillBoard.new(w, h, name_for(c))
 	var cell_bits := _cell_bits(w, h)
+	var retired: Array = []
 	for i in count:
 		var pos := r.take(cell_bits)
 		var part := r.take(ID_BITS)
@@ -221,6 +223,12 @@ static func decode(code: String) -> Dictionary:
 		if pos >= w * h:
 			return _fail(IMPOSSIBLE)
 		var origin := Vector2i(pos % w, int(pos / w))
+		var id := String(CODE_IDS[part])
+		# A code written before a part was retired still reads; the part is set
+		# aside and the board closed up round it as a save is.
+		if Components.is_retired(id):
+			retired.append([id, origin, rot])
+			continue
 		# `place` refuses an overlap, a footprint off the edge and a second
 		# INPUT, so a code that says any of those is turned away here. The one
 		# thing it allows is a part dropped on an origin already taken, which is
@@ -228,12 +236,13 @@ static func decode(code: String) -> Dictionary:
 		# cell is checked clear first and the board a code names is exact.
 		if board.origin_at(origin) != null:
 			return _fail(IMPOSSIBLE)
-		if not board.place(String(CODE_IDS[part]), origin, rot):
+		if not board.place(id, origin, rot):
 			return _fail(IMPOSSIBLE)
 	# Everything past the last part is padding out the last word, and padding is
 	# zeros — characters stuck on the end show up as something else.
 	if not r.rest_is_padding():
 		return _fail(MISTYPED)
+	board.drop_retired(retired)
 	return {"board": board, "error": ""}
 
 ## Whether `code` reads back as a board at all. The board itself is thrown away,

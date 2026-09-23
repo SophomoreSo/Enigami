@@ -53,16 +53,6 @@ const DEFS := {
 		"outs": [], "payload_out": -1,
 		"desc": "Converts the assembled flow into a real effect. A flow with no attack form produces no attack.",
 	},
-	"WIRE": {
-		"name": "WIRE", "cat": CAT_STRUCT, "heat": 0.0, "cells": 1,
-		"outs": [E], "payload_out": -1,
-		"desc": "Carries the flow straight through. Costs one tick.",
-	},
-	"BEND": {
-		"name": "BEND", "cat": CAT_STRUCT, "heat": 0.0, "cells": 1,
-		"outs": [S], "payload_out": -1,
-		"desc": "Turns the flow ninety degrees. Costs one tick.",
-	},
 
 	"PROJECTILE": {
 		"name": "PROJECTILE", "cat": CAT_FORM, "heat": 0.6, "cells": 1,
@@ -214,7 +204,15 @@ const DEFS := {
 }
 
 ## Parts that are structural: always available, never consumed as loot.
-const STRUCTURAL := ["INPUT", "OUTPUT", "WIRE", "BEND"]
+const STRUCTURAL := ["INPUT", "OUTPUT"]
+
+## Parts the game no longer has, and the local direction each one sent its flow.
+## WIRE and BEND carried a flow one cell and did nothing else to it, which every
+## part already does: any part takes flow on any side and sends it where it
+## points. They are kept here only so that a board saved or shared while they
+## were in still reads — see `SkillBoard.drop_retired` — and their numbers in
+## `BoardCode.CODE_IDS` stay theirs.
+const RETIRED := {"WIRE": E, "BEND": S}
 
 ## Loot-able components, in the order the palette shows them.
 const LOOT_POOL := [
@@ -255,6 +253,9 @@ static func exists(id: String) -> bool:
 
 static func is_structural(id: String) -> bool:
 	return STRUCTURAL.has(id)
+
+static func is_retired(id: String) -> bool:
+	return RETIRED.has(id)
 
 ## Whether a part does its work the moment a flow enters it, rather than by
 ## carrying that flow on to an OUTPUT. `SkillRunner._apply` is where those two

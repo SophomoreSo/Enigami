@@ -121,15 +121,15 @@ func _ready() -> void:
 	await button(cell_pos(Vector2i(2, 3)) + Vector2(12, 6), MOUSE_BUTTON_LEFT, false)
 
 	# --- rotate mid-drag, then drop -----------------------------------------
-	var bend_cell := Vector2i(4, 1)
-	await move_to(pal_pos("BEND"))
-	await button(pal_pos("BEND"), MOUSE_BUTTON_LEFT, true)
-	await move_to(cell_pos(bend_cell))
-	await button(cell_pos(bend_cell), MOUSE_BUTTON_WHEEL_UP, true)
-	await button(cell_pos(bend_cell), MOUSE_BUTTON_WHEEL_UP, false)
+	var turn_cell := Vector2i(4, 1)
+	await move_to(pal_pos("DELAY"))
+	await button(pal_pos("DELAY"), MOUSE_BUTTON_LEFT, true)
+	await move_to(cell_pos(turn_cell))
+	await button(cell_pos(turn_cell), MOUSE_BUTTON_WHEEL_UP, true)
+	await button(cell_pos(turn_cell), MOUSE_BUTTON_WHEEL_UP, false)
 	var want_rot := ed.rotation_step
-	await button(cell_pos(bend_cell), MOUSE_BUTTON_LEFT, false)
-	check(int(board.comp_at(bend_cell).get("rot", -1)) == want_rot,
+	await button(cell_pos(turn_cell), MOUSE_BUTTON_LEFT, false)
+	check(int(board.comp_at(turn_cell).get("rot", -1)) == want_rot,
 		"part lands with the rotation set mid-drag (rot %d)" % want_rot)
 
 	# --- drag a placed part to a new cell -----------------------------------

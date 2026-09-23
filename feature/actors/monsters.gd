@@ -21,7 +21,7 @@ const DEFS := {
 		"name": "Sentry", "hp": 46.0, "speed": 0.0, "ai": "turret",
 		"size": 16.0,
 		"aggro": 560.0, "attack_range": 560.0, "contact": 0.0, "scrap": 4,
-		"board": [["INPUT", 0, 2, 0], ["PROJECTILE", 1, 2, 0], ["WIRE", 2, 2, 0], ["OUTPUT", 3, 2, 0]],
+		"board": [["INPUT", 0, 2, 0], ["PROJECTILE", 1, 2, 0], ["OUTPUT", 2, 2, 0]],
 	},
 	"LOBBER": {
 		"name": "Lobber", "hp": 38.0, "speed": 70.0, "ai": "walker",
@@ -49,8 +49,7 @@ const DEFS := {
 		"elite": true,
 		"board": [
 			["INPUT", 0, 2, 0], ["PROJECTILE", 1, 2, 0], ["ICE", 2, 2, 0],
-			["SPLIT", 3, 2, 0], ["BEND", 3, 1, 1], ["BEND", 3, 3, 3],
-			["OUTPUT", 4, 1, 0], ["OUTPUT", 4, 3, 0],
+			["SPLIT", 3, 2, 0], ["OUTPUT", 3, 1, 0], ["OUTPUT", 3, 3, 0],
 		],
 	},
 	"DUMMY": {
@@ -78,8 +77,8 @@ const DEFS := {
 		],
 		"board_phase2": [
 			["INPUT", 0, 2, 0], ["AREA", 1, 2, 0], ["ON_HIT", 3, 2, 0],
-			["OUTPUT", 4, 2, 0], ["BEND", 3, 3, 0], ["PROJECTILE", 4, 3, 0],
-			["SPLIT", 5, 3, 0], ["OUTPUT", 5, 2, 0], ["OUTPUT", 5, 4, 0],
+			["OUTPUT", 4, 2, 0], ["PROJECTILE", 3, 3, 1], ["SPLIT", 3, 4, 1],
+			["OUTPUT", 2, 4, 0], ["OUTPUT", 4, 4, 0],
 		],
 	},
 }

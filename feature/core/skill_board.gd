@@ -356,9 +356,66 @@ func serialize() -> Dictionary:
 
 static func deserialize(d: Dictionary) -> SkillBoard:
 	var b := SkillBoard.new(int(d.get("w", 7)), int(d.get("h", 5)), String(d.get("name", "Skill")))
+	var retired: Array = []
 	for e in d.get("cells", []):
-		b.place(String(e["id"]), Vector2i(int(e["x"]), int(e["y"])), int(e["rot"]))
+		var id := String(e["id"])
+		var at := Vector2i(int(e["x"]), int(e["y"]))
+		if Components.is_retired(id):
+			retired.append([id, at, int(e["rot"])])
+			continue
+		b.place(id, at, int(e["rot"]))
+	b.drop_retired(retired)
 	return b
+
+## Reads a board back from before WIRE and BEND were retired, out of a save or a
+## code. `retired` is every one of them it carried, as [id, cell, rot], and none
+## is placed. Each was one cell of path and nothing more, so where one sat
+## against an end of the run — the OUTPUT it fed, or the INPUT that fed it —
+## and nothing else on the board was joined to that end, the end steps into its
+## cell: the flow goes exactly where it went, a cell sooner. Anywhere else the
+## cell is left empty, and the board shows the break the way it shows any other.
+func drop_retired(retired: Array) -> void:
+	var left := retired.duplicate()
+	var stepped := true
+	# Again until nothing moves: a run of them closes up a cell at a time.
+	while stepped:
+		stepped = false
+		for r in left.duplicate():
+			var out := Components.rotate_dir(int(Components.RETIRED[r[0]]), int(r[2]))
+			if _step_into(r[1], out):
+				left.erase(r)
+				stepped = true
+
+## One end of the run moving into `at`, the empty cell a retired part sending
+## its flow `out` used to fill. False, with nothing moved, when neither end can.
+func _step_into(at: Vector2i, out: int) -> bool:
+	if occupancy.has(at):
+		return false
+	var ahead := at + Components.dir_to_vec(out)
+	var next := comp_origin_at(ahead)
+	if String(next.get("id", "")) == "OUTPUT" and _arriving(ahead).is_empty():
+		var rot := int(next["rot"])
+		erase_at(ahead)
+		return place("OUTPUT", at, rot)
+	# What fed the retired part: every flow landing on its cell except one
+	# coming back in through the edge it sent its own flow out of.
+	var fed: Array = []
+	for a in _arriving(at):
+		if Components.opposite(int(a[1])) != out:
+			fed.append(a[0])
+	if fed.size() == 1 and String(cells[fed[0]]["id"]) == "INPUT":
+		erase_at(fed[0])
+		return place("INPUT", at, out)
+	return false
+
+## Every part whose flow lands on `cell`, as [origin, the way it is going].
+func _arriving(cell: Vector2i) -> Array:
+	var out: Array = []
+	for origin in cells:
+		for port in _ports_from(origin):
+			if port["from"] + Components.dir_to_vec(int(port["dir"])) == cell:
+				out.append([origin, int(port["dir"])])
+	return out
 
 func duplicate_board() -> SkillBoard:
 	return SkillBoard.deserialize(serialize())

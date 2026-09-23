@@ -500,7 +500,9 @@ func _jump_and_dash() -> void:
 		elif _wall_dir != 0:
 			velocity.y = JUMP_VELOCITY * 0.95
 			velocity.x = -_wall_dir * WALL_JUMP_PUSH
-			face(-_wall_dir)
+			# The push goes away from the wall, but the player keeps facing the
+			# way they hold, which is still into it: turning round is theirs to
+			# do, not the kick's.
 			_buffer = 0.0
 			# Kicking off a wall is a fresh launch, so it hands the air jump
 			# back the way landing does.

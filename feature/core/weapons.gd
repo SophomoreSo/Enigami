@@ -146,13 +146,11 @@ static func make_innate_board(weapon_id: String) -> SkillBoard:
 		"slash":
 			b.place("INPUT", Vector2i(0, 2), 0)
 			b.place("SLASH", Vector2i(1, 2), 0)
-			b.place("WIRE", Vector2i(2, 2), 0)
-			b.place("OUTPUT", Vector2i(3, 2), 0)
+			b.place("OUTPUT", Vector2i(2, 2), 0)
 		"bolt":
 			b.place("INPUT", Vector2i(0, 2), 0)
 			b.place("PROJECTILE", Vector2i(1, 2), 0)
-			b.place("WIRE", Vector2i(2, 2), 0)
-			b.place("OUTPUT", Vector2i(3, 2), 0)
+			b.place("OUTPUT", Vector2i(2, 2), 0)
 		"lob":
 			b.place("INPUT", Vector2i(0, 2), 0)
 			b.place("PROJECTILE", Vector2i(1, 2), 0)

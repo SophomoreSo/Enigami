@@ -1,15 +1,16 @@
 extends Node2D
 ## The mouse pointer the game draws for itself.
 ##
-## The game never moves the system pointer. It drove it once, to serve a
+## The game does not drive the system pointer. It drove it once, to serve a
 ## sensitivity setting, and on macOS that cannot be made to behave: the call
 ## that moves a pointer unhooks it from the mouse underneath, and keeping it on
 ## the window unhooks it outright. `app/pointer.gd` has the whole finding. So
 ## the game keeps a pointer of its own instead, moves that at whatever speed the
-## setting asks for, and takes the mouse only while the player has the controls.
+## setting asks for, and takes the mouse only while the player has the controls
+## — handing it back, when they let go, where its own crosshair was.
 ##
-## What is checked here: the picture, the speed, and that nothing has crept back
-## in that touches the system pointer.
+## What is checked here: the picture, the speed, where the pointer comes back,
+## and that nothing has crept back in that drives or holds the system pointer.
 ##
 ## A window is needed: an Image would build anywhere, but a cursor is only a
 ## cursor once something is showing it.
@@ -39,6 +40,7 @@ func _ready() -> void:
 	_speed()
 	_on_grid()
 	await _in_play()
+	await _handed_back()
 	_hands_off()
 	Pointer.set_sensitivity(was)
 	print("[PTR] ---- %d failures ----" % fails)
@@ -196,11 +198,49 @@ func _on_grid() -> void:
 				% [str(origin), on, near, tries])
 	Pointer.pixel_origin = Vector2.ZERO
 
+## Letting go of the controls puts the system pointer where the crosshair was.
+## Left to itself it came back in the middle of the window, where Godot parks it
+## for as long as the game has the mouse, so every menu opened with a jump to the
+## middle of the screen. Checked on a window that is scaled and on one that is
+## letterboxed: the crosshair lives in the game's 1280x720 and the pointer in
+## the window's pixels, and only the second size has an offset to get wrong.
+func _handed_back() -> void:
+	if not get_window().has_focus():
+		# The pointer is only moved for the window in use, so with the focus
+		# somewhere else there is nothing here to see.
+		print("[PTR] skip the hand-back: this window does not have the focus")
+		return
+	var was_size := DisplayServer.window_get_size()
+	for size in [Vector2i(1600, 900), Vector2i(1000, 700)]:
+		DisplayServer.window_set_size(size)
+		await frames(4)
+		var held := Player.new()
+		add_child(held)
+		await frames(2)
+		# Well clear of the middle, which is where it used to come back.
+		var at := Vector2(260, 180)
+		Pointer.point = at
+		held.queue_free()
+		await frames(3)
+		# Within a few pixels rather than to the pixel: the system reads its
+		# pointer back in whole points, two pixels each on a 2x screen, and a
+		# shrunk window makes every one of those more than one of the game's.
+		# The jump this is here for was four hundred.
+		var back := get_viewport().get_mouse_position()
+		check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE and back.distance_to(at) < 4.0,
+			"on a %dx%d window the pointer comes back where the crosshair was (%s, want %s)"
+				% [size.x, size.y, str(back.round()), str(at)])
+	DisplayServer.window_set_size(was_size)
+	await frames(4)
+
 ## The rule the week cost: the system pointer is the system's. Nothing here
-## moves it, holds it, or argues with it.
+## drives it, holds it, or argues with it — it is moved once, as it is handed
+## back, and that is the move `_handed_back` checks.
 func _hands_off() -> void:
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE,
 		"while the system is pointing, the pointer is visible and free")
 	var src := FileAccess.get_file_as_string("res://app/pointer.gd")
-	check(not src.contains("warp_mouse"), "nothing in the pointer moves it")
+	check(src.count("warp_mouse(") == 1,
+		"the pointer is moved in one place, the hand-back, and nowhere else (%d)"
+			% src.count("warp_mouse("))
 	check(not src.contains("CONFINED"), "and nothing in the pointer holds it on the window")

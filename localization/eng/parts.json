@@ -7,14 +7,6 @@
 		"name": "OUTPUT",
 		"desc": "Converts the assembled flow into a real effect. A flow with no attack form produces no attack."
 	},
-	"WIRE": {
-		"name": "WIRE",
-		"desc": "Carries the flow straight through. Costs one tick."
-	},
-	"BEND": {
-		"name": "BEND",
-		"desc": "Turns the flow ninety degrees. Costs one tick."
-	},
 	"PROJECTILE": {
 		"name": "PROJECTILE",
 		"desc": "Fires a bolt along the aim direction. The standard ranged form."
