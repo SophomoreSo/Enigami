@@ -193,7 +193,6 @@ func _ready() -> void:
 	check(ed._tab_rect(ed.boards.size() - 1).end.x <= ed._share_rect().position.x,
 		"four tabs fit before CODE (%.0f of %.0f)" % [ed._tab_rect(3).end.x, ed._share_rect().position.x])
 	check(ed._share_rect().end.x <= ed._close_rect().position.x, "and CODE before CLOSE")
-	check(PixelDraw.text_width(ed.title_text) <= SkillEditor.TAB_ORIGIN.x - 64.0, "the bench's title fits before the tabs")
 	var b := ed.current_board()
 	for c in b.cells.keys().duplicate():
 		b.erase_at(c)
@@ -246,7 +245,6 @@ func _ready() -> void:
 	raid.set_editing(true)
 	await frames(4)
 	var red: SkillEditor = Views.of(raid).editor
-	check(PixelDraw.text_width(red.title_text) <= SkillEditor.TAB_ORIGIN.x - 64.0, "the raid's title fits before the tabs")
 	red.selected = "SLASH"
 	red._hover_pal = 5
 	red._hover_tab = 1
@@ -267,7 +265,6 @@ func _ready() -> void:
 	game._edit_library_skill(GameState.skill_library.size() - 1)
 	await frames(4)
 	var wb: SkillEditor = game.editor
-	check(PixelDraw.text_width(wb.title_text) <= SkillEditor.TAB_ORIGIN.x - 64.0, "the workbench's title fits before the tabs")
 	wb.weapon_id = "SWORD"
 	wb._sim_dirty = true
 	wb._update_hover(wb._cell_center(Vector2i(most.x - 1, most.y - 1)))
@@ -487,12 +484,6 @@ func _ready() -> void:
 		if PixelDraw.text_width(part_name) > wb._pal_name_width(i):
 			tight.append("%s (%.0f of %.0f)" % [part_name, PixelDraw.text_width(part_name), wb._pal_name_width(i)])
 	check(tight.is_empty(), "every part's name fits its palette row beside a count of 99 (too tight: %s)" % str(tight))
-	var long_traits: Array = []
-	for w in Weapons.ids():
-		wb.weapon_id = w
-		if PixelDraw.text_width(wb._traits_text()) > vp.x - 96.0:
-			long_traits.append(w)
-	check(long_traits.is_empty(), "every weapon's traits fit the header (too long: %s)" % str(long_traits))
 	for lang in Loc.languages():
 		check(PixelDraw.text_width(_in(lang, "editor.hint")) <= vp.x - 96.0,
 			"the controls line fits the screen in %s" % lang)

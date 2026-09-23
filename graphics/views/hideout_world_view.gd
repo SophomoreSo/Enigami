@@ -52,6 +52,9 @@ var pixels: PixelCamera
 var layer: CanvasLayer
 ## The station panel on screen, or null. One at a time, like the stations.
 var panel: Control = null
+## The shade under it, over the room and the readout. Kept beside the panel
+## rather than inside it: everything that reads `panel` wants the frame.
+var _shade: ColorRect = null
 ## The same readout the raid draws, over the same room: health, the weapon in
 ## hand and a card per armed slot. What the gate would carry is a thing to look
 ## at while you are still deciding, and the player standing here is carrying it
@@ -204,6 +207,10 @@ func _column(section: String) -> Hideout:
 ## carried its own title off the top of the screen and the way back to the room
 ## off the bottom.
 func _host(inner: Hideout, heading: String) -> void:
+	# The room goes dark behind it, the way the game does behind the pause menu:
+	# the panel is what is being read, and the room is where it closes back to.
+	_shade = UiKit.shade()
+	layer.add_child(_shade)
 	var frame := UiKit.screen_frame(668.0, 40.0, 28.0, true)
 	layer.add_child(frame)
 	panel = frame
@@ -248,6 +255,13 @@ func _clear_panel() -> void:
 	if panel != null and is_instance_valid(panel):
 		panel.queue_free()
 	panel = null
+	# Out of the tree at once rather than at the end of the frame: a panel built
+	# again straight after — a board back from the workbench, a purchase — lays
+	# a new shade down, and two for a frame is a flash of darker.
+	if _shade != null and is_instance_valid(_shade):
+		layer.remove_child(_shade)
+		_shade.queue_free()
+	_shade = null
 
 ## The way out of a panel, by key rather than by the button. ESC is what closes
 ## every other screen here, and a panel that only a mouse could leave would be

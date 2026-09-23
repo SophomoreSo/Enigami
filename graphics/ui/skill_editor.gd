@@ -59,9 +59,6 @@ var slot: int = 0
 var inventory: Dictionary = {}       ## component id -> count (the live pool)
 var unlimited: bool = false          ## sandbox
 var runners: Array = []              ## Array[SkillRunner] for live flow display
-## The heading over the screen. Left empty it reads "SKILL ASSEMBLY" in the
-## language being played; `app/game.gd` sets the workbench's own heading.
-var title_text: String = ""
 var weapon_id: String = "SWORD"
 
 var selected: String = ""
@@ -118,8 +115,6 @@ var _share: ShareCodePanel = null
 var _px := PixelDraw.new(self)
 
 func _ready() -> void:
-	if title_text == "":
-		title_text = Loc.t("editor.heading")
 	UiKit.fill_screen(self)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_ALL
@@ -605,17 +600,9 @@ func _draw() -> void:
 	_draw_dead_hint(vp)
 	_draw_drag()
 
-## Traits matter more than flavour here: the preview below is computed with them.
-func _traits_text() -> String:
-	var wdef := Weapons.get_def(weapon_id)
-	return "%s · melee x%.2f · ranged x%.2f · bolt speed x%.2f" % [
-		wdef["name"], float(wdef["melee_mul"]), float(wdef["ranged_mul"]), float(wdef["projectile_speed"])]
-
 func _draw_header(vp: Vector2) -> void:
 	_px.rect(Rect2(0, 0, vp.x, HEADER_H), Color(0.07, 0.08, 0.11, 0.9))
 	_px.rect(Rect2(0, HEADER_H, vp.x, PX), Color(0.3, 0.5, 0.7, 0.6))
-	_px.text(Vector2(48, 34), title_text, Color(0.85, 0.92, 1.0), TAB_ORIGIN.x - 64.0)
-	_px.text(Vector2(48, 70), _traits_text(), Color(0.6, 0.7, 0.8), vp.x - 96.0)
 
 	for i in boards.size():
 		var b: SkillBoard = boards[i]

@@ -34,7 +34,6 @@ func _ready() -> void:
 
 	editor = SkillEditor.new()
 	editor.visible = false
-	editor.title_text = Loc.t("editor.title.raid")
 	editor.closed.connect(func() -> void: raid.set_editing(false))
 	editor.board_changed.connect(func(slot: int) -> void: raid.on_board_changed(slot))
 	layer.add_child(editor)

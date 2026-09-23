@@ -1,11 +1,4 @@
 {
-	"heading": "SKILL ASSEMBLY",
-	"title": {
-		"workbench": "WORKBENCH · parts from stash",
-		"raid": "ASSEMBLY · raid running",
-		"sandbox": "SANDBOX · parts are free",
-		"dragon": "DRAGON TEST · parts are free"
-	},
 	"close": "CLOSE",
 	"code": "CODE",
 	"hint": "drag to place · wheel turns the part under the cursor · RMB removes · C shares a code · TAB or ESC closes",
