@@ -13,6 +13,15 @@ enum State { TITLE, HIDEOUT, RAID, SANDBOX, RESULTS, DRAGON_TEST, INTRO }
 var state: int = State.TITLE
 var current: Node = null
 var ui_layer: CanvasLayer
+## The windows the shell raises over a screen — the hideout's workbench — and
+## the layer they are drawn on: over the screen and its own panels, under the
+## console and the pause menu, which is where a raid keeps its assembly board.
+## It used to be the pause menu's layer, and put there the workbench covered
+## the console without stopping it answering: the MENU key under its CLOSE
+## button took the press and opened the pause menu underneath the workbench.
+## It stops with the tree, so a paused game is paused behind the menu rather
+## than answering keys under it.
+var window_layer: CanvasLayer
 var overlay_layer: CanvasLayer
 ## The console on the glass, and the layer it is drawn on: over the game and
 ## every window the game opens, under the pause menu, which replaces it.
@@ -44,6 +53,9 @@ func _ready() -> void:
 	ui_layer = CanvasLayer.new()
 	ui_layer.layer = 5
 	add_child(ui_layer)
+	window_layer = CanvasLayer.new()
+	window_layer.layer = 12
+	add_child(window_layer)
 	overlay_layer = CanvasLayer.new()
 	overlay_layer.layer = 20
 	overlay_layer.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -101,14 +113,37 @@ func _process(_delta: float) -> void:
 ## does. A screen that has taken the controls keeps only the keys that close it
 ## again: the map is opened and shut with the same key, and on a phone that key
 ## is on the pad or it is nowhere.
+##
+## The assembly board leaves the glass clear instead. It covers all of it, it is
+## itself what the thumb is there for, and it has its own way out in CLOSE —
+## which is where KIT, MAP and MENU stand, so with them up a press on CLOSE was
+## a press on MENU. The pad stays up with nothing on it, so the words the board
+## prints for a control are still the ones on the glass.
 func _touch_face() -> int:
 	if state == State.INTRO:
 		return TouchPad.Face.TALK
+	if _assembling():
+		return TouchPad.Face.CLEAR
 	for p in get_tree().get_nodes_in_group("player"):
 		if not p.controls_locked():
 			return TouchPad.Face.PLAY
 		return TouchPad.Face.TALK if p.talk_locked else TouchPad.Face.SCREEN
 	return TouchPad.Face.NONE
+
+## Whether an assembly board is up: the hideout's workbench, which is the
+## shell's own, or the one a raid, the sandbox or the dragon test carries.
+func _assembling() -> bool:
+	if editor != null and is_instance_valid(editor):
+		return true
+	if current == null or not is_instance_valid(current):
+		return false
+	if current is Raid:
+		return (current as Raid).editing
+	if current is Sandbox:
+		return (current as Sandbox).editing
+	if current is DragonTest:
+		return (current as DragonTest).editing
+	return false
 
 func _clear() -> void:
 	if current != null and is_instance_valid(current):
@@ -260,13 +295,19 @@ func _open_boards(boards: Array) -> void:
 	editor.configure(boards, GameState.stash, false, [])
 	editor.closed.connect(_close_editor)
 	editor.board_changed.connect(func(_s: int) -> void: GameState.save_game())
-	overlay_layer.add_child(editor)
+	window_layer.add_child(editor)
 	editor.grab_focus()
+	# The room holds the player still under it, which is also what hands the
+	# mouse back from their aim to the board.
+	if hideout_ref != null and is_instance_valid(hideout_ref):
+		hideout_ref.set_editing(true)
 
 func _close_editor() -> void:
 	if editor != null and is_instance_valid(editor):
 		editor.queue_free()
 		GameState.save_game()
+		if hideout_ref != null and is_instance_valid(hideout_ref):
+			hideout_ref.set_editing(false)
 		# The board that came back may have a different name and different tags
 		# on it, and the bench's panel is showing the old ones.
 		if state == State.HIDEOUT and hideout_ref != null and is_instance_valid(hideout_ref):

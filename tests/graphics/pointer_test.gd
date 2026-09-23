@@ -78,7 +78,7 @@ func _picture() -> void:
 	check(inked > 0 and edged > inked,
 		"every bright pixel is carried by a darker edge (%d ink, %d edge)" % [inked, edged])
 	check(clear > inked + edged, "and most of it is still see-through (%d clear)" % clear)
-	check(Pointer._tex != null, "and the window was handed one at boot")
+	check(Pointer._tex != null, "and one was built at boot")
 
 ## How far the mouse carries the game's own pointer.
 func _speed() -> void:
@@ -117,6 +117,8 @@ func _speed() -> void:
 		"with nobody holding the controls, the system does the pointing")
 	check(Pointer._crosshair != null and not Pointer._crosshair.visible,
 		"and the game's own crosshair is not drawn over it")
+	check(Pointer._worn == null,
+		"nor worn by the window: it points with the system's own arrow")
 
 ## A real player holding the controls, which is the only time the setting does
 ## anything — and the thing that has to be checked, because a settings screen is
@@ -129,6 +131,8 @@ func _in_play() -> void:
 	check(Input.mouse_mode == Input.MOUSE_MODE_CAPTURED,
 		"so the game takes the mouse (mode %d)" % Input.mouse_mode)
 	check(Pointer._crosshair.visible, "and draws its own crosshair")
+	check(Pointer._worn == Pointer._tex,
+		"which the window wears too, for whenever its own pointer is on show")
 
 	Pointer.set_sensitivity(2.0)
 	Pointer.point = Vector2(400, 300)
@@ -164,6 +168,7 @@ func _in_play() -> void:
 	await frames(3)
 	check(not Pointer.game_is_pointing() and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE,
 		"and the system has its pointer back the moment the controls are let go")
+	check(Pointer._worn == null, "as its own arrow")
 
 ## The crosshair is drawn over the picture at the picture's own scale, so it has
 ## to sit on the picture's grid — and that grid is not the screen's. A

@@ -1,8 +1,9 @@
 extends Node
-## The bench's panel is drawn in UiKit's pixel look: every PIXEL×PIXEL block of
+## The bench's drawer is drawn in UiKit's pixel look: every PIXEL×PIXEL block of
 ## what it draws is one colour, its buttons are the pixel face, and what it
-## draws fits — the readout's lines inside the panel, the slot cards across the
-## screen with the most boards a bench can carry, and the buttons clear of both.
+## draws fits — the damage readout under the HUD's corner, the drawer under
+## that and clear of the lines along the bottom, every button inside it, and
+## nothing but the tab left on the screen once it is in.
 ##
 ## The block check covers the drawn part and not the buttons, which are Controls
 ## and cannot meet it: Godot centres a Button's label inside its box, the pixel
@@ -107,8 +108,8 @@ func blocks(name: String) -> void:
 func _ready() -> void:
 	GameState.reset_profile()
 	seed(9)
-	# A fourth skill, so the bench carries the most boards it can and the row of
-	# cards is as wide as it ever gets.
+	# A fourth skill, so the bench carries the most boards it can and the HUD's
+	# row of slots is as wide as it ever gets here.
 	GameState.new_skill()
 	game = Node.new()
 	game.set_script(GameScript)
@@ -118,19 +119,16 @@ func _ready() -> void:
 	await frames(14)
 	var sb: Sandbox = game.current
 	panel = Views.of(sb).panel
-	check(panel != null, "the bench builds its panel")
+	check(panel != null, "the bench builds its drawer")
 
-	# A monster on the floor, a slot armed, and one slot mid-cooldown with the
-	# flash still on it, so the wipe and its lit edge are both in the frame.
+	# A monster on the floor, a slot armed that the sword will not carry — so
+	# the HUD writes the line under its name that the readout has to clear —
+	# and the drawer all the way out, so the whole of it is in the frame.
 	sb.spawn_monster("CRAWLER")
 	sb.player.select_slot(1)
-	await frames(6)
-	var r: SkillRunner = sb.player.runners[0]
-	r.cooldown = 10
-	r.cycle_seconds = 2.0
-	r._elapsed = 0.6
-	r.ready_flash = 0.6
-	await frames(2)
+	panel.set_out(true)
+	await get_tree().create_timer(SandboxPanel.SLIDE + 0.15).timeout
+	check(not sb.player.can_cast(1), "the armed slot is one the weapon refuses")
 
 	var hidden := isolate()
 	await blocks("bench")
@@ -160,44 +158,48 @@ func _ready() -> void:
 					bad = true
 			if bad:
 				soft.append("%s.%s" % [c.get_class(), name])
-	check(texts >= 11 and plain.is_empty(),
+	check(texts >= 12 and plain.is_empty(),
 		"every button is the pixel face at a multiple of 8px (%d checked, off: %s)" % [texts, str(plain)])
 	check(boxes > 20 and soft.is_empty(),
 		"every box is square, unsmoothed and evenly bordered (%d checked, off: %s)" % [boxes, str(soft)])
 
 	# --- the layout ---------------------------------------------------------
 	var vp := get_viewport().get_visible_rect().size
-	var cards := sb.player.runners.size()
-	check(cards == 4, "the bench carries four boards (%d)" % cards)
-	var cards_right := SandboxPanel.TEXT_X + cards * (SandboxPanel.CARD.x + SandboxPanel.CARD_GAP)
-	check(cards_right <= vp.x, "the row of cards fits the screen (%.0f of %.0f)" % [cards_right, vp.x])
-	var cards_top := vp.y - SandboxPanel.CARD_BOTTOM
-	check(cards_top + SandboxPanel.CARD.y <= vp.y, "and sits inside its bottom edge")
+	check(sb.player.runners.size() == 4, "the bench carries four boards (%d)" % sb.player.runners.size())
+	var slots_right := Hud.BAR_AT.x + 5.0 * (Hud.SLOT.x + Hud.SLOT_GAP) - Hud.SLOT_GAP
+	check(slots_right <= vp.x, "the HUD's row, the weapon and four slots, fits the screen (%.0f)" % slots_right)
 
-	var column: VBoxContainer = null
-	for c in panel.get_children():
-		if c is VBoxContainer:
-			column = c
-	check(column != null and column.position.y >= SandboxPanel.PANEL.end.y,
-		"the buttons start below the readout (%.0f of %.0f)" % [
-			column.position.y if column != null else -1.0, SandboxPanel.PANEL.end.y])
-	check(column != null and column.get_global_rect().end.y <= cards_top,
-		"and end above the cards (%.0f of %.0f)" % [
-			column.get_global_rect().end.y if column != null else -1.0, cards_top])
-	check(column != null and column.get_global_rect().end.x <= SandboxPanel.PANEL.end.x,
-		"and stay inside the readout's width")
+	# Capitals stand 10 above their baseline and nothing descends.
+	var hud_last := Hud.SLOT_TOP + Hud.SLOT.y + 18.0 + PixelDraw.LINE
+	var dps_top := SandboxPanel.DPS_AT.y - 10.0
+	check(dps_top > hud_last,
+		"the damage readout sits under the HUD's corner, reason line and all (%.0f under %.0f)"
+			% [dps_top, hud_last])
+	check(SandboxPanel.DPS_AT.y < SandboxPanel.TOP,
+		"and over the drawer (%.0f over %.0f)" % [SandboxPanel.DPS_AT.y, SandboxPanel.TOP])
+	var dps_wide := SandboxPanel.DPS_AT.x + PixelDraw.text_width("damage/sec (3s avg): 1234.5")
+	check(dps_wide < vp.x * 0.5, "with room for four digits of damage (%.0f)" % dps_wide)
 
-	# What the cards and the readout have to hold, at their longest.
-	var card_text := SandboxPanel.CARD.x - 16.0
-	check(PixelDraw.text_width("cycle 12.34s · out 12") <= card_text,
-		"a card fits its cycle line (%.0f of %.0f)" % [
-			PixelDraw.text_width("cycle 12.34s · out 12"), card_text])
-	var panel_text := SandboxPanel.PANEL.size.x - (SandboxPanel.TEXT_X - SandboxPanel.PANEL.position.x) * 2.0
-	check(PixelDraw.text_width("damage/sec (3s avg): 1234.5") <= panel_text,
-		"the readout fits four digits of damage (%.0f of %.0f)" % [
-			PixelDraw.text_width("damage/sec (3s avg): 1234.5"), panel_text])
-	check(SandboxPanel.TEXT_X + SandboxPanel.METER_W <= SandboxPanel.PANEL.end.x,
-		"and the meters fit inside the panel")
+	var drawer := panel.drawer_rect()
+	check(drawer.position == Vector2(0.0, SandboxPanel.TOP),
+		"out, the drawer stands against the left edge (%s)" % str(drawer))
+	# The two lines of keys along the bottom: the top of the upper one.
+	var lines_top := vp.y - 14.0 - PixelDraw.LINE - 10.0
+	check(drawer.end.y <= lines_top,
+		"and ends above the lines along the bottom (%.0f of %.0f)" % [drawer.end.y, lines_top])
+	var grid := panel._grid.get_global_rect()
+	check(drawer.encloses(grid), "every button is inside it (%s in %s)" % [str(grid), str(drawer)])
+	var tab := panel.tab_rect()
+	check(tab.position.x < drawer.end.x and tab.end.x <= vp.x,
+		"the tab rides on its edge (%s)" % str(tab))
+
+	panel.set_out(false)
+	await get_tree().create_timer(SandboxPanel.SLIDE + 0.15).timeout
+	drawer = panel.drawer_rect()
+	tab = panel.tab_rect()
+	check(drawer.end.x <= 0.0, "in, the drawer is off the left edge (%s)" % str(drawer))
+	check(tab.position.x <= 0.0 and tab.end.x >= SandboxPanel.TAB.x - PixelDraw.PX,
+		"and its tab is what is left on the screen (%s)" % str(tab))
 
 	print("[BENCH] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)

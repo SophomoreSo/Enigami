@@ -30,7 +30,9 @@ extends Node
 ## hands over raw movement and nothing else — and keeps a pointer of its own,
 ## `point`, which it moves at whatever speed the setting asks for and draws the
 ## crosshair at. Let go of the controls for a menu, a map or a conversation, and
-## the system pointer comes straight back, at its own speed, for the buttons.
+## the system pointer comes straight back, at its own speed, for the buttons —
+## as the system's own arrow. The crosshair is for aiming, so it is only ever
+## on the screens the player aims on: the battleground and the hideout floor.
 ##
 ## Which means the setting is aim speed. Menus are the system's and stay 1:1.
 
@@ -93,29 +95,34 @@ var pixel_origin: Vector2 = Vector2.ZERO
 ## Kept so the picture outlives nothing: handed to the window and held here, it
 ## goes when this node goes, which is before the renderer that owns it does.
 var _tex: ImageTexture = null
+## What the window's own pointer is wearing: the crosshair while somebody is
+## aiming, and null — the system's own arrow — the rest of the time.
+var _worn: Texture2D = null
 var _taken: bool = false
 var _crosshair: TextureRect = null
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	load_saved()
-	install()
+	_tex = texture()
 	_build_crosshair()
 
-## Hands the built pointer to the window. Every Control in the game uses the
-## arrow shape — nothing here asks for a hand or a beam — so one picture is the
-## whole cursor.
-func install() -> void:
-	_tex = texture()
-	if _tex == null:
-		return
-	Input.set_custom_mouse_cursor(_tex, Input.CURSOR_ARROW, hotspot())
+## Dresses the window's own pointer: `tex` for its arrow, or null for the
+## system's. Every Control in the game uses the arrow shape — nothing here asks
+## for a hand or a beam — so the arrow is the whole cursor.
+##
+## It used to wear the crosshair from boot, so every menu in the game pointed
+## with one. The crosshair is for aiming, and a menu is buttons.
+func _wear(tex: Texture2D) -> void:
+	_worn = tex
+	Input.set_custom_mouse_cursor(tex, Input.CURSOR_ARROW, hotspot())
 
 ## Give the pointer back on the way out. A texture still held by the window
 ## when the renderer shuts down is reported as a leak, which is a real one: the
 ## game is quitting, but nothing should be left holding the door.
 func _exit_tree() -> void:
 	Input.set_custom_mouse_cursor(null, Input.CURSOR_ARROW)
+	_worn = null
 	_tex = null
 
 ## --- whose pointer it is ----------------------------------------------------
@@ -132,11 +139,19 @@ func game_is_pointing() -> bool:
 	return false
 
 func _process(_delta: float) -> void:
+	var aiming := game_is_pointing()
+	# The crosshair while somebody is aiming, and the system's arrow for every
+	# window over them. Most of the time the game has the mouse while they aim
+	# and the window's pointer is out of sight anyway; it is on show when the
+	# console is up, which never takes the mouse.
+	var wear: Texture2D = _tex if aiming else null
+	if wear != _worn:
+		_wear(wear)
 	# Not while the console is on the screen. A phone aims with the movement
 	# keys — `TouchPad._aim` says why it can be nothing else — so there is no
 	# pointer to move, and a crosshair nothing moves would sit wherever the
 	# last thing to touch it left it.
-	var take := game_is_pointing() and not Touch.wanted()
+	var take := aiming and not Touch.wanted()
 	if take != _taken:
 		_taken = take
 		# Taken, not confined and not warped: Godot hands over raw movement and

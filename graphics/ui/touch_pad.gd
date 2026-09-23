@@ -8,13 +8,14 @@ extends Control
 ## Laid out the way a phone MOBA is, because that is the scheme this game's
 ## controls actually fit:
 ##
-##   * **The left thumb is a stick, and there is nothing there until it lands.**
-##     The left of the screen is empty; a thumb put down anywhere in it grows
-##     the stick under itself, and lifting takes it away again. So it is never
-##     somewhere to reach for and never in the way of the fight. It is analog —
-##     the game reads movement as the strength of two actions, so a stick half
-##     over walks and a stick hard over runs, which a cross of four keys could
-##     never say.
+##   * **The left thumb is a stick, and there is nothing there until it moves.**
+##     The left of the screen is empty; a thumb put down anywhere in it and
+##     dragged grows the stick where it landed, and lifting takes it away again.
+##     A thumb that only touches grows nothing. So it is never somewhere to
+##     reach for and never in the way of the fight. It is analog — the game
+##     reads movement as the strength of two actions, so a stick half over
+##     walks and a stick hard over runs, which a cross of four keys could never
+##     say.
 ##   * **A skill button is a stick too.** Press it and the slot is armed and
 ##     begins to charge; drag and the charge aims; let go and it casts, where
 ##     you were pointing, with everything the hold paid for. The game's own
@@ -44,8 +45,8 @@ extends Control
 ##
 ##   KEY   a button. Pressed while a thumb is on it, and nothing more.
 ##   MOVE  the movement stick. It has a zone rather than a place: it is drawn
-##         nowhere until a thumb lands somewhere in that zone, grows there, and
-##         is gone again the moment the thumb lifts.
+##         nowhere until a thumb lands somewhere in that zone and drags, grows
+##         where it landed, and is gone again the moment the thumb lifts.
 ##   AIM   a button that is also a stick. It holds its action the whole time and
 ##         the drag off it is where the cast goes.
 enum Kind { KEY, MOVE, AIM }
@@ -57,10 +58,14 @@ enum Kind { KEY, MOVE, AIM }
 ##   PLAY    somebody has the controls: everything.
 ##   TALK    a conversation or a scene has them: the stick, which picks an
 ##           answer, and the key that turns the page.
-##   SCREEN  a screen has them — the map, the assembly bench. Only the keys that
+##   SCREEN  a screen has them — the map, a station's panel. Only the keys that
 ##           close it again, or a phone would have no way out of a window it
 ##           opened.
-enum Face { NONE, PLAY, TALK, SCREEN }
+##   CLEAR   the assembly board has them, and the whole glass with them.
+##           Nothing: the board is touched itself and has its own CLOSE, right
+##           where KIT, MAP and MENU would stand over it. The pad stays up, so
+##           what the board calls a control is still its word on the glass.
+enum Face { NONE, PLAY, TALK, SCREEN, CLEAR }
 
 ## Every control: what it presses, where it sits in the 1280x720 the game is
 ## drawn at, and which faces it appears on.
@@ -124,6 +129,15 @@ const AIM_KNOB := 22.0
 const STICK_DEAD := 0.22
 const STICK_UPDOWN := 0.5
 
+## How far a thumb has to move from where it landed before the movement stick
+## comes out under it. A thumb that only touches the glass grows nothing and
+## moves nobody: the stick is for going somewhere, and a ring flashing up under
+## every tap on the left of the screen was a stick nobody had asked for. About a
+## phone's own touch slop, so the tremor of a thumb coming down is not a drag;
+## and short of STICK_DEAD's reach, so the stick is always on the screen before
+## it moves anybody.
+const STICK_OUT := 12.0
+
 ## How far outside its edge a control still answers.
 const SLOP := 4.0
 
@@ -169,6 +183,9 @@ var _down: Dictionary = {}
 var _stick_from: Vector2 = Vector2.ZERO
 var _stick_at: Vector2 = Vector2.ZERO
 var _stick: Vector2 = Vector2.ZERO
+## Whether the thumb on the stick has dragged far enough to bring it out. Until
+## it has, nothing is drawn and nothing is pushed: see STICK_OUT.
+var _stick_out: bool = false
 ## The skill or weapon stick being aimed, and the thumb's throw off its middle.
 var _aim_from: int = -1
 var _aim_off: Vector2 = Vector2.ZERO
@@ -350,9 +367,10 @@ func _take(i: int, at: Vector2) -> void:
 	var c: Dictionary = CONTROLS[i]
 	match int(c["kind"]):
 		Kind.MOVE:
-			# The stick grows under the thumb. The ring slides in where it must
-			# to stay on the screen; what the thumb is asking for is measured
-			# from the thumb regardless — see `_stick_from`.
+			# Where the stick will grow, once the thumb drags — see STICK_OUT.
+			# The ring slides in where it must to stay on the screen; what the
+			# thumb is asking for is measured from the thumb regardless — see
+			# `_stick_from`.
 			var r: float = c["radius"]
 			var zone: Rect2 = c["zone"]
 			_stick_from = at
@@ -360,6 +378,7 @@ func _take(i: int, at: Vector2) -> void:
 				clampf(at.x, zone.position.x + r, zone.end.x - r),
 				clampf(at.y, zone.position.y + r, zone.end.y - r))
 			_stick = Vector2.ZERO
+			_stick_out = false
 			return          # a stick makes no click; a thumb resting is not a press
 		Kind.AIM:
 			if c.has("arm"):
@@ -380,6 +399,7 @@ func _drop(i: int) -> void:
 			_stick = Vector2.ZERO
 			_stick_at = Vector2.ZERO
 			_stick_from = Vector2.ZERO
+			_stick_out = false
 			_drive()
 		Kind.AIM:
 			_let_go_of(String(c["action"]))
@@ -395,8 +415,13 @@ func _drop(i: int) -> void:
 func _drag(i: int, at: Vector2) -> void:
 	var c: Dictionary = CONTROLS[i]
 	if int(c["kind"]) == Kind.MOVE:
-		var v: Vector2 = (at - _stick_from) / float(c["radius"])
-		_stick = v if v.length() <= 1.0 else v.normalized()
+		var off := at - _stick_from
+		# Out once the thumb has gone somewhere, and pushed from then on only,
+		# so the stick is on the screen before it moves anybody.
+		_stick_out = _stick_out or off.length() >= STICK_OUT
+		if _stick_out:
+			var v := off / float(c["radius"])
+			_stick = v if v.length() <= 1.0 else v.normalized()
 	else:
 		_aim_from = i
 		_aim_off = at - Vector2(c["at"])
@@ -435,16 +460,19 @@ func _let_go() -> void:
 	_stick = Vector2.ZERO
 	_stick_at = Vector2.ZERO
 	_stick_from = Vector2.ZERO
+	_stick_out = false
 	_aim_from = -1
 	_aim_off = Vector2.ZERO
 	Touch.release_all()
 
 ## --- the picture ------------------------------------------------------------
 
-## Whether the movement stick is on the screen at all, which is exactly whether
-## a thumb is on it. There is nothing drawn where it waits, because it does not
-## wait anywhere — see `_draw_stick`.
+## Whether the movement stick is on the screen at all: a thumb is on it, and has
+## dragged since it landed. There is nothing drawn where it waits, because it
+## does not wait anywhere — see `_draw_stick`.
 func stick_showing() -> bool:
+	if not _stick_out:
+		return false
 	for f in _down.values():
 		if int(CONTROLS[int(f)]["kind"]) == Kind.MOVE:
 			return true
@@ -513,10 +541,10 @@ func _held(c: Dictionary) -> bool:
 	return false
 
 ## The movement stick: the ring it swings in, and the knob inside it — drawn
-## only while a thumb is on it, and only where that thumb put it. Nothing is
-## drawn while none is, which is the whole of the design: an empty left half is
-## a left half you can see the fight through, and a stick that grows under the
-## thumb is never a stick anybody has to find first.
+## only once a thumb on it has dragged, and only where that thumb landed.
+## Nothing is drawn while none is, which is the whole of the design: an empty
+## left half is a left half you can see the fight through, and a stick that
+## grows under the thumb is never a stick anybody has to find first.
 func _draw_stick(c: Dictionary) -> void:
 	var r: float = c["radius"]
 	var knob: float = c["knob"]

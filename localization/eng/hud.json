@@ -50,12 +50,7 @@
 		"spawn_dummy": "spawn dummy",
 		"clear": "clear",
 		"leave": "leave",
-		"dps": "damage/sec (3s avg): %.1f",
-		"hint": "%s assemble · %s attacks · 1-3 arm · hold %s to charge",
-		"card": "%s%d · %s%s",
-		"unusable": "  X",
-		"cycle": "cycle %.2fs · out %d",
-		"heading": "SANDBOX · %s"
+		"dps": "damage/sec (3s avg): %.1f"
 	},
 	"dragon": {
 		"play": "PLAY",
