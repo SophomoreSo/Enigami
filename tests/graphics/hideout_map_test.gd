@@ -62,6 +62,13 @@ func controls_under(root: Node) -> Array:
 			stack.append(c)
 	return out
 
+## The shades lying on the view's layer — one under an open panel, none
+## otherwise, and never two.
+func shades(view: HideoutWorldView) -> Array:
+	return view.layer.get_children().filter(func(c: Node) -> bool:
+		return c is ColorRect and (c as ColorRect).color == UiKit.SHADE \
+			and not c.is_queued_for_deletion())
+
 func buttons_under(root: Node) -> Array:
 	return controls_under(root).filter(func(c: Control) -> bool: return c is Button)
 
@@ -156,6 +163,14 @@ func _ready() -> void:
 		"which holds the player still while they read it")
 	var view = Views.of(world)
 	check(view != null and view.panel != null, "the panel is on screen")
+	# The room goes dark behind it, the way the game does behind the pause menu.
+	var shade: Array = shades(view)
+	var screen := Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size)
+	check(shade.size() == 1 and (shade[0] as ColorRect).get_global_rect().encloses(screen),
+		"the room goes dark behind it, all of the screen (%d shades)" % shade.size())
+	check(shade.size() == 1 and view.hud.get_index() < shade[0].get_index()
+			and shade[0].get_index() < view.panel.get_index(),
+		"over the readout and under the panel")
 	var picked := ""
 	for b: Button in buttons_under(view.panel):
 		if b.text.findn(Weapons.name_for("GUN")) >= 0 and not b.disabled:
@@ -182,6 +197,7 @@ func _ready() -> void:
 	await frames(6)
 	check(world.open_panel == "" and not world.player.controls_locked(),
 		"and pressing it gives the room and the keys back")
+	check(shades(view).is_empty(), "and the dark goes with the panel")
 
 	# Nothing is armed yet, so assembly has nothing to open over. The press is
 	# answered all the same: a key that does nothing is indistinguishable from a
@@ -203,6 +219,7 @@ func _ready() -> void:
 	GameState.scrap = 500
 	world.refresh_panel()
 	await frames(8)
+	check(shades(Views.of(world)).size() == 1, "a panel built again lies on one shade, not two")
 	var bought := false
 	for b: Button in buttons_under(Views.of(world).panel):
 		if b.text == Loc.t("hideout.shop.price", [GameState.shop_price("PIERCE")]) and not b.disabled:

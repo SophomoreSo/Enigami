@@ -290,7 +290,6 @@ func _edit_kit() -> void:
 func _open_boards(boards: Array) -> void:
 	_close_editor()
 	editor = SkillEditor.new()
-	editor.title_text = Loc.t("editor.title.workbench")
 	editor.weapon_id = hideout_ref.weapon_id if hideout_ref != null else "SWORD"
 	editor.configure(boards, GameState.stash, false, [])
 	editor.closed.connect(_close_editor)
@@ -362,10 +361,7 @@ func _build_pause_menu() -> void:
 	pause_menu.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	pause_menu.visible = false
 	pause_menu.process_mode = Node.PROCESS_MODE_ALWAYS
-	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.72)
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	pause_menu.add_child(dim)
+	pause_menu.add_child(UiKit.shade())
 	# The pixel face runs up to twice as wide as the one this menu was laid out
 	# for, and the rebinding list is two columns of it: 600 holds them, as it
 	# does on the title, and the frame adds its bar.

@@ -13,6 +13,20 @@ const GOOD := Color(0.45, 0.95, 0.7)
 const WARN := Color(0.98, 0.72, 0.38)
 const BAD := Color(0.95, 0.45, 0.45)
 
+## What a window lays over the game behind it: still there, too dark to read as
+## anything but the place the window closes back onto. The pause menu and the
+## hideout's station panels lie on it. The assembly screen keeps a lighter veil
+## of its own, since a raid behind it goes on and has to stay readable.
+const SHADE := Color(0, 0, 0, 0.72)
+
+## A full-screen sheet of SHADE, to go under a window. It takes the clicks that
+## miss the window, so nothing behind is pressed through it.
+static func shade() -> ColorRect:
+	var r := ColorRect.new()
+	r.color = SHADE
+	r.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	return r
+
 ## A pixel look for the same kit, opted into per call with `pixel`. Text is
 ## Silkscreen at a multiple of its native 8px, borders are square and a whole
 ## number of PIXELs wide, and nothing is antialiased, so a screen built this way
