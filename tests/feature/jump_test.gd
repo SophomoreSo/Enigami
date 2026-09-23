@@ -110,11 +110,23 @@ func _ready() -> void:
 		await get_tree().physics_frame
 		guard += 1
 	var kicked := w._wall_dir != 0
+	# Watched on every frame of the kick rather than where it ends: the kick used
+	# to turn the player away from the wall for the one frame it fired on, and
+	# the key still held turned them straight back.
+	var turned := [0]
+	var watch := func() -> void:
+		if w.facing != 1:
+			turned[0] += 1
+	get_tree().physics_frame.connect(watch)
 	var kick := await press(w)
+	get_tree().physics_frame.disconnect(watch)
 	Input.action_release("move_right")
 	await frames(2)
 	var after_kick := await press(w)
 	check(kicked and kick > 400.0, "the wall kick fires (%+.0f)" % kick)
+	check(turned[0] == 0,
+		"and it leaves the player facing the way they hold, into the wall (%d frames turned away)"
+			% turned[0])
 	check(after_kick > 400.0, "and a wall kick refreshes the air jump (%+.0f)" % after_kick)
 
 	print("[JUMP] ---- %d failures ----" % fails)

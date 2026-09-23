@@ -30,32 +30,32 @@ func _ready() -> void:
 	# Two outputs pointed at each other is the one join that cannot carry flow.
 	var h := SkillBoard.new(7, 5, "headon")
 	h.place("INPUT", Vector2i(0, 2), 0)
-	h.place("WIRE", Vector2i(1, 2), 2)           # points back west at the INPUT
+	h.place("DELAY", Vector2i(1, 2), 2)          # points back west at the INPUT
 	var th := h.trace()
 	check((th["breaks"] as Array).size() == 1, "outputs meeting head-on is a break")
 	var msg := h.first_problem()
 	print("[TRACE] message: ", msg)
-	# The break is named at the part that would not take the flow — the WIRE
+	# The break is named at the part that would not take the flow — the DELAY
 	# turned back on the INPUT — not at the one that sent it.
-	check(msg == Loc.t("editor.problem.head_on", [Components.name_for("WIRE"), 1, 2]),
+	check(msg == Loc.t("editor.problem.head_on", [Components.name_for("DELAY"), 1, 2]),
 		"the message explains the head-on case")
 
 	# Nothing may feed back into the INPUT.
 	var fb := SkillBoard.new(7, 5, "feedback")
 	fb.place("INPUT", Vector2i(1, 2), 0)
-	fb.place("WIRE", Vector2i(2, 2), 1)
-	fb.place("WIRE", Vector2i(2, 3), 2)
-	fb.place("WIRE", Vector2i(1, 3), 3)          # points north, back at the INPUT
+	fb.place("DELAY", Vector2i(2, 2), 1)
+	fb.place("DELAY", Vector2i(2, 3), 2)
+	fb.place("DELAY", Vector2i(1, 3), 3)         # points north, back at the INPUT
 	var ti := fb.trace()
 	check((ti["breaks"] as Array).size() == 1, "a flow aimed at the INPUT is refused")
 
 	# A ring must not run forever: a pulse gets a hop budget.
 	var r := SkillBoard.new(7, 5, "ring")
 	r.place("INPUT", Vector2i(0, 0), 0)          # feeds east into the ring
-	r.place("WIRE", Vector2i(1, 0), 0)           # east
-	r.place("WIRE", Vector2i(2, 0), 1)           # south
-	r.place("WIRE", Vector2i(2, 1), 2)           # west
-	r.place("WIRE", Vector2i(1, 1), 3)           # north, closing the ring
+	r.place("DELAY", Vector2i(1, 0), 0)          # east
+	r.place("DELAY", Vector2i(2, 0), 1)          # south
+	r.place("DELAY", Vector2i(2, 1), 2)          # west
+	r.place("DELAY", Vector2i(1, 1), 3)          # north, closing the ring
 	var tr := r.trace()
 	check((tr["breaks"] as Array).is_empty(), "a ring is a legal board")
 	check(tr["reachable"].size() == 5, "the whole ring is reachable")
@@ -90,11 +90,11 @@ func _ready() -> void:
 	# said four.
 	var lp := SkillBoard.new(7, 5, "loop")
 	lp.place("INPUT", Vector2i(0, 1), 0)
-	lp.place("WIRE", Vector2i(1, 1), 3)
-	lp.place("WIRE", Vector2i(1, 0), 0)
-	lp.place("WIRE", Vector2i(2, 0), 0)
-	lp.place("WIRE", Vector2i(3, 0), 1)
-	lp.place("WIRE", Vector2i(3, 1), 2)
+	lp.place("DELAY", Vector2i(1, 1), 3)
+	lp.place("DELAY", Vector2i(1, 0), 0)
+	lp.place("DELAY", Vector2i(2, 0), 0)
+	lp.place("DELAY", Vector2i(3, 0), 1)
+	lp.place("DELAY", Vector2i(3, 1), 2)
 	lp.place("TEE", Vector2i(2, 1), 1)      # round the ring, and out to the attack
 	lp.place("SLASH", Vector2i(2, 2), 0)
 	lp.place("OUTPUT", Vector2i(3, 2), 0)
@@ -153,10 +153,10 @@ func _ready() -> void:
 	# The same ring with nothing feeding it: a trap is a trap before anything
 	# falls into it, so this is marked too.
 	var orphan := SkillBoard.new(7, 5, "orphan")
-	orphan.place("WIRE", Vector2i(1, 0), 0)
-	orphan.place("WIRE", Vector2i(2, 0), 1)
-	orphan.place("WIRE", Vector2i(2, 1), 2)
-	orphan.place("WIRE", Vector2i(1, 1), 3)
+	orphan.place("DELAY", Vector2i(1, 0), 0)
+	orphan.place("DELAY", Vector2i(2, 0), 1)
+	orphan.place("DELAY", Vector2i(2, 1), 2)
+	orphan.place("DELAY", Vector2i(1, 1), 3)
 	check((orphan.trace()["dead"] as Dictionary).size() == 4,
 		"a ring with nothing feeding it is dead code all the same")
 	check((tr["dead"] as Dictionary).size() == 4, "and so is the one the INPUT feeds")
@@ -172,10 +172,10 @@ func _ready() -> void:
 	# trapped or not, it dilates time once a lap for as long as the life lasts.
 	var spin := SkillBoard.new(7, 5, "dilate")
 	spin.place("INPUT", Vector2i(0, 0), 0)
-	spin.place("WIRE", Vector2i(1, 0), 0)
+	spin.place("DELAY", Vector2i(1, 0), 0)
 	spin.place("TIME_DILATION", Vector2i(2, 0), 1)
-	spin.place("WIRE", Vector2i(2, 1), 2)
-	spin.place("WIRE", Vector2i(1, 1), 3)
+	spin.place("DELAY", Vector2i(2, 1), 2)
+	spin.place("DELAY", Vector2i(1, 1), 3)
 	check((spin.trace()["dead"] as Dictionary).is_empty(),
 		"a ring with TIME DILATION in it is doing something every lap, not nothing")
 
@@ -190,7 +190,7 @@ func _ready() -> void:
 	tb.place("OUTPUT", Vector2i(4, 2), 0)
 	tb.place("DAMAGE", Vector2i(3, 3), 1)
 	tb.place("DAMAGE", Vector2i(3, 4), 2)
-	tb.place("WIRE", Vector2i(2, 4), 2)
+	tb.place("DELAY", Vector2i(2, 4), 2)
 	tb.place("DAMAGE", Vector2i(1, 4), 3)
 	tb.place("DAMAGE", Vector2i(1, 3), 3)      # back into the DASHSLASH head
 	var tr2 := SkillRunner.new(tb)
@@ -278,7 +278,7 @@ func _ready() -> void:
 	# A wired board with no attack form reports that, not a wiring fault.
 	var g := SkillBoard.new(7, 5, "noform")
 	g.place("INPUT", Vector2i(0, 2), 0)
-	g.place("WIRE", Vector2i(1, 2), 0)
+	g.place("DELAY", Vector2i(1, 2), 0)
 	g.place("OUTPUT", Vector2i(2, 2), 0)
 	check(g.first_problem() == Loc.t("editor.problem.no_form"),
 		"a formless chain says what is missing")

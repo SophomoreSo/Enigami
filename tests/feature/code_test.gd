@@ -2,7 +2,8 @@ extends Node
 ## A board must survive being written down as a code and read back, and a code
 ## with a mistake in it must be refused rather than quietly building a different
 ## board. Also guards the two things that can never be reordered: the alphabet a
-## code is spelled in, and the numbers parts are known by inside one.
+## code is spelled in, and the numbers parts are known by inside one — and what a
+## code or a save written while WIRE and BEND were parts reads back as.
 
 var fails := 0
 
@@ -48,10 +49,16 @@ func _ready() -> void:
 		if seen.has(id):
 			repeated.append(id)
 		seen[String(id)] = true
-		if not Components.exists(String(id)):
+		if not Components.exists(String(id)) and not Components.is_retired(String(id)):
 			unknown.append(id)
 	check(repeated.is_empty(), "no part has two numbers (%s)" % str(repeated))
-	check(unknown.is_empty(), "every number in the table names a part that exists (%s)" % str(unknown))
+	check(unknown.is_empty(),
+		"every number in the table names a part that exists or was retired (%s)" % str(unknown))
+	var kept: Array = []
+	for id in Components.RETIRED:
+		if not seen.has(String(id)) or Components.exists(String(id)):
+			kept.append(id)
+	check(kept.is_empty(), "a retired part is gone from the game and keeps its number (%s)" % str(kept))
 	var uncoded: Array = []
 	for id in Components.DEFS:
 		if not seen.has(String(id)):
@@ -107,22 +114,33 @@ func _ready() -> void:
 	# pins the format down: it can only change when the format does, and when it
 	# does, every code anyone has written down has stopped working.
 	var skill := SkillBoard.new(7, 5, "Fire Bolt")
-	skill.place("INPUT", Vector2i(0, 2), 0)
-	skill.place("WIRE", Vector2i(1, 2), 0)
+	skill.place("INPUT", Vector2i(1, 2), 0)
 	skill.place("FIRE", Vector2i(2, 2), 0)
 	skill.place("DAMAGE", Vector2i(3, 2), 0)
 	skill.place("PROJECTILE", Vector2i(4, 2), 0)
 	skill.place("OUTPUT", Vector2i(5, 2), 0)
-	var golden := round_trip(skill, "a six-part skill")
+	var golden := round_trip(skill, "a five-part skill")
 	print("[CODE] Fire Bolt is ", golden)
-	check(golden == "7kDaN29S5g3bfg66lONvD", "the format has not moved under existing codes")
+	check(golden == "7kD3K2EZif3jtfN11111d", "the format has not moved under existing codes")
+	# The same skill as it was shared while WIRE was a part, one leading the
+	# INPUT into the FIRE. The code still reads, every part after the WIRE is
+	# still the part it was, and the INPUT steps into the WIRE's cell: what it
+	# builds is the board above.
+	var old := BoardCode.decode("7kDaN29S5g3bfg66lONvD")
+	check(String(old["error"]) == "" and same_parts(old["board"], skill),
+		"a code written with a WIRE in it still builds, closed up round it (%s)" % old["error"])
 
 	# Every part in the table, turned every way — the two-cell ones included,
 	# whose tail cell swings round with them. First fit, because a part facing
-	# west starts a cell further in than one facing east.
+	# west starts a cell further in than one facing east. A retired number has
+	# no part to place.
 	var all := SkillBoard.new(11, 9, "everything")
 	var turn := 0
+	var placeable := 0
 	for id in BoardCode.CODE_IDS:
+		if Components.is_retired(String(id)):
+			continue
+		placeable += 1
 		var landed := false
 		for y in all.height:
 			for x in all.width:
@@ -136,9 +154,8 @@ func _ready() -> void:
 			if landed:
 				break
 		turn += 1
-	check(all.cells.size() == BoardCode.CODE_IDS.size(),
-		"every part in the table fits on one board (%d of %d)" % [
-			all.cells.size(), BoardCode.CODE_IDS.size()])
+	check(all.cells.size() == placeable,
+		"every part in the table fits on one board (%d of %d)" % [all.cells.size(), placeable])
 	round_trip(all, "one of every part, at every rotation")
 
 	# The biggest board the game can grow, filled: the longest code there is in
@@ -146,7 +163,7 @@ func _ready() -> void:
 	var big := SkillBoard.new(11, 9, "full")
 	for y in big.height:
 		for x in big.width:
-			big.place("WIRE", Vector2i(x, y), (x + y) % 4)
+			big.place("DELAY", Vector2i(x, y), (x + y) % 4)
 	check(big.cells.size() <= BoardCode.MAX_PARTS,
 		"a full 11x9 board is inside the %d-part ceiling (%d)" % [BoardCode.MAX_PARTS, big.cells.size()])
 	round_trip(big, "a full 11x9 board")
@@ -157,8 +174,7 @@ func _ready() -> void:
 	other_order.place("PROJECTILE", Vector2i(4, 2), 0)
 	other_order.place("DAMAGE", Vector2i(3, 2), 0)
 	other_order.place("FIRE", Vector2i(2, 2), 0)
-	other_order.place("WIRE", Vector2i(1, 2), 0)
-	other_order.place("INPUT", Vector2i(0, 2), 0)
+	other_order.place("INPUT", Vector2i(1, 2), 0)
 	check(BoardCode.encode(other_order) == golden,
 		"the same board built in a different order is the same code")
 	var renamed := skill.duplicate_board()
@@ -229,6 +245,29 @@ func _ready() -> void:
 	check(BoardCode.decode(future).error == BoardCode.error_text("version", [7, BoardCode.VERSION]),
 		"a code from another version says which (%s)" % BoardCode.decode(future).error)
 
+	# --- a board from before WIRE and BEND were retired ---------------------
+	# A save reads back the way the old code above does. The starter board every
+	# profile was given ran INPUT, SLASH, WIRE, OUTPUT: the OUTPUT steps back into
+	# the WIRE's cell, and what comes back is today's starter board.
+	var starter := _saved([["INPUT", 0, 2, 0], ["SLASH", 1, 2, 0], ["WIRE", 2, 2, 0], ["OUTPUT", 3, 2, 0]])
+	check(same_parts(starter, Weapons.make_innate_board("SWORD")),
+		"a starter board saved with its WIRE reads back as today's starter board")
+	var corner := _saved([["INPUT", 0, 0, 0], ["BEND", 1, 0, 0], ["SLASH", 1, 1, 0], ["OUTPUT", 2, 1, 0]])
+	check(same_parts(corner, _board([["INPUT", 1, 0, 1], ["SLASH", 1, 1, 0], ["OUTPUT", 2, 1, 0]])),
+		"a BEND off the INPUT: the INPUT steps into the corner, turned the way the BEND sent the flow")
+	var run := _saved([["INPUT", 0, 2, 0], ["WIRE", 1, 2, 0], ["WIRE", 2, 2, 0],
+		["SLASH", 3, 2, 0], ["WIRE", 4, 2, 0], ["OUTPUT", 5, 2, 0]])
+	check(same_parts(run, _board([["INPUT", 2, 2, 0], ["SLASH", 3, 2, 0], ["OUTPUT", 4, 2, 0]])),
+		"a run of them closes up from both ends")
+	var gap := _saved([["INPUT", 0, 2, 0], ["SLASH", 1, 2, 0], ["WIRE", 2, 2, 0],
+		["DAMAGE", 3, 2, 0], ["OUTPUT", 4, 2, 0]])
+	check(gap.cells.size() == 4
+			and gap.first_problem() == Loc.t("editor.problem.leak", [1, 2, Components.dir_name(0)]),
+		"one with neither end beside it leaves its cell empty, and the board says where it breaks")
+	var fed_twice := _saved([["INPUT", 0, 1, 0], ["SLASH", 1, 1, 1], ["OUTPUT", 1, 2, 0], ["WIRE", 2, 2, 2]])
+	check(same_parts(fed_twice, _board([["INPUT", 0, 1, 0], ["SLASH", 1, 1, 1], ["OUTPUT", 1, 2, 0]])),
+		"and an OUTPUT something else feeds stays where it is")
+
 	# --- taking a board on -------------------------------------------------
 	# The grid belongs to the workbench, not to the build drawn on it.
 	var small := SkillBoard.new(7, 5, "mine")
@@ -271,6 +310,21 @@ func _ready() -> void:
 
 	print("[CODE] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)
+
+## A board as a save written before the retirement holds it — [id, x, y, rot]
+## a part, retired ones included — read back the way a save is.
+func _saved(parts: Array) -> SkillBoard:
+	var cells: Array = []
+	for p in parts:
+		cells.append({"id": p[0], "x": p[1], "y": p[2], "rot": p[3]})
+	return SkillBoard.deserialize({"w": 7, "h": 5, "name": "saved", "cells": cells})
+
+## The board one of those ought to come back as.
+func _board(parts: Array) -> SkillBoard:
+	var b := SkillBoard.new(7, 5, "want")
+	for p in parts:
+		b.place(String(p[0]), Vector2i(p[1], p[2]), p[3])
+	return b
 
 ## A code claiming to be version `v`: the version is the first three bits, so it
 ## is the leading five characters that change, and the check character with them.

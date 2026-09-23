@@ -324,7 +324,7 @@ components its attack was visibly built from.
 board on the grid out as a short code:
 
 ```
-7kDaN29S5g3bfg66lONvD
+7kD3K2EZif3jtfN11111d
 ```
 
 Every part, where it sits and which way it faces, in about twenty characters for
@@ -359,6 +359,12 @@ and says what it is short of. At the bench, where parts are free, it never asks.
 The format is `feature/core/board_code.gd`. The alphabet is fixed for good, and
 the table that numbers the parts may only ever be appended to, or every code
 anyone has written down stops meaning what it meant.
+
+A retired part keeps its number. WIRE and BEND are gone — any part already
+carries a flow and turns it — and a code or a save that still has one reads back
+without it. Where one sat against the INPUT or an OUTPUT, that end steps into its
+cell, so the old starter boards and a WIRE-led build come back working; anywhere
+else the cell is left empty and the board shows the break.
 
 ## The dragon test
 

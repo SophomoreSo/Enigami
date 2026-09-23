@@ -21,22 +21,22 @@ func runner(b: SkillBoard, bonus: int = 0) -> SkillRunner:
 func ring() -> SkillBoard:
 	var b := SkillBoard.new(7, 5, "ring")
 	b.place("INPUT", Vector2i(0, 1), 0)
-	b.place("WIRE", Vector2i(1, 1), 3)
-	b.place("WIRE", Vector2i(1, 0), 0)
-	b.place("WIRE", Vector2i(2, 0), 0)
-	b.place("WIRE", Vector2i(3, 0), 1)
-	b.place("WIRE", Vector2i(3, 1), 2)
+	b.place("DELAY", Vector2i(1, 1), 3)
+	b.place("DELAY", Vector2i(1, 0), 0)
+	b.place("DELAY", Vector2i(2, 0), 0)
+	b.place("DELAY", Vector2i(3, 0), 1)
+	b.place("DELAY", Vector2i(3, 1), 2)
 	b.place("TEE", Vector2i(2, 1), 1)
 	b.place("SLASH", Vector2i(2, 2), 0)
 	b.place("OUTPUT", Vector2i(3, 2), 0)
 	return b
 
-## A straight run of `n` wires into an attack: no cycle, just length.
+## A straight run of `n` DELAYs into an attack: no cycle, just length.
 func chain(n: int) -> SkillBoard:
 	var b := SkillBoard.new(60, 5, "chain")
 	b.place("INPUT", Vector2i(0, 2), 0)
 	for i in n:
-		b.place("WIRE", Vector2i(1 + i, 2), 0)
+		b.place("DELAY", Vector2i(1 + i, 2), 0)
 	b.place("SLASH", Vector2i(1 + n, 2), 0)
 	b.place("OUTPUT", Vector2i(2 + n, 2), 0)
 	return b
@@ -113,7 +113,7 @@ func _ready() -> void:
 	for n in [2, 12, 40]:
 		var r := runner(chain(n))
 		check(r.pass_cost == n + 3,
-			"a %d-wire chain costs %d to walk once (%d)" % [n, n + 3, r.pass_cost])
+			"a %d-DELAY chain costs %d to walk once (%d)" % [n, n + 3, r.pass_cost])
 		check(shots(r) == 1, "and one pass is exactly what an uncharged cast takes")
 
 	# Charge buys life, and life is only ever spent going round. A board with no

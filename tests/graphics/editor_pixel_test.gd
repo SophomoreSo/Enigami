@@ -319,10 +319,10 @@ func _ready() -> void:
 	big.place("DAMAGE", Vector2i(2, 1), 1)
 	big.place("FIRE", Vector2i(2, 2), 2)        # closing the ring
 	big.place("OUTPUT", Vector2i(3, 2), 0)      # stranded, and drawn faint
-	big.place("WIRE", Vector2i(5, 1), 0)
-	big.place("WIRE", Vector2i(6, 1), 1)
-	big.place("WIRE", Vector2i(6, 2), 2)
-	big.place("WIRE", Vector2i(5, 2), 3)        # a ring with nothing feeding it
+	big.place("DELAY", Vector2i(5, 1), 0)
+	big.place("DELAY", Vector2i(6, 1), 1)
+	big.place("DELAY", Vector2i(6, 2), 2)
+	big.place("DELAY", Vector2i(5, 2), 3)       # a ring with nothing feeding it
 	wb._sim_dirty = true
 	wb._update_hover(wb._cell_center(Vector2i(2, 1)))
 	wb._mouse_pos = wb._cell_center(Vector2i(2, 1))

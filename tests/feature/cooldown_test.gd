@@ -114,9 +114,9 @@ func _ready() -> void:
 	check(q.ready_flash <= 0.0, "the flash fades out rather than sticking on")
 
 	# A slower board must take proportionally longer to fill. Counted over a run
-	# of cycles rather than read off one of them: these two boards are the same
-	# length and separated only by a tick of heat, which is finer than one step
-	# of this loop, so a single reading of either is mostly quantisation.
+	# of cycles rather than read off one of them: these two boards are only a
+	# cell and a tick of heat apart, a couple of steps of this loop, so a single
+	# reading of either is mostly quantisation.
 	var slow_cycle := float(make("ROCK").simulate()["cycle_seconds"])
 	check(slow_cycle > predicted,
 		"the ROCK board really is the slower one (%.4fs vs %.4fs)" % [slow_cycle, predicted])
@@ -132,11 +132,11 @@ func _ready() -> void:
 	# one had the slot reading four tenths full at the instant it was castable.
 	var ring := SkillBoard.new(7, 5, "ring")
 	ring.place("INPUT", Vector2i(0, 1), 0)
-	ring.place("WIRE", Vector2i(1, 1), 3)
-	ring.place("WIRE", Vector2i(1, 0), 0)
-	ring.place("WIRE", Vector2i(2, 0), 0)
-	ring.place("WIRE", Vector2i(3, 0), 1)
-	ring.place("WIRE", Vector2i(3, 1), 2)
+	ring.place("DELAY", Vector2i(1, 1), 3)
+	ring.place("DELAY", Vector2i(1, 0), 0)
+	ring.place("DELAY", Vector2i(2, 0), 0)
+	ring.place("DELAY", Vector2i(3, 0), 1)
+	ring.place("DELAY", Vector2i(3, 1), 2)
 	ring.place("TEE", Vector2i(2, 1), 1)
 	ring.place("SLASH", Vector2i(2, 2), 0)
 	ring.place("OUTPUT", Vector2i(3, 2), 0)
@@ -161,16 +161,14 @@ func _ready() -> void:
 		if Components.tick_cost(id) != int(Components.get_def(id)["cells"]):
 			drift.append(id)
 	check(drift.is_empty(), "every part costs one tick per cell (%s)" % str(drift))
-	check(Components.tick_cost("AREA") == 2 and Components.tick_cost("WIRE") == 1,
+	check(Components.tick_cost("AREA") == 2 and Components.tick_cost("DELAY") == 1,
 		"a two-cell part costs two ticks and a one-cell part one")
 	# And the board agrees: every cell added to the path is one more tick,
 	# whichever part it belongs to. DELAY, which used to hold a flow for twelve
 	# ticks of its own, is now a cell like any other.
-	var one := ticks_of(["WIRE"])
-	check(ticks_of(["WIRE", "WIRE"]) - one == 1,
-		"a second WIRE costs one tick (%d)" % (ticks_of(["WIRE", "WIRE"]) - one))
-	check(ticks_of(["WIRE", "DELAY"]) - one == 1,
-		"and so does a DELAY (%d)" % (ticks_of(["WIRE", "DELAY"]) - one))
+	var one := ticks_of(["DELAY"])
+	check(ticks_of(["DELAY", "DELAY"]) - one == 1,
+		"a second DELAY costs one tick (%d)" % (ticks_of(["DELAY", "DELAY"]) - one))
 
 	print("[CD] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)

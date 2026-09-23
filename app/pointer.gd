@@ -25,14 +25,22 @@ extends Node
 ##     drifting apart, unhooks it outright: the pointer stops following the
 ##     mouse at all and only moves when something moves it.
 ##
-## So the system pointer is never moved, never held, and never argued with.
+## So the system pointer is never driven, never held, and never argued with.
 ## While the player has the controls the game takes the mouse instead — Godot
-## hands over raw movement and nothing else — and keeps a pointer of its own,
-## `point`, which it moves at whatever speed the setting asks for and draws the
-## crosshair at. Let go of the controls for a menu, a map or a conversation, and
-## the system pointer comes straight back, at its own speed, for the buttons —
-## as the system's own arrow. The crosshair is for aiming, so it is only ever
-## on the screens the player aims on: the battleground and the hideout floor.
+## hands over raw movement — and keeps a pointer of its own, `point`, which it
+## moves at whatever speed the setting asks for and draws the crosshair at. Let
+## go of the controls for a menu, a map or a conversation, and the system
+## pointer comes straight back, at its own speed, for the buttons — as the
+## system's own arrow. The crosshair is for aiming, so it is only ever on the
+## screens the player aims on: the battleground and the hideout floor.
+##
+## It comes back where the crosshair was, and that is the one time the game
+## moves it. Taking the mouse is not as hands-off as it sounds: for as long as
+## Godot has it, it parks the system pointer in the middle of the window, so
+## left alone the pointer came back there, and every menu opened with the
+## crosshair anywhere else began with it jumping to the middle of the screen.
+## One move, at the hand-back, is not the drift above, which came from moving
+## the pointer every frame under a hand that was still moving.
 ##
 ## Which means the setting is aim speed. Menus are the system's and stay 1:1.
 
@@ -154,10 +162,14 @@ func _process(_delta: float) -> void:
 	var take := aiming and not Touch.wanted()
 	if take != _taken:
 		_taken = take
-		# Taken, not confined and not warped: Godot hands over raw movement and
-		# leaves the system pointer where it was. Handed back, the system puts
-		# it back itself. Nothing here ever tells it where to be.
+		# Taken, not confined: Godot hands over raw movement, and parks the
+		# system pointer in the middle of the window until it is handed back.
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if take else Input.MOUSE_MODE_VISIBLE
+		# So it is handed back under the crosshair rather than in the middle —
+		# but only to a window in use. With the player off in another one, a
+		# death or a scene change handing it back would snatch their pointer.
+		if not take and get_window().has_focus():
+			get_viewport().warp_mouse(point)
 	if not _taken:
 		var vp := get_viewport()
 		if vp != null:
