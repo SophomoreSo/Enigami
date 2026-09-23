@@ -99,12 +99,13 @@ desk.
 It is laid out the way a phone MOBA is, because that is the scheme this game's
 controls turn out to fit:
 
-* **The left thumb is a stick, and there is nothing there until it lands.** The
-  lower-left of the screen is empty; a thumb put down anywhere in it grows the
-  stick under itself, and lifting takes it away again — so it is never somewhere
-  to reach for and never in the way of the fight. It is analog — the game reads
-  movement as the strength of two actions — so a stick half over walks and a
-  stick hard over runs, which four keys could never say.
+* **The left thumb is a stick, and there is nothing there until it moves.** The
+  lower-left of the screen is empty; a thumb put down anywhere in it and dragged
+  grows the stick where it landed, and lifting takes it away again. A thumb that
+  only touches grows nothing — so it is never somewhere to reach for, never in
+  the way of the fight, and never flashes up under a tap. It is analog — the
+  game reads movement as the strength of two actions — so a stick half over
+  walks and a stick hard over runs, which four keys could never say.
 * **A skill button is a stick too.** Press one and the slot is armed and begins
   to charge; drag and the charge aims; let go and it casts, where you were
   pointing, carrying everything the hold paid for. The game's own
@@ -142,10 +143,12 @@ never learn what a finger is. What changes while it is up:
   spent saying nothing.
 * **What is on the console follows the screen.** Playing shows everything; a
   conversation or a scene shows the stick that picks an answer and the key that
-  turns the page; a window that has taken the controls — the map, the assembly
-  bench — keeps only the keys that close it again, since the map is opened and
+  turns the page; a window that has taken the controls — the map, a station's
+  panel — keeps only the keys that close it again, since the map is opened and
   shut with the same key and on a phone that key is on the console or it is
-  nowhere. The pause menu replaces it: those are buttons you tap.
+  nowhere. The assembly board leaves the glass clear: it covers all of it, it is
+  itself what the thumb is for, and its own CLOSE is right where KIT, MAP and
+  MENU would stand. The pause menu replaces it: those are buttons you tap.
 
 None of it is eyeballed. `tests/graphics/touch_pad_test` measures every control
 against the HUD's two bands, against every other control, and against its own
@@ -154,9 +157,12 @@ walks and runs, a stick dragged over a button does not press it, a skill button
 arms its slot, charges while it is held, aims where it is thrown and casts what
 the hold paid for.
 
-The mouse pointer is the game's own: a crosshair, drawn at boot from a table of
-characters like every other asset here that is not a sprite or a font, with the
-gap in the middle left open so what you are aiming at stays visible. **Mouse
+The pointer you aim with is the game's own: a crosshair, drawn at boot from a
+table of characters like every other asset here that is not a sprite or a font,
+with the gap in the middle left open so what you are aiming at stays visible.
+It is only on the screens you aim on — the battleground and the hideout floor.
+Every window over them — the workbench, the settings, the weapon rack, the map,
+the pause menu — is buttons, and points with the system's own arrow. **Mouse
 sensitivity**, at the top of the control settings, decides how far it travels
 for a given push of the mouse, from 0.4 to 2.5, and is kept per machine rather
 than per save — a property of the desk, like the language and the bindings.

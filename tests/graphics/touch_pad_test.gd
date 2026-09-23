@@ -272,16 +272,29 @@ func _into_a_raid() -> void:
 func _the_stick() -> void:
 	var zone: Rect2 = TouchPad.CONTROLS[0]["zone"]
 	var radius: float = TouchPad.CONTROLS[0]["radius"]
-	# There is nothing there until a thumb lands, and then it is under the thumb.
+	# There is nothing there until a thumb lands and drags, and then it is where
+	# the thumb landed.
 	check(not pad.stick_showing(), "with no thumb down there is no stick on the screen")
 	var landed := Vector2(zone.position.x + radius + 40.0, zone.position.y + radius + 30.0)
 	touch(0, landed, true)
 	await frames(2)
-	check(pad.stick_showing(), "a thumb in the left of the screen grows one")
+	check(not pad.stick_showing(), "a thumb that only touches the left of the screen grows nothing")
+	# A thumb coming down is never quite still, and a tremble is not a drag.
+	drag(0, landed + Vector2(TouchPad.STICK_OUT * 0.5, 0.0))
+	await frames(2)
+	check(not pad.stick_showing(), "nor does one that only trembles")
+	check(absf(Input.get_axis("move_left", "move_right")) < 0.001, "and neither moves anybody")
+	# Past the slop and still inside the dead zone: on the screen, and nobody
+	# moved by it yet.
+	var out := TouchPad.STICK_OUT + 2.0
+	drag(0, landed + Vector2(out, 0.0))
+	await frames(2)
+	check(pad.stick_showing(), "a thumb that drags grows one")
 	check(pad._stick_at.is_equal_approx(landed),
-		"where the thumb landed, and not where it was last time (%s)" % str(pad._stick_at))
+		"where the thumb landed, not where it was dragged to or where it was last time (%s)"
+			% str(pad._stick_at))
 	check(absf(Input.get_axis("move_left", "move_right")) < 0.001,
-		"a thumb resting on it asks for nothing yet")
+		"and it asks for nothing until it is pushed past its dead zone")
 
 	# Analog: how far it is pushed is how fast they walk.
 	drag(0, landed + Vector2(radius * 0.5, 0.0))
@@ -319,6 +332,7 @@ func _the_stick() -> void:
 	# And the next thumb down is where the next stick is, wherever that is.
 	var again := Vector2(zone.end.x - radius - 30.0, zone.end.y - radius - 20.0)
 	touch(0, again, true)
+	drag(0, again + Vector2(0.0, -out))
 	await frames(2)
 	check(pad.stick_showing() and pad._stick_at.is_equal_approx(again),
 		"the next one grows under the next thumb, somewhere else entirely (%s)"
@@ -333,10 +347,10 @@ func _the_stick() -> void:
 	# as shoved the moment it appeared and walk the player off on its own.
 	var corner := Vector2(zone.position.x + 2.0, zone.end.y - 2.0)
 	touch(0, corner, true)
-	# A finger on glass is never still, and a device reports it moving whether
-	# or not it went anywhere. That report is where a stick measured from the
-	# wrong place shows what it thinks it was asked for.
-	drag(0, corner)
+	# Dragged just far enough to bring it out. The ring it grows is a radius in
+	# from the corner, so measured from the ring this would read as a shove the
+	# moment it appeared; measured from the thumb it is a nudge.
+	drag(0, corner + Vector2(out, 0.0))
 	await frames(3)
 	check(pad.stick_showing(), "a thumb in the corner of the zone still grows a stick")
 	check(absf(Input.get_axis("move_left", "move_right")) < 0.001

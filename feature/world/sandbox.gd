@@ -5,13 +5,11 @@ extends Node2D
 ## the library, and the same skill can be tried on each weapon back to back so
 ## the differences between weapons are something you see rather than read.
 ##
-## The bench's own readouts and buttons are `graphics/ui/sandbox_panel.gd`,
-## built by the view that attaches itself to this node.
+## The bench's own buttons are `graphics/ui/sandbox_panel.gd`, in a drawer built
+## by the view that attaches itself to this node, beside the raid's own HUD.
 
 signal exit_requested()
 signal editing_changed(on: bool)
-## The loadout changed under the bench, so anything cached about it is stale.
-signal loadout_changed()
 ## The dragon test was asked for: a building of guards to try a chain of lunges on.
 signal dragon_test_requested()
 
@@ -25,6 +23,10 @@ var boards: Array = []
 var weapon_index: int = 0
 var inventory: Dictionary = {}
 var editing: bool = false
+## Whether the drawer of bench tools is out. The player is held still while it
+## is, the way they are while assembling: its buttons are pressed with the mouse
+## they would otherwise be aiming with.
+var tools_open: bool = false
 var _dps_window: Array = []   ## [time, damage] pairs over the last few seconds
 var _dps: float = 0.0
 
@@ -62,7 +64,6 @@ func _apply_weapon() -> void:
 	player.setup(String(ids[weapon_index]), boards)
 	player.max_health = 9999.0
 	player.health = 9999.0
-	loadout_changed.emit()
 
 func cycle_weapon() -> void:
 	weapon_index += 1
@@ -138,9 +139,12 @@ func set_editing(on: bool) -> void:
 	if editing == on:
 		return
 	editing = on
-	player.input_locked = on
+	player.input_locked = editing or tools_open
 	editing_changed.emit(on)
+
+func set_tools_open(on: bool) -> void:
+	tools_open = on
+	player.input_locked = editing or tools_open
 
 func on_board_changed(slot: int) -> void:
 	player.rebuild_runner(slot)
-	loadout_changed.emit()

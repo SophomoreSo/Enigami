@@ -1,12 +1,13 @@
 class_name SandboxView
 extends Node2D
 
-## The bench's screen: camera, the readout panel with its spawn buttons, and
-## the same assembly overlay the raid uses.
+## The bench's screen: camera, the raid's own HUD, the drawer of bench tools,
+## and the same assembly overlay the raid uses.
 
 var sandbox: Sandbox
 var camera: Camera2D
 var pixels: PixelCamera
+var hud: Hud
 var editor: SkillEditor
 var panel: SandboxPanel
 
@@ -23,6 +24,10 @@ func _ready() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 10
 	add_child(layer)
+	# The raid's readout, the same as in a raid: a skill tried here should read
+	# the way it will once it is carried.
+	hud = Hud.new()
+	layer.add_child(hud)
 	editor = SkillEditor.new()
 	editor.visible = false
 	editor.title_text = Loc.t("editor.title.sandbox")
@@ -35,7 +40,14 @@ func _ready() -> void:
 	layer.add_child(panel)
 
 	sandbox.editing_changed.connect(_on_editing)
-	sandbox.loadout_changed.connect(func() -> void: panel.invalidate())
+
+func _process(_delta: float) -> void:
+	if sandbox == null or not is_instance_valid(sandbox):
+		return
+	hud.player = sandbox.player
+	# No map here and nothing to extract from: the line along the bottom names
+	# the keys the room answers to, which are the hideout's.
+	hud.footer = Loc.t("hud.footer_lobby")
 
 ## See RaidView._unhandled_input: the editor consumes its own close key.
 func _unhandled_input(event: InputEvent) -> void:

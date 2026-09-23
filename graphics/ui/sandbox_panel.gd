@@ -1,40 +1,57 @@
 class_name SandboxPanel
 extends Control
 
-## Side panel with the controls and readouts a test bench needs: what weapon is
-## in hand, what the last three seconds of damage came to, the meters a charge
-## moves, and a button for every monster.
+## The bench's own tools, in a drawer on the left edge of the screen: a weapon to
+## swap to, the dragon test, a monster of every kind, a dummy, and the ways to
+## clear the floor and to leave. It slides out on its tab and back in on it, and
+## starts in, so the bench opens on the fight.
 ##
-## Drawn in UiKit's pixel look, like the assembly screen it shares the bench
-## with: the buttons are the kit's pixel ones and everything drawn here goes
-## through `PixelDraw`, which snaps it to the PIXEL grid.
+## Everything else on the screen is the raid's own `Hud` over the same player —
+## the bars, the slots, the armed skill's name — so a skill tried here reads the
+## way it will when it is carried. The one readout that is the bench's is what
+## the last three seconds of damage came to, under the HUD's corner.
+##
+## While the drawer is out the bench holds the player still, the way any window
+## over the fight does. Its buttons are pressed with the mouse the player would
+## otherwise be aiming with, and on the console a thumb there would otherwise be
+## the movement stick, whose zone is the whole left of the screen.
+##
+## The tab is hit-tested here in `_input` rather than being a Button, because it
+## has to answer while the drawer is in and the player is aiming: the game has
+## the mouse then and points with the crosshair, which no Button hears, and the
+## console takes a press on the left of the screen for its stick before any
+## Control is asked — but after this, which is later in the tree.
+##
+## Drawn in UiKit's pixel look: the buttons are the kit's pixel ones, and
+## everything drawn here goes through `PixelDraw`.
 
-## The readout, wide enough for the longest line it carries — the damage figure
-## with four digits in front of the point.
-const PANEL := Rect2(12, 16, 372, 120)
-const TEXT_X := 24.0
-const METER_W := 348.0
-const METER_H := 8.0
-## The buttons start under the readout.
-const BUTTONS_AT := Vector2(20, 152)
-## A slot card, wide enough for its cycle line; a longer skill name is cut short.
-const CARD := Vector2(240, 56)
-const CARD_GAP := 8.0
-## Where the row of cards sits above the bottom of the screen.
-const CARD_BOTTOM := 80.0
+## The damage readout's baseline, under the HUD's corner: clear of the armed
+## skill's name, and of the line under it when the weapon refuses that skill.
+const DPS_AT := Vector2(24, 246)
+## The drawer's top edge, and the room inside its frame.
+const TOP := 264.0
+const PAD := 8.0
+const GAP := 4
+## The tab it is pulled by, and the chevron on it, which points the way a press
+## will send the drawer.
+const TAB := Vector2(32, 64)
+const CHEVRON := ["#....", ".#...", "..#..", "...#.", "....#", "...#.", "..#..", ".#...", "#...."]
+## Seconds to slide all the way.
+const SLIDE := 0.16
+
+const FILL := Color(0.07, 0.08, 0.11, 0.85)
+const EDGE := Color(0.35, 0.5, 0.65, 0.6)
 
 var sandbox: Sandbox
-var _sim: Array = []
 var _px := PixelDraw.new(self)
-## The column of buttons down the left. Everything else here is drawn every
-## frame and so is already in whatever language is on; these are words written
-## once, and a switch has to build them again.
-var _buttons: VBoxContainer = null
-
-## The cached cycle previews are only as good as the loadout they were run
-## against; the bench clears them whenever it changes underneath.
-func invalidate() -> void:
-	_sim.clear()
+## The buttons, two to a row. Everything else here is drawn every frame and so
+## is already in whatever language is on; these are words written once, and a
+## switch has to build them again.
+var _grid: GridContainer = null
+## Whether the drawer is out, and how far it has got there: 0 in, 1 out.
+var _out: bool = false
+var _slide: float = 0.0
+var _tab_hover: bool = false
 
 func _ready() -> void:
 	UiKit.fill_screen(self)
@@ -44,113 +61,115 @@ func _ready() -> void:
 	Loc.language_changed.connect(func(_l: String) -> void: _build_buttons())
 
 func _build_buttons() -> void:
-	if _buttons != null and is_instance_valid(_buttons):
-		remove_child(_buttons)
-		_buttons.queue_free()
-	var v := VBoxContainer.new()
-	v.position = BUTTONS_AT
-	v.add_theme_constant_override("separation", 4)
-	add_child(v)
-	_buttons = v
-	var wb := UiKit.overlay_button(Loc.t("hud.sandbox.swap_weapon"), UiKit.ACCENT, true)
-	wb.pressed.connect(func() -> void: sandbox.cycle_weapon())
-	v.add_child(wb)
-	var dt := UiKit.overlay_button(Loc.t("hud.sandbox.dragon_test"), UiKit.ACCENT, true)
-	dt.pressed.connect(func() -> void: sandbox.open_dragon_test())
-	v.add_child(dt)
+	if _grid != null and is_instance_valid(_grid):
+		remove_child(_grid)
+		_grid.queue_free()
+	_grid = GridContainer.new()
+	_grid.columns = 2
+	_grid.add_theme_constant_override("h_separation", GAP)
+	_grid.add_theme_constant_override("v_separation", GAP)
+	add_child(_grid)
+	_add(Loc.t("hud.sandbox.swap_weapon"), UiKit.ACCENT, func() -> void: sandbox.cycle_weapon())
+	_add(Loc.t("hud.sandbox.dragon_test"), UiKit.ACCENT, func() -> void: sandbox.open_dragon_test())
 	for kind in Sandbox.MONSTER_BUTTONS:
-		var b := UiKit.overlay_button(Loc.t("hud.sandbox.spawn", [Monsters.name_for(kind)]), UiKit.WARN, true)
-		b.pressed.connect(func() -> void: sandbox.spawn_monster(kind))
-		v.add_child(b)
-	var db := UiKit.overlay_button(Loc.t("hud.sandbox.spawn_dummy"), UiKit.GOOD, true)
-	db.pressed.connect(func() -> void: sandbox.spawn_dummy())
-	v.add_child(db)
-	var cb := UiKit.overlay_button(Loc.t("hud.sandbox.clear"), UiKit.BAD, true)
-	cb.pressed.connect(func() -> void: sandbox.clear_monsters())
-	v.add_child(cb)
-	var xb := UiKit.overlay_button(Loc.t("hud.sandbox.leave"), UiKit.ACCENT, true)
-	xb.pressed.connect(func() -> void: sandbox.leave())
-	v.add_child(xb)
+		_add(Loc.t("hud.sandbox.spawn", [Monsters.name_for(kind)]), UiKit.WARN,
+			func() -> void: sandbox.spawn_monster(kind))
+	_add(Loc.t("hud.sandbox.spawn_dummy"), UiKit.GOOD, func() -> void: sandbox.spawn_dummy())
+	_add(Loc.t("hud.sandbox.clear"), UiKit.BAD, func() -> void: sandbox.clear_monsters())
+	_add(Loc.t("hud.sandbox.leave"), UiKit.ACCENT, func() -> void: sandbox.leave())
+	# Both columns as wide as the widest button, so the drawer is a block and
+	# not a ragged edge.
+	var widest := 0.0
+	for b in _grid.get_children():
+		widest = maxf(widest, (b as Control).get_combined_minimum_size().x)
+	for b in _grid.get_children():
+		(b as Control).custom_minimum_size.x = widest
+	_place()
 
-func _process(_d: float) -> void:
+func _add(text: String, accent: Color, press: Callable) -> void:
+	var b := UiKit.overlay_button(text, accent, true)
+	b.pressed.connect(press)
+	_grid.add_child(b)
+
+## Pulls the drawer out or pushes it back in. The bench holds the player still
+## for as long as it is out.
+func set_out(out: bool) -> void:
+	if out == _out:
+		return
+	_out = out
+	sandbox.set_tools_open(out)
+	Audio.play("ui")
+
+func is_out() -> bool:
+	return _out
+
+## The drawer where it stands this frame: all of its width off the left edge
+## when it is in, none of it when it is out, and on the grid in between.
+func drawer_rect() -> Rect2:
+	var px := PixelDraw.PX
+	var size := ((_grid.get_combined_minimum_size() + Vector2.ONE * PAD * 2.0) / px).ceil() * px
+	var shift := floorf(-size.x * (1.0 - smoothstep(0.0, 1.0, _slide)) / px) * px
+	return Rect2(Vector2(shift, TOP), size)
+
+## On the drawer's right edge, sharing its border, so it comes and goes with it
+## and is all that is left on the screen once the drawer is in.
+func tab_rect() -> Rect2:
+	return Rect2(Vector2(drawer_rect().end.x - PixelDraw.PX, TOP), TAB)
+
+## Off the screen with the drawer while it is in, where nothing can press it
+## and, since no button here takes focus, no key can reach it either.
+func _place() -> void:
+	_grid.position = drawer_rect().position + Vector2.ONE * PAD
+
+func _process(delta: float) -> void:
 	UiKit.sync_screen(self)
+	_slide = move_toward(_slide, 1.0 if _out else 0.0, delta / SLIDE)
+	_place()
+	# `Pointer.point` is wherever the pointing is being done from: the crosshair
+	# while the game has the mouse, the system pointer otherwise.
+	_tab_hover = tab_rect().has_point(Pointer.point)
 	queue_redraw()
 
-func _draw() -> void:
-	if sandbox == null or not is_instance_valid(sandbox) or sandbox.player == null:
+func _input(event: InputEvent) -> void:
+	if not is_visible_in_tree():
 		return
-	_draw_readout()
-	_draw_cards()
+	var at := Vector2.INF
+	var press := false
+	var click := event as InputEventMouseButton
+	var touch := event as InputEventScreenTouch
+	if click != null and click.button_index == MOUSE_BUTTON_LEFT:
+		# While the game has the mouse, a click lands where the crosshair is.
+		at = Pointer.point if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED else click.position
+		# The system hands a touch over as a click as well: the touch is the press.
+		press = click.pressed and click.device != InputEvent.DEVICE_ID_EMULATION
+	elif touch != null:
+		at = touch.position
+		press = touch.pressed
+	else:
+		return
+	if not tab_rect().has_point(at):
+		return
+	get_viewport().set_input_as_handled()
+	if press:
+		set_out(not _out)
 
-func _draw_readout() -> void:
-	_px.rect(PANEL, Color(0.07, 0.08, 0.11, 0.85))
-	_px.frame(PANEL, Color(0.35, 0.5, 0.65, 0.6))
-	var weapon := sandbox.current_weapon()
-	var width := PANEL.size.x - (TEXT_X - PANEL.position.x) * 2.0
-	_px.text(Vector2(TEXT_X, 40), Loc.t("hud.sandbox.heading", [Weapons.name_for(weapon).to_upper()]),
-		Style.weapon_color(weapon), width)
-	_px.text(Vector2(TEXT_X, 60), Loc.t("hud.sandbox.dps", [sandbox.dps()]), UiKit.GOOD, width)
-	# Two rows for the keys, since a rebound one can be a whole gamepad axis.
-	var hint := Loc.t("hud.sandbox.hint", [
-		Controls.short_label_for("open_editor"), Controls.short_label_for("attack"),
-		Controls.short_label_for("cast_skill")])
-	var rows := PixelDraw.wrap(hint, width, 2)
-	for i in rows.size():
-		_px.text(Vector2(TEXT_X, 80 + i * PixelDraw.LINE), rows[i], UiKit.DIM)
-	_draw_meters()
+## ESC puts the drawer away, the way it closes every other window here, before
+## it would pause the bench behind it.
+func _unhandled_input(event: InputEvent) -> void:
+	if _out and is_visible_in_tree() and event.is_action_pressed("ui_cancel"):
+		set_out(false)
+		get_viewport().set_input_as_handled()
 
-## Stamina and mana, so what a charge costs is visible in the room skills are
-## tested in and not only in a raid. What it buys is over the player's head, the
-## same as anywhere else.
-func _draw_meters() -> void:
-	var p := sandbox.player
-	var ground := Color(0, 0, 0, 0.55)
-	var edge := Color(0.5, 0.6, 0.7, 0.7)
-	_px.bar(Rect2(TEXT_X, 106, METER_W, METER_H), p.stamina_ratio(),
-		Color(0.45, 0.82, 0.62), ground, edge)
-	_px.bar(Rect2(TEXT_X, 118, METER_W, METER_H), p.mana_ratio(),
-		Color(0.38, 0.55, 0.95), ground, edge)
-
-func _draw_cards() -> void:
-	var y := get_viewport_rect().size.y - CARD_BOTTOM
-	for i in sandbox.player.runners.size():
-		var r: SkillRunner = sandbox.player.runners[i]
-		var armed := i == sandbox.player.selected_slot
-		var usable := sandbox.player.can_cast(i)
-		var card := Rect2(Vector2(TEXT_X + i * (CARD.x + CARD_GAP), y), CARD)
-		_px.rect(card, Color(0.10, 0.13, 0.17, 0.9) if armed else Color(0.07, 0.08, 0.11, 0.85))
-		var title := UiKit.TEXT
-		if not usable:
-			title = Color(0.72, 0.55, 0.58)
-		elif armed:
-			title = Color(1, 1, 1)
-		# Two characters of marker either way, so the name does not shift as the
-		# armed slot moves. An X where the weapon will not carry the board.
-		var text_w := card.size.x - 16.0
-		_px.text(card.position + Vector2(8, 24), Loc.t("hud.sandbox.card", [
-			"> " if armed else "  ", i + 1, r.board.skill_name,
-			"" if usable else Loc.t("hud.sandbox.unusable")]),
-			title, text_w)
-		_px.text(card.position + Vector2(8, 44), Loc.t("hud.sandbox.cycle", [
-			float(_preview(i, r)["cycle_seconds"]), (_preview(i, r)["outputs"] as Array).size()]),
-			UiKit.DIM, text_w)
-		var border := Color(0.3, 0.35, 0.42)
-		if not usable:
-			border = Color(0.85, 0.35, 0.35)
-		elif r.active:
-			border = Color(0.5, 0.9, 1.0)
-		elif armed:
-			border = Color(0.45, 0.95, 0.8)
-		_px.cooldown(card, r.ready_ratio(), r.ready_flash, border)
-
-## The offline walk of slot `i`'s board, run once and kept until the loadout
-## changes (see `invalidate`).
-func _preview(i: int, r: SkillRunner) -> Dictionary:
-	while _sim.size() <= i:
-		_sim.append({})
-	if _sim[i].is_empty():
-		var sim := SkillRunner.new(r.board)
-		var weapon := sandbox.current_weapon()
-		sim.base_payload_provider = func() -> Payload: return Weapons.base_payload(weapon)
-		_sim[i] = sim.simulate()
-	return _sim[i]
+func _draw() -> void:
+	if sandbox == null or not is_instance_valid(sandbox):
+		return
+	_px.text(DPS_AT, Loc.t("hud.sandbox.dps", [sandbox.dps()]), UiKit.GOOD)
+	var d := drawer_rect()
+	if d.end.x > 0.0:
+		_px.rect(d, FILL)
+		_px.frame(d, EDGE)
+	var t := tab_rect()
+	_px.rect(t, Color(0.12, 0.16, 0.21, 0.9) if _tab_hover else FILL)
+	_px.frame(t, UiKit.ACCENT if _tab_hover else EDGE)
+	_px.icon_centered(t.get_center(), PixelDraw.turn(CHEVRON, 2) if _out else CHEVRON,
+		Color.WHITE if _tab_hover else UiKit.TEXT)

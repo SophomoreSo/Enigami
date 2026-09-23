@@ -50,6 +50,11 @@ var stations: Dictionary = {}
 ## Which panel is open over the room, or "" for none. While one is open the
 ## player is held still: they are reading, not walking.
 var open_panel: String = ""
+## Whether the assembly board is up over the room. The board is `app/game.gd`'s
+## and it says when; the room only holds the player still under it, the way a
+## raid does under its own. Opened by key from the floor it held nobody, so the
+## player walked the room behind it and the game kept the mouse for their aim.
+var editing: bool = false
 ## The weapon the kit is being built around. The rack writes it, the bench reads
 ## it, and the gate carries it.
 var weapon_id: String = ""
@@ -206,9 +211,16 @@ func close_panel() -> void:
 		return
 	open_panel = ""
 	if player != null and is_instance_valid(player):
-		player.input_locked = false
+		# Still held if the board is up over the panel that just went.
+		player.input_locked = reading()
 	_refresh_gate()
 	panel_changed.emit("")
+
+## The assembly board going up over the room, or coming down.
+func set_editing(on: bool) -> void:
+	editing = on
+	if player != null and is_instance_valid(player):
+		player.input_locked = reading()
 
 ## The weapon the rack was last left on. Changing it re-reads the gate, since a
 ## weapon with nothing in its slots is a raid nobody should be let into.
@@ -220,7 +232,7 @@ func set_weapon(id: String) -> void:
 ## Whether the player is being held still by something on screen. The view asks
 ## before it lets a key through, the same way the bench does while assembling.
 func reading() -> bool:
-	return open_panel != ""
+	return open_panel != "" or editing
 
 func leave() -> void:
 	title_requested.emit()
