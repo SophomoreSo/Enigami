@@ -29,7 +29,6 @@
 	},
 	"extracting": "탈출 중",
 	"footer": "%s 조립   %s 지도   %s 상호작용   %s 대시",
-	"footer_lobby": "TAB 조립   F 상호작용   SHIFT 대시",
 	"extract": {
 		"hold": "%s를 길게 눌러 탈출",
 		"no_exit": "출구 없음",

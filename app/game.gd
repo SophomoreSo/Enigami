@@ -262,6 +262,8 @@ func _open_boards(boards: Array) -> void:
 	editor.board_changed.connect(func(_s: int) -> void: GameState.save_game())
 	overlay_layer.add_child(editor)
 	editor.grab_focus()
+	if hideout_ref != null and is_instance_valid(hideout_ref):
+		hideout_ref.set_editing(true)
 
 func _close_editor() -> void:
 	if editor != null and is_instance_valid(editor):
@@ -274,6 +276,7 @@ func _close_editor() -> void:
 			# the board as it was before it went in.
 			hideout_ref.refresh_kit()
 			hideout_ref.refresh_panel()
+			hideout_ref.set_editing(false)
 	editor = null
 
 ## --- pause ------------------------------------------------------------------

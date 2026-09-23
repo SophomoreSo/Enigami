@@ -29,7 +29,6 @@
 	},
 	"extracting": "EXTRACTING",
 	"footer": "%s assemble   %s map   %s interact   %s dash",
-	"footer_lobby": "TAB assemble   F interact   SHIFT dash",
 	"extract": {
 		"hold": "hold %s to extract",
 		"no_exit": "no exit",

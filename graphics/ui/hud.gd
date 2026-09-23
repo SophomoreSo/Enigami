@@ -55,10 +55,9 @@ var prompt: String = ""
 var extract_ratio: float = 0.0
 var toast: String = ""
 var toast_time: float = 0.0
-## The line along the bottom, naming the keys worth knowing. Empty means the
-## raid's own list; a room with no map in it and no extraction to hold sets its
-## own rather than pointing at keys that do nothing there.
-var footer: String = ""
+## Whether the two lines of keys are drawn along the bottom. The hideout floor
+## turns them off: its stations' signs already say what a press does there.
+var key_hints: bool = true
 ## The pixel grid, bound to this screen.
 var _px := PixelDraw.new(self)
 
@@ -215,7 +214,7 @@ func _draw_prompts(vp: Vector2) -> void:
 	# the keys are on the screen with their names written on them, so the legend
 	# is a line telling the player to press a button they are looking at — and on
 	# a phone it costs two rows of a small screen.
-	if Touch.up():
+	if Touch.up() or not key_hints:
 		return
 	_px.text(Vector2(BAR_AT.x, vp.y - 14.0 - PixelDraw.LINE),
 		Loc.t("hud.slot.hint", [
@@ -225,7 +224,7 @@ func _draw_prompts(vp: Vector2) -> void:
 	# line used to spell out TAB and SHIFT, which was wrong the moment anybody
 	# rebound one.
 	_px.text(Vector2(BAR_AT.x, vp.y - 14.0),
-		footer if footer != "" else Loc.t("hud.footer", [
+		Loc.t("hud.footer", [
 			Controls.short_label_for("open_editor"), Controls.short_label_for("open_map"),
 			Controls.short_label_for("interact"), Controls.short_label_for("dash")]),
 		Color(0.5, 0.58, 0.66))
