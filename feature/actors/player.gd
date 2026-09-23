@@ -373,7 +373,11 @@ func _process(delta: float) -> void:
 	if basic_runner != null:
 		basic_runner.set_active(not controls_locked() and Input.is_action_pressed("attack"))
 		basic_runner.update(delta)
-	_update_aim()
+	# Aiming is the player's hand as much as walking is: while a screen has the
+	# controls, the weapon stays where it was pointing instead of following the
+	# pointer round a menu.
+	if not controls_locked():
+		_update_aim()
 
 func _update_aim() -> void:
 	var stick := Vector2(Input.get_joy_axis(0, JOY_AXIS_RIGHT_X), Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y))

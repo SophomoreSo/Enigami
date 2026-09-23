@@ -78,6 +78,17 @@ func stand_at(id: String) -> void:
 	world.player.global_position = (world.stations[id] as Station).global_position
 	await frames(3)
 
+## Holds a direction down for a fifth of a second and says how far along the
+## floor the player got. Across, not down: a player held still still falls.
+func walk(dir: String) -> float:
+	var from := world.player.global_position.x
+	Input.action_press(dir)
+	for i in 12:
+		await get_tree().physics_frame
+	Input.action_release(dir)
+	await get_tree().physics_frame
+	return absf(world.player.global_position.x - from)
+
 ## How the ink on the plates meets their ground. A glyph drawn at the buffer's
 ## own resolution puts down the ink colour and nothing else; one shrunk into the
 ## buffer leaves a fringe of everything in between. So this counts both, over
@@ -161,6 +172,17 @@ func _ready() -> void:
 	check(world.open_panel == "weapons", "and a press opens its panel")
 	check(world.player.controls_locked(),
 		"which holds the player still while they read it")
+	var walked := await walk("move_right")
+	check(walked < 1.0, "and the movement keys do not walk them off (%.0f px)" % walked)
+	# The pointer is the system's while a panel is up, so it is the real one
+	# that is moved here, from one side of the screen to the other.
+	var aim_was: Vector2 = world.player.aim
+	for x in [8.0, 1270.0]:
+		get_viewport().warp_mouse(Vector2(x, 360.0))
+		await frames(3)
+	check(Pointer.point.x > 1000.0 and world.player.aim.is_equal_approx(aim_was),
+		"nor does the pointer, crossing the panel, turn their weapon (%s, was %s)"
+			% [str(world.player.aim), str(aim_was)])
 	var view = Views.of(world)
 	check(view != null and view.panel != null, "the panel is on screen")
 	# The room goes dark behind it, the way the game does behind the pause menu.
@@ -198,6 +220,16 @@ func _ready() -> void:
 	check(world.open_panel == "" and not world.player.controls_locked(),
 		"and pressing it gives the room and the keys back")
 	check(shades(view).is_empty(), "and the dark goes with the panel")
+	walked = await walk("move_right")
+	check(walked > 5.0, "so the same keys walk again (%.0f px)" % walked)
+	# And the game has the pointer back, so moving it turns the weapon again.
+	Pointer.point = Vector2(8.0, 360.0)
+	await frames(2)
+	var aimed_left := world.player.aim.x
+	Pointer.point = Vector2(1270.0, 360.0)
+	await frames(2)
+	check(aimed_left < 0.0 and world.player.aim.x > 0.0,
+		"and the pointer turns the weapon again (%.2f, then %.2f)" % [aimed_left, world.player.aim.x])
 
 	# Nothing is armed yet, so assembly has nothing to open over. The press is
 	# answered all the same: a key that does nothing is indistinguishable from a
@@ -214,6 +246,8 @@ func _ready() -> void:
 	(world.stations["shop"] as Station).interact()
 	await frames(8)
 	check(world.open_panel == "shop", "the counter opens the same way")
+	walked = await walk("move_left")
+	check(walked < 1.0, "and holds the player the same way (%.0f px)" % walked)
 	var scrap_was: int = GameState.scrap
 	var held_was: int = GameState.component_count("PIERCE", GameState.stash)
 	GameState.scrap = 500
@@ -302,9 +336,38 @@ func _ready() -> void:
 		check(game.editor.boards.size() == armed.size(),
 			"on the armed boards, a tab each (%d of %d)"
 				% [game.editor.boards.size(), armed.size()])
+	check(world.player.controls_locked(), "and holds the player still under it, as a panel does")
+	walked = await walk("move_right")
+	check(walked < 1.0, "so the movement keys do nothing while it is up (%.0f px)" % walked)
 	await tap_key(KEY_TAB)
 	check(game.editor == null, "and a second press puts it away")
+	walked = await walk("move_right")
+	check(not world.player.controls_locked() and walked > 5.0,
+		"giving the keys back (%.0f px)" % walked)
 
+	# The bench's own panel holds the player like the others, and a board opened
+	# off its list hands back to the bench rather than to the room: shutting the
+	# board leaves the player still reading the bench, and still held.
+	await stand_at("bench")
+	(world.stations["bench"] as Station).interact()
+	await frames(8)
+	check(world.open_panel == "bench", "the bench opens the same way")
+	walked = await walk("move_right")
+	check(walked < 1.0, "and holds the player the same way (%.0f px)" % walked)
+	world.edit_requested.emit(0)
+	await frames(6)
+	check(game.editor != null and is_instance_valid(game.editor),
+		"a board off its list opens the editor over it")
+	await tap_key(KEY_ESCAPE)
+	check(game.editor == null and world.open_panel == "bench",
+		"shutting the board goes back to the bench, not the room")
+	walked = await walk("move_right")
+	check(world.player.controls_locked() and walked < 1.0,
+		"where the player is still held (%.0f px)" % walked)
+	world.close_panel()
+	await frames(6)
+
+	await stand_at("gate")
 	gate.interact()
 	await frames(4)
 	check(deployed.size() == 2 and String(deployed[0]) == "GUN",

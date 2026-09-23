@@ -50,10 +50,12 @@ var stations: Dictionary = {}
 ## Which panel is open over the room, or "" for none. While one is open the
 ## player is held still: they are reading, not walking.
 var open_panel: String = ""
-## Whether the assembly board is up over the room. The board is `app/game.gd`'s
-## and it says when; the room only holds the player still under it, the way a
-## raid does under its own. Opened by key from the floor it held nobody, so the
-## player walked the room behind it and the game kept the mouse for their aim.
+## Whether the workbench's editor is up over the room, opened on the assembly
+## key or off the bench's list. `app/game.gd` owns the editor and says so here,
+## the way a raid and the sandbox are told theirs; the player is held under it
+## just as under a panel. Opened by key from the floor it used to hold nobody,
+## so the player walked the room behind it and the game kept the mouse for
+## their aim.
 var editing: bool = false
 ## The weapon the kit is being built around. The rack writes it, the bench reads
 ## it, and the gate carries it.
@@ -194,8 +196,7 @@ func open_station(id: String) -> void:
 	if not stations.has(id) or id == "gate":
 		return
 	open_panel = id
-	player.velocity = Vector2.ZERO
-	player.input_locked = true
+	_hold()
 	station_used.emit(id)
 	panel_changed.emit(id)
 
@@ -210,17 +211,25 @@ func close_panel() -> void:
 	if open_panel == "":
 		return
 	open_panel = ""
-	if player != null and is_instance_valid(player):
-		# Still held if the board is up over the panel that just went.
-		player.input_locked = reading()
+	_hold()
 	_refresh_gate()
 	panel_changed.emit("")
 
-## The assembly board going up over the room, or coming down.
+## The workbench's editor went up over the room, or came down again.
 func set_editing(on: bool) -> void:
 	editing = on
-	if player != null and is_instance_valid(player):
-		player.input_locked = reading()
+	_hold()
+
+## Holds the player still while anything is up over the room — a panel, the
+## editor — and lets them go once nothing is. They are stopped where they stand
+## rather than left to slide, and still fall: held is not hung in the air.
+func _hold() -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	var held := open_panel != "" or editing
+	if held:
+		player.velocity.x = 0.0
+	player.input_locked = held
 
 ## The weapon the rack was last left on. Changing it re-reads the gate, since a
 ## weapon with nothing in its slots is a raid nobody should be let into.

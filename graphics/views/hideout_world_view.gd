@@ -85,6 +85,7 @@ func _ready() -> void:
 	# Added before any panel is, so a station's panel opens over the readout
 	# rather than under it: on one layer, later is higher.
 	hud = Hud.new()
+	hud.key_hints = false
 	layer.add_child(hud)
 
 	world.panel_changed.connect(_on_panel_changed)
@@ -94,9 +95,6 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if hud != null and is_instance_valid(hud):
 		hud.player = world.player if world != null and is_instance_valid(world) else null
-		# There is no map here and nothing to extract from, so the line along the
-		# bottom names the keys this room actually answers to.
-		hud.footer = Loc.t("hud.footer_lobby")
 	# The signs say what a press would do, and that changes as the player walks
 	# and as the kit fills up: `queue_redraw` every frame is what the raid's own
 	# prompts do, and the whole screen is four plates.

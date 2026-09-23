@@ -59,6 +59,9 @@ var toast_time: float = 0.0
 ## raid's own list; a room with no map in it and no extraction to hold sets its
 ## own rather than pointing at keys that do nothing there.
 var footer: String = ""
+## Whether the two lines of keys are drawn along the bottom. The hideout floor
+## turns them off: its stations' signs already say what a press does there.
+var key_hints: bool = true
 ## The pixel grid, bound to this screen.
 var _px := PixelDraw.new(self)
 
@@ -215,7 +218,7 @@ func _draw_prompts(vp: Vector2) -> void:
 	# the keys are on the screen with their names written on them, so the legend
 	# is a line telling the player to press a button they are looking at — and on
 	# a phone it costs two rows of a small screen.
-	if Touch.up():
+	if Touch.up() or not key_hints:
 		return
 	_px.text(Vector2(BAR_AT.x, vp.y - 14.0 - PixelDraw.LINE),
 		Loc.t("hud.slot.hint", [
