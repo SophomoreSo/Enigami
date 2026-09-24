@@ -25,22 +25,25 @@ extends Node
 ##     drifting apart, unhooks it outright: the pointer stops following the
 ##     mouse at all and only moves when something moves it.
 ##
-## So the system pointer is never driven, never held, and never argued with.
-## While the player has the controls the game takes the mouse instead — Godot
-## hands over raw movement — and keeps a pointer of its own, `point`, which it
-## moves at whatever speed the setting asks for and draws the crosshair at. Let
-## go of the controls for a menu, a map or a conversation, and the system
-## pointer comes straight back, at its own speed, for the buttons — as the
-## system's own arrow. The crosshair is for aiming, so it is only ever on the
-## screens the player aims on: the battleground and the hideout floor.
+## So the system pointer is never moved, never held, and never argued with.
+## While the player has the controls the game hides it and keeps a pointer of
+## its own, `point`, which it moves at whatever speed the setting asks for and
+## draws the crosshair at. Let go of the controls for a menu, a map or a
+## conversation, and the system pointer comes straight back into sight, at its
+## own speed, for the buttons — as the system's own arrow, wherever the hand
+## has taken it. The crosshair is for aiming, so it is only ever on the screens
+## the player aims on: the battleground and the hideout floor.
 ##
-## It comes back where the crosshair was, and that is the one time the game
-## moves it. Taking the mouse is not as hands-off as it sounds: for as long as
-## Godot has it, it parks the system pointer in the middle of the window, so
-## left alone the pointer came back there, and every menu opened with the
-## crosshair anywhere else began with it jumping to the middle of the screen.
-## One move, at the hand-back, is not the drift above, which came from moving
-## the pointer every frame under a hand that was still moving.
+## Hidden rather than taken. Taking the mouse is how a game usually gets its
+## movement, and it is not as hands-off as it sounds: for as long as Godot has
+## it, it parks the system pointer in the middle of the window, so every menu
+## opened with the pointer there — and putting it back under the crosshair on
+## the way out was one more move. Hidden, the pointer goes on following the
+## hand and nothing here tells it where to be. The price is that at any speed
+## but 1.0 it and the crosshair part company: a menu opens with the arrow
+## wherever the hand took it, not where the crosshair was, and in a window
+## nothing stops the hidden pointer leaving it, where a click lands on whatever
+## is outside. At 1.0 the crosshair is the hidden pointer, and they never part.
 ##
 ## Which means the setting is aim speed. Menus are the system's and stay 1:1.
 
@@ -82,7 +85,7 @@ const MIN_SENS := 0.4
 const MAX_SENS := 2.5
 const STEP := 0.1
 
-## 1.0 carries the pointer exactly as far as the mouse was moved.
+## 1.0 keeps the pointer exactly where the system's own, hidden, has got to.
 var sensitivity: float = 1.0
 
 ## Where the game is pointing, in the 1280x720 it is drawn at. While the system
@@ -106,7 +109,7 @@ var _tex: ImageTexture = null
 ## What the window's own pointer is wearing: the crosshair while somebody is
 ## aiming, and null — the system's own arrow — the rest of the time.
 var _worn: Texture2D = null
-var _taken: bool = false
+var _hidden: bool = false
 var _crosshair: TextureRect = null
 
 func _ready() -> void:
@@ -149,9 +152,9 @@ func game_is_pointing() -> bool:
 func _process(_delta: float) -> void:
 	var aiming := game_is_pointing()
 	# The crosshair while somebody is aiming, and the system's arrow for every
-	# window over them. Most of the time the game has the mouse while they aim
-	# and the window's pointer is out of sight anyway; it is on show when the
-	# console is up, which never takes the mouse.
+	# window over them. Most of the time the game hides the window's pointer
+	# while they aim and draws its own; the window's is on show when the
+	# console is up, which never hides it.
 	var wear: Texture2D = _tex if aiming else null
 	if wear != _worn:
 		_wear(wear)
@@ -159,27 +162,23 @@ func _process(_delta: float) -> void:
 	# keys — `TouchPad._aim` says why it can be nothing else — so there is no
 	# pointer to move, and a crosshair nothing moves would sit wherever the
 	# last thing to touch it left it.
-	var take := aiming and not Touch.wanted()
-	if take != _taken:
-		_taken = take
-		# Taken, not confined: Godot hands over raw movement, and parks the
-		# system pointer in the middle of the window until it is handed back.
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if take else Input.MOUSE_MODE_VISIBLE
-		# So it is handed back under the crosshair rather than in the middle —
-		# but only to a window in use. With the player off in another one, a
-		# death or a scene change handing it back would snatch their pointer.
-		if not take and get_window().has_focus():
-			get_viewport().warp_mouse(point)
-	if not _taken:
+	var hide := aiming and not Touch.wanted()
+	if hide != _hidden:
+		_hidden = hide
+		# Hidden, not taken and not confined: the system pointer goes on
+		# following the hand out of sight, and is shown again wherever that
+		# left it. Nothing here ever tells it where to be.
+		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN if hide else Input.MOUSE_MODE_VISIBLE
+	if not _hidden:
 		var vp := get_viewport()
 		if vp != null:
 			point = vp.get_mouse_position()
 	if _crosshair != null:
-		_crosshair.visible = _taken
+		_crosshair.visible = _hidden
 		_crosshair.position = on_grid(point - hotspot())
 
 func _input(event: InputEvent) -> void:
-	if not _taken:
+	if not _hidden:
 		return
 	var m := event as InputEventMouseMotion
 	if m == null:
@@ -187,15 +186,26 @@ func _input(event: InputEvent) -> void:
 	var vp := get_viewport()
 	if vp == null:
 		return
-	point = carry(point, m.relative, vp.get_visible_rect().size)
+	var bounds := vp.get_visible_rect().size
+	# At 1.0 the crosshair is put where the hidden pointer is rather than
+	# carried by the same movement. Carried, the two part at the first edge that
+	# stops the crosshair and not the pointer, and a little at every movement,
+	# whose fractions of a point Godot drops.
+	if is_equal_approx(sensitivity, 1.0):
+		point = on_screen(m.position, bounds)
+	else:
+		point = carry(point, m.relative, bounds)
 
 ## Where the pointer lands after the mouse has been moved `by`: the distance the
 ## setting asks for, kept on the screen. Pure, so what the pointer does can be
 ## checked without a hand on a mouse.
 func carry(from: Vector2, by: Vector2, bounds: Vector2) -> Vector2:
-	var to: Vector2 = from + by * sensitivity
-	return Vector2(clampf(to.x, 0.0, maxf(bounds.x - 1.0, 0.0)),
-		clampf(to.y, 0.0, maxf(bounds.y - 1.0, 0.0)))
+	return on_screen(from + by * sensitivity, bounds)
+
+## `at`, kept on a screen `bounds` across.
+func on_screen(at: Vector2, bounds: Vector2) -> Vector2:
+	return Vector2(clampf(at.x, 0.0, maxf(bounds.x - 1.0, 0.0)),
+		clampf(at.y, 0.0, maxf(bounds.y - 1.0, 0.0)))
 
 ## `at`, moved back to the nearest corner of the grid the picture is on. The
 ## crosshair's art is drawn at SCALE, so landing between two of the picture's

@@ -1,16 +1,17 @@
 extends Node2D
 ## The mouse pointer the game draws for itself.
 ##
-## The game does not drive the system pointer. It drove it once, to serve a
+## The game does not move the system pointer. It drove it once, to serve a
 ## sensitivity setting, and on macOS that cannot be made to behave: the call
 ## that moves a pointer unhooks it from the mouse underneath, and keeping it on
-## the window unhooks it outright. `app/pointer.gd` has the whole finding. So
-## the game keeps a pointer of its own instead, moves that at whatever speed the
-## setting asks for, and takes the mouse only while the player has the controls
-## — handing it back, when they let go, where its own crosshair was.
+## the window unhooks it outright. Taking the mouse moves it as well, to the
+## middle of the window. `app/pointer.gd` has the whole finding. So the game
+## keeps a pointer of its own instead, moves that at whatever speed the setting
+## asks for, and only hides the system's while the player has the controls.
 ##
-## What is checked here: the picture, the speed, where the pointer comes back,
-## and that nothing has crept back in that drives or holds the system pointer.
+## What is checked here: the picture, the speed, that the system pointer stays
+## wherever the hand left it, and that nothing has crept back in that moves or
+## holds it.
 ##
 ## A window is needed: an Image would build anywhere, but a cursor is only a
 ## cursor once something is showing it.
@@ -40,7 +41,7 @@ func _ready() -> void:
 	_speed()
 	_on_grid()
 	await _in_play()
-	await _handed_back()
+	await _left_where_it_is()
 	_hands_off()
 	Pointer.set_sensitivity(was)
 	print("[PTR] ---- %d failures ----" % fails)
@@ -130,8 +131,8 @@ func _in_play() -> void:
 	add_child(held)
 	await frames(2)
 	check(Pointer.game_is_pointing(), "with the controls held, the game does the pointing")
-	check(Input.mouse_mode == Input.MOUSE_MODE_CAPTURED,
-		"so the game takes the mouse (mode %d)" % Input.mouse_mode)
+	check(Input.mouse_mode == Input.MOUSE_MODE_HIDDEN,
+		"so the game hides the system pointer (mode %d)" % Input.mouse_mode)
 	check(Pointer._crosshair.visible, "and draws its own crosshair")
 	check(Pointer._worn == Pointer._tex,
 		"which the window wears too, for whenever its own pointer is on show")
@@ -149,6 +150,21 @@ func _in_play() -> void:
 	Pointer._input(e)
 	check(Pointer.point.is_equal_approx(Vector2(415, 295)),
 		"and at 0.5, half of it (%s)" % str(Pointer.point))
+
+	# At 1.0 it is the hidden pointer itself rather than the sum of how far that
+	# has been moved, which loses whatever an edge stops and every fraction of a
+	# point Godot drops, and so wanders off it.
+	Pointer.set_sensitivity(1.0)
+	Pointer.point = Vector2(400, 300)
+	e.position = Vector2(700, 500)
+	Pointer._input(e)
+	check(Pointer.point.is_equal_approx(e.position),
+		"and at 1.0 it is wherever the system's own pointer is (%s)" % str(Pointer.point))
+	var screen := get_viewport().get_visible_rect().size
+	e.position = Vector2(-40, screen.y + 100)
+	Pointer._input(e)
+	check(Pointer.point.is_equal_approx(Vector2(0, screen.y - 1)),
+		"kept on the screen when that has left the window (%s)" % str(Pointer.point))
 
 	await frames(2)
 	check(Pointer._crosshair.position.is_equal_approx(Pointer.on_grid(Pointer.point - Pointer.hotspot())),
@@ -203,49 +219,54 @@ func _on_grid() -> void:
 				% [str(origin), on, near, tries])
 	Pointer.pixel_origin = Vector2.ZERO
 
-## Letting go of the controls puts the system pointer where the crosshair was.
-## Left to itself it came back in the middle of the window, where Godot parks it
-## for as long as the game has the mouse, so every menu opened with a jump to the
-## middle of the screen. Checked on a window that is scaled and on one that is
-## letterboxed: the crosshair lives in the game's 1280x720 and the pointer in
-## the window's pixels, and only the second size has an offset to get wrong.
-func _handed_back() -> void:
-	if not get_window().has_focus():
-		# The pointer is only moved for the window in use, so with the focus
-		# somewhere else there is nothing here to see.
-		print("[PTR] skip the hand-back: this window does not have the focus")
-		return
-	var was_size := DisplayServer.window_get_size()
-	for size in [Vector2i(1600, 900), Vector2i(1000, 700)]:
-		DisplayServer.window_set_size(size)
-		await frames(4)
-		var held := Player.new()
-		add_child(held)
-		await frames(2)
-		# Well clear of the middle, which is where it used to come back.
-		var at := Vector2(260, 180)
-		Pointer.point = at
-		held.queue_free()
-		await frames(3)
-		# Within a few pixels rather than to the pixel: the system reads its
-		# pointer back in whole points, two pixels each on a 2x screen, and a
-		# shrunk window makes every one of those more than one of the game's.
-		# The jump this is here for was four hundred.
-		var back := get_viewport().get_mouse_position()
-		check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE and back.distance_to(at) < 4.0,
-			"on a %dx%d window the pointer comes back where the crosshair was (%s, want %s)"
-				% [size.x, size.y, str(back.round()), str(at)])
-	DisplayServer.window_set_size(was_size)
-	await frames(4)
+## Neither taking the controls nor letting go of them moves the system pointer.
+## Taking the mouse parked it in the middle of the window, so every menu opened
+## with the pointer there, and putting it back under the crosshair on the way
+## out was a move as well. Hidden, it stays wherever the hand leaves it: here,
+## where no hand is on the mouse, exactly where it was — with the crosshair
+## somewhere else entirely, which is where the hand-back used to put it.
+func _left_where_it_is() -> void:
+	var before := DisplayServer.mouse_get_position()
+	var held := Player.new()
+	add_child(held)
+	await frames(2)
+	var hid := DisplayServer.mouse_get_position()
+	check(Input.mouse_mode == Input.MOUSE_MODE_HIDDEN and hid == before,
+		"taking the controls hides the system pointer where it is (%s, was %s)"
+			% [str(hid), str(before)])
+	Pointer.point = Vector2(260, 180)
+	held.queue_free()
+	await frames(3)
+	var back := DisplayServer.mouse_get_position()
+	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE and back == before,
+		"and letting go shows it there again, not under the crosshair or in the middle (%s, was %s)"
+			% [str(back), str(before)])
 
-## The rule the week cost: the system pointer is the system's. Nothing here
-## drives it, holds it, or argues with it — it is moved once, as it is handed
-## back, and that is the move `_handed_back` checks.
+## The rule the week cost: the system pointer is the system's. Nothing in the
+## game moves it, holds it, or argues with it — and taking the mouse would move
+## it, to the middle of the window, so nothing takes it either.
 func _hands_off() -> void:
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE,
 		"while the system is pointing, the pointer is visible and free")
 	var src := FileAccess.get_file_as_string("res://app/pointer.gd")
-	check(src.count("warp_mouse(") == 1,
-		"the pointer is moved in one place, the hand-back, and nowhere else (%d)"
-			% src.count("warp_mouse("))
-	check(not src.contains("CONFINED"), "and nothing in the pointer holds it on the window")
+	check(not src.contains("CONFINED"), "nothing in the pointer holds it on the window")
+	var moving := PackedStringArray()
+	for path in game_scripts("res://"):
+		var code := FileAccess.get_file_as_string(path)
+		if code.contains("warp_mouse") or code.contains("MOUSE_MODE_CAPTURED"):
+			moving.append(path)
+	check(moving.is_empty(),
+		"and nothing in the game moves it or takes the mouse (%s)" % ", ".join(moving))
+
+## Every script the game runs: all of them but the tests', which stand in for a
+## hand and may move the pointer the way one would.
+func game_scripts(dir: String) -> PackedStringArray:
+	var found := PackedStringArray()
+	for f in DirAccess.get_files_at(dir):
+		if f.get_extension() == "gd":
+			found.append(dir.path_join(f))
+	for d in DirAccess.get_directories_at(dir):
+		if dir == "res://" and d == "tests":
+			continue
+		found.append_array(game_scripts(dir.path_join(d)))
+	return found

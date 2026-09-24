@@ -168,10 +168,12 @@ for a given push of the mouse, from 0.4 to 2.5, and is kept per machine rather
 than per save — a property of the desk, like the language and the bindings.
 
 It moves the game crosshair, not the system pointer, which is the whole of the
-design. While the player has the controls the game takes the mouse — the system
-arrow gives way to the crosshair, and that is what the setting drives. Let go of
-the controls for a menu, a map or a conversation and the system pointer comes
-back for the buttons, at whatever speed the desk runs it at. Setting it is
+design. While the player has the controls the game hides the system arrow — the
+crosshair takes its place, and that is what the setting drives. Let go of the
+controls for a menu, a map or a conversation and the system pointer comes back
+into sight for the buttons, wherever the hand has taken it and at whatever speed
+the desk runs it at: the game never moves it. At 1.0 that is exactly where the
+crosshair was; at any other speed the two have gone their own ways. Setting it is
 therefore something you see in the game rather than on the settings page, the
 way a shooter'''s sensitivity slider never moves its own menu cursor.
 
