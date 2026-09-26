@@ -9,7 +9,9 @@ extends Node
 ## bottom of the screen, and a control standing on either covers the health bar
 ## or the slot cards for as long as the game is played. Every one is measured
 ## against those bands, against every other control, and against its own word in
-## both languages.
+## both languages — on the design's 16:9 and on the shapes a phone or a tablet
+## gives the screen instead, where each has to keep its distance from its own
+## corner.
 ##
 ## **What a thumb does.** Against a real raid, with a real player carrying real
 ## slots: the stick moves them and moves them *analog*, a half push walking and
@@ -29,6 +31,12 @@ const GameScript := preload("res://app/game.gd")
 ## them and the footer under them across the bottom.
 const HUD_BARS := Rect2(24, 24, 264, 88)
 const HUD_CARDS := Rect2(0, 592, 1280, 128)
+
+## The shapes of screen the layout is checked on: the design, phones longer
+## than 16:9 — the one it was reported on is about 20.5:9, and some go past
+## 21:9 — and a 4:3 tablet. `expand` stretch keeps the height at 720 on the
+## first kind and the width at 1280 on the second.
+const SHAPES := [Vector2(1280, 720), Vector2(1642, 720), Vector2(1728, 720), Vector2(1280, 960)]
 
 var fails := 0
 var game: Node
@@ -96,8 +104,18 @@ func control_of(id: String) -> Dictionary:
 			return c
 	return {}
 
+## Where a control is on the screen as it is now, whatever shape the window has
+## given it.
 func spot(id: String) -> Vector2:
-	return TouchPad.area(control_of(id)).get_center()
+	return TouchPad.area(control_of(id), screen()).get_center()
+
+func screen() -> Vector2:
+	return get_viewport().get_visible_rect().size
+
+## The HUD's band along the bottom, on a screen of `s`: it goes wherever the
+## bottom does.
+func hud_cards(s: Vector2) -> Rect2:
+	return Rect2(0, s.y - HUD_CARDS.size.y, s.x, HUD_CARDS.size.y)
 
 ## A finger landing, moving or lifting, sent the way the system sends one so the
 ## pad answers through its own `_input` rather than through a back door.
@@ -139,31 +157,8 @@ func _ready() -> void:
 ## --- where the controls sit -------------------------------------------------
 
 func _layout() -> void:
-	var screen := Rect2(Vector2.ZERO, Vector2(1280, 720))
-	var off: Array = []
-	var on_hud: Array = []
-	for c in TouchPad.CONTROLS:
-		var r := TouchPad.area(c)
-		var name := String(c.get("action", "move"))
-		if not screen.encloses(r):
-			off.append(name)
-		if r.intersects(HUD_BARS) or r.intersects(HUD_CARDS):
-			on_hud.append(name)
-	check(off.is_empty(), "every control is on the screen (off: %s)" % str(off))
-	check(on_hud.is_empty(),
-		"and none stands on the health bars or the slot cards (on: %s)" % str(on_hud))
-
-	# The stick's zone is most of the lower-left of the screen, so this is the
-	# check that says the right hand stays out of it.
-	var overlap: Array = []
-	for i in TouchPad.CONTROLS.size():
-		for j in range(i + 1, TouchPad.CONTROLS.size()):
-			var a := TouchPad.area(TouchPad.CONTROLS[i]).grow(TouchPad.SLOP)
-			var b := TouchPad.area(TouchPad.CONTROLS[j]).grow(TouchPad.SLOP)
-			if a.intersects(b):
-				overlap.append("%s/%s" % [TouchPad.CONTROLS[i].get("action", "move"),
-					TouchPad.CONTROLS[j].get("action", "move")])
-	check(overlap.is_empty(), "no two controls overlap, slop and all (%s)" % str(overlap))
+	for s: Vector2 in SHAPES:
+		_placed_on(s)
 
 	# A control too small for a thumb is one that gets missed. 44 is the
 	# smallest anybody recommends and the smallest here.
@@ -211,6 +206,56 @@ func _layout() -> void:
 		check(clipped.is_empty(), "every word fits its control in %s (%s)" % [lang, str(clipped)])
 	Loc.set_language(was_language)
 	await frames(2)
+
+## Where the controls land on a screen of `s`: every one on it, none on the HUD
+## and none on another — and each its own distance from its own corner, which
+## is the design's answer to a screen of another shape. A thumb reaches no
+## further on a longer phone, so the hand stays as far from the bottom-right
+## corner as the design puts it, the plates as far from the top-right, and the
+## stick's zone keeps the left edge and runs down to the HUD's band.
+func _placed_on(s: Vector2) -> void:
+	var shape := "%dx%d" % [s.x, s.y]
+	var screen_rect := Rect2(Vector2.ZERO, s)
+	var off: Array = []
+	var on_hud: Array = []
+	var strayed: Array = []
+	for c in TouchPad.CONTROLS:
+		var r := TouchPad.area(c, s)
+		var name := String(c.get("action", "move"))
+		if not screen_rect.encloses(r):
+			off.append(name)
+		if r.intersects(HUD_BARS) or r.intersects(hud_cards(s)):
+			on_hud.append(name)
+		# Each axis measured from the side the control is pinned to.
+		var pin := Vector2(c.get("pin", Vector2.ZERO))
+		var design := TouchPad.area(c)
+		var here := Vector2(s.x - r.end.x if pin.x > 0.0 else r.position.x,
+			s.y - r.end.y if pin.y > 0.0 else r.position.y)
+		var there := Vector2(TouchPad.DESIGN.x - design.end.x if pin.x > 0.0 else design.position.x,
+			TouchPad.DESIGN.y - design.end.y if pin.y > 0.0 else design.position.y)
+		if here.distance_to(there) > PixelDraw.PX * 1.5:
+			strayed.append("%s %s, not %s" % [name, str(here), str(there)])
+	check(off.is_empty(), "%s: every control is on the screen (off: %s)" % [shape, str(off)])
+	check(on_hud.is_empty(),
+		"%s: and none stands on the health bars or the slot cards (on: %s)" % [shape, str(on_hud)])
+	check(strayed.is_empty(),
+		"%s: and each keeps its distance from its own corner (%s)" % [shape, str(strayed)])
+	var zone := TouchPad.area(TouchPad.CONTROLS[0], s)
+	check(is_equal_approx(zone.end.y, hud_cards(s).position.y),
+		"%s: the stick's zone runs down to the HUD's band (%.0f, the band at %.0f)"
+			% [shape, zone.end.y, hud_cards(s).position.y])
+
+	# The stick's zone is most of the lower-left of the screen, so this is the
+	# check that says the right hand stays out of it.
+	var overlap: Array = []
+	for i in TouchPad.CONTROLS.size():
+		for j in range(i + 1, TouchPad.CONTROLS.size()):
+			var a := TouchPad.area(TouchPad.CONTROLS[i], s).grow(TouchPad.SLOP)
+			var b := TouchPad.area(TouchPad.CONTROLS[j], s).grow(TouchPad.SLOP)
+			if a.intersects(b):
+				overlap.append("%s/%s" % [TouchPad.CONTROLS[i].get("action", "move"),
+					TouchPad.CONTROLS[j].get("action", "move")])
+	check(overlap.is_empty(), "%s: no two controls overlap, slop and all (%s)" % [shape, str(overlap)])
 
 ## --- the setting ------------------------------------------------------------
 
@@ -314,7 +359,7 @@ func _into_a_raid() -> void:
 ## --- the stick --------------------------------------------------------------
 
 func _the_stick() -> void:
-	var zone: Rect2 = TouchPad.CONTROLS[0]["zone"]
+	var zone := TouchPad.area(TouchPad.CONTROLS[0], screen())
 	var radius: float = TouchPad.CONTROLS[0]["radius"]
 	# There is nothing there until a thumb lands and drags, and then it is where
 	# the thumb landed.
@@ -403,8 +448,8 @@ func _the_stick() -> void:
 		"and it asks for nothing until it is pushed (ring %s, thumb %s)"
 			% [str(pad._stick_at), str(corner)])
 	var ring := Rect2(pad._stick_at - Vector2.ONE * radius, Vector2.ONE * radius * 2.0)
-	check(not ring.intersects(HUD_BARS) and not ring.intersects(HUD_CARDS)
-			and Rect2(Vector2.ZERO, Vector2(1280, 720)).encloses(ring),
+	check(not ring.intersects(HUD_BARS) and not ring.intersects(hud_cards(screen()))
+			and Rect2(Vector2.ZERO, screen()).encloses(ring),
 		"the ring it drew is on the screen and clear of the HUD (%s)" % str(ring))
 	drag(0, corner + Vector2(radius, 0.0))
 	await frames(3)
@@ -463,7 +508,7 @@ func _the_skills() -> void:
 		"throwing the thumb up aims up (%s)" % str(pad.aim()))
 	check(player.aim.y < -0.9, "and the player is really aiming there (%s)" % str(player.aim))
 	# The throw beats the stick: you can run one way and cast the other.
-	var zone: Rect2 = TouchPad.CONTROLS[0]["zone"]
+	var zone := TouchPad.area(TouchPad.CONTROLS[0], screen())
 	var radius: float = TouchPad.CONTROLS[0]["radius"]
 	var landed := zone.position + Vector2.ONE * (radius + 20.0)
 	touch(1, landed, true)
@@ -556,19 +601,22 @@ func _the_faces() -> void:
 ## --- the window is not the screen -------------------------------------------
 
 func _another_window() -> void:
-	# The game is drawn at 1280x720 whatever size the window is, and a finger
-	# has to arrive in that space or every control is in the wrong place on
-	# every window but a 1:1 one. Checked at a size that is scaled and at one
-	# that is letterboxed as well, since only the second has an offset to get
-	# wrong.
+	# A finger touches the window, and has to arrive on the screen the game is
+	# drawn on or every control is in the wrong place on every window but a 1:1
+	# one: the window scaled, and on a window of another shape than 16:9 a
+	# screen of another shape too, with the hand moved into its corner. Checked
+	# on a window that is only scaled, on one squarer than the design, and on one
+	# the shape of a long phone — the last two are where a control is somewhere
+	# the design does not write it.
 	var was_size := DisplayServer.window_get_size()
-	for size in [Vector2i(1600, 900), Vector2i(1000, 700)]:
+	for size in [Vector2i(1600, 900), Vector2i(1000, 700), Vector2i(1480, 640)]:
 		DisplayServer.window_set_size(size)
 		await frames(4)
 		touch(0, spot("dash"), true)
 		await frames(3)
 		check(Input.is_action_pressed("dash"),
-			"a control is under the same thumb on a %dx%d window" % [size.x, size.y])
+			"a control is under the same thumb on a %dx%d window (at %s on a %s screen)"
+				% [size.x, size.y, str(spot("dash")), str(screen())])
 		touch(0, spot("dash"), false)
 		await frames(2)
 	DisplayServer.window_set_size(was_size)

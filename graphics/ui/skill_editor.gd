@@ -25,6 +25,8 @@ signal board_changed(slot: int)
 signal closed()
 
 const CELL := 50
+## The width the board, the palette and the tabs are laid out in. See `_inset`.
+const DESIGN_W := 1280.0
 const BOARD_ORIGIN := Vector2(48, 104)
 ## The palette's top-left, the gutter its category names sit in included.
 const PAL_ORIGIN := Vector2(626, 104)
@@ -102,11 +104,14 @@ var _flow_arcs: Array = []
 var _flow_time: float = 0.0
 var _message: String = ""
 var _message_time: float = 0.0
-## The palette, laid out once: a row per part and a block per category, both
-## drawn and hit-tested from the same rects. See `_build_palette`.
+## The palette, laid out once per width of screen: a row per part and a block
+## per category, both drawn and hit-tested from the same rects. See
+## `_build_palette`.
 var _pal_rows: Array = []
 var _pal_blocks: Array = []
 var _pal_height: float = 0.0
+## The `_inset` the palette was laid out at.
+var _pal_inset := Vector2.ZERO
 var _ports: Array = []               ## PORT turned to face each direction
 var _arrows: Array = []              ## ARROW likewise, for the drag chip
 ## The share sheet, built the first time it is asked for and kept after that.
@@ -212,10 +217,20 @@ const BTN_GAP := 8.0
 ## Each tab as wide as the room between the title and the buttons allows, up to
 ## TAB_MAX_W: the sandbox can bring four boards.
 func _tab_rect(i: int) -> Rect2:
-	var room := _share_rect().position.x - 16.0 - TAB_ORIGIN.x
+	var origin := TAB_ORIGIN + _inset()
+	var room := _share_rect().position.x - 16.0 - origin.x
 	var n := maxi(boards.size(), 1)
 	var w := minf(TAB_MAX_W, floorf((room + TAB_GAP) / n / PX) * PX - TAB_GAP)
-	return Rect2(TAB_ORIGIN + Vector2(i * (w + TAB_GAP), 0), Vector2(w, TAB_H))
+	return Rect2(origin + Vector2(i * (w + TAB_GAP), 0), Vector2(w, TAB_H))
+
+## How far the board, the palette and the tabs stand in from where they are
+## written. They are laid out in DESIGN_W, and a screen wider than that — a
+## phone longer than 16:9 — has them in its middle, with the header still run
+## out to both edges and CODE and CLOSE still in the corner, where KIT, MAP and
+## MENU stand on the glass.
+func _inset() -> Vector2:
+	var spare := maxf(get_viewport_rect().size.x - DESIGN_W, 0.0)
+	return Vector2(floorf(spare * 0.5 / PX) * PX, 0.0)
 
 func _close_rect() -> Rect2:
 	return Rect2(get_viewport_rect().size.x - 16.0 - CLOSE_W, 14.0, CLOSE_W, 30.0)
@@ -238,7 +253,7 @@ func _update_hover(pos: Vector2) -> void:
 			return
 	var b := current_board()
 	if b != null:
-		var rel := pos - BOARD_ORIGIN
+		var rel := pos - BOARD_ORIGIN - _inset()
 		if rel.x >= 0 and rel.y >= 0:
 			var c := Vector2i(int(rel.x / CELL), int(rel.y / CELL))
 			if b.in_bounds(c):
@@ -632,7 +647,8 @@ func _draw_board() -> void:
 	var b := current_board()
 	if b == null:
 		return
-	var frame := Rect2(BOARD_ORIGIN - Vector2(10, 10), Vector2(b.width * CELL + 20, b.height * CELL + 20))
+	var frame := Rect2(BOARD_ORIGIN + _inset() - Vector2(10, 10),
+		Vector2(b.width * CELL + 20, b.height * CELL + 20))
 	_px.rect(frame, Color(0.08, 0.09, 0.12, 0.92))
 	_px.frame(frame, Color(0.3, 0.45, 0.6, 0.7))
 
@@ -785,12 +801,12 @@ func _draw_drag() -> void:
 	_px.icon(Vector2(r.end.x - 18.0, r.position.y + 10.0), _arrows[rotation_step], Color(0.8, 0.9, 1.0))
 
 func _cell_rect(c: Vector2i) -> Rect2:
-	return Rect2(BOARD_ORIGIN + Vector2(c.x * CELL, c.y * CELL), Vector2(CELL, CELL))
+	return Rect2(BOARD_ORIGIN + _inset() + Vector2(c.x * CELL, c.y * CELL), Vector2(CELL, CELL))
 
 ## CELL is an odd number of PIXELs, so the middle of a cell is the middle of a
 ## PIXEL, and a bitmap an odd number of PIXELs across centres on it exactly.
 func _cell_center(c: Vector2i) -> Vector2:
-	return BOARD_ORIGIN + Vector2(c.x * CELL + CELL * 0.5, c.y * CELL + CELL * 0.5)
+	return BOARD_ORIGIN + _inset() + Vector2(c.x * CELL + CELL * 0.5, c.y * CELL + CELL * 0.5)
 
 ## An arrow out of `cell` across its `dir` edge, the point on the edge itself.
 func _draw_port_arrow(cell: Vector2i, dir: int, col: Color) -> void:
@@ -1738,8 +1754,10 @@ func _pal_groups() -> Array:
 func _build_palette() -> void:
 	_pal_rows = []
 	_pal_blocks = []
-	var x := PAL_ORIGIN.x + PAL_GUTTER
-	var y := PAL_ORIGIN.y
+	_pal_inset = _inset()
+	var origin := PAL_ORIGIN + _pal_inset
+	var x := origin.x + PAL_GUTTER
+	var y := origin.y
 	for group in _pal_groups():
 		var ids: Array = group["ids"]
 		var rows := int(ceil(float(ids.size()) / float(PAL_COLS)))
@@ -1756,10 +1774,12 @@ func _build_palette() -> void:
 				Vector2(x + (i % PAL_COLS) * PAL_W, y + int(i / PAL_COLS) * PAL_H),
 				Vector2(PAL_W - 4, PAL_H - 4))})
 		y += rows * PAL_H + PAL_GROUP_GAP
-	_pal_height = y - PAL_GROUP_GAP - PAL_ORIGIN.y
+	_pal_height = y - PAL_GROUP_GAP - origin.y
 
+## Laid out again when the screen has changed width under it, since every rect
+## in it carries the inset it was worked out at.
 func _pal_list() -> Array:
-	if _pal_rows.is_empty():
+	if _pal_rows.is_empty() or _pal_inset != _inset():
 		_build_palette()
 	return _pal_rows
 
@@ -1769,8 +1789,8 @@ func _pal_rect(i: int) -> Rect2:
 ## The panel the blocks sit on: 10 clear of the rows on every side, the gutter
 ## included. Anything thrown at it is thrown at the palette.
 func _pal_panel() -> Rect2:
-	_pal_list()   # for _pal_height, which the layout works out
-	return Rect2(PAL_ORIGIN - Vector2(10, 10),
+	_pal_list()   # for _pal_height and _pal_inset, which the layout works out
+	return Rect2(PAL_ORIGIN + _pal_inset - Vector2(10, 10),
 		Vector2(PAL_GUTTER + PAL_COLS * PAL_W - 4 + 20, _pal_height + 20))
 
 func _draw_palette() -> void:
@@ -1832,4 +1852,7 @@ func _draw_count(right: Vector2, id: String) -> void:
 ## only thing written there.
 func _draw_message(vp: Vector2) -> void:
 	if _message_time > 0.0:
-		_px.text(Vector2(48, vp.y - 24), _message, Color(1.0, 0.65, 0.55), vp.x - 96.0)
+		# Under the board's own left edge, wherever that has been stood in to.
+		var inset := _inset()
+		_px.text(Vector2(48, vp.y - 24) + inset, _message, Color(1.0, 0.65, 0.55),
+			vp.x - 96.0 - inset.x * 2.0)

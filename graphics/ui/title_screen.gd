@@ -19,9 +19,12 @@ var save_slot: int = -1
 ## length, so it turns every corner the copper turns. Over a picture it would
 ## have to be faked.
 ##
-## Everything is laid out against DESIGN. The viewport is fixed at that size by
-## `canvas_items` stretch, so the window can be any size without the board
-## having to regrow.
+## Everything is laid out against DESIGN, and the design stands in the middle of
+## the screen. The screen is at least DESIGN — `canvas_items` stretch scales it
+## to any window — but takes the display's shape, so a phone longer than 16:9
+## shows more either side and a squarer screen more above and below. The copper
+## is grown past the design for that (BOARD_REACH) and baked at the screen's own
+## size; the seal, the menu and the settle are where the design puts them.
 
 const SERIF := preload("res://graphics/assets/fonts/PlayfairDisplay-Variable.ttf")
 const PIXEL := preload("res://graphics/assets/fonts/Silkscreen-Regular.ttf")
@@ -45,6 +48,13 @@ const ARM_TIME := 3.0
 ## own 400 they sat shoulder to shoulder with the focus mark in the date.
 const SAVE_SLOT_WIDTH := 480.0
 const SETTLE_TOP := 452.0    ## where the board starts sinking into black
+
+## How far past the design the board is grown on each side, across and down. A
+## screen of any shape but 16:9 shows more than the design does, so there is
+## copper out there to show: enough for a screen three times as wide as it is
+## tall, or one as tall as it is wide. Past that the board runs out into the
+## ground, the way it always did at its edges.
+const BOARD_REACH := Vector2(400, 280)
 
 ## Mobile mode's menu: the same four entries, as a row of big square tiles with
 ## a mark over each name. A line of text 24 pixels high is a small thing to land
@@ -161,7 +171,20 @@ var _pulses: Array = []      ## {i, t, v, len}
 var _rng := RandomNumberGenerator.new()
 
 var _board: SubViewport
+var _board_painter: Node2D
 var _seal_view: SubViewport
+## Where the design stands on the screen: DESIGN, in the middle of whatever
+## shape the screen is. The menus are laid out against DESIGN, so they are this
+## one's children rather than the screen's; the settings pages, which centre
+## themselves on the screen, are the screen's.
+var _stage: Control
+## The stage's corner on the screen, and the size of screen it was last fitted
+## to — see `_fit_stage`.
+var _origin := Vector2.ZERO
+var _fitted := Vector2(-1, -1)
+## The traces the screen shows any of, by index into `_traces`: the ones a pulse
+## may run. Most of the board is out past the edges of a 16:9 screen.
+var _shown := PackedInt32Array()
 var _seal_painter: Node2D
 var _menu_font: FontVariation
 ## The main menu: a column of lines, or in mobile mode a row of tiles.
@@ -220,6 +243,10 @@ func _ready() -> void:
 	_menu_font = FontVariation.new()
 	_menu_font.base_font = PIXEL
 	_menu_font.spacing_glyph = 3
+	_stage = Control.new()
+	_stage.size = DESIGN
+	_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_stage)
 	_build_board()
 	_build_seal_view()
 	_build_menu()
@@ -250,9 +277,25 @@ func _build_seal_view() -> void:
 func _build_board() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 0x1D0CE
+	var face := Rect2(-40.0, -40.0, DESIGN.x + 80.0, DESIGN.y + 80.0)
 	for i in 380:
-		_grow_trace(rng)
+		_grow_trace(rng, face)
 	_build_halo(rng)
+	# The copper past the design, for a screen that shows some. Grown from a seed
+	# of its own and after the rest, so a 16:9 screen shows the board it always
+	# did, trace for trace; each band round the design gets as many traces as the
+	# same room had inside it, so the board is as dense out there as in here.
+	var beyond := RandomNumberGenerator.new()
+	beyond.seed = 0x1D0CF
+	var all := face.grow_individual(BOARD_REACH.x, BOARD_REACH.y, BOARD_REACH.x, BOARD_REACH.y)
+	for band: Rect2 in [
+			Rect2(all.position.x, all.position.y, face.position.x - all.position.x, all.size.y),
+			Rect2(face.end.x, all.position.y, all.end.x - face.end.x, all.size.y),
+			Rect2(face.position.x, all.position.y, face.size.x, face.position.y - all.position.y),
+			Rect2(face.position.x, face.end.y, face.size.x, all.end.y - face.end.y)]:
+		for i in roundi(380.0 * band.get_area() / face.get_area()):
+			_grow_trace(beyond, band)
+	_fit_stage()
 	for i in 16:
 		var pu := {"i": 0, "t": 0.0, "v": 0.0, "len": 0.0}
 		_respawn(pu)
@@ -262,7 +305,9 @@ func _build_board() -> void:
 
 func _bake_board() -> void:
 	_board = SubViewport.new()
-	_board.size = Vector2i(DESIGN)
+	# The screen's own size, with the design where it stands in it. A screen
+	# that changes shape has it baked again — see `_fit_stage`.
+	_board.size = Vector2i(size.ceil()).max(Vector2i.ONE)
 	_board.transparent_bg = true
 	_board.disable_3d = true
 	# UPDATE_ONCE draws a single frame and then switches itself off, which is
@@ -270,27 +315,52 @@ func _bake_board() -> void:
 	_board.render_target_update_mode = SubViewport.UPDATE_ONCE
 	var painter := BoardPainter.new()
 	painter.screen = self
+	_board_painter = painter
 	_board.add_child(painter)
 	add_child(_board)
 
+## Stands the design in the middle of the screen, once per size of screen: the
+## stage the menus are on, the traces a pulse may run along, and the copper,
+## baked again at the new size.
+func _fit_stage() -> void:
+	if size == _fitted:
+		return
+	_fitted = size
+	# Whole PIXELs, so the pixel face and the copper land on the grid they are
+	# drawn to rather than between two of its lines.
+	_origin = ((size - DESIGN) * 0.5 / UiKit.PIXEL).floor() * UiKit.PIXEL
+	_stage.position = _origin
+	var screen := Rect2(-_origin, size)
+	_shown.clear()
+	for i in _traces.size():
+		if (_traces[i]["box"] as Rect2).intersects(screen):
+			_shown.append(i)
+	if _board != null:
+		_board.size = Vector2i(size.ceil()).max(Vector2i.ONE)
+		_board.render_target_update_mode = SubViewport.UPDATE_ONCE
+		_board_painter.queue_redraw()
+
 const AXES := [Vector2.RIGHT, Vector2.DOWN, Vector2.LEFT, Vector2.UP]
 
-func _grow_trace(rng: RandomNumberGenerator) -> void:
+## One run of copper, set down somewhere in `start` and kept to it, give or take
+## the grid step a leg may run over its edge.
+func _grow_trace(rng: RandomNumberGenerator, start: Rect2) -> void:
 	var p := Vector2.ZERO
 	# The board is thinned where the menu will sit rather than masked there
 	# afterwards, so the copper that does survive still runs whole traces.
 	for tries in 6:
-		p = Vector2(snappedf(rng.randf_range(-40.0, DESIGN.x + 40.0), GRID),
-			snappedf(rng.randf_range(-40.0, DESIGN.y + 40.0), GRID))
+		p = Vector2(snappedf(rng.randf_range(start.position.x, start.end.x), GRID),
+			snappedf(rng.randf_range(start.position.y, start.end.y), GRID))
 		var away := Vector2((p.x - SEAL.x) / 330.0, (p.y - 600.0) / 150.0).length()
 		if away > 1.0 or rng.randf() < away * 0.35:
 			break
 	var dir: Vector2 = AXES[rng.randi() % 4]
 	var raw := PackedVector2Array([p])
+	var keep := start.grow(GRID)
 	for leg in rng.randi_range(2, 7):
 		var run := float(rng.randi_range(2, 11)) * GRID
 		var q := p + dir * run
-		if q.x < -48.0 or q.x > DESIGN.x + 48.0 or q.y < -48.0 or q.y > DESIGN.y + 48.0:
+		if q.x < keep.position.x or q.x > keep.end.x or q.y < keep.position.y or q.y > keep.end.y:
 			break
 		p = q
 		raw.append(p)
@@ -316,8 +386,12 @@ func _grow_trace(rng: RandomNumberGenerator) -> void:
 		total += pts[i].distance_to(pts[i + 1])
 	if total < 24.0:
 		return
+	# Where it runs, for asking whether a screen shows any of it.
+	var box := Rect2(pts[0], Vector2.ZERO)
+	for corner in pts:
+		box = box.expand(corner)
 	_traces.append({"pts": pts, "len": total, "col": col,
-		"w": 1.5 if rng.randf() < 0.72 else 2.5})
+		"w": 1.5 if rng.randf() < 0.72 else 2.5, "box": box})
 	_place_parts(rng, raw, col)
 
 ## A right-angle corner in copper is cut at 45°, never square.
@@ -378,9 +452,10 @@ func _build_halo(rng: RandomNumberGenerator) -> void:
 	_halo = buckets
 
 func _respawn(pu: Dictionary) -> void:
-	if _traces.is_empty():
+	# Only along copper the screen shows: a pulse past its edge is one nobody sees.
+	if _shown.is_empty():
 		return
-	var i := _rng.randi() % _traces.size()
+	var i := _shown[_rng.randi() % _shown.size()]
 	pu["i"] = i
 	pu["t"] = -_rng.randf() * 0.9          # a beat of dark before it runs again
 	pu["v"] = _rng.randf_range(110.0, 260.0) / maxf(float(_traces[i]["len"]), 40.0)
@@ -443,7 +518,7 @@ func _rebuild_menu() -> void:
 	for b in _menu_root.get_children():
 		_buttons.erase(b)
 	_tiles.clear()
-	remove_child(_menu_root)
+	_stage.remove_child(_menu_root)
 	_menu_root.queue_free()
 	_build_menu(shown)
 	_menu_root.visible = shown
@@ -457,7 +532,7 @@ func _tile_row() -> HBoxContainer:
 	var h := HBoxContainer.new()
 	h.position = Vector2(0.0, TILE_TOP)
 	h.add_theme_constant_override("separation", int(TILE_GAP))
-	add_child(h)
+	_stage.add_child(h)
 	return h
 
 ## One of mobile mode's tiles: a square TILE across, the whole of it the thing
@@ -589,7 +664,7 @@ func _column(top: float, width: float = 400.0) -> VBoxContainer:
 	v.position = Vector2(SEAL.x - width * 0.5, top)
 	v.custom_minimum_size = Vector2(width, 0)
 	v.add_theme_constant_override("separation", 2)
-	add_child(v)
+	_stage.add_child(v)
 	return v
 
 func _show_save_slots() -> void:
@@ -745,7 +820,7 @@ func _relanguage(_lang: String) -> void:
 	var was_slots: bool = _save_slot_root != null and _save_slot_root.visible
 	for old in [_menu_root, _save_slot_root, _settings, _general, _controls]:
 		if old != null and is_instance_valid(old):
-			remove_child(old)
+			old.get_parent().remove_child(old)
 			old.queue_free()
 	_buttons.clear()
 	_tiles.clear()
@@ -839,6 +914,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _process(delta: float) -> void:
 	UiKit.sync_screen(self)
+	_fit_stage()
 	_t += delta
 	# Asked every frame, as the console asks it: nothing announces mobile mode
 	# being thrown, and the switch that throws it is on a page over this menu.
@@ -859,25 +935,39 @@ func _process(delta: float) -> void:
 ## --- drawing ----------------------------------------------------------------
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), GROUND)
+	# Baked at the screen's size with the design already where it stands in it.
 	if _board != null:
 		draw_texture(_board.get_texture(), Vector2.ZERO)
+	# What is written against DESIGN is drawn where the design stands.
+	draw_set_transform(_origin)
 	_draw_pulses()
 	_draw_settle()
 	if _seal_view != null:
 		draw_texture_rect(_seal_view.get_texture(), Rect2(Vector2.ZERO, DESIGN), false)
-	_draw_focus_marks()
 	_draw_save_slot_prompt()
+	# The rest is the screen's own: marks read off the buttons, which are where
+	# the design stands already, and the glass over the whole of it.
+	draw_set_transform(Vector2.ZERO)
+	_draw_focus_marks()
 	_draw_slot_bins()
 	_draw_glass()
 	# On the glass rather than behind it, with the names their buttons carry:
 	# under the scanlines a white mark came out striped beside a clean name.
 	_draw_tiles()
 
+## Into a texture the screen's size, the design where it stands in it, and only
+## what the screen shows: most of the board is out past the edges of a 16:9
+## screen, and painting it there would cost what the bake exists to save. The
+## margin is for a part hanging over the edge from just outside it.
 func _paint_copper(cv: CanvasItem) -> void:
+	cv.draw_set_transform(_origin)
+	var shown := Rect2(-_origin, size).grow(32.0)
 	for tr in _traces:
-		cv.draw_polyline(tr["pts"], tr["col"], tr["w"])
+		if (tr["box"] as Rect2).intersects(shown):
+			cv.draw_polyline(tr["pts"], tr["col"], tr["w"])
 	for pt in _parts:
-		_paint_part(cv, pt)
+		if shown.has_point(pt["p"]):
+			_paint_part(cv, pt)
 
 func _paint_part(cv: CanvasItem, pt: Dictionary) -> void:
 	var p: Vector2 = pt["p"]
@@ -920,18 +1010,20 @@ func _paint_part(cv: CanvasItem, pt: Dictionary) -> void:
 func _draw_settle() -> void:
 	# Smoothstep, not a power curve: anything that leaves the gradient at a
 	# non-zero slope where it starts draws a visible seam across the board.
-	for i in int(size.y - SETTLE_TOP):
+	# Across the whole screen and down to its foot, wherever those are from the
+	# design, so the ground the menu sits on runs out to the edges.
+	for i in int(size.y - _origin.y - SETTLE_TOP):
 		var k := clampf(float(i) / 168.0, 0.0, 1.0)
-		draw_rect(Rect2(0.0, SETTLE_TOP + float(i), size.x, 1.0),
+		draw_rect(Rect2(-_origin.x, SETTLE_TOP + float(i), size.x, 1.0),
 			Color(GROUND.r, GROUND.g, GROUND.b, 0.55 * k * k * (3.0 - 2.0 * k)))
 	# The rest of the darkening is pooled behind the menu rather than spread
 	# across the row, so the far corners keep the copper the reference has
 	# there and only the text gets a clean ground.
-	draw_set_transform(Vector2(SEAL.x, MENU_TOP + 76.0), 0.0, Vector2(3.4, 1.0))
+	draw_set_transform(_origin + Vector2(SEAL.x, MENU_TOP + 76.0), 0.0, Vector2(3.4, 1.0))
 	for i in 26:
 		var k := 1.0 - float(i) / 26.0
 		draw_circle(Vector2.ZERO, 20.0 + k * 112.0, Color(GROUND.r, GROUND.g, GROUND.b, 0.045))
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	draw_set_transform(_origin)
 
 func _draw_pulses() -> void:
 	for pu in _pulses:

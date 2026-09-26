@@ -35,6 +35,7 @@ godot res://tests/feature/weapon_fit_test.tscn  # a weapon refuses skills it can
 godot res://tests/feature/stamina_test.tscn # the dash budget under the health bar
 godot res://tests/graphics/menu_fit_test.tscn # menus stay on screen and scroll the rest
 godot res://tests/graphics/title_mobile_test.tscn # mobile mode's title: a row of big square tiles
+godot res://tests/graphics/screen_fit_test.tscn # a phone- or tablet-shaped screen is filled to its edges
 godot res://tests/graphics/editor_pixel_test.tscn # every pixel of the assembly screen is on the grid
 godot res://tests/graphics/hideout_pixel_test.tscn # the hideout's pixel look, and everything on it fits
 godot res://tests/graphics/bench_pixel_test.tscn # the bench panel's pixel look and layout
@@ -87,6 +88,16 @@ not a thing to reach for once it errors.
 Gamepad: left stick moves, A jumps, B dashes, the right trigger attacks and the
 left one casts, X/Y arm slots 1–2, select opens assembly, RB interacts. Every keyboard binding is remappable
 from Settings (title screen) or the pause menu.
+
+### The screen's shape
+
+The game is laid out in 1280x720 and fills whatever it is shown on. A display
+longer than 16:9 — most phones — gets more room either side, a squarer one — a
+tablet — more above and below; nothing is stretched and nothing is letterboxed.
+The room is the same size everywhere, so the extra room is more of the rock it
+is cut out of rather than more of the fight; the HUD and the console keep to the
+corners they belong to, and the menus stand in the middle. A window dragged to
+another shape, or a phone turned, is followed as it happens.
 
 ### Touch — the console on the glass
 
