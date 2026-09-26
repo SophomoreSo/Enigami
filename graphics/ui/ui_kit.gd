@@ -314,6 +314,98 @@ static func choice_row(name: String, options: PackedStringArray, picked: int,
 	r.setup(name, options, picked, on_pick)
 	return r
 
+## A setting that is either on or off, thrown rather than picked from two words:
+## a track with its corners notched, lit in the accent while it is on, and a
+## square knob that slides to the end it was thrown to. Drawn a whole number of
+## PIXELs at a time, like everything else in the pixel look, with a bar in the
+## empty end while it is on and a ring while it is off, so the colour is not the
+## only thing saying which.
+##
+## A BaseButton in toggle mode, so a click, a finger, `ui_accept` and a gamepad
+## all throw it the same way, and `toggled` says which way it went.
+class Switch extends BaseButton:
+	## The track and the knob, in PIXELs. The knob sits two in from the edge of
+	## the track's inside, and crosses the rest of it.
+	const TRACK := Vector2i(32, 16)
+	const KNOB := 10
+	## Seconds for the knob to cross.
+	const SLIDE := 0.08
+	## Where the knob is drawn: 0 at the off end, 1 at the on end.
+	var _at := 0.0
+
+	func _init() -> void:
+		toggle_mode = true
+		focus_mode = Control.FOCUS_ALL
+		custom_minimum_size = Vector2(TRACK) * UiKit.PIXEL
+		size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		set_process(false)
+		toggled.connect(func(_on: bool) -> void: set_process(true))
+
+	## Thrown to `on` at once, the knob already there and nobody told: for
+	## showing a setting as it stands rather than changing it.
+	func show_on(on: bool) -> void:
+		set_pressed_no_signal(on)
+		_at = 1.0 if on else 0.0
+		set_process(false)
+		queue_redraw()
+
+	func _process(delta: float) -> void:
+		var want := 1.0 if button_pressed else 0.0
+		_at = move_toward(_at, want, delta / SLIDE)
+		if _at == want:
+			set_process(false)
+		queue_redraw()
+
+	func _draw() -> void:
+		var p := float(UiKit.PIXEL)
+		var on := button_pressed
+		var lit := has_focus() or is_hovered()
+		var w := float(TRACK.x)
+		var h := float(TRACK.y)
+		var fill := Color(0.19, 0.33, 0.41) if on else UiKit.BG
+		var edge := UiKit.ACCENT if on else UiKit.LINE
+		if lit:
+			edge = Color.WHITE if on else UiKit.DIM
+		draw_rect(Rect2(Vector2(p, p), Vector2(w - 2.0, h - 2.0) * p), fill)
+		# The edge, stopping a PIXEL short of each corner, and a PIXEL set in at
+		# each corner to carry it round: the notch is what makes it a track
+		# rather than a box.
+		draw_rect(Rect2(Vector2(p, 0.0), Vector2(w - 2.0, 1.0) * p), edge)
+		draw_rect(Rect2(Vector2(p, (h - 1.0) * p), Vector2(w - 2.0, 1.0) * p), edge)
+		draw_rect(Rect2(Vector2(0.0, p), Vector2(1.0, h - 2.0) * p), edge)
+		draw_rect(Rect2(Vector2((w - 1.0) * p, p), Vector2(1.0, h - 2.0) * p), edge)
+		for c in [Vector2(1, 1), Vector2(w - 2.0, 1), Vector2(1, h - 2.0), Vector2(w - 2.0, h - 2.0)]:
+			draw_rect(Rect2(c * p, Vector2(p, p)), edge)
+		# The bar or the ring, in the middle of the end the knob is not in.
+		var mid := (h - 6.0) * 0.5
+		if on:
+			draw_rect(Rect2(Vector2(7.0, mid) * p, Vector2(1.0, 6.0) * p), Color.WHITE)
+		else:
+			var ring := Rect2(Vector2(w - 10.0, mid) * p, Vector2(4.0, 6.0) * p)
+			draw_rect(ring, UiKit.DIM)
+			draw_rect(ring.grow(-p), fill)
+		# The knob, on whole PIXELs, with a PIXEL of dark round it so it stands
+		# off the lit track.
+		var travel := w - 6.0 - KNOB
+		var knob := Rect2(Vector2(3.0 + roundf(_at * travel), (h - KNOB) * 0.5) * p,
+			Vector2(KNOB, KNOB) * p)
+		draw_rect(knob.grow(p), UiKit.BG)
+		draw_rect(knob, (Color.WHITE if lit else UiKit.TEXT) if on else UiKit.DIM)
+		# Where the keyboard is, a PIXEL-wide ring a PIXEL clear of the track.
+		if has_focus():
+			var r := Rect2(Vector2(-2.0, -2.0) * p, Vector2(w + 4.0, h + 4.0) * p)
+			draw_rect(Rect2(r.position, Vector2(r.size.x, p)), UiKit.ACCENT)
+			draw_rect(Rect2(Vector2(r.position.x, r.end.y - p), Vector2(r.size.x, p)), UiKit.ACCENT)
+			draw_rect(Rect2(r.position, Vector2(p, r.size.y)), UiKit.ACCENT)
+			draw_rect(Rect2(Vector2(r.end.x - p, r.position.y), Vector2(p, r.size.y)), UiKit.ACCENT)
+
+## A `Switch`, showing `on`. `on_toggle` is handed which way it is thrown.
+static func switch(on: bool, on_toggle: Callable) -> Switch:
+	var s := Switch.new()
+	s.show_on(on)
+	s.toggled.connect(on_toggle)
+	return s
+
 static func spacer(h: int = 8) -> Control:
 	var c := Control.new()
 	c.custom_minimum_size = Vector2(0, h)

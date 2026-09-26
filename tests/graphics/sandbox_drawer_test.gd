@@ -3,8 +3,8 @@ extends Node
 ## slide out of.
 ##
 ## The tools used to be a column of buttons down the left of the screen that
-## nothing could press. The game has the mouse while the player aims, and a
-## captured mouse clicks where the pointer was parked rather than where the
+## nothing could press. The game hides the system pointer while the player
+## aims, and a click lands where that hidden pointer is rather than where the
 ## crosshair is; and the console on the glass takes a press anywhere on the left
 ## of the screen for its movement stick. So what is checked here is that every
 ## way of pressing gets there: the crosshair, a free mouse, the console played
@@ -127,22 +127,22 @@ func _the_screen() -> void:
 	var t := panel.tab_rect()
 	check(t.position.x <= 0.0 and t.end.x >= SandboxPanel.TAB.x - PixelDraw.PX,
 		"with its tab left on the screen at the edge (%s)" % str(t))
-	check(aiming() and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED,
-		"and the player aiming, with the game holding the mouse")
+	check(aiming() and Input.mouse_mode == Input.MOUSE_MODE_HIDDEN,
+		"and the player aiming, with the system pointer hidden")
 
-## The game has the mouse while the player aims, so the press is wherever the
-## crosshair is — not wherever the parked pointer is, which is where the click
-## itself says it happened.
+## The game points with the crosshair while the player aims, so the press is
+## wherever the crosshair is — not wherever the hidden pointer is, which is
+## where the click itself says it happened.
 func _with_the_crosshair() -> void:
 	Pointer.point = tab()
-	var parked := Vector2(900, 400)
-	press(parked, true)
+	var hidden_at := Vector2(900, 400)
+	press(hidden_at, true)
 	await frames(2)
 	check(panel.is_out(), "a click with the crosshair on the tab pulls the drawer out")
 	check(bench.player.input_locked, "the player is held still while it is out")
 	check(bench.player.basic_runner == null or not bench.player.basic_runner.active,
 		"so the click that pulled it does not swing the weapon")
-	press(parked, false)
+	press(hidden_at, false)
 	await settle()
 	check(panel.drawer_rect().position.x == 0.0, "it slides all the way out (%s)" % str(panel.drawer_rect()))
 	check(not Pointer.game_is_pointing() and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE

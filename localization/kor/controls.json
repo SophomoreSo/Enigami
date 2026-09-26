@@ -5,12 +5,7 @@
 	"reset": "기본값으로 되돌리기",
 	"listening": "키를 누르세요…",
 	"sensitivity": "마우스 감도",
-	"touch": {
-		"label": "터치 조작",
-		"off": "끄기",
-		"auto": "자동",
-		"on": "켜기"
-	},
+	"mobile": "모바일 모드",
 	"unbound": "없음",
 	"none": "—",
 	"mouse": "마우스 %d",

@@ -34,6 +34,7 @@ godot res://tests/feature/select_test.tscn  # arming a slot, and what each butto
 godot res://tests/feature/weapon_fit_test.tscn  # a weapon refuses skills it cannot carry
 godot res://tests/feature/stamina_test.tscn # the dash budget under the health bar
 godot res://tests/graphics/menu_fit_test.tscn # menus stay on screen and scroll the rest
+godot res://tests/graphics/title_mobile_test.tscn # mobile mode's title: a row of big square tiles
 godot res://tests/graphics/editor_pixel_test.tscn # every pixel of the assembly screen is on the grid
 godot res://tests/graphics/hideout_pixel_test.tscn # the hideout's pixel look, and everything on it fits
 godot res://tests/graphics/bench_pixel_test.tscn # the bench panel's pixel look and layout
@@ -89,12 +90,13 @@ from Settings (title screen) or the pause menu.
 
 ### Touch — the console on the glass
 
-**Touch controls**, the second row of the control settings, draws a console on
-the screen for two thumbs to play on. Three answers rather than a switch:
-**AUTO** is on wherever the machine is one you touch and off everywhere else,
-so an Android or iOS build has controls before anyone finds this row; **ON** and
-**OFF** are for the machines that are both, and for looking at the thing on a
-desk.
+**Mobile mode**, the switch on the second row of the control settings, draws a
+console on the screen for two thumbs to play on, and lays the title's menu out
+as a row of big square tiles — a mark over each name — for a thumb to land on.
+A fresh install is in AUTO: on wherever the machine is one you touch and off
+everywhere else, so an Android or iOS build has controls before anyone finds
+the switch, and the switch shows what AUTO came to. Throwing it is an answer for
+good, for the machines that are both and for looking at the thing on a desk.
 
 It is laid out the way a phone MOBA is, because that is the scheme this game's
 controls turn out to fit:
@@ -168,10 +170,12 @@ for a given push of the mouse, from 0.4 to 2.5, and is kept per machine rather
 than per save — a property of the desk, like the language and the bindings.
 
 It moves the game crosshair, not the system pointer, which is the whole of the
-design. While the player has the controls the game takes the mouse — the system
-arrow gives way to the crosshair, and that is what the setting drives. Let go of
-the controls for a menu, a map or a conversation and the system pointer comes
-back for the buttons, at whatever speed the desk runs it at. Setting it is
+design. While the player has the controls the game hides the system arrow — the
+crosshair takes its place, and that is what the setting drives. Let go of the
+controls for a menu, a map or a conversation and the system pointer comes back
+into sight for the buttons, wherever the hand has taken it and at whatever speed
+the desk runs it at: the game never moves it. At 1.0 that is exactly where the
+crosshair was; at any other speed the two have gone their own ways. Setting it is
 therefore something you see in the game rather than on the settings page, the
 way a shooter'''s sensitivity slider never moves its own menu cursor.
 

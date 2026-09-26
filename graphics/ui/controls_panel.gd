@@ -1,10 +1,10 @@
 class_name ControlsPanel
 extends PanelContainer
 
-## The input settings: how fast the pointer moves, whether the controls are
-## drawn on the screen, and which key does what.
+## The input settings: how fast the pointer moves, whether the game is in
+## mobile mode, and which key does what.
 ##
-## The pointer and the console sit at the top rather than with the volumes,
+## The pointer and mobile mode sit at the top rather than with the volumes,
 ## because what they belong with is this — they are controls, and this is the
 ## page controls are on. They are drawn in the same two columns as the bindings
 ## under them, so the name and the thing that sets it line up all the way down
@@ -16,6 +16,7 @@ var pixel: bool = false
 
 var _listening: String = ""
 var _rows: Dictionary = {}
+var _mobile: UiKit.Switch = null
 
 func _ready() -> void:
 	_build()
@@ -46,34 +47,36 @@ func _pointer_row(name_width: int, bind_width: int) -> Control:
 	row.add_child(s)
 	return row
 
-## Whether the game puts a console on the screen for a thumb to play on —
-## `graphics/ui/touch_pad.gd`, and `app/touch.gd` for what a key on it does.
+## Mobile mode: a console on the screen for a thumb to play on —
+## `graphics/ui/touch_pad.gd`, and `app/touch.gd` for what a key on it does —
+## and the title's menu laid out as tiles big enough to land a thumb on.
 ##
-## Three answers rather than a switch, because the right one is usually neither:
-## AUTO is on wherever the machine is one you touch and off everywhere else,
-## which is what a phone wants without anybody having to find this row first.
-## OFF and ON are for the machines that are both — a tablet with a keyboard, a
-## desk with a touchscreen — and for looking at the thing on a desk.
-##
-## Laid out like the language row and rebuilt like it: the button that was
-## pressed is the one that has to come back disabled, so the panel is built
-## again rather than refreshed.
+## A switch, showing whether the console is on. A fresh install is in AUTO,
+## which is on wherever the machine is one you touch and off everywhere else —
+## what a phone wants without anybody having to find this row first — so until
+## it is thrown the switch shows what AUTO came to. Throwing it is an answer for
+## good, for the machines that are both — a tablet with a keyboard, a desk with
+## a touchscreen — and for looking at the thing on a desk.
 func _touch_row(name_width: int) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
-	var l := UiKit.label(Loc.t("controls.touch.label"), 11, UiKit.TEXT, pixel)
+	var l := UiKit.label(Loc.t("controls.mobile"), 11, UiKit.TEXT, pixel)
 	l.custom_minimum_size = Vector2(name_width, 0)
 	row.add_child(l)
-	for m in Touch.MODE_KEYS.size():
-		var picked: bool = m == Touch.mode
-		var b := UiKit.button(Touch.mode_name(m), UiKit.ACCENT if picked else UiKit.DIM, pixel)
-		b.disabled = picked
-		b.pressed.connect(func() -> void:
-			Audio.play("ui")
-			Touch.set_mode(m)
-			_rebuild())
-		row.add_child(b)
+	_mobile = UiKit.switch(Touch.wanted(), func(on: bool) -> void:
+		Audio.play("ui")
+		Touch.set_mode(Touch.ON if on else Touch.OFF))
+	row.add_child(_mobile)
 	return row
+
+## The title's settings and the pause menu each hold one of these, and mobile
+## mode thrown in one is in force in the other. So the switch is set from the
+## mode every time the panel comes on screen, rather than left showing the one
+## it was built with.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_VISIBILITY_CHANGED and is_visible_in_tree() \
+			and _mobile != null and is_instance_valid(_mobile):
+		_mobile.show_on(Touch.wanted())
 
 func _relanguage(_lang: String) -> void:
 	if is_queued_for_deletion():
@@ -81,9 +84,8 @@ func _relanguage(_lang: String) -> void:
 	_rebuild()
 
 ## Built rather than refreshed, so a change of language reaches the action
-## names as well as the two buttons, and a console mode picked above comes back
-## as the one that is on. Whatever was being listened for is dropped: the panel
-## it was going to land in no longer exists.
+## names as well as the buttons. Whatever was being listened for is dropped:
+## the panel it was going to land in no longer exists.
 func _rebuild() -> void:
 	_listening = ""
 	_rows.clear()

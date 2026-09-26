@@ -17,10 +17,11 @@ extends Control
 ## the movement stick, whose zone is the whole left of the screen.
 ##
 ## The tab is hit-tested here in `_input` rather than being a Button, because it
-## has to answer while the drawer is in and the player is aiming: the game has
-## the mouse then and points with the crosshair, which no Button hears, and the
-## console takes a press on the left of the screen for its stick before any
-## Control is asked — but after this, which is later in the tree.
+## has to answer while the drawer is in and the player is aiming: the game points
+## with the crosshair then, and a Button hears only the hidden system pointer,
+## which is somewhere else at any speed but 1.0; and the console takes a press
+## on the left of the screen for its stick before any Control is asked — but
+## after this, which is later in the tree.
 ##
 ## Drawn in UiKit's pixel look: the buttons are the kit's pixel ones, and
 ## everything drawn here goes through `PixelDraw`.
@@ -126,7 +127,7 @@ func _process(delta: float) -> void:
 	_slide = move_toward(_slide, 1.0 if _out else 0.0, delta / SLIDE)
 	_place()
 	# `Pointer.point` is wherever the pointing is being done from: the crosshair
-	# while the game has the mouse, the system pointer otherwise.
+	# while the game is pointing, the system pointer otherwise.
 	_tab_hover = tab_rect().has_point(Pointer.point)
 	queue_redraw()
 
@@ -138,8 +139,9 @@ func _input(event: InputEvent) -> void:
 	var click := event as InputEventMouseButton
 	var touch := event as InputEventScreenTouch
 	if click != null and click.button_index == MOUSE_BUTTON_LEFT:
-		# While the game has the mouse, a click lands where the crosshair is.
-		at = Pointer.point if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED else click.position
+		# While the game is pointing, a click lands where the crosshair is, not
+		# where the hidden system pointer is.
+		at = Pointer.point if Input.mouse_mode == Input.MOUSE_MODE_HIDDEN else click.position
 		# The system hands a touch over as a click as well: the touch is the press.
 		press = click.pressed and click.device != InputEvent.DEVICE_ID_EMULATION
 	elif touch != null:

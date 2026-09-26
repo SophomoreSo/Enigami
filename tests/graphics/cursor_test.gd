@@ -11,9 +11,9 @@ extends Node
 ## hideout floor left the player holding the controls under it, so the game
 ## kept the mouse there: the crosshair went on wandering over the board.
 ##
-## Checked with the console off, where the game takes the mouse on those two
-## screens and draws the crosshair itself, and with it on, where the game never
-## takes the mouse and the window's own pointer wears the crosshair instead.
+## Checked with the console off, where the game hides the system pointer on
+## those two screens and draws the crosshair itself, and with it on, where the
+## game never hides it and the window's own pointer wears the crosshair instead.
 
 const GameScript := preload("res://app/game.gd")
 
@@ -44,17 +44,18 @@ func key(code: Key) -> void:
 func wearing_crosshair() -> bool:
 	return Pointer._worn != null and Pointer._worn == Pointer._tex
 
-## A screen the player aims on. With the console off the game has the mouse and
-## draws the crosshair itself; with it on, the window's pointer is the crosshair.
+## A screen the player aims on. With the console off the game hides the system
+## pointer and draws the crosshair itself; with it on, the window's pointer is
+## the crosshair.
 func aiming(where: String) -> void:
 	if Touch.wanted():
 		check(Pointer.game_is_pointing() and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE
 				and wearing_crosshair() and not Pointer._crosshair.visible,
 			"%s: the window's own pointer is the crosshair" % where)
 	else:
-		check(Pointer.game_is_pointing() and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+		check(Pointer.game_is_pointing() and Input.mouse_mode == Input.MOUSE_MODE_HIDDEN
 				and Pointer._crosshair.visible,
-			"%s: the game has the mouse and draws the crosshair (mode %d)"
+			"%s: the game hides the system pointer and draws the crosshair (mode %d)"
 				% [where, Input.mouse_mode])
 
 ## A window: buttons, and the system's arrow to press them with.
@@ -164,8 +165,8 @@ func _the_battleground() -> void:
 	await key(KEY_ESCAPE)
 	aiming("the raid, unpaused")
 
-## The console on the glass never takes the mouse — a phone aims with its
-## sticks — so it is the window's own pointer that has to change.
+## The console on the glass never hides the system pointer — a phone aims with
+## its sticks — so it is the window's own pointer that has to change.
 func _with_the_console() -> void:
 	var raid := game.current as Raid
 	Touch.set_mode(Touch.ON)

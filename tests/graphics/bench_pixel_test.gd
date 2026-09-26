@@ -166,8 +166,8 @@ func _ready() -> void:
 	# --- the layout ---------------------------------------------------------
 	var vp := get_viewport().get_visible_rect().size
 	check(sb.player.runners.size() == 4, "the bench carries four boards (%d)" % sb.player.runners.size())
-	var slots_right := Hud.BAR_AT.x + 5.0 * (Hud.SLOT.x + Hud.SLOT_GAP) - Hud.SLOT_GAP
-	check(slots_right <= vp.x, "the HUD's row, the weapon and four slots, fits the screen (%.0f)" % slots_right)
+	var slots_right := Hud.BAR_AT.x + 4.0 * (Hud.SLOT.x + Hud.SLOT_GAP) - Hud.SLOT_GAP
+	check(slots_right <= vp.x, "the HUD's row of four slots fits the screen (%.0f)" % slots_right)
 
 	# Capitals stand 10 above their baseline and nothing descends.
 	var hud_last := Hud.SLOT_TOP + Hud.SLOT.y + 18.0 + PixelDraw.LINE

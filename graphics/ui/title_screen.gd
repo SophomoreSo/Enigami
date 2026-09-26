@@ -46,6 +46,88 @@ const ARM_TIME := 3.0
 const SAVE_SLOT_WIDTH := 480.0
 const SETTLE_TOP := 452.0    ## where the board starts sinking into black
 
+## Mobile mode's menu: the same four entries, as a row of big square tiles with
+## a mark over each name. A line of text 24 pixels high is a small thing to land
+## a thumb on, and on a phone a thumb is all there is to land. See `_tile`.
+const TILE := 152.0
+const TILE_GAP := 24.0
+## Clear of the pendant, which hangs to 526, and of the bottom of the screen.
+const TILE_TOP := 542.0
+## How far each corner of a tile's plate is cut back, at 45° like the copper.
+const TILE_CUT := 10.0
+## The name's room in a tile, which it is centred in: from here to the bottom
+## margin. The mark stands over it, from MARK_TOP.
+const TILE_NAME_TOP := 88.0
+const TILE_NAME_BOTTOM := 16.0
+const MARK_TOP := 28.0
+## The marks are tables of characters, like the pointer's: `#` is ink and `.`
+## is nothing, and a character is a MARK_UNIT block, two of the seal's pixels.
+const MARK_UNIT := 4.0
+## A column right of centre: the triangle's weight is all at its flat side, and
+## centred by its box it sits left of the middle to the eye.
+const MARK_START := [
+	"..#..........",
+	"..###........",
+	"..####.......",
+	"..######.....",
+	"..########...",
+	"..#########..",
+	"..###########",
+	"..#########..",
+	"..########...",
+	"..######.....",
+	"..####.......",
+	"..###........",
+	"..#..........",
+]
+## The bench is where a board is tried out on something that stands still for
+## it, so its mark is a target.
+const MARK_SANDBOX := [
+	"....#####....",
+	"..##.....##..",
+	".#.........#.",
+	".#...###...#.",
+	"#...#...#...#",
+	"#..#.....#..#",
+	"#..#..#..#..#",
+	"#..#.....#..#",
+	"#...#...#...#",
+	".#...###...#.",
+	".#.........#.",
+	"..##.....##..",
+	"....#####....",
+]
+const MARK_SETTINGS := [
+	".....###.....",
+	".##..###..##.",
+	".###########.",
+	"..#########..",
+	"..###...###..",
+	"####.....####",
+	"####.....####",
+	"####.....####",
+	"..###...###..",
+	"..#########..",
+	".###########.",
+	".##..###..##.",
+	".....###.....",
+]
+const MARK_QUIT := [
+	"......#......",
+	"......#......",
+	"..#...#...#..",
+	".#....#....#.",
+	"#.....#.....#",
+	"#.....#.....#",
+	"#...........#",
+	"#...........#",
+	"#...........#",
+	".#.........#.",
+	"..#.......#..",
+	"...##...##...",
+	".....###.....",
+]
+
 ## The seal and the wordmark are drawn at this fraction of the screen and
 ## blitted back with nearest filtering. The copper is all axis-aligned and
 ## already reads as pixels; curves and serifs do not, and drawing them small
@@ -82,7 +164,12 @@ var _board: SubViewport
 var _seal_view: SubViewport
 var _seal_painter: Node2D
 var _menu_font: FontVariation
-var _menu_root: VBoxContainer
+## The main menu: a column of lines, or in mobile mode a row of tiles.
+var _menu_root: BoxContainer
+## Whether the menu was laid out for mobile mode, and its tiles, each against
+## the mark drawn over its name.
+var _mobile: bool = false
+var _tiles: Dictionary = {}
 var _save_slot_root: VBoxContainer
 var _buttons: Array = []
 var _start_button: Button
@@ -324,17 +411,72 @@ func _arc_slice(pts: PackedVector2Array, a: float, b: float) -> PackedVector2Arr
 	return out
 
 ## --- the menu ---------------------------------------------------------------
-func _build_menu() -> void:
-	_menu_root = _column(MENU_TOP)
-	_start_button = _menu_button(Loc.t("menu.title.start"), _menu_root)
+## A column of lines, or in mobile mode a row of tiles: the same four entries
+## either way, doing the same four things.
+func _build_menu(focus: bool = true) -> void:
+	_mobile = Touch.wanted()
+	if _mobile:
+		_menu_root = _tile_row()
+	else:
+		_menu_root = _column(MENU_TOP)
+	_start_button = _menu_item(Loc.t("menu.title.start"), MARK_START)
 	_start_button.pressed.connect(_show_save_slots)
-	var sandbox := _menu_button(Loc.t("menu.title.sandbox"), _menu_root)
+	var sandbox := _menu_item(Loc.t("menu.title.sandbox"), MARK_SANDBOX)
 	sandbox.pressed.connect(func() -> void: sandbox_requested.emit())
-	_settings_button = _menu_button(Loc.t("menu.title.settings"), _menu_root)
+	_settings_button = _menu_item(Loc.t("menu.title.settings"), MARK_SETTINGS)
 	_settings_button.pressed.connect(_toggle_settings)
-	var quit := _menu_button(Loc.t("menu.title.quit"), _menu_root)
+	var quit := _menu_item(Loc.t("menu.title.quit"), MARK_QUIT)
 	quit.pressed.connect(func() -> void: get_tree().quit())
-	_start_button.grab_focus()
+	if _mobile:
+		# Centred under the seal on whole pixels, now its width is known.
+		var n := _menu_root.get_child_count()
+		_menu_root.position.x = SEAL.x - floorf((TILE * n + TILE_GAP * (n - 1)) * 0.5)
+	if focus:
+		_start_button.grab_focus()
+
+## Mobile mode was thrown — on the controls page, which is the only place it
+## can be — so the menu under the settings is laid out again for the new one.
+## Only the menu: the page with the switch on it is still up, and stays as it
+## is, and so does whatever the keyboard is on there.
+func _rebuild_menu() -> void:
+	var shown := _menu_root.visible
+	for b in _menu_root.get_children():
+		_buttons.erase(b)
+	_tiles.clear()
+	remove_child(_menu_root)
+	_menu_root.queue_free()
+	_build_menu(shown)
+	_menu_root.visible = shown
+
+func _menu_item(text: String, mark: Array) -> Button:
+	return _tile(text, mark) if _mobile else _menu_button(text, _menu_root)
+
+## The row mobile mode's tiles stand in, from TILE_TOP down. `_build_menu`
+## centres it once the tiles are in it.
+func _tile_row() -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.position = Vector2(0.0, TILE_TOP)
+	h.add_theme_constant_override("separation", int(TILE_GAP))
+	add_child(h)
+	return h
+
+## One of mobile mode's tiles: a square TILE across, the whole of it the thing
+## to press. The button carries only the name, low in the square — the plate
+## and the mark over the name are drawn under it by `_draw_tiles`, the way the
+## trashcans are, so they light with the name when the tile is pointed at.
+func _tile(text: String, mark: Array) -> Button:
+	var b := _bare_button(text, 16)
+	b.custom_minimum_size = Vector2(TILE, TILE)
+	var box := StyleBoxEmpty.new()
+	box.content_margin_left = 6
+	box.content_margin_right = 6
+	box.content_margin_top = TILE_NAME_TOP
+	box.content_margin_bottom = TILE_NAME_BOTTOM
+	for s in ["normal", "hover", "pressed", "focus", "disabled"]:
+		b.add_theme_stylebox_override(s, box)
+	_tiles[b] = mark
+	_menu_root.add_child(b)
+	return b
 
 ## START asks which save slot before it hands over. Each row says which slot it
 ## is, when that profile was last written, and offers a way to throw it away.
@@ -606,6 +748,7 @@ func _relanguage(_lang: String) -> void:
 			remove_child(old)
 			old.queue_free()
 	_buttons.clear()
+	_tiles.clear()
 	_slot_rows.clear()
 	_armed_slot = -1
 	_menu_root = null
@@ -697,6 +840,10 @@ func _unhandled_input(event: InputEvent) -> void:
 func _process(delta: float) -> void:
 	UiKit.sync_screen(self)
 	_t += delta
+	# Asked every frame, as the console asks it: nothing announces mobile mode
+	# being thrown, and the switch that throws it is on a page over this menu.
+	if _menu_root != null and Touch.wanted() != _mobile:
+		_rebuild_menu()
 	if _armed_slot >= 0:
 		_armed_left -= delta
 		if _armed_left <= 0.0:
@@ -722,6 +869,9 @@ func _draw() -> void:
 	_draw_save_slot_prompt()
 	_draw_slot_bins()
 	_draw_glass()
+	# On the glass rather than behind it, with the names their buttons carry:
+	# under the scanlines a white mark came out striped beside a clean name.
+	_draw_tiles()
 
 func _paint_copper(cv: CanvasItem) -> void:
 	for tr in _traces:
@@ -936,6 +1086,9 @@ func _draw_focus_marks() -> void:
 	var f := get_viewport().gui_get_focus_owner()
 	if f == null or not _buttons.has(f) or not (f as Control).is_visible_in_tree():
 		return
+	# A tile says it is the one by lighting its own frame, in `_draw_tiles`.
+	if _tiles.has(f):
+		return
 	var r := (f as Control).get_global_rect()
 	r.position -= global_position
 	var y := r.position.y + r.size.y * 0.5
@@ -943,6 +1096,65 @@ func _draw_focus_marks() -> void:
 	var col := Color(SPARK.r, SPARK.g, SPARK.b, beat)
 	_diamond(self, Vector2(r.position.x + 8.0, y), 4.0, col, 1.5)
 	_diamond(self, Vector2(r.end.x - 8.0, y), 4.0, col, 1.5)
+
+## Mobile mode's tiles, under the names their buttons carry: a plate with its
+## corners cut the way the copper's are, and the entry's mark over its name. In
+## the menu's own ink, and white under the cursor or the pad, with the frame lit
+## twice over and beating the way the marks either side of a line do — though
+## never down to the frames round it: a beat that faded out left the tile that
+## was picked looking like the ones that were not. A thumb down on a tile
+## brightens its plate, since the thumb covers whatever else would say so.
+func _draw_tiles() -> void:
+	if _tiles.is_empty() or _menu_root == null or not _menu_root.is_visible_in_tree():
+		return
+	var focused := get_viewport().gui_get_focus_owner()
+	var beat := 0.85 + 0.15 * sin(_t * 4.0)
+	for b: Button in _tiles:
+		var r := b.get_global_rect()
+		r.position -= global_position
+		var lit := focused == b
+		var held := b.get_draw_mode() == BaseButton.DRAW_PRESSED \
+			or b.get_draw_mode() == BaseButton.DRAW_HOVER_PRESSED
+		var plate := _octagon(r, TILE_CUT)
+		draw_colored_polygon(plate, Color(0.10, 0.17, 0.30, 0.95) if held
+			else Color(PLATE.r, PLATE.g, PLATE.b, 0.92))
+		plate.append(plate[0])
+		if lit:
+			draw_polyline(plate, Color(SPARK.r, SPARK.g, SPARK.b, beat), 2.0)
+			var inner := _octagon(r.grow(-6.0), TILE_CUT - 2.0)
+			inner.append(inner[0])
+			draw_polyline(inner, Color(SPARK.r, SPARK.g, SPARK.b, 0.3), 2.0)
+		else:
+			draw_polyline(plate, Color(MENU_INK.r, MENU_INK.g, MENU_INK.b, 0.55), 2.0)
+		_draw_mark(_tiles[b], Vector2(r.get_center().x, r.position.y + MARK_TOP),
+			Color.WHITE if lit else MENU_INK)
+
+## `r` with its corners cut back `cut` at 45°, as the eight points round it.
+func _octagon(r: Rect2, cut: float) -> PackedVector2Array:
+	var a := r.position
+	var b := r.end
+	return PackedVector2Array([
+		Vector2(a.x + cut, a.y), Vector2(b.x - cut, a.y), Vector2(b.x, a.y + cut),
+		Vector2(b.x, b.y - cut), Vector2(b.x - cut, b.y), Vector2(a.x + cut, b.y),
+		Vector2(a.x, b.y - cut), Vector2(a.x, a.y + cut)])
+
+## A mark, hung from the middle of its top edge: each run of `#` along a line
+## of the table is one block MARK_UNIT high.
+func _draw_mark(mark: Array, top_middle: Vector2, col: Color) -> void:
+	var u := MARK_UNIT
+	var at := (top_middle - Vector2(String(mark[0]).length() * u * 0.5, 0.0)).floor()
+	for y in mark.size():
+		var line: String = mark[y]
+		var x := 0
+		while x < line.length():
+			if line[x] != "#":
+				x += 1
+				continue
+			var run := 1
+			while x + run < line.length() and line[x + run] == "#":
+				run += 1
+			draw_rect(Rect2(at + Vector2(x, y) * u, Vector2(run * u, u)), col)
+			x += run
 
 ## The heading over the save slots. Drawn rather than laid out, so the column
 ## below it keeps the exact spacing the main menu has.
