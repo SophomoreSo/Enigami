@@ -136,13 +136,13 @@ func _ready() -> void:
 	# --- what the pixel face costs the layout --------------------------------
 	var vp := get_viewport().get_visible_rect().size
 	# The slots are squares under the bars now, so what the layout stands on is
-	# the column's own width rather than any card's: the widest weapon's slots,
-	# plus the weapon's own attack, have to come to the width of the bars over
-	# them or the corner stops reading as one column.
+	# the column's own width rather than any card's: the widest weapon's slots
+	# have to come to the width of the bars over them or the corner stops
+	# reading as one column.
 	var most := 0
 	for id in Weapons.ids():
 		most = maxi(most, Weapons.slots(String(id)))
-	var row := float(most + 1) * Hud.SLOT.x + float(most) * Hud.SLOT_GAP
+	var row := float(most) * Hud.SLOT.x + float(most - 1) * Hud.SLOT_GAP
 	check(row <= Hud.BAR_W + 0.5,
 		"the row of slots is no wider than the bars over it at %d slots (%.0f of %.0f)"
 			% [most, row, Hud.BAR_W])
@@ -150,7 +150,7 @@ func _ready() -> void:
 	# to be — but the bindings the game ships with have to fit whole, or every
 	# square starts life with an ellipsis in it.
 	var pad := 16.0
-	for action in ["attack", "skill_1", "skill_2", "skill_3", "skill_4"]:
+	for action in ["skill_1", "skill_2", "skill_3", "skill_4"]:
 		var label := Controls.short_label_for(action)
 		check(PixelDraw.text_width(label) <= Hud.SLOT.x - pad,
 			"a slot square holds its binding whole, '%s' (%.0f of %.0f)"

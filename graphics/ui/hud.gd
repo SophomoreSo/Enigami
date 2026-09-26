@@ -33,10 +33,10 @@ const HEALTH_H := 24.0
 const THIN_H := 12.0
 ## A slot, and the gap to the next one along. A square holds a binding and a
 ## cooldown wipe and nothing else, so it is sized by the column it belongs to
-## rather than by any text: four of them — the weapon's own attack and the three
-## slots the widest weapon has — come to exactly BAR_W across, and the corner
-## reads as one column. A weapon with a fourth slot would run past it, which is
-## what `hud_pixel_test` is watching for.
+## rather than by any text: the three slots the widest weapon has sit inside
+## BAR_W, and the corner reads as one column. The weapon's own attack has no
+## square: it has no wait worth watching, and a square that never changes was
+## one more thing in the corner saying nothing.
 const SLOT := Vector2(60, 60)
 const SLOT_GAP := 8.0
 ## Where the row sits, under the bars and the weapon's name.
@@ -138,15 +138,10 @@ func _draw_mana() -> void:
 	var bar := Rect2(BAR_AT + Vector2(0, HEALTH_H + THIN_H + 8.0), Vector2(BAR_W, THIN_H))
 	_px.bar(bar, player.mana_ratio(), Color(0.38, 0.55, 0.95), BAR_GROUND, BAR_EDGE)
 
-## The weapon's own attack sits first, then each slot. Which slot is armed has
-## to be obvious at a glance: it is the one the cast button will run.
+## Each slot, in order. Which slot is armed has to be obvious at a glance: it
+## is the one the cast button will run.
 func _draw_slots() -> void:
 	var at := Vector2(BAR_AT.x, SLOT_TOP)
-	if player.basic_runner != null:
-		# The weapon's own board is always something the weapon carries.
-		_draw_slot(Rect2(at, SLOT), player.basic_runner,
-			Controls.short_label_for("attack"), false, true)
-		at.x += SLOT.x + SLOT_GAP
 	for i in player.runners.size():
 		_draw_slot(Rect2(at, SLOT), player.runners[i],
 			Controls.short_label_for("skill_%d" % (i + 1)),
