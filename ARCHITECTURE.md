@@ -1,53 +1,71 @@
-# Three modules
+# Five modules
 
 The project is split so that **a change to what the game does**, **a change to
-how the game looks** and **a change to what the game tells** are edits to three
-disjoint sets of files. Three branches working in parallel — one per module —
-can then be merged without any of them touching another's lines.
+how the game looks**, **a change to what the game tells**, **a change to how a
+skill board runs** and **a change to how a thumb plays it** are edits to
+disjoint sets of files. Branches working in parallel — one per module — can
+then be merged without any of them touching another's lines.
 
 ```
+circuit/     the engine. A board, the pulse that runs it, the payload it builds.
 feature/     the rules. What happens, and when.
 graphics/    the picture. What that looks like.
 story/       the telling. Who speaks, what is staged, and how that reads.
+mobile/      the glass. The console a thumb plays on, and where its buttons stand.
 app/         the shell they sit in: the seam, the screen flow, the sound bank.
-tests/       feature/ · graphics/ · story/ · shared/, the same split
+tests/       circuit/ · feature/ · graphics/ · story/ · mobile/ · shared/, the same split
 
 data/          conversations and scenes, as files. Content the modules read.
 localization/  every word the game says, one folder per language.
 ```
 
-`story/` is a whole subsystem rather than one side of one — a conversation has
-both a shape and a look — so it carries the same seam inside itself:
+`circuit/` is the engine under the rules: `Components`, `SkillBoard`,
+`SkillRunner`, `Payload` and `BoardCode`. It names nothing but itself and `Loc` —
+not a weapon, not an actor, not a hit — so it can be tested on its own and
+changed without a rule or a picture changing under it. What it needs from the
+game is handed in: a runner is given its base payload (`base_payload_provider`),
+and the weapons, the player and the attacks are built on top of it in `feature/`.
+
+`story/` and `mobile/` are whole subsystems rather than one side of one — a
+conversation has both a shape and a look, and so does a console on the glass —
+so each carries the same seam inside itself:
 
 ```
-story/rules/  the conversation and the staging. What is said, and what follows.
-story/view/   the box, the portraits, the camera. What that looks like.
+story/rules/   the conversation and the staging. What is said, and what follows.
+story/view/    the box, the portraits, the camera. What that looks like.
+mobile/input/  whether the console is up, and the actions a thumb holds down.
+mobile/view/   the console drawn on the glass, and the screen that moves its buttons.
 ```
 
-That is why it is a module and not a folder in each of the other two: everything
-about a conversation is in one place, and a branch writing one opens no file the
-other two branches touch.
+That is why they are modules and not a folder in each of the other two:
+everything about a conversation, or about playing with thumbs, is in one place,
+and a branch writing one opens no file the others touch.
 
 ## The rule
 
 **A picture may read the rules it draws. A rule may never mention its picture.**
 
-One rule, applied twice — once between the modules, once inside `story/`:
+One rule, applied between the modules and again inside `story/` and `mobile/`:
 
 ```
-graphics/     may read  feature/
-story/rules/  may read  feature/
-story/view/   may read  story/rules/ · graphics/ · feature/
-feature/      reads none of them
+circuit/       reads none of them, only Loc
+feature/       may read  circuit/
+graphics/      may read  feature/ · circuit/ · mobile/input/
+story/rules/   may read  feature/
+story/view/    may read  story/rules/ · graphics/ · feature/
+mobile/input/  reads none of them, only the shell it presses keys for
+mobile/view/   may read  mobile/input/ · graphics/ · feature/
 ```
 
-Nothing in `feature/` or `story/rules/` draws, names a colour, loads a sprite,
-plays a sound, or holds a reference to a screen. There is a standing check for
-this: delete the four graphics autoloads (`Sprites`, `Fx`, `Views`,
-`CueVisuals`) from `project.godot` and every test under `tests/feature` **and
-`tests/story`** still passes — raids run, hits resolve, boards fire,
-conversations run to their last line, nothing is drawn. Run it whenever the
-split starts to feel theoretical.
+Nothing in `feature/`, `story/rules/` or `circuit/` draws, names a colour,
+loads a sprite, plays a sound, or holds a reference to a screen. There is a
+standing check for this: delete the four graphics autoloads (`Sprites`, `Fx`,
+`Views`, `CueVisuals`) from `project.godot` and every test under
+`tests/circuit`, `tests/feature` **and `tests/story`** still passes — raids run,
+hits resolve, boards fire, conversations run to their last line, nothing is
+drawn. CI runs it on every push. `tests/shared/module_test` checks the same rule
+class by class, from the code, and holds `circuit/` to itself and `Loc` and
+`mobile/input/` to itself and `app/`.
 
 `story/view/` reads `graphics/` the way any screen does — `UiKit`, `PixelDraw`,
 `Style`, `Sprites`, `Fx` — and adds nothing to it. Back the other way there is
@@ -57,9 +75,15 @@ point and nothing else — no story node, no story view, nothing a conversation
 does — so what the box looks like and what the HUD looks like are still never
 the same edit.
 
-The shell in `app/` is the one place allowed to know all three: `app/game.gd` is
-the composition root, and builds screens out of `graphics/` and `story/view/` to
-drive `feature/` and `story/rules/`.
+The shell in `app/` is the one place allowed to know all of them: `app/game.gd`
+is the composition root, and builds screens out of `graphics/`, `story/view/`
+and `mobile/view/` to drive `feature/` and `story/rules/`.
+
+`graphics/` reads `mobile/input/` the way it reads any state — the HUD drops its
+key hints while the console is up, the title lays its menu out as tiles — and
+names one thing in `mobile/view/`: `graphics/ui/controls_panel.gd` opens
+`TouchLayoutEditor` from SET BUTTON POSITIONS, because the control settings are
+where a player looks for it. It opens the screen and takes nothing else.
 
 **The one exception.** `feature/world/sandbox.gd` names `Npc`, to stand someone
 on the bench to talk to. A world that stages a character has to name one, the
@@ -131,7 +155,7 @@ data every module reads. No screen and no rule spells out what it says. `Loc`
 module asks by name:
 
 ```gdscript
-# feature/                                  # graphics/
+# circuit/ · feature/                       # graphics/
 Components.name_for(id)                     Loc.t("hud.map.title")
 Loc.t("hud.extract.needs_scrap", [20, 4])   Loc.t("menu.title.start")
 ```
@@ -152,7 +176,7 @@ a part with no glyph yet draws in its category's colour.
 Silkscreen is Latin-only, so a language whose writing it does not carry brings
 a face of its own, in its own folder — Korean ships 둥근모꼴, a 16-pixel bitmap
 face. That makes two pixel grids on one screen: Latin on `UiKit.PIXEL`'s two,
-Hangul on one, both whole pixels. `Loc.pixel_grid()` is where that number
+Hangul on one, both whole pixels. `UiKit.pixel_grid()` is where that number
 lives, and the pixel tests ask it before holding a screen to a grid. See **The
 face** in that README.
 
@@ -186,21 +210,23 @@ the files and a handler on the presentation side.
 
 | Change | File |
 |---|---|
-| New skill component | `feature/core/components.gd` + its rule in `skill_runner.gd`; a number on the end of `CODE_IDS` in `board_code.gd`, or no board carrying it can be shared; its colour, glyph and icon in `graphics/style.gd` |
-| The share code — what it carries, how long it is | `feature/core/board_code.gd`; the sheet that shows it, `graphics/ui/share_code_panel.gd` |
+| New skill component | `circuit/components.gd` + its rule in `skill_runner.gd`; a number on the end of `CODE_IDS` in `board_code.gd`, or no board carrying it can be shared; its colour, glyph and icon in `graphics/style.gd` |
+| The share code — what it carries, how long it is | `circuit/board_code.gd`; the sheet that shows it, `graphics/ui/share_code_panel.gd` |
 | New monster | `feature/actors/monsters.gd`; its sprite and colour in `graphics/style.gd` |
 | New NPC or dialogue | a file in `data/dialogue/` — see its README; no code. New *kinds* of direction: `story/view/dialogue_box.gd` (emotion, portrait), `story/view/npc_view.gd` (camera), `app/audio/audio_cues.gd` (sound) |
 | A new directed scene, or a new staging direction | a file in `data/scenes/` — see its README; no code. A new direction is a case in `story/rules/cutscene.gd` and, if it shows, `story/view/cutscene_view.gd` |
 | How a conversation behaves — range, reveal speed, who is held still | `story/rules/npc.gd`. How it reads on screen, `story/view/dialogue_box.gd` |
 | What anyone actually says, on any screen, in any language | `localization/<lang>/` — see its README. A new language is a folder and an entry in `LANGUAGES` in `app/loc.gd` |
 | What an emotion looks like | `EMOTIONS` in `graphics/style.gd` |
-| Retune damage, cooldowns, room generation | `feature/` |
+| Retune damage, room generation | `feature/` |
+| Retune a board's timing — ticks, cooldowns, a pulse's life | `circuit/skill_runner.gd` |
 | The dragon test's tower — where the guards stand, where the stairwells are | `LAYOUT` in `feature/world/dragon_tower.gd`; how it is lit and dressed, `graphics/views/tower_view.gd` |
 | Retune shake, sparks, hitstop *feel* | `graphics/cue_visuals.gd` — except hitstop and dilation, see below |
 | HUD layout, editor look — where a thing sits, not what it says | `graphics/ui/` |
 | The resolution the world is drawn at | `graphics/pixel_camera.gd` (the size comes from `Sprites.PIXEL_SCALE`) |
 | A new sound | `app/audio/audio_cues.gd` |
-| A control on the on-screen console — where it sits, whether it is a key or a stick, what it says | `CONTROLS` in `graphics/ui/touch_pad.gd`, and its word in `controls.pad` in `localization/`. What pressing it does to the game is `app/touch.gd`, which sends the action a keyboard would and is the only thing that knows a finger from a key |
+| A control on the on-screen console — where it sits, whether it is a key or a stick, what it says | `CONTROLS` in `mobile/view/touch_pad.gd`, and its word in `controls.pad` in `localization/`. What pressing it does to the game is `mobile/input/touch.gd`, which sends the action a keyboard would and is the only thing that knows a finger from a key |
+| Where a player may move a console button, and what is kept of it | `mobile/view/touch_layout_editor.gd`; the arrangement itself, `TouchPad.layout` in `mobile/view/touch_pad.gd` |
 | A new screen | `app/game.gd`, plus its Control in `graphics/ui/` |
 
 ### The one thing that looks like a picture but is not
@@ -226,11 +252,12 @@ nothing and live in `graphics/fx.gd`.
 | `Views` | graphics | attaches views to gameplay nodes |
 | `CueVisuals` | graphics | what each cue looks like |
 
-`story/` adds none. Its nodes are spawned by whatever stages them — `app/game.gd`
-for the intro, `Sandbox` for the bench — and their views are attached by `Views`
-like any other, so the module needs no global of its own. Keep it that way: an
-autoload is the one thing a third branch cannot add without touching
-`project.godot`.
+`story/`, `circuit/` and `mobile/` add none. Story's nodes are spawned by
+whatever stages them — `app/game.gd` for the intro, `Sandbox` for the bench —
+and their views are attached by `Views` like any other. The circuit is classes
+the rules make instances of. The console's input is a static class, `Touch`,
+and its picture is built by `app/game.gd`. Keep it that way: an autoload is the
+one thing a module's branch cannot add without touching `project.godot`.
 
 `project.godot` is the one file any branch may need to touch — adding an
 autoload, an input action or a collision layer. Its autoload block is grouped

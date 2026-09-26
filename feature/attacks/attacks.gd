@@ -317,6 +317,40 @@ static func _dash_slash(p: Payload, aim: Vector2, team: int, atk: Actor, room) -
 	container().add_child(n)
 	Cues.at(&"lunge_cut", start, {"payload": p, "to": dest})
 
+## A payload in words: its form, what it carries, and what it does when it
+## lands, SHATTER's and MANA DRAIN's numbers included — which are this file's.
+## Here rather than on `Payload`, which belongs to the circuit and knows
+## nothing of what happens at the moment a hit lands.
+static func summary(p: Payload) -> String:
+	var parts: Array[String] = []
+	parts.append(Components.name_for(p.form) if p.form != "" else Loc.t("editor.payload.no_form"))
+	parts.append(Loc.t("editor.payload.damage", [p.damage]))
+	if p.size != 1.0:
+		parts.append(Loc.t("editor.payload.size", [p.size]))
+	if p.duplicates > 1:
+		parts.append(Loc.t("editor.payload.duplicates", [p.duplicates]))
+	for e in p.elements:
+		parts.append(Components.name_for(e).to_lower())
+	if p.pierce > 0:
+		parts.append(Loc.t("editor.payload.pierce", [p.pierce]))
+	if p.homing:
+		parts.append(Loc.t("editor.payload.homing"))
+	if p.reverse:
+		parts.append(Loc.t("editor.payload.reverse"))
+	if p.dash:
+		parts.append(Loc.t("editor.payload.dash"))
+	if p.blink:
+		parts.append(Loc.t("editor.payload.blink"))
+	if p.pull:
+		parts.append(Loc.t("editor.payload.pull"))
+	if p.knockback:
+		parts.append(Loc.t("editor.payload.knockback"))
+	if p.shatter:
+		parts.append(Loc.t("editor.payload.shatter", [SHATTER_MUL]))
+	if p.mana_drain:
+		parts.append(Loc.t("editor.payload.mana_drain", [MANA_PER_HIT]))
+	return Loc.t("editor.payload.separator").join(parts)
+
 ## A single connection: damage, feedback, and any trigger flows it unlocks.
 ##
 ## `attacker` is deliberately untyped: a projectile or a burst outlives whoever

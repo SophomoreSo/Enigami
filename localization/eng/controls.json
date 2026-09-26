@@ -6,6 +6,15 @@
 	"listening": "press a key…",
 	"sensitivity": "Mouse sensitivity",
 	"mobile": "Mobile mode",
+	"arrange": {
+		"open": "SET BUTTON POSITIONS",
+		"heading": "BUTTON POSITIONS",
+		"hint": "Drag a button to where your thumb wants it. Red means it cannot stay there: it would cover another button or the HUD.",
+		"hud": "HUD",
+		"save": "SAVE",
+		"reset": "RESET",
+		"cancel": "CANCEL"
+	},
 	"unbound": "unbound",
 	"none": "—",
 	"mouse": "Mouse %d",

@@ -11,4 +11,4 @@
 # the assertion disagreeing about where the sweet spot should be, not a
 # regression: it has failed since at least 51504f9. Settle the balance, then
 # delete this line.
-tests/feature/overclock_test.tscn
+tests/circuit/overclock_test.tscn

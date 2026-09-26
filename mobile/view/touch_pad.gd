@@ -31,7 +31,7 @@ extends Control
 ## rasterise a circle on the grid rather than drawing a smooth one.
 ##
 ## What a press does to the game is not decided here. A control says which
-## actions it is holding and `Touch` (`app/touch.gd`) sends them, so this file
+## actions it is holding and `Touch` (`mobile/input/touch.gd`) sends them, so this file
 ## knows nothing about charging and the player knows nothing about thumbs.
 ##
 ## **Where the controls sit is the whole design.** It is written out once, in
@@ -46,7 +46,15 @@ extends Control
 ## under the right thumb at the bottom-right, the three screens in the top-right
 ## corner, and the stick's zone down the left edge to the HUD's band, however
 ## far away the other side of the screen has gone.
-## `tests/graphics/touch_pad_test` holds it all there, at 16:9 and off it.
+## `tests/mobile/touch_pad_test` holds it all there, at 16:9 and off it.
+##
+## **The buttons are twice the size they were first drawn at**, their words and
+## edges with them: on a phone's glass a skill button was smaller than the thumb
+## pressing it. Doubled, the hand fills the room the HUD leaves it — the skill
+## row just under the three screens, USE and DASH just over HIT and JUMP — so
+## the gaps between them are about the least the test allows, and moving one
+## means checking its neighbours. The movement stick kept its size: it is not a
+## button, and is only ever drawn under a thumb that is already moving it.
 
 ## What a control is.
 ##
@@ -99,33 +107,33 @@ const CONTROLS := [
 	# One stick per slot, in a row above the hand. Press to arm and charge, drag
 	# to aim, let go to cast.
 	{"kind": Kind.AIM, "action": "cast_skill", "arm": "skill_1", "slot": 0,
-		"at": Vector2(988, 320), "pin": Vector2(1, 1), "radius": 32.0, "text": "1",
+		"at": Vector2(772, 184), "pin": Vector2(1, 1), "radius": 64.0, "text": "1",
 		"faces": [Face.PLAY]},
 	{"kind": Kind.AIM, "action": "cast_skill", "arm": "skill_2", "slot": 1,
-		"at": Vector2(1064, 320), "pin": Vector2(1, 1), "radius": 32.0, "text": "2",
+		"at": Vector2(912, 184), "pin": Vector2(1, 1), "radius": 64.0, "text": "2",
 		"faces": [Face.PLAY]},
 	{"kind": Kind.AIM, "action": "cast_skill", "arm": "skill_3", "slot": 2,
-		"at": Vector2(1140, 320), "pin": Vector2(1, 1), "radius": 32.0, "text": "3",
+		"at": Vector2(1052, 184), "pin": Vector2(1, 1), "radius": 64.0, "text": "3",
 		"faces": [Face.PLAY]},
 	{"kind": Kind.AIM, "action": "cast_skill", "arm": "skill_4", "slot": 3,
-		"at": Vector2(1216, 320), "pin": Vector2(1, 1), "radius": 32.0, "text": "4",
+		"at": Vector2(1192, 184), "pin": Vector2(1, 1), "radius": 64.0, "text": "4",
 		"faces": [Face.PLAY]},
 	# The hand. USE and DASH take no direction; the weapon does, so it is a
 	# stick; JUMP is the biggest and sits where the thumb rests.
-	{"kind": Kind.KEY, "action": "interact", "at": Vector2(1102, 430), "pin": Vector2(1, 1),
-		"radius": 34.0, "faces": [Face.PLAY, Face.TALK]},
-	{"kind": Kind.KEY, "action": "dash", "at": Vector2(1206, 430), "pin": Vector2(1, 1),
-		"radius": 34.0, "faces": [Face.PLAY]},
-	{"kind": Kind.AIM, "action": "attack", "at": Vector2(1084, 522), "pin": Vector2(1, 1),
-		"radius": 42.0, "faces": [Face.PLAY]},
-	{"kind": Kind.KEY, "action": "jump", "at": Vector2(1196, 522), "pin": Vector2(1, 1),
-		"radius": 46.0, "faces": [Face.PLAY]},
+	{"kind": Kind.KEY, "action": "interact", "at": Vector2(988, 332), "pin": Vector2(1, 1),
+		"radius": 68.0, "faces": [Face.PLAY, Face.TALK]},
+	{"kind": Kind.KEY, "action": "dash", "at": Vector2(1188, 324), "pin": Vector2(1, 1),
+		"radius": 68.0, "faces": [Face.PLAY]},
+	{"kind": Kind.AIM, "action": "attack", "at": Vector2(976, 504), "pin": Vector2(1, 1),
+		"radius": 84.0, "faces": [Face.PLAY]},
+	{"kind": Kind.KEY, "action": "jump", "at": Vector2(1164, 496), "pin": Vector2(1, 1),
+		"radius": 92.0, "faces": [Face.PLAY]},
 	# The screens, in the far corner where nothing is reached for by accident.
-	{"kind": Kind.KEY, "action": "open_editor", "rect": Rect2(1048, 24, 64, 44),
+	{"kind": Kind.KEY, "action": "open_editor", "rect": Rect2(840, 24, 128, 88),
 		"pin": Vector2(1, 0), "faces": [Face.PLAY, Face.SCREEN]},
-	{"kind": Kind.KEY, "action": "open_map", "rect": Rect2(1120, 24, 64, 44),
+	{"kind": Kind.KEY, "action": "open_map", "rect": Rect2(984, 24, 128, 88),
 		"pin": Vector2(1, 0), "faces": [Face.PLAY, Face.SCREEN]},
-	{"kind": Kind.KEY, "action": "pause", "rect": Rect2(1192, 24, 64, 44),
+	{"kind": Kind.KEY, "action": "pause", "rect": Rect2(1128, 24, 128, 88),
 		"pin": Vector2(1, 0), "faces": [Face.PLAY, Face.SCREEN]},
 ]
 
@@ -135,10 +143,18 @@ const DESIGN := Vector2(1280, 720)
 ## How far a thumb rides out from a skill button before the cast has a direction
 ## of its own, and how far out the knob is drawn. Generous, because a short
 ## throw makes a fine aim impossible — the ring is drawn over whatever is beside
-## it, which costs nothing for the moment it is up.
-const AIM_DEAD := 16.0
-const AIM_REACH := 92.0
-const AIM_KNOB := 22.0
+## it, which costs nothing for the moment it is up. Doubled with the buttons:
+## the throw is measured from a button's middle, and half a skill button's
+## radius is what lets a thumb that lands off-centre still tap rather than aim.
+const AIM_DEAD := 32.0
+const AIM_REACH := 184.0
+const AIM_KNOB := 44.0
+
+## A button's edge, and the size its word is written at: twice the PIXEL and
+## the face's own size, like the buttons. The face is clean at any multiple of
+## its size, so the words are as sharp as the menus' are.
+const EDGE_W := PixelDraw.PX * 2
+const LABEL_SIZE := PixelDraw.SIZE * 2
 
 ## How far the movement stick must be pushed before it says anything. Sideways
 ## it is small, since the strength past it is remapped back to a full range and
@@ -443,7 +459,7 @@ func _drag(i: int, at: Vector2) -> void:
 			_stick = v if v.length() <= 1.0 else v.normalized()
 	else:
 		_aim_from = i
-		_aim_off = at - middle(c, _screen())
+		_aim_off = at - middle(placed(c, layout()), _screen())
 
 ## Lets go of `action` unless some other finger is still holding it. Two
 ## controls can press the same one: every slot stick charges through
@@ -460,9 +476,10 @@ func _let_go_of(action: String) -> void:
 ## asked last, so its zone never takes a press meant for a button inside it.
 func _under(at: Vector2) -> int:
 	var screen := _screen()
+	var arranged := layout()
 	var stick := -1
 	for i in CONTROLS.size():
-		var c: Dictionary = CONTROLS[i]
+		var c: Dictionary = placed(CONTROLS[i], arranged)
 		if not shown(c):
 			continue
 		if int(c["kind"]) == Kind.MOVE:
@@ -519,27 +536,114 @@ func shown(c: Dictionary) -> bool:
 
 ## The room a screen of `screen` has past the design, in whole PIXELs, so what
 ## moves by it stays on the grid everything here is drawn to.
-static func _spare(screen: Vector2) -> Vector2:
+static func spare(screen: Vector2) -> Vector2:
 	return ((screen - DESIGN).max(Vector2.ZERO) / PixelDraw.PX).floor() * PixelDraw.PX
 
-## Where a round control's middle is on a screen of `screen`.
+## Where a round control's middle is on a screen of `screen`. Kept on it: the
+## design's own buttons always are, but one the player put near an edge of a
+## long phone could hang off a squarer screen's.
 static func middle(c: Dictionary, screen: Vector2 = DESIGN) -> Vector2:
-	return Vector2(c["at"]) + _spare(screen) * Vector2(c.get("pin", Vector2.ZERO))
+	var at := Vector2(c["at"]) + spare(screen) * Vector2(c.get("pin", Vector2.ZERO))
+	var r := Vector2.ONE * float(c["radius"])
+	return at.clamp(r, (screen - r).max(r))
 
 ## The square of screen a control covers on a screen of `screen`, for anything
 ## that has to know it does not cover something else — and for the pad, asking
 ## which one a thumb came down on.
 static func area(c: Dictionary, screen: Vector2 = DESIGN) -> Rect2:
-	var moved := _spare(screen) * Vector2(c.get("pin", Vector2.ZERO))
+	var moved := spare(screen) * Vector2(c.get("pin", Vector2.ZERO))
 	if c.has("rect"):
 		var plate: Rect2 = c["rect"]
-		return Rect2(plate.position + moved, plate.size)
+		var corner := (plate.position + moved).clamp(Vector2.ZERO,
+			(screen - plate.size).max(Vector2.ZERO))
+		return Rect2(corner, plate.size)
 	if int(c["kind"]) == Kind.MOVE:
 		var zone: Rect2 = c["zone"]
 		return Rect2(zone.position + moved,
-			zone.size + _spare(screen) * Vector2(c.get("grow", Vector2.ZERO)))
+			zone.size + spare(screen) * Vector2(c.get("grow", Vector2.ZERO)))
 	var r: float = c["radius"]
 	return Rect2(middle(c, screen) - Vector2.ONE * r, Vector2.ONE * r * 2.0)
+
+## --- where the player has put them ------------------------------------------
+
+## Where the player has moved the buttons to, on the screen behind SET BUTTON
+## POSITIONS (`TouchLayoutEditor`): by `key_of`, a place in the design and the
+## corner it keeps its distance from, as CONTROLS' own `at` and `pin` are — a
+## plate's place being its top-left corner. A button nobody has moved is not in
+## it, and stands where CONTROLS writes it.
+##
+## Kept per machine, in a file of its own like mobile mode and the bindings:
+## where a thumb falls is a matter of the hand and the glass, not of the save.
+const LAYOUT_PATH := "user://enigami_touch_layout.json"
+static var _layout: Dictionary = {}
+static var _layout_read := false
+
+## The arrangement in force, read off the disk the first time it is asked for.
+static func layout() -> Dictionary:
+	if not _layout_read:
+		_layout_read = true
+		_layout = _read_layout()
+	return _layout
+
+## Puts `l` in force and keeps it on the disk — or, with `keep` false, only
+## puts it in force: a test does that, so a desk's own arrangement is neither
+## in its way nor lost to it.
+static func set_layout(l: Dictionary, keep: bool = true) -> void:
+	_layout = l.duplicate(true)
+	_layout_read = true
+	if keep:
+		var out := {}
+		for key in _layout:
+			var e: Dictionary = _layout[key]
+			out[key] = {"at": [e["at"].x, e["at"].y], "pin": [e["pin"].x, e["pin"].y]}
+		var f := FileAccess.open(LAYOUT_PATH, FileAccess.WRITE)
+		if f != null:
+			f.store_string(JSON.stringify(out))
+			f.close()
+
+static func _read_layout() -> Dictionary:
+	if not FileAccess.file_exists(LAYOUT_PATH):
+		return {}
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(LAYOUT_PATH))
+	if not (parsed is Dictionary):
+		return {}
+	var out := {}
+	for key in parsed:
+		var e = parsed[key]
+		if not (e is Dictionary and e.get("at") is Array and e.get("pin") is Array):
+			continue
+		var at: Array = e["at"]
+		var pin: Array = e["pin"]
+		if at.size() == 2 and pin.size() == 2:
+			out[String(key)] = {"at": Vector2(float(at[0]), float(at[1])),
+				"pin": Vector2(float(pin[0]), float(pin[1]))}
+	return out
+
+## What a control is called in an arrangement: the slot it arms for a skill
+## stick, since every one of them presses `cast_skill`, and its action for the
+## rest.
+static func key_of(c: Dictionary) -> String:
+	return String(c.get("arm", c.get("action", "move")))
+
+## Whether the player may move `c`. Every button may; the stick's zone may not,
+## being the left of the screen rather than a thing standing on it.
+static func movable(c: Dictionary) -> bool:
+	return int(c["kind"]) != Kind.MOVE
+
+## `c` where the arrangement `l` has it, or as CONTROLS writes it if `l` does
+## not mention it.
+static func placed(c: Dictionary, l: Dictionary) -> Dictionary:
+	var key := key_of(c)
+	if not movable(c) or not l.has(key):
+		return c
+	var e: Dictionary = l[key]
+	var out := c.duplicate()
+	out["pin"] = e["pin"]
+	if c.has("rect"):
+		out["rect"] = Rect2(e["at"], (c["rect"] as Rect2).size)
+	else:
+		out["at"] = e["at"]
+	return out
 
 ## The screen the pad is laid out on: the viewport, whatever shape it has.
 func _screen() -> Vector2:
@@ -557,6 +661,8 @@ static func label_of(c: Dictionary) -> String:
 	return Controls.word_for(String(c["action"]))
 
 func _draw() -> void:
+	var screen := _screen()
+	var arranged := layout()
 	for i in CONTROLS.size():
 		var c: Dictionary = CONTROLS[i]
 		if not shown(c):
@@ -566,7 +672,7 @@ func _draw() -> void:
 				if stick_showing():
 					_draw_stick(c)
 			_:
-				_draw_button(c, _held(c), usable(c))
+				paint_button(_px, placed(c, arranged), screen, _held(c), usable(c))
 	# The throw is drawn last and over everything, since it reaches across
 	# whatever is beside the button it came from.
 	if _aim_from >= 0 and _aim_off.length() >= AIM_DEAD:
@@ -592,36 +698,41 @@ func _draw_stick(c: Dictionary) -> void:
 	_px.disc(at, knob, FILL_HELD)
 	_px.ring(at, knob, PixelDraw.PX * 2, EDGE_HELD)
 
-## A button, round or plated, with its word in the middle of it.
-func _draw_button(c: Dictionary, held: bool, live: bool) -> void:
+## A button, round or plated, with its word in the middle of it, drawn with `px`
+## on a screen of `screen` — by the pad, and by the screen that arranges it.
+static func paint_button(px: PixelDraw, c: Dictionary, screen: Vector2, held: bool, live: bool) -> void:
 	var ink := INK_HELD if held else (INK if live else INK_OFF)
 	var edge := EDGE_HELD if held else (EDGE if live else EDGE_OFF)
+	# Capitals stand 10 high at the face's own size and nothing descends, so at
+	# LABEL_SIZE a baseline this far below the middle puts a word in the middle
+	# of its button.
+	var drop := 5.0 * float(LABEL_SIZE) / float(PixelDraw.SIZE)
 	if c.has("rect"):
-		var r := area(c, _screen())
-		_px.rect(r, FILL_HELD if held else FILL)
-		_px.frame(r, edge)
-		_px.text_centered(r.position + Vector2(0, r.size.y * 0.5 + 5.0),
-			label_of(c), ink, r.size.x)
+		var r := area(c, screen)
+		px.rect(r, FILL_HELD if held else FILL)
+		# EDGE_W across: a frame is one PIXEL, so the second goes inside it.
+		px.frame(r, edge)
+		px.frame(r.grow(-PixelDraw.PX), edge)
+		px.text_centered(r.position + Vector2(0, r.size.y * 0.5 + drop),
+			label_of(c), ink, r.size.x, LABEL_SIZE)
 		return
-	var at := middle(c, _screen())
+	var at := middle(c, screen)
 	var radius: float = c["radius"]
-	_px.disc(at, radius, FILL_HELD if held else FILL)
-	_px.ring(at, radius, PixelDraw.PX, edge)
-	# Capitals stand 10 high in this face and nothing descends, so a baseline
-	# five below the middle puts a word in the middle of its button.
-	_px.text_centered(at - Vector2(radius, -5.0), label_of(c), ink, radius * 2.0)
+	px.disc(at, radius, FILL_HELD if held else FILL)
+	px.ring(at, radius, EDGE_W, edge)
+	px.text_centered(at - Vector2(radius, -drop), label_of(c), ink, radius * 2.0, LABEL_SIZE)
 
 ## Where a held skill is pointing: the ring it is thrown within, a few pips
 ## walking out along the throw, and the knob at the end of it. Big enough to
 ## read out of the corner of an eye during a fight, which is the only time it
 ## is ever up.
 func _draw_throw(c: Dictionary) -> void:
-	var at := middle(c, _screen())
+	var at := middle(placed(c, layout()), _screen())
 	var d := _aim_off.normalized()
-	_px.ring(at, AIM_REACH, PixelDraw.PX, AIM_EDGE)
+	_px.ring(at, AIM_REACH, EDGE_W, AIM_EDGE)
 	var step := (AIM_REACH - float(c["radius"])) / 4.0
 	for i in 3:
-		_px.disc(at + d * (float(c["radius"]) + step * float(i + 1)), 7.0, AIM_EDGE)
+		_px.disc(at + d * (float(c["radius"]) + step * float(i + 1)), 14.0, AIM_EDGE)
 	var knob := at + d * AIM_REACH
 	_px.disc(knob, AIM_KNOB, FILL_HELD)
-	_px.ring(knob, AIM_KNOB, PixelDraw.PX * 2, EDGE_HELD)
+	_px.ring(knob, AIM_KNOB, EDGE_W * 2, EDGE_HELD)

@@ -69,9 +69,9 @@ func blocks() -> void:
 	# whole pixels, just smaller ones, so the shot is still saved and looked at
 	# and this grid is not claimed of it — see the same note in
 	# `bench_pixel_test`, and `tests/shared/loc_test` for what does hold them.
-	if Loc.pixel_grid() < UiKit.PIXEL:
+	if UiKit.pixel_grid() < UiKit.PIXEL:
 		print("[HUD] skip the block check: %s is written on a %d-pixel grid, not %d"
-			% [Loc.language, Loc.pixel_grid(), UiKit.PIXEL])
+			% [Loc.language, UiKit.pixel_grid(), UiKit.PIXEL])
 		return
 	var screen := Vector2i(get_viewport().get_visible_rect().size)
 	if im.get_size() != screen:

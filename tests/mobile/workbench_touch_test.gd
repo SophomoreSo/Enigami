@@ -113,6 +113,9 @@ func _ready() -> void:
 	# window where a design position and a window position are the same number.
 	DisplayServer.window_set_size(Vector2i(1440, 810))
 	Touch.set_mode(Touch.ON)
+	# The plates where the design puts them, whatever this machine's player has
+	# moved them to — in force here only, and nothing kept.
+	TouchPad.set_layout({}, false)
 	GameState.reset_profile()
 	game = Node.new()
 	game.set_script(GameScript)

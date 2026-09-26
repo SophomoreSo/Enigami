@@ -2,7 +2,8 @@ class_name ControlsPanel
 extends PanelContainer
 
 ## The input settings: how fast the pointer moves, whether the game is in
-## mobile mode, and which key does what.
+## mobile mode — and, while it is, where its buttons stand — and which key does
+## what.
 ##
 ## The pointer and mobile mode sit at the top rather than with the volumes,
 ## because what they belong with is this — they are controls, and this is the
@@ -17,6 +18,7 @@ var pixel: bool = false
 var _listening: String = ""
 var _rows: Dictionary = {}
 var _mobile: UiKit.Switch = null
+var _arrange: Button = null
 
 func _ready() -> void:
 	_build()
@@ -48,7 +50,7 @@ func _pointer_row(name_width: int, bind_width: int) -> Control:
 	return row
 
 ## Mobile mode: a console on the screen for a thumb to play on —
-## `graphics/ui/touch_pad.gd`, and `app/touch.gd` for what a key on it does —
+## `mobile/view/touch_pad.gd`, and `mobile/input/touch.gd` for what a key on it does —
 ## and the title's menu laid out as tiles big enough to land a thumb on.
 ##
 ## A switch, showing whether the console is on. A fresh install is in AUTO,
@@ -65,18 +67,50 @@ func _touch_row(name_width: int) -> Control:
 	row.add_child(l)
 	_mobile = UiKit.switch(Touch.wanted(), func(on: bool) -> void:
 		Audio.play("ui")
-		Touch.set_mode(Touch.ON if on else Touch.OFF))
+		Touch.set_mode(Touch.ON if on else Touch.OFF)
+		_show_arrange())
 	row.add_child(_mobile)
 	return row
+
+## Where mobile mode's buttons stand, put there by the player on a screen of its
+## own (`TouchLayoutEditor`) — one button, across both columns, under the switch
+## it belongs to. Only there while mobile mode is on: with the console off there
+## is nothing on the glass to move.
+func _arrange_row() -> Control:
+	_arrange = UiKit.button(Loc.t("controls.arrange.open"), UiKit.ACCENT, pixel)
+	_arrange.pressed.connect(_open_arrange)
+	_show_arrange()
+	return _arrange
+
+func _show_arrange() -> void:
+	if _arrange != null and is_instance_valid(_arrange):
+		_arrange.visible = Touch.wanted()
+
+## Over everything — the page this is on, and the pause menu or the title under
+## that — on a layer of its own, which goes when the screen closes. Running
+## while the game is paused, since the pause menu is one way here.
+func _open_arrange() -> void:
+	Audio.play("ui")
+	var layer := CanvasLayer.new()
+	layer.layer = 30
+	layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	var editor := TouchLayoutEditor.new()
+	layer.add_child(editor)
+	add_child(layer)
+	editor.closed.connect(func() -> void:
+		layer.queue_free()
+		if _arrange != null and is_instance_valid(_arrange) and _arrange.is_visible_in_tree():
+			_arrange.grab_focus())
 
 ## The title's settings and the pause menu each hold one of these, and mobile
 ## mode thrown in one is in force in the other. So the switch is set from the
 ## mode every time the panel comes on screen, rather than left showing the one
-## it was built with.
+## it was built with — and SET BUTTON POSITIONS comes and goes with it.
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_VISIBILITY_CHANGED and is_visible_in_tree() \
 			and _mobile != null and is_instance_valid(_mobile):
 		_mobile.show_on(Touch.wanted())
+		_show_arrange()
 
 func _relanguage(_lang: String) -> void:
 	if is_queued_for_deletion():
@@ -107,6 +141,7 @@ func _build() -> void:
 	var bind_width := 352 if pixel else 200
 	v.add_child(_pointer_row(name_width, bind_width))
 	v.add_child(_touch_row(name_width))
+	v.add_child(_arrange_row())
 	v.add_child(UiKit.hline(pixel))
 	for entry in Controls.ACTIONS:
 		var action: String = entry[0]

@@ -142,6 +142,9 @@ func on_glass(at: Vector2) -> Vector2:
 
 func _ready() -> void:
 	was_mode = Touch.mode
+	# The buttons where the design puts them, whatever this machine's player
+	# has moved them to — in force here only, and nothing kept.
+	TouchPad.set_layout({}, false)
 	await _layout()
 	await _the_setting()
 	await _into_a_raid()
@@ -161,13 +164,15 @@ func _layout() -> void:
 		_placed_on(s)
 
 	# A control too small for a thumb is one that gets missed. 44 is the
-	# smallest anybody recommends and the smallest here.
+	# smallest anybody recommends, and on a phone's glass it was still smaller
+	# than the thumb: the buttons are twice what they were, so twice that is the
+	# floor, and the plates' height is the smallest here.
 	var small: Array = []
 	for c in TouchPad.CONTROLS:
 		var r := TouchPad.area(c)
-		if r.size.x < 44.0 or r.size.y < 44.0:
+		if r.size.x < 88.0 or r.size.y < 88.0:
 			small.append("%s %s" % [c.get("action", "move"), str(r.size)])
-	check(small.is_empty(), "every control is at least 44 across (%s)" % str(small))
+	check(small.is_empty(), "every control is at least 88 across (%s)" % str(small))
 
 	var unknown: Array = []
 	for c in TouchPad.CONTROLS:
@@ -199,10 +204,11 @@ func _layout() -> void:
 			var label := TouchPad.label_of(c)
 			if label == "":
 				continue
+			# At the size the console writes its words, twice the menus'.
 			var room := TouchPad.area(c).size.x
-			if PixelDraw.clip(label, room) != label:
+			if PixelDraw.clip(label, room, TouchPad.LABEL_SIZE) != label:
 				clipped.append("%s '%s' (%.0f of %.0f)" % [c.get("action", "move"), label,
-					PixelDraw.text_width(label), room])
+					PixelDraw.text_width(label, TouchPad.LABEL_SIZE), room])
 		check(clipped.is_empty(), "every word fits its control in %s (%s)" % [lang, str(clipped)])
 	Loc.set_language(was_language)
 	await frames(2)

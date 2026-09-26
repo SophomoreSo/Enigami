@@ -15,6 +15,11 @@ const DIR := "res://data/dialogue"
 const FALLBACK := "SAGE"
 
 static var _cache: Dictionary = {}
+## The language `_cache` was read in. The words are laid over a file as it is
+## read, so what was read in one language is no use in the next, and the
+## first thing asked for after a change of language finds it forgotten —
+## which is how `Loc` never has to know this file exists.
+static var _cache_language := ""
 
 ## Every character with a dialogue file, by the id inside it.
 static func ids() -> PackedStringArray:
@@ -33,6 +38,7 @@ static func path_for(id: String) -> String:
 ## A character's file, with its `defaults` filled into every line that does not
 ## set those keys itself. Read once and shared; treat it as read-only.
 static func character(id: String) -> Dictionary:
+	_forget_another_language()
 	if _cache.has(id):
 		return _cache[id]
 	var def := _read(path_for(id))
@@ -46,10 +52,16 @@ static func character(id: String) -> Dictionary:
 	_cache[id] = def
 	return def
 
-## Forgets what has been read, so an edited file — or a change of language — is
-## picked up without a restart. `CutsceneScript.reload` is the same for scenes.
+## Forgets what has been read, so an edited file is picked up without a
+## restart. A change of language needs no call: see `_cache_language`.
+## `CutsceneScript.reload` is the same for scenes.
 static func reload() -> void:
 	_cache.clear()
+
+static func _forget_another_language() -> void:
+	if _cache_language != Loc.language:
+		_cache.clear()
+		_cache_language = Loc.language
 
 ## Lays the language's words over the file's own, from
 ## `localization/<lang>/dialogue/<id>.json`.

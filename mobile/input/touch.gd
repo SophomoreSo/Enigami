@@ -6,7 +6,7 @@ extends RefCounted
 ##
 ## A phone has no keyboard and no mouse, so a build for one has to put the
 ## controls on the glass. This is that setting and the plumbing under it; the
-## console itself is a picture and is drawn in `graphics/ui/touch_pad.gd`.
+## console itself is a picture and is drawn in `mobile/view/touch_pad.gd`.
 ##
 ## **A key on the pad presses an action, and nothing else knows.** Every control
 ## in the game is read through `Input` — `Input.is_action_pressed("jump")`,

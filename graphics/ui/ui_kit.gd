@@ -39,6 +39,19 @@ const PIXEL_FONT := preload("res://graphics/assets/fonts/Silkscreen-Regular.ttf"
 const PIXEL := 2
 const PIXEL_TEXT := 16
 
+## How many screen pixels one pixel of the language being played covers at
+## PIXEL_TEXT: PIXEL for Latin in Silkscreen, 1 for Hangul in 둥근모꼴, whose
+## 16px body is already the size Latin capitals are drawn at.
+##
+## A screen can only be held to whole blocks this big — which is why the pixel
+## tests ask before checking, and check nothing finer than the text on them.
+## Borrowed glyphs are on no grid at all, so they answer 0. Here rather than on
+## `Loc`, which knows a language's face and nothing of the kit it is set in.
+static func pixel_grid() -> int:
+	if Loc.borrows_glyphs():
+		return 0
+	return maxi(1, PIXEL_TEXT / Loc.face_size())
+
 static func style(bg: Color, border: Color, width: int = 1, radius: int = 3,
 		pixel: bool = false) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()

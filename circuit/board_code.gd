@@ -84,7 +84,7 @@ const MAX_PARTS := 127
 ## see `Components.RETIRED`. A part that is renamed keeps its number too: the
 ## new id takes the old one's place here, as EXPLODE took AREA's — see
 ## `Components.RENAMED`. ID_BITS leaves room for 64;
-## `tests/feature/code_test.tscn` fails the moment a part here is neither
+## `tests/circuit/code_test.tscn` fails the moment a part here is neither
 ## defined nor retired, or a definition has no number here.
 const CODE_IDS := [
 	"INPUT", "OUTPUT", "WIRE", "BEND",

@@ -177,33 +177,36 @@ static func turn(rows: Array, steps: int) -> Array:
 	return out
 
 ## `text` in the pixel face, its baseline at `pos`, cut short with an ellipsis
-## when it is wider than `width`.
-func text(pos: Vector2, s: String, col: Color, width: float = -1.0) -> void:
+## when it is wider than `width`. `size` is for the few things written bigger
+## than everything else — the console on the glass — and has to be a multiple
+## of SIZE, where the face still lands on whole PIXELs.
+func text(pos: Vector2, s: String, col: Color, width: float = -1.0, size: int = SIZE) -> void:
 	if width > 0.0:
-		s = clip(s, width)
-	_c.draw_string(FONT, snap(pos), s, HORIZONTAL_ALIGNMENT_LEFT, -1, SIZE, col)
+		s = clip(s, width, size)
+	_c.draw_string(FONT, snap(pos), s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
 
 ## The same, centred in `width` from `pos`.
-func text_centered(pos: Vector2, s: String, col: Color, width: float) -> void:
-	s = clip(s, width)
-	text(pos + Vector2((width - ink_width(s)) * 0.5, 0.0), s, col)
+func text_centered(pos: Vector2, s: String, col: Color, width: float, size: int = SIZE) -> void:
+	s = clip(s, width, size)
+	text(pos + Vector2((width - ink_width(s, size)) * 0.5, 0.0), s, col, -1.0, size)
 
-static func text_width(s: String) -> float:
-	return FONT.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, SIZE).x
+static func text_width(s: String, size: int = SIZE) -> float:
+	return FONT.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 
-## The width of the letters alone: every advance carries a PIXEL of space after
-## its letter, which would push anything centred on it off by half of one.
-static func ink_width(s: String) -> float:
-	return text_width(s) - PX
+## The width of the letters alone: every advance carries a pixel of the face's
+## space after its letter — a PIXEL at SIZE — which would push anything centred
+## on it off by half of one.
+static func ink_width(s: String, size: int = SIZE) -> float:
+	return text_width(s, size) - float(PX * size) / float(SIZE)
 
-static func clip(s: String, width: float) -> String:
-	if text_width(s) <= width:
+static func clip(s: String, width: float, size: int = SIZE) -> String:
+	if text_width(s, size) <= width:
 		return s
 	var lo := 0
 	var hi := s.length()
 	while lo < hi:
 		var mid := (lo + hi + 1) >> 1
-		if text_width(s.left(mid) + "…") <= width:
+		if text_width(s.left(mid) + "…", size) <= width:
 			lo = mid
 		else:
 			hi = mid - 1

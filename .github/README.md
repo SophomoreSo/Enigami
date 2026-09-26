@@ -14,9 +14,9 @@ module-split      runs alongside; gates nothing
 
 | Job | Runs on | What it is |
 |---|---|---|
-| **Rules tests** | every push, every PR | `tests/feature`, `tests/story`, `tests/shared` under `--headless` |
-| **Module split holds** | every push, every PR | the four graphics autoloads deleted, the rules tests run again |
-| **Graphics tests** | every push, every PR | `tests/graphics` under Xvfb, plus screenshots of every screen |
+| **Rules tests** | every push, every PR | `tests/circuit`, `tests/feature`, `tests/story`, `tests/shared` under `--headless` |
+| **Module split holds** | every push, every PR | the four graphics autoloads deleted, the circuit and rules tests run again |
+| **Graphics tests** | every push, every PR | `tests/graphics` and `tests/mobile` under Xvfb, plus screenshots of every screen |
 | **Build — Linux, Windows, Android** | master and `v*` tags | artifacts, kept 30 days |
 | **Build — macOS, iOS** | master always; tags only if opted in | artifacts, kept 30 days — see below |
 | **Release** | `v*` tags | whatever was built, zipped per platform, attached to a GitHub Release |
@@ -57,8 +57,8 @@ at your desk, which is the point — there is no separate CI-only path to drift.
 ## Running it the way CI does
 
 ```bash
-tests/run.sh tests/feature tests/story tests/shared     # the headless half
-tests/run.sh --display --exclude '*shot*' tests/graphics # needs a window
+tests/run.sh tests/circuit tests/feature tests/story tests/shared   # the headless half
+tests/run.sh --display --exclude '*shot*' tests/graphics tests/mobile # needs a window
 tests/run.sh --help
 ```
 
@@ -72,7 +72,7 @@ failed.
 known and understood. They still run and still report — they just do not fail
 the build, so one long-standing red does not train everyone to ignore the light.
 
-`tests/feature/overclock_test.tscn` is in there: the cycle curve peaks at one
+`tests/circuit/overclock_test.tscn` is in there: the cycle curve peaks at one
 overclock (0.035 → 0.030 → 0.039), so `c[2] < c[1]` — "a second still helps" —
 cannot hold. It is the tuning and the assertion disagreeing about where the
 sweet spot should be, and it has failed since at least 51504f9. Settle the

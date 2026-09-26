@@ -455,7 +455,7 @@ func _check_pixel_face() -> void:
 		check(unfit.is_empty(), "%s's %dpx face divides every size written into a screen (off: %s)"
 			% [lang, Loc.face_size(), _first(unfit)])
 		print("[LOC] %s draws on a %d-pixel grid (UiKit.PIXEL is %d)"
-			% [lang, Loc.pixel_grid(), UiKit.PIXEL])
+			% [lang, UiKit.pixel_grid(), UiKit.PIXEL])
 
 ## --- reading ----------------------------------------------------------------
 

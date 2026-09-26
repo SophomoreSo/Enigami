@@ -22,7 +22,7 @@ godot res://tests/feature/jump_test.tscn    # ground jump, wall kick and the air
 godot res://tests/graphics/focus_test.tscn   # in-game buttons never steal the keyboard
 godot res://tests/graphics/pointer_test.tscn # the drawn cursor, and how far it moves
 godot res://tests/feature/trigger_test.tscn # a trigger chain lands as separate attacks
-godot res://tests/feature/cooldown_test.tscn # the numbers behind the slot cooldown wipe
+godot res://tests/circuit/cooldown_test.tscn # the numbers behind the slot cooldown wipe
 godot res://tests/feature/speed_test.tscn   # the SPEED part, and bolt collision at speed
 godot res://tests/feature/range_test.tscn   # how far a bolt carries before it fades
 godot res://tests/feature/dash_test.tscn    # where a lunge lands, aimed and auto-aimed
@@ -39,13 +39,15 @@ godot res://tests/graphics/screen_fit_test.tscn # a phone- or tablet-shaped scre
 godot res://tests/graphics/editor_pixel_test.tscn # every pixel of the assembly screen is on the grid
 godot res://tests/graphics/hideout_pixel_test.tscn # the hideout's pixel look, and everything on it fits
 godot res://tests/graphics/bench_pixel_test.tscn # the bench panel's pixel look and layout
-godot res://tests/feature/code_test.tscn    # a board survives being written down as a code
+godot res://tests/circuit/code_test.tscn    # a board survives being written down as a code
 godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
 godot res://tests/graphics/share_code_test.tscn # sharing a board, and what a pasted code costs
-godot res://tests/feature/ttl_test.tscn     # a pulse's life, and what bounds a loop
+godot res://tests/circuit/ttl_test.tscn     # a pulse's life, and what bounds a loop
 godot res://tests/feature/charge_test.tscn  # holding the cast button buys life for mana
 godot res://tests/story/npc_test.tscn       # talking to an NPC, line by line
 godot res://tests/shared/loc_test.tscn      # every language says everything, and can be drawn
+godot res://tests/shared/module_test.tscn   # what each module may name: the circuit only itself and Loc
+godot res://tests/mobile/touch_layout_test.tscn # SET BUTTON POSITIONS: drag a button, keep it, play with it there
 godot res://tests/feature/dragon_test.tscn  # one charged cast clears the whole tower
 godot res://tests/graphics/shots.tscn   # writes a screenshot of each screen to user://shots
 godot res://tests/graphics/dragon_shot.tscn  # ...and frames of the dragon test
@@ -133,6 +135,17 @@ A slot the player is not carrying is not drawn; one the weapon refuses is drawn
 in the same red the slot card uses, so a button that means *cast* says whether
 it can before the thumb goes down.
 
+The buttons are twice the size they were first drawn at, words and all: on a
+phone's glass a skill button was smaller than the thumb pressing it. The
+movement stick kept its size, since it is not a button.
+
+**SET BUTTON POSITIONS**, under the mobile mode switch while it is on, puts
+every button up at once to be dragged where the player's thumbs want them. A
+button let go on another one or over the HUD goes back where it was; one let go
+anywhere else stays, and keeps its distance from the corner of the screen it is
+nearest, so the arrangement holds on a screen of another shape. SAVE keeps it
+for the machine, like the bindings; RESET puts the design back.
+
 A control on the console presses the same action a keyboard does, so the rules
 never learn what a finger is. What changes while it is up:
 
@@ -163,7 +176,7 @@ never learn what a finger is. What changes while it is up:
   itself what the thumb is for, and its own CLOSE is right where KIT, MAP and
   MENU would stand. The pause menu replaces it: those are buttons you tap.
 
-None of it is eyeballed. `tests/graphics/touch_pad_test` measures every control
+None of it is eyeballed. `tests/mobile/touch_pad_test` measures every control
 against the HUD's two bands, against every other control, and against its own
 word in both languages — then drives real fingers through a real raid: the stick
 walks and runs, a stick dragged over a button does not press it, a skill button
@@ -377,7 +390,7 @@ exactly as building the same board by hand would, the board it replaces goes
 back into the stash as it goes, and one you cannot afford changes nothing at all
 and says what it is short of. At the bench, where parts are free, it never asks.
 
-The format is `feature/core/board_code.gd`. The alphabet is fixed for good, and
+The format is `circuit/board_code.gd`. The alphabet is fixed for good, and
 the table that numbers the parts may only ever be appended to, or every code
 anyone has written down stops meaning what it meant.
 
@@ -492,21 +505,23 @@ rather than something you can install.
 
 ## Layout
 
-Three modules, and a shell around them. A picture may read the rules it draws;
-a rule never mentions its picture. `story/` carries both sides of one subsystem
-and so repeats that seam inside itself. See [ARCHITECTURE.md](ARCHITECTURE.md)
-for how they talk.
+Five modules, and a shell around them. A picture may read the rules it draws;
+a rule never mentions its picture. `circuit/` is the engine under the rules — a
+board, the pulse that runs it, the payload it builds — and names nothing but
+itself and the words. `story/` and `mobile/` each carry both sides of one
+subsystem and so repeat that seam inside themselves. See
+[ARCHITECTURE.md](ARCHITECTURE.md) for how they talk.
 
 ```
 app/               entry scene, screen flow, the cue bus, the sound bank, the words
                    pointer: the drawn cursor and how fast it moves
-                   touch: whether the console is on the glass, and what a key on it presses
 data/dialogue/     conversations, one JSON file per character — format in its README
 data/scenes/       directed scenes, one JSON file per scene — format in its README
 localization/      every word the game says: eng/ and kor/, a file per screen
                    plus dialogue/ and scenes/ — format in its README
                    kor/font.woff: the Korean pixel face, Silkscreen has no Hangul
-feature/core/      components, payload, board, runner, state, time control
+circuit/           the engine: components, board, runner, payload, share code
+feature/core/      weapons, the profile and its saves, time control, the arena, the state machine
 feature/actors/    actor base, player, monster catalogue, monster AI
 feature/attacks/   projectile, melee arc, area burst, dash slash, spawner
 feature/world/     room generation, raid map graph, raid loop, sandbox, pickups
@@ -514,21 +529,26 @@ feature/world/     room generation, raid map graph, raid loop, sandbox, pickups
                    dragon test: the hand-laid tower and its rules
 story/rules/       conversations and directed scenes: what is said, and what follows
 story/view/        the dialogue box, the cutscene box, the portraits, the camera
+mobile/input/      whether the console is on the glass, and what a key on it presses
+mobile/view/       the two-thumb console drawn on the glass, and the screen that
+                   moves its buttons (SET BUTTON POSITIONS)
 graphics/          the atlas, screen effects, the pixel camera, the palette, view attachment
 graphics/views/    one view per gameplay node: actors, attacks, rooms, loot
 graphics/ui/       skill editor, HUD, hideout, title, results, bench panel
-                   touch_pad: the two-thumb console drawn on the glass, for Android and iOS
                    ui_kit: one look for screens built of Controls
                    pixel_draw: the same look for screens that draw themselves
 graphics/assets/   the sprite atlas, the actor shader, two OFL fonts
-tests/feature/     movement, board tracing, timing — rules, run headless
+tests/circuit/     board tracing, codes, cycle timing, a pulse's life — run headless
+tests/feature/     movement, hits, raids, the bench — rules, run headless
 tests/story/       conversations and scene files — rules, run headless
 tests/graphics/    editor input, focus, menus, the pixel camera, screenshot capture — need a window
+tests/mobile/      the console under a thumb, and moving its buttons — need a window
 tests/shared/      the smoke test, which walks the whole game
 ```
 
-`tests/feature` runs under `--headless`; `tests/graphics` drives the mouse and
-needs a real window. `tests/shared/loc_test` runs headless too.
+`tests/circuit` and `tests/feature` run under `--headless`; `tests/graphics`
+and `tests/mobile` drive the mouse and fingers and need a real window.
+`tests/shared/loc_test` and `module_test` run headless too.
 
 ## Language
 

@@ -214,18 +214,6 @@ func borrows_glyphs() -> bool:
 func face_size(lang: String = language) -> int:
 	return maxi(1, int((LANGUAGES.get(lang, {}) as Dictionary).get("face", 8)))
 
-## How many screen pixels one pixel of this language's face covers at
-## `UiKit.PIXEL_TEXT`. `UiKit.PIXEL` for Latin in Silkscreen; 1 for Hangul in
-## 둥근모꼴, whose 16px body is already the size Latin capitals are drawn at.
-##
-## A screen can only be held to whole blocks this big — which is why the pixel
-## tests ask before checking, and check nothing finer than the text on them.
-## Borrowed glyphs are on no grid at all, so they answer 0.
-func pixel_grid() -> int:
-	if borrows_glyphs():
-		return 0
-	return maxi(1, UiKit.PIXEL_TEXT / face_size())
-
 ## `want`, rounded down to a size the language's own face draws cleanly at, and
 ## never below that face's own size — there is no such thing as half a pixel of
 ## a bitmap glyph, and an 8px Hangul syllable is not a smaller syllable but a
@@ -298,10 +286,8 @@ func _load() -> void:
 	_strings = _base if language == DEFAULT else _read_language(language)
 	_apply_locale()
 	_apply_fonts()
-	# A conversation already read is a conversation still in English. Both
-	# caches merge the overlay in as they read, so both have to forget.
-	Dialogue.reload()
-	CutsceneScript.reload()
+	# A conversation already read is in the old language; `Dialogue` and
+	# `CutsceneScript` notice that for themselves the next time they are asked.
 
 func _read_language(lang: String) -> Dictionary:
 	var out: Dictionary = {}

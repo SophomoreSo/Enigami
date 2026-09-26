@@ -37,7 +37,7 @@ jobs:
       - name: Run
         env:
           GODOT_ARGS: --audio-driver Dummy
-        run: ./tests/run.sh --timeout 300 tests/feature tests/story tests/shared
+        run: ./tests/run.sh --timeout 300 tests/circuit tests/feature tests/story tests/shared
 
       - uses: actions/upload-artifact@v7
         if: always()
@@ -80,7 +80,7 @@ jobs:
       - name: The rules must still run with nothing to draw with
         env:
           GODOT_ARGS: --audio-driver Dummy
-        run: ./tests/run.sh --timeout 300 tests/feature tests/story
+        run: ./tests/run.sh --timeout 300 tests/circuit tests/feature tests/story
 
       - uses: actions/upload-artifact@v7
         if: always()
@@ -142,7 +142,7 @@ jobs:
           GODOT_ARGS: --audio-driver Dummy
         run: |
           xvfb-run -a --server-args="-screen 0 1920x1080x24" \
-            ./tests/run.sh --display --timeout 300 --exclude '*shot*' tests/graphics
+            ./tests/run.sh --display --timeout 300 --exclude '*shot*' tests/graphics tests/mobile
 
       - name: Screenshots
         # The shot scenes assert nothing — they photograph every screen, which

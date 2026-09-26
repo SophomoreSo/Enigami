@@ -30,6 +30,11 @@ const VERBS := ["move", "place", "face", "enter", "exit", "wait",
 const DEFAULT_FLOOR := 420.0
 
 static var _cache: Dictionary = {}
+## The language `_cache` was read in. The words are laid over a file as it is
+## read, so what was read in one language is no use in the next, and the
+## first thing asked for after a change of language finds it forgotten —
+## which is how `Loc` never has to know this file exists.
+static var _cache_language := ""
 
 static func path_for(id: String) -> String:
 	return DIR.path_join(id.to_lower() + ".json")
@@ -47,6 +52,7 @@ static func ids() -> PackedStringArray:
 ## A scene's file, with its `defaults` filled into every beat that does not set
 ## those keys itself. Read once and shared; treat it as read-only.
 static func scene(id: String) -> Dictionary:
+	_forget_another_language()
 	if _cache.has(id):
 		return _cache[id]
 	var def := _read(path_for(id))
@@ -86,6 +92,11 @@ static func _translate(def: Dictionary, id: String) -> void:
 ## Forgets what has been read, so an edited file is picked up without a restart.
 static func reload() -> void:
 	_cache.clear()
+
+static func _forget_another_language() -> void:
+	if _cache_language != Loc.language:
+		_cache.clear()
+		_cache_language = Loc.language
 
 ## Mistakes in a scene file that would otherwise show up as a beat that quietly
 ## does nothing, or a cutscene that stops halfway through. Phrased the way

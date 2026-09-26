@@ -116,7 +116,7 @@ func _ready() -> void:
 		"a board with all three carries all three")
 	# The preview is a line out of `localization/`, so what to look for in it is
 	# asked for rather than spelled out here.
-	var says := loaded.summary()
+	var says := Attacks.summary(loaded)
 	check(says.contains(Loc.t("editor.payload.pull"))
 		and says.contains(Loc.t("editor.payload.shatter", [Attacks.SHATTER_MUL]))
 		and says.contains(Loc.t("editor.payload.mana_drain", [Attacks.MANA_PER_HIT])),
@@ -201,8 +201,8 @@ func _ready() -> void:
 	# --- KNOCKBACK ----------------------------------------------------------
 	var knock := payload_of(["SLASH", "KNOCKBACK"])
 	check(knock != null and knock.knockback
-			and knock.summary().contains(Loc.t("editor.payload.knockback")),
-		"a board with KNOCKBACK carries it, and the workbench preview says so (%s)" % knock.summary())
+			and Attacks.summary(knock).contains(Loc.t("editor.payload.knockback")),
+		"a board with KNOCKBACK carries it, and the workbench preview says so (%s)" % Attacks.summary(knock))
 	# Whichever way the attack was going — up and to the left here, which
 	# nothing in an ordinary hit favours — the enemy struck is thrown on that
 	# way, by exactly KNOCKBACK_FORCE more than the same hit without the part.

@@ -112,10 +112,10 @@ func blocks(name: String) -> void:
 	# Silkscreen's Latin is an 8px body drawn at twice the size — so the shot is
 	# still saved and looked at, and this grid is not claimed of it.
 	# `tests/shared/loc_test` is what holds those languages to whole pixels.
-	if Loc.pixel_grid() < UiKit.PIXEL:
+	if UiKit.pixel_grid() < UiKit.PIXEL:
 		await _save_shot(name)
 		print("[PIXED] skip %s block check: %s is written on a %d-pixel grid, not %d"
-			% [name, Loc.language, Loc.pixel_grid(), UiKit.PIXEL])
+			% [name, Loc.language, UiKit.pixel_grid(), UiKit.PIXEL])
 		return
 	var im := await _save_shot(name)
 	var screen := Vector2i(get_viewport().get_visible_rect().size)

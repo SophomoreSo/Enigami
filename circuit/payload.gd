@@ -78,33 +78,3 @@ func has_element(e: String) -> bool:
 ## Does this payload do anything at all when it reaches an OUTPUT?
 func is_productive() -> bool:
 	return form != "" or dash or blink
-
-func summary() -> String:
-	var parts: Array[String] = []
-	parts.append(Components.name_for(form) if form != "" else Loc.t("editor.payload.no_form"))
-	parts.append(Loc.t("editor.payload.damage", [damage]))
-	if size != 1.0:
-		parts.append(Loc.t("editor.payload.size", [size]))
-	if duplicates > 1:
-		parts.append(Loc.t("editor.payload.duplicates", [duplicates]))
-	for e in elements:
-		parts.append(Components.name_for(e).to_lower())
-	if pierce > 0:
-		parts.append(Loc.t("editor.payload.pierce", [pierce]))
-	if homing:
-		parts.append(Loc.t("editor.payload.homing"))
-	if reverse:
-		parts.append(Loc.t("editor.payload.reverse"))
-	if dash:
-		parts.append(Loc.t("editor.payload.dash"))
-	if blink:
-		parts.append(Loc.t("editor.payload.blink"))
-	if pull:
-		parts.append(Loc.t("editor.payload.pull"))
-	if knockback:
-		parts.append(Loc.t("editor.payload.knockback"))
-	if shatter:
-		parts.append(Loc.t("editor.payload.shatter", [Attacks.SHATTER_MUL]))
-	if mana_drain:
-		parts.append(Loc.t("editor.payload.mana_drain", [Attacks.MANA_PER_HIT]))
-	return Loc.t("editor.payload.separator").join(parts)
