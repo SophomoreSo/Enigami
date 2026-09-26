@@ -96,6 +96,12 @@ const PULL_RADIUS := 150.0
 const PULL_FORCE := 300.0
 const PULL_NEAR := 0.45
 
+## KNOCKBACK. The push it adds to a hit, in pixels a second, straight along the
+## way the attack was going — on top of the hit's own shove, not instead of it.
+## Bled off at `Actor.SHOVE_DECAY`, it carries an enemy that stands its ground
+## some five cells, where an ordinary hit moves one less than a cell.
+const KNOCKBACK_FORCE := 300.0
+
 ## SHATTER. What a hit is worth against an enemy frost has already slowed. It
 ## does not thaw them: the chill runs its own course, so a board that chills and
 ## then lands twice more collects the bonus every time.
@@ -230,7 +236,7 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 					_melee(payload, aim.rotated(off), team, attacker, room)
 				else:
 					_schedule(delay, "melee", payload, aim.rotated(off), origin, team, attacker, room)
-		"AREA":
+		"EXPLODE":
 			for i in count:
 				var pos: Vector2 = origin + (Vector2.ZERO if i == 0 else Vector2(randf_range(-70, 70), randf_range(-40, 40)))
 				if i == 0:
@@ -343,6 +349,13 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 		_pull(p, pos, team)
 	else:
 		target.knockback(dir, 120.0 + p.damage * 2.0)
+	# KNOCKBACK throws the struck enemy on the way the attack was going, which is
+	# the `dir` every form hands in: along a bolt's flight, out from a swing or a
+	# blast, down the line of a lunge. It adds to whatever the hit did above,
+	# GRAVITY's pin included, so a board with both gathers the room and sends
+	# the one it struck flying out of the middle of it.
+	if p.knockback:
+		target.knockback(dir, KNOCKBACK_FORCE)
 	if p.mana_drain and atk != null and atk.has_method("gain_mana"):
 		atk.gain_mana(MANA_PER_HIT)
 		Cues.at(&"mana_drain", pos, {"amount": MANA_PER_HIT})

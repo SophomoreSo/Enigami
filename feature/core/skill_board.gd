@@ -336,7 +336,7 @@ func compute_tags() -> Array[String]:
 		match id:
 			"PROJECTILE": t.append("ranged")
 			"SLASH", "DASHSLASH", "DASHSLASH_AUTO": t.append("melee")
-			"AREA": t.append("area")
+			"EXPLODE": t.append("area")
 			"DASH", "BLINK": t.append("mobility")
 			"ON_HIT", "ON_KILL", "ON_PARRY": t.append("trigger")
 	var uniq: Array[String] = []
@@ -358,7 +358,7 @@ static func deserialize(d: Dictionary) -> SkillBoard:
 	var b := SkillBoard.new(int(d.get("w", 7)), int(d.get("h", 5)), String(d.get("name", "Skill")))
 	var retired: Array = []
 	for e in d.get("cells", []):
-		var id := String(e["id"])
+		var id := Components.current_id(String(e["id"]))
 		var at := Vector2i(int(e["x"]), int(e["y"]))
 		if Components.is_retired(id):
 			retired.append([id, at, int(e["rot"])])

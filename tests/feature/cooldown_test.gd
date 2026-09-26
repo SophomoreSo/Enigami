@@ -161,7 +161,7 @@ func _ready() -> void:
 		if Components.tick_cost(id) != int(Components.get_def(id)["cells"]):
 			drift.append(id)
 	check(drift.is_empty(), "every part costs one tick per cell (%s)" % str(drift))
-	check(Components.tick_cost("AREA") == 2 and Components.tick_cost("DELAY") == 1,
+	check(Components.tick_cost("EXPLODE") == 2 and Components.tick_cost("DELAY") == 1,
 		"a two-cell part costs two ticks and a one-cell part one")
 	# And the board agrees: every cell added to the path is one more tick,
 	# whichever part it belongs to. DELAY, which used to hold a flow for twelve

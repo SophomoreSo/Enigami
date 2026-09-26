@@ -39,7 +39,7 @@ godot res://tests/graphics/editor_pixel_test.tscn # every pixel of the assembly 
 godot res://tests/graphics/hideout_pixel_test.tscn # the hideout's pixel look, and everything on it fits
 godot res://tests/graphics/bench_pixel_test.tscn # the bench panel's pixel look and layout
 godot res://tests/feature/code_test.tscn    # a board survives being written down as a code
-godot res://tests/feature/impact_test.tscn  # GRAVITY, SHATTER and MANA DRAIN, at the moment a hit lands
+godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
 godot res://tests/graphics/share_code_test.tscn # sharing a board, and what a pasted code costs
 godot res://tests/feature/ttl_test.tscn     # a pulse's life, and what bounds a loop
 godot res://tests/feature/charge_test.tscn  # holding the cast button buys life for mana
@@ -191,8 +191,8 @@ nobody spends that week again.
 
 A board is a circuit. A pulse leaves `INPUT`, spends **one tick in every cell**
 it passes through, and mutates a payload on the way through — a part costs
-exactly the room it takes up, so a two-cell part like `AREA` costs two ticks and
-everything else costs one. When the pulse reaches an `OUTPUT`, whatever the
+exactly the room it takes up, so a two-cell part like `EXPLODE` costs two ticks
+and everything else costs one. When the pulse reaches an `OUTPUT`, whatever the
 payload has become is fired into the world. `INPUT` only restarts once every
 pulse from the previous cycle has resolved — **the length and shape of the board
 is the cooldown**, which is why a bigger build is not automatically a better
@@ -239,6 +239,12 @@ after that first `OUTPUT` still plays out in real time, which is what lets
 - `GRAVITY` pins the enemy it strikes instead of knocking it back, and drags
   every other enemy nearby onto it — a room gathered into one place for whatever
   the rest of the board does next.
+- `KNOCKBACK` throws the enemy it strikes on the way the attack was going:
+  along a bolt's flight, out from a swing or an `EXPLODE`, down the line of a
+  lunge. A hit on its own barely shifts anything; this throws an enemy standing
+  its ground some five cells and one running at you back two, which buys room
+  and can just as easily put it out of reach. With `GRAVITY` on the same board
+  the struck enemy still flies, out of the crowd being dragged in.
 - `SHATTER` hits an enemy frost has already slowed far harder. It never
   shatters the chill the same hit applied, so it is a pair: `ICE` to chill and a
   second arrival to collect, whether that is `DUPLICATE`, an `ON HIT` branch or
@@ -369,6 +375,9 @@ carries a flow and turns it — and a code or a save that still has one reads ba
 without it. Where one sat against the INPUT or an OUTPUT, that end steps into its
 cell, so the old starter boards and a WIRE-led build come back working; anywhere
 else the cell is left empty and the board shows the break.
+
+A renamed part keeps its number too. EXPLODE was called AREA, and a code or a
+save from then reads back with an EXPLODE wherever it had an AREA.
 
 ## The dragon test
 

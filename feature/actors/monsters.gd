@@ -34,7 +34,7 @@ const DEFS := {
 		"name": "Hopper", "hp": 52.0, "speed": 130.0, "ai": "jumper",
 		"size": 17.0,
 		"aggro": 440.0, "attack_range": 110.0, "contact": 8.0, "scrap": 5,
-		"board": [["INPUT", 0, 2, 0], ["AREA", 1, 2, 0], ["OUTPUT", 3, 2, 0]],
+		"board": [["INPUT", 0, 2, 0], ["EXPLODE", 1, 2, 0], ["OUTPUT", 3, 2, 0]],
 	},
 	"DRIFTER": {
 		"name": "Drifter", "hp": 30.0, "speed": 95.0, "ai": "flyer",
@@ -76,7 +76,7 @@ const DEFS := {
 			["DUPLICATE", 3, 2, 0], ["OUTPUT", 4, 2, 0],
 		],
 		"board_phase2": [
-			["INPUT", 0, 2, 0], ["AREA", 1, 2, 0], ["ON_HIT", 3, 2, 0],
+			["INPUT", 0, 2, 0], ["EXPLODE", 1, 2, 0], ["ON_HIT", 3, 2, 0],
 			["OUTPUT", 4, 2, 0], ["PROJECTILE", 3, 3, 1], ["SPLIT", 3, 4, 1],
 			["OUTPUT", 2, 4, 0], ["OUTPUT", 4, 4, 0],
 		],

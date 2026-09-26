@@ -139,7 +139,7 @@ func _run() -> void:
 		fail("casting produced no output")
 
 	# Every attack form, straight through the spawner.
-	for form in ["PROJECTILE", "SLASH", "AREA", "DASHSLASH", "DASHSLASH_AUTO"]:
+	for form in ["PROJECTILE", "SLASH", "EXPLODE", "DASHSLASH", "DASHSLASH_AUTO"]:
 		var p := Payload.new()
 		p.form = form
 		p.damage = 5.0
@@ -150,7 +150,7 @@ func _run() -> void:
 		p.dash = true
 		p.blink = true
 		var trig := Payload.new()
-		trig.form = "AREA"
+		trig.form = "EXPLODE"
 		trig.damage = 3.0
 		p.on_hit = trig
 		p.on_kill = trig

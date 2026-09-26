@@ -311,7 +311,8 @@ func _spawn_pickup(l: Dictionary) -> void:
 	if l.has("scrap"):
 		p.setup_scrap(int(l["scrap"]), Vector2(float(l["pos"][0]), float(l["pos"][1])))
 	else:
-		p.setup_component(String(l["id"]), Vector2(float(l["pos"][0]), float(l["pos"][1])))
+		# The record can be out of a raid parked before one of its parts was renamed.
+		p.setup_component(Components.current_id(String(l["id"])), Vector2(float(l["pos"][0]), float(l["pos"][1])))
 	p.room = self
 	p.velocity = Vector2.ZERO
 	p.set_meta("record", l)

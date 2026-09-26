@@ -3,7 +3,8 @@ extends Node
 ## with a mistake in it must be refused rather than quietly building a different
 ## board. Also guards the two things that can never be reordered: the alphabet a
 ## code is spelled in, and the numbers parts are known by inside one — and what a
-## code or a save written while WIRE and BEND were parts reads back as.
+## code or a save written while WIRE and BEND were parts, or while EXPLODE was
+## called AREA, reads back as.
 
 var fails := 0
 
@@ -59,6 +60,13 @@ func _ready() -> void:
 		if not seen.has(String(id)) or Components.exists(String(id)):
 			kept.append(id)
 	check(kept.is_empty(), "a retired part is gone from the game and keeps its number (%s)" % str(kept))
+	var misnamed: Array = []
+	for id in Components.RENAMED:
+		var now := String(Components.RENAMED[id])
+		if seen.has(String(id)) or Components.exists(String(id)) or not Components.exists(now):
+			misnamed.append(id)
+	check(misnamed.is_empty(),
+		"a renamed part is known only by its new id, in the table and out of it (%s)" % str(misnamed))
 	var uncoded: Array = []
 	for id in Components.DEFS:
 		if not seen.has(String(id)):
@@ -268,6 +276,16 @@ func _ready() -> void:
 	check(same_parts(fed_twice, _board([["INPUT", 0, 1, 0], ["SLASH", 1, 1, 1], ["OUTPUT", 1, 2, 0]])),
 		"and an OUTPUT something else feeds stays where it is")
 
+	# --- a board from before AREA was renamed EXPLODE -----------------------
+	# The part kept its number, so a code shared under the old name builds the
+	# same board. A save spells it the old way, and reads back under the new one.
+	var burst := _board([["INPUT", 0, 2, 0], ["EXPLODE", 1, 2, 0], ["OUTPUT", 3, 2, 0]])
+	var shared := BoardCode.decode("7kBve29jhx111117")
+	check(String(shared["error"]) == "" and same_parts(shared["board"], burst),
+		"a code shared while EXPLODE was AREA still builds it (%s)" % shared["error"])
+	check(same_parts(_saved([["INPUT", 0, 2, 0], ["AREA", 1, 2, 0], ["OUTPUT", 3, 2, 0]]), burst),
+		"and a board saved with an AREA on it reads back with an EXPLODE")
+
 	# --- taking a board on -------------------------------------------------
 	# The grid belongs to the workbench, not to the build drawn on it.
 	var small := SkillBoard.new(7, 5, "mine")
@@ -280,7 +298,7 @@ func _ready() -> void:
 		"and the board it was refused by is untouched")
 	var inside := SkillBoard.new(11, 9, "theirs, but small")
 	inside.place("SLASH", Vector2i(2, 1), 1)
-	inside.place("AREA", Vector2i(3, 3), 0)
+	inside.place("EXPLODE", Vector2i(3, 3), 0)
 	check(small.adopt(inside), "a build that fits is taken on")
 	check(same_parts(small, inside), "with every part where it was")
 	check(small.width == 7 and small.height == 5 and small.skill_name == "mine",
@@ -311,8 +329,8 @@ func _ready() -> void:
 	print("[CODE] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)
 
-## A board as a save written before the retirement holds it — [id, x, y, rot]
-## a part, retired ones included — read back the way a save is.
+## A board as an older save holds it — [id, x, y, rot] a part, retired and
+## renamed ones included — read back the way a save is.
 func _saved(parts: Array) -> SkillBoard:
 	var cells: Array = []
 	for p in parts:

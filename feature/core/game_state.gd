@@ -482,7 +482,7 @@ func recover_lost_kit() -> Dictionary:
 		return {}
 	var kit := lost_kit.duplicate(true)
 	for id in kit.get("bag", {}):
-		add_component(String(id), int((kit["bag"] as Dictionary)[id]), raid_bag)
+		add_component(Components.current_id(String(id)), int((kit["bag"] as Dictionary)[id]), raid_bag)
 	raid_scrap += int(kit.get("scrap", 0))
 	for b in kit.get("boards", []):
 		raid_carried_boards.append(SkillBoard.deserialize(b))
@@ -688,7 +688,7 @@ func _read_save(path: String) -> bool:
 		return false
 	stash.clear()
 	for k in parsed.get("stash", {}):
-		stash[String(k)] = int(parsed["stash"][k])
+		stash[Components.current_id(String(k))] = int(parsed["stash"][k])
 	owned_weapons.clear()
 	for w in parsed.get("weapons", ["SWORD"]):
 		owned_weapons.append(String(w))
@@ -726,7 +726,7 @@ func _read_raid(parsed: Dictionary) -> void:
 	for i in parsed.get("raid_board_sources", []):
 		raid_board_sources.append(int(i))
 	for k in parsed.get("raid_bag", {}):
-		raid_bag[String(k)] = int(parsed["raid_bag"][k])
+		raid_bag[Components.current_id(String(k))] = int(parsed["raid_bag"][k])
 	for b in parsed.get("raid_carried_boards", []):
 		raid_carried_boards.append(SkillBoard.deserialize(b))
 	for w in parsed.get("raid_carried_weapons", []):
