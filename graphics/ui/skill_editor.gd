@@ -76,7 +76,6 @@ var _drag_source: int = 0
 var _drag_from: Vector2i = Vector2i(-1, -1)
 var _drag_from_rot: int = 0
 var _mouse_pos: Vector2 = Vector2.ZERO
-var _sim_cache: Dictionary = {}
 var _trace_cache: Dictionary = {}
 var _sim_dirty: bool = true
 ## How far each part sits from the INPUT along the joints that carry flow, and
@@ -516,13 +515,6 @@ func _missing_text(missing: Dictionary) -> String:
 const PX := UiKit.PIXEL
 const LINE := PixelDraw.LINE
 const HEADER_H := 84.0
-## Five rows and the controls line under them. The biggest board a Workbench
-## grows, and the palette, both end above it.
-const INFO_H := 144.0
-const INFO_ROWS := 5
-## The part being described, up to where the cycle preview starts under the
-## palette.
-const INFO_LEFT_W := 530.0
 
 ## A part's icon is drawn this many PIXELs per bitmap pixel on the board, and
 ## one PIXEL per bitmap pixel everywhere else.
@@ -583,7 +575,6 @@ const FLOW_DOT := 6
 const PORT := ["#..", "##.", "###", "##.", "#.."]
 const ARROW := ["..#..", "...#.", "#####", "...#.", "..#.."]
 const CROSS := ["#...#", ".#.#.", "..#..", ".#.#.", "#...#"]
-const CHAIN := ["#....", "#....", "#..#.", "#####", "...#."]
 const DOT := ["###", "###", "###"]
 ## Wide enough to read as two loops rather than as two more digits — it sits in
 ## the same column as counts like "x2", and a tighter one came out as "x00".
@@ -596,7 +587,7 @@ func _draw() -> void:
 	_draw_header(vp)
 	_draw_board()
 	_draw_palette()
-	_draw_info(vp)
+	_draw_message(vp)
 	_draw_dead_hint(vp)
 	_draw_drag()
 
@@ -653,6 +644,7 @@ func _draw_board() -> void:
 
 	if _trace_cache.is_empty() or _sim_dirty:
 		_refresh_trace(b)
+		_sim_dirty = false
 	for origin in b.cells.keys():
 		_draw_component(b, origin)
 	# The faults go on after the parts rather than before them: the parts now
@@ -1836,122 +1828,8 @@ func _draw_count(right: Vector2, id: String) -> void:
 	else:
 		_px.text(at, Loc.t("editor.count", [int(inventory.get(id, 0))]), col)
 
-func _draw_info(vp: Vector2) -> void:
-	var y := vp.y - INFO_H
-	_px.rect(Rect2(0, y, vp.x, INFO_H), Color(0.07, 0.08, 0.11, 0.94))
-	_px.rect(Rect2(0, y, vp.x, PX), Color(0.3, 0.5, 0.7, 0.6))
-
-	var b := current_board()
-	# The part under the cursor, on the palette or the board, else the one in
-	# hand. The board names nothing itself, since no name fits in a cell.
-	var describe := selected
-	if _hover_pal >= 0:
-		describe = String(_palette_ids()[_hover_pal])
-	elif b != null and _hover_cell.x >= 0 and not b.comp_at(_hover_cell).is_empty():
-		describe = String(b.comp_at(_hover_cell)["id"])
-	if describe != "":
-		var def := Components.get_def(describe)
-		_px.text(Vector2(48, y + 26), Components.name_for(describe), Style.component_color(describe), INFO_LEFT_W)
-		var desc := PixelDraw.wrap(Components.desc_for(describe), INFO_LEFT_W, 2)
-		for i in desc.size():
-			_px.text(Vector2(48, y + 46 + i * LINE), desc[i], Color(0.72, 0.78, 0.86))
-		_px.text(Vector2(48, y + 86), Loc.t("editor.part_stats", [
-			int(def["cells"]), Components.tick_cost(describe), float(def["heat"])]),
-			Color(0.55, 0.65, 0.75), INFO_LEFT_W)
-
-	if b == null:
-		return
-	# The board walk is only redone when something actually changed.
-	if _sim_dirty or _sim_cache.is_empty():
-		var sim := SkillRunner.new(b)
-		sim.base_payload_provider = func() -> Payload: return Weapons.base_payload(weapon_id)
-		_sim_cache = sim.simulate()
-		_refresh_trace(b)
-		_sim_dirty = false
-	var rx := PAL_ORIGIN.x
-	var right := vp.x - 48.0
-	var notes := _preview_rows(b, _sim_cache, right - rx)
-	for i in notes.size():
-		var note: Dictionary = notes[i]
-		var at := Vector2(rx, y + 26 + i * LINE)
-		if note.has("icon"):
-			_px.icon(at - Vector2(0, 5 * PX), note["icon"], note["col"])
-			at.x += 18.0
-		_px.text(at, note["text"], note["col"], right - at.x)
-
+## A refusal (no room, none left) lasts a moment along the bottom. It is the
+## only thing written there.
+func _draw_message(vp: Vector2) -> void:
 	if _message_time > 0.0:
-		_px.text(Vector2(48, y + 106), _message, Color(1.0, 0.65, 0.55), INFO_LEFT_W)
-	# Controls live along the bottom, clear of the slot tabs at the top.
-	_px.text(Vector2(48, vp.y - 8), Loc.t("editor.hint"), Color(0.5, 0.58, 0.68), vp.x - 96.0)
-
-## What the cycle preview says, a row each, as {text, col} and an `icon` to put
-## before a row. There is room for INFO_ROWS of them: a preview that runs longer
-## says how much it left out rather than running off the bottom of the screen.
-func _preview_rows(b: SkillBoard, result: Dictionary, width: float) -> Array:
-	var rows: Array = []
-	if String(result.get("error", "")) != "":
-		_add_rows(rows, String(result["error"]), Color(1.0, 0.55, 0.5), width, INFO_ROWS)
-		return rows
-	var outs: Array = result["outputs"]
-	rows.append({"text": Loc.t("editor.readout.cycle", [
-		float(result["cycle_seconds"]), outs.size(), float(result["heat"])]),
-		"col": Color(0.7, 0.95, 0.85)})
-	# A weapon that will not carry the board matters more than anything under it,
-	# so it goes straight under the cycle rather than wherever rows are left.
-	if not Weapons.accepts_board(weapon_id, b):
-		_add_rows(rows, Weapons.rejection_reason(weapon_id, b), Color(1.0, 0.5, 0.5), width, 2)
-	if outs.is_empty():
-		# A flow that simply ran out of life is not a wiring fault, and
-		# `first_problem` would go looking for one that is not there — unless
-		# what it ran out of life in is a ring it could never have left. That
-		# is a fault, and the one worth naming: charging the cast further only
-		# buys more laps of the same ring.
-		var why := b.first_problem()
-		if bool(result.get("expired", false)) and not _flow_trapped():
-			why = Loc.t("editor.problem.expired", [int(result.get("ttl", 0))])
-		_add_rows(rows, why, Color(1.0, 0.62, 0.45), width, 3)
-	for i in mini(outs.size(), 3):
-		var p: Payload = Weapons.finalize(weapon_id, (outs[i] as Payload).clone())
-		rows.append({"text": Loc.t("editor.readout.payload", [p.summary()]), "col": Color(0.82, 0.88, 0.95)})
-	# Overclocking is a trade, so show both halves of it.
-	if int(result.get("overclock", 0)) > 0:
-		rows.append({"text": Loc.t("editor.readout.overclock", [
-			int(result["overclock"]), float(result["speed_mul"]), float(result["penalty_seconds"])]),
-			"col": Style.flow_color()})
-	# What holding the cast button buys this board, in the board's own terms. The
-	# binding is named so the row fits, and stays true after a rebind.
-	rows.append({"text": Loc.t("editor.readout.life", [
-		int(result.get("ttl", 0)), Controls.short_label_for("cast_skill")]),
-		"col": Color(0.78, 0.68, 1.0)})
-	var trig: Dictionary = result.get("triggers", {})
-	for k in trig:
-		# A loop can queue several follow-ups on one trigger, each landing
-		# after the one before. List the whole chain, so four laps read as
-		# four attacks rather than as a single very large one.
-		var q = trig[k]
-		var n := 0
-		while q != null:
-			var label := Components.name_for(String(k)) if n == 0 else Loc.t("editor.payload.then")
-			rows.append({"text": Loc.t("editor.readout.trigger", [label, (q as Payload).summary()]),
-				"col": Color(1.0, 0.7, 0.85), "icon": CHAIN})
-			n += 1
-			q = q.on_hit
-	if rows.size() > INFO_ROWS:
-		var cut := rows.size() - INFO_ROWS + 1
-		rows.resize(INFO_ROWS - 1)
-		rows.append({"text": Loc.t("editor.readout.more", [cut]), "col": Color(0.55, 0.65, 0.75)})
-	return rows
-
-## Whether the flow runs into a loop it can never leave. On a board like that,
-## running out of life is what a trap looks like from the runner's side, and the
-## readout has to say which of the two it is.
-func _flow_trapped() -> bool:
-	var dead: Dictionary = _trace_cache.get("dead", {})
-	for origin in _trace_cache.get("reachable", {}):
-		if dead.has(origin):
-			return true
-	return false
-
-func _add_rows(rows: Array, text: String, col: Color, width: float, most: int) -> void:
-	for line in PixelDraw.wrap(text, width, most):
-		rows.append({"text": line, "col": col})
+		_px.text(Vector2(48, vp.y - 24), _message, Color(1.0, 0.65, 0.55), vp.x - 96.0)

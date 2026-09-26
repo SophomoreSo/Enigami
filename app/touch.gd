@@ -33,9 +33,13 @@ const PATH := "user://enigami_touch.json"
 ## is the default for the same reason the language is guessed from the desktop:
 ## somebody on a phone should not have to find the settings with controls that
 ## are not on the screen yet.
+##
+## Which of them is in force is what the settings call mobile mode, and they
+## show it as a switch: on or off, whichever AUTO came to until it is thrown,
+## and ON or OFF for good once it has been.
 enum { OFF, AUTO, ON }
 
-## The modes in menu order, by the name they are saved and translated under.
+## The modes by the name they are saved under.
 const MODE_KEYS := ["off", "auto", "on"]
 
 ## The smallest change in how hard a key is held that is worth sending. A thumb
@@ -85,10 +89,6 @@ static func touch_device() -> bool:
 static func set_mode(m: int) -> void:
 	mode = clampi(m, OFF, ON)
 	save()
-
-## What to call the current mode on a button.
-static func mode_name(m: int) -> String:
-	return Loc.t("controls.touch.%s" % MODE_KEYS[clampi(m, OFF, ON)])
 
 ## --- the pad coming and going ----------------------------------------------
 

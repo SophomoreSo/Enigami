@@ -59,6 +59,29 @@ func controls_under(root: Node) -> Array:
 			stack.append(c)
 	return out
 
+func switch_under(root: Node) -> UiKit.Switch:
+	for c in controls_under(root):
+		if c is UiKit.Switch:
+			return c
+	return null
+
+## A click where `at` is in the 1280x720 the game is drawn at, pressed and let
+## go, sent the way the system sends one.
+func click(at: Vector2) -> void:
+	var m := InputEventMouseMotion.new()
+	m.position = on_glass(at)
+	m.global_position = m.position
+	Input.parse_input_event(m)
+	await frames(2)
+	for down in [true, false]:
+		var e := InputEventMouseButton.new()
+		e.button_index = MOUSE_BUTTON_LEFT
+		e.pressed = down
+		e.position = m.position
+		e.global_position = e.position
+		Input.parse_input_event(e)
+		await frames(2)
+
 func button_named(root: Node, text: String) -> Button:
 	for c in controls_under(root):
 		if c is Button and (c as Button).text == text:
@@ -191,8 +214,9 @@ func _layout() -> void:
 
 ## --- the setting ------------------------------------------------------------
 
-## It lives on the controls page, which the title's settings and the pause menu
-## both hold, so putting it there puts it in both.
+## It is mobile mode, a switch on the controls page, which the title's settings
+## and the pause menu both hold — so putting it there puts it in both, and
+## throwing it in one has to show in the other.
 func _the_setting() -> void:
 	GameState.reset_profile()
 	game = Node.new()
@@ -212,39 +236,59 @@ func _the_setting() -> void:
 	check(panel != null, "the controls page carries the settings panel")
 	if panel == null:
 		return
-	var offered: Array = []
-	for m in Touch.MODE_KEYS.size():
-		if button_named(panel, Touch.mode_name(m)) != null:
-			offered.append(Touch.MODE_KEYS[m])
-	check(offered.size() == Touch.MODE_KEYS.size(),
-		"it offers every console mode (%s)" % str(offered))
+	var switch := switch_under(panel)
+	check(switch != null, "it offers mobile mode as a switch")
 	var named := false
 	for c in controls_under(panel):
-		if c is Label and (c as Label).text == Loc.t("controls.touch.label"):
+		if c is Label and (c as Label).text == Loc.t("controls.mobile"):
 			named = true
 	check(named, "under the name the row is given")
+	if switch == null:
+		return
 
-	# AUTO is what a fresh install is in, and on a desk it comes to nothing.
+	# AUTO is what a fresh install is in, and on a desk it comes to nothing. The
+	# switch shows what it came to, set as the page comes on screen.
 	Touch.set_mode(Touch.AUTO)
 	check(Touch.wanted() == Touch.touch_device(),
 		"AUTO is on exactly where the machine is one you touch (here: %s)"
 			% str(Touch.touch_device()))
+	title._toggle_controls()
+	await frames(2)
+	title._toggle_controls()
+	await frames(4)
+	check(switch.button_pressed == Touch.wanted(),
+		"and the switch shows what AUTO came to (%s)" % str(switch.button_pressed))
 
-	var on := button_named(panel, Touch.mode_name(Touch.ON))
-	check(on != null, "and the ON button is there to press")
-	if on != null:
-		on.emit_signal("pressed")
-		await frames(4)
-	check(Touch.mode == Touch.ON and Touch.wanted(), "pressing ON puts the console on")
-	for c in controls_under(title._controls):
-		if c is ControlsPanel:
-			panel = c
-	var now := button_named(panel, Touch.mode_name(Touch.ON))
-	check(now != null and now.disabled, "and the row comes back with ON as the one it is on")
+	# Thrown by a click, the way a mouse or a thumb throws it, both ways.
+	Touch.set_mode(Touch.OFF)
+	switch.show_on(false)
+	await click(switch.get_global_rect().get_center())
+	check(Touch.mode == Touch.ON and Touch.wanted() and switch.button_pressed,
+		"a click throws it on, and puts the console on (mode %d)" % Touch.mode)
+	await click(switch.get_global_rect().get_center())
+	check(Touch.mode == Touch.OFF and not Touch.wanted() and not switch.button_pressed,
+		"and another throws it off again (mode %d)" % Touch.mode)
+	await click(switch.get_global_rect().get_center())
+	check(Touch.mode == Touch.ON, "and on again")
 
 	Touch.mode = Touch.OFF
 	Touch.load_saved()
 	check(Touch.mode == Touch.ON, "the mode is kept in a file of its own and read back")
+
+	# The pause menu's copy was built at boot, before any of that, and has to
+	# come on screen showing what is in force now rather than what was then.
+	game.pause_menu.visible = true
+	game._pause_controls(true)
+	await frames(4)
+	var paused := switch_under(game.pause_controls)
+	check(paused != null and paused.button_pressed,
+		"the pause menu's switch shows it on too (%s)"
+			% ("none" if paused == null else str(paused.button_pressed)))
+	game._pause_controls(false)
+	game.pause_menu.visible = false
+	title._toggle_controls()
+	title._toggle_settings()
+	await frames(4)
 
 	pad = game.touch_pad
 	check(pad != null, "the shell builds a pad that outlives every screen")

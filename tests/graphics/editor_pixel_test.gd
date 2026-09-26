@@ -431,17 +431,16 @@ func _ready() -> void:
 
 	# --- layout -------------------------------------------------------------
 	var vp := get_viewport().get_visible_rect().size
-	var info_top := vp.y - SkillEditor.INFO_H
 	var board_end := SkillEditor.BOARD_ORIGIN + Vector2(most) * SkillEditor.CELL + Vector2(10, 10)
-	check(board_end.y <= info_top, "the biggest board (%dx%d) ends above the info panel (%.0f of %.0f)"
-		% [most.x, most.y, board_end.y, info_top])
+	check(board_end.y <= vp.y, "the biggest board (%dx%d) ends inside the screen (%.0f of %.0f)"
+		% [most.x, most.y, board_end.y, vp.y])
 	check(board_end.x <= SkillEditor.PAL_ORIGIN.x - 10.0, "and short of the palette (%.0f of %.0f)"
 		% [board_end.x, SkillEditor.PAL_ORIGIN.x - 10.0])
 	# The palette's panel runs 10 past its rows on every side.
 	var ids := wb._palette_ids()
 	var panel := wb._pal_panel()
-	check(panel.end.y <= info_top, "the palette ends above the info panel (%.0f of %.0f)"
-		% [panel.end.y, info_top])
+	check(panel.end.y <= vp.y, "the palette ends inside the screen (%.0f of %.0f)"
+		% [panel.end.y, vp.y])
 	check(panel.end.x <= vp.x, "and inside the screen (%.0f of %.0f)" % [panel.end.x, vp.x])
 	check(panel.position.x >= SkillEditor.PAL_ORIGIN.x - 10.0, "the palette's panel starts at its gutter")
 	# One block a category, every part of a category inside its own block, and
@@ -484,20 +483,6 @@ func _ready() -> void:
 		if PixelDraw.text_width(part_name) > wb._pal_name_width(i):
 			tight.append("%s (%.0f of %.0f)" % [part_name, PixelDraw.text_width(part_name), wb._pal_name_width(i)])
 	check(tight.is_empty(), "every part's name fits its palette row beside a count of 99 (too tight: %s)" % str(tight))
-	for lang in Loc.languages():
-		check(PixelDraw.text_width(_in(lang, "editor.hint")) <= vp.x - 96.0,
-			"the controls line fits the screen in %s" % lang)
-
-	# A preview with more rows than the panel has: the refusal, three outputs,
-	# an overclock and the life.
-	wb.weapon_id = "SWORD"
-	var p := Payload.new()
-	p.form = "SLASH"
-	var long := {"outputs": [p, p, p], "cycle_seconds": 0.5, "heat": 1.0, "overclock": 2,
-		"speed_mul": 1.5, "penalty_seconds": 0.1, "ttl": 6, "triggers": {}}
-	var rows := wb._preview_rows(big, long, vp.x - 48.0 - SkillEditor.PAL_ORIGIN.x)
-	check(rows.size() == SkillEditor.INFO_ROWS, "a long preview is cut to %d rows (%d)" % [SkillEditor.INFO_ROWS, rows.size()])
-	check(String(rows[-1]["text"]).begins_with("…"), "and its last row says what was left out ('%s')" % rows[-1]["text"])
 
 	GameState.facilities = facilities_before
 	GameState.save_game()

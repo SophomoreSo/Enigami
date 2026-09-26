@@ -5,12 +5,7 @@
 	"reset": "RESET TO DEFAULTS",
 	"listening": "press a key…",
 	"sensitivity": "Mouse sensitivity",
-	"touch": {
-		"label": "Touch controls",
-		"off": "OFF",
-		"auto": "AUTO",
-		"on": "ON"
-	},
+	"mobile": "Mobile mode",
 	"unbound": "unbound",
 	"none": "—",
 	"mouse": "Mouse %d",
