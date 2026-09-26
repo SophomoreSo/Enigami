@@ -1,7 +1,8 @@
 extends Node
-## The three parts that act at the moment a hit lands, rather than on the way to
-## it: GRAVITY drags the room in, SHATTER punishes an enemy frost has already
-## slowed, and MANA DRAIN pays the caster back for connecting.
+## The parts that act at the moment a hit lands, rather than on the way to it:
+## GRAVITY drags the room in, KNOCKBACK throws the enemy struck on the way the
+## attack was going, SHATTER punishes an enemy frost has already slowed, and
+## MANA DRAIN pays the caster back for connecting.
 ##
 ## Driven through `Attacks.resolve_hit`, which is the one door every attack form
 ## goes through — so what is checked here holds for a bolt, an arc, a burst and
@@ -65,6 +66,26 @@ func pull_travel(kind: String, p: Payload) -> float:
 	m.queue_free()
 	return moved
 
+## How far a `kind` travels in x over half a second after `p` strikes it, the
+## attack going right. Run with and without KNOCKBACK, the difference is the
+## throw alone.
+func knock_travel(kind: String, p: Payload) -> float:
+	_plot += 1
+	var at := Vector2(0, float(_plot) * 4000.0)
+	var m := monster(kind, at)
+	await frames(2)
+	m.global_position = at
+	# One cut must not kill it: a monster freed mid-flight has nowhere left to be.
+	m.max_health = 9999.0
+	m.health = 9999.0
+	var x0: float = m.global_position.x
+	Attacks.resolve_hit(p, m, m.global_position, Vector2.RIGHT, null, null, 0)
+	for i in 30:
+		await get_tree().physics_frame
+	var moved: float = m.global_position.x - x0
+	m.queue_free()
+	return moved
+
 ## A board with `ids` in a line, run through the runner so the payload under
 ## test is the one the rules actually build — not one hand-set here.
 func payload_of(ids: Array) -> Payload:
@@ -87,7 +108,8 @@ func _ready() -> void:
 
 	# --- the parts reach the payload at all ---------------------------------
 	var plain := payload_of(["SLASH"])
-	check(plain != null and not plain.pull and not plain.shatter and not plain.mana_drain,
+	check(plain != null and not plain.pull and not plain.knockback and not plain.shatter
+			and not plain.mana_drain,
 		"a board without them carries none of them")
 	var loaded := payload_of(["SLASH", "GRAVITY", "SHATTER", "MANA_DRAIN"])
 	check(loaded != null and loaded.pull and loaded.shatter and loaded.mana_drain,
@@ -175,6 +197,39 @@ func _ready() -> void:
 		var travelled: float = await pull_travel(kind, pull) - await pull_travel(kind, plain)
 		check(travelled < -20.0,
 			"a %s 60px from a GRAVITY hit is dragged %.0fpx towards it" % [kind, -travelled])
+
+	# --- KNOCKBACK ----------------------------------------------------------
+	var knock := payload_of(["SLASH", "KNOCKBACK"])
+	check(knock != null and knock.knockback
+			and knock.summary().contains(Loc.t("editor.payload.knockback")),
+		"a board with KNOCKBACK carries it, and the workbench preview says so (%s)" % knock.summary())
+	# Whichever way the attack was going — up and to the left here, which
+	# nothing in an ordinary hit favours — the enemy struck is thrown on that
+	# way, by exactly KNOCKBACK_FORCE more than the same hit without the part.
+	var way := Vector2(-3.0, -1.0).normalized()
+	var nudged := dummy(Vector2(0, 2400))
+	var thrown := dummy(Vector2(400, 2400))
+	Attacks.resolve_hit(plain, nudged, nudged.global_position, way, null, null, 0)
+	Attacks.resolve_hit(knock, thrown, thrown.global_position, way, null, null, 0)
+	var extra := thrown.shove - nudged.shove
+	check(extra.is_equal_approx(way * Attacks.KNOCKBACK_FORCE),
+		"KNOCKBACK throws the enemy struck %.0f harder, the way the attack was going (%s)"
+			% [Attacks.KNOCKBACK_FORCE, str(extra)])
+	# GRAVITY's pin takes away the ordinary shove, not this one: the enemy struck
+	# still flies, while everything round it is dragged onto the impact.
+	var both := payload_of(["SLASH", "GRAVITY", "KNOCKBACK"])
+	var hub := dummy(Vector2(0, 2800))
+	var crowd := dummy(Vector2(60, 2800))
+	Attacks.resolve_hit(both, hub, hub.global_position, Vector2.RIGHT, null, null, 0)
+	check(hub.shove.is_equal_approx(Vector2.RIGHT * Attacks.KNOCKBACK_FORCE),
+		"with GRAVITY on the same attack the enemy struck is thrown, not pinned (%s)" % str(hub.shove))
+	check(crowd.shove.x < 0.0, "while the rest are still dragged onto the impact")
+	# And, like GRAVITY, it has to move a monster that writes its own velocity
+	# every frame, far enough to see: three cells is a throw, not a flinch.
+	for kind in ["DUMMY", "CRAWLER", "LOBBER", "DRIFTER"]:
+		var flew: float = await knock_travel(kind, knock) - await knock_travel(kind, plain)
+		check(flew > 3.0 * Room.CELL,
+			"a %s struck with KNOCKBACK is thrown %.0fpx further" % [kind, flew])
 
 	# --- MANA DRAIN ---------------------------------------------------------
 	var caster := Player.new()

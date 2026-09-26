@@ -249,17 +249,17 @@ func _ready() -> void:
 	# Flow into the tail half of a two-cell part is a break, not a connection.
 	var c := SkillBoard.new(7, 5, "tail")
 	c.place("INPUT", Vector2i(0, 0), 1)          # points south
-	c.place("AREA", Vector2i(0, 1), 1)           # turned to face north; tail at 0,2
+	c.place("EXPLODE", Vector2i(0, 1), 1)        # turned to face north; tail at 0,2
 	var t2 := c.trace()
 	check((t2["breaks"] as Array).is_empty(), "entering a two-cell head is fine")
 	check(t2["reachable"].size() == 2, "and the two-cell part is reachable")
 	var d := SkillBoard.new(7, 5, "tail2")
 	d.place("INPUT", Vector2i(1, 0), 1)          # points south into the TAIL cell
-	d.place("AREA", Vector2i(0, 1), 0)
+	d.place("EXPLODE", Vector2i(0, 1), 0)
 	var t3 := d.trace()
 	check((t3["breaks"] as Array).size() == 1, "entering a two-cell tail is a break")
 	check(d.first_problem() == Loc.t("editor.problem.side_entry",
-			[Components.name_for("AREA"), 1, 1]), "and the message explains it")
+			[Components.name_for("EXPLODE"), 1, 1]), "and the message explains it")
 
 	# A flow running into empty space is a leak, not a break.
 	var e := SkillBoard.new(7, 5, "leak")

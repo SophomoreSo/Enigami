@@ -66,6 +66,7 @@
 		"dash": "dash",
 		"blink": "blink",
 		"pull": "pulls in",
+		"knockback": "knocks back",
 		"shatter": "x%.1f on chilled",
 		"mana_drain": "+%.0f mana a hit",
 		"separator": ", ",

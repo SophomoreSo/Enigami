@@ -20,7 +20,7 @@ var damage: float = 10.0
 var size: float = 1.0
 var speed: float = 1.0
 var range_px: float = BASE_RANGE
-var form: String = ""              ## "", PROJECTILE, SLASH, AREA, DASHSLASH, DASHSLASH_AUTO
+var form: String = ""              ## "", PROJECTILE, SLASH, EXPLODE, DASHSLASH, DASHSLASH_AUTO
 var elements: Array[String] = []   ## FIRE / ICE
 var pierce: int = 0                ## extra targets an attack passes through
 var homing: bool = false
@@ -31,6 +31,7 @@ var blink: bool = false            ## teleport behind nearest enemy
 ## Not to be confused with a thrown weapon's `gravity_shots`, which arcs the
 ## bolt: that one is a property of the weapon and rides in the spawn context.
 var pull: bool = false
+var knockback: bool = false        ## the struck enemy is thrown on along the attack
 var shatter: bool = false          ## far harder on an enemy frost has slowed
 var mana_drain: bool = false       ## every connection pays the caster back
 var duplicates: int = 1
@@ -59,6 +60,7 @@ func clone() -> Payload:
 	p.dash = dash
 	p.blink = blink
 	p.pull = pull
+	p.knockback = knockback
 	p.shatter = shatter
 	p.mana_drain = mana_drain
 	p.duplicates = duplicates
@@ -99,6 +101,8 @@ func summary() -> String:
 		parts.append(Loc.t("editor.payload.blink"))
 	if pull:
 		parts.append(Loc.t("editor.payload.pull"))
+	if knockback:
+		parts.append(Loc.t("editor.payload.knockback"))
 	if shatter:
 		parts.append(Loc.t("editor.payload.shatter", [Attacks.SHATTER_MUL]))
 	if mana_drain:

@@ -98,7 +98,7 @@ func _ready() -> void:
 	# A two-cell part and three facings, so the code carries more than a
 	# straight line of defaults.
 	b.place("INPUT", Vector2i(0, 1), 0)
-	b.place("AREA", Vector2i(1, 1), 0)
+	b.place("EXPLODE", Vector2i(1, 1), 0)
 	b.place("FIRE", Vector2i(3, 1), 1)
 	b.place("ICE", Vector2i(3, 2), 2)
 	b.place("OUTPUT", Vector2i(2, 2), 0)

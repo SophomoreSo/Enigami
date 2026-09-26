@@ -81,18 +81,21 @@ const MAX_PARTS := 127
 ## written today has to mean the same board next year, so a part keeps its
 ## number for good, and a part that is one day retired keeps its number with it
 ## rather than letting the ones after it shuffle down — as WIRE and BEND have,
-## see `Components.RETIRED`. ID_BITS leaves room for 64;
+## see `Components.RETIRED`. A part that is renamed keeps its number too: the
+## new id takes the old one's place here, as EXPLODE took AREA's — see
+## `Components.RENAMED`. ID_BITS leaves room for 64;
 ## `tests/feature/code_test.tscn` fails the moment a part here is neither
 ## defined nor retired, or a definition has no number here.
 const CODE_IDS := [
 	"INPUT", "OUTPUT", "WIRE", "BEND",
-	"PROJECTILE", "SLASH", "AREA", "DASHSLASH", "DASHSLASH_AUTO",
+	"PROJECTILE", "SLASH", "EXPLODE", "DASHSLASH", "DASHSLASH_AUTO",
 	"FIRE", "ICE", "DAMAGE", "SIZE", "SPEED",
 	"PIERCE", "DASH", "BLINK", "HOMING", "REVERSE",
 	"SPLIT", "TEE", "DUPLICATE", "OVERCLOCK", "DELAY", "TIME_DILATION",
 	"ON_HIT", "ON_KILL", "ON_PARRY",
 	"SHATTER", "GRAVITY", "MANA_DRAIN",
 	"RANGE",
+	"KNOCKBACK",
 ]
 
 ## The last character makes the whole code weigh nothing: every character is

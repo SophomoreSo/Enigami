@@ -260,7 +260,7 @@ func _kill() -> void:
 		var p := Payload.new()
 		p.damage = 18.0
 		p.size = 1.3
-		p.form = "AREA"
+		p.form = "EXPLODE"
 		p.elements = ["FIRE"] as Array[String]
 		Attacks.spawn(p, {"attacker": null, "room": room, "team": team, "aim": Vector2.RIGHT, "origin": global_position})
 	if room != null and room.has_method("on_enemy_died"):

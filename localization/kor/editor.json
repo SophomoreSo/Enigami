@@ -66,6 +66,7 @@
 		"dash": "대시",
 		"blink": "점멸",
 		"pull": "끌어당김",
+		"knockback": "밀쳐냄",
 		"shatter": "냉각 대상에 x%.1f",
 		"mana_drain": "적중당 마나 +%.0f",
 		"separator": ", ",

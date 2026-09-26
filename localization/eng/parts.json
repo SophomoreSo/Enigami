@@ -15,8 +15,8 @@
 		"name": "SLASH",
 		"desc": "An instant short arc at the aim direction. Fast, but reach is short."
 	},
-	"AREA": {
-		"name": "AREA",
+	"EXPLODE": {
+		"name": "EXPLODE",
 		"desc": "Damages everything inside a burst radius. Uses two board cells."
 	},
 	"DASHSLASH": {
@@ -78,6 +78,10 @@
 	"GRAVITY": {
 		"name": "GRAVITY",
 		"desc": "The enemy struck is not knocked back but pinned, and every other enemy nearby is dragged onto it. Gathers a room into one place for whatever comes next."
+	},
+	"KNOCKBACK": {
+		"name": "KNOCKBACK",
+		"desc": "Hits throw the enemy back the way the attack was going. Buys room, but can put it out of reach."
 	},
 	"MANA_DRAIN": {
 		"name": "MANA DRAIN",

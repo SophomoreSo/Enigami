@@ -437,7 +437,7 @@ func _apply(id: String, p: Payload) -> void:
 	p.heat += float(def.get("heat", 0.0))
 	cycle_heat += float(def.get("heat", 0.0))
 	match id:
-		"PROJECTILE", "SLASH", "AREA", "DASHSLASH", "DASHSLASH_AUTO":
+		"PROJECTILE", "SLASH", "EXPLODE", "DASHSLASH", "DASHSLASH_AUTO":
 			p.form = id
 		"FIRE":
 			if not p.elements.has("FIRE"):
@@ -466,6 +466,8 @@ func _apply(id: String, p: Payload) -> void:
 			p.reverse = not p.reverse
 		"GRAVITY":
 			p.pull = true
+		"KNOCKBACK":
+			p.knockback = true
 		"SHATTER":
 			p.shatter = true
 		"MANA_DRAIN":
@@ -578,7 +580,7 @@ func _sim_apply(id: String, p: Payload) -> void:
 	var def := Components.get_def(id)
 	p.heat += float(def.get("heat", 0.0))
 	match id:
-		"PROJECTILE", "SLASH", "AREA", "DASHSLASH", "DASHSLASH_AUTO":
+		"PROJECTILE", "SLASH", "EXPLODE", "DASHSLASH", "DASHSLASH_AUTO":
 			p.form = id
 		"FIRE":
 			if not p.elements.has("FIRE"):
@@ -598,6 +600,7 @@ func _sim_apply(id: String, p: Payload) -> void:
 		"HOMING": p.homing = true
 		"REVERSE": p.reverse = not p.reverse
 		"GRAVITY": p.pull = true
+		"KNOCKBACK": p.knockback = true
 		"SHATTER": p.shatter = true
 		"MANA_DRAIN": p.mana_drain = true
 		"DUPLICATE": p.duplicates *= 3

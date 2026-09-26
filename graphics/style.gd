@@ -43,7 +43,7 @@ const COMPONENT := {
 
 	"PROJECTILE": {"glyph": "→"},
 	"SLASH": {"glyph": "/"},
-	"AREA": {"glyph": "◎"},
+	"EXPLODE": {"glyph": "◎"},
 	"DASHSLASH": {"glyph": "»"},
 	"DASHSLASH_AUTO": {"glyph": "»*"},
 
@@ -62,6 +62,7 @@ const COMPONENT := {
 	"HOMING": {"glyph": "◈"},
 	"REVERSE": {"glyph": "↺"},
 	"GRAVITY": {"glyph": "⤓"},
+	"KNOCKBACK": {"glyph": "↦"},
 	"MANA_DRAIN": {"glyph": "⊚"},
 
 	"SPLIT": {"glyph": "Y"},
@@ -137,7 +138,7 @@ const COMPONENT_ICON := {
 		".#.....",
 		"#......",
 	],
-	"AREA": [
+	"EXPLODE": [
 		"..###..",
 		".#...#.",
 		"#.###.#",
@@ -274,6 +275,15 @@ const COMPONENT_ICON := {
 		"...#...",
 		"...#...",
 		"...#...",
+	],
+	"KNOCKBACK": [
+		"#......",
+		"#...#..",
+		"#.####.",
+		"#.#####",
+		"#.####.",
+		"#...#..",
+		"#......",
 	],
 	"MANA_DRAIN": [
 		"...#...",

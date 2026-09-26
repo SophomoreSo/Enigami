@@ -64,8 +64,8 @@ const DEFS := {
 		"outs": [E], "payload_out": -1,
 		"desc": "An instant short arc at the aim direction. Fast, but reach is short.",
 	},
-	"AREA": {
-		"name": "AREA", "cat": CAT_FORM, "heat": 1.2, "cells": 2,
+	"EXPLODE": {
+		"name": "EXPLODE", "cat": CAT_FORM, "heat": 1.2, "cells": 2,
 		"outs": [E], "payload_out": -1,
 		"desc": "Damages everything inside a burst radius. Uses two board cells.",
 	},
@@ -149,6 +149,11 @@ const DEFS := {
 		"outs": [E], "payload_out": -1,
 		"desc": "The enemy struck is not knocked back but pinned, and every other enemy nearby is dragged onto it. Gathers a room into one place for whatever comes next.",
 	},
+	"KNOCKBACK": {
+		"name": "KNOCKBACK", "cat": CAT_BEHAVIOR, "heat": 0.5, "cells": 1,
+		"outs": [E], "payload_out": -1,
+		"desc": "Hits throw the enemy back the way the attack was going. Buys room, but can put it out of reach.",
+	},
 	"MANA_DRAIN": {
 		"name": "MANA DRAIN", "cat": CAT_BEHAVIOR, "heat": 0.5, "cells": 1,
 		"outs": [E], "payload_out": -1,
@@ -214,11 +219,17 @@ const STRUCTURAL := ["INPUT", "OUTPUT"]
 ## `BoardCode.CODE_IDS` stay theirs.
 const RETIRED := {"WIRE": E, "BEND": S}
 
+## Parts the game still has under a new id, old id -> new. EXPLODE was AREA. A
+## board, a stash or a drop saved under the old id reads back under the new one
+## — see `current_id` — and the part kept its number in `BoardCode.CODE_IDS`,
+## so a code shared before the rename builds the same board after it.
+const RENAMED := {"AREA": "EXPLODE"}
+
 ## Loot-able components, in the order the palette shows them.
 const LOOT_POOL := [
-	"PROJECTILE", "SLASH", "AREA", "DASHSLASH", "DASHSLASH_AUTO",
+	"PROJECTILE", "SLASH", "EXPLODE", "DASHSLASH", "DASHSLASH_AUTO",
 	"FIRE", "ICE", "DAMAGE", "SIZE", "SPEED", "RANGE", "SHATTER",
-	"PIERCE", "DASH", "BLINK", "HOMING", "REVERSE", "GRAVITY", "MANA_DRAIN",
+	"PIERCE", "DASH", "BLINK", "HOMING", "REVERSE", "GRAVITY", "KNOCKBACK", "MANA_DRAIN",
 	"SPLIT", "TEE", "DUPLICATE", "OVERCLOCK", "DELAY", "TIME_DILATION",
 	"ON_HIT", "ON_KILL", "ON_PARRY",
 ]
@@ -256,6 +267,11 @@ static func is_structural(id: String) -> bool:
 
 static func is_retired(id: String) -> bool:
 	return RETIRED.has(id)
+
+## The id a part goes by today. Whatever reads a part back out of a save asks
+## this first, so a profile written before a rename keeps what it had.
+static func current_id(id: String) -> String:
+	return String(RENAMED.get(id, id))
 
 ## Whether a part does its work the moment a flow enters it, rather than by
 ## carrying that flow on to an OUTPUT. `SkillRunner._apply` is where those two

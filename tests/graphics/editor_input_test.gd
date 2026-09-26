@@ -91,11 +91,11 @@ func _ready() -> void:
 	board.erase_at(Vector2i(5, 1))
 
 	# A two-cell part with no room to swing must stay put rather than vanish.
-	board.place("AREA", Vector2i(0, 4), 0)
+	board.place("EXPLODE", Vector2i(0, 4), 0)
 	await move_to(cell_pos(Vector2i(0, 4)))
 	await button(cell_pos(Vector2i(0, 4)), MOUSE_BUTTON_WHEEL_UP, true)
 	await button(cell_pos(Vector2i(0, 4)), MOUSE_BUTTON_WHEEL_UP, false)
-	check(String(board.comp_at(Vector2i(0, 4)).get("id", "")) == "AREA",
+	check(String(board.comp_at(Vector2i(0, 4)).get("id", "")) == "EXPLODE",
 		"a blocked rotation leaves the part on the board")
 	board.erase_at(Vector2i(0, 4))
 
