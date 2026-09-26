@@ -324,6 +324,11 @@ func _close_editor() -> void:
 ## that opens the menu cannot be the press that closes it.
 class PauseMenu extends Control:
 	var game: Node
+	# Built once and kept for the whole run, so the screen can change shape under
+	# it — a window dragged, a phone turned — and its shade has to go on covering
+	# the lot. The pages centre themselves.
+	func _process(_delta: float) -> void:
+		UiKit.sync_screen(self)
 	func _unhandled_input(event: InputEvent) -> void:
 		if not visible or not event.is_action_pressed("pause"):
 			return

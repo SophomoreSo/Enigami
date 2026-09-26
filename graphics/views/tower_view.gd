@@ -8,6 +8,10 @@ extends Node2D
 ## The building never changes, so it is painted once onto its own layer when
 ## the room has been built. Only the light moves: the neon buzzes, the sign
 ## stutters, and rain runs down the glass.
+##
+## Its concrete goes on past its walls, out to wherever the screen does, for the
+## same reason the rock does round a raid's room (`RoomView`): a screen longer or
+## squarer than 16:9 shows more than the building, and that is more building.
 
 const SKY_TOP := Color(0.03, 0.02, 0.08)
 const SKY_LOW := Color(0.22, 0.05, 0.22)
@@ -60,6 +64,8 @@ func _ready() -> void:
 	z_index = 1
 	if tower != null:
 		tower.built.connect(_on_built)
+	# The concrete past the walls is only as wide as the screen shows.
+	get_viewport().size_changed.connect(_still.queue_redraw)
 
 func _on_built() -> void:
 	_find_floors()
@@ -101,6 +107,7 @@ func paint(c: CanvasItem) -> void:
 		_paint_storey(c, rng, _floors[i], _floors[i + 1], i)
 	_paint_wells(c)
 	_paint_solid(c)
+	_paint_beyond(c)
 	_paint_door(c)
 
 func _paint_sky(c: CanvasItem, rng: RandomNumberGenerator) -> void:
@@ -279,6 +286,19 @@ func _paint_solid(c: CanvasItem) -> void:
 				c.draw_rect(Rect2(r.position, Vector2(C, 4)), SLAB_EDGE)
 			if not tower.is_solid(x, y + 1) and y < Room.H - 2:
 				c.draw_rect(Rect2(r.position + Vector2(0, C - 4), Vector2(C, 4)), SLAB_UNDER)
+
+## The shell past the walls: the same concrete, seamed on the same checker, so
+## the outside of the building reads as more of it.
+func _paint_beyond(c: CanvasItem) -> void:
+	var out := RoomView.reach(get_viewport())
+	for y in range(-out.y, Room.H + out.y):
+		for x in range(-out.x, Room.W + out.x):
+			if x >= 0 and y >= 0 and x < Room.W and y < Room.H:
+				continue
+			var r := Rect2(float(x) * C, float(y) * C, C, C)
+			c.draw_rect(r, SHELL)
+			if posmod(x + y, 2) == 0:
+				c.draw_rect(Rect2(r.position + Vector2(0, 14), Vector2(C, 2)), SHELL_SEAM)
 
 func _paint_door(c: CanvasItem) -> void:
 	for d in tower.cells_marked("P"):

@@ -3,9 +3,17 @@ extends Control
 
 signal continued()
 
+## What the page is written against: it stands in the middle of the screen,
+## whatever shape the screen is.
+const DESIGN := Vector2(1280, 720)
+const BACK_AT := Vector2(120, 560)
+
 var outcome: String = "extracted"
 var payload: Dictionary = {}
 var _font: Font
+var _back: Button
+## The size of screen the page was last stood in — see `_fit`.
+var _fitted := Vector2(-1, -1)
 
 func _ready() -> void:
 	_font = ThemeDB.fallback_font
@@ -14,13 +22,30 @@ func _ready() -> void:
 	bg.color = UiKit.BG
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
-	var b := UiKit.button(Loc.t("menu.results.back"), UiKit.ACCENT)
-	b.custom_minimum_size = Vector2(280, 44)
-	b.position = Vector2(120, 560)
-	b.pressed.connect(func() -> void: continued.emit())
-	add_child(b)
-	b.grab_focus()
+	_back = UiKit.button(Loc.t("menu.results.back"), UiKit.ACCENT)
+	_back.custom_minimum_size = Vector2(280, 44)
+	_back.pressed.connect(func() -> void: continued.emit())
+	add_child(_back)
+	_fit()
+	_back.grab_focus()
 	Audio.play("extract" if outcome == "extracted" else "death")
+
+## The screen follows the window — a window dragged, a phone turned — and the
+## page follows the screen.
+func _process(_delta: float) -> void:
+	UiKit.sync_screen(self)
+	_fit()
+
+func _fit() -> void:
+	if size == _fitted:
+		return
+	_fitted = size
+	_back.position = BACK_AT + _origin()
+	queue_redraw()
+
+## Where the page's own top-left corner stands on the screen.
+func _origin() -> Vector2:
+	return ((size - DESIGN) * 0.5).floor()
 
 ## As on the HUD: the default face at a small size, and a language with a face
 ## of its own drawn at the size that face was made for. See `Hud._line`.
@@ -28,6 +53,7 @@ func _line(at: Vector2, s: String, align: int, width: float, size: int, col: Col
 	draw_string(_font, at, s, align, width, Loc.text_size(s, size), col)
 
 func _draw() -> void:
+	draw_set_transform(_origin())
 	var win := outcome == "extracted"
 	var head := Loc.t("menu.results.won") if win else Loc.t("menu.results.lost")
 	_line(Vector2(120, 160), head, HORIZONTAL_ALIGNMENT_LEFT, -1, 46,

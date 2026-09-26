@@ -88,9 +88,10 @@ const STEP := 0.1
 ## 1.0 keeps the pointer exactly where the system's own, hidden, has got to.
 var sensitivity: float = 1.0
 
-## Where the game is pointing, in the 1280x720 it is drawn at. While the system
-## pointer is doing the pointing this is simply where that is; while the game is
-## doing it, this is what the mouse has been moving.
+## Where the game is pointing, on the screen it is drawn at: 1280x720, or wider
+## or taller on a display of another shape. While the system pointer is doing
+## the pointing this is simply where that is; while the game is doing it, this
+## is what the mouse has been moving.
 var point: Vector2 = Vector2.ZERO
 
 ## Where the grid the picture is drawn on starts, in screen pixels.

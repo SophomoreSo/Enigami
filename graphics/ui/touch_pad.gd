@@ -34,12 +34,19 @@ extends Control
 ## actions it is holding and `Touch` (`app/touch.gd`) sends them, so this file
 ## knows nothing about charging and the player knows nothing about thumbs.
 ##
-## **Where the controls sit is the whole design.** The screen is 1280x720
-## whatever the window is doing — `canvas_items` stretch, aspect kept — so the
-## layout is written out in that space, once, and checked against the HUD rather
-## than guessed at. The HUD owns the top-left corner down to y=112 and
-## everything below y=592, so the hand sits between them.
-## `tests/graphics/touch_pad_test` holds it all there.
+## **Where the controls sit is the whole design.** It is written out once, in
+## the 1280x720 the game is laid out in, and checked against the HUD rather than
+## guessed at: the HUD owns the top-left corner down to y=112 and the band along
+## the bottom from y=592, so the hand sits between them.
+##
+## The screen is that size or bigger. `expand` stretch gives a display longer
+## than 16:9 more width and a squarer one more height, and a thumb reaches no
+## further on a longer phone, so nothing is scaled: each control keeps its
+## distance from the corner it belongs to (`pin`, and `area`). The hand stays
+## under the right thumb at the bottom-right, the three screens in the top-right
+## corner, and the stick's zone down the left edge to the HUD's band, however
+## far away the other side of the screen has gone.
+## `tests/graphics/touch_pad_test` holds it all there, at 16:9 and off it.
 
 ## What a control is.
 ##
@@ -67,8 +74,13 @@ enum Kind { KEY, MOVE, AIM }
 ##           what the board calls a control is still its word on the glass.
 enum Face { NONE, PLAY, TALK, SCREEN, CLEAR }
 
-## Every control: what it presses, where it sits in the 1280x720 the game is
-## drawn at, and which faces it appears on.
+## Every control: what it presses, where it sits in the 1280x720 design, which
+## corner of the screen it keeps to, and which faces it appears on.
+##
+## A `pin` is that corner, as how much of the screen's room past the design the
+## control moves by, across and down: (1, 1) rides with the bottom-right corner
+## and (1, 0) with the top-right. The stick's zone keeps the top-left and has a
+## `grow` instead, so it runs down to the HUD's band however tall the screen is.
 ##
 ## A round control carries `at` and `radius`; the three screens carry a `rect`
 ## instead, because they are labelled plates rather than things a thumb rests
@@ -83,35 +95,42 @@ const CONTROLS := [
 	# health bars and the slot cards. That is the point of it: the hand goes
 	# where it likes and the stick comes to the hand.
 	{"kind": Kind.MOVE, "radius": 78.0, "knob": 30.0,
-		"zone": Rect2(0, 120, 456, 472), "faces": [Face.PLAY, Face.TALK]},
+		"zone": Rect2(0, 120, 456, 472), "grow": Vector2(0, 1), "faces": [Face.PLAY, Face.TALK]},
 	# One stick per slot, in a row above the hand. Press to arm and charge, drag
 	# to aim, let go to cast.
 	{"kind": Kind.AIM, "action": "cast_skill", "arm": "skill_1", "slot": 0,
-		"at": Vector2(988, 320), "radius": 32.0, "text": "1", "faces": [Face.PLAY]},
+		"at": Vector2(988, 320), "pin": Vector2(1, 1), "radius": 32.0, "text": "1",
+		"faces": [Face.PLAY]},
 	{"kind": Kind.AIM, "action": "cast_skill", "arm": "skill_2", "slot": 1,
-		"at": Vector2(1064, 320), "radius": 32.0, "text": "2", "faces": [Face.PLAY]},
+		"at": Vector2(1064, 320), "pin": Vector2(1, 1), "radius": 32.0, "text": "2",
+		"faces": [Face.PLAY]},
 	{"kind": Kind.AIM, "action": "cast_skill", "arm": "skill_3", "slot": 2,
-		"at": Vector2(1140, 320), "radius": 32.0, "text": "3", "faces": [Face.PLAY]},
+		"at": Vector2(1140, 320), "pin": Vector2(1, 1), "radius": 32.0, "text": "3",
+		"faces": [Face.PLAY]},
 	{"kind": Kind.AIM, "action": "cast_skill", "arm": "skill_4", "slot": 3,
-		"at": Vector2(1216, 320), "radius": 32.0, "text": "4", "faces": [Face.PLAY]},
+		"at": Vector2(1216, 320), "pin": Vector2(1, 1), "radius": 32.0, "text": "4",
+		"faces": [Face.PLAY]},
 	# The hand. USE and DASH take no direction; the weapon does, so it is a
 	# stick; JUMP is the biggest and sits where the thumb rests.
-	{"kind": Kind.KEY, "action": "interact", "at": Vector2(1102, 430), "radius": 34.0,
-		"faces": [Face.PLAY, Face.TALK]},
-	{"kind": Kind.KEY, "action": "dash", "at": Vector2(1206, 430), "radius": 34.0,
-		"faces": [Face.PLAY]},
-	{"kind": Kind.AIM, "action": "attack", "at": Vector2(1084, 522), "radius": 42.0,
-		"faces": [Face.PLAY]},
-	{"kind": Kind.KEY, "action": "jump", "at": Vector2(1196, 522), "radius": 46.0,
-		"faces": [Face.PLAY]},
+	{"kind": Kind.KEY, "action": "interact", "at": Vector2(1102, 430), "pin": Vector2(1, 1),
+		"radius": 34.0, "faces": [Face.PLAY, Face.TALK]},
+	{"kind": Kind.KEY, "action": "dash", "at": Vector2(1206, 430), "pin": Vector2(1, 1),
+		"radius": 34.0, "faces": [Face.PLAY]},
+	{"kind": Kind.AIM, "action": "attack", "at": Vector2(1084, 522), "pin": Vector2(1, 1),
+		"radius": 42.0, "faces": [Face.PLAY]},
+	{"kind": Kind.KEY, "action": "jump", "at": Vector2(1196, 522), "pin": Vector2(1, 1),
+		"radius": 46.0, "faces": [Face.PLAY]},
 	# The screens, in the far corner where nothing is reached for by accident.
 	{"kind": Kind.KEY, "action": "open_editor", "rect": Rect2(1048, 24, 64, 44),
-		"faces": [Face.PLAY, Face.SCREEN]},
+		"pin": Vector2(1, 0), "faces": [Face.PLAY, Face.SCREEN]},
 	{"kind": Kind.KEY, "action": "open_map", "rect": Rect2(1120, 24, 64, 44),
-		"faces": [Face.PLAY, Face.SCREEN]},
+		"pin": Vector2(1, 0), "faces": [Face.PLAY, Face.SCREEN]},
 	{"kind": Kind.KEY, "action": "pause", "rect": Rect2(1192, 24, 64, 44),
-		"faces": [Face.PLAY, Face.SCREEN]},
+		"pin": Vector2(1, 0), "faces": [Face.PLAY, Face.SCREEN]},
 ]
+
+## The 1280x720 the controls are written out in. See `area`.
+const DESIGN := Vector2(1280, 720)
 
 ## How far a thumb rides out from a skill button before the cast has a direction
 ## of its own, and how far out the knob is drawn. Generous, because a short
@@ -372,7 +391,7 @@ func _take(i: int, at: Vector2) -> void:
 			# thumb is asking for is measured from the thumb regardless — see
 			# `_stick_from`.
 			var r: float = c["radius"]
-			var zone: Rect2 = c["zone"]
+			var zone := area(c, _screen())
 			_stick_from = at
 			_stick_at = Vector2(
 				clampf(at.x, zone.position.x + r, zone.end.x - r),
@@ -424,7 +443,7 @@ func _drag(i: int, at: Vector2) -> void:
 			_stick = v if v.length() <= 1.0 else v.normalized()
 	else:
 		_aim_from = i
-		_aim_off = at - Vector2(c["at"])
+		_aim_off = at - middle(c, _screen())
 
 ## Lets go of `action` unless some other finger is still holding it. Two
 ## controls can press the same one: every slot stick charges through
@@ -440,18 +459,19 @@ func _let_go_of(action: String) -> void:
 ## thumb where JUMP sits during a conversation presses nothing. The stick is
 ## asked last, so its zone never takes a press meant for a button inside it.
 func _under(at: Vector2) -> int:
+	var screen := _screen()
 	var stick := -1
 	for i in CONTROLS.size():
 		var c: Dictionary = CONTROLS[i]
 		if not shown(c):
 			continue
 		if int(c["kind"]) == Kind.MOVE:
-			if (c["zone"] as Rect2).has_point(at):
+			if area(c, screen).has_point(at):
 				stick = i
 		elif c.has("rect"):
-			if (c["rect"] as Rect2).grow(SLOP).has_point(at):
+			if area(c, screen).grow(SLOP).has_point(at):
 				return i
-		elif at.distance_to(Vector2(c["at"])) <= float(c["radius"]) + SLOP:
+		elif at.distance_to(middle(c, screen)) <= float(c["radius"]) + SLOP:
 			return i
 	return stick
 
@@ -497,15 +517,33 @@ func shown(c: Dictionary) -> bool:
 		return int(c["slot"]) < _slots
 	return true
 
-## The square of screen a control covers, for anything that has to know it does
-## not cover something else.
-static func area(c: Dictionary) -> Rect2:
+## The room a screen of `screen` has past the design, in whole PIXELs, so what
+## moves by it stays on the grid everything here is drawn to.
+static func _spare(screen: Vector2) -> Vector2:
+	return ((screen - DESIGN).max(Vector2.ZERO) / PixelDraw.PX).floor() * PixelDraw.PX
+
+## Where a round control's middle is on a screen of `screen`.
+static func middle(c: Dictionary, screen: Vector2 = DESIGN) -> Vector2:
+	return Vector2(c["at"]) + _spare(screen) * Vector2(c.get("pin", Vector2.ZERO))
+
+## The square of screen a control covers on a screen of `screen`, for anything
+## that has to know it does not cover something else — and for the pad, asking
+## which one a thumb came down on.
+static func area(c: Dictionary, screen: Vector2 = DESIGN) -> Rect2:
+	var moved := _spare(screen) * Vector2(c.get("pin", Vector2.ZERO))
 	if c.has("rect"):
-		return c["rect"]
+		var plate: Rect2 = c["rect"]
+		return Rect2(plate.position + moved, plate.size)
 	if int(c["kind"]) == Kind.MOVE:
-		return c["zone"]
+		var zone: Rect2 = c["zone"]
+		return Rect2(zone.position + moved,
+			zone.size + _spare(screen) * Vector2(c.get("grow", Vector2.ZERO)))
 	var r: float = c["radius"]
-	return Rect2(Vector2(c["at"]) - Vector2.ONE * r, Vector2.ONE * r * 2.0)
+	return Rect2(middle(c, screen) - Vector2.ONE * r, Vector2.ONE * r * 2.0)
+
+## The screen the pad is laid out on: the viewport, whatever shape it has.
+func _screen() -> Vector2:
+	return get_viewport_rect().size
 
 ## What is written on a control: a slot says its number, and everything else is
 ## the word `controls.pad` gives its action — the same word the HUD prints
@@ -559,13 +597,13 @@ func _draw_button(c: Dictionary, held: bool, live: bool) -> void:
 	var ink := INK_HELD if held else (INK if live else INK_OFF)
 	var edge := EDGE_HELD if held else (EDGE if live else EDGE_OFF)
 	if c.has("rect"):
-		var r: Rect2 = c["rect"]
+		var r := area(c, _screen())
 		_px.rect(r, FILL_HELD if held else FILL)
 		_px.frame(r, edge)
 		_px.text_centered(r.position + Vector2(0, r.size.y * 0.5 + 5.0),
 			label_of(c), ink, r.size.x)
 		return
-	var at := Vector2(c["at"])
+	var at := middle(c, _screen())
 	var radius: float = c["radius"]
 	_px.disc(at, radius, FILL_HELD if held else FILL)
 	_px.ring(at, radius, PixelDraw.PX, edge)
@@ -578,7 +616,7 @@ func _draw_button(c: Dictionary, held: bool, live: bool) -> void:
 ## read out of the corner of an eye during a fight, which is the only time it
 ## is ever up.
 func _draw_throw(c: Dictionary) -> void:
-	var at := Vector2(c["at"])
+	var at := middle(c, _screen())
 	var d := _aim_off.normalized()
 	_px.ring(at, AIM_REACH, PixelDraw.PX, AIM_EDGE)
 	var step := (AIM_REACH - float(c["radius"])) / 4.0
