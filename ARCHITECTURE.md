@@ -64,8 +64,10 @@ standing check for this: delete the four graphics autoloads (`Sprites`, `Fx`,
 `tests/circuit`, `tests/feature` **and `tests/story`** still passes — raids run,
 hits resolve, boards fire, conversations run to their last line, nothing is
 drawn. CI runs it on every push. `tests/shared/module_test` checks the same rule
-class by class, from the code, and holds `circuit/` to itself and `Loc` and
-`mobile/input/` to itself and `app/`.
+class by class, from the code: every row of the table above is a row in it, the
+one-line exceptions below are pinned to the file that has each, an edge that
+was cut on purpose is listed there so it cannot come back, and no rule folder
+may name the engine's own drawing, sound or asset names either.
 
 `story/view/` reads `graphics/` the way any screen does — `UiKit`, `PixelDraw`,
 `Style`, `Sprites`, `Fx` — and adds nothing to it. Back the other way there is
@@ -77,7 +79,10 @@ the same edit.
 
 The shell in `app/` is the one place allowed to know all of them: `app/game.gd`
 is the composition root, and builds screens out of `graphics/`, `story/view/`
-and `mobile/view/` to drive `feature/` and `story/rules/`.
+and `mobile/view/` to drive `feature/` and `story/rules/`. What it asks a world
+while one is up — whether a board is open over it, whether the player stands by
+something to use — it asks through `World` (`feature/world/world.gd`), so a new
+thing to use is that world's edit and not the shell's.
 
 `graphics/` reads `mobile/input/` the way it reads any state — the HUD drops its
 key hints while the console is up, the title lays its menu out as tiles — and
@@ -135,6 +140,11 @@ branches never open the same file. An unhandled cue is silence, not an error.
 **Moments are cues; state is polled.** Whether an actor is burning is state —
 the view reads `actor.burn_time` each frame. The instant it was set alight is
 a moment. If you find yourself emitting a cue every frame, it was state.
+
+**A cue carries ids, never a line.** `refused` says `stamina`; `boss_phase`
+says which monster and which phase. `graphics/cue_visuals.gd` spells them out
+of `localization/` (`hud.fx`), so what a moment shows is in the language being
+played, and `tests/shared/loc_test` fails a rule that writes a line into a cue.
 
 ### 3. Style — for the look of a thing the rules name
 
@@ -211,7 +221,7 @@ the files and a handler on the presentation side.
 | Change | File |
 |---|---|
 | New skill component | `circuit/components.gd` + its rule in `skill_runner.gd`; a number on the end of `CODE_IDS` in `board_code.gd`, or no board carrying it can be shared; its colour, glyph and icon in `graphics/style.gd` |
-| The share code — what it carries, how long it is | `circuit/board_code.gd`; the sheet that shows it, `graphics/ui/share_code_panel.gd` |
+| The share code — what it carries, how long it is | `circuit/board_code.gd`; the sheet that shows it, and spells its refusals, `graphics/ui/share_code_panel.gd` |
 | New monster | `feature/actors/monsters.gd`; its sprite and colour in `graphics/style.gd` |
 | New NPC or dialogue | a file in `data/dialogue/` — see its README; no code. New *kinds* of direction: `story/view/dialogue_box.gd` (emotion, portrait), `story/view/npc_view.gd` (camera), `app/audio/audio_cues.gd` (sound) |
 | A new directed scene, or a new staging direction | a file in `data/scenes/` — see its README; no code. A new direction is a case in `story/rules/cutscene.gd` and, if it shows, `story/view/cutscene_view.gd` |
@@ -225,6 +235,10 @@ the files and a handler on the presentation side.
 | HUD layout, editor look — where a thing sits, not what it says | `graphics/ui/` |
 | The resolution the world is drawn at | `graphics/pixel_camera.gd` (the size comes from `Sprites.PIXEL_SCALE`) |
 | A new sound | `app/audio/audio_cues.gd` |
+| What a moment says on screen — WINDED, a boss's second form | `hud.fx` in `localization/`, spelled in `graphics/cue_visuals.gd`; the rule sends the id |
+| A setting on both settings pages — a volume, the language, the screen | `graphics/ui/settings_rows.gd` for the game's, `graphics/ui/video_rows.gd` for the machine's; the title and the pause menu both ask for the rows |
+| A new thing a press of `interact` can use in a world | that world's `use_nearby()`, see `feature/world/world.gd`; the shell asks and names nothing |
+| What the forge costs, and that a skill sits in one slot at a time | `feature/core/game_state.gd` (`FORGE_COST`, `FORGE_INPUTS`, `assign_skill`); the counter only asks |
 | A control on the on-screen console — where it sits, whether it is a key or a stick, what it says | `CONTROLS` in `mobile/view/touch_pad.gd`, and its word in `controls.pad` in `localization/`. What pressing it does to the game is `mobile/input/touch.gd`, which sends the action a keyboard would and is the only thing that knows a finger from a key |
 | Where a player may move a console button, and what is kept of it | `mobile/view/touch_layout_editor.gd`; the arrangement itself, `TouchPad.layout` in `mobile/view/touch_pad.gd` |
 | A new screen | `app/game.gd`, plus its Control in `graphics/ui/` |
@@ -244,6 +258,8 @@ nothing and live in `graphics/fx.gd`.
 | `Loc` | app | every word, in the language being played |
 | `Cues` | app | the seam |
 | `Audio`, `AudioCues` | app | the synthesised sound bank, and what each cue sounds like |
+| `Pointer` | app | where the hand is pointing, at the speed the setting asks, and whether the system's arrow is hidden under it |
+| `Video` | app | whether the window takes the whole display, and whether an impact may move the camera |
 | `Arena` | feature | the node live world objects are parented to |
 | `TimeCtl` | feature | hitstop and dilation |
 | `GameState` | feature | the profile, the stash, the raid in progress |

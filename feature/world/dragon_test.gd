@@ -1,5 +1,5 @@
 class_name DragonTest
-extends Node2D
+extends World
 
 ## A proving ground for a chain of lunges, after the room in Katana ZERO where
 ## the Dragon tries out his dash: a building of storeys with guards posted apart
@@ -28,7 +28,6 @@ var player: Player
 var boards: Array = []
 ## The editor's pool: unused, because parts are unlimited here as on the bench.
 var inventory: Dictionary = {}
-var editing: bool = false
 var total_guards: int = 0
 var guards_left: int = 0
 ## Guards cut down since the last skill went out, and the most any one cast has

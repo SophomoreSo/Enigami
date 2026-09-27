@@ -352,9 +352,9 @@ func _ready() -> void:
 		check(game.pause_general != null and game.pause_general.visible
 				and not game.pause_main.visible,
 			"and leaves the general page open, where the button was")
-		check(button_named(game.pause_general, Loc.t("menu.pause.language")) == null
+		check(button_named(game.pause_general, Loc.t("menu.settings.language")) == null
 				and find_under(game.pause_general, func(c: Node) -> bool:
-					return c is Label and (c as Label).text == Loc.t("menu.pause.language")) != null,
+					return c is Label and (c as Label).text == Loc.t("menu.settings.language")) != null,
 			"the page is rebuilt in %s" % pause_other)
 		Loc.set_language(pause_was)
 		await frames(8)

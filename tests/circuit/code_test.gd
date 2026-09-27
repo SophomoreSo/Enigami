@@ -230,16 +230,17 @@ func _ready() -> void:
 
 	# --- and so is everything else ------------------------------------------
 	check(not BoardCode.is_valid(""), "an empty code is refused")
-	check(BoardCode.decode("").error == BoardCode.error_text("empty"),
+	check(BoardCode.decode("").error == BoardCode.EMPTY,
 		"and says there is nothing there")
 	check(not BoardCode.is_valid(".....'"), "punctuation alone is refused")
 	check(not BoardCode.is_valid(body + alpha[0]), "a character stuck on the end is refused")
 	check(not BoardCode.is_valid(body.left(body.length() - 1)), "one missing is refused")
-	check(BoardCode.decode("abcdefg").error == BoardCode.error_text("length", [7]),
+	check(BoardCode.decode("abcdefg").error == BoardCode.LENGTH
+			and BoardCode.decode("abcdefg").args == [7],
 		"a code of the wrong length says so, rather than failing on the board")
 	# A 0 is not in the alphabet at all, and the one slip worth naming.
 	check(BoardCode.decode(body.left(2) + "0" + body.substr(3)).error
-			== BoardCode.error_text(BoardCode.HAS_ZERO),
+			== BoardCode.HAS_ZERO,
 		"a 0 typed where an O was meant says so")
 	# Five characters over what 29 bits hold are not a word of a board, whatever
 	# the check character says: "zzzzz" is 61^5 - 1, far over it.
@@ -250,8 +251,9 @@ func _ready() -> void:
 	check(not BoardCode.is_valid(over), "but five characters no board could have written are refused")
 	# A code from a version that does not exist yet.
 	var future := _with_version(7)
-	check(BoardCode.decode(future).error == BoardCode.error_text("version", [7, BoardCode.VERSION]),
-		"a code from another version says which (%s)" % BoardCode.decode(future).error)
+	check(BoardCode.decode(future).error == BoardCode.WRONG_VERSION
+			and BoardCode.decode(future).args == [7, BoardCode.VERSION],
+		"a code from another version says which (%s)" % str(BoardCode.decode(future).args))
 
 	# --- a board from before WIRE and BEND were retired ---------------------
 	# A save reads back the way the old code above does. The starter board every
@@ -269,9 +271,10 @@ func _ready() -> void:
 		"a run of them closes up from both ends")
 	var gap := _saved([["INPUT", 0, 2, 0], ["SLASH", 1, 2, 0], ["WIRE", 2, 2, 0],
 		["DAMAGE", 3, 2, 0], ["OUTPUT", 4, 2, 0]])
-	check(gap.cells.size() == 4
-			and gap.first_problem() == Loc.t("editor.problem.leak", [1, 2, Components.dir_name(0)]),
-		"one with neither end beside it leaves its cell empty, and the board says where it breaks")
+	var gap_leaks: Array = gap.trace()["leaks"]
+	check(gap.cells.size() == 4 and gap_leaks.size() == 1
+			and gap_leaks[0]["from"] == Vector2i(1, 2) and int(gap_leaks[0]["dir"]) == 0,
+		"one with neither end beside it leaves its cell empty, and the trace says where the flow leaks")
 	var fed_twice := _saved([["INPUT", 0, 1, 0], ["SLASH", 1, 1, 1], ["OUTPUT", 1, 2, 0], ["WIRE", 2, 2, 2]])
 	check(same_parts(fed_twice, _board([["INPUT", 0, 1, 0], ["SLASH", 1, 1, 1], ["OUTPUT", 1, 2, 0]])),
 		"and an OUTPUT something else feeds stays where it is")

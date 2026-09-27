@@ -287,13 +287,7 @@ func _loadout_column() -> Control:
 			UiKit.GOOD if compatible else UiKit.BAD)
 		btn.disabled = not compatible
 		btn.pressed.connect(func() -> void:
-			var s := GameState.get_loadout(weapon_id)
-			# One skill cannot sit in two slots at once.
-			for k in s.size():
-				if int(s[k]) == i:
-					s[k] = -1
-			s[focus_slot] = i
-			GameState.set_loadout(weapon_id, s)
+			var s := GameState.assign_skill(weapon_id, focus_slot, i)
 			focus_slot = mini(focus_slot + 1, s.size() - 1)
 			rebuild())
 		row.add_child(btn)
@@ -347,7 +341,7 @@ func _facilities_column() -> Control:
 	sh.add_child(_pad())
 	# No arrow in the pixel face: three of them go in, one comes out.
 	var fb := _button(Loc.t("hideout.stash.forge"), UiKit.WARN)
-	fb.disabled = GameState.scrap < 25 or _stash_total() < 3
+	fb.disabled = not GameState.can_forge()
 	fb.pressed.connect(_forge)
 	sh.add_child(fb)
 	v.add_child(sh)
@@ -418,12 +412,6 @@ func _shop_shelf() -> Control:
 		list.add_child(row)
 	return v
 
-func _stash_total() -> int:
-	var n := 0
-	for k in GameState.stash:
-		n += int(GameState.stash[k])
-	return n
-
 func _forge() -> void:
 	# Spend the most plentiful spares first, so a unique part is never melted.
 	var ids: Array = GameState.stash.keys()
@@ -433,9 +421,9 @@ func _forge() -> void:
 	for id in ids:
 		var n := int(GameState.stash[id])
 		for i in n:
-			if pick.size() < 3:
+			if pick.size() < GameState.FORGE_INPUTS:
 				pick.append(String(id))
-	if pick.size() < 3:
+	if pick.size() < GameState.FORGE_INPUTS:
 		return
 	if GameState.forge_component(pick) != "":
 		Audio.play("pickup")

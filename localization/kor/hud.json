@@ -2,6 +2,11 @@
 	"health": "%d / %d",
 	"burning": "화상",
 	"chilled": "냉각",
+	"fx": {
+		"winded": "탈진",
+		"parry": "막아냄",
+		"boss_phase": "%s: 제2형태"
+	},
 	"slot": {
 		"not_on": "%s 사용 불가",
 		"hint": "%s 공격 · 숫자 키로 스킬 장착 · %s 길게 눌러 충전, 떼면 시전"

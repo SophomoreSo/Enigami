@@ -44,6 +44,11 @@ func _ready() -> void:
 	layer.add_child(map_panel)
 
 	raid.noticed.connect(func(text: String) -> void: hud.show_toast(text))
+	# The raid says the player is in; which key gets them out again is the
+	# picture's to name — a rebind, or a button on a phone's console.
+	raid.deployed.connect(func(kit_waiting: bool) -> void:
+		hud.show_toast(Loc.t("hud.toast.kit_waiting") if kit_waiting
+			else Loc.t("hud.toast.deployed", [Controls.short_label_for("interact")])))
 	raid.editing_changed.connect(_on_editing)
 	raid.reading_map_changed.connect(_on_reading_map)
 
@@ -52,6 +57,7 @@ func _process(_delta: float) -> void:
 		return
 	hud.player = raid.player
 	hud.prompt = raid.prompt
+	hud.extract_offered = raid.room != null and is_instance_valid(raid.room) and raid.room.extract_offered
 	hud.extract_ratio = raid.extract_ratio
 	map_panel.map = raid.map
 	map_panel.room = raid.room

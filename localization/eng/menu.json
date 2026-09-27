@@ -29,14 +29,11 @@
 	"pause": {
 		"heading": "PAUSED",
 		"resume": "BACK TO GAME",
-		"music": "Music",
-		"sound": "Sound",
 		"general": "GENERAL SETTINGS",
 		"back": "BACK",
 		"title": "MAIN MENU",
 		"park": "MAIN MENU — the raid is kept where you left it",
 		"abandon": "ABANDON RAID — forfeits the kit",
-		"language": "Language",
 		"arrow": "<"
 	},
 	"results": {

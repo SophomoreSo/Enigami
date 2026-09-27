@@ -33,12 +33,12 @@ func _ready() -> void:
 	h.place("DELAY", Vector2i(1, 2), 2)          # points back west at the INPUT
 	var th := h.trace()
 	check((th["breaks"] as Array).size() == 1, "outputs meeting head-on is a break")
-	var msg := h.first_problem()
-	print("[TRACE] message: ", msg)
+	var hb: Dictionary = (th["breaks"] as Array)[0] if not (th["breaks"] as Array).is_empty() else {}
 	# The break is named at the part that would not take the flow — the DELAY
 	# turned back on the INPUT — not at the one that sent it.
-	check(msg == Loc.t("editor.problem.head_on", [Components.name_for("DELAY"), 1, 2]),
-		"the message explains the head-on case")
+	check(String(hb.get("id", "")) == "DELAY" and hb.get("to") == Vector2i(1, 2)
+			and String(hb.get("why", "")) == "facing",
+		"and it is reported at the part that turned the flow back (%s)" % str(hb))
 
 	# Nothing may feed back into the INPUT.
 	var fb := SkillBoard.new(7, 5, "feedback")
@@ -147,8 +147,12 @@ func _ready() -> void:
 		"and neither the INPUT feeding it nor the OUTPUT it never reaches is")
 	check((td["dead_links"] as Array).size() == 4,
 		"the ring's own seams come back with it, so one silhouette can go round it")
-	check(dl.first_problem() == Loc.t("editor.problem.dead_loop"),
-		"and the board names the trap rather than only saying nothing comes out")
+	var trapped := false
+	for origin in td["reachable"]:
+		if caught.has(origin):
+			trapped = true
+	check(trapped and not bool(td["reaches_output"]),
+		"and the flow runs into the trap, so nothing comes out")
 
 	# The same ring with nothing feeding it: a trap is a trap before anything
 	# falls into it, so this is marked too.
@@ -258,21 +262,24 @@ func _ready() -> void:
 	d.place("EXPLODE", Vector2i(0, 1), 0)
 	var t3 := d.trace()
 	check((t3["breaks"] as Array).size() == 1, "entering a two-cell tail is a break")
-	check(d.first_problem() == Loc.t("editor.problem.side_entry",
-			[Components.name_for("EXPLODE"), 1, 1]), "and the message explains it")
+	var sb: Dictionary = (t3["breaks"] as Array)[0] if not (t3["breaks"] as Array).is_empty() else {}
+	check(String(sb.get("why", "")) == "side" and String(sb.get("id", "")) == "EXPLODE"
+			and sb.get("to") == Vector2i(1, 1),
+		"and it is reported as the tail cell entered (%s)" % str(sb))
 
 	# A flow running into empty space is a leak, not a break.
 	var e := SkillBoard.new(7, 5, "leak")
 	e.place("INPUT", Vector2i(0, 2), 0)
 	var t4 := e.trace()
 	check((t4["leaks"] as Array).size() == 1, "a dangling output is reported as a leak")
-	check(e.first_problem() == Loc.t("editor.problem.leak",
-			[0, 2, Components.dir_name(0)]), "and the message says so")
+	var lk: Dictionary = (t4["leaks"] as Array)[0] if not (t4["leaks"] as Array).is_empty() else {}
+	check(lk.get("from") == Vector2i(0, 2) and int(lk.get("dir", -1)) == 0,
+		"and it says where the flow leaves, and which way (%s)" % str(lk))
 
 	# No INPUT at all.
 	var f := SkillBoard.new(7, 5, "noinput")
 	f.place("SLASH", Vector2i(2, 2), 0)
-	check(f.first_problem() == Loc.t("editor.problem.no_input"),
+	check(not bool(f.trace()["has_input"]),
 		"a board with no INPUT says so")
 
 	# A wired board with no attack form reports that, not a wiring fault.
@@ -280,8 +287,10 @@ func _ready() -> void:
 	g.place("INPUT", Vector2i(0, 2), 0)
 	g.place("DELAY", Vector2i(1, 2), 0)
 	g.place("OUTPUT", Vector2i(2, 2), 0)
-	check(g.first_problem() == Loc.t("editor.problem.no_form"),
-		"a formless chain says what is missing")
+	var tg := g.trace()
+	check(bool(tg["has_input"]) and bool(tg["reaches_output"]) and (tg["breaks"] as Array).is_empty()
+			and (tg["leaks"] as Array).is_empty() and g.compute_tags().is_empty(),
+		"a formless chain is wired clean, and carries no attack form")
 
 	print("[TRACE] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)

@@ -52,6 +52,10 @@ const BAR_EDGE := Color(0.5, 0.6, 0.7, 0.8)
 
 var player: Player = null
 var prompt: String = ""
+## Whether the player stands in an exit that will take them. The HUD writes the
+## line for it, since the line names the key that extracts, and which key that
+## is — after a rebind, or on a phone — is the picture's to know.
+var extract_offered: bool = false
 var extract_ratio: float = 0.0
 var toast: String = ""
 var toast_time: float = 0.0
@@ -193,9 +197,11 @@ func _draw_armed() -> void:
 
 func _draw_prompts(vp: Vector2) -> void:
 	var band := 600.0
-	if prompt != "":
+	var line := Loc.t("hud.extract.hold", [Controls.short_label_for("interact")]) \
+		if extract_offered else prompt
+	if line != "":
 		_px.text_centered(Vector2((vp.x - band) * 0.5, vp.y - PROMPT_LIFT),
-			prompt, Color(0.85, 0.95, 1.0), band)
+			line, Color(0.85, 0.95, 1.0), band)
 	if extract_ratio > 0.0:
 		var w := 304.0
 		var r := Rect2(vp.x * 0.5 - w * 0.5, vp.y * 0.5 + 120.0, w, 16.0)

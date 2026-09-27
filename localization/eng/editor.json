@@ -61,15 +61,5 @@
 		"mana_drain": "+%.0f mana a hit",
 		"separator": ", ",
 		"then": "then"
-	},
-	"problem": {
-		"no_input": "No INPUT placed — the flow has nowhere to start.",
-		"no_input_short": "No INPUT placed",
-		"side_entry": "%s at %d,%d is entered through its tail. Flow can only go in the head cell.",
-		"head_on": "%s at %d,%d sends its own flow back this way. Two outputs cannot meet.",
-		"leak": "The flow leaves %d,%d heading %s and finds nothing there.",
-		"dead_loop": "The flow runs into a ring with no way out and goes round there until its life runs out. Turn a part in the ring so that something leads out of it.",
-		"no_output": "The chain never reaches an OUTPUT.",
-		"no_form": "The flow reaches an OUTPUT, but no attack form is on the path."
 	}
 }

@@ -1,5 +1,5 @@
 class_name Sandbox
-extends Node2D
+extends World
 
 ## A room where nothing is at stake. Parts are unlimited, boards are copies of
 ## the library, and the same skill can be tried on each weapon back to back so
@@ -22,7 +22,6 @@ var npc: Npc
 var boards: Array = []
 var weapon_index: int = 0
 var inventory: Dictionary = {}
-var editing: bool = false
 ## Whether the drawer of bench tools is out. The player is held still while it
 ## is, the way they are while assembling: its buttons are pressed with the mouse
 ## they would otherwise be aiming with.
@@ -148,3 +147,7 @@ func set_tools_open(on: bool) -> void:
 
 func on_board_changed(slot: int) -> void:
 	player.rebuild_runner(slot)
+
+## The guest on the bench, in talking range.
+func use_nearby() -> bool:
+	return npc != null and is_instance_valid(npc) and npc.in_range

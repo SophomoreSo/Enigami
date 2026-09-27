@@ -296,38 +296,6 @@ static func _reach_from(links: Dictionary, start: Vector2i) -> Dictionary:
 		queue.append_array(links.get(at, []))
 	return seen
 
-## The first thing wrong with this board, phrased for the player.
-func first_problem() -> String:
-	var t := trace()
-	if not bool(t["has_input"]):
-		return Loc.t("editor.problem.no_input")
-	var breaks: Array = t["breaks"]
-	if not breaks.is_empty():
-		var b: Dictionary = breaks[0]
-		var to: Vector2i = b["to"]
-		if String(b["why"]) == "side":
-			return Loc.t("editor.problem.side_entry", [
-				Components.name_for(String(b["id"])), to.x, to.y])
-		# The only join that cannot carry flow is two outputs meeting head-on.
-		return Loc.t("editor.problem.head_on", [
-			Components.name_for(String(b["id"])), to.x, to.y])
-	var leaks: Array = t["leaks"]
-	if not leaks.is_empty():
-		var l: Dictionary = leaks[0]
-		var f: Vector2i = l["from"]
-		return Loc.t("editor.problem.leak", [
-			f.x, f.y, Components.dir_name(int(l["dir"]))])
-	# A flow that has run into a loop it cannot leave never reaches an OUTPUT,
-	# and saying only that sends the player hunting for a part that is missing
-	# instead of looking at the ring the editor has just greyed out.
-	var dead: Dictionary = t["dead"]
-	for origin in t["reachable"]:
-		if dead.has(origin):
-			return Loc.t("editor.problem.dead_loop")
-	if not bool(t["reaches_output"]):
-		return Loc.t("editor.problem.no_output")
-	return Loc.t("editor.problem.no_form")
-
 ## Tags describe what a board does, which is what weapons check for compatibility.
 func compute_tags() -> Array[String]:
 	var t: Array[String] = []

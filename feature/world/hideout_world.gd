@@ -1,5 +1,5 @@
 class_name HideoutWorld
-extends Node2D
+extends World
 
 ## Between raids, as a place rather than a screen. The player stands in a room
 ## and walks to what they want: the rack to pick the weapon they will carry, the
@@ -50,13 +50,12 @@ var stations: Dictionary = {}
 ## Which panel is open over the room, or "" for none. While one is open the
 ## player is held still: they are reading, not walking.
 var open_panel: String = ""
-## Whether the workbench's editor is up over the room, opened on the assembly
-## key or off the bench's list. `app/game.gd` owns the editor and says so here,
-## the way a raid and the sandbox are told theirs; the player is held under it
-## just as under a panel. Opened by key from the floor it used to hold nobody,
-## so the player walked the room behind it and the game kept the mouse for
-## their aim.
-var editing: bool = false
+## `editing`, from `World`, is whether the workbench's editor is up over the
+## room, opened on the assembly key or off the bench's list. `app/game.gd` owns
+## the editor and says so here, the way a raid and the sandbox are told theirs;
+## the player is held under it just as under a panel. Opened by key from the
+## floor it used to hold nobody, so the player walked the room behind it and
+## the game kept the mouse for their aim.
 ## The weapon the kit is being built around. The rack writes it, the bench reads
 ## it, and the gate carries it.
 var weapon_id: String = ""
@@ -268,3 +267,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			s.interact()
 			get_viewport().set_input_as_handled()
 			return
+
+## A station open and within reach.
+func use_nearby() -> bool:
+	for s in stations.values():
+		if (s as Station).near and (s as Station).open:
+			return true
+	return false

@@ -237,8 +237,9 @@ func _boss_logic(_delta: float) -> void:
 		phase = 2
 		board = Monsters.build_board(kind, "board_phase2")
 		_make_runner()
-		Cues.at(&"boss_phase", global_position,
-			{"actor": self, "text": "%s: SECOND FORM" % String(def["name"]).to_upper()})
+		# The monster and the phase it has entered, not a line about them: the
+		# picture spells that, in the language being played.
+		Cues.at(&"boss_phase", global_position, {"kind": kind, "phase": phase})
 
 func _gap_ahead(dir: float) -> bool:
 	if room == null or not room.has_method("is_solid_at"):

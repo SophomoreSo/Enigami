@@ -534,6 +534,10 @@ func consume_parry() -> Payload:
 ## tick loop — is what kept letting the editor and the game disagree, and once a
 ## cast shared one pool of life between its pulses the two even disagreed about
 ## which pulse got the last of it. There is only one walk now, so they cannot.
+##
+## `error` is "" when the board ran, or the id of what stopped it — `no_input`
+## — for a screen to spell in the language being played. Nothing here names a
+## word.
 func simulate() -> Dictionary:
 	var a := board.analyze()
 	var speed := maxf(float(a.get("speed_mul", 1.0)), 0.05)
@@ -545,7 +549,7 @@ func simulate() -> Dictionary:
 		"ttl": cycle_ttl(), "expired": false, "error": "",
 	}
 	if board.find_input() == null:
-		blank["error"] = Loc.t("editor.problem.no_input_short")
+		blank["error"] = "no_input"
 		return blank
 
 	var dry := SkillRunner.new(board)
@@ -574,33 +578,3 @@ func simulate() -> Dictionary:
 	blank["expired"] = dry.expired
 	blank["cycle_seconds"] = float(total) * BASE_TICK / speed
 	return blank
-
-## Same mutations as _apply, minus the live signals.
-func _sim_apply(id: String, p: Payload) -> void:
-	var def := Components.get_def(id)
-	p.heat += float(def.get("heat", 0.0))
-	match id:
-		"PROJECTILE", "SLASH", "EXPLODE", "DASHSLASH", "DASHSLASH_AUTO":
-			p.form = id
-		"FIRE":
-			if not p.elements.has("FIRE"):
-				p.elements.append("FIRE")
-		"ICE":
-			if not p.elements.has("ICE"):
-				p.elements.append("ICE")
-		"DAMAGE": p.damage += 8.0
-		"SIZE": p.size *= 1.6
-		"SPEED":
-			p.speed *= SPEED_MUL
-			p.range_px *= SPEED_RANGE_MUL
-		"RANGE": p.range_px *= RANGE_MUL
-		"PIERCE": p.pierce += 2
-		"DASH": p.dash = true
-		"BLINK": p.blink = true
-		"HOMING": p.homing = true
-		"REVERSE": p.reverse = not p.reverse
-		"GRAVITY": p.pull = true
-		"KNOCKBACK": p.knockback = true
-		"SHATTER": p.shatter = true
-		"MANA_DRAIN": p.mana_drain = true
-		"DUPLICATE": p.duplicates *= 3

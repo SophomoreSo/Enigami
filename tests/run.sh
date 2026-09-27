@@ -23,6 +23,9 @@
 #   --exclude GLOB      skip scenes whose path matches; repeatable
 #   --strict            also fail on SCRIPT ERROR lines, not just assertions
 #   --godot PATH        the binary to use (default $GODOT, else `godot`)
+#   --live-save         run against the desk's own save and settings. By default
+#                       HOME is pointed at .test-home/ in the project, so a test's
+#                       reset_profile() lands there and never on the slot you play
 #
 # $GODOT_ARGS is appended to every godot invocation, for the things a CI box
 # needs and a desk does not (`--audio-driver Dummy`, say).
@@ -40,6 +43,7 @@ TIMEOUT=180
 LOG_DIR=".test-logs"
 QUARANTINE_FILE="tests/quarantine.txt"
 STRICT=0
+LIVE_SAVE=0
 TARGETS=()
 EXCLUDES=()
 
@@ -51,6 +55,7 @@ while [ $# -gt 0 ]; do
 		--quarantine) QUARANTINE_FILE="$2"; shift 2 ;;
 		--exclude)    EXCLUDES+=("$2"); shift 2 ;;
 		--strict)     STRICT=1; shift ;;
+		--live-save)  LIVE_SAVE=1; shift ;;
 		--godot)      GODOT="$2"; shift 2 ;;
 		-h|--help)    sed -n '2,30p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
 		-*)           echo "run.sh: unknown option $1" >&2; exit 2 ;;
@@ -64,6 +69,17 @@ if [ ${#TARGETS[@]} -eq 0 ]; then
 fi
 
 command -v "$GODOT" >/dev/null 2>&1 || { echo "run.sh: no godot at '$GODOT'" >&2; exit 2; }
+
+# Thirty-odd scenes call GameState.reset_profile(), and Godot keeps user:// under
+# $HOME — so run as they were, the tests overwrote the save and the settings of
+# whoever ran them. A HOME of the project's own keeps every run out of the desk's
+# files, and keeps what a run wrote (user://shots, say) where it can be found.
+# XDG_DATA_HOME would send a Linux box somewhere else; it goes with it.
+if [ "$LIVE_SAVE" -eq 0 ]; then
+	export HOME="$PROJECT_ROOT/.test-home"
+	unset XDG_DATA_HOME XDG_CONFIG_HOME XDG_CACHE_HOME
+	mkdir -p "$HOME"
+fi
 
 # Collect scenes, in a stable order so two runs are comparable.
 SCENES=()

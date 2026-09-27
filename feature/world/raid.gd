@@ -1,5 +1,5 @@
 class_name Raid
-extends Node2D
+extends World
 
 ## Runs one deployment: a connected map, one room loaded at a time, and the two
 ## ways a raid can end.
@@ -11,6 +11,11 @@ extends Node2D
 signal finished(result: String, payload: Dictionary)
 ## Something worth saying once, in passing: loot picked up, a boss down.
 signal noticed(text: String)
+## The player is in: on a fresh deploy, or back where their kit fell
+## (`kit_waiting`). A fact rather than a line, because the line names the key
+## that extracts, and which key that is — after a rebind, or on a phone, where
+## it is a button on the console — is the picture's to know.
+signal deployed(kit_waiting: bool)
 ## The assembly overlay opened or closed. The raid keeps running either way.
 signal editing_changed(on: bool)
 ## The map opened or closed. The raid keeps running either way, as above.
@@ -21,10 +26,12 @@ signal room_changed(room: Room)
 var map: RaidMap
 var room: Room = null
 var player: Player
-var editing: bool = false
 var reading_map: bool = false
 var ended: bool = false
-## What the player could do where they are standing, or "" for nothing.
+## What stands between the player and the exit they are standing in — a toll,
+## a seal — or "" when nothing does, or they are not in one. An exit that will
+## take them is the room's `extract_offered`, and the HUD writes the line for
+## that one itself, since the line names the key that extracts.
 var prompt: String = ""
 ## 0 → 1 while an extraction is being held.
 var extract_ratio: float = 0.0
@@ -55,8 +62,7 @@ func _ready() -> void:
 
 	if parked.is_empty():
 		_enter_room(map.entry, -1)
-		noticed.emit(Loc.t("hud.toast.kit_waiting") if waiting
-			else Loc.t("hud.toast.deployed", [Controls.short_label_for("interact")]))
+		deployed.emit(waiting)
 		return
 	# Back into the room it was left in, standing where it was left standing.
 	# `_enter_room` puts the player on the room's own spawn point, which is the
@@ -212,14 +218,12 @@ func _update_prompt() -> void:
 	if room == null:
 		return
 	var txt := ""
-	if not room.extraction.is_empty():
-		var reason := room.extraction_blocked_reason()
-		if room.extraction_rect().has_point(player.global_position):
-			# Named rather than spelled out: the line used to say "hold F", which
-			# is wrong after a rebind and wrong on a phone, where the key that
-			# extracts is one on the console.
-			txt = Loc.t("hud.extract.hold", [Controls.short_label_for("interact")]) \
-				if reason == "" else reason
+	if not room.extraction.is_empty() and room.extraction_rect().has_point(player.global_position):
+		# Only what is in the way. The line for an exit that is open used to be
+		# written here too, and it names the key that extracts — which changed
+		# its words with the console, a thing no rule should know. The HUD
+		# writes that one now, off `room.extract_offered`.
+		txt = room.extraction_blocked_reason()
 	prompt = txt
 
 ## --- rooms ------------------------------------------------------------------
@@ -362,3 +366,7 @@ func set_reading_map(on: bool) -> void:
 
 func on_board_changed(slot: int) -> void:
 	player.rebuild_runner(slot)
+
+## An exit the player is standing in, with nothing sealing it.
+func use_nearby() -> bool:
+	return room != null and is_instance_valid(room) and room.extract_offered

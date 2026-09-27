@@ -42,6 +42,7 @@ func _ready() -> void:
 	_check_conversations()
 	_check_keys_exist()
 	_check_nothing_hardcoded()
+	_check_cues_carry_ids()
 	_check_switching()
 	_check_fonts()
 	_check_pixel_face()
@@ -239,6 +240,15 @@ func _check_keys_exist() -> void:
 		if not Loc.has(key):
 			unknown.append("%s (%s)" % [key, String(asked[key]).get_file()])
 	check(unknown.is_empty(), "every line a screen asks for exists (missing: %s)" % _first(unknown))
+	# A share code's refusal is an id the circuit returns and the sheet spells as
+	# `editor.code_error.<id>`, which the scan above cannot see; so every id the
+	# decoder can return is asked for here by name.
+	var unspelled: Array = []
+	for id in BoardCode.REFUSALS:
+		if not Loc.has("editor.code_error.%s" % id):
+			unspelled.append(String(id))
+	check(unspelled.is_empty(),
+		"every refusal a share code can meet has a line (missing: %s)" % _first(unspelled))
 
 ## A sentence written into a screen instead of into `localization/` does not
 ## fail anywhere: it simply stays in English in every language, and the only
@@ -289,9 +299,24 @@ func _check_nothing_hardcoded() -> void:
 		"every line the game says to the player comes out of localization/ (written in: %s)"
 			% _first(found))
 
-func _scripts() -> Array:
+## A cue carries ids, never a line. The picture spells them, in the language
+## being played — so a rule that writes a line into a cue's dictionary, a boss
+## announcing its second form in English, is drawn as it is in every language,
+## and none of the sinks above sees it, because a Dictionary key is not a call.
+func _check_cues_carry_ids() -> void:
+	var re := RegEx.create_from_string("\"text\"\\s*:\\s*\"[^\"\\n]*[A-Za-z]")
+	var found: Array = []
+	for path in _scripts(["res://feature", "res://story/rules", "res://circuit"]):
+		var src := FileAccess.get_file_as_string(path)
+		for m in re.search_all(src):
+			var upto := src.substr(0, m.get_start())
+			found.append("%s:%d" % [String(path).get_file(), upto.count("\n") + 1])
+	check(found.is_empty(),
+		"no rule writes a line into a cue; the picture spells the id (%s)" % _first(found))
+
+func _scripts(dirs: Array = SRC_DIRS) -> Array:
 	var out: Array = []
-	var queue: Array = SRC_DIRS.duplicate()
+	var queue: Array = dirs.duplicate()
 	while not queue.is_empty():
 		var dir: String = queue.pop_front()
 		for sub in DirAccess.get_directories_at(dir):

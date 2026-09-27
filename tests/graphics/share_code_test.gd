@@ -144,7 +144,7 @@ func _ready() -> void:
 	key(KEY_ENTER)
 	await frames(2)
 	check(same_parts(want, b), "a code with one character wrong leaves the board alone")
-	check(ed._share._note == BoardCode.error_text(BoardCode.MISTYPED),
+	check(ed._share._note == ShareCodePanel.error_text(BoardCode.MISTYPED),
 		"and says so (%s)" % ed._share._note)
 
 	# Case is half the alphabet: the same letters in the wrong case is a
@@ -162,7 +162,7 @@ func _ready() -> void:
 	type_char("0")
 	await frames(2)
 	check(ed._share.entry.is_empty(), "a 0 never lands in the field")
-	check(ed._share._note == BoardCode.error_text(BoardCode.HAS_ZERO),
+	check(ed._share._note == ShareCodePanel.error_text(BoardCode.HAS_ZERO),
 		"and the sheet says why (%s)" % ed._share._note)
 
 	# ESC closes the sheet, and only the sheet.

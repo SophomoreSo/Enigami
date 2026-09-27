@@ -5,7 +5,7 @@ extends RefCounted
 ## message, read down a phone, printed under a screenshot.
 ##
 ##     BoardCode.encode(board)   ->  "hBw4kTq2Nr8dGxMPvL5cJ"
-##     BoardCode.decode(code)    ->  {"board": SkillBoard, "error": ""}
+##     BoardCode.decode(code)    ->  {"board": SkillBoard, "error": "", "args": []}
 ##
 ## **Case matters.** The alphabet is the digits, the capitals and the small
 ## letters — 61 characters, which carries a board in a little over half the
@@ -116,20 +116,22 @@ const CHECK_MOD := 61
 ## the check character failing and five characters no board could have written
 ## are the same news to the player.
 ##
-## These are the names of the lines, not the lines: what a refusal actually
-## says is in `localization/<lang>/editor.json` under `code_error`, so a code
-## typed wrong is complained about in the language it was typed in. Read one
-## with `error_text`.
+## These are the names of the refusals, not the lines: what one actually says
+## is in `localization/<lang>/editor.json` under `code_error`, and the sheet
+## that shows a code spells it (`ShareCodePanel.error_text`), so a code typed
+## wrong is complained about in the language it was typed in — and the circuit
+## names no word, in any language.
 const MISTYPED := "mistyped"
 const TRUNCATED := "truncated"
 const IMPOSSIBLE := "impossible"
 const HAS_ZERO := "has_zero"
-
-## One of the refusals above, spelled out. `decode` already returns its `error`
-## this way; this is for a screen that wants to say one before it has a code to
-## decode — the sheet warning about a 0 as it is typed.
-static func error_text(key: String, args: Array = []) -> String:
-	return Loc.t("editor.code_error.%s" % key, args)
+const EMPTY := "empty"
+const LENGTH := "length"
+const WRONG_VERSION := "version"
+const UNKNOWN_PART := "unknown_part"
+## Every refusal `decode` can return, for the test that holds each to a line.
+const REFUSALS := [MISTYPED, TRUNCATED, IMPOSSIBLE, HAS_ZERO, EMPTY, LENGTH,
+	WRONG_VERSION, UNKNOWN_PART]
 
 ## --- writing ----------------------------------------------------------------
 
@@ -175,9 +177,10 @@ static func reading_order(board: SkillBoard) -> Array:
 
 ## Reads a code back into a board.
 ##
-## Returns `{"board": SkillBoard, "error": ""}`, or a null board and one line
-## saying what is wrong with the code, phrased for the player the same way
-## `SkillBoard.first_problem` phrases a fault on the grid.
+## Returns `{"board": SkillBoard, "error": "", "args": []}`, or a null board and
+## the id of what is wrong with the code — one of the refusals above — with the
+## numbers its line takes in `args`. The sheet spells it, in the language being
+## played; the circuit only says which.
 static func decode(code: String) -> Dictionary:
 	# A 0 is the one slip the alphabet itself can explain, and it is worth saying
 	# before anything else: dropped silently it shortens the code, and the
@@ -186,11 +189,11 @@ static func decode(code: String) -> Dictionary:
 		return _fail(HAS_ZERO)
 	var c := clean(code)
 	if c.is_empty():
-		return _fail("empty")
+		return _fail(EMPTY)
 	# Words of five and the check character: any other length is not a code at
 	# all, and saying so beats failing later on with something about the board.
 	if c.length() % WORD_CHARS != 1:
-		return _fail("length", [c.length()])
+		return _fail(LENGTH, [c.length()])
 	if not _checks_out(c):
 		return _fail(MISTYPED)
 
@@ -210,7 +213,7 @@ static func decode(code: String) -> Dictionary:
 	if not r.ok:
 		return _fail(TRUNCATED)
 	if ver != VERSION:
-		return _fail("version", [ver, VERSION])
+		return _fail(WRONG_VERSION, [ver, VERSION])
 
 	var board := SkillBoard.new(w, h, name_for(c))
 	var cell_bits := _cell_bits(w, h)
@@ -222,7 +225,7 @@ static func decode(code: String) -> Dictionary:
 		if not r.ok:
 			return _fail(TRUNCATED)
 		if part >= CODE_IDS.size():
-			return _fail("unknown_part")
+			return _fail(UNKNOWN_PART)
 		if pos >= w * h:
 			return _fail(IMPOSSIBLE)
 		var origin := Vector2i(pos % w, int(pos / w))
@@ -246,7 +249,7 @@ static func decode(code: String) -> Dictionary:
 	if not r.rest_is_padding():
 		return _fail(MISTYPED)
 	board.drop_retired(retired)
-	return {"board": board, "error": ""}
+	return {"board": board, "error": "", "args": []}
 
 ## Whether `code` reads back as a board at all. The board itself is thrown away,
 ## so anything about to use one should call `decode` and keep what it returns.
@@ -345,7 +348,7 @@ static func _put(bits: Array[int], value: int, n: int) -> void:
 		bits.append((value >> i) & 1)
 
 static func _fail(key: String, args: Array = []) -> Dictionary:
-	return {"board": null, "error": error_text(key, args)}
+	return {"board": null, "error": key, "args": args}
 
 ## A cursor over the bits, which reports running off the end rather than
 ## returning a zero that would read as a real part in an empty corner.

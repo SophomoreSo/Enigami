@@ -236,14 +236,32 @@ func trade_board(have: SkillBoard, want: SkillBoard, pool: Dictionary) -> Dictio
 			take_component(id, pool)
 	return {}
 
-## Forge: spend scrap and three spare parts for one random better part.
+## What the forge asks: this much scrap and this many spare parts, melted down
+## for one random part from the loot pool. The counter's button greys itself on
+## `can_forge`, so the price is written here once and on no screen.
+const FORGE_COST := 25
+const FORGE_INPUTS := 3
+
+## Whether the forge would take what is on the shelves: the scrap, and enough
+## spare parts to melt, of whatever kind.
+func can_forge() -> bool:
+	return scrap >= FORGE_COST and stash_total() >= FORGE_INPUTS
+
+## Every part on the shelves, of every kind.
+func stash_total() -> int:
+	var n := 0
+	for id in stash:
+		n += int(stash[id])
+	return n
+
+## Forge: spend the scrap and the spare parts for one random better part.
 func forge_component(inputs: Array[String]) -> String:
-	if inputs.size() < 3 or scrap < 25:
+	if inputs.size() < FORGE_INPUTS or scrap < FORGE_COST:
 		return ""
 	for id in inputs:
 		if not take_component(id, stash):
 			return ""
-	scrap -= 25
+	scrap -= FORGE_COST
 	var pool := Components.LOOT_POOL.duplicate()
 	var out: String = pool[randi() % pool.size()]
 	add_component(out, 1)
@@ -310,10 +328,30 @@ func get_loadout(weapon_id: String) -> Array:
 	loadout_slots[weapon_id] = out
 	return out
 
+## One skill cannot sit in two slots at once. The rule is applied here, on the
+## way in, so it holds for every caller and not only for the panel that used to
+## apply it: the first slot a board is named in keeps it.
 func set_loadout(weapon_id: String, slots_arr: Array) -> void:
-	loadout_slots[weapon_id] = slots_arr.duplicate()
+	var out: Array = []
+	for v in slots_arr:
+		out.append(-1 if int(v) >= 0 and out.has(int(v)) else int(v))
+	loadout_slots[weapon_id] = out
 	loadout_changed.emit()
 	save_game()
+
+## Puts board `idx` of the library into `slot` of `weapon_id`'s loadout, and out
+## of whichever slot it was in before. What the loadout panel's buttons do.
+## Returns the loadout as it now stands.
+func assign_skill(weapon_id: String, slot: int, idx: int) -> Array:
+	var s := get_loadout(weapon_id)
+	if slot < 0 or slot >= s.size():
+		return s
+	for k in s.size():
+		if int(s[k]) == idx:
+			s[k] = -1
+	s[slot] = idx
+	set_loadout(weapon_id, s)
+	return get_loadout(weapon_id)
 
 ## --- skill library ----------------------------------------------------------
 func new_skill() -> SkillBoard:

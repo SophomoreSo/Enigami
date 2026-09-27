@@ -21,6 +21,12 @@ extends Control
 signal build_requested(code: String)
 signal closed()
 
+## One of `BoardCode`'s refusals, spelled out: the id it returns and the numbers
+## its line takes, as the line in `localization/<lang>/editor.json` under
+## `code_error`. The circuit says what is wrong; the sheet says it in words.
+static func error_text(key: String, args: Array = []) -> String:
+	return Loc.t("editor.code_error.%s" % key, args)
+
 ## What the panel is looking at. The editor sets this when it opens the sheet
 ## and again after a code has been built, so COPY is never a stale board.
 var code: String = ""
@@ -124,7 +130,7 @@ func handle_key(e: InputEventKey) -> bool:
 	# the only way to tell an `a` from an `A` without knowing the keyboard.
 	var typed := char(e.unicode) if e.unicode > 0 else ""
 	if typed == "0":
-		note(BoardCode.error_text(BoardCode.HAS_ZERO), UiKit.WARN)
+		note(error_text(BoardCode.HAS_ZERO), UiKit.WARN)
 		Audio.play("deny")
 	elif BoardCode.holds(typed) and entry.length() < BoardCode.max_chars():
 		_set_entry(entry + typed)
@@ -306,7 +312,7 @@ func _live_note() -> String:
 		return Loc.t("editor.share.typing", [entry.length()])
 	var read := BoardCode.decode(entry)
 	if String(read["error"]) != "":
-		return String(read["error"])
+		return error_text(String(read["error"]), read["args"] as Array)
 	var board: SkillBoard = read["board"]
 	var tags := board.compute_tags()
 	return Loc.t("editor.share.summary", [board.width, board.height, board.cells.size(),

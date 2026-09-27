@@ -485,7 +485,7 @@ func _build_from_code(entry: String) -> void:
 		return
 	var read := BoardCode.decode(entry)
 	if String(read["error"]) != "":
-		_share.note(String(read["error"]), UiKit.BAD)
+		_share.note(ShareCodePanel.error_text(String(read["error"]), read["args"] as Array), UiKit.BAD)
 		Audio.play("deny")
 		return
 	var want: SkillBoard = read["board"]

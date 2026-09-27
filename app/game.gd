@@ -131,39 +131,24 @@ func _touch_face() -> int:
 		return TouchPad.Face.TALK if p.talk_locked else TouchPad.Face.SCREEN
 	return TouchPad.Face.NONE
 
-## Whether a press of `interact` would do something where the player stands:
-## an NPC in talking range, a hideout station open and within reach, or a
-## raid's exit they are standing in with nothing sealing it. The console's
-## HIT button turns into USE while this holds — and the shell answers, since
-## the three things that can be used live in three modules and only the shell
-## may know all of them.
+## Whether a press of `interact` would do something where the player stands.
+## The console's HIT button turns into USE while this holds. Each world answers
+## for the things it stages — an exit, a station, a guest; see `World` — so the
+## shell, which used to name a station and an NPC to work this out, names
+## neither, and a new thing to use is an edit to the world that has it.
 func _use_nearby() -> bool:
-	for n in get_tree().get_nodes_in_group("npcs"):
-		if n is Npc and (n as Npc).in_range:
-			return true
-	if current is HideoutWorld:
-		for s in (current as HideoutWorld).stations.values():
-			if (s as Station).near and (s as Station).open:
-				return true
-	if current is Raid:
-		var room = (current as Raid).room
-		return room != null and is_instance_valid(room) and room.extract_offered
-	return false
+	if current == null or not is_instance_valid(current) or not (current is World):
+		return false
+	return (current as World).use_nearby()
 
 ## Whether an assembly board is up: the hideout's workbench, which is the
-## shell's own, or the one a raid, the sandbox or the dragon test carries.
+## shell's own, or the one the world under it carries.
 func _assembling() -> bool:
 	if editor != null and is_instance_valid(editor):
 		return true
-	if current == null or not is_instance_valid(current):
+	if current == null or not is_instance_valid(current) or not (current is World):
 		return false
-	if current is Raid:
-		return (current as Raid).editing
-	if current is Sandbox:
-		return (current as Sandbox).editing
-	if current is DragonTest:
-		return (current as DragonTest).editing
-	return false
+	return (current as World).editing
 
 func _clear() -> void:
 	if current != null and is_instance_valid(current):
@@ -449,8 +434,9 @@ func _build_pause_menu() -> void:
 	overlay_layer.add_child(pause_menu)
 
 ## The page behind GENERAL SETTINGS: the volumes, the language, and the way back
-## to PAUSED. The same three the title's settings hold, since this is the same
-## menu reached from inside a game.
+## to PAUSED. The same three the title's settings hold — the same rows, in fact,
+## made by `SettingsRows` and `VideoRows` for both — since this is the same menu
+## reached from inside a game.
 ##
 ## A language switched here has to reach everything already on screen. Most of
 ## it costs nothing — the HUD and the bench's readout write their words in
@@ -466,10 +452,7 @@ func _build_pause_general() -> void:
 	frame.head.add_child(_pause_heading(Loc.t("menu.pause.general"),
 		func() -> void: _pause_general(false)))
 	frame.head.add_child(UiKit.hline(true))
-	frame.rows.add_child(_vol_row(Loc.t("menu.pause.music"), func() -> float: return Audio.music_volume, func(x: float) -> void: Audio.set_music_volume(x)))
-	frame.rows.add_child(_vol_row(Loc.t("menu.pause.sound"), func() -> float: return Audio.sfx_volume, func(x: float) -> void: Audio.set_sfx_volume(x)))
-	frame.rows.add_child(_pause_language_row())
-	for row in VideoRows.rows():
+	for row in SettingsRows.rows() + VideoRows.rows():
 		frame.rows.add_child(row)
 	frame.foot.add_child(UiKit.spacer(8))
 	var back := UiKit.button(Loc.t("menu.pause.back"), UiKit.ACCENT, true)
@@ -526,44 +509,6 @@ func _pause_heading(text: String, back: Callable) -> Control:
 	arrow.pressed.connect(back)
 	h.add_child(arrow)
 	h.add_child(UiKit.title(text, 24, true))
-	return h
-
-## One button per language, written in itself, like the title's. Switching is a
-## rebuild of everything holding words — see `_build_pause_general` — and this
-## menu is one of them, so the button pressed is freed by its own press.
-func _pause_language_row() -> Control:
-	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 8)
-	var l := UiKit.label(Loc.t("menu.pause.language"), 16, UiKit.TEXT, true)
-	l.custom_minimum_size = Vector2(UiKit.SETTING_LABEL_W, 0)
-	h.add_child(l)
-	for lang in Loc.languages():
-		var picked: bool = lang == Loc.language
-		var b := UiKit.button(Loc.language_name(lang),
-			UiKit.ACCENT if picked else UiKit.DIM, true)
-		if picked:
-			UiKit.mark_chosen(b)
-		b.pressed.connect(func() -> void:
-			Audio.play("ui")
-			Loc.set_language(lang))
-		h.add_child(b)
-	return h
-
-func _vol_row(name: String, getter: Callable, setter: Callable) -> Control:
-	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 8)
-	var l := UiKit.label(name, 16, UiKit.TEXT, true)
-	l.custom_minimum_size = Vector2(UiKit.SETTING_LABEL_W, 0)
-	h.add_child(l)
-	var s := HSlider.new()
-	s.min_value = 0.0
-	s.max_value = 1.0
-	s.step = 0.05
-	s.value = getter.call()
-	s.custom_minimum_size = Vector2(240, 20)
-	UiKit.pixel_slider(s)
-	s.value_changed.connect(setter)
-	h.add_child(s)
 	return h
 
 func _unhandled_input(event: InputEvent) -> void:

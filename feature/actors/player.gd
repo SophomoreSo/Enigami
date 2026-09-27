@@ -558,7 +558,7 @@ func _jump_and_dash() -> void:
 	if not controls_locked() and Input.is_action_just_pressed("dash") and _dash_cd <= 0.0:
 		if stamina < DASH_STAMINA:
 			# Nothing happening at all reads as a dropped input, so say why.
-			Cues.at(&"refused", global_position, {"kind": "stamina", "text": "WINDED"})
+			Cues.at(&"refused", global_position, {"kind": "stamina"})
 		else:
 			stamina -= DASH_STAMINA
 			_stamina_pause = STAMINA_PAUSE

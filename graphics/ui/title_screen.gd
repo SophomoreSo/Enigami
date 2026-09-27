@@ -735,13 +735,7 @@ func _build_settings() -> void:
 func _build_general() -> void:
 	_general = _settings_page()
 	var v := _settings_column(_general, Loc.t("menu.settings.general"))
-	v.add_child(_slider(Loc.t("menu.settings.music"), Audio.music_volume,
-		func(val: float) -> void: Audio.set_music_volume(val)))
-	v.add_child(_slider(Loc.t("menu.settings.sound"), Audio.sfx_volume, func(val: float) -> void:
-		Audio.set_sfx_volume(val)
-		Audio.play("ui")))
-	v.add_child(_language_row())
-	for row in VideoRows.rows():
+	for row in SettingsRows.rows() + VideoRows.rows():
 		v.add_child(row)
 	_general.foot.add_child(UiKit.spacer(8))
 	var back := UiKit.button(Loc.t("menu.settings.back"), UiKit.ACCENT, true)
@@ -788,27 +782,6 @@ func _settings_column(page: UiKit.ScreenFrame, heading: String) -> VBoxContainer
 	page.head.add_child(UiKit.hline(true))
 	return page.rows
 
-## One button per language, laid out like a slider row: the label on the left
-## and the choices beside it. Each language is written in itself, so somebody
-## who has landed in the wrong one can still find their way back.
-func _language_row() -> Control:
-	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 8)
-	var l := UiKit.label(Loc.t("menu.settings.language"), 16, UiKit.TEXT, true)
-	l.custom_minimum_size = Vector2(UiKit.SETTING_LABEL_W, 0)
-	h.add_child(l)
-	for lang in Loc.languages():
-		var picked: bool = lang == Loc.language
-		var b := UiKit.button(Loc.language_name(lang),
-			UiKit.ACCENT if picked else UiKit.DIM, true)
-		if picked:
-			UiKit.mark_chosen(b)
-		b.pressed.connect(func() -> void:
-			Audio.play("ui")
-			Loc.set_language(lang))
-		h.add_child(b)
-	return h
-
 ## The whole menu, in the new language. Everything here is text laid out once
 ## in `_ready`, so a change of language is a rebuild rather than a refresh —
 ## and whichever settings page was up is put back open, because that is where
@@ -846,23 +819,6 @@ func _relanguage(_lang: String) -> void:
 		_menu_root.visible = false
 	elif was_slots:
 		_show_save_slots()
-
-func _slider(name: String, value: float, cb: Callable) -> Control:
-	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 8)
-	var l := UiKit.label(name, 16, UiKit.TEXT, true)
-	l.custom_minimum_size = Vector2(UiKit.SETTING_LABEL_W, 0)
-	h.add_child(l)
-	var s := HSlider.new()
-	s.min_value = 0.0
-	s.max_value = 1.0
-	s.step = 0.05
-	s.value = value
-	s.custom_minimum_size = Vector2(240, 20)
-	UiKit.pixel_slider(s)
-	s.value_changed.connect(cb)
-	h.add_child(s)
-	return h
 
 func _toggle_settings() -> void:
 	# Settings can only be reached from the main column, so that is the one to

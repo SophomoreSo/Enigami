@@ -42,12 +42,13 @@ godot res://tests/graphics/bench_pixel_test.tscn # the bench panel's pixel look 
 godot res://tests/circuit/code_test.tscn    # a board survives being written down as a code
 godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
 godot res://tests/feature/reach_test.tscn   # how far an attack goes when the stick says how far
+godot res://tests/feature/forge_test.tscn   # the forge's price, and one skill in one slot: the profile's rules
 godot res://tests/graphics/share_code_test.tscn # sharing a board, and what a pasted code costs
 godot res://tests/circuit/ttl_test.tscn     # a pulse's life, and what bounds a loop
 godot res://tests/feature/charge_test.tscn  # holding the cast button buys life for mana
 godot res://tests/story/npc_test.tscn       # talking to an NPC, line by line
 godot res://tests/shared/loc_test.tscn      # every language says everything, and can be drawn
-godot res://tests/shared/module_test.tscn   # what each module may name: the circuit only itself and Loc
+godot res://tests/shared/module_test.tscn   # what each module may name, row by row, and what no rule may
 godot res://tests/mobile/touch_layout_test.tscn # SET BUTTON POSITIONS: drag a button, keep it, play with it there
 godot res://tests/feature/dragon_test.tscn  # one charged cast clears the whole tower
 godot res://tests/graphics/shots.tscn   # writes a screenshot of each screen to user://shots
@@ -66,6 +67,11 @@ Every scene gets a deadline, because a test that waits for a window it will
 never get does not fail — it hangs. A log per scene lands in `.test-logs/`, and
 the run exits nonzero if anything failed that
 [isn't quarantined](tests/quarantine.txt).
+
+The run points `HOME` at `.test-home/` in the project, so the thirty-odd scenes
+that reset the profile never touch the save you play or the settings you chose;
+`--live-save` runs against those on purpose. Anything a run writes to `user://`
+— screenshots, say — lands under there too.
 
 A fresh checkout has no `.godot/`, so nothing resolves a `class_name` until
 `godot --headless --import` has run once. That is a step in making a worktree,
