@@ -86,7 +86,10 @@ func _ready() -> void:
 	add_child(game)
 	await frames(10)
 	for shape: Vector2i in [LONG, SQUARE]:
-		DisplayServer.window_set_size(shape)
+		# Through the Window node, not the display server: the node is what sizes
+		# the viewport, and on X11 without a window manager (CI's Xvfb) it never
+		# hears of a size set past it, so the design stayed 1280x720 there.
+		get_window().size = shape
 		await frames(8)
 		if not _the_shape(shape):
 			continue
@@ -99,7 +102,7 @@ func _ready() -> void:
 		game.goto_title()
 		await frames(10)
 	Touch.set_mode(was_mode)
-	DisplayServer.window_set_size(was_size)
+	get_window().size = was_size
 	print("[FIT] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)
 
