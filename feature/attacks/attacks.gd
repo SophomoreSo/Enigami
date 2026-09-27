@@ -87,6 +87,18 @@ const DASH_LUNGE_SPEED := 620.0
 ## it: the cursor decides where inside that range it lands.
 const DASH_SLASH_REACH := 170.0
 
+## How much of its own distance an attack aimed at the shortest reach still
+## covers. The right stick says how far a cast goes (`Player.aim_reach`, the
+## `reach` a spawn is handed): a bolt's range, a thrown shot's arc, a lunge, a
+## DASH. Pushed just past its dead zone it goes this share of the way, and at
+## the rim all of it. A burst and a swing happen where the caster stands and do
+## not move with it.
+const REACH_MIN := 0.3
+
+## `reach`, 0 to 1, as the share of an attack's own distance it covers.
+static func distance_for(reach: float) -> float:
+	return lerpf(REACH_MIN, 1.0, clampf(reach, 0.0, 1.0))
+
 ## GRAVITY. How far from the impact the pull reaches at size 1, and how hard it
 ## drags. The far end of the field pulls harder than the near end, which is the
 ## opposite of real gravity and the point of this one: an even pull leaves the
@@ -127,6 +139,8 @@ class Deferred extends Node:
 	var attacker = null
 	var room: Node = null
 	var ctx: Dictionary = {}
+	## How far a scheduled lunge goes — see `Attacks.distance_for`.
+	var far: float = 1.0
 
 	func _process(delta: float) -> void:
 		t -= delta
@@ -139,7 +153,7 @@ class Deferred extends Node:
 			"burst":
 				Attacks._burst(payload, pos, team, atk, room)
 			"dash":
-				Attacks._dash_slash(payload, aim, team, atk, room)
+				Attacks._dash_slash(payload, aim, team, atk, room, far)
 			"spawn":
 				# The full spawn path, so a trigger's attack behaves exactly as
 				# it would fired straight off the board.
@@ -159,7 +173,7 @@ class Deferred extends Node:
 		queue_free()
 
 static func _schedule(seconds: float, kind: String, p: Payload, aim: Vector2, pos: Vector2,
-		team: int, attacker: Actor, room) -> void:
+		team: int, attacker: Actor, room, far: float = 1.0) -> void:
 	var w := container()
 	if w == null or not is_instance_valid(w):
 		return
@@ -172,6 +186,7 @@ static func _schedule(seconds: float, kind: String, p: Payload, aim: Vector2, po
 	d.team = team
 	d.attacker = attacker
 	d.room = room
+	d.far = far
 	w.add_child(d)
 
 ## Schedules a whole `spawn` — used for trigger follow-ups, which need the form
@@ -189,7 +204,8 @@ static func _schedule_spawn(seconds: float, p: Payload, ctx: Dictionary) -> void
 	w.add_child(d)
 
 ## ctx keys: attacker (Actor), room (Node), aim (Vector2), team (int),
-##           origin (Vector2), gravity (bool)
+##           origin (Vector2), gravity (bool), reach (float, 0 to 1 — how far
+##           the aim asks the attack to go; all of it when it is not said)
 static func spawn(payload: Payload, ctx: Dictionary) -> void:
 	var w := container()
 	if w == null or not is_instance_valid(w):
@@ -202,6 +218,7 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 		aim = Vector2.RIGHT
 	aim = aim.normalized()
 	var origin: Vector2 = ctx.get("origin", attacker.global_position if attacker != null else Vector2.ZERO)
+	var far := distance_for(float(ctx.get("reach", 1.0)))
 
 	# Movement effects run first: they decide where the attack comes from.
 	if payload.blink and attacker != null and is_instance_valid(attacker):
@@ -214,7 +231,7 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 				origin = behind
 				Cues.emit_cue(&"blink", {"from": was, "to": behind})
 	if payload.dash and attacker != null and is_instance_valid(attacker):
-		attacker.velocity = aim * DASH_LUNGE_SPEED
+		attacker.velocity = aim * DASH_LUNGE_SPEED * far
 		if attacker.has_method("on_dashed"):
 			attacker.on_dashed()
 		Cues.at(&"lunge", attacker.global_position)
@@ -227,7 +244,8 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 		"PROJECTILE":
 			for i in count:
 				var spread := 0.0 if count == 1 else deg_to_rad(lerpf(-16.0, 16.0, float(i) / float(count - 1)))
-				_projectile(payload, origin, aim.rotated(spread), team, attacker, room, bool(ctx.get("gravity", false)))
+				_projectile(payload, origin, aim.rotated(spread), team, attacker, room,
+					bool(ctx.get("gravity", false)), far)
 		"SLASH":
 			for i in count:
 				var delay := float(i) * 0.07
@@ -246,18 +264,24 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 		"DASHSLASH", "DASHSLASH_AUTO":
 			for i in count:
 				if i == 0:
-					_dash_slash(payload, aim, team, attacker, room)
+					_dash_slash(payload, aim, team, attacker, room, far)
 				else:
-					_schedule(float(i) * 0.12, "dash", payload, aim, origin, team, attacker, room)
+					_schedule(float(i) * 0.12, "dash", payload, aim, origin, team, attacker, room, far)
 		_:
 			pass
 
-static func _projectile(p: Payload, pos: Vector2, dir: Vector2, team: int, atk: Actor, room, gravity: bool) -> void:
+static func _projectile(p: Payload, pos: Vector2, dir: Vector2, team: int, atk: Actor, room,
+		gravity: bool, far: float = 1.0) -> void:
 	var n := Projectile.new()
 	n.setup(p, pos, dir, team, atk, room)
 	if gravity:
 		n.gravity = 620.0
-		n.velocity *= 0.85
+		# A thrown shot comes down where its arc does, which moves with the square
+		# of the speed it leaves at. Cutting its range instead would end it in the
+		# air, halfway through the throw.
+		n.velocity *= 0.85 * sqrt(far)
+	else:
+		n.range_px *= far
 	container().add_child(n)
 
 static func _melee(p: Payload, dir: Vector2, team: int, atk: Actor, room) -> void:
@@ -280,13 +304,13 @@ static func _burst(p: Payload, pos: Vector2, team: int, atk: Actor, room) -> voi
 	container().add_child(n)
 	Cues.at(&"area_blast", pos, {"payload": p})
 
-static func _dash_slash(p: Payload, aim: Vector2, team: int, atk: Actor, room) -> void:
+static func _dash_slash(p: Payload, aim: Vector2, team: int, atk: Actor, room, far: float = 1.0) -> void:
 	if atk == null or not is_instance_valid(atk):
 		return
 	if room != null and not is_instance_valid(room):
 		room = null
 	var start: Vector2 = atk.global_position
-	var reach := DASH_SLASH_REACH * p.size
+	var reach := DASH_SLASH_REACH * p.size * far
 	var dest: Vector2
 	if p.form == "DASHSLASH_AUTO":
 		var t := nearest_target(start, team, 520.0)

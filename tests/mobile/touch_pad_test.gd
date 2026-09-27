@@ -100,7 +100,7 @@ func button_named(root: Node, text: String) -> Button:
 ## the slot it arms.
 func control_of(id: String) -> Dictionary:
 	for c in TouchPad.CONTROLS:
-		if String(c.get("action", "")) == id or String(c.get("arm", "")) == id:
+		if String(c.get("action", "")) == id or String(c.get("arm", "")) == id or String(c.get("alt", "")) == id:
 			return c
 	return {}
 
@@ -108,6 +108,10 @@ func control_of(id: String) -> Dictionary:
 ## given it.
 func spot(id: String) -> Vector2:
 	return TouchPad.area(control_of(id), screen()).get_center()
+
+func slopped(c: Dictionary, s: Vector2) -> Rect2:
+	var r := TouchPad.area(c, s)
+	return r if c.has("zone") else r.grow(TouchPad.SLOP)
 
 func screen() -> Vector2:
 	return get_viewport().get_visible_rect().size
@@ -150,7 +154,9 @@ func _ready() -> void:
 	await _into_a_raid()
 	await _the_stick()
 	await _the_skills()
+	await _the_reach()
 	await _the_faces()
+	await _hit_is_use()
 	await _another_window()
 	await _the_drawer()
 	Touch.set_mode(was_mode)
@@ -256,9 +262,16 @@ func _placed_on(s: Vector2) -> void:
 	var overlap: Array = []
 	for i in TouchPad.CONTROLS.size():
 		for j in range(i + 1, TouchPad.CONTROLS.size()):
-			var a := TouchPad.area(TouchPad.CONTROLS[i], s).grow(TouchPad.SLOP)
-			var b := TouchPad.area(TouchPad.CONTROLS[j], s).grow(TouchPad.SLOP)
-			if a.intersects(b):
+				# A zone answers only to a thumb inside it, so it gets no slop; two
+			# zones may share an edge, and a press on it lands in one of them.
+			var a := slopped(TouchPad.CONTROLS[i], s)
+			var b := slopped(TouchPad.CONTROLS[j], s)
+			# Two controls never up at once cannot be pressed at once: the page
+			# in a conversation covers the hand, which is not there then.
+			var together := false
+			for f in TouchPad.CONTROLS[i]["faces"]:
+				together = together or (TouchPad.CONTROLS[j]["faces"] as Array).has(f)
+			if together and a.intersects(b):
 				overlap.append("%s/%s" % [TouchPad.CONTROLS[i].get("action", "move"),
 					TouchPad.CONTROLS[j].get("action", "move")])
 	check(overlap.is_empty(), "%s: no two controls overlap, slop and all (%s)" % [shape, str(overlap)])
@@ -492,6 +505,20 @@ func _the_skills() -> void:
 		return
 	var key := "skill_%d" % (slot + 1)
 	var where := spot(key)
+	# A cast's first OUTPUT goes off the moment it is let go of; whatever the
+	# board does after that plays out in real time. This board's second attack
+	# comes a good eight frames later — by which time a console that did not
+	# hold the aim would be aiming with the other thumb.
+	var later := one_now_one_later()
+	var dry := SkillRunner.new(later).simulate()
+	check(String(dry["error"]) == "" and (dry["outputs"] as Array).size() == 2,
+		"the board runs clean, to two attacks (%s)" % dry["error"])
+	var boards: Array = []
+	for r in player.runners:
+		boards.append(r.board)
+	boards[slot] = later
+	player.setup(player.weapon_id, boards)
+	await frames(2)
 
 	# Press: the slot is armed and the charge starts.
 	player.select_slot((slot + 1) % player.runners.size())
@@ -529,6 +556,16 @@ func _the_skills() -> void:
 	# read a few frames before the thumb lifts and the hold goes on paying in
 	# between, so what the cast carries is at least that and no more than the
 	# ceiling.
+	#
+	# The thumb that aimed it is gone the moment it casts, and a board fires
+	# ticks later — so the left thumb runs right as the right one lets go, and
+	# every attack the cast fires is watched for where it went.
+	var went: Array = []
+	var watch := func(_slot: int) -> void: went.append(player.aim)
+	player.slot_fired.connect(watch)
+	touch(1, landed, true)
+	drag(1, landed + Vector2(radius * 2.0, 0.0))
+	await frames(1)
 	var paid := player.charge
 	touch(0, where + Vector2(0.0, -TouchPad.AIM_REACH), false)
 	await frames(3)
@@ -538,6 +575,19 @@ func _the_skills() -> void:
 			and player.cast_charge <= player.charge_cap() + 0.001,
 		"the cast carries what the hold paid for (%.1f, at least the %.1f on the meter)"
 			% [player.cast_charge, paid])
+	var waited := 0
+	while player.casting(slot) and waited < 600:
+		await get_tree().process_frame
+		waited += 1
+	await frames(3)
+	player.slot_fired.disconnect(watch)
+	check(went.size() == 2 and went.all(func(a: Vector2) -> bool: return a.y < -0.9),
+		"both attacks the cast fires go up, where it was thrown — the later one too, though the left thumb is running right (%s)"
+			% str(went))
+	check(pad.aim().is_equal_approx(Vector2.RIGHT),
+		"and once it has gone off the aim is the left stick's again (%s)" % str(pad.aim()))
+	touch(1, landed + Vector2(radius * 2.0, 0.0), false)
+	await frames(2)
 
 	# A tap with no throw in it still goes somewhere: forwards.
 	player.face(-1)
@@ -557,6 +607,92 @@ func _the_skills() -> void:
 	await frames(2)
 	check(not Input.is_action_pressed("attack"), "lifting stops swinging")
 
+## --- how far ------------------------------------------------------------------
+
+## How far a skill goes is how far its thumb drags, measured from where it came
+## down — and a thumb that comes down anywhere on the button without dragging is
+## a tap, which goes the way the left stick does, all the way.
+func _the_reach() -> void:
+	var slot := -1
+	for i in player.runners.size():
+		if player.can_cast(i):
+			slot = i
+			break
+	if slot < 0:
+		return
+	var where := spot("skill_%d" % (slot + 1))
+	touch(0, where, true)
+	await frames(3)
+	var half := TouchPad.AIM_DEAD + (TouchPad.AIM_REACH - TouchPad.AIM_DEAD) * 0.5
+	drag(0, where + Vector2(half, 0.0))
+	await frames(3)
+	check(absf(pad.throw_reach() - 0.5) < 0.02,
+		"a thumb dragged half way to the ring asks for half the distance (%.2f)" % pad.throw_reach())
+	check(absf(player.aim_reach - 0.5) < 0.02 and player.aim.x > 0.9,
+		"and the player aims that way, half as far (%.2f %s)" % [player.aim_reach, str(player.aim)])
+	drag(0, where + Vector2(TouchPad.AIM_REACH * 1.5, 0.0))
+	await frames(3)
+	check(player.aim_reach > 0.99,
+		"past the ring is all of it (%.2f)" % player.aim_reach)
+	drag(0, where + Vector2(TouchPad.AIM_DEAD + 2.0, 0.0))
+	await frames(3)
+	check(player.aim_reach < 0.05 and player.aim.x > 0.9,
+		"just past the dead zone, next to nothing — but still that way (%.2f)" % player.aim_reach)
+	touch(0, where + Vector2(TouchPad.AIM_DEAD + 2.0, 0.0), false)
+	await _cast_done(slot)
+
+	# A tap off the button's middle, with the left thumb pushing right. The
+	# thumb trembles as thumbs do; it does not drag.
+	var zone := TouchPad.area(TouchPad.CONTROLS[0], screen())
+	var radius: float = TouchPad.CONTROLS[0]["radius"]
+	var landed := zone.position + Vector2.ONE * (radius + 20.0)
+	touch(1, landed, true)
+	drag(1, landed + Vector2(radius * 2.0, 0.0))
+	await frames(2)
+	var off := where + Vector2(-40.0, 24.0)
+	touch(0, off, true)
+	await frames(2)
+	drag(0, off + Vector2(3.0, -2.0))
+	await frames(3)
+	check(pad.aim().is_equal_approx(Vector2.RIGHT) and player.aim.x > 0.9,
+		"a thumb that lands off the button's middle and does not drag goes the way the left stick pushes (%s)"
+			% str(pad.aim()))
+	check(player.aim_reach > 0.99, "and all the way (%.2f)" % player.aim_reach)
+	touch(0, off + Vector2(3.0, -2.0), false)
+	await _cast_done(slot)
+	touch(1, landed + Vector2(radius * 2.0, 0.0), false)
+	await frames(2)
+
+## INPUT, a SLASH and a TEE: the main line fires at once, as a cast's first
+## OUTPUT always does, and the branch walks the rest of the board — back and
+## forth through a run of DELAY — to a second OUTPUT twenty-six ticks later.
+func one_now_one_later() -> SkillBoard:
+	var b := SkillBoard.new(7, 5, "one now, one later")
+	b.place("INPUT", Vector2i(0, 0), 0)
+	b.place("SLASH", Vector2i(1, 0), 0)
+	b.place("TEE", Vector2i(2, 0), 0)
+	b.place("OUTPUT", Vector2i(3, 0), 0)
+	var walk: Array = []
+	for x in range(2, 7):
+		walk.append([Vector2i(x, 1), 1 if x == 6 else 0])
+	for x in range(6, -1, -1):
+		walk.append([Vector2i(x, 2), 1 if x == 0 else 2])
+	for x in 7:
+		walk.append([Vector2i(x, 3), 1 if x == 6 else 0])
+	for x in range(6, 0, -1):
+		walk.append([Vector2i(x, 4), 2])
+	for step in walk:
+		b.place("DELAY", step[0], step[1])
+	b.place("OUTPUT", Vector2i(0, 4), 0)
+	return b
+
+func _cast_done(slot: int) -> void:
+	var waited := 0
+	while player.casting(slot) and waited < 600:
+		await get_tree().process_frame
+		waited += 1
+	await frames(3)
+
 ## --- what is on the pad, and when -------------------------------------------
 
 func _the_faces() -> void:
@@ -569,15 +705,29 @@ func _the_faces() -> void:
 			shown.append(String(c.get("action", "move")))
 	shown.sort()
 	check(shown == ["interact", "move"],
-		"which is the stick that picks an answer and the key that turns the page (%s)" % str(shown))
+		"which is the stick that picks an answer and the page, the right of the screen (%s)" % str(shown))
+	var page := {}
+	for c in TouchPad.CONTROLS:
+		if c.has("zone") and String(c.get("action", "")) == "interact":
+			page = c
+	check(not page.is_empty() and TouchPad.label_of(page) == "" and not TouchPad.movable(page),
+		"and the page has no picture, and cannot be moved")
 	touch(0, spot("jump"), true)
 	await frames(2)
-	check(not Input.is_action_pressed("jump"), "a thumb where JUMP was presses nothing")
+	check(not Input.is_action_pressed("jump") and Input.is_action_pressed("interact"),
+		"a thumb where JUMP was turns the page, not JUMP")
 	touch(0, spot("jump"), false)
-	touch(0, spot("interact"), true)
 	await frames(2)
-	check(Input.is_action_pressed("interact"), "but USE still turns the page")
-	touch(0, spot("interact"), false)
+	touch(0, Vector2(700, 300), true)
+	await frames(2)
+	check(Input.is_action_pressed("interact") and not Input.is_action_pressed("attack"),
+		"and so does one on the empty right of the screen")
+	touch(0, Vector2(700, 300), false)
+	await frames(2)
+	touch(0, Vector2(200, 300), true)
+	await frames(2)
+	check(not Input.is_action_pressed("interact"), "while the left is still the stick's")
+	touch(0, Vector2(200, 300), false)
 	player.talk_locked = false
 	await frames(3)
 
@@ -603,6 +753,51 @@ func _the_faces() -> void:
 	touch(0, spot("pause"), false)
 	game._unpause()
 	await frames(4)
+
+## --- HIT is USE by something to use --------------------------------------------
+
+## The weapon's button is the interact key while the player stands where
+## interacting would do something — here, in a raid's exit — and the weapon's
+## again a step away. A thumb already down keeps what it pressed.
+func _hit_is_use() -> void:
+	var room: Room = raid.room
+	check(room != null and not room.extraction.is_empty(), "the room has an exit to stand in")
+	if room == null or room.extraction.is_empty():
+		return
+	var exit_at := room.extraction_rect().get_center()
+	var away := exit_at + Vector2(-300.0, 0.0)
+	player.global_position = away
+	player.velocity = Vector2.ZERO
+	await frames(4)
+	check(not pad.use_near and TouchPad.label_of(control_of("attack"), pad.uses(control_of("attack"))) == Controls.word_for("attack"),
+		"away from anything to use the button is HIT")
+	touch(0, spot("attack"), true)
+	await frames(3)
+	check(Input.is_action_pressed("attack") and not Input.is_action_pressed("interact"), "and swings")
+	# Walked into the exit with the thumb still down: still swinging.
+	player.global_position = exit_at
+	await frames(4)
+	check(pad.use_near, "standing in the exit, USE would do something")
+	check(Input.is_action_pressed("attack") and not Input.is_action_pressed("interact"),
+		"but a thumb already down keeps swinging")
+	touch(0, spot("attack"), false)
+	await frames(3)
+	check(TouchPad.label_of(control_of("attack"), pad.uses(control_of("attack"))) == Controls.word_for("interact"),
+		"lifted, the button reads USE")
+	var held_before := room.extract_hold
+	touch(0, spot("attack"), true)
+	await frames(6)
+	check(Input.is_action_pressed("interact") and not Input.is_action_pressed("attack"),
+		"and a thumb on it holds USE, not the weapon")
+	check(room.extract_hold > held_before, "which is really extracting (%.2f)" % room.extract_hold)
+	# Walked out of the exit with the thumb still down: still holding USE.
+	player.global_position = away
+	await frames(4)
+	check(Input.is_action_pressed("interact") and not Input.is_action_pressed("attack"),
+		"walking out with the thumb down keeps holding USE")
+	touch(0, spot("attack"), false)
+	await frames(3)
+	check(not Input.is_action_pressed("interact") and not pad.use_near, "until it lifts, and then it is HIT again")
 
 ## --- the window is not the screen -------------------------------------------
 

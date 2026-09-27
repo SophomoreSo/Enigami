@@ -65,9 +65,12 @@ const BASIC_COOLDOWN_MUL := 10.0
 const COYOTE := 0.10
 const JUMP_BUFFER := 0.12
 ## A stick has no cursor to point at, so it aims at a point far enough down
-## itself to be past anything's reach — which leaves gamepad lunges going their
-## full distance, the way they always have.
+## itself to be past anything's reach. How far a lunge actually goes is how far
+## the stick is pushed — see `aim_reach`.
 const STICK_AIM_REACH := 2000.0
+## How far the right stick has to be pushed before it aims at all. Past it, how
+## much further says how far the attack reaches (`reach_of`).
+const STICK_DEAD := 0.35
 
 ## Stamina is what a dash spends. The dash keeps its short cooldown, which is
 ## what makes chaining feel responsive; stamina is the separate question of how
@@ -107,6 +110,12 @@ var aim: Vector2 = Vector2.RIGHT
 ## Where the player is pointing, in world space, as opposed to `aim` which is
 ## only the direction. A lunge lands here rather than a fixed distance out.
 var aim_point: Vector2 = Vector2.ZERO
+## How far the attack being aimed should go, 0 to 1: how far past its dead zone
+## the right stick is pushed, a gamepad's or the touch console's. 0 still goes
+## `Attacks.REACH_MIN` of the attack's own distance; 1 goes all of it. The
+## pointer always asks for all of it — a mouse points at a place, and a lunge
+## already lands on that place (`aim_point`).
+var aim_reach: float = 1.0
 ## Whether the player has an air jump at all. Clear it to take the move away —
 ## for an upgrade that grants it, a debuff, or a room that asks for precision.
 var can_double_jump: bool = true
@@ -320,10 +329,30 @@ func _on_fired(payload: Payload, slot: int) -> void:
 	var p := Weapons.finalize(weapon_id, payload)
 	Attacks.spawn(p, {
 		"attacker": self, "room": room, "team": team,
-		"aim": aim, "origin": global_position,
+		"aim": aim, "reach": aim_reach, "origin": global_position,
 		"gravity": Weapons.uses_gravity_shots(weapon_id),
 	})
 	slot_fired.emit(slot)
+
+## How far the right stick asks an attack to reach, from how hard it is pushed:
+## nothing at the edge of its dead zone, all of it at the rim.
+static func reach_of(push: float) -> float:
+	return clampf(inverse_lerp(STICK_DEAD, 1.0, push), 0.0, 1.0)
+
+## The push that asks for `reach`, for whatever aims through the stick without a
+## hand on one — the touch console. A hair past the dead zone at nothing, so the
+## shortest reach still aims.
+static func push_for(reach: float) -> float:
+	return lerpf(STICK_DEAD + 0.01, 1.0, clampf(reach, 0.0, 1.0))
+
+## Whether a cast asked for on `slot` has still to go off, or is going off: the
+## release is in the buffer, or the board's pulse is still out. For whatever has
+## to keep aiming a cast until it has gone — the touch console, whose thumb
+## leaves the stick in the same moment it casts.
+func casting(slot: int) -> bool:
+	if slot < 0 or slot >= runners.size():
+		return false
+	return (slot == selected_slot and _cast_buffer > 0.0) or not runners[slot].is_ready()
 
 func on_dashed() -> void:
 	invuln = maxf(invuln, 0.12)
@@ -381,10 +410,12 @@ func _process(delta: float) -> void:
 
 func _update_aim() -> void:
 	var stick := Vector2(Input.get_joy_axis(0, JOY_AXIS_RIGHT_X), Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y))
-	if stick.length() > 0.35:
+	if stick.length() > STICK_DEAD:
 		aim = stick.normalized()
+		aim_reach = reach_of(stick.length())
 		aim_point = global_position + aim * STICK_AIM_REACH
 	else:
+		aim_reach = 1.0
 		# `Pointer` rather than the viewport: while the player has the controls
 		# the game is doing the pointing, at whatever speed the setting asks
 		# for. It answers the system's own pointer the rest of the time, and at

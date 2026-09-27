@@ -205,10 +205,10 @@ func _arranging(panel: ControlsPanel) -> void:
 		"and let go there it goes back where it was")
 
 	# USE, let go over the HUD's corner: the same.
-	var use_was := middle_of("interact", ed._working)
+	var use_was := middle_of("dash", ed._working)
 	await carry(use_was, TouchLayoutEditor.HUD_CORNER.get_center())
 	await lift(TouchLayoutEditor.HUD_CORNER.get_center())
-	check(not ed._working.has("interact"), "nor may a button cover the HUD's corner")
+	check(not ed._working.has("dash"), "nor may a button cover the HUD's corner")
 
 	# A plate is carried by where it was taken, not jumped to by its corner —
 	# here to the top of the screen, between the HUD's corner and the skills.

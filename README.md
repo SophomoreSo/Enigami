@@ -41,6 +41,7 @@ godot res://tests/graphics/hideout_pixel_test.tscn # the hideout's pixel look, a
 godot res://tests/graphics/bench_pixel_test.tscn # the bench panel's pixel look and layout
 godot res://tests/circuit/code_test.tscn    # a board survives being written down as a code
 godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
+godot res://tests/feature/reach_test.tscn   # how far an attack goes when the stick says how far
 godot res://tests/graphics/share_code_test.tscn # sharing a board, and what a pasted code costs
 godot res://tests/circuit/ttl_test.tscn     # a pulse's life, and what bounds a loop
 godot res://tests/feature/charge_test.tscn  # holding the cast button buys life for mana
@@ -128,7 +129,14 @@ controls turn out to fit:
   nothing had to be invented for the phone. The weapon key (**HIT**) is the same
   stick without the arming. The two hands are independent: you can run right and
   throw a skill up and to the left in the same moment.
-* **Everything else is a key.** JUMP, DASH, USE, and KIT / MAP / MENU in the far
+* **HIT is USE when there is something to use.** Beside an NPC, a station or an
+  exit you are standing in, the weapon's button becomes the interact key; a
+  thumb already down keeps what it pressed. One button fewer under the right
+  thumb.
+* **In a conversation the right of the screen is the page.** No button is
+  drawn; a tap anywhere on the right turns the page or takes the answer the
+  stick has picked.
+* **Everything else is a key.** JUMP, DASH, and KIT / MAP / MENU in the far
   corner take no direction, so they are buttons and nothing more.
 
 A slot the player is not carrying is not drawn; one the weapon refuses is drawn
@@ -153,8 +161,16 @@ never learn what a finger is. What changes while it is up:
   finger lands, and where it lands is where it is going. So the console aims the
   way a gamepad does — the skill being thrown if one is, the movement stick if
   it is pushed, and the way the player is facing otherwise, so a tap with no
-  throw in it still goes somewhere they meant. `Player._update_aim` needed no
-  line changed for any of it; the crosshair and the pointer setting stand down.
+  throw in it still goes somewhere they meant. A throw is measured from where
+  the thumb came down, so a tap anywhere on a big button is still a tap. The
+  crosshair and the pointer setting stand down.
+* **How far is how far the thumb drags.** A skill dragged just past the dead
+  zone goes a third of its distance, and one dragged out to the ring goes all
+  of it — a bolt's range, a thrown shot's arc, a lunge, a DASH; a burst or a
+  swing happens where the player stands either way. It rides on the same right
+  stick, so a gamepad's push says the same thing; the mouse always asks for all
+  of it (see `Player.aim_reach`). A cast keeps the aim and the distance it was
+  let go with until it has gone off, whatever the left thumb does meanwhile.
 * **A click stops attacking.** The system turns every touch into a click, and
   `attack` is bound to one, so a thumb resting on the stick would swing the
   weapon for as long as it rested there. The mouse bindings are set aside for as

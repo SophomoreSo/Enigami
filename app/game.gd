@@ -104,6 +104,7 @@ func _build_touch_pad() -> void:
 func _process(_delta: float) -> void:
 	if touch_pad != null and is_instance_valid(touch_pad):
 		touch_pad.face = _touch_face()
+		touch_pad.use_near = _use_nearby()
 
 ## Which keys the pad shows. The shell answers because the shell is the one
 ## thing that knows both what screen is up and who has the controls.
@@ -129,6 +130,25 @@ func _touch_face() -> int:
 			return TouchPad.Face.PLAY
 		return TouchPad.Face.TALK if p.talk_locked else TouchPad.Face.SCREEN
 	return TouchPad.Face.NONE
+
+## Whether a press of `interact` would do something where the player stands:
+## an NPC in talking range, a hideout station open and within reach, or a
+## raid's exit they are standing in with nothing sealing it. The console's
+## HIT button turns into USE while this holds — and the shell answers, since
+## the three things that can be used live in three modules and only the shell
+## may know all of them.
+func _use_nearby() -> bool:
+	for n in get_tree().get_nodes_in_group("npcs"):
+		if n is Npc and (n as Npc).in_range:
+			return true
+	if current is HideoutWorld:
+		for s in (current as HideoutWorld).stations.values():
+			if (s as Station).near and (s as Station).open:
+				return true
+	if current is Raid:
+		var room = (current as Raid).room
+		return room != null and is_instance_valid(room) and room.extract_offered
+	return false
 
 ## Whether an assembly board is up: the hideout's workbench, which is the
 ## shell's own, or the one a raid, the sandbox or the dragon test carries.

@@ -34,6 +34,10 @@ var danger: int = 1
 var extraction: Dictionary = {}     ## empty when this room has no exit
 ## How long the player has been holding the exit, in seconds.
 var extract_hold: float = 0.0
+## Whether the player is standing in an exit that would let them go: inside
+## its rect, and nothing sealing it. What a held `interact` acts on, said out
+## loud so the console can offer USE there.
+var extract_offered: bool = false
 var hazards: Array = []             ## cells carrying spikes
 var _extract_active: bool = false
 
@@ -497,6 +501,7 @@ func _update_extraction(delta: float) -> void:
 		return
 	var inside := extraction_rect().has_point(player.global_position)
 	var reason := extraction_blocked_reason()
+	extract_offered = inside and reason == ""
 	if inside and reason == "" and Input.is_action_pressed("interact") and not player.controls_locked():
 		extract_hold += delta
 		_extract_active = true

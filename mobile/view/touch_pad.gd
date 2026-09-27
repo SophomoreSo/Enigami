@@ -22,7 +22,24 @@ extends Control
 ##     hold-to-charge is what a phone MOBA already asks a thumb to do — press,
 ##     drag, release — so the two are the same gesture and nothing had to be
 ##     invented. The weapon key is the same stick without the charge.
-##   * **Everything else is a key.** Jump, dash, interact and the three screens
+##     A press with no drag in it goes the way the left stick is pushing, or
+##     the way the player faces. A drag aims it, measured from where the thumb
+##     came down rather than from the button's middle, and how far it is
+##     dragged is how far the attack goes: a bolt's range, a lunge, a throw
+##     (`Player.aim_reach`). Let go, the cast keeps that aim until it has gone
+##     off, whatever the left thumb does meanwhile.
+##   * **HIT is USE when there is something to use.** The weapon's button turns
+##     into the interact key while the player stands by an NPC, a station or
+##     an exit (`use_near`, which the shell sets). A thumb already down keeps
+##     what it pressed until it lifts, so walking into range mid-swing does
+##     not turn a swing into a press. One button fewer under the right thumb,
+##     and the two are never wanted in the same place: you do not hit what
+##     you are talking to.
+##   * **In a conversation the right of the screen is the page.** No button is
+##     drawn there; a tap anywhere on it turns the page or takes the answer
+##     the stick has picked. A button to find for every line is the wrong
+##     thing to ask of a thumb that is reading.
+##   * **Everything else is a key.** Jump, dash and the three screens
 ##     take no direction, so they are buttons and nothing more.
 ##
 ## Drawn rather than built, in UiKit's pixel look — `PixelDraw`, Silkscreen at
@@ -51,7 +68,7 @@ extends Control
 ## **The buttons are twice the size they were first drawn at**, their words and
 ## edges with them: on a phone's glass a skill button was smaller than the thumb
 ## pressing it. Doubled, the hand fills the room the HUD leaves it — the skill
-## row just under the three screens, USE and DASH just over HIT and JUMP — so
+## row just under the three screens, DASH just over HIT and JUMP — so
 ## the gaps between them are about the least the test allows, and moving one
 ## means checking its neighbours. The movement stick kept its size: it is not a
 ## button, and is only ever drawn under a thumb that is already moving it.
@@ -118,14 +135,18 @@ const CONTROLS := [
 	{"kind": Kind.AIM, "action": "cast_skill", "arm": "skill_4", "slot": 3,
 		"at": Vector2(1192, 184), "pin": Vector2(1, 1), "radius": 64.0, "text": "4",
 		"faces": [Face.PLAY]},
-	# The hand. USE and DASH take no direction; the weapon does, so it is a
-	# stick; JUMP is the biggest and sits where the thumb rests.
-	{"kind": Kind.KEY, "action": "interact", "at": Vector2(988, 332), "pin": Vector2(1, 1),
-		"radius": 68.0, "faces": [Face.PLAY, Face.TALK]},
+	# The hand. DASH takes no direction; the weapon does, so it is a stick —
+	# and it is the USE key too, `alt`, wherever there is something to use;
+	# JUMP is the biggest and sits where the thumb rests.
 	{"kind": Kind.KEY, "action": "dash", "at": Vector2(1188, 324), "pin": Vector2(1, 1),
 		"radius": 68.0, "faces": [Face.PLAY]},
-	{"kind": Kind.AIM, "action": "attack", "at": Vector2(976, 504), "pin": Vector2(1, 1),
-		"radius": 84.0, "faces": [Face.PLAY]},
+	{"kind": Kind.AIM, "action": "attack", "alt": "interact", "at": Vector2(976, 504),
+		"pin": Vector2(1, 1), "radius": 84.0, "faces": [Face.PLAY]},
+	# The page, in a conversation: the right of the screen, from the stick's
+	# zone to the edge and down to the HUD's band, invisible. A `zone` on a key
+	# is a tap area, drawn nowhere and never moved.
+	{"kind": Kind.KEY, "action": "interact", "zone": Rect2(456, 0, 824, 592),
+		"grow": Vector2(1, 1), "faces": [Face.TALK]},
 	{"kind": Kind.KEY, "action": "jump", "at": Vector2(1164, 496), "pin": Vector2(1, 1),
 		"radius": 92.0, "faces": [Face.PLAY]},
 	# The screens, in the far corner where nothing is reached for by accident.
@@ -149,6 +170,13 @@ const DESIGN := Vector2(1280, 720)
 const AIM_DEAD := 32.0
 const AIM_REACH := 184.0
 const AIM_KNOB := 44.0
+
+## How long a throw let go of waits for its cast to start before giving up on
+## it — the rules take the release in a physics tick that can come after this
+## frame, and a cast the weapon refuses never starts — and the longest it is
+## held at all.
+const THROW_START_WAIT := 0.25
+const THROW_HOLD_MAX := 5.0
 
 ## A button's edge, and the size its word is written at: twice the PIXEL and
 ## the face's own size, like the buttons. The face is clean at any multiple of
@@ -196,6 +224,13 @@ const AIM_EDGE := Color(0.55, 0.92, 1.0, 0.5)
 ## Which controls are up. Set by the shell every frame; changing it lets go of
 ## everything, so a key that was being held when the screen changed does not
 ## stay down behind the screen that replaced it.
+## Whether USE would do something where the player stands. Set by the shell
+## every frame, like `face`; a control with an `alt` presses that instead of
+## its action while this holds, and says so on its face.
+var use_near: bool = false
+## The controls whose `alt` a thumb is holding down, by index: what a thumb
+## pressed is what it lets go of, whatever the ground under it does meanwhile.
+var _alt_held: Dictionary = {}
 var face: int = Face.NONE:
 	set(value):
 		if value == face:
@@ -221,9 +256,20 @@ var _stick: Vector2 = Vector2.ZERO
 ## Whether the thumb on the stick has dragged far enough to bring it out. Until
 ## it has, nothing is drawn and nothing is pushed: see STICK_OUT.
 var _stick_out: bool = false
-## The skill or weapon stick being aimed, and the thumb's throw off its middle.
+## The skill or weapon stick being aimed, where the thumb on it came down, and
+## how far it has dragged from there. Measured from the landing rather than the
+## button's middle: a button this big is rarely hit in the middle, and a tap off
+## to one side of it is still a tap, not a throw that way.
 var _aim_from: int = -1
+var _aim_start: Vector2 = Vector2.ZERO
 var _aim_off: Vector2 = Vector2.ZERO
+## A skill thrown and let go: the aim it was let go with, the slot it casts,
+## and how long ago. The thumb that aims it is the thumb that casts it, so the
+## stick would drop back to the left thumb's aim in the very moment of the cast
+## — and while a cast's first OUTPUT goes off at once, everything the board does
+## after that plays out in real time: a second branch, a staggered DELAY. It is
+## held up until the cast has gone off (`Player.casting`) — see `_keep_throw`.
+var _held_throw: Dictionary = {}
 ## Whoever is being played and how many slots they carry, read once a frame
 ## rather than once per control: the pad asks three questions of them while it
 ## draws, and walking the tree for each would be three walks a frame.
@@ -252,7 +298,7 @@ func _exit_tree() -> void:
 		visible = false
 		Touch.set_up(false)
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	UiKit.sync_screen(self)
 	var up: bool = Touch.wanted() and face != Face.NONE and not get_tree().paused
 	if up != visible:
@@ -268,6 +314,7 @@ func _process(_delta: float) -> void:
 	_player = _find_player()
 	_slots = 0 if _player == null else _player.runners.size()
 	_drive()
+	_keep_throw(delta)
 	Touch.aim(aim())
 	queue_redraw()
 
@@ -291,13 +338,16 @@ func _lean(action: String, amount: float, dead: float) -> void:
 		return
 	Touch.press(action, clampf((amount - dead) / (1.0 - dead), 0.0, 1.0))
 
-## Where the player is pointing, as a stick: the skill being aimed if one is,
-## the movement stick if it is pushed, and the way they are facing otherwise.
+## Where the player is pointing, as a stick: the skill being aimed if one is —
+## or one thrown and let go whose cast has not gone off yet — the movement stick
+## if it is pushed, and the way they are facing otherwise. A throw is pushed as
+## far as the thumb dragged (`throw_reach`), which the game reads as how far the
+## attack goes; everything else asks for all of it.
 ##
 ## A pointer is the one control a phone cannot offer — there is nothing on the
 ## glass until a finger lands, and where it lands is where it is going. So the
-## pad aims the way a gamepad does, which the game already understands and
-## `Player._update_aim` needed no line changed for.
+## pad aims the way a gamepad does, through the same right stick, which the game
+## already understood — how hard the stick is pushed included (`Player.aim_reach`).
 ##
 ## The skill being aimed wins, which is the whole of the scheme: a thumb can run
 ## right and throw a skill up and to the left in the same moment. Facing is the
@@ -305,10 +355,32 @@ func _lean(action: String, amount: float, dead: float) -> void:
 ## meant — forwards, where they are walking.
 func aim() -> Vector2:
 	if _aim_from >= 0 and _aim_off.length() >= AIM_DEAD:
-		return _aim_off.normalized()
+		return _aim_off.normalized() * Player.push_for(throw_reach())
+	if not _held_throw.is_empty():
+		return _held_throw["aim"]
 	if _stick.length() >= STICK_DEAD:
 		return _stick.normalized()
 	return Vector2(_facing(), 0.0)
+
+## How far the thumb on the stick being aimed has dragged, as how far the
+## attack should go: nothing at the edge of the dead zone, all of it at the ring.
+func throw_reach() -> float:
+	return clampf(inverse_lerp(AIM_DEAD, AIM_REACH, _aim_off.length()), 0.0, 1.0)
+
+## Lets a thrown skill's aim go the moment its cast has gone off — once the
+## rules have been seen casting it and have stopped — or once another stick is
+## taken up (`_take`).
+func _keep_throw(delta: float) -> void:
+	if _held_throw.is_empty():
+		return
+	var t := float(_held_throw["t"]) + delta
+	_held_throw["t"] = t
+	var going := _player != null and _player.casting(int(_held_throw["slot"]))
+	if going:
+		_held_throw["started"] = true
+	var started := bool(_held_throw["started"])
+	if (started and not going) or (not started and t > THROW_START_WAIT) or t > THROW_HOLD_MAX:
+		_held_throw = {}
 
 func _facing() -> float:
 	return 1.0 if _player == null else float(_player.facing)
@@ -416,11 +488,21 @@ func _take(i: int, at: Vector2) -> void:
 			_stick_out = false
 			return          # a stick makes no click; a thumb resting is not a press
 		Kind.AIM:
+			if uses(c):
+				# A key for as long as it is held: no aim, no throw.
+				_alt_held[i] = true
+				Touch.press(String(c["alt"]))
+				Audio.play("ui")
+				return
 			if c.has("arm"):
 				Touch.press(String(c["arm"]))
 			Touch.press(String(c["action"]))
 			_aim_from = i
+			_aim_start = at
 			_aim_off = Vector2.ZERO
+			# A new aim is a new question: a throw still being held for a cast
+			# that has not gone off yet gives way to it.
+			_held_throw = {}
 		_:
 			Touch.press(String(c["action"]))
 	Audio.play("ui")
@@ -437,6 +519,14 @@ func _drop(i: int) -> void:
 			_stick_out = false
 			_drive()
 		Kind.AIM:
+			if _alt_held.has(i):
+				_alt_held.erase(i)
+				_let_go_of(String(c["alt"]))
+				return
+			# A skill thrown somewhere keeps being aimed there after the thumb
+			# lifts, until the cast the lift asked for has gone off.
+			if _aim_from == i and c.has("slot") and _aim_off.length() >= AIM_DEAD:
+				_held_throw = {"aim": aim(), "slot": int(c["slot"]), "t": 0.0, "started": false}
 			_let_go_of(String(c["action"]))
 			if c.has("arm"):
 				_let_go_of(String(c["arm"]))
@@ -457,9 +547,9 @@ func _drag(i: int, at: Vector2) -> void:
 		if _stick_out:
 			var v := off / float(c["radius"])
 			_stick = v if v.length() <= 1.0 else v.normalized()
-	else:
+	elif not _alt_held.has(i):
 		_aim_from = i
-		_aim_off = at - middle(placed(c, layout()), _screen())
+		_aim_off = at - _aim_start
 
 ## Lets go of `action` unless some other finger is still holding it. Two
 ## controls can press the same one: every slot stick charges through
@@ -467,7 +557,8 @@ func _drag(i: int, at: Vector2) -> void:
 func _let_go_of(action: String) -> void:
 	for f in _down.values():
 		var c: Dictionary = CONTROLS[int(f)]
-		if String(c.get("action", "")) == action or String(c.get("arm", "")) == action:
+		var pressing := String(c.get("alt", "")) if _alt_held.has(int(f)) else String(c.get("action", ""))
+		if pressing == action or String(c.get("arm", "")) == action:
 			return
 	Touch.release(action)
 
@@ -482,7 +573,8 @@ func _under(at: Vector2) -> int:
 		var c: Dictionary = placed(CONTROLS[i], arranged)
 		if not shown(c):
 			continue
-		if int(c["kind"]) == Kind.MOVE:
+		if c.has("zone"):
+			# A zone is asked last, so it never takes a press meant for a button in it.
 			if area(c, screen).has_point(at):
 				stick = i
 		elif c.has("rect"):
@@ -499,7 +591,10 @@ func _let_go() -> void:
 	_stick_from = Vector2.ZERO
 	_stick_out = false
 	_aim_from = -1
+	_aim_start = Vector2.ZERO
 	_aim_off = Vector2.ZERO
+	_held_throw = {}
+	_alt_held.clear()
 	Touch.release_all()
 
 ## --- the picture ------------------------------------------------------------
@@ -557,7 +652,7 @@ static func area(c: Dictionary, screen: Vector2 = DESIGN) -> Rect2:
 		var corner := (plate.position + moved).clamp(Vector2.ZERO,
 			(screen - plate.size).max(Vector2.ZERO))
 		return Rect2(corner, plate.size)
-	if int(c["kind"]) == Kind.MOVE:
+	if c.has("zone"):
 		var zone: Rect2 = c["zone"]
 		return Rect2(zone.position + moved,
 			zone.size + spare(screen) * Vector2(c.get("grow", Vector2.ZERO)))
@@ -628,7 +723,7 @@ static func key_of(c: Dictionary) -> String:
 ## Whether the player may move `c`. Every button may; the stick's zone may not,
 ## being the left of the screen rather than a thing standing on it.
 static func movable(c: Dictionary) -> bool:
-	return int(c["kind"]) != Kind.MOVE
+	return not c.has("zone")
 
 ## `c` where the arrangement `l` has it, or as CONTROLS writes it if `l` does
 ## not mention it.
@@ -653,12 +748,20 @@ func _screen() -> Vector2:
 ## the word `controls.pad` gives its action — the same word the HUD prints
 ## through `Controls.short_label_for`, so a key and everything that tells the
 ## player to press it say the same thing. The stick says nothing; it is a stick.
-static func label_of(c: Dictionary) -> String:
-	if int(c["kind"]) == Kind.MOVE:
+## With `use`, a control that has an `alt` says that instead — HIT reads USE.
+static func label_of(c: Dictionary, use: bool = false) -> String:
+	if c.has("zone"):
 		return ""
 	if c.has("text"):
 		return String(c["text"])
+	if use and c.has("alt"):
+		return Controls.word_for(String(c["alt"]))
 	return Controls.word_for(String(c["action"]))
+
+## Whether a press on `c` right now would be its `alt`: something to use is in
+## reach. A thumb already on it is asked `_alt_held` instead — see `_take`.
+func uses(c: Dictionary) -> bool:
+	return c.has("alt") and use_near
 
 func _draw() -> void:
 	var screen := _screen()
@@ -672,7 +775,11 @@ func _draw() -> void:
 				if stick_showing():
 					_draw_stick(c)
 			_:
-				paint_button(_px, placed(c, arranged), screen, _held(c), usable(c))
+				if c.has("zone"):
+					continue   # a tap area has no picture
+				# What the thumb on it is holding, or what a thumb would press.
+				var as_use := _alt_held.has(i) if _held(c) else uses(c)
+				paint_button(_px, placed(c, arranged), screen, _held(c), usable(c), as_use)
 	# The throw is drawn last and over everything, since it reaches across
 	# whatever is beside the button it came from.
 	if _aim_from >= 0 and _aim_off.length() >= AIM_DEAD:
@@ -700,7 +807,8 @@ func _draw_stick(c: Dictionary) -> void:
 
 ## A button, round or plated, with its word in the middle of it, drawn with `px`
 ## on a screen of `screen` — by the pad, and by the screen that arranges it.
-static func paint_button(px: PixelDraw, c: Dictionary, screen: Vector2, held: bool, live: bool) -> void:
+static func paint_button(px: PixelDraw, c: Dictionary, screen: Vector2, held: bool, live: bool,
+		use: bool = false) -> void:
 	var ink := INK_HELD if held else (INK if live else INK_OFF)
 	var edge := EDGE_HELD if held else (EDGE if live else EDGE_OFF)
 	# Capitals stand 10 high at the face's own size and nothing descends, so at
@@ -714,25 +822,29 @@ static func paint_button(px: PixelDraw, c: Dictionary, screen: Vector2, held: bo
 		px.frame(r, edge)
 		px.frame(r.grow(-PixelDraw.PX), edge)
 		px.text_centered(r.position + Vector2(0, r.size.y * 0.5 + drop),
-			label_of(c), ink, r.size.x, LABEL_SIZE)
+			label_of(c, use), ink, r.size.x, LABEL_SIZE)
 		return
 	var at := middle(c, screen)
 	var radius: float = c["radius"]
 	px.disc(at, radius, FILL_HELD if held else FILL)
 	px.ring(at, radius, EDGE_W, edge)
-	px.text_centered(at - Vector2(radius, -drop), label_of(c), ink, radius * 2.0, LABEL_SIZE)
+	px.text_centered(at - Vector2(radius, -drop), label_of(c, use), ink, radius * 2.0, LABEL_SIZE)
 
-## Where a held skill is pointing: the ring it is thrown within, a few pips
-## walking out along the throw, and the knob at the end of it. Big enough to
+## Where a held skill is pointing, and how far it will go: the ring is as far as
+## it can, and the knob sits where the thumb has it — the distance this one
+## goes, as a share of that — with a few pips walking out to it. Big enough to
 ## read out of the corner of an eye during a fight, which is the only time it
 ## is ever up.
 func _draw_throw(c: Dictionary) -> void:
 	var at := middle(placed(c, layout()), _screen())
 	var d := _aim_off.normalized()
+	var out := minf(_aim_off.length(), AIM_REACH)
 	_px.ring(at, AIM_REACH, EDGE_W, AIM_EDGE)
-	var step := (AIM_REACH - float(c["radius"])) / 4.0
-	for i in 3:
-		_px.disc(at + d * (float(c["radius"]) + step * float(i + 1)), 14.0, AIM_EDGE)
-	var knob := at + d * AIM_REACH
+	var r := float(c["radius"])
+	if out > r:
+		var step := (out - r) / 4.0
+		for i in 3:
+			_px.disc(at + d * (r + step * float(i + 1)), 14.0, AIM_EDGE)
+	var knob := at + d * out
 	_px.disc(knob, AIM_KNOB, FILL_HELD)
 	_px.ring(knob, AIM_KNOB, EDGE_W * 2, EDGE_HELD)
