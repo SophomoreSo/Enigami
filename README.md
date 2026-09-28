@@ -537,7 +537,7 @@ subsystem and so repeat that seam inside themselves. See
 ```
 app/               entry scene, screen flow, the cue bus, the sound bank, the words
                    pointer: the drawn cursor and how fast it moves
-data/dialogue/     conversations, one JSON file per character — format in its README
+data/enigami.db    the content database: conversations, as tables — built from data/db/, see its README
 data/scenes/       directed scenes, one JSON file per scene — format in its README
 localization/      every word the game says: eng/ and kor/, a file per screen
                    plus dialogue/ and scenes/ — format in its README

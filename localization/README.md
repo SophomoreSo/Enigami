@@ -83,9 +83,10 @@ Korean gives the same line twice, and reads right.
 
 ## Conversations and scenes
 
-A dialogue file in `data/dialogue/` holds the shape of a conversation — where
-each line leads, the camera, the portrait, the sound. Only the **words** live
-here, laid over it by node name:
+A conversation in the content database (`data/enigami.db`, written in
+`data/db/dialogue/`) holds its shape — where each line leads, the camera, the
+portrait, the sound. Only the **words** live here, laid over it by the line's
+id:
 
 ```json
 {
@@ -130,7 +131,7 @@ Every lookup falls back, so a language is playable the moment its folder exists:
 | A line in every language | The key itself, and one warning |
 | A whole domain file | Every key in it falls back |
 | A part, weapon, monster or facility | The English in the code — `Components.DEFS` and its like |
-| A dialogue line or a beat | The text in `data/` |
+| A dialogue line or a beat | The text in `data/` — the database, or the scene file |
 
 That last pair is why the English in the code and in `data/` is still there: it
 is the fallback, so a part added on the feature branch has a name on screen

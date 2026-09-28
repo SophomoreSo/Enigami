@@ -166,7 +166,7 @@ func _same(eng: Dictionary, key: String, in_code: String) -> int:
 ## that says the wrong things.
 func _check_conversations() -> void:
 	for id in Dialogue.ids():
-		var src := _read(Dialogue.path_for(id))
+		var src := Dialogue.source(id)
 		var nodes: Dictionary = src.get("nodes", {})
 		for lang in Loc.languages():
 			var over := _read(Loc.DIR.path_join(lang).path_join("dialogue/%s.json" % id.to_lower()))

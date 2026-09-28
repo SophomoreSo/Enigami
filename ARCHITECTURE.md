@@ -15,7 +15,7 @@ mobile/      the glass. The console a thumb plays on, and where its buttons stan
 app/         the shell they sit in: the seam, the screen flow, the sound bank.
 tests/       circuit/ · feature/ · graphics/ · story/ · mobile/ · shared/, the same split
 
-data/          conversations and scenes, as files. Content the modules read.
+data/          the content database, and the scenes. Content the modules read.
 localization/  every word the game says, one folder per language.
 ```
 
@@ -190,13 +190,14 @@ Hangul on one, both whole pixels. `UiKit.pixel_grid()` is where that number
 lives, and the pixel tests ask it before holding a screen to a grid. See **The
 face** in that README.
 
-### Dialogue files — content the modules read
+### Conversations — content the modules read
 
-Conversations are data, not a fourth mechanism: `data/dialogue/<id>.json`, one
-file per character, format in `data/dialogue/README.md`. Each side reads only
-its own keys from a line:
+Conversations are data, not a fourth mechanism: rows in the content database,
+`data/enigami.db`, built from the SQL under `data/db/` (format in its README)
+and read through `Db` (`app/db.gd`), the one script that names SQLite. Each
+side reads only its own columns of a line:
 
-| Keys | Read by |
+| Columns | Read by |
 |---|---|
 | `text` `next` `choices` `speaker` `name` `speed` | `story/rules/dialogue.gd` and `npc.gd` — the conversation itself |
 | `emotion` `sprite` | `story/view/dialogue_box.gd`, polling the NPC's current line |
@@ -204,17 +205,28 @@ its own keys from a line:
 | `sfx` `voice` | `app/audio/audio_cues.gd`, from the `talk` and `talk_letter` cues, which carry the line |
 
 Three of those four rows are inside `story/` now. That is the point of the
-module: a new kind of direction — a key nobody reads yet — is written, read and
-drawn without leaving it, and `app/audio/` stays the one outside hand, because
-sound belongs to the shell wherever it is asked for.
+module: a new kind of direction — a column nobody reads yet — is written, read
+and drawn without leaving it, and `app/audio/` stays the one outside hand,
+because sound belongs to the shell wherever it is asked for.
 
-The `text` in those files is the English fallback. What is actually said is
+`Db` sits in `app/` for the reason `Loc` does: it is content every module may
+read, and none should have to know it is a table. It is read-only, opened
+once, and answers with nothing rather than an error when the extension or the
+file is missing on a platform. `story/rules/` may name it, as it may `Loc`;
+`tests/shared/module_test` says so. Nothing else names `SQLite` at all — a
+module asks `Db` for rows and gets dictionaries.
+
+The `text` in those rows is the English fallback. What is actually said is
 laid over it from `localization/<lang>/dialogue/<id>.json`, by node name —
-words only, never where a line leads. Scenes work the same way, by beat.
+words only, never where a line leads. Scenes are still files,
+`data/scenes/<id>.json`, and work the same way, by beat.
 
-`story/rules/` passes the rest through untouched and never names a key it does
-not use, so the rule above still holds: a new kind of direction is a new key in
-the files and a handler on the presentation side.
+`story/rules/` hands a line on as it came out of the table, keyed by column
+name, and never names a column it does not use, so the rule above still holds:
+a new kind of direction is a column in `data/db/schema.sql`, a value in a
+character's file, and a handler on the presentation side. A column declared
+`JSON` arrives parsed, which is how `camera` reaches the picture as the
+dictionary it always read.
 
 ## Where does it go?
 
@@ -223,7 +235,8 @@ the files and a handler on the presentation side.
 | New skill component | `circuit/components.gd` + its rule in `skill_runner.gd`; a number on the end of `CODE_IDS` in `board_code.gd`, or no board carrying it can be shared; its colour, glyph and icon in `graphics/style.gd` |
 | The share code — what it carries, how long it is | `circuit/board_code.gd`; the sheet that shows it, and spells its refusals, `graphics/ui/share_code_panel.gd` |
 | New monster | `feature/actors/monsters.gd`; its sprite and colour in `graphics/style.gd` |
-| New NPC or dialogue | a file in `data/dialogue/` — see its README; no code. New *kinds* of direction: `story/view/dialogue_box.gd` (emotion, portrait), `story/view/npc_view.gd` (camera), `app/audio/audio_cues.gd` (sound) |
+| New NPC or dialogue | a file in `data/db/dialogue/`, then `data/db/build.sh` — see `data/db/README.md`; no code. New *kinds* of direction: a column in `data/db/schema.sql`, read in `story/view/dialogue_box.gd` (emotion, portrait), `story/view/npc_view.gd` (camera) or `app/audio/audio_cues.gd` (sound) |
+| Content better kept as rows than as a file | a table in `data/db/schema.sql`, read through `Db` (`app/db.gd`) |
 | A new directed scene, or a new staging direction | a file in `data/scenes/` — see its README; no code. A new direction is a case in `story/rules/cutscene.gd` and, if it shows, `story/view/cutscene_view.gd` |
 | How a conversation behaves — range, reveal speed, who is held still | `story/rules/npc.gd`. How it reads on screen, `story/view/dialogue_box.gd` |
 | What anyone actually says, on any screen, in any language | `localization/<lang>/` — see its README. A new language is a folder and an entry in `LANGUAGES` in `app/loc.gd` |
@@ -256,6 +269,7 @@ nothing and live in `graphics/fx.gd`.
 | Name | Module | What it is |
 |---|---|---|
 | `Loc` | app | every word, in the language being played |
+| `Db` | app | the content database, `data/enigami.db` — the conversations, as tables — read-only |
 | `Cues` | app | the seam |
 | `Audio`, `AudioCues` | app | the synthesised sound bank, and what each cue sounds like |
 | `Pointer` | app | where the hand is pointing, at the speed the setting asks, and whether the system's arrow is hidden under it |

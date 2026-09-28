@@ -287,6 +287,10 @@ jobs:
         run: |
           set -euo pipefail
           sed -i '' "s|application/app_store_team_id=\"\"|application/app_store_team_id=\"$APPLE_TEAM_ID\"|" export_presets.cfg
+          # The SQLite extension's iOS libraries are not committed — with the
+          # godot-cpp archives they need they are 280MB — so they come from
+          # the pinned release here. See addons/godot-sqlite/README.md.
+          ./addons/godot-sqlite/fetch.sh ios
           ./.github/scripts/export.sh iOS build/ios/Enigami.ipa
           # What comes out is an Xcode project, not an .ipa: the preset sets
           # export_project_only, because turning it into an installable build
