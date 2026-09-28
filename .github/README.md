@@ -12,11 +12,16 @@ graphics ──┴──▶ build — macOS, iOS ─ ─ ─ ─ ─ ─ ─ ─
 module-split      runs alongside; gates nothing
 ```
 
+A branch being worked on is not run here: it is tested at the desk with
+`tests/run.sh` (below), and the workflow runs for what ships — a push to
+`master`, and a version tag. The **Run workflow** button (`workflow_dispatch`)
+is there for the odd time a run of a branch is wanted anyway.
+
 | Job | Runs on | What it is |
 |---|---|---|
-| **Rules tests** | every push, every PR | `tests/circuit`, `tests/feature`, `tests/story`, `tests/shared` under `--headless` |
-| **Module split holds** | every push, every PR | the four graphics autoloads deleted, the circuit and rules tests run again |
-| **Graphics tests** | every push, every PR | `tests/graphics` and `tests/mobile` under Xvfb, plus screenshots of every screen |
+| **Rules tests** | pushes to master, and `v*` tags | `tests/circuit`, `tests/feature`, `tests/story`, `tests/shared` under `--headless` |
+| **Module split holds** | pushes to master, and `v*` tags | the four graphics autoloads deleted, the circuit and rules tests run again |
+| **Graphics tests** | pushes to master, and `v*` tags | `tests/graphics` and `tests/mobile` under Xvfb, plus screenshots of every screen |
 | **Build — Linux, Windows, Android** | master and `v*` tags | artifacts, kept 30 days |
 | **Build — macOS, iOS** | master always; tags only if opted in | artifacts, kept 30 days — see below |
 | **Release** | `v*` tags | whatever was built, zipped per platform, attached to a GitHub Release |

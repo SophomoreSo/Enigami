@@ -2,11 +2,14 @@ name: CI
 
 # One file rather than two, so that "don't ship a red build" is an edge in the
 # graph instead of a convention: the export jobs simply `needs` the test jobs.
+# Runs for what ships: a push to master, and a version tag. A branch being
+# worked on is tested at the desk (`tests/run.sh`, see .github/README.md), not
+# here — and `workflow_dispatch` is the button for the odd time a run of a
+# branch is wanted anyway.
 on:
   push:
-    branches: ['**']
+    branches: ['master']
     tags: ['v*']
-  pull_request:
   workflow_dispatch:
 
 concurrency:
