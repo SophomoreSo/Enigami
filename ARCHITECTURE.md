@@ -212,9 +212,16 @@ because sound belongs to the shell wherever it is asked for.
 `Db` sits in `app/` for the reason `Loc` does: it is content every module may
 read, and none should have to know it is a table. It is read-only, opened
 once, and answers with nothing rather than an error when the extension or the
-file is missing on a platform. `story/rules/` may name it, as it may `Loc`;
-`tests/shared/module_test` says so. Nothing else names `SQLite` at all — a
-module asks `Db` for rows and gets dictionaries.
+file is missing on a platform. `feature/` and `story/rules/` may name it, as
+they may `Loc`; `tests/shared/module_test` says so. Nothing else names
+`SQLite` at all — a module asks `Db` for rows and gets dictionaries.
+
+The player's movement states are rows in it too — `machines`, `states` and
+`transitions` — built into `FSMNode`s by `Machine` (`feature/core/machine.gd`)
+over the actions and conditions `Player._setup_fsm` names. The graph is
+content; what a state does each frame, and what it takes for a way out to be
+open, is code the rows refer to by name. A row naming code the player does
+not have is reported, not guessed at.
 
 The `text` in those rows is the English fallback. What is actually said is
 laid over it from `localization/<lang>/dialogue/<id>.json`, by node name —
@@ -237,6 +244,7 @@ dictionary it always read.
 | New monster | `feature/actors/monsters.gd`; its sprite and colour in `graphics/style.gd` |
 | New NPC or dialogue | a file in `data/db/dialogue/`, then `data/db/build.sh` — see `data/db/README.md`; no code. New *kinds* of direction: a column in `data/db/schema.sql`, read in `story/view/dialogue_box.gd` (emotion, portrait), `story/view/npc_view.gd` (camera) or `app/audio/audio_cues.gd` (sound) |
 | Content better kept as rows than as a file | a table in `data/db/schema.sql`, read through `Db` (`app/db.gd`) |
+| The player's movement states, and which can follow which | `data/db/machines/player.sql`, then `data/db/build.sh`. What a state does each frame, and when a way out is open, `_setup_fsm` in `feature/actors/player.gd` |
 | A new directed scene, or a new staging direction | a file in `data/scenes/` — see its README; no code. A new direction is a case in `story/rules/cutscene.gd` and, if it shows, `story/view/cutscene_view.gd` |
 | How a conversation behaves — range, reveal speed, who is held still | `story/rules/npc.gd`. How it reads on screen, `story/view/dialogue_box.gd` |
 | What anyone actually says, on any screen, in any language | `localization/<lang>/` — see its README. A new language is a folder and an entry in `LANGUAGES` in `app/loc.gd` |
@@ -269,7 +277,7 @@ nothing and live in `graphics/fx.gd`.
 | Name | Module | What it is |
 |---|---|---|
 | `Loc` | app | every word, in the language being played |
-| `Db` | app | the content database, `data/enigami.db` — the conversations, as tables — read-only |
+| `Db` | app | the content database, `data/enigami.db` — the conversations and the state machines, as tables — read-only |
 | `Cues` | app | the seam |
 | `Audio`, `AudioCues` | app | the synthesised sound bank, and what each cue sounds like |
 | `Pointer` | app | where the hand is pointing, at the speed the setting asks, and whether the system's arrow is hidden under it |

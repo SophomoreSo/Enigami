@@ -150,12 +150,11 @@ var talk_locked: bool = false
 ## Movement runs as a state machine. Every frame the senses are read, the state
 ## is re-picked from them, and only then does that state act — so the state an
 ## action runs in describes this frame, not the one before a jump or a ledge.
-var fsm_idle: FSMNode
-var fsm_run: FSMNode
-var fsm_rise: FSMNode
-var fsm_fall: FSMNode
-var fsm_wall_slide: FSMNode
-var fsm_dash: FSMNode
+## Its shape — the states, and which can follow which — is the `player`
+## machine in the content database (`data/db/machines/player.sql`); what each
+## state does and when each way out is open are the actions and conditions
+## named in `_setup_fsm`.
+var machine: Machine
 var current_state: FSMNode
 ## Log state transitions.
 var debug_mode: bool = false
@@ -170,39 +169,37 @@ func _ready() -> void:
 	_make_body(BODY.x, BODY.y)
 	add_to_group("player")
 	_setup_fsm()
-	current_state = fsm_idle
+	current_state = machine.start
 
 func _notification(what: int) -> void:
 	# Not _exit_tree: a player carried between rooms leaves the tree and comes
 	# back without _ready running again, and would return with no states.
-	if what == NOTIFICATION_PREDELETE and current_state != null:
-		for s in [fsm_idle, fsm_run, fsm_rise, fsm_fall, fsm_wall_slide, fsm_dash]:
-			s.cleanup()
+	if what == NOTIFICATION_PREDELETE and machine != null:
+		machine.cleanup()
 
+## What the states do, and what it takes for a way out to be open, by the
+## names the table uses. The conditions are exclusive, so at most one holds on
+## any frame; which states there are and which can follow which is the
+## table's to say, and a row's to change.
 func _setup_fsm() -> void:
-	fsm_idle = FSMNode.new(_action_idle)
-	fsm_run = FSMNode.new(_action_run)
-	fsm_rise = FSMNode.new(_action_air)
-	fsm_fall = FSMNode.new(_action_air)
-	fsm_wall_slide = FSMNode.new(_action_wall_slide)
-	fsm_dash = FSMNode.new(_action_dash)
-
-	# What it takes to be in each state. They are exclusive, so at most one holds
-	# on any frame, and every state can reach every other: a dash can end in the
-	# air or on the ground, a wall kick can go straight up, a ledge drops into a
-	# fall from a standstill.
-	var entry := {
-		fsm_dash: func() -> bool: return _dash_time > 0.0,
-		fsm_wall_slide: func() -> bool: return _airborne() and _wall_dir != 0,
-		fsm_run: func() -> bool: return _grounded() and _dir != 0.0,
-		fsm_idle: func() -> bool: return _grounded() and _dir == 0.0,
-		fsm_rise: func() -> bool: return _airborne() and _wall_dir == 0 and velocity.y < 0.0,
-		fsm_fall: func() -> bool: return _airborne() and _wall_dir == 0 and velocity.y >= 0.0,
-	}
-	for from: FSMNode in entry:
-		for to: FSMNode in entry:
-			if to != from:
-				from.add_next_node(entry[to], to)
+	machine = Machine.build("player", {
+		"idle": _action_idle,
+		"run": _action_run,
+		"air": _action_air,
+		"wall_slide": _action_wall_slide,
+		"dash": _action_dash,
+	}, {
+		"dashing": func() -> bool: return _dash_time > 0.0,
+		"wall_sliding": func() -> bool: return _airborne() and _wall_dir != 0,
+		"running": func() -> bool: return _grounded() and _dir != 0.0,
+		"standing": func() -> bool: return _grounded() and _dir == 0.0,
+		"rising": func() -> bool: return _airborne() and _wall_dir == 0 and velocity.y < 0.0,
+		"falling": func() -> bool: return _airborne() and _wall_dir == 0 and velocity.y >= 0.0,
+	})
+	for fault in machine.faults:
+		push_error("Player: the player machine — %s" % fault)
+	if machine.start == null:
+		push_error("Player: no state to start in, so the player will not move — is data/enigami.db built and shipped?")
 
 func _grounded() -> bool:
 	return _dash_time <= 0.0 and is_on_floor()
@@ -441,10 +438,11 @@ func _physics_process(delta: float) -> void:
 	if _dash_time <= 0.0:
 		_sense(delta)
 
-	var next := current_state.find_next_node()
-	if next != null:
-		_change_state(next)
-	current_state.perform()
+	if current_state != null:
+		var next := current_state.find_next_node()
+		if next != null:
+			_change_state(next)
+		current_state.perform()
 
 	move_and_slide()
 	# The state that just ran set `velocity` from the controls; a knockback is
@@ -613,13 +611,7 @@ func state_name() -> String:
 	return _state_label(current_state)
 
 func _state_label(state: FSMNode) -> String:
-	if state == fsm_idle: return "Idle"
-	if state == fsm_run: return "Run"
-	if state == fsm_rise: return "Rise"
-	if state == fsm_fall: return "Fall"
-	if state == fsm_wall_slide: return "WallSlide"
-	if state == fsm_dash: return "Dash"
-	return "Unknown"
+	return state.label if state != null else "Unknown"
 
 ## 0 → 1 as the dash comes back; 1 when it is ready.
 func dash_recovery() -> float:

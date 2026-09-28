@@ -22,7 +22,7 @@ CREATE TABLE meta (
 );
 -- `Db.SCHEMA_VERSION` in app/db.gd is the same number: bump both when a
 -- change is one older code could not read. build.sh adds `source_hash`.
-INSERT INTO meta (key, value) VALUES ('schema_version', '1');
+INSERT INTO meta (key, value) VALUES ('schema_version', '2');
 
 -- How a portrait and the letters behave while a line is said: the ids
 -- `Style.EMOTIONS` (graphics/style.gd) draws. A line naming one not here
@@ -97,3 +97,62 @@ CREATE TABLE choices (
 	FOREIGN KEY (character_id, node_id) REFERENCES nodes (character_id, id) ON DELETE CASCADE,
 	FOREIGN KEY (character_id, next) REFERENCES nodes (character_id, id) DEFERRABLE INITIALLY DEFERRED
 );
+
+-- ---- state machines --------------------------------------------------------
+--
+-- The player's movement is a state machine (feature/actors/player.gd), and
+-- its shape lives here: the states, and the graph of ways out of each. What a
+-- state *does* each frame and what it takes for a way out to be *open* are
+-- code — the owner hands `Machine` its actions and its conditions by name,
+-- and a row names one of each. A name no owner has is reported by
+-- `Machine.build` and fails tests/feature/machine_test.
+
+CREATE TABLE machines (
+	id    TEXT PRIMARY KEY CHECK (id <> ''),
+	start TEXT NOT NULL,   -- the state it begins in
+	FOREIGN KEY (id, start) REFERENCES states (machine_id, id) DEFERRABLE INITIALLY DEFERRED
+);
+
+CREATE TABLE states (
+	machine_id TEXT NOT NULL REFERENCES machines (id) ON DELETE CASCADE,
+	id         TEXT NOT NULL CHECK (id <> ''),
+	label      TEXT NOT NULL CHECK (label <> ''),    -- what `state_name()` reports; the debug log and the tests read it
+	action     TEXT NOT NULL CHECK (action <> ''),   -- what the owner does each frame in it, by the owner's name for it
+	PRIMARY KEY (machine_id, id)
+);
+
+-- The graph. The ways out of a state are tried in `position` order and the
+-- first whose `condition` holds is taken. Rows sharing a `from_id` and a
+-- `position` are one way out that splits between their `to_id`s by
+-- `probability`, which then add up to 1; one row, and the way is certain.
+CREATE TABLE transitions (
+	machine_id  TEXT NOT NULL,
+	from_id     TEXT NOT NULL,
+	position    INTEGER NOT NULL CHECK (position >= 0),
+	to_id       TEXT NOT NULL,
+	condition   TEXT NOT NULL CHECK (condition <> ''),   -- whether the way is open, by the owner's name for it
+	probability REAL NOT NULL DEFAULT 1.0 CHECK (probability > 0.0 AND probability <= 1.0),
+	PRIMARY KEY (machine_id, from_id, position, to_id),
+	FOREIGN KEY (machine_id, from_id) REFERENCES states (machine_id, id) ON DELETE CASCADE,
+	FOREIGN KEY (machine_id, to_id) REFERENCES states (machine_id, id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
+);
+
+-- One condition per way out: the rows of a split agree on when it is open.
+CREATE TRIGGER transitions_one_condition_in
+BEFORE INSERT ON transitions
+WHEN EXISTS (SELECT 1 FROM transitions t
+	WHERE t.machine_id = NEW.machine_id AND t.from_id = NEW.from_id
+		AND t.position = NEW.position AND t.condition <> NEW.condition)
+BEGIN
+	SELECT RAISE(ABORT, 'the rows of one way out name different conditions');
+END;
+
+CREATE TRIGGER transitions_one_condition_up
+BEFORE UPDATE OF machine_id, from_id, position, condition ON transitions
+WHEN EXISTS (SELECT 1 FROM transitions t
+	WHERE t.machine_id = NEW.machine_id AND t.from_id = NEW.from_id
+		AND t.position = NEW.position AND t.condition <> NEW.condition
+		AND NOT (t.to_id = NEW.to_id AND t.from_id = OLD.from_id AND t.position = OLD.position))
+BEGIN
+	SELECT RAISE(ABORT, 'the rows of one way out name different conditions');
+END;

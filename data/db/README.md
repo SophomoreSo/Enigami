@@ -1,9 +1,9 @@
 # The content database
 
 `data/enigami.db` is what the game reads and never writes, kept as tables:
-the conversations, today, and whatever else is better kept as rows than as a
-file tomorrow. The game reaches it through `Db` (`app/db.gd`), and it is
-built from the SQL in this folder:
+the conversations and the player's state machine, today, and whatever else is
+better kept as rows than as a file tomorrow. The game reaches it through `Db`
+(`app/db.gd`), and it is built from the SQL in this folder:
 
 ```
 data/
@@ -11,8 +11,10 @@ data/
 └── db/
     ├── schema.sql    the tables: the contract the code reads against
     ├── build.sh      rebuilds enigami.db from everything here
-    └── dialogue/     the conversations, one file per character, named after their id in lower case
-        └── sage.sql
+    ├── dialogue/     the conversations, one file per character, named after their id in lower case
+    │   └── sage.sql
+    └── machines/     the state machines, one file each
+        └── player.sql
 ```
 
 Edit the `.sql`, run `data/db/build.sh`, commit both. The build refuses a
@@ -155,6 +157,41 @@ answers to a question are laid over these rows from
 is the English fallback, and `tests/shared/loc_test` fails if the two drift.
 See `localization/README.md`.
 
+## A state machine
+
+The player's movement is a state machine, and its **shape** is three tables:
+`machines` (the id and the state it starts in), `states` and `transitions`.
+What a state *does* each frame and what it takes for a way out to be *open*
+stay code: the owner hands `Machine.build` its actions and its conditions by
+name, and a row names one of each. A name the owner does not have is a
+`fault` on the machine, reported by the player and failed by
+`tests/feature/machine_test.tscn`.
+
+```sql
+INSERT INTO machines (id, start) VALUES ('player', 'idle');
+
+INSERT INTO states (machine_id, id, label, action) VALUES
+	('player', 'idle', 'Idle', 'idle'),
+	('player', 'dash', 'Dash', 'dash');
+
+-- Out of idle, asked in order: the first open way is taken.
+INSERT INTO transitions (machine_id, from_id, position, to_id, condition) VALUES
+	('player', 'idle', 0, 'dash', 'dashing');
+```
+
+| Table · column | Meaning |
+|---|---|
+| `states.label` | What `state_name()` reports — the debug log and the tests read it. |
+| `states.action` | What the owner does each frame in this state, by the owner's name for it. |
+| `transitions.position` | The order the ways out of a state are asked in. The first whose condition holds is taken. |
+| `transitions.condition` | Whether this way is open, by the owner's name for it. |
+| `transitions.probability` | Rows sharing a `from_id` and a `position` are one way out that **splits** between their `to_id`s by this, and add up to 1. One row, and the way is certain. The rows of a split name the same condition; the build refuses ones that do not. |
+
+The player's six states can each reach every other, so `player.sql` is
+thirty rows; close a way by deleting its row, and open a split by adding
+rows at the same position. `Player._setup_fsm` is where its actions and
+conditions are named.
+
 ## Reading it from code
 
 ```gdscript
@@ -164,8 +201,9 @@ Db.meta("schema_version")
 ```
 
 `Dialogue` (`story/rules/dialogue.gd`) reads the conversations into the shape
-`Npc` plays, and nothing else needs to know the words came from a table.
-`Dialogue.reload()` picks up a rebuilt file without a restart.
+`Npc` plays, and `Machine` (`feature/core/machine.gd`) builds a state machine
+into the `FSMNode`s its owner runs; nothing else needs to know either came
+from a table. `Dialogue.reload()` picks up a rebuilt file without a restart.
 
 ## Changing the tables
 
