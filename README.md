@@ -3,12 +3,15 @@
 A single-player 2D platformer where skills are circuits you assemble on a grid,
 and loot is only yours once you walk it out of the raid.
 
-Built on Godot 4.5. Actors are animated sprites cut at runtime from one CC0
-atlas ([0x72's 16x16 DungeonTileset II](https://0x72.itch.io/dungeontileset-ii),
-see `graphics/assets/sprites/CREDITS.md`); everything else — rooms, attacks,
-effects, the whole UI and the title screen's circuit board — is still drawn
-from primitives, and every sound is synthesised at boot. The only other assets
-are two OFL fonts (`graphics/assets/fonts/CREDITS.md`).
+Built on Godot 4.5. Monsters and bystanders are animated sprites cut at
+runtime from one CC0 atlas ([0x72's 16x16 DungeonTileset II](https://0x72.itch.io/dungeontileset-ii),
+see `graphics/assets/sprites/CREDITS.md`). The player is the game's own, drawn
+the map way: a skin, drawn once, and poses painted in the colours of a map
+that names its pixels, so reskinning is one file
+(`graphics/assets/sprites/player/README.md`). Everything else — rooms,
+attacks, effects, the whole UI and the title screen's circuit board — is still
+drawn from primitives, and every sound is synthesised at boot. The only other
+assets are two OFL fonts (`graphics/assets/fonts/CREDITS.md`).
 
 The rules and the picture are two separate modules, `feature/` and `graphics/`,
 with a one-way seam between them — see [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -21,6 +24,7 @@ godot res://tests/shared/smoke.tscn   # drives every screen and asserts the core
 godot res://tests/feature/jump_test.tscn    # ground jump, wall kick and the air jump
 godot res://tests/graphics/focus_test.tscn   # in-game buttons never steal the keyboard
 godot res://tests/graphics/pointer_test.tscn # the drawn cursor, and how far it moves
+godot res://tests/graphics/player_skin_test.tscn # the player's poses name skin pixels, and the skin swaps under them
 godot res://tests/feature/trigger_test.tscn # a trigger chain lands as separate attacks
 godot res://tests/circuit/cooldown_test.tscn # the numbers behind the slot cooldown wipe
 godot res://tests/feature/speed_test.tscn   # the SPEED part, and bolt collision at speed
@@ -559,7 +563,9 @@ graphics/views/    one view per gameplay node: actors, attacks, rooms, loot
 graphics/ui/       skill editor, HUD, hideout, title, results, bench panel
                    ui_kit: one look for screens built of Controls
                    pixel_draw: the same look for screens that draw themselves
-graphics/assets/   the sprite atlas, the actor shader, two OFL fonts
+graphics/skin/     characters drawn the map way: the map, the loader, the tool
+graphics/assets/   the sprite atlas, the two actor shaders, two OFL fonts
+graphics/assets/sprites/player/  the player: a skin, its map, poses painted in the map
 tests/circuit/     board tracing, codes, cycle timing, a pulse's life — run headless
 tests/feature/     movement, hits, raids, the bench — rules, run headless
 tests/story/       conversations and scene files — rules, run headless

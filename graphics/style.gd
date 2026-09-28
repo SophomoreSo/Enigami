@@ -437,8 +437,11 @@ static func weapon_art(id: String) -> String:
 	return String(WEAPON.get(id, {}).get("art", "weapon_regular_sword"))
 
 ## --- the player -------------------------------------------------------------
-## Teal plate, which already matches the cyan the player was drawn in.
-const PLAYER_ART := "knight_m"
+## The game's own character, drawn the map way in `graphics/assets/sprites/player/`
+## (see `SkinnedCharacter`): dark plate, a cape, and the cyan of the circuits
+## in the visor and on the chest — which `PLAYER_COLOR` is, for what bursts off
+## them. Reskinning is an edit to `player.skin.png` and nothing else.
+const PLAYER_ART := "player"
 const PLAYER_COLOR := Color(0.65, 0.9, 1.0)
 ## In the dragon test the player is the Dragon: the pack's lizard warrior, with
 ## its katana in hand in place of whatever the weapon would show.
@@ -517,7 +520,7 @@ static func portrait_art(art: String, emotion_id: String) -> String:
 	return mood if emotion_id != "" and has_character(mood) else art
 
 static func has_character(base: String) -> bool:
-	return base != "" and (Sprites.has_tile("%s_idle_anim_f0" % base) or Sprites.has_tile("%s_anim_f0" % base))
+	return Sprites.has_character(base)
 
 ## The talk prompt over an NPC's head.
 const SPEECH_PROMPT_FILL := Color(0.05, 0.06, 0.08, 0.8)

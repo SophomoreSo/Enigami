@@ -192,7 +192,9 @@ func _portrait_art(node: Dictionary) -> String:
 ## coming in, so they read as the one talking; the emotion does the rest.
 func _draw_portrait(frame: Rect2, art: String, mood: Dictionary, flip: bool) -> void:
 	draw_rect(frame, Style.DIALOGUE_PORTRAIT_BG)
-	var frames := Sprites.frames_for(art)
+	# In real colours: a Control's draw calls wear no material, and the
+	# player's frames are painted in map colours (see `SkinnedCharacter`).
+	var frames := Sprites.resolved_frames(art)
 	var speaking := not npc.line_finished()
 	var count := frames.get_frame_count("idle")
 	var tex := frames.get_frame_texture("idle", int(_t * (10.0 if speaking else 4.0)) % count)

@@ -1,13 +1,23 @@
 extends Node
 
-## Slices the CC0 "16x16 DungeonTileset II" atlas by 0x72 into per-character
-## `SpriteFrames`. The pack ships one 512x512 PNG plus a list of tile rects
-## (`DungeonAtlasFrames`), so the whole sprite set costs two files and no build
-## step: every frame is an `AtlasTexture` window onto the same texture.
+## Every character, by name, as `SpriteFrames` — from one of two places.
 ##
-## See `graphics/assets/sprites/CREDITS.md`. Tile names follow
+## Most are sliced from the CC0 "16x16 DungeonTileset II" atlas by 0x72. The
+## pack ships one 512x512 PNG plus a list of tile rects (`DungeonAtlasFrames`),
+## so the whole sprite set costs two files and no build step: every frame is an
+## `AtlasTexture` window onto the same texture. Tile names follow
 ## `<base>_<idle|run|hit>_anim_f<n>`, except for a handful of monsters that
 ## ship a single unnamed loop as `<base>_anim_f<n>`.
+##
+## The rest are this game's own, drawn the map way: a folder per character
+## under `graphics/assets/sprites/`, holding a skin, a map and painted strips —
+## see `SkinnedCharacter` and `PixelMap`. Their frames name skin pixels rather
+## than colours, so a sprite showing them wears `material_for(base)`, and
+## anything drawing them without a material asks for `resolved_frames`.
+##
+## Callers never need to know which kind a name is: `has_character`,
+## `frames_for`, `frame_size`, `art_rect` and `material_for` answer for both.
+## See `graphics/assets/sprites/CREDITS.md`.
 
 const ATLAS_PATH := "res://graphics/assets/sprites/dungeon_atlas.png"
 const SHADER_PATH := "res://graphics/assets/shaders/actor_sprite.gdshader"
@@ -34,6 +44,7 @@ var _rects: Dictionary = {}      ## tile name -> Rect2
 var _textures: Dictionary = {}   ## tile name -> AtlasTexture
 var _frames: Dictionary = {}     ## base -> SpriteFrames
 var _art: Dictionary = {}        ## base -> opaque Rect2 within its tile
+var _skinned: Dictionary = {}    ## base -> SkinnedCharacter, or null once looked for and missing
 
 func _ready() -> void:
 	_atlas = load(ATLAS_PATH)
@@ -48,6 +59,21 @@ func _ready() -> void:
 
 func has_tile(tile: String) -> bool:
 	return _rects.has(tile)
+
+## A character drawn the map way, loaded on first ask; null for an atlas
+## character or a name nothing answers to.
+func skinned(base: String) -> SkinnedCharacter:
+	if _skinned.has(base):
+		return _skinned[base]
+	var c: SkinnedCharacter = SkinnedCharacter.load_character(base) if SkinnedCharacter.exists(base) else null
+	_skinned[base] = c
+	return c
+
+## Whether `base` names a character at all, of either kind.
+func has_character(base: String) -> bool:
+	if base == "":
+		return false
+	return skinned(base) != null or has_tile("%s_idle_anim_f0" % base) or has_tile("%s_anim_f0" % base)
 
 func texture(tile: String) -> AtlasTexture:
 	if _textures.has(tile):
@@ -64,6 +90,9 @@ func texture(tile: String) -> AtlasTexture:
 
 ## Size of a character's tiles, including the pack's padding.
 func frame_size(base: String) -> Vector2:
+	var sk := skinned(base)
+	if sk != null:
+		return Vector2(sk.frame_size)
 	for tile in ["%s_idle_anim_f0" % base, "%s_anim_f0" % base, base]:
 		if _rects.has(tile):
 			return _rects[tile].size
@@ -75,6 +104,9 @@ func frame_size(base: String) -> Vector2:
 func art_rect(base: String) -> Rect2:
 	if _art.has(base):
 		return _art[base]
+	var sk := skinned(base)
+	if sk != null:
+		return sk.art_rect
 	var frame := Vector2.ZERO
 	for tile in ["%s_idle_anim_f0" % base, "%s_anim_f0" % base, base]:
 		if _rects.has(tile):
@@ -105,11 +137,15 @@ func _add_anim(sf: SpriteFrames, name: String, textures: Array, fps: float, loop
 	for t in textures:
 		sf.add_frame(name, t)
 
-## Every character resolves to the same three animation names, so callers never
-## have to know which of the pack's two naming schemes a monster uses.
+## Every atlas character resolves to the same three animation names, so callers
+## never have to know which of the pack's two naming schemes a monster uses. A
+## skinned character has whatever strips its folder holds, idle among them.
 func frames_for(base: String) -> SpriteFrames:
 	if _frames.has(base):
 		return _frames[base]
+	var sk := skinned(base)
+	if sk != null:
+		return sk.frames
 	var sf := SpriteFrames.new()
 	sf.remove_animation("default")
 	var idle := _collect("%s_idle_anim" % base)
@@ -128,7 +164,33 @@ func frames_for(base: String) -> SpriteFrames:
 	_frames[base] = sf
 	return sf
 
+## The material a sprite showing `frames_for(base)` should wear: for an atlas
+## character the status shader, for a skinned one the skin shader sampling its
+## skin. Both take the same `tint`, `flash` and `flash_color` uniforms, so an
+## actor view drives either the same way. A new one per sprite, since the
+## uniforms are per actor.
+func material_for(base: String) -> ShaderMaterial:
+	var sk := skinned(base)
+	if sk != null:
+		return sk.material()
+	return status_material()
+
 func status_material() -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = _shader
 	return m
+
+## `frames_for(base)` in real colours whatever the kind — for a portrait, or
+## anything else drawn without a material. Atlas frames already are.
+func resolved_frames(base: String) -> SpriteFrames:
+	var sk := skinned(base)
+	if sk != null:
+		return sk.resolved()
+	return frames_for(base)
+
+## Swaps a skinned character's skin under every sprite wearing it, at once.
+## `image` has to be the skin's size. False for an atlas character or a
+## mismatched image.
+func reskin(base: String, image: Image) -> bool:
+	var sk := skinned(base)
+	return sk != null and sk.reskin(image)

@@ -13,7 +13,7 @@
 	},
 
 	"cast": {
-		"you": {"name": "Knight", "sprite": "knight_m", "facing": "right"},
+		"you": {"name": "Knight", "sprite": "player", "facing": "right"},
 		"tinker": {"name": "Old Tinker", "sprite": "wizzard_m", "at": "far_bench", "facing": "left"}
 	},
 

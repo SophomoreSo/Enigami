@@ -31,7 +31,7 @@ no text and a file name that does not match its id. Run it after an edit.
 |---|---|
 | `id` | The character's id. Must match the file name. |
 | `name` | The name on the tab when they speak. |
-| `sprite` | Their character in the sprite atlas — in the world and on the portrait. |
+| `sprite` | Their character — one from the sprite atlas, or the game's own `player` — in the world and on the portrait. |
 | `player_name` | The name on the tab when the player speaks. Default `You`. |
 | `start` | The line a conversation opens on. |
 | `defaults` | Keys every line gets unless it sets them itself. Any line key can go here. |
@@ -48,7 +48,7 @@ no text and a file name that does not match its id. Run it after an edit.
 | `name` | string | Overrides the name on the tab for this line. |
 | `speed` | letters per second | How fast it types. Default 45. |
 | `emotion` | see below | How the portrait and the letters behave. |
-| `sprite` | atlas character | Swaps the portrait for this line, e.g. `"knight_f"`. |
+| `sprite` | a character | Swaps the portrait for this line, e.g. `"knight_f"`. |
 | `camera` | object, or `"reset"` | Where the camera goes, see below. |
 | `sfx` | sound id | Played once as the line starts. |
 | `voice` | `low` · `mid` · `high` · `none` | The blip that plays along with the typing. |
