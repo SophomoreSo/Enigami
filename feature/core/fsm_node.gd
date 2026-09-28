@@ -9,6 +9,10 @@ extends RefCounted
 
 var action: Callable
 var next_nodes: Array = []
+## The state's id and the name it goes by, as its machine's table gives them;
+## empty for a state built by hand.
+var id: String = ""
+var label: String = ""
 
 func _init(action_func: Callable) -> void:
 	action = action_func

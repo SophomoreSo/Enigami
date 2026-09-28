@@ -6,7 +6,7 @@ extends Control
 ## and the line typing in a letter at a time, each letter rising into place as it
 ## arrives. When the line is a question the answers are listed under it.
 ##
-## How a line looks comes from its dialogue file: `speaker` puts the portrait on
+## How a line looks comes from its row in the database: `speaker` puts the portrait on
 ## the left (the NPC) or the right (the player), `sprite` swaps its art, and
 ## `emotion` tints, trembles or hops the portrait, gives it a mark, and trembles
 ## or ripples the letters (see `Style.EMOTIONS`).

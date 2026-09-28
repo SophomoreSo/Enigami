@@ -2,8 +2,8 @@ extends Node2D
 ## Talking to an NPC: interact only works up close, a press finishes a line
 ## still coming in before it moves on, a question waits for an answer picked
 ## with up and down, the answer decides what comes next, and walking away ends
-## it. Attacks never treat a bystander as a target. Every dialogue file reads
-## cleanly.
+## it. Attacks never treat a bystander as a target. Every conversation in the
+## database reads cleanly.
 
 var fails := 0
 
@@ -70,18 +70,19 @@ func _ready() -> void:
 	check(n.is_on_floor(), "the NPC stands on the floor")
 	check(not n.is_in_group("actors"), "and is no target for attacks")
 
-	# The files.
-	check(Dialogue.ids().has("SAGE"), "the SAGE's lines are read from a dialogue file (%s)" % str(Dialogue.ids()))
+	# The database.
+	check(Dialogue.ids().has("SAGE"), "the SAGE's lines are read from the database (%s)" % str(Dialogue.ids()))
 	for id in Dialogue.ids():
 		check(Dialogue.problems(id).is_empty(),
-			"%s's dialogue file has no broken links or empty lines %s" % [id, str(Dialogue.problems(id))])
+			"%s's conversation has no broken links or empty lines %s" % [id, str(Dialogue.problems(id))])
 	var sage := Dialogue.character("SAGE")
 	var filled := true
 	for key in sage["nodes"]:
-		for k in sage.get("defaults", {}):
-			filled = filled and sage["nodes"][key].has(k)
-	check(filled, "every line picks up the file's defaults")
-	check(Dialogue.character("NOBODY") == sage, "an NPC with no file talks like the SAGE")
+		for col in sage:
+			if String(col).begins_with(Dialogue.LINE_DEFAULT):
+				filled = filled and sage["nodes"][key].has(String(col).trim_prefix(Dialogue.LINE_DEFAULT))
+	check(filled, "every line picks up the character's line_ defaults")
+	check(Dialogue.character("NOBODY") == sage, "an NPC with no conversation talks like the SAGE")
 
 	# Too far away.
 	await press()
@@ -191,7 +192,7 @@ func _ready() -> void:
 	# The player can have lines of their own.
 	n.node_id = "danger_reply"
 	check(n.speaker() == "player" and n.speaker_name() == String(sage["player_name"]),
-		"a line the file gives the player is said by the player, under their name")
+		"a line the table gives the player is said by the player, under their name")
 	n.end_conversation()
 
 	# Locked input, like the skill editor being open.

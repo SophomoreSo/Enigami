@@ -9,8 +9,8 @@ extends CharacterBody2D
 ## or by something else carrying the player out of range. Nothing here is drawn:
 ## `story/view/npc_view.gd` and `story/view/dialogue_box.gd` show it.
 ##
-## What each NPC says lives in their dialogue file, `data/dialogue/<id>.json`
-## (see `Dialogue`).
+## What each NPC says lives in the content database, as rows under their id
+## (see `Dialogue`, and `data/db/README.md`).
 ##
 ## An NPC is deliberately not an Actor. Attacks find their targets through the
 ## "actors" group, so a bystander outside it can stand in the line of fire

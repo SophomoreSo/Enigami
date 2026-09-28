@@ -503,9 +503,9 @@ const AGGRO_DOT := Color(1, 0.4, 0.4, 0.9)
 const HEALTH_BAR := Color(0.95, 0.35, 0.35)
 
 ## --- NPCs -------------------------------------------------------------------
-## A character's sprite is named in their dialogue file (`sprite`). This is for a
-## file that names none, or names one the atlas does not have — picked from the
-## characters no monster wears, so a bystander is never mistaken for a threat.
+## A character's sprite is named in their `characters` row (`sprite`). This is
+## for one that names none the atlas has — picked from the characters no
+## monster wears, so a bystander is never mistaken for a threat.
 const NPC_FALLBACK_ART := "wizzard_m"
 
 static func npc_art(sprite: String) -> String:

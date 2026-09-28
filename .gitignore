@@ -38,3 +38,14 @@ build/
 .test-logs/
 .test-home/
 shots/
+
+# godot-sqlite: the iOS static libraries and the godot-cpp archives they need
+# are 280MB, so they are fetched by addons/godot-sqlite/fetch.sh before an iOS
+# export rather than kept here; the web builds have no preset. Every other
+# library in bin/ is committed — see addons/godot-sqlite/README.md.
+addons/godot-sqlite/bin/*.xcframework/
+addons/godot-sqlite/bin/*.wasm
+
+# data/db/build.sh writes the content database beside itself first, then
+# moves it into place, so a build that fails halfway leaves the old one whole.
+data/enigami.db.building
