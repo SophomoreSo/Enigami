@@ -27,6 +27,8 @@ func _build_sprite() -> void:
 	var art_rect := Sprites.art_rect(art)
 	sprite = AnimatedSprite2D.new()
 	sprite.sprite_frames = Sprites.frames_for(art)
+	# A character drawn the map way needs its material to show colours at all.
+	sprite.material = Sprites.material_for(art)
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	sprite.scale = Vector2(s, s)
 	sprite.position = Vector2(0, who.body_size.y * 0.5 + (frame.y * 0.5 - art_rect.end.y) * s)

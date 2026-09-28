@@ -21,7 +21,7 @@ nothing. Run it after an edit.
 		"bench":  [520, 420]
 	},
 	"cast": {
-		"you":    {"name": "Knight", "sprite": "knight_m", "at": "door"},
+		"you":    {"name": "Knight", "sprite": "player", "at": "door"},
 		"tinker": {"name": "Old Tinker", "sprite": "wizzard_m", "at": "bench", "facing": "left"}
 	},
 	"beats": [
@@ -45,7 +45,7 @@ nothing. Run it after an edit.
 | Key | Meaning |
 |---|---|
 | `name` | The name on the tab when they speak. Defaults to their key. |
-| `sprite` | Their character in the sprite atlas — `knight_m`, `wizzard_m`, `elf_f`… An unknown one draws as the bystander fallback. |
+| `sprite` | Their character: one from the sprite atlas — `knight_m`, `wizzard_m`, `elf_f`… — or the game's own, `player`. An unknown one draws as the bystander fallback. |
 | `at` | The mark they start on. **Leave it out and they start off stage**, waiting for an `enter`. |
 | `facing` | `left` · `right`. Which way they start. Default `right`. |
 

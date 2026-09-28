@@ -223,6 +223,8 @@ the files and a handler on the presentation side.
 | New skill component | `circuit/components.gd` + its rule in `skill_runner.gd`; a number on the end of `CODE_IDS` in `board_code.gd`, or no board carrying it can be shared; its colour, glyph and icon in `graphics/style.gd` |
 | The share code — what it carries, how long it is | `circuit/board_code.gd`; the sheet that shows it, and spells its refusals, `graphics/ui/share_code_panel.gd` |
 | New monster | `feature/actors/monsters.gd`; its sprite and colour in `graphics/style.gd` |
+| How the player looks — plate, cape, glow | `graphics/assets/sprites/player/player.skin.png`, and nothing else: every pose beside it is painted in the colours of a map that names its pixels, and takes theirs from it. See that folder's README and `graphics/skin/` |
+| A new pose for the player | a strip beside the skin, painted in the map's colours; how it plays, `SkinnedCharacter.ANIMS`; when, `PlayerView._animate` |
 | New NPC or dialogue | a file in `data/dialogue/` — see its README; no code. New *kinds* of direction: `story/view/dialogue_box.gd` (emotion, portrait), `story/view/npc_view.gd` (camera), `app/audio/audio_cues.gd` (sound) |
 | A new directed scene, or a new staging direction | a file in `data/scenes/` — see its README; no code. A new direction is a case in `story/rules/cutscene.gd` and, if it shows, `story/view/cutscene_view.gd` |
 | How a conversation behaves — range, reveal speed, who is held still | `story/rules/npc.gd`. How it reads on screen, `story/view/dialogue_box.gd` |

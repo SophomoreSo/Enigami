@@ -56,7 +56,7 @@ func _build_sprite() -> void:
 	# The tile is centred on the node, so back the node off by however much
 	# padding sits under the art — usually none, but never assume it.
 	sprite.position = Vector2(0, actor.body_size.y * 0.5 + (frame.y * 0.5 - art_rect.end.y) * s)
-	_mat = Sprites.status_material()
+	_mat = Sprites.material_for(art)
 	sprite.material = _mat
 	add_child(sprite)
 	sprite.play("idle")
@@ -72,8 +72,16 @@ func _process(delta: float) -> void:
 	_burn_sparks(delta)
 	queue_redraw()
 
-## Plays `name`, or freezes on `frame` of it when `frame` is not negative — the
-## pack has no jump art, so airborne poses are held run frames.
+## Whether this actor's art has an animation of that name. The atlas characters
+## have idle, run and hit; the game's own may have more — see
+## `SkinnedCharacter.ANIMS`.
+func has_anim(name: String) -> bool:
+	return sprite != null and sprite.sprite_frames != null and sprite.sprite_frames.has_animation(name)
+
+## Plays `name`, or freezes on `frame` of it when `frame` is not negative — how
+## an airborne pose is held out of a run cycle for art that has no jump. An
+## animation that does not loop stays on its last frame once it has run, until
+## something else is asked for.
 func play(name: String, speed: float = 1.0, frame: int = -1) -> void:
 	if sprite == null or sprite.sprite_frames == null:
 		return
@@ -85,7 +93,15 @@ func play(name: String, speed: float = 1.0, frame: int = -1) -> void:
 		sprite.pause()
 		return
 	sprite.speed_scale = speed
-	if sprite.animation != name or not sprite.is_playing():
+	if sprite.animation != name:
+		sprite.play(name)
+		return
+	if sprite.is_playing():
+		return
+	# Stopped on this animation: paused on a held frame, or a one-shot that has
+	# run out. Only the first is started again.
+	var last := sprite.sprite_frames.get_frame_count(name) - 1
+	if sprite.sprite_frames.get_animation_loop(name) or sprite.frame < last:
 		sprite.play(name)
 
 ## Chill and burn read as a multiply; a hit needs to blow the whole silhouette

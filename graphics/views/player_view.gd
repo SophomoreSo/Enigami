@@ -1,7 +1,7 @@
 class_name PlayerView
 extends ActorView
 
-## The player: the knight, the weapon they are pointing, the ghost a dash
+## The player: the character, the weapon they are pointing, the ghost a dash
 ## leaves behind, the charge bar over their head, and the rings that report
 ## guard and dash recovery.
 
@@ -43,16 +43,26 @@ func _build_sprite() -> void:
 	weapon_sprite.z_index = 1
 	add_child(weapon_sprite)
 
+## The player's own art has a pose for everything the body can do; the Dragon
+## is cut from the atlas and has only the three, so each airborne case falls
+## back to holding the stride that reads as rising or falling.
 func _animate() -> void:
 	if flash > 0.55:
-		# The knight ships a recoil pose; hold it for the front of the flash.
+		# The recoil pose, held for the front of the flash.
 		play("hit", 1.0, 0)
 	elif player.is_dashing():
-		play("run", 2.2)
+		if has_anim("dash"):
+			play("dash")
+		else:
+			play("run", 2.2)
 	elif not player.is_on_floor():
-		# The pack has no jump art: hold the stride that reads as rising or
-		# falling instead of cycling a run cycle in mid-air.
-		play("run", 1.0, 2 if player.velocity.y < 0.0 else 0)
+		var rising := player.velocity.y < 0.0
+		if player.state_name() == "WallSlide" and has_anim("wall_slide"):
+			play("wall_slide")
+		elif has_anim("rise") and has_anim("fall"):
+			play("rise" if rising else "fall")
+		else:
+			play("run", 1.0, 2 if rising else 0)
 	elif absf(player.velocity.x) > 12.0:
 		play("run", clampf(absf(player.velocity.x) / Player.RUN_SPEED, 0.65, 1.6))
 	else:
