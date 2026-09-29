@@ -186,7 +186,7 @@ func _ready() -> void:
 	# longest they go, and a stash with every part in it at a two-digit count.
 	for key in GameState.FACILITY_INFO:
 		GameState.facilities[key] = int(GameState.FACILITY_INFO[key]["max"])
-	for id in Components.LOOT_POOL:
+	for id in Components.loot_pool():
 		GameState.stash[id] = 19
 	GameState.scrap = 99999
 	GameState.skill_library[0].skill_name = "Sword Basic With A Very Long Name"

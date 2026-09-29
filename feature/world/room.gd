@@ -272,7 +272,8 @@ func _roll_loot() -> Array:
 		if rng.randf() < 0.3:
 			out.append({"scrap": rng.randi_range(5, 18), "pos": [p.x, p.y]})
 		else:
-			var cid: String = Components.LOOT_POOL[rng.randi() % Components.LOOT_POOL.size()]
+			var pool := Components.loot_pool()
+			var cid: String = pool[rng.randi() % pool.size()]
 			out.append({"id": cid, "pos": [p.x, p.y]})
 	return out
 

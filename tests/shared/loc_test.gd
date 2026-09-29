@@ -117,16 +117,16 @@ func _slots(line: String) -> Array:
 
 ## --- what the code still carries --------------------------------------------
 
-## The English in `Components.DEFS` and its like is the fallback under
-## `localization/eng`. Two homes for one sentence only stays safe while
+## The English in the parts table, `Weapons.DEFS` and their like is the
+## fallback under `localization/eng`. Two homes for one sentence only stays safe while
 ## something compares them, and this is that something: add a part, and the
 ## line below is what tells you its name has nowhere to be translated yet.
 func _check_fallbacks() -> void:
 	var eng := _strings(Loc.DEFAULT)
 	var checked := 0
-	for id in Components.DEFS:
-		checked += _same(eng, "parts.%s.name" % id, String(Components.DEFS[id]["name"]))
-		checked += _same(eng, "parts.%s.desc" % id, String(Components.DEFS[id]["desc"]))
+	for id in Components.ids():
+		checked += _same(eng, "parts.%s.name" % id, String(Components.get_def(id)["name"]))
+		checked += _same(eng, "parts.%s.desc" % id, String(Components.get_def(id)["desc"]))
 	for id in Weapons.DEFS:
 		checked += _same(eng, "weapons.%s.name" % id, String(Weapons.DEFS[id]["name"]))
 		checked += _same(eng, "weapons.%s.desc" % id, String(Weapons.DEFS[id]["desc"]))

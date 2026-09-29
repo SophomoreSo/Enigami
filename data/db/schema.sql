@@ -22,7 +22,7 @@ CREATE TABLE meta (
 );
 -- `Db.SCHEMA_VERSION` in app/db.gd is the same number: bump both when a
 -- change is one older code could not read. build.sh adds `source_hash`.
-INSERT INTO meta (key, value) VALUES ('schema_version', '3');
+INSERT INTO meta (key, value) VALUES ('schema_version', '4');
 
 -- How a portrait and the letters behave while a line is said: the ids
 -- `Style.EMOTIONS` (graphics/style.gd) draws. A line naming one not here
@@ -182,3 +182,127 @@ WHEN EXISTS (SELECT 1 FROM transitions t
 BEGIN
 	SELECT RAISE(ABORT, 'the rows of one way out name different conditions');
 END;
+
+-- ---- parts and boards ------------------------------------------------------
+--
+-- The parts a skill board is built from (circuit/components.gd), and the
+-- boards the game ships with (feature/core/boards.gd). A part is its numbers —
+-- heat, cells, the sides its flow leaves by — and what it does to a flow as
+-- the flow enters it: effects on the payload the flow carries
+-- (circuit/payload.gd). What an effect *means* is code, `SkillRunner._apply`,
+-- and so is what a form, a trigger or a flag does once an attack carries it.
+-- What a part looks like is graphics/style.gd's, keyed by the same id.
+
+-- The kinds of part, which the palette groups them by. `loot` 0 is a kind
+-- always at hand — never dropped, sold, forged or spent from the stash — as
+-- INPUT and OUTPUT are.
+CREATE TABLE categories (
+	id   TEXT PRIMARY KEY CHECK (id <> '' AND id = lower(id)),
+	loot INTEGER NOT NULL DEFAULT 1 CHECK (loot IN (0, 1))
+);
+
+-- Every number a part has ever had in a shared code (circuit/board_code.gd).
+-- A code written today has to mean the same board next year, so a number is
+-- a part's for good: **only ever add to the end**. A part that is retired
+-- keeps its number, and one that is renamed hands its number to its new id.
+-- tests/circuit/code_test holds every number already given out to its part.
+CREATE TABLE codes (
+	code INTEGER PRIMARY KEY CHECK (code BETWEEN 0 AND 63),   -- six bits in a code
+	id   TEXT NOT NULL UNIQUE CHECK (id <> '' AND id = upper(id))
+);
+
+-- The parts, in the order the palette shows them. Every one has a number.
+CREATE TABLE parts (
+	id          TEXT PRIMARY KEY CHECK (id <> '' AND id = upper(id)),
+	name        TEXT NOT NULL CHECK (name <> ''),                    -- the English, under localization/<lang>/parts.json
+	category    TEXT NOT NULL REFERENCES categories (id) DEFERRABLE INITIALLY DEFERRED,
+	heat        REAL NOT NULL DEFAULT 0 CHECK (heat >= 0),           -- added to the cooldown of a cast that passes through
+	cells       INTEGER NOT NULL DEFAULT 1 CHECK (cells IN (1, 2)),  -- its footprint, and a tick for each cell
+	source      INTEGER NOT NULL DEFAULT 0 CHECK (source IN (0, 1)), -- 1: a flow starts here, and none flows in
+	tag         TEXT CHECK (tag IN ('ranged', 'melee', 'area', 'mobility', 'trigger')),   -- what it makes a board, for a weapon to accept
+	description TEXT NOT NULL CHECK (description <> ''),             -- the English, too
+	FOREIGN KEY (id) REFERENCES codes (id) DEFERRABLE INITIALLY DEFERRED
+);
+
+-- The sides a part's flow leaves by, as the part faces east, in the order the
+-- flows leave. A part takes flow on every other side — inputs are never
+-- declared — so rotation decides where a flow goes, never where it may come
+-- from. A `branch` is a trigger's second way out, and carries its payload. A
+-- part with no ports is where a flow ends.
+CREATE TABLE ports (
+	part_id TEXT NOT NULL REFERENCES parts (id) ON DELETE CASCADE,
+	side    TEXT NOT NULL CHECK (side IN ('E', 'S', 'W', 'N')),
+	kind    TEXT NOT NULL DEFAULT 'flow' CHECK (kind IN ('flow', 'branch')),
+	PRIMARY KEY (part_id, side)
+);
+
+-- One branch to a part.
+CREATE UNIQUE INDEX ports_one_branch ON ports (part_id) WHERE kind = 'branch';
+
+-- What a part does to a flow as the flow enters it, in `position` order. Most
+-- change one field of the payload the flow carries:
+--
+--   set       the field becomes `value`
+--   add       `value` is added to it
+--   multiply  it is multiplied by `value`
+--   toggle    a flag flips
+--   include   `value` joins a list, once
+--
+-- and two change the fight instead, and name no field:
+--
+--   dilate    the world and the board slow for `value` seconds
+--   guard     a guard window opens for `value` seconds; a hit absorbed in it
+--             runs the part's branch
+--
+-- `value` is read as JSON — 8, 1.6, 'true' — and a word may go without its
+-- quotes: 'FIRE'. Which fields a payload has, and what each holds, is the
+-- payload's to say: `Components` holds every row to it as it reads them, and
+-- tests/circuit/parts_test fails on a row that does not fit.
+CREATE TABLE effects (
+	part_id  TEXT NOT NULL REFERENCES parts (id) ON DELETE CASCADE,
+	position INTEGER NOT NULL CHECK (position >= 0),
+	field    TEXT CHECK (field <> ''),
+	op       TEXT NOT NULL CHECK (op IN ('set', 'add', 'multiply', 'toggle', 'include', 'dilate', 'guard')),
+	value    JSON,
+	PRIMARY KEY (part_id, position),
+	CHECK ((field IS NULL) = (op IN ('dilate', 'guard'))),
+	CHECK ((value IS NULL) = (op = 'toggle'))
+);
+
+-- Parts the game no longer has, and the side each one sent its flow out of,
+-- as it faced east. They keep their numbers, and a board saved or shared
+-- while they were in still reads (`SkillBoard.drop_retired`).
+CREATE TABLE retired_parts (
+	id    TEXT PRIMARY KEY REFERENCES codes (id),
+	sends TEXT NOT NULL CHECK (sends IN ('E', 'S', 'W', 'N'))
+);
+
+-- Parts the game still has under a new id. A board, a stash or a drop saved
+-- under the old id reads back under the new one (`Components.current_id`).
+CREATE TABLE renamed_parts (
+	old_id TEXT PRIMARY KEY CHECK (old_id <> '' AND old_id = upper(old_id)),
+	new_id TEXT NOT NULL REFERENCES parts (id) DEFERRABLE INITIALLY DEFERRED
+);
+
+-- The boards the game ships with: each weapon's own attack, every monster's,
+-- a new profile's starter skill, the dragon test's. The boards a player builds
+-- are theirs, and live in the save. Which part feeds which is not written
+-- down: the parts' ports and the way each faces already say it, and
+-- `SkillBoard.trace` walks it.
+CREATE TABLE boards (
+	id     TEXT PRIMARY KEY CHECK (id <> '' AND id = lower(id)),
+	width  INTEGER NOT NULL DEFAULT 7 CHECK (width BETWEEN 1 AND 16),     -- the most a shared code carries
+	height INTEGER NOT NULL DEFAULT 5 CHECK (height BETWEEN 1 AND 16),
+	name   TEXT CHECK (name <> '')   -- what it is called when whoever builds it does not say
+);
+
+-- A part on a board: the cell it is placed in, and the way its east side
+-- faces. A two-cell part covers the next cell that way too.
+CREATE TABLE board_parts (
+	board_id TEXT NOT NULL REFERENCES boards (id) ON DELETE CASCADE,
+	x        INTEGER NOT NULL CHECK (x >= 0),
+	y        INTEGER NOT NULL CHECK (y >= 0),
+	part     TEXT NOT NULL REFERENCES parts (id) DEFERRABLE INITIALLY DEFERRED,
+	facing   TEXT NOT NULL DEFAULT 'E' CHECK (facing IN ('E', 'S', 'W', 'N')),
+	PRIMARY KEY (board_id, x, y)
+);

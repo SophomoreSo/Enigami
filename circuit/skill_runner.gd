@@ -55,23 +55,6 @@ const MAX_TICKS_PER_UPDATE := 64
 const MAX_TTL_BONUS := 36
 ## Seconds the "ready again" flash takes to fade.
 const READY_FLASH := 0.45
-## What one SPEED part multiplies a bolt's velocity by.
-const SPEED_MUL := 1.5
-## And what it does to how far that bolt carries. Gentler than the speed it
-## buys, because range is the thing being spent here: the part is worth taking
-## for the speed, and the extra reach is what keeps a fast bolt from running out
-## of range before it arrives — which is what the part has always said it does.
-const SPEED_RANGE_MUL := 1.2
-## What one RANGE part multiplies that distance by. Worth more than the reach
-## SPEED throws in, because reach is all this one buys: it does nothing to how
-## hard or how fast the bolt arrives, so the part has to be the answer when the
-## thing you cannot do is reach.
-const RANGE_MUL := 1.75
-## How long the guard window ON PARRY opens stays open. Real seconds, like the
-## overclock settling delay and for the same reason: a window denominated in
-## ticks would be shortened by a faster clock, and it used to be read off ON
-## PARRY's own tick cost, which one tick per cell would have cut to a third.
-const PARRY_WINDOW := 0.2
 
 class Pulse extends RefCounted:
 	var cell: Vector2i
@@ -406,10 +389,7 @@ func _exit(p: Pulse) -> Array[Pulse]:
 
 	var outs := Components.world_outputs(id, rot)
 	for d in outs:
-		var np := p.payload.clone()
-		if id == "SPLIT":
-			np.damage *= 0.5
-		_try_enter(ex + Components.dir_to_vec(d), d, np, result, p.ttl)
+		_try_enter(ex + Components.dir_to_vec(d), d, p.payload.clone(), result, p.ttl)
 	return result
 
 func _try_enter(cell: Vector2i, from_dir: int, payload: Payload,
@@ -431,55 +411,34 @@ func _try_enter(cell: Vector2i, from_dir: int, payload: Payload,
 		_resolve(payload)
 	result.append(Pulse.new(cell, Components.tick_cost(tid), payload, ttl - 1))
 
-## Mutate the payload as it enters a component.
+## Mutate the payload as it enters a component: its heat, then each of its
+## effects in turn — the part's rows of `effects`, which `Components` has held
+## to the payload already, so every one fits the field it names.
 func _apply(id: String, p: Payload) -> void:
 	var def := Components.get_def(id)
 	p.heat += float(def.get("heat", 0.0))
 	cycle_heat += float(def.get("heat", 0.0))
-	match id:
-		"PROJECTILE", "SLASH", "EXPLODE", "DASHSLASH", "DASHSLASH_AUTO":
-			p.form = id
-		"FIRE":
-			if not p.elements.has("FIRE"):
-				p.elements.append("FIRE")
-		"ICE":
-			if not p.elements.has("ICE"):
-				p.elements.append("ICE")
-		"DAMAGE":
-			p.damage += 8.0
-		"SIZE":
-			p.size *= 1.6
-		"SPEED":
-			p.speed *= SPEED_MUL
-			p.range_px *= SPEED_RANGE_MUL
-		"RANGE":
-			p.range_px *= RANGE_MUL
-		"PIERCE":
-			p.pierce += 2
-		"DASH":
-			p.dash = true
-		"BLINK":
-			p.blink = true
-		"HOMING":
-			p.homing = true
-		"REVERSE":
-			p.reverse = not p.reverse
-		"GRAVITY":
-			p.pull = true
-		"KNOCKBACK":
-			p.knockback = true
-		"SHATTER":
-			p.shatter = true
-		"MANA_DRAIN":
-			p.mana_drain = true
-		"DUPLICATE":
-			p.duplicates *= 3
-		"TIME_DILATION":
-			_had_effect = true
-			dilation_requested.emit(1.4)
-		"ON_PARRY":
-			_had_effect = true
-			parry_opened.emit(PARRY_WINDOW)
+	for e: Dictionary in def.get("effects", []):
+		var field: StringName = e["field"]
+		match String(e["op"]):
+			"set":
+				p.set(field, e["value"])
+			"add":
+				p.set(field, p.get(field) + e["value"])
+			"multiply":
+				p.set(field, p.get(field) * e["value"])
+			"toggle":
+				p.set(field, not p.get(field))
+			"include":
+				var list: Array = p.get(field)
+				if not list.has(e["value"]):
+					list.append(e["value"])
+			"dilate":
+				_had_effect = true
+				dilation_requested.emit(float(e["value"]))
+			"guard":
+				_had_effect = true
+				parry_opened.emit(float(e["value"]))
 
 ## A branch reaching an OUTPUT defines a follow-up attack rather than firing
 ## one. A loop can bring the same branch round several times in a single cycle,

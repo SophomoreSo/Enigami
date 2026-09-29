@@ -27,7 +27,7 @@ const PATH := "res://data/enigami.db"
 ## same number into `meta`, and `tests/story/dialogue_test` holds the two
 ## together, so a schema changed on one side is a failing test and not a
 ## conversation that reads as empty.
-const SCHEMA_VERSION := 3
+const SCHEMA_VERSION := 4
 
 enum State { CLOSED, OPEN, FAILED }
 
@@ -73,7 +73,9 @@ func value(sql: String, bindings: Array = [], fallback = null):
 ##     did.
 ##   * A column declared JSON comes out parsed — a Dictionary, an Array, a
 ##     String — or, when its text is not JSON, as that text: a `camera` is a
-##     framing or the word `reset`, exactly as it was in the file.
+##     framing or the word `reset`, exactly as it was in the file. A number
+##     SQLite kept as a number is already what parsing it would give, and
+##     comes out as it is: an effect's `8` or `1.6`.
 ##
 ## `where` and `order` are SQL the caller writes; `bindings` fill the `?`s in
 ## `where`. Keys are Strings, whatever the extension hands back.
@@ -92,7 +94,7 @@ func records(table: String, where: String = "", bindings: Array = [], order: Str
 			if v == null:
 				continue
 			var key := String(col)
-			if json.has(key):
+			if json.has(key) and v is String:
 				# An instance parse rather than JSON.parse_string, which logs
 				# an engine error for text that is not JSON — and `reset` is
 				# not, on purpose.

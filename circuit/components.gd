@@ -1,7 +1,9 @@
 class_name Components
 extends RefCounted
 
-## Static definition table for every skill-board component.
+## Every skill-board part, as the content database has it: the rows of
+## `parts`, `ports`, `effects`, `codes`, `retired_parts` and `renamed_parts`
+## (see `data/db/README.md`), read the first time anything asks and kept.
 ##
 ## A component occupies one (or two) grid cells and declares its OUTPUT ports in
 ## LOCAL space. Rotation `r` turns a local direction `d` into world direction
@@ -15,6 +17,16 @@ extends RefCounted
 ## own outputs, so the arrows drawn on the board describe its behaviour
 ## completely: rotation decides where a flow goes, never where it may come from.
 ## (INPUT is the exception — it is the source, so nothing feeds into it.)
+##
+## What a part does to a flow is rows too: its effects, each a change to one
+## field of the `Payload` the flow carries, which `SkillRunner._apply` makes as
+## the flow enters. Every row is held to the payload as it is read, and one that
+## does not fit is one of `faults()` and left out, rather than guessed at.
+##
+## This is the one script in the circuit that names `Db`. Behaviour only: the
+## colour and glyph a part is drawn with are in `graphics/style.gd`, keyed by the
+## same id, and a part added to the table draws in its category's colour until
+## someone gives it a glyph of its own.
 
 const E := 0
 const S := 1
@@ -22,6 +34,8 @@ const W := 2
 const N := 3
 
 const DIR_VEC := [Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(0, -1)]
+## The sides as the tables write them, in the order of the indices above.
+const SIDES := "ESWN"
 
 # Categories are used for palette grouping and for weapon compatibility tags.
 # What each one looks like is `Style.CAT_COLOR`, over in the graphics module.
@@ -33,213 +47,70 @@ const CAT_BEHAVIOR := "behavior"
 const CAT_FLOW := "flow"
 const CAT_TRIGGER := "trigger"
 
-## id -> definition. Fields:
-##   name, cat, heat, cells (1 or 2), inp (local input dirs),
-##   outs (local output dirs),
-##   payload_out (local dir of a trigger's secondary branch, -1 if none),
-##   acts_on_entry (the part does its work on the way in; see below), desc
-##
-## Behaviour only. The colour and glyph a part is drawn with are in
-## `graphics/style.gd`, keyed by the same id, and a part added here draws in
-## its category's colour until someone gives it a glyph of its own.
-const DEFS := {
-	"INPUT": {
-		"name": "INPUT", "cat": CAT_STRUCT, "heat": 0.0, "cells": 1,
-		"outs": [E], "payload_out": -1, "source": true,
-		"desc": "Flow origin. Starts the next pulse once the previous one has resolved.",
-	},
-	"OUTPUT": {
-		"name": "OUTPUT", "cat": CAT_STRUCT, "heat": 0.0, "cells": 1,
-		"outs": [], "payload_out": -1,
-		"desc": "Converts the assembled flow into a real effect. A flow with no attack form produces no attack.",
-	},
+## Fields of a payload the runner keeps for itself, which no effect may touch:
+## a part's own heat is its `heat`, and the rest is how a trigger's branch is
+## carried and chained.
+const KEPT := ["heat", "branch", "follow_up", "on_hit", "on_kill", "on_parry"]
 
-	"PROJECTILE": {
-		"name": "PROJECTILE", "cat": CAT_FORM, "heat": 0.6, "cells": 1,
-		"outs": [E], "payload_out": -1,
-		"desc": "Fires a bolt along the aim direction. The standard ranged form.",
-	},
-	"SLASH": {
-		"name": "SLASH", "cat": CAT_FORM, "heat": 0.5, "cells": 1,
-		"outs": [E], "payload_out": -1,
-		"desc": "An instant short arc at the aim direction. Fast, but reach is short.",
-	},
-	"EXPLODE": {
-		"name": "EXPLODE", "cat": CAT_FORM, "heat": 1.2, "cells": 2,
-		"outs": [E], "payload_out": -1,
-		"desc": "Damages everything inside a burst radius. Uses two board cells.",
-	},
-	"DASHSLASH": {
-		"name": "DASHSLASH", "cat": CAT_FORM, "heat": 1.0, "cells": 2,
-		"outs": [E], "payload_out": -1,
-		"desc": "Lunges along the aim direction, cutting everything on the path. Uses two cells.",
-	},
-	"DASHSLASH_AUTO": {
-		"name": "DASHSLASH+", "cat": CAT_FORM, "heat": 1.4, "cells": 2,
-		"outs": [E], "payload_out": -1,
-		"desc": "Seeks the nearest visible enemy and blinks through it, cutting the path. Uses two cells.",
-	},
-
-	"FIRE": {
-		"name": "FIRE", "cat": CAT_ELEMENT, "heat": 0.4, "cells": 1,
-		"outs": [E], "payload_out": -1,
-		"desc": "Adds flame. Struck enemies burn for damage over time.",
-	},
-	"ICE": {
-		"name": "ICE", "cat": CAT_ELEMENT, "heat": 0.4, "cells": 1,
-		"outs": [E], "payload_out": -1,
-		"desc": "Adds frost. Struck enemies are slowed.",
-	},
-
-	"DAMAGE": {
-		"name": "DAMAGE +", "cat": CAT_STAT, "heat": 0.3, "cells": 1,
-		"outs": [E], "payload_out": -1,
-		"desc": "Raises damage. Stable and simple, but interacts with little else.",
-	},
-	"SIZE": {
-		"name": "SIZE x", "cat": CAT_STAT, "heat": 0.4, "cells": 1,
-		"outs": [E], "payload_out": -1,
-		"desc": "Scales the attack by 1.6. Melee arcs widen and reach further.",
-	},
-	"SPEED": {
-		"name": "SPEED x", "cat": CAT_STAT, "heat": 0.35, "cells": 1,
-		"outs": [E], "payload_out": -1,
-		"desc": "Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. Does nothing to a flow with no bolt in it.",
-	},
-
-	"RANGE": {
-		"name": "RANGE x", "cat": CAT_STAT, "heat": 0.35, "cells": 1,
-		"outs": [E], "payload_out": -1,
-		"desc": "Bolts carry 1.75x as far before they fade. Does nothing to a flow with no bolt in it.",
-	},
-	"SHATTER": {
-		"name": "SHATTER", "cat": CAT_STAT, "heat": 0.45, "cells": 1,
-		"outs": [E], "payload_out": -1,
-		"desc": "Hits an enemy already slowed by frost far harder. Worth nothing on its own — pair it with ICE, or with a board that lands twice.",
-	},
-
-	"PIERCE": {
-		"name": "PIERCE", "cat": CAT_BEHAVIOR, "heat": 0.5, "cells": 1,
-		"outs": [E], "payload_out": -1,
-		"desc": "The attack continues through targets instead of stopping on the first.",
-	},
-	"DASH": {
-		"name": "DASH", "cat": CAT_BEHAVIOR, "heat": 0.5, "cells": 1,
-		"outs": [E], "payload_out": -1,
-		"desc": "Lunges a short distance along the aim. Chains with melee forms into a moving arc.",
-	},
-	"BLINK": {
-		"name": "BLINK", "cat": CAT_BEHAVIOR, "heat": 0.7, "cells": 1,
-		"outs": [E], "payload_out": -1,
-		"desc": "Teleports behind the nearest visible enemy. Works alone; if nothing is in sight the flow simply continues.",
-	},
-	"HOMING": {
-		"name": "HOMING", "cat": CAT_BEHAVIOR, "heat": 0.6, "cells": 1,
-		"outs": [E], "payload_out": -1,
-		"desc": "Tracks the nearest enemy. Bolts curve; melee forms re-aim themselves.",
-	},
-	"REVERSE": {
-		"name": "REVERSE", "cat": CAT_BEHAVIOR, "heat": 0.4, "cells": 1,
-		"outs": [E], "payload_out": -1,
-		"desc": "Flips travel direction. Bolts return to you; other forms invert in their own way.",
-	},
-
-	"GRAVITY": {
-		"name": "GRAVITY", "cat": CAT_BEHAVIOR, "heat": 0.7, "cells": 1,
-		"outs": [E], "payload_out": -1,
-		"desc": "The enemy struck is not knocked back but pinned, and every other enemy nearby is dragged onto it. Gathers a room into one place for whatever comes next.",
-	},
-	"KNOCKBACK": {
-		"name": "KNOCKBACK", "cat": CAT_BEHAVIOR, "heat": 0.5, "cells": 1,
-		"outs": [E], "payload_out": -1,
-		"desc": "Hits throw the enemy back the way the attack was going. Buys room, but can put it out of reach.",
-	},
-	"MANA_DRAIN": {
-		"name": "MANA DRAIN", "cat": CAT_BEHAVIOR, "heat": 0.5, "cells": 1,
-		"outs": [E], "payload_out": -1,
-		"desc": "Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting.",
-	},
-
-	"SPLIT": {
-		"name": "SPLIT", "cat": CAT_FLOW, "heat": 0.4, "cells": 1,
-		"outs": [N, S], "payload_out": -1,
-		"desc": "Divides one flow into two. Each branch carries half the damage.",
-	},
-	"TEE": {
-		"name": "TEE", "cat": CAT_FLOW, "heat": 0.5, "cells": 1,
-		"outs": [E, S], "payload_out": -1,
-		"desc": "Keeps the main flow and grows one branch sideways. Both carry full damage.",
-	},
-	"DUPLICATE": {
-		"name": "DUPLICATE x3", "cat": CAT_FLOW, "heat": 3.0, "cells": 1,
-		"outs": [E], "payload_out": -1,
-		"desc": "Produces the same result three times at full damage. Generates a lot of heat.",
-	},
-	"OVERCLOCK": {
-		"name": "OVERCLOCK", "cat": CAT_FLOW, "heat": 0.0, "cells": 1,
-		"outs": [E], "payload_out": -1,
-		"desc": "Runs the whole board on a faster clock, at the price of a settling delay between cycles. Each one adds less speed than the last while the delay grows faster, so a few pay off and a wall of them does not.",
-	},
-	"DELAY": {
-		"name": "DELAY", "cat": CAT_FLOW, "heat": 0.0, "cells": 1,
-		"outs": [E], "payload_out": -1,
-		"desc": "One cell of waiting, like every other cell. Stagger a branch against another by giving it further to walk.",
-	},
-	"TIME_DILATION": {
-		"name": "TIME DILATION", "cat": CAT_FLOW, "heat": 2.0, "cells": 1,
-		"outs": [E], "payload_out": -1, "acts_on_entry": true,
-		"desc": "Slows the world and the board alike. Not a speed buff — a change in the pace of the fight.",
-	},
-
-	"ON_HIT": {
-		"name": "ON HIT", "cat": CAT_TRIGGER, "heat": 0.6, "cells": 1,
-		"outs": [E], "payload_out": S,
-		"desc": "Runs the branch flow as a payload when this skill connects.",
-	},
-	"ON_KILL": {
-		"name": "ON KILL", "cat": CAT_TRIGGER, "heat": 0.6, "cells": 1,
-		"outs": [E], "payload_out": S,
-		"desc": "Runs the branch flow as a payload only when this skill kills.",
-	},
-	"ON_PARRY": {
-		"name": "ON PARRY", "cat": CAT_TRIGGER, "heat": 0.8, "cells": 1,
-		"outs": [E], "payload_out": S, "acts_on_entry": true,
-		"desc": "Opens a brief guard window as the flow passes. Absorbing a hit there runs the branch flow.",
-	},
-}
-
-## Parts that are structural: always available, never consumed as loot.
-const STRUCTURAL := ["INPUT", "OUTPUT"]
-
-## Parts the game no longer has, and the local direction each one sent its flow.
-## WIRE and BEND carried a flow one cell and did nothing else to it, which every
-## part already does: any part takes flow on any side and sends it where it
-## points. They are kept here only so that a board saved or shared while they
-## were in still reads — see `SkillBoard.drop_retired` — and their numbers in
-## `BoardCode.CODE_IDS` stay theirs.
-const RETIRED := {"WIRE": E, "BEND": S}
-
-## Parts the game still has under a new id, old id -> new. EXPLODE was AREA. A
-## board, a stash or a drop saved under the old id reads back under the new one
-## — see `current_id` — and the part kept its number in `BoardCode.CODE_IDS`,
-## so a code shared before the rename builds the same board after it.
-const RENAMED := {"AREA": "EXPLODE"}
-
-## Loot-able components, in the order the palette shows them.
-const LOOT_POOL := [
-	"PROJECTILE", "SLASH", "EXPLODE", "DASHSLASH", "DASHSLASH_AUTO",
-	"FIRE", "ICE", "DAMAGE", "SIZE", "SPEED", "RANGE", "SHATTER",
-	"PIERCE", "DASH", "BLINK", "HOMING", "REVERSE", "GRAVITY", "KNOCKBACK", "MANA_DRAIN",
-	"SPLIT", "TEE", "DUPLICATE", "OVERCLOCK", "DELAY", "TIME_DILATION",
-	"ON_HIT", "ON_KILL", "ON_PARRY",
-]
+## id -> definition, in palette order. Fields:
+##   name, cat, heat, cells (1 or 2), source (a flow starts here), tag ("" for
+##   none), outs (local output dirs, in the order flows leave), payload_out
+##   (local dir of a trigger's branch, -1 if none), effects (what entering it
+##   does, see `_effect`), acts_on_entry (it does its work on the way in; see
+##   below), code (its number in a shared code), desc
+static var _defs: Dictionary = {}
+## code -> id, a retired part's included.
+static var _codes: Dictionary = {}
+## Retired id -> the local direction it sent its flow.
+static var _retired: Dictionary = {}
+## Old id -> the id the part goes by now.
+static var _renamed: Dictionary = {}
+## Category -> whether its parts drop, sell and are spent from the stash.
+static var _loot: Dictionary = {}
+static var _faults: Array = []
+static var _read := false
 
 static func get_def(id: String) -> Dictionary:
-	return DEFS.get(id, {})
+	_ensure()
+	return _defs.get(id, {})
+
+## Every part, in the order the palette shows them.
+static func ids() -> Array:
+	_ensure()
+	return _defs.keys()
+
+## Parts that are structural: always available, never consumed as loot. INPUT
+## and OUTPUT, as the table's `categories` says.
+static func structural() -> Array:
+	var out: Array = []
+	for id in ids():
+		if is_structural(id):
+			out.append(id)
+	return out
+
+## Loot-able components, in the order the palette shows them.
+static func loot_pool() -> Array:
+	var out: Array = []
+	for id in ids():
+		if not is_structural(id):
+			out.append(id)
+	return out
+
+## What is wrong with the tables, in words: a row that does not fit what reads
+## it. Empty when every part is whole. Said once, loudly, as they are read.
+static func faults() -> Array:
+	_ensure()
+	return _faults.duplicate()
+
+## Forgets what was read, so the next question reads the tables again —
+## `data/db/build.sh` puts a new file in place while the game runs.
+static func reload() -> void:
+	_read = false
+	_defs.clear()
 
 ## What to call a part on screen, and what to say it does, in the language
-## being played. The `name` and `desc` in DEFS above are the fallback under
-## these: a part added here draws with its English name until somebody writes
+## being played. The `name` and `desc` from the table are the fallback under
+## these: a part added there draws with its English name until somebody writes
 ## one for it, rather than drawing as its key or not at all.
 static func name_for(id: String) -> String:
 	return Loc.opt("parts.%s.name" % id, String(get_def(id).get("name", id)))
@@ -260,24 +131,66 @@ static func tag_names(tags: Array) -> String:
 	return Loc.t("editor.payload.separator").join(out)
 
 static func exists(id: String) -> bool:
-	return DEFS.has(id)
+	return not get_def(id).is_empty()
 
 static func is_structural(id: String) -> bool:
-	return STRUCTURAL.has(id)
+	var def := get_def(id)
+	return not def.is_empty() and not bool(_loot.get(String(def["cat"]), true))
+
+## Parts the game no longer has, which keep their numbers. See `retired_parts`.
+static func retired_ids() -> Array:
+	_ensure()
+	return _retired.keys()
 
 static func is_retired(id: String) -> bool:
-	return RETIRED.has(id)
+	_ensure()
+	return _retired.has(id)
+
+## The local direction a retired part sent its flow, which is what
+## `SkillBoard.drop_retired` closes a board up along.
+static func retired_out(id: String) -> int:
+	_ensure()
+	return int(_retired.get(id, E))
+
+## Old id -> the id the part goes by now. See `renamed_parts`.
+static func renamed() -> Dictionary:
+	_ensure()
+	return _renamed.duplicate()
 
 ## The id a part goes by today. Whatever reads a part back out of a save asks
 ## this first, so a profile written before a rename keeps what it had.
 static func current_id(id: String) -> String:
-	return String(RENAMED.get(id, id))
+	_ensure()
+	return String(_renamed.get(id, id))
+
+## A part's number in a shared code, retired or not, or -1 for none.
+static func code_of(id: String) -> int:
+	_ensure()
+	for n in _codes:
+		if _codes[n] == id:
+			return int(n)
+	return -1
+
+## The part a shared code means by `code` — perhaps a retired one — or "".
+static func part_for_code(code: int) -> String:
+	_ensure()
+	return String(_codes.get(code, ""))
+
+## Every number given out, number -> id.
+static func codes() -> Dictionary:
+	_ensure()
+	return _codes.duplicate()
+
+## What entering a part does, in order: {op, field, value}, with the value in
+## the type its field holds. See `SkillRunner._apply`.
+static func effects_of(id: String) -> Array:
+	return get_def(id).get("effects", [])
 
 ## Whether a part does its work the moment a flow enters it, rather than by
-## carrying that flow on to an OUTPUT. `SkillRunner._apply` is where those two
-## effects happen; the flag is declared beside the part so that a board can tell
-## a loop still doing something every lap from one that only swallows the flow —
-## see `SkillBoard.dead_loops`.
+## carrying that flow on to an OUTPUT — it slows the fight or opens a guard.
+## `SkillRunner._apply` is where those two effects happen; the flag is worked
+## out beside the part so that a board can tell a loop still doing something
+## every lap from one that only swallows the flow — see `SkillBoard.dead_loops`.
 static func acts_on_entry(id: String) -> bool:
 	return bool(get_def(id).get("acts_on_entry", false))
 
@@ -295,6 +208,10 @@ static func opposite(dir: int) -> int:
 
 static func dir_to_vec(dir: int) -> Vector2i:
 	return DIR_VEC[dir % 4]
+
+## A side as the tables write it — E, S, W or N — as a direction, or -1.
+static func side(letter: String) -> int:
+	return SIDES.find(letter) if letter.length() == 1 else -1
 
 ## World-space edges a placed component will accept flow on: everything except
 ## the edges it sends flow out of. Two outputs meeting head-on is the only join
@@ -343,3 +260,124 @@ const DIR_NAME := ["east", "south", "west", "north"]
 
 static func dir_name(dir: int) -> String:
 	return Loc.opt("parts.direction.%s" % DIR_NAME[dir % 4], DIR_NAME[dir % 4])
+
+## --- reading the tables -------------------------------------------------------
+
+static func _ensure() -> void:
+	if not _read:
+		_read = true
+		_load()
+
+static func _load() -> void:
+	_defs.clear()
+	_codes.clear()
+	_retired.clear()
+	_renamed.clear()
+	_loot.clear()
+	_faults.clear()
+	for c in Db.records("categories"):
+		_loot[String(c["id"])] = int(c.get("loot", 1)) == 1
+	for c in Db.records("codes", "", [], "code"):
+		_codes[int(c["code"])] = String(c["id"])
+	for p in Db.records("parts", "", [], "rowid"):
+		var id := String(p["id"])
+		_defs[id] = {
+			"name": String(p["name"]), "cat": String(p["category"]),
+			"heat": float(p.get("heat", 0.0)), "cells": int(p.get("cells", 1)),
+			"source": int(p.get("source", 0)) == 1, "tag": String(p.get("tag", "")),
+			"outs": [], "payload_out": -1, "effects": [], "acts_on_entry": false,
+			"code": -1, "desc": String(p["description"]),
+		}
+	for n in _codes:
+		if _defs.has(_codes[n]):
+			_defs[_codes[n]]["code"] = int(n)
+	for port in Db.records("ports", "", [], "rowid"):
+		var def: Dictionary = _defs.get(String(port["part_id"]), {})
+		if def.is_empty():
+			continue
+		if String(port.get("kind", "flow")) == "branch":
+			def["payload_out"] = side(String(port["side"]))
+		else:
+			(def["outs"] as Array).append(side(String(port["side"])))
+	var shape := Payload.new()
+	for row in Db.records("effects", "", [], "part_id, position"):
+		var id := String(row["part_id"])
+		var def: Dictionary = _defs.get(id, {})
+		if def.is_empty():
+			continue
+		var made = _effect(row, shape)
+		if made is String:
+			_faults.append("%s's effect %d %s" % [id, int(row.get("position", 0)), made])
+			continue
+		(def["effects"] as Array).append(made)
+		if made["op"] == "dilate" or made["op"] == "guard":
+			def["acts_on_entry"] = true
+	for r in Db.records("retired_parts"):
+		_retired[String(r["id"])] = side(String(r["sends"]))
+	for r in Db.records("renamed_parts"):
+		_renamed[String(r["old_id"])] = String(r["new_id"])
+	if _defs.is_empty():
+		_faults.append("no parts in %s" % Db.PATH)
+	for fault in _faults:
+		push_error("Components: %s" % fault)
+
+## One row of `effects` as `SkillRunner._apply` makes it — {op, field, value},
+## the field a StringName and the value in the type the field holds — or, when
+## the row does not fit a payload like `shape`, why not, in words.
+##
+## A payload's own fields are the vocabulary: what one holds decides what can
+## be done to it. A number is set, added to or multiplied; a whole number the
+## same, by whole numbers, since a fraction would be cut off without a word; a
+## flag set or toggled; a word set; a list included in.
+static func _effect(row: Dictionary, shape: Payload) -> Variant:
+	var op := String(row.get("op", ""))
+	var value = row.get("value", null)
+	if op == "dilate" or op == "guard":
+		if not (value is float or value is int) or float(value) <= 0.0:
+			return "%s for %s seconds, which is no time at all" % [op, str(value)]
+		return {"op": op, "field": &"", "value": float(value)}
+	var field := String(row.get("field", ""))
+	if not field in shape:
+		return "changes %s, which is not a field of a payload" % field
+	if KEPT.has(field):
+		return "changes %s, which the runner keeps for itself" % field
+	var now = shape.get(field)
+	var fit = null
+	match typeof(now):
+		TYPE_FLOAT:
+			if op in ["set", "add", "multiply"] and (value is float or value is int):
+				fit = float(value)
+		TYPE_INT:
+			if op in ["set", "add", "multiply"] and (value is float or value is int) \
+					and float(value) == floorf(float(value)):
+				fit = int(value)
+		TYPE_BOOL:
+			if op == "toggle":
+				fit = true
+			elif op == "set" and (value is bool or ((value is float or value is int) and float(value) in [0.0, 1.0])):
+				fit = bool(value)
+		TYPE_STRING:
+			if op == "set" and value is String:
+				fit = value
+		TYPE_ARRAY:
+			if op == "include" and value is String:
+				fit = value
+	if fit == null:
+		var what := "" if value == null else " " + str(value)
+		return "%s %s%s, which %s cannot take — %s" % [op, field, what, field, _takes(now)]
+	return {"op": op, "field": StringName(field), "value": null if op == "toggle" else fit}
+
+## What can be done to a field holding what `now` holds, for a fault to say.
+static func _takes(now) -> String:
+	match typeof(now):
+		TYPE_FLOAT:
+			return "it is a number: set, add or multiply it by one"
+		TYPE_INT:
+			return "it is a whole number: set, add or multiply it by one"
+		TYPE_BOOL:
+			return "it is a flag: set it true or false, or toggle it"
+		TYPE_STRING:
+			return "it is a word: set it to one"
+		TYPE_ARRAY:
+			return "it is a list: include a word in it"
+	return "nothing is done to it"

@@ -50,7 +50,7 @@ const ALPHABET := "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
 ##     parts     7 bits          up to 127 of them
 ##     then each part, in reading order:
 ##       cell    as many bits as width x height needs — 6 on a 7x5, 7 on an 11x9
-##       part    6 bits, its number in CODE_IDS
+##       part    6 bits, its number in the content database's `codes`
 ##       facing  2 bits
 ##
 ## Parts go in reading order rather than the order they were placed, so one
@@ -77,26 +77,13 @@ const WORD_MAX := (1 << WORD_BITS) - 1
 const MAX_SIDE := 16
 const MAX_PARTS := 127
 
-## Every component's number in a code. **Only ever append to this.** A code
-## written today has to mean the same board next year, so a part keeps its
-## number for good, and a part that is one day retired keeps its number with it
-## rather than letting the ones after it shuffle down — as WIRE and BEND have,
-## see `Components.RETIRED`. A part that is renamed keeps its number too: the
-## new id takes the old one's place here, as EXPLODE took AREA's — see
-## `Components.RENAMED`. ID_BITS leaves room for 64;
-## `tests/circuit/code_test.tscn` fails the moment a part here is neither
-## defined nor retired, or a definition has no number here.
-const CODE_IDS := [
-	"INPUT", "OUTPUT", "WIRE", "BEND",
-	"PROJECTILE", "SLASH", "EXPLODE", "DASHSLASH", "DASHSLASH_AUTO",
-	"FIRE", "ICE", "DAMAGE", "SIZE", "SPEED",
-	"PIERCE", "DASH", "BLINK", "HOMING", "REVERSE",
-	"SPLIT", "TEE", "DUPLICATE", "OVERCLOCK", "DELAY", "TIME_DILATION",
-	"ON_HIT", "ON_KILL", "ON_PARRY",
-	"SHATTER", "GRAVITY", "MANA_DRAIN",
-	"RANGE",
-	"KNOCKBACK",
-]
+## Every part's number in a code is its row in `codes`, in the content
+## database (`data/db/parts/parts.sql`, via `Components.code_of`). That list is
+## only ever added to: a code written today has to mean the same board next
+## year, so a part keeps its number for good — a retired one included, as WIRE
+## and BEND have, and a renamed one hands it to its new id, as AREA did to
+## EXPLODE. ID_BITS leaves room for 64; `tests/circuit/code_test.tscn` holds
+## every number already given out to its part, and fails a part with none.
 
 ## The last character makes the whole code weigh nothing: every character is
 ## multiplied by its place in the line and the total comes to zero, counted
@@ -137,7 +124,7 @@ const REFUSALS := [MISTYPED, TRUNCATED, IMPOSSIBLE, HAS_ZERO, EMPTY, LENGTH,
 
 ## `board` as a code, exactly as it is shown and shared. Empty when the board
 ## cannot be put into one: bigger than the format's ceiling, or carrying a part
-## that has no number in CODE_IDS yet.
+## that has no number in `codes` yet.
 static func encode(board: SkillBoard) -> String:
 	if board == null or board.cells.size() > MAX_PARTS:
 		return ""
@@ -151,7 +138,7 @@ static func encode(board: SkillBoard) -> String:
 	var cell_bits := _cell_bits(board.width, board.height)
 	for origin in reading_order(board):
 		var entry: Dictionary = board.cells[origin]
-		var n: int = CODE_IDS.find(String(entry["id"]))
+		var n := Components.code_of(String(entry["id"]))
 		if n < 0:
 			return ""
 		_put(bits, origin.y * board.width + origin.x, cell_bits)
@@ -224,12 +211,12 @@ static func decode(code: String) -> Dictionary:
 		var rot := r.take(ROT_BITS)
 		if not r.ok:
 			return _fail(TRUNCATED)
-		if part >= CODE_IDS.size():
+		var id := Components.part_for_code(part)
+		if id == "":
 			return _fail(UNKNOWN_PART)
 		if pos >= w * h:
 			return _fail(IMPOSSIBLE)
 		var origin := Vector2i(pos % w, int(pos / w))
-		var id := String(CODE_IDS[part])
 		# A code written before a part was retired still reads; the part is set
 		# aside and the board closed up round it as a save is.
 		if Components.is_retired(id):

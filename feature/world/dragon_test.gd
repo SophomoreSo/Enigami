@@ -46,19 +46,12 @@ var elapsed: float = 0.0
 var _counting: bool = false
 var _chain_cache: Dictionary = {}
 
-## The board this room is built around: a DASHSLASH+ whose ON HIT walks three
+## The board this room is built around, `dragon` in the content database
+## (`data/db/boards/dragon_test.sql`): a DASHSLASH+ whose ON HIT walks three
 ## OVERCLOCKs back round into it. Every lap the cast has life for is one more
 ## lunge at the nearest guard still standing.
 static func dragon_board() -> SkillBoard:
-	var b := SkillBoard.new(7, 5, Loc.t("hud.dragon.board"))
-	b.place("INPUT", Vector2i(0, 2), 0)
-	b.place("DASHSLASH_AUTO", Vector2i(1, 2), 0)
-	b.place("ON_HIT", Vector2i(3, 2), 0)
-	b.place("OUTPUT", Vector2i(4, 2), 0)
-	b.place("OVERCLOCK", Vector2i(3, 3), 2)
-	b.place("OVERCLOCK", Vector2i(2, 3), 2)
-	b.place("OVERCLOCK", Vector2i(1, 3), 3)
-	return b
+	return Boards.build("dragon", Loc.t("hud.dragon.board"))
 
 func _ready() -> void:
 	Arena.register(self)

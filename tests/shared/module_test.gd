@@ -27,7 +27,8 @@ extends Node
 ## names besides, and for a file in `except`, those names too.
 const MAY := [
 	{"module": "res://circuit/", "folders": ["res://circuit/"], "names": ["Loc"],
-		"what": "the circuit names nothing but itself and Loc"},
+		"except": {"res://circuit/components.gd": ["Db"]},
+		"what": "the circuit names nothing but itself and Loc — and components.gd the parts table, through Db"},
 	{"module": "res://feature/", "folders": ["res://feature/", "res://circuit/"],
 		"names": ["Loc", "Cues", "Pointer", "Db"],
 		"except": {"res://feature/world/sandbox.gd": ["Npc"]},
