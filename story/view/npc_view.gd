@@ -2,9 +2,10 @@ class_name NpcView
 extends Node2D
 
 ## A bystander: their character from the atlas, a prompt over their head while
-## the player is close enough to talk, and — once they are talking — the dialogue
-## box at the top of the screen (see `DialogueBox`) and the camera each line of
-## their dialogue file asks for.
+## the player is close enough to talk and a press would get an answer, and —
+## once they are talking in the box — the dialogue box at the top of the screen
+## (see `DialogueBox`) and the camera each line of their dialogue file asks for.
+## What they say free goes in a bubble over whoever says it (`SpeechBubble`).
 
 const NAME_SIZE := 9
 const CORNER := 5
@@ -22,6 +23,8 @@ var sprite: AnimatedSprite2D
 var prompt_layer: CanvasLayer
 var prompt: Node2D
 var dialogue: DialogueBox
+## On the prompt's layer, for the prompt's reasons: free talk is reading text.
+var bubble: SpeechBubble
 var _font: Font
 var _prompt_box: StyleBoxFlat
 ## Where the top of the head is, relative to the NPC.
@@ -45,6 +48,9 @@ func _ready() -> void:
 	prompt = Node2D.new()
 	prompt.draw.connect(_draw_prompt)
 	prompt_layer.add_child(prompt)
+	bubble = SpeechBubble.new()
+	bubble.npc = npc
+	prompt_layer.add_child(bubble)
 
 	var dialogue_layer := CanvasLayer.new()
 	dialogue_layer.layer = DialogueBox.LAYER
@@ -70,6 +76,7 @@ func _build_sprite() -> void:
 	add_child(sprite)
 	sprite.play("idle")
 	_head_y = sprite.position.y + (art_rect.position.y - frame.y * 0.5) * s
+	bubble.npc_head = _head_y
 
 func _process(delta: float) -> void:
 	if npc == null or not is_instance_valid(npc):
@@ -123,9 +130,11 @@ func _focus_point(focus: String) -> Vector2:
 		_:
 			return (me + them) * 0.5
 
-## Only while nobody is talking: once they are, the box says it all.
+## Only while nobody is talking: once they are, the box or the bubble says it
+## all. And only when a press would get an answer — a free talker with nothing
+## left to say has no prompt over their head.
 func _draw_prompt() -> void:
-	if sprite == null or npc.is_talking() or not npc.in_range:
+	if sprite == null or npc.is_talking() or npc.free_talk.is_talking() or not npc.answers_press():
 		return
 	var tip_y := _head_y - PROMPT_GAP
 	var text := "%s  Talk" % Controls.short_label_for("interact")

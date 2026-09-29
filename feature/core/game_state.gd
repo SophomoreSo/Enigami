@@ -90,6 +90,12 @@ var records: Dictionary = {
 ## earns the prologue, and wiping a profile earns it again.
 var intro_seen: bool = false
 
+## What the people the player has met remember of them: fact -> whole number.
+## Free talk writes it (`Facts`, in story/rules) and nothing here reads it; it
+## is kept with the profile for the same reason `intro_seen` is — a new game
+## is somebody new to them, and the next slot is somebody else.
+var memory: Dictionary = {}
+
 const FACILITY_INFO := {
 	"workbench": {"name": "Workbench", "max": 5},
 	"vault": {"name": "Vault", "max": 5},
@@ -138,6 +144,7 @@ func _new_profile() -> void:
 	lost_kit = {}
 	records = {"raids": 0, "escapes": 0, "deaths": 0, "kills": 0, "best_haul": 0}
 	intro_seen = false
+	memory = {}
 	owned_weapons = ["ROCK", "SWORD", "GUN"]
 	skill_library.clear()
 	scrap = 40
@@ -615,6 +622,29 @@ func mark_intro_seen() -> void:
 	intro_seen = true
 	save_game()
 
+## What the profile says about itself, as whole numbers by name — what a free
+## talker's criteria may ask about it without knowing where each number is
+## kept. The ids are the `game` facts in data/db/schema.sql; a number added
+## here is one more a line can ask about, once the schema names it.
+func facts() -> Dictionary:
+	return {
+		"raids": int(records["raids"]),
+		"escapes": int(records["escapes"]),
+		"deaths": int(records["deaths"]),
+		"kills": int(records["kills"]),
+		"best_haul": int(records["best_haul"]),
+		"scrap": scrap,
+		"kit_waiting": 1 if has_lost_kit() else 0,
+	}
+
+## Writes the profile down for what a conversation changed in `memory` — unless
+## the slot has never been written. The sandbox is open from the title with no
+## slot picked, and something said there is no reason to stamp an empty slot
+## with a profile nobody started (see `_new_profile`).
+func keep_memory() -> void:
+	if FileAccess.file_exists(slot_path(slot)):
+		save_game()
+
 ## --- persistence ------------------------------------------------------------
 
 ## What the title screen needs to draw a slot without opening it: when it was
@@ -687,6 +717,7 @@ func save_game() -> void:
 		"records": records,
 		"loadout": loadout_slots,
 		"intro_seen": intro_seen,
+		"memory": memory,
 		# The raid in progress, if there is one. It used to be left out, so a
 		# profile saved mid-raid came back with the weapon gone from the vault
 		# and no raid to account for it.
@@ -742,6 +773,12 @@ func _read_save(path: String) -> bool:
 	# A profile saved before there was an opening scene has already played the
 	# game, so it is not shown one now.
 	intro_seen = bool(parsed.get("intro_seen", true))
+	# Whole numbers going in; JSON hands every number back as a float.
+	memory = {}
+	var kept = parsed.get("memory", {})
+	if kept is Dictionary:
+		for k in kept:
+			memory[String(k)] = int(kept[k])
 	var rec: Dictionary = parsed.get("records", {})
 	for k in records:
 		if rec.has(k):

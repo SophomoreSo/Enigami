@@ -46,6 +46,7 @@ func _ready() -> void:
 	_check_switching()
 	_check_fonts()
 	_check_pixel_face()
+	_check_bubbles()
 
 	Loc.set_language(_was_language)
 	print("[LOC] ---- %d failures ----" % fails)
@@ -191,6 +192,23 @@ func _check_conversations() -> void:
 						String(line.get("text", "")))
 			for key in lines:
 				check(nodes.has(key), "every line %s translates for %s is one %s has ('%s')"
+					% [lang, id, id, key])
+			# What they say free, rule by rule, the same way.
+			var rules: Dictionary = src.get("rules", {})
+			var said: Dictionary = over.get("rules", {})
+			for key in rules:
+				if not said.has(key):
+					fails += 1
+					push_error("LOC FAIL: %s never says %s's rule '%s'" % [lang, id, key])
+					continue
+				var rule_line: Dictionary = said[key]
+				check(String(rule_line.get("text", "")) != "",
+					"%s gives %s's rule '%s' something to say" % [lang, id, key])
+				if lang == Loc.DEFAULT:
+					_same_text(lang, "%s/%s" % [id, key], String((rules[key] as Dictionary).get("text", "")),
+						String(rule_line.get("text", "")))
+			for key in said:
+				check(rules.has(key), "every rule %s translates for %s is one %s has ('%s')"
 					% [lang, id, id, key])
 
 	for id in CutsceneScript.ids():
@@ -481,6 +499,32 @@ func _check_pixel_face() -> void:
 			% [lang, Loc.face_size(), _first(unfit)])
 		print("[LOC] %s draws on a %d-pixel grid (UiKit.PIXEL is %d)"
 			% [lang, UiKit.pixel_grid(), UiKit.PIXEL])
+
+## --- free talk's bubbles ------------------------------------------------------
+
+## A free line has to fit its bubble, in every language. The bubble grows to
+## `MOST_ROWS` rows of `WIDTH` and then cuts the line short with an ellipsis —
+## so a line that runs on is words nobody reads — and a translation is usually
+## the one that runs on. Every letter has to be one the pixel face draws, too:
+## these lines are not in the files `_check_fonts` reads.
+func _check_bubbles() -> void:
+	for lang in Loc.languages():
+		Loc.set_language(lang)
+		var long: Array = []
+		var lines := {}
+		for id in Dialogue.ids():
+			var rules: Dictionary = Dialogue.character(id).get("rules", {})
+			for key in rules:
+				var text := String((rules[key] as Dictionary).get("text", ""))
+				lines["%s/%s" % [id, key]] = text
+				var rows := PixelDraw.wrap(text, SpeechBubble.WIDTH, 99)
+				if rows.size() > SpeechBubble.MOST_ROWS:
+					long.append("%s/%s (%d rows)" % [id, key, rows.size()])
+		check(not lines.is_empty() and long.is_empty(),
+			"every free line fits its bubble in %s (too long: %s)" % [lang, _first(long)])
+		var missing := _undrawable(UiKit.PIXEL_FONT, lines)
+		check(missing == "", "and every letter of them draws in the pixel face in %s%s"
+			% [lang, "" if missing == "" else " — none for %s" % missing])
 
 ## --- reading ----------------------------------------------------------------
 

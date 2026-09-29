@@ -146,6 +146,13 @@ says which monster and which phase. `graphics/cue_visuals.gd` spells them out
 of `localization/` (`hud.fx`), so what a moment shows is in the language being
 played, and `tests/shared/loc_test` fails a rule that writes a line into a cue.
 
+**One listener sits on the rules' side.** Free talk (`story/rules/free_talk.gd`)
+hears cues too: a character who talks free answers moments — a double jump, a
+blow — and those are cues already, so the rules that send them never learn
+anybody is watching. Which cues are moments a character can notice, and what
+each has to carry, is the `events` table in the content database;
+`tests/story/free_talk_test` fails on one that nothing sends.
+
 ### 3. Style — for the look of a thing the rules name
 
 `graphics/style.gd` holds every colour, glyph and atlas character, keyed by the
@@ -235,6 +242,19 @@ character's file, and a handler on the presentation side. A column declared
 `JSON` arrives parsed, which is how `camera` reaches the picture as the
 dictionary it always read.
 
+A character can also talk **free** — in a bubble over whoever is speaking,
+while the player goes on playing — and that is rows as well: `rules`, each
+with the event it answers, the `criteria` the `facts` must meet, and the
+`changes` it makes once it has been said (**Free talk** in
+`data/db/README.md`). The split is the same one. `story/rules/free_talk.gd`
+reads a rule's `text`, `listens`, `once`, `next`, `triggers`, `speaker`,
+`speed` and `hold`, and decides what is said and when; `story/view/speech_bubble.gd`
+reads its `emotion`; the sound bank its `sfx` and `voice`, off the same `talk`
+cues the box sends. What a free talker remembers is kept with the profile
+(`GameState.memory`), which saves it without reading it, and what the game
+counts `GameState.facts()` hands over by name — so nothing in `feature/`
+knows what anybody said.
+
 ## Where does it go?
 
 | Change | File |
@@ -249,6 +269,7 @@ dictionary it always read.
 | The player's movement states, and which can follow which | `data/db/machines/player.sql`, then `data/db/build.sh`. What a state does each frame, and when a way out is open, `_setup_fsm` in `feature/actors/player.gd` |
 | A new directed scene, or a new staging direction | a file in `data/scenes/` — see its README; no code. A new direction is a case in `story/rules/cutscene.gd` and, if it shows, `story/view/cutscene_view.gd` |
 | How a conversation behaves — range, reveal speed, who is held still | `story/rules/npc.gd`. How it reads on screen, `story/view/dialogue_box.gd` |
+| Someone who talks free, and what they notice | a file in `data/db/dialogue/` of `rules`, `criteria` and `changes` — see **Free talk** in `data/db/README.md`; no code. A new kind of moment to notice, a row of `events` in `data/db/schema.sql` naming the cue. How free talk is picked and paced, `story/rules/free_talk.gd`; how the bubble looks, `story/view/speech_bubble.gd` |
 | What anyone actually says, on any screen, in any language | `localization/<lang>/` — see its README. A new language is a folder and an entry in `LANGUAGES` in `app/loc.gd` |
 | What an emotion looks like | `EMOTIONS` in `graphics/style.gd` |
 | Retune damage, room generation | `feature/` |

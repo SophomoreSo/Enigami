@@ -12,7 +12,8 @@ data/
     ├── schema.sql    the tables: the contract the code reads against
     ├── build.sh      rebuilds enigami.db from everything here
     ├── dialogue/     the conversations, one file per character, named after their id in lower case
-    │   └── sage.sql
+    │   ├── sage.sql         in the box
+    │   └── apprentice.sql   free
     └── machines/     the state machines, one file each
         └── player.sql
 ```
@@ -49,7 +50,7 @@ INSERT INTO characters (id, name, sprite, player_name, start,
 | `name` | The name on the tab when they speak. |
 | `sprite` | Their character — one from the sprite atlas, or the game's own `player` — in the world and on the portrait. |
 | `player_name` | The name on the tab when the player speaks. Leave it out for `You`. |
-| `start` | The line a conversation opens on. |
+| `start` | The line a conversation in the box opens on. Leave it out for someone who only talks free — see **Free talk**. |
 | `line_speaker` `line_emotion` `line_voice` `line_speed` | What their lines say when a line does not say it itself. Left out, they are `npc`, `neutral`, `low` and `45`. |
 
 Any column named `line_<key>` is the default for `<key>` on every line, so a
@@ -149,11 +150,104 @@ Every sound is synthesised, so `sfx` names one from the bank in
 `pickup` `place` `erase` `ui` `deny` `extract` `parry` `boss` `voice`. An unknown
 id plays nothing and warns in the output.
 
+## Free talk
+
+The other way a character talks. Where the box holds the player still and
+walks a tree, free talk goes on over the game: each line comes out in a
+bubble over whoever says it, the player keeps moving, jumping and fighting
+under it, and a line moves on by itself once it has had time to be read — a
+press up close only hurries it. It is aarthificial's Typewriter, from
+[Legacy devlog #23](https://www.youtube.com/watch?v=1LlF5p5Od6A), after Elan
+Ruskin's dynamic dialog for Valve.
+
+Nothing follows a fixed path. Every line is a **rule**: the **event** it
+answers, the **criteria** the **facts** must meet for it, and the **changes**
+it makes to them once it has been said. When an event is raised, the rules
+answering it are tried from the most criteria to the fewest, and the first
+whose criteria all hold is said — the most specific thing there is to say. A
+tie goes to the one written first.
+
+```sql
+INSERT INTO characters (id, name, sprite) VALUES ('APPRENTICE', 'Apprentice', 'dwarf_f');
+
+INSERT INTO rules (character_id, id, listens, once, text, next) VALUES
+	('APPRENTICE', 'intro', 'talk', 1, 'Want to learn some footwork?', 'intro_reply');
+INSERT INTO rules (character_id, id, text, speaker, triggers) VALUES
+	('APPRENTICE', 'intro_reply', 'Sweeping sounds safer.', 'player', 'lesson');
+
+-- Every press after the first, until it has all been taught.
+INSERT INTO rules (character_id, id, listens, text, triggers) VALUES
+	('APPRENTICE', 'resume', 'talk', 'Where were we? Right, footwork.', 'lesson');
+INSERT INTO criteria (character_id, rule_id, fact, op, value) VALUES
+	('APPRENTICE', 'resume', 'APPRENTICE.intro', '>=', 1),
+	('APPRENTICE', 'resume', 'apprentice_taught', '=', 0);
+```
+
+A character with no `start` has nothing in the box and talks free when
+pressed, and whoever stages a character can set which a press starts
+(`Npc.mode`). What they notice they answer free either way. `dialogue/apprentice.sql` is a
+whole character, commented.
+
+| Table · column | Meaning |
+|---|---|
+| `rules.listens` | The event it answers. Leave it out for a line only ever reached as another's `next`. |
+| `rules.once` | 1: said once and never again. A spent rule is out of the running. |
+| `rules.next` | Said after it, whatever the facts. |
+| `rules.triggers` | An event raised after it: whatever answers that best is said next, and nothing answering ends the talk there. Not together with `next`. |
+| `rules.hold` | Seconds it stays up once it is all out. Left out, as long as it takes to read — Hangul counted by the syllable. |
+| `rules.speaker` `text` `speed` `emotion` `voice` `sfx` | What they mean in `nodes`, falling back on the character's `line_` defaults the same way. |
+| `criteria.fact` `op` `value` | A fact compared — `=` `<>` `<` `<=` `>` `>=` — with a whole number. Every row of a rule has to hold. |
+| `changes.fact` `op` `value` | Made once the rule has been said: `set` the fact to the value, or `add` the value to it; a negative one takes away. |
+
+A line takes a bubble of four rows at most, in every language —
+`tests/shared/loc_test` fails one that runs over. Longer is a line for the box.
+
+### Facts
+
+Whole numbers by name, 0 until something sets them, so a rule can ask about
+something before anything has happened to it. A fact is declared in `facts`
+with how long it is kept:
+
+| `scope` | Kept |
+|---|---|
+| `save` | With the profile, for good. A new game is somebody new to them. |
+| `visit` | Until the player leaves the world they are in. |
+| `game` | Not kept: read off the profile each time — `raids` `escapes` `deaths` `kills` `best_haul` `scrap` `kit_waiting`. A rule may ask about one and never change it. |
+
+Every rule and every event is a fact as well, and needs no declaring: how
+many times the line has been said — `APPRENTICE.intro` — or the event raised
+— `double_jump`. That is what `once` reads, and it is how talk is **picked up
+again**. A line counts only once it is all the way out, so a line the player
+walked out on was never said, and the next press finds the first thing not
+yet said. Nothing else remembers where a conversation got to.
+
+### Events
+
+| Event | Raised |
+|---|---|
+| `talk` | A press of interact beside them while nothing is being said. |
+| `near` | The player coming into earshot — eight cells. |
+| `leave` | The player going out of earshot halfway through talk they started, which cuts it off. |
+| a moment | A cue the game sends (`app/cues.gd`) while the player is in earshot: `jump` `double_jump` `wall_kick` `dash` `winded` `parry` `strike` `kill` `hurt`. Counted once, however many hear it. |
+| their own | Declared in the character's file — `INSERT INTO events (id) VALUES ('lesson')` — and raised by a rule's `triggers`. |
+
+A new kind of moment is a row of `events` in `schema.sql`, naming the cue and
+what it has to carry: `('double_jump', 'jump', '{"kind": "air"}')`.
+`tests/story/free_talk_test` fails on one the game never sends. When one cue
+is more than one event — a blow that kills is `strike` and `kill` — the one
+that asks more of it is answered first.
+
+An event that gets a rule cuts in on whatever was being said, and that goes
+unsaid; an event that gets nothing leaves it alone. The prompt over a free
+talker's head shows only while a press would get an answer, so once they have
+nothing left to say, there is no prompt.
+
 ## Translating
 
 Only the words leave this folder: what is said, the names on the tab and the
 answers to a question are laid over these rows from
-`localization/<lang>/dialogue/<id>.json`, by the line's `id`. The `text` here
+`localization/<lang>/dialogue/<id>.json`, by the line's `id` — and what a free
+rule says by the rule's, under `rules`. The `text` here
 is the English fallback, and `tests/shared/loc_test` fails if the two drift.
 See `localization/README.md`.
 

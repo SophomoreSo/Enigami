@@ -17,6 +17,9 @@ const SRC := "res://data/db"
 const SCRATCH := "user://dialogue_test.db"
 
 var fails := 0
+## The last rowids of the facts and events the schema itself declares.
+var _schema_facts := 0
+var _schema_events := 0
 
 func check(ok: bool, what: String) -> void:
 	if ok:
@@ -32,9 +35,11 @@ func _ready() -> void:
 	check(Db.meta("schema_version") == str(Db.SCHEMA_VERSION),
 		"the database is at the schema the code reads (file says %s, code says %d)"
 			% [Db.meta("schema_version"), Db.SCHEMA_VERSION])
-	for table in ["meta", "emotions", "voices", "characters", "nodes", "choices"]:
+	for table in ["meta", "emotions", "voices", "characters", "nodes", "choices",
+			"facts", "events", "rules", "criteria", "changes"]:
 		check(Db.has_table(table), "there is a %s table" % table)
 	check(Db.json_columns("nodes").has("camera"), "a line's camera is a JSON column")
+	check(Db.json_columns("events").has("match"), "and so is what an event asks of its cue")
 
 	# --- it is the build of the sources beside it -----------------------------
 	var built := Db.meta("source_hash")
@@ -139,6 +144,37 @@ func _ready() -> void:
 		check(not _accepted(db, [person.replace("'X', 'X'", "'x', 'X'"), a.replace("'X'", "'x'"), b.replace("'X'", "'x'")]),
 			"a character id that is not upper case is refused")
 		check(not _accepted(db, [person, a, b, answer, answer.replace("'ok'", "'again'")]), "two answers in one position are refused")
+
+		# Free talk. The first is sound, and every one after it breaks it once.
+		var talker := "INSERT INTO characters (id, name, sprite) VALUES ('Y', 'Y', 'elf_m')"
+		var said := "INSERT INTO rules (character_id, id, listens, text) VALUES ('Y', 'r', 'talk', 'hi')"
+		var knows := "INSERT INTO facts (id, scope) VALUES ('y_seen', 'visit')"
+		var asks := "INSERT INTO criteria (character_id, rule_id, fact, op, value) VALUES ('Y', 'r', 'raids', '>=', 1)"
+		var does := "INSERT INTO changes (character_id, rule_id, fact, op, value) VALUES ('Y', 'r', 'y_seen', 'set', 1)"
+		check(_accepted(db, [talker, said, knows, asks, does]),
+			"a character with no box, who only talks free, is accepted (%s)" % db.error_message)
+		check(not _accepted(db, [talker, "INSERT INTO nodes (character_id, id, text) VALUES ('Y', 'a', 'hi')"]),
+			"a line in the box for somebody with no start is refused")
+		check(not _accepted(db, [talker, said.replace("'talk'", "'tlak'")]), "a rule answering an event nobody declared is refused")
+		check(not _accepted(db, [talker, said, asks.replace("'raids'", "'raid'")]),
+			"a criterion on a fact nobody declared is refused when the build commits")
+		check(not _accepted(db, [talker, said, asks.replace("'>='", "'=>'")]), "a comparison that is not one is refused")
+		check(not _accepted(db, [talker, said, asks.replace(", 1)", ", 'one')")]),
+			"a criterion that is not a whole number is refused")
+		check(not _accepted(db, [talker, said, does.replace("'y_seen'", "'raids'")]), "a change to what the game counts is refused")
+		check(not _accepted(db, [talker, said, knows.replace("'visit'", "'forever'")]), "a scope that is not one is refused")
+		check(not _accepted(db, [talker, said.replace("text)", "text, next)").replace("'hi')", "'hi', 'gone')")]),
+			"a rule whose next is no rule is refused when the build commits")
+		check(not _accepted(db, [talker, said.replace("text)", "text, next, triggers)").replace("'hi')", "'hi', 'r', 'talk')")]),
+			"a rule with both a next rule and an event to raise is refused")
+		check(not _accepted(db, [talker, said.replace("text)", "text, once)").replace("'hi')", "'hi', 2)")]),
+			"once is yes or no")
+		check(not _accepted(db, [talker, said, "INSERT INTO facts (id, scope) VALUES ('talk', 'save')"]),
+			"a fact named for an event is refused: a name means one thing")
+		check(not _accepted(db, ["INSERT INTO events (id, cue, match) VALUES ('x_moment', 'jump', '[1]')"]),
+			"an event whose match is not an object is refused")
+		check(not _accepted(db, ["INSERT INTO events (id, match) VALUES ('x_moment', '{\"kind\": \"air\"}')"]),
+			"an event that matches a cue it does not name is refused")
 		db.close_db()
 		DirAccess.remove_absolute(SCRATCH)
 
@@ -220,10 +256,16 @@ func _scratch():
 	if schema == "" or not db.query(schema):
 		push_error("DIALOGUE: the schema did not run: %s" % db.error_message)
 		return null
+	# What the schema declares itself, which every try leaves standing.
+	db.query("SELECT (SELECT max(rowid) FROM facts) AS facts, (SELECT max(rowid) FROM events) AS events")
+	_schema_facts = int(db.query_result[0]["facts"])
+	_schema_events = int(db.query_result[0]["events"])
 	return db
 
 ## Whether `statements` go in and commit, the way build.sh commits them. What
-## went in is taken out again afterwards, so every try starts from nothing.
+## went in is taken out again afterwards, so every try starts from nothing —
+## the facts and events a try declared as well, since a rule declares a fact
+## of its own and the next try would find it already there.
 func _accepted(db, statements: Array) -> bool:
 	var ok: bool = db.query("BEGIN")
 	for s in statements:
@@ -233,4 +275,6 @@ func _accepted(db, statements: Array) -> bool:
 		db.query("ROLLBACK")
 		return false
 	db.query("DELETE FROM characters")
+	db.query("DELETE FROM facts WHERE rowid > %d" % _schema_facts)
+	db.query("DELETE FROM events WHERE rowid > %d" % _schema_events)
 	return true
