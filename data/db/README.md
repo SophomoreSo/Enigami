@@ -159,20 +159,33 @@ See `localization/README.md`.
 
 ## A state machine
 
-The player's movement is a state machine, and its **shape** is three tables:
-`machines` (the id and the state it starts in), `states` and `transitions`.
-What a state *does* each frame and what it takes for a way out to be *open*
-stay code: the owner hands `Machine.build` its actions and its conditions by
-name, and a row names one of each. A name the owner does not have is a
-`fault` on the machine, reported by the player and failed by
-`tests/feature/machine_test.tscn`.
+The player's movement is a state machine, and all of it is rows, in five
+tables: `machines` (the id and the state it starts in), `states`, the `steps`
+each state takes every frame, the `conditions` that open a way, and the
+`transitions` between states. What stays code is the words the rows are
+written in, which the owner hands `Machine.build` by name: its **actions**,
+each one thing the body does on a frame, and its **senses**, each one thing
+it can tell about itself. A step names an action; a condition reads senses.
+A name the owner does not have is a `fault` on the machine, reported by the
+player and failed by `tests/feature/machine_test.tscn`.
 
 ```sql
 INSERT INTO machines (id, start) VALUES ('player', 'idle');
 
-INSERT INTO states (machine_id, id, label, action) VALUES
-	('player', 'idle', 'Idle', 'idle'),
-	('player', 'dash', 'Dash', 'dash');
+INSERT INTO states (machine_id, id, label) VALUES
+	('player', 'idle', 'Idle'),
+	('player', 'dash', 'Dash');
+
+-- What each does every frame, in order.
+INSERT INTO steps (machine_id, state_id, position, action) VALUES
+	('player', 'idle', 0, 'brake'),
+	('player', 'idle', 1, 'gravity'),
+	('player', 'idle', 2, 'jump'),
+	('player', 'idle', 3, 'dash'),
+	('player', 'dash', 0, 'rush');
+
+INSERT INTO conditions (machine_id, id, expression) VALUES
+	('player', 'dashing', 'dashing');
 
 -- Out of idle, asked in order: the first open way is taken.
 INSERT INTO transitions (machine_id, from_id, position, to_id, condition) VALUES
@@ -182,15 +195,61 @@ INSERT INTO transitions (machine_id, from_id, position, to_id, condition) VALUES
 | Table · column | Meaning |
 |---|---|
 | `states.label` | What `state_name()` reports — the debug log and the tests read it. |
-| `states.action` | What the owner does each frame in this state, by the owner's name for it. |
+| `steps.action` | One thing the state does each frame, by the owner's name for it. A state's steps are taken in `position` order; a state with none does nothing, and is a problem. |
+| `conditions.expression` | When a way is open: a question about the owner's senses that answers true or false. See below. |
 | `transitions.position` | The order the ways out of a state are asked in. The first whose condition holds is taken. |
-| `transitions.condition` | Whether this way is open, by the owner's name for it. |
+| `transitions.condition` | Whether this way is open: the `id` of one of the machine's `conditions`. The build refuses one that is not written. |
 | `transitions.probability` | Rows sharing a `from_id` and a `position` are one way out that **splits** between their `to_id`s by this, and add up to 1. One row, and the way is certain. The rows of a split name the same condition; the build refuses ones that do not. |
 
 The player's six states can each reach every other, so `player.sql` is
-thirty rows; close a way by deleting its row, and open a split by adding
-rows at the same position. `Player._setup_fsm` is where its actions and
-conditions are named.
+thirty ways; close one by deleting its row, and open a split by adding rows
+at the same position.
+
+### The player's words
+
+`Player._setup_fsm` is where these are named. A new one is a line there —
+and, for an action, the method it calls.
+
+| Action | What it does |
+|---|---|
+| `brake` | slows to a stop along the ground |
+| `run` | speeds up toward the direction held, along the ground |
+| `steer` | the same in the air, easing off when nothing is held |
+| `gravity` | falls faster, up to the fastest fall |
+| `cling` | a hugged wall holds the fall to a slide |
+| `jump` | a press becomes a jump — off the ground, off a wall, or the air jump — and letting go early cuts the rise short |
+| `dash` | a press starts a dash, when the stamina and the cooldown allow |
+| `rush` | a dash under way carries the body until its time runs out |
+
+| Sense | What it says |
+|---|---|
+| `dashing` | whether a dash is under way |
+| `on_floor` | whether the player is standing on something |
+| `wall` | the wall being hugged: `-1` on the left, `1` on the right, `0` none |
+| `dir` | the direction held, `-1` to `1` |
+| `velocity` | in pixels a second, y down: `velocity.y < 0` is going up |
+
+### Conditions
+
+A condition is read as Godot's `Expression`, over the senses and nothing
+else: `and`, `or`, `not`, comparisons, arithmetic, a sense's own fields
+(`velocity.y`), and the engine's functions (`abs(dir) > 0.5`). `Machine`
+parses each one once, asks it once as it builds, and then asks it every time
+the way it opens is tried. One that does not read, reads a name that is not
+a sense, or answers anything but true or false is a fault, and the ways that
+ask it are left out rather than guessed at.
+
+```sql
+INSERT INTO conditions (machine_id, id, expression) VALUES
+	('player', 'running', 'not dashing and on_floor and dir != 0');
+```
+
+The player's six are exclusive and leave nothing out: on any frame exactly
+one holds, so the order a state asks its ways in only says which is asked
+first. `machine_test` tries them against every combination of the senses
+that matters to them. A condition that overlaps another fails it; if that
+is meant, the order of the ways starts to matter, and the test is where to
+say so.
 
 ## Reading it from code
 

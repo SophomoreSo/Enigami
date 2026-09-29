@@ -150,10 +150,11 @@ var talk_locked: bool = false
 ## Movement runs as a state machine. Every frame the senses are read, the state
 ## is re-picked from them, and only then does that state act — so the state an
 ## action runs in describes this frame, not the one before a jump or a ledge.
-## Its shape — the states, and which can follow which — is the `player`
-## machine in the content database (`data/db/machines/player.sql`); what each
-## state does and when each way out is open are the actions and conditions
-## named in `_setup_fsm`.
+## All of it — the states, what each does, which can follow which and what
+## opens each way — is the `player` machine in the content database
+## (`data/db/machines/player.sql`). What is left here is what its rows name:
+## the actions a state takes and the senses a condition reads, handed over in
+## `_setup_fsm`.
 var machine: Machine
 var current_state: FSMNode
 ## Log state transitions.
@@ -177,35 +178,31 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_PREDELETE and machine != null:
 		machine.cleanup()
 
-## What the states do, and what it takes for a way out to be open, by the
-## names the table uses. The conditions are exclusive, so at most one holds on
-## any frame; which states there are and which can follow which is the
-## table's to say, and a row's to change.
+## The words the machine's rows are written in: the actions a state's steps
+## take, and the senses its conditions read. Which states there are, what each
+## does, which can follow which and when is the table's to say, and a row's to
+## change; a row naming a word that is not here is reported, not guessed at.
 func _setup_fsm() -> void:
 	machine = Machine.build("player", {
-		"idle": _action_idle,
+		"brake": _action_brake,
 		"run": _action_run,
-		"air": _action_air,
-		"wall_slide": _action_wall_slide,
+		"steer": _action_steer,
+		"gravity": _action_gravity,
+		"cling": _action_cling,
+		"jump": _action_jump,
 		"dash": _action_dash,
+		"rush": _action_rush,
 	}, {
-		"dashing": func() -> bool: return _dash_time > 0.0,
-		"wall_sliding": func() -> bool: return _airborne() and _wall_dir != 0,
-		"running": func() -> bool: return _grounded() and _dir != 0.0,
-		"standing": func() -> bool: return _grounded() and _dir == 0.0,
-		"rising": func() -> bool: return _airborne() and _wall_dir == 0 and velocity.y < 0.0,
-		"falling": func() -> bool: return _airborne() and _wall_dir == 0 and velocity.y >= 0.0,
+		"dashing": is_dashing,
+		"on_floor": is_on_floor,
+		"wall": func() -> int: return _wall_dir,
+		"dir": func() -> float: return _dir,
+		"velocity": func() -> Vector2: return velocity,
 	})
 	for fault in machine.faults:
 		push_error("Player: the player machine — %s" % fault)
 	if machine.start == null:
 		push_error("Player: no state to start in, so the player will not move — is data/enigami.db built and shipped?")
-
-func _grounded() -> bool:
-	return _dash_time <= 0.0 and is_on_floor()
-
-func _airborne() -> bool:
-	return _dash_time <= 0.0 and not is_on_floor()
 
 func setup(weapon: String, boards: Array) -> void:
 	weapon_id = weapon
@@ -479,51 +476,40 @@ func _sense(delta: float) -> void:
 		stamina = minf(MAX_STAMINA, stamina + STAMINA_REGEN * delta)
 
 ## --- state actions ----------------------------------------------------------
-func _action_idle() -> void:
-	var delta := get_physics_process_delta_time()
-	velocity.x = move_toward(velocity.x, 0.0, FRICTION * delta)
-	_apply_gravity(delta)
-	_jump_and_dash()
+## What a state's steps can take, by the names `_setup_fsm` gives them. Each is
+## one thing the body does on a frame; which a state takes, and in what order,
+## is the table's.
 
+## Slows to a stop along the ground.
+func _action_brake() -> void:
+	velocity.x = move_toward(velocity.x, 0.0, FRICTION * get_physics_process_delta_time())
+
+## Speeds up toward the direction held, along the ground.
 func _action_run() -> void:
 	var delta := get_physics_process_delta_time()
 	velocity.x = move_toward(velocity.x, _dir * RUN_SPEED * speed_scale(), GROUND_ACCEL * delta)
-	_apply_gravity(delta)
-	_jump_and_dash()
 
-## Rising and falling steer the same; they are apart so the arc can be told.
-func _action_air() -> void:
+## The same in the air, and easing off when nothing is held.
+func _action_steer() -> void:
 	var delta := get_physics_process_delta_time()
-	_steer_air(delta)
-	_apply_gravity(delta)
-	_jump_and_dash()
-
-func _action_wall_slide() -> void:
-	var delta := get_physics_process_delta_time()
-	_steer_air(delta)
-	_apply_gravity(delta)
-	if velocity.y > WALL_SLIDE_SPEED:
-		velocity.y = WALL_SLIDE_SPEED
-		Cues.at(&"wall_slide", global_position, {"dir": _wall_dir})
-	_jump_and_dash()
-
-func _action_dash() -> void:
-	_dash_time -= get_physics_process_delta_time()
-	velocity = _dash_dir * DASH_SPEED
-
-func _steer_air(delta: float) -> void:
 	if _dir != 0.0:
 		velocity.x = move_toward(velocity.x, _dir * RUN_SPEED * speed_scale(), AIR_ACCEL * delta)
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, FRICTION * delta)
 
-func _apply_gravity(delta: float) -> void:
-	velocity.y = minf(velocity.y + GRAVITY * delta, MAX_FALL)
+## Falls faster, up to the fastest fall.
+func _action_gravity() -> void:
+	velocity.y = minf(velocity.y + GRAVITY * get_physics_process_delta_time(), MAX_FALL)
 
-## The moves every state but the dash can start. Which jump a press becomes is
-## decided by what is available — ground or coyote time, a wall, the air jump —
-## and a dash begun here takes over from the next frame.
-func _jump_and_dash() -> void:
+## A hugged wall holds the fall to a slide.
+func _action_cling() -> void:
+	if velocity.y > WALL_SLIDE_SPEED:
+		velocity.y = WALL_SLIDE_SPEED
+		Cues.at(&"wall_slide", global_position, {"dir": _wall_dir})
+
+## A press becomes a jump — which one is decided by what is available: ground
+## or coyote time, a wall, the air jump — and letting go early cuts it short.
+func _action_jump() -> void:
 	if _buffer > 0.0:
 		if _coyote > 0.0:
 			velocity.y = JUMP_VELOCITY
@@ -553,6 +539,9 @@ func _jump_and_dash() -> void:
 	if not controls_locked() and Input.is_action_just_released("jump") and velocity.y < 0.0:
 		velocity.y *= 0.45
 
+## A press starts a dash, when the stamina and the cooldown allow. It takes
+## over from the next frame, when the machine sees it under way.
+func _action_dash() -> void:
 	if not controls_locked() and Input.is_action_just_pressed("dash") and _dash_cd <= 0.0:
 		if stamina < DASH_STAMINA:
 			# Nothing happening at all reads as a dropped input, so say why.
@@ -572,6 +561,11 @@ func _jump_and_dash() -> void:
 			# length, and not the dash's length plus whatever the top-up was.
 			invuln = maxf(invuln, DASH_INVULN)
 			Cues.at(&"dash", global_position)
+
+## A dash under way carries the body until its time runs out.
+func _action_rush() -> void:
+	_dash_time -= get_physics_process_delta_time()
+	velocity = _dash_dir * DASH_SPEED
 
 ## A guard window opened by ON PARRY swallows the hit and runs the branch flow.
 func apply_damage(amount: float, elements: Array = [], source: Node = null, is_hit: bool = true) -> float:

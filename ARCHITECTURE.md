@@ -216,12 +216,15 @@ file is missing on a platform. `feature/` and `story/rules/` may name it, as
 they may `Loc`; `tests/shared/module_test` says so. Nothing else names
 `SQLite` at all — a module asks `Db` for rows and gets dictionaries.
 
-The player's movement states are rows in it too — `machines`, `states` and
-`transitions` — built into `FSMNode`s by `Machine` (`feature/core/machine.gd`)
-over the actions and conditions `Player._setup_fsm` names. The graph is
-content; what a state does each frame, and what it takes for a way out to be
-open, is code the rows refer to by name. A row naming code the player does
-not have is reported, not guessed at.
+The player's movement is rows in it too — `machines`, `states`, `steps`,
+`conditions` and `transitions` — built into `FSMNode`s by `Machine`
+(`feature/core/machine.gd`). All of the machine is content: the states, what
+each does every frame, which can follow which, and what opens each way,
+which is a question about what the player senses —
+`not dashing and on_floor and dir != 0`. What stays code is the words the
+rows are written in, handed over by `Player._setup_fsm`: the actions a step
+takes, each one thing the body does on a frame, and the senses a condition
+reads. A row naming one the player does not have is reported, not guessed at.
 
 The `text` in those rows is the English fallback. What is actually said is
 laid over it from `localization/<lang>/dialogue/<id>.json`, by node name —
@@ -246,7 +249,7 @@ dictionary it always read.
 | A new pose for the player | a strip beside the skin, painted in the map's colours; how it plays, `SkinnedCharacter.ANIMS`; when, `PlayerView._animate` |
 | New NPC or dialogue | a file in `data/db/dialogue/`, then `data/db/build.sh` — see `data/db/README.md`; no code. New *kinds* of direction: a column in `data/db/schema.sql`, read in `story/view/dialogue_box.gd` (emotion, portrait), `story/view/npc_view.gd` (camera) or `app/audio/audio_cues.gd` (sound) |
 | Content better kept as rows than as a file | a table in `data/db/schema.sql`, read through `Db` (`app/db.gd`) |
-| The player's movement states, and which can follow which | `data/db/machines/player.sql`, then `data/db/build.sh`. What a state does each frame, and when a way out is open, `_setup_fsm` in `feature/actors/player.gd` |
+| The player's movement — its states, what each does, which can follow which, and when | `data/db/machines/player.sql`, then `data/db/build.sh`. A new action for a step to take, or a new sense for a condition to read, `_setup_fsm` in `feature/actors/player.gd` |
 | A new directed scene, or a new staging direction | a file in `data/scenes/` — see its README; no code. A new direction is a case in `story/rules/cutscene.gd` and, if it shows, `story/view/cutscene_view.gd` |
 | How a conversation behaves — range, reveal speed, who is held still | `story/rules/npc.gd`. How it reads on screen, `story/view/dialogue_box.gd` |
 | What anyone actually says, on any screen, in any language | `localization/<lang>/` — see its README. A new language is a folder and an entry in `LANGUAGES` in `app/loc.gd` |

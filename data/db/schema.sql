@@ -22,7 +22,7 @@ CREATE TABLE meta (
 );
 -- `Db.SCHEMA_VERSION` in app/db.gd is the same number: bump both when a
 -- change is one older code could not read. build.sh adds `source_hash`.
-INSERT INTO meta (key, value) VALUES ('schema_version', '2');
+INSERT INTO meta (key, value) VALUES ('schema_version', '3');
 
 -- How a portrait and the letters behave while a line is said: the ids
 -- `Style.EMOTIONS` (graphics/style.gd) draws. A line naming one not here
@@ -101,11 +101,13 @@ CREATE TABLE choices (
 -- ---- state machines --------------------------------------------------------
 --
 -- The player's movement is a state machine (feature/actors/player.gd), and
--- its shape lives here: the states, and the graph of ways out of each. What a
--- state *does* each frame and what it takes for a way out to be *open* are
--- code — the owner hands `Machine` its actions and its conditions by name,
--- and a row names one of each. A name no owner has is reported by
--- `Machine.build` and fails tests/feature/machine_test.
+-- all of it lives here: the states, what each one does every frame, the graph
+-- of ways out of each, and what opens every way. The owner keeps only the
+-- words the rows are written in, and hands them to `Machine.build` by name:
+-- its *actions*, which a state's steps take — each one thing the body does on
+-- a frame — and its *senses*, which a condition reads. A step naming an
+-- action the owner does not have, or a condition reading a sense it does not
+-- have, is reported by `Machine.build` and fails tests/feature/machine_test.
 
 CREATE TABLE machines (
 	id    TEXT PRIMARY KEY CHECK (id <> ''),
@@ -116,8 +118,31 @@ CREATE TABLE machines (
 CREATE TABLE states (
 	machine_id TEXT NOT NULL REFERENCES machines (id) ON DELETE CASCADE,
 	id         TEXT NOT NULL CHECK (id <> ''),
-	label      TEXT NOT NULL CHECK (label <> ''),    -- what `state_name()` reports; the debug log and the tests read it
-	action     TEXT NOT NULL CHECK (action <> ''),   -- what the owner does each frame in it, by the owner's name for it
+	label      TEXT NOT NULL CHECK (label <> ''),   -- what `state_name()` reports; the debug log and the tests read it
+	PRIMARY KEY (machine_id, id)
+);
+
+-- What a state does each frame: its steps, taken in `position` order, each
+-- an action by the owner's name for it. A state with no steps does nothing,
+-- and `Machine.problems` says so.
+CREATE TABLE steps (
+	machine_id TEXT NOT NULL,
+	state_id   TEXT NOT NULL,
+	position   INTEGER NOT NULL CHECK (position >= 0),
+	action     TEXT NOT NULL CHECK (action <> ''),
+	PRIMARY KEY (machine_id, state_id, position),
+	FOREIGN KEY (machine_id, state_id) REFERENCES states (machine_id, id) ON DELETE CASCADE
+);
+
+-- What opens a way out: a question about the owner's senses, by name, that
+-- answers true or false — `not dashing and on_floor and dir != 0`. It is read
+-- as Godot's `Expression`: `and` `or` `not`, comparisons, arithmetic, a
+-- sense's own fields (`velocity.y`) and the engine's functions (`abs(dir)`),
+-- over the senses and nothing else.
+CREATE TABLE conditions (
+	machine_id TEXT NOT NULL REFERENCES machines (id) ON DELETE CASCADE,
+	id         TEXT NOT NULL CHECK (id <> ''),
+	expression TEXT NOT NULL CHECK (trim(expression) <> ''),
 	PRIMARY KEY (machine_id, id)
 );
 
@@ -130,11 +155,12 @@ CREATE TABLE transitions (
 	from_id     TEXT NOT NULL,
 	position    INTEGER NOT NULL CHECK (position >= 0),
 	to_id       TEXT NOT NULL,
-	condition   TEXT NOT NULL CHECK (condition <> ''),   -- whether the way is open, by the owner's name for it
+	condition   TEXT NOT NULL CHECK (condition <> ''),   -- whether the way is open: the id of one of the machine's conditions
 	probability REAL NOT NULL DEFAULT 1.0 CHECK (probability > 0.0 AND probability <= 1.0),
 	PRIMARY KEY (machine_id, from_id, position, to_id),
 	FOREIGN KEY (machine_id, from_id) REFERENCES states (machine_id, id) ON DELETE CASCADE,
-	FOREIGN KEY (machine_id, to_id) REFERENCES states (machine_id, id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
+	FOREIGN KEY (machine_id, to_id) REFERENCES states (machine_id, id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+	FOREIGN KEY (machine_id, condition) REFERENCES conditions (machine_id, id) DEFERRABLE INITIALLY DEFERRED
 );
 
 -- One condition per way out: the rows of a split agree on when it is open.

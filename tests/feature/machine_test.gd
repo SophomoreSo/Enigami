@@ -1,14 +1,23 @@
 extends Node2D
-## The player's state machine, and the table it is read from.
+## The player's state machine, and the tables it is read from.
 ##
-## The states and the graph of ways between them are rows in the content
-## database (`data/db/machines/player.sql`); what a state does and when a way
-## out is open are the actions and conditions `Player` names. Three things can
+## All of the machine is rows in the content database
+## (`data/db/machines/player.sql`): the states, the steps each takes every
+## frame, the graph of ways between them, and the conditions that open each
+## way, written as questions about what the player senses. What `Player` keeps
+## is the words those rows name — its actions and its senses. Four things can
 ## go wrong between the two and none says so at run time: a row can name an
-## action or a condition the player does not have, the graph can leave a
-## state with no way in, and a split can add up to more or less than one.
-## Each is a failure here. Then a real player is stood up, to see that the
-## machine it built is the one the table describes and that it moves on it.
+## action or a sense the player does not have, a condition can be written so
+## that it does not read, the graph can leave a state with no way in, and a
+## split can add up to more or less than one. Each is a failure here, and so
+## is a set of conditions that opens two ways at once, or none. What the
+## schema refuses is tried against a scratch copy of it. Then a real player is
+## stood up, to see that the machine it built is the one the table describes
+## and that it moves on it.
+
+const SRC := "res://data/db"
+const SCRATCH := "user://machine_test.db"
+const ACTIONS := ["brake", "run", "steer", "gravity", "cling", "jump", "dash", "rush"]
 
 var fails := 0
 
@@ -34,6 +43,14 @@ func solid(centre: Vector2, size: Vector2) -> void:
 	b.add_child(cs)
 	add_child(b)
 
+func spawn(at: Vector2) -> Player:
+	var p := Player.new()
+	p.collision_layer = 2
+	p.collision_mask = 1
+	p.position = at
+	add_child(p)
+	return p
+
 func land(p: Player) -> void:
 	var guard := 0
 	while not p.is_on_floor() and guard < 400:
@@ -49,7 +66,7 @@ func press(action: String, hold: int = 3) -> void:
 func _ready() -> void:
 	# --- the table ------------------------------------------------------------
 	check(Db.available(), "the database opens (%s)" % Db.PATH)
-	for table in ["machines", "states", "transitions"]:
+	for table in ["machines", "states", "steps", "conditions", "transitions"]:
 		check(Db.has_table(table), "there is a %s table" % table)
 	var ids := Machine.ids()
 	check(ids.has("player"), "the player has a machine (%s)" % str(ids))
@@ -60,6 +77,9 @@ func _ready() -> void:
 		var lost := _unreachable(Machine.source(id))
 		check(lost.is_empty(), "every state of %s has a way in from its start%s"
 			% [id, "" if lost.is_empty() else " — not " + ", ".join(lost)])
+		var idle := _unasked(Machine.source(id))
+		check(idle.is_empty(), "every condition of %s opens a way%s"
+			% [id, "" if idle.is_empty() else " — not " + ", ".join(idle)])
 
 	var src := Machine.source("player")
 	var states: Dictionary = src.get("states", {})
@@ -70,6 +90,13 @@ func _ready() -> void:
 		labels.append(String(states[sid].get("label", "")))
 	check(labels == ["Idle", "Run", "Rise", "Fall", "WallSlide", "Dash"],
 		"named Idle, Run, Rise, Fall, WallSlide and Dash, in that order (%s)" % str(labels))
+	var does := {}
+	for sid in states:
+		does[sid] = " ".join(states[sid].get("steps", []))
+	check(does.get("idle") == "brake gravity jump dash" and does.get("run") == "run gravity jump dash"
+			and does.get("rise") == "steer gravity jump dash" and does.get("fall") == does.get("rise")
+			and does.get("wall_slide") == "steer gravity cling jump dash" and does.get("dash") == "rush",
+		"each state takes its steps in order: brake or run or steer, gravity, a wall's cling, jump, dash — and a dash rushes (%s)" % str(does))
 	var edges: Array = src.get("transitions", [])
 	check(edges.size() == 30, "every state has a way into every other: thirty ways out (%d)" % edges.size())
 	var pairs: Dictionary = {}
@@ -87,13 +114,17 @@ func _ready() -> void:
 			out_of_idle.append(String(t.get("to_id", "")))
 	check(out_of_idle == ["dash", "wall_slide", "run", "rise", "fall"],
 		"the ways out of idle are asked dash first, then wall slide, run, rise, fall (%s)" % str(out_of_idle))
+	var questions: Dictionary = src.get("conditions", {})
+	check(questions.keys() == ["dashing", "wall_sliding", "running", "standing", "rising", "falling"],
+		"six conditions open them (%s)" % str(questions.keys()))
 
 	# --- the checker catches what it is for -----------------------------------
 	# Written out here rather than kept as broken rows in the database: these
 	# are the mistakes a writer makes, and every one is silent at run time if
 	# nothing goes looking.
 	var base := {"id": "m", "start": "a",
-		"states": {"a": {"label": "A", "action": "do_a"}, "b": {"label": "B", "action": "do_b"}},
+		"states": {"a": {"label": "A", "steps": ["do_a"]}, "b": {"label": "B", "steps": ["do_b", "do_a"]}},
+		"conditions": {"go": "ready", "back": "not ready and (a or b)"},
 		"transitions": [
 			{"from_id": "a", "position": 0, "to_id": "b", "condition": "go", "probability": 1.0},
 			{"from_id": "b", "position": 0, "to_id": "a", "condition": "back", "probability": 1.0},
@@ -106,48 +137,127 @@ func _ready() -> void:
 		"a way out of a state that does not exist is caught")
 	check(_caught(base, {"transitions": [{"from_id": "a", "position": 0, "to_id": "b", "condition": ""}]}, "no condition"),
 		"a way with no condition is caught")
+	check(_caught(base, {"transitions": [{"from_id": "a", "position": 0, "to_id": "b", "condition": "away"}]}, "asks away, which is not a condition"),
+		"a way asking a condition that is not written is caught")
 	check(_caught(base, {"transitions": [{"from_id": "a", "position": 0, "to_id": "b", "condition": "go", "probability": 0.5}]}, "add up to 0.50"),
 		"a split that does not add up to one is caught")
 	check(_caught(base, {"transitions": [
 			{"from_id": "a", "position": 0, "to_id": "b", "condition": "go", "probability": 0.5},
-			{"from_id": "a", "position": 0, "to_id": "a", "condition": "stay", "probability": 0.5}]}, "disagree"),
+			{"from_id": "a", "position": 0, "to_id": "a", "condition": "back", "probability": 0.5}]}, "disagree"),
 		"a split whose rows disagree on the condition is caught")
-	check(_caught(base, {"states": {"a": {"label": "A", "action": ""}, "b": {"label": "B", "action": "do_b"}}}, "a does nothing"),
-		"a state with no action is caught")
+	check(_caught(base, {"states": {"a": {"label": "A", "steps": []}, "b": {"label": "B", "steps": ["do_b"]}}}, "a does nothing"),
+		"a state with no steps is caught")
+	check(_caught(base, {"states": {"a": {"label": "A", "steps": ["do_a", ""]}, "b": {"label": "B", "steps": ["do_b"]}}}, "a step of a names no action"),
+		"a step that names no action is caught")
+	check(_caught(base, {"conditions": {"go": " ", "back": "not ready"}}, "go says nothing"),
+		"a condition that says nothing is caught")
+	check(_caught(base, {"conditions": {"go": "ready and", "back": "not ready"}}, "go does not read"),
+		"a condition cut off in the middle is caught")
+	# Anywhere else these two would quietly be asked as the first half of
+	# themselves: `ready` and `(ready)`.
+	check(_caught(base, {"conditions": {"go": "ready steady", "back": "not ready"}}, "go does not read"),
+		"a condition missing the word between two names is caught")
+	check(_caught(base, {"conditions": {"go": "(ready) steady) or (go", "back": "not ready"}}, "brackets do not pair"),
+		"and one whose brackets do not pair")
 	check(Machine.problems_in({"start": "a", "states": {}}).has("no states"), "a machine with no states is caught")
 
+	# --- what the schema refuses ------------------------------------------------
+	# The build runs with foreign keys on and these same constraints, so what
+	# is refused here is refused there.
+	var db = _scratch()
+	if db == null:
+		check(false, "a scratch copy of the schema can be made to try it against")
+	else:
+		var m := "INSERT INTO machines (id, start) VALUES ('m', 'a')"
+		var ab := "INSERT INTO states (machine_id, id, label) VALUES ('m', 'a', 'A'), ('m', 'b', 'B')"
+		var steps := "INSERT INTO steps (machine_id, state_id, position, action) VALUES ('m', 'a', 0, 'do_a'), ('m', 'b', 0, 'do_b')"
+		var asks := "INSERT INTO conditions (machine_id, id, expression) VALUES ('m', 'go', 'ready'), ('m', 'back', 'not ready')"
+		var ways := "INSERT INTO transitions (machine_id, from_id, position, to_id, condition) VALUES ('m', 'a', 0, 'b', 'go'), ('m', 'b', 0, 'a', 'back')"
+		check(_accepted(db, [m, ab, steps, asks, ways]), "a sound machine is accepted (%s)" % db.error_message)
+		check(_accepted(db, [m, ab, steps, ways, asks]), "and its conditions may be written after the ways that ask them")
+		check(not _accepted(db, [m, ab, steps, asks, ways.replace("'back')", "'away')")]),
+			"a way asking a condition that is not written is refused when the build commits")
+		check(not _accepted(db, [m, ab, steps.replace("('m', 'b', 0", "('m', 'zz', 0"), asks, ways]),
+			"a step of a state that does not exist is refused")
+		check(not _accepted(db, [m, ab, steps.replace("('m', 'b', 0", "('m', 'a', 0"), asks, ways]),
+			"two steps in one position are refused")
+		check(not _accepted(db, [m, ab, steps.replace("'do_b'", "''"), asks, ways]), "a step with no action is refused")
+		check(not _accepted(db, [m, ab, steps, asks.replace("'not ready'", "'   '"), ways]), "a condition that says nothing is refused")
+		check(not _accepted(db, [m, ab, steps, asks,
+				ways + ", ('m', 'a', 0, 'a', 'back')"]), "the rows of one split asking different conditions are refused")
+		db.close_db()
+		DirAccess.remove_absolute(SCRATCH)
+
 	# --- building it over an owner --------------------------------------------
-	var actions := {"idle": _nothing, "run": _nothing, "air": _nothing, "wall_slide": _nothing, "dash": _nothing}
-	var conditions := {"dashing": _never, "wall_sliding": _never, "running": _never,
-		"standing": _never, "rising": _never, "falling": _never}
-	var whole := Machine.build("player", actions, conditions)
-	check(whole.faults.is_empty() and whole.states.size() == 6 and whole.start == whole.states.get("idle"),
-		"over an owner with every name, the whole machine is built (%s)" % str(whole.faults))
+	var actions := {}
+	for a in ACTIONS:
+		actions[a] = _nothing
+	# The senses read from here, so the questions can be put to any of them.
+	var world := {"dashing": false, "on_floor": true, "wall": 0, "dir": 0.0, "velocity": Vector2.ZERO}
+	var senses := {}
+	for s in world:
+		senses[s] = func(): return world[s]
+	var whole := Machine.build("player", actions, senses)
+	check(whole.faults.is_empty() and whole.states.size() == 6 and whole.conditions.size() == 6
+			and whole.start == whole.states.get("idle"),
+		"over an owner with every word, the whole machine is built (%s)" % str(whole.faults))
+	# Exactly one holds, whatever the player senses: which is why the order a
+	# state asks its ways in only says which is asked first, and why no state
+	# is ever left with nowhere to be.
+	var wrong: Array = []
+	var tried := 0
+	for dashing in [false, true]:
+		for on_floor in [false, true]:
+			for wall in [-1, 0, 1]:
+				for dir in [-1.0, -0.4, 0.0, 1.0]:
+					for vy in [-300.0, 0.0, 300.0]:
+						world["dashing"] = dashing
+						world["on_floor"] = on_floor
+						world["wall"] = wall
+						world["dir"] = dir
+						world["velocity"] = Vector2(0.0, vy)
+						var open: Array = []
+						for cid in whole.conditions:
+							if (whole.conditions[cid] as Callable).call():
+								open.append(cid)
+						tried += 1
+						if open.size() != 1:
+							wrong.append("%s: %s" % [str(world), str(open)])
+	check(wrong.is_empty(), "exactly one of the conditions holds, whatever the player senses (%d of %d not%s)"
+		% [wrong.size(), tried, "" if wrong.is_empty() else ": " + wrong[0]])
+
 	var fewer := actions.duplicate()
-	fewer.erase("dash")
-	var short_one := Machine.build("player", fewer, conditions)
-	check(short_one.faults.size() == 1 and String(short_one.faults[0]).contains("dash"),
-		"a state whose action the owner lacks is reported (%s)" % str(short_one.faults))
+	fewer.erase("rush")
+	var short_one := Machine.build("player", fewer, senses)
+	check(short_one.faults.size() == 1 and String(short_one.faults[0]).contains("dash does rush"),
+		"a state taking a step the owner cannot is reported (%s)" % str(short_one.faults))
 	check(short_one.states.size() == 5 and short_one.start != null, "and the rest is still built")
-	var mute := conditions.duplicate()
-	mute.erase("running")
-	var unanswered := Machine.build("player", actions, mute)
-	check(unanswered.faults.size() == 5 and String(unanswered.faults[0]).contains("running"),
-		"a way whose condition the owner cannot answer is reported, once per way (%d)" % unanswered.faults.size())
-	var nobody := Machine.build("nobody", actions, conditions)
+	var blind := senses.duplicate()
+	blind.erase("dir")
+	var unsure := Machine.build("player", actions, blind)
+	check(unsure.faults.size() == 2 and String(unsure.faults[0]).contains("reads dir, which the owner does not sense"),
+		"a condition reading a sense the owner does not have is reported, once for each (%s)" % str(unsure.faults))
+	check(unsure.conditions.size() == 4 and unsure.states["rise"].next_nodes.size() == 3,
+		"and the ways they open are left out: rise keeps dash, wall slide and fall (%d)" % unsure.states["rise"].next_nodes.size())
+	var odd := senses.duplicate()
+	odd["wall"] = func(): return "left"
+	var muddled := Machine.build("player", actions, odd)
+	check(muddled.faults.size() == 3 and String(muddled.faults[0]).contains("cannot be asked"),
+		"a sense of the wrong kind is reported by every condition it makes nonsense of (%s)" % str(muddled.faults))
+	var vague := senses.duplicate()
+	vague["dashing"] = func(): return 1
+	var unsettled := Machine.build("player", actions, vague)
+	check(unsettled.faults.size() == 1 and String(unsettled.faults[0]).contains("answers int, not true or false"),
+		"and a condition that answers anything but true or false (%s)" % str(unsettled.faults))
+	var nobody := Machine.build("nobody", actions, senses)
 	check(nobody.start == null and nobody.states.is_empty() and not nobody.faults.is_empty(),
 		"a machine not in the table is one with nothing in it, and a problem (%s)" % str(nobody.faults))
-	whole.cleanup()
-	short_one.cleanup()
-	unanswered.cleanup()
+	for built in [whole, short_one, unsure, muddled, unsettled]:
+		built.cleanup()
 
 	# --- and the real player runs on it ---------------------------------------
 	solid(Vector2(600, 500), Vector2(2000, 200))
-	var p := Player.new()
-	p.collision_layer = 2
-	p.collision_mask = 1
-	p.position = Vector2(300, 380)
-	add_child(p)
+	var p := spawn(Vector2(300, 380))
 	await land(p)
 	await phys(2)
 	check(p.machine != null and p.machine.faults.is_empty(),
@@ -158,10 +268,12 @@ func _ready() -> void:
 	var wired := true
 	for sid in p.machine.states:
 		var node: FSMNode = p.machine.states[sid]
-		wired = wired and node.action.is_valid() and node.next_nodes.size() == 5
+		wired = wired and node.steps.size() == (states[sid]["steps"] as Array).size() and node.next_nodes.size() == 5
+		for step in node.steps:
+			wired = wired and step.is_valid()
 		for way in node.next_nodes:
 			wired = wired and (way["condition"] as Callable).is_valid() and (way["destinations"] as Array).size() == 1
-	check(wired, "every state acts, and has five certain ways out, each with a condition that answers")
+	check(wired, "every state takes all its steps, and has five certain ways out, each with a condition that answers")
 
 	Input.action_press("move_right")
 	await phys(6)
@@ -182,19 +294,37 @@ func _ready() -> void:
 	await phys(2)
 	check(p.state_name() == "Idle", "back to Idle on the floor (%s)" % p.state_name())
 	# The press is seen on the physics frame after it, the dash starts inside
-	# that frame's action, and the state is re-picked at the top of the next.
+	# that frame's steps, and the state is re-picked at the top of the next.
 	await press("dash", 2)
 	await phys(2)
 	check(p.state_name() == "Dash", "a dash is a Dash (%s)" % p.state_name())
+	p.queue_free()
+	await phys(2)
+
+	# A wall held into in the air is a slide, and the slide is held to its speed.
+	solid(Vector2(980, 300), Vector2(80, 400))
+	var w := spawn(Vector2(900, 380))
+	await land(w)
+	Input.action_press("move_right")
+	Input.action_press("jump")
+	var sliding := 0
+	var fastest := -INF
+	for i in 150:
+		await phys(1)
+		if w.state_name() == "WallSlide":
+			sliding += 1
+			fastest = maxf(fastest, w.velocity.y)
+	Input.action_release("jump")
+	Input.action_release("move_right")
+	check(sliding > 10 and fastest > 0.0 and fastest <= Player.WALL_SLIDE_SPEED + 0.01,
+		"a wall held into in the air is a WallSlide, down it no faster than %.0f (%d frames, %.1f at most)"
+			% [Player.WALL_SLIDE_SPEED, sliding, fastest])
 
 	print("[MACHINE] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)
 
 func _nothing() -> void:
 	pass
-
-func _never() -> bool:
-	return false
 
 ## The states no path from the start reaches, by id.
 func _unreachable(def: Dictionary) -> Array:
@@ -220,6 +350,17 @@ func _unreachable(def: Dictionary) -> Array:
 			lost.append(String(sid))
 	return lost
 
+## The conditions no way out asks, by id.
+func _unasked(def: Dictionary) -> Array:
+	var asked := {}
+	for t in def.get("transitions", []):
+		asked[String(t.get("condition", ""))] = true
+	var idle: Array = []
+	for cid in def.get("conditions", {}):
+		if not asked.has(cid):
+			idle.append(String(cid))
+	return idle
+
 ## Whether checking `base` with `patch` laid over it, key by key, complains
 ## about `want`.
 func _caught(base: Dictionary, patch: Dictionary, want: String) -> bool:
@@ -230,3 +371,35 @@ func _caught(base: Dictionary, patch: Dictionary, want: String) -> bool:
 		if String(problem).contains(want):
 			return true
 	return false
+
+## A fresh database with the real schema in it, foreign keys on, or null.
+func _scratch():
+	if not ClassDB.class_exists("SQLite"):
+		return null
+	if FileAccess.file_exists(SCRATCH):
+		DirAccess.remove_absolute(SCRATCH)
+	var db = ClassDB.instantiate("SQLite")
+	db.path = SCRATCH
+	db.foreign_keys = true
+	db.verbosity_level = 0
+	if not db.open_db():
+		push_error("MACHINE: could not open %s: %s" % [SCRATCH, db.error_message])
+		return null
+	var schema := FileAccess.get_file_as_string(SRC.path_join("schema.sql"))
+	if schema == "" or not db.query(schema):
+		push_error("MACHINE: the schema did not run: %s" % db.error_message)
+		return null
+	return db
+
+## Whether `statements` go in and commit, the way build.sh commits them. What
+## went in is taken out again afterwards, so every try starts from nothing.
+func _accepted(db, statements: Array) -> bool:
+	var ok: bool = db.query("BEGIN")
+	for s in statements:
+		ok = ok and db.query(s)
+	ok = ok and db.query("COMMIT")
+	if not ok:
+		db.query("ROLLBACK")
+		return false
+	db.query("DELETE FROM machines")
+	return true
