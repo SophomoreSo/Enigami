@@ -3,24 +3,27 @@ extends RefCounted
 
 ## One state of a finite state machine.
 ##
-## A state is an action to run and an ordered list of ways out of it. Each way
-## out is a condition and where it leads; the first condition that holds wins.
-## A transition may also split between several destinations by probability.
+## A state is what it does each frame — its steps, taken in order — and an
+## ordered list of ways out of it. Each way out is a condition and where it
+## leads; the first condition that holds wins. A transition may also split
+## between several destinations by probability.
 
-var action: Callable
+## What the state does each frame, in the order it does it.
+var steps: Array[Callable] = []
 var next_nodes: Array = []
 ## The state's id and the name it goes by, as its machine's table gives them;
 ## empty for a state built by hand.
 var id: String = ""
 var label: String = ""
 
-func _init(action_func: Callable) -> void:
-	action = action_func
+func _init(step_funcs: Array[Callable] = []) -> void:
+	steps = step_funcs
 
-## Runs this state's action.
+## Takes this state's steps, in order.
 func perform() -> void:
-	if action.is_valid():
-		action.call()
+	for step in steps:
+		if step.is_valid():
+			step.call()
 
 ## A deterministic transition: when `condition` holds, go to `node`.
 func add_next_node(condition: Callable, node: FSMNode, probability: float = 1.0) -> void:
@@ -67,4 +70,4 @@ func _select_destination(destinations: Array) -> FSMNode:
 ## States that lead to each other hold each other alive; this breaks the cycle.
 func cleanup() -> void:
 	next_nodes.clear()
-	action = Callable()
+	steps.clear()

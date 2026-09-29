@@ -1,7 +1,8 @@
 # The content database
 
 `data/enigami.db` is what the game reads and never writes, kept as tables:
-the conversations and the player's state machine, today, and whatever else is
+the conversations, the player's state machine, the parts a skill board is
+built from and the boards the game ships with, today, and whatever else is
 better kept as rows than as a file tomorrow. The game reaches it through `Db`
 (`app/db.gd`), and it is built from the SQL in this folder:
 
@@ -11,11 +12,18 @@ data/
 └── db/
     ├── schema.sql    the tables: the contract the code reads against
     ├── build.sh      rebuilds enigami.db from everything here
+    ├── boards/       the boards the game ships with, a file for each who uses them
+    │   ├── weapons.sql      each weapon's own attack
+    │   ├── monsters.sql     every monster's
+    │   ├── starter.sql      the skill a new profile starts with
+    │   └── dragon_test.sql  the dragon test's tower's
     ├── dialogue/     the conversations, one file per character, named after their id in lower case
     │   ├── sage.sql         in the box
     │   └── apprentice.sql   free
-    └── machines/     the state machines, one file each
-        └── player.sql
+    ├── machines/     the state machines, one file each
+    │   └── player.sql
+    └── parts/        every part a board is built from, and its number in a shared code
+        └── parts.sql
 ```
 
 Edit the `.sql`, run `data/db/build.sh`, commit both. The build refuses a
@@ -253,20 +261,33 @@ See `localization/README.md`.
 
 ## A state machine
 
-The player's movement is a state machine, and its **shape** is three tables:
-`machines` (the id and the state it starts in), `states` and `transitions`.
-What a state *does* each frame and what it takes for a way out to be *open*
-stay code: the owner hands `Machine.build` its actions and its conditions by
-name, and a row names one of each. A name the owner does not have is a
-`fault` on the machine, reported by the player and failed by
-`tests/feature/machine_test.tscn`.
+The player's movement is a state machine, and all of it is rows, in five
+tables: `machines` (the id and the state it starts in), `states`, the `steps`
+each state takes every frame, the `conditions` that open a way, and the
+`transitions` between states. What stays code is the words the rows are
+written in, which the owner hands `Machine.build` by name: its **actions**,
+each one thing the body does on a frame, and its **senses**, each one thing
+it can tell about itself. A step names an action; a condition reads senses.
+A name the owner does not have is a `fault` on the machine, reported by the
+player and failed by `tests/feature/machine_test.tscn`.
 
 ```sql
 INSERT INTO machines (id, start) VALUES ('player', 'idle');
 
-INSERT INTO states (machine_id, id, label, action) VALUES
-	('player', 'idle', 'Idle', 'idle'),
-	('player', 'dash', 'Dash', 'dash');
+INSERT INTO states (machine_id, id, label) VALUES
+	('player', 'idle', 'Idle'),
+	('player', 'dash', 'Dash');
+
+-- What each does every frame, in order.
+INSERT INTO steps (machine_id, state_id, position, action) VALUES
+	('player', 'idle', 0, 'brake'),
+	('player', 'idle', 1, 'gravity'),
+	('player', 'idle', 2, 'jump'),
+	('player', 'idle', 3, 'dash'),
+	('player', 'dash', 0, 'rush');
+
+INSERT INTO conditions (machine_id, id, expression) VALUES
+	('player', 'dashing', 'dashing');
 
 -- Out of idle, asked in order: the first open way is taken.
 INSERT INTO transitions (machine_id, from_id, position, to_id, condition) VALUES
@@ -276,15 +297,155 @@ INSERT INTO transitions (machine_id, from_id, position, to_id, condition) VALUES
 | Table · column | Meaning |
 |---|---|
 | `states.label` | What `state_name()` reports — the debug log and the tests read it. |
-| `states.action` | What the owner does each frame in this state, by the owner's name for it. |
+| `steps.action` | One thing the state does each frame, by the owner's name for it. A state's steps are taken in `position` order; a state with none does nothing, and is a problem. |
+| `conditions.expression` | When a way is open: a question about the owner's senses that answers true or false. See below. |
 | `transitions.position` | The order the ways out of a state are asked in. The first whose condition holds is taken. |
-| `transitions.condition` | Whether this way is open, by the owner's name for it. |
+| `transitions.condition` | Whether this way is open: the `id` of one of the machine's `conditions`. The build refuses one that is not written. |
 | `transitions.probability` | Rows sharing a `from_id` and a `position` are one way out that **splits** between their `to_id`s by this, and add up to 1. One row, and the way is certain. The rows of a split name the same condition; the build refuses ones that do not. |
 
 The player's six states can each reach every other, so `player.sql` is
-thirty rows; close a way by deleting its row, and open a split by adding
-rows at the same position. `Player._setup_fsm` is where its actions and
-conditions are named.
+thirty ways; close one by deleting its row, and open a split by adding rows
+at the same position.
+
+### The player's words
+
+`Player._setup_fsm` is where these are named. A new one is a line there —
+and, for an action, the method it calls.
+
+| Action | What it does |
+|---|---|
+| `brake` | slows to a stop along the ground |
+| `run` | speeds up toward the direction held, along the ground |
+| `steer` | the same in the air, easing off when nothing is held |
+| `gravity` | falls faster, up to the fastest fall |
+| `cling` | a hugged wall holds the fall to a slide |
+| `jump` | a press becomes a jump — off the ground, off a wall, or the air jump — and letting go early cuts the rise short |
+| `dash` | a press starts a dash, when the stamina and the cooldown allow |
+| `rush` | a dash under way carries the body until its time runs out |
+
+| Sense | What it says |
+|---|---|
+| `dashing` | whether a dash is under way |
+| `on_floor` | whether the player is standing on something |
+| `wall` | the wall being hugged: `-1` on the left, `1` on the right, `0` none |
+| `dir` | the direction held, `-1` to `1` |
+| `velocity` | in pixels a second, y down: `velocity.y < 0` is going up |
+
+### Conditions
+
+A condition is read as Godot's `Expression`, over the senses and nothing
+else: `and`, `or`, `not`, comparisons, arithmetic, a sense's own fields
+(`velocity.y`), and the engine's functions (`abs(dir) > 0.5`). `Machine`
+parses each one once, asks it once as it builds, and then asks it every time
+the way it opens is tried. One that does not read, reads a name that is not
+a sense, or answers anything but true or false is a fault, and the ways that
+ask it are left out rather than guessed at.
+
+```sql
+INSERT INTO conditions (machine_id, id, expression) VALUES
+	('player', 'running', 'not dashing and on_floor and dir != 0');
+```
+
+The player's six are exclusive and leave nothing out: on any frame exactly
+one holds, so the order a state asks its ways in only says which is asked
+first. `machine_test` tries them against every combination of the senses
+that matters to them. A condition that overlaps another fails it; if that
+is meant, the order of the ways starts to matter, and the test is where to
+say so.
+
+## A part
+
+Every part a skill board is built from is rows in `parts/parts.sql`, in the
+order the palette shows them — which is also the order the loot pool draws
+from. What a part *looks* like is not here: its colour, glyph and icon are
+`graphics/style.gd`'s, keyed by the same id, and a part added here draws in
+its category's colour until somebody gives it a look.
+
+```sql
+INSERT INTO codes (code, id) VALUES (33, 'FROSTBOLT');
+
+INSERT INTO parts (id, name, category, heat, tag, description) VALUES
+	('FROSTBOLT', 'FROSTBOLT', 'form', 0.9, 'ranged', 'A bolt that slows what it strikes.');
+
+INSERT INTO ports (part_id, side) VALUES ('FROSTBOLT', 'E');
+
+INSERT INTO effects (part_id, position, field, op, value) VALUES
+	('FROSTBOLT', 0, 'form', 'set', 'PROJECTILE'),
+	('FROSTBOLT', 1, 'elements', 'include', 'ICE');
+```
+
+| Table · column | Meaning |
+|---|---|
+| `codes` | Every number a part has ever had in a shared code. **Only ever add to the end:** a code written today has to mean the same board next year. Every part needs one, or no board carrying it can be shared; `tests/circuit/code_test` holds the ones already given out. |
+| `parts.name` `description` | The English, laid under `localization/<lang>/parts.json`; `loc_test` fails if the two drift. |
+| `parts.category` | Which block of the palette it sits in: `struct`, `form`, `element`, `stat`, `behavior`, `flow` or `trigger`. A `struct` part is always at hand and never drops. |
+| `parts.heat` | Added to the cooldown of every cast that passes through it. |
+| `parts.cells` | 1 or 2: its footprint, and the ticks a flow spends in it. |
+| `parts.source` | 1 for INPUT, where a flow starts; nothing flows into it. |
+| `parts.tag` | What it makes a board — `ranged`, `melee`, `area`, `mobility`, `trigger` — for a weapon's `accepts` to match. |
+| `ports` | The sides its flow leaves by, as it faces east, in the order the flows leave. It takes flow on every other side. A `branch` is a trigger's second way out, which carries its payload. A part with no ports is where a flow ends. |
+| `effects` | What it does to a flow as the flow enters it, in `position` order. See below. |
+| `retired_parts` `renamed_parts` | Parts the game no longer has, or has under a new id, so a save or a code written before still reads. |
+
+### Effects
+
+An effect changes one field of the payload a flow carries
+(`circuit/payload.gd`), and what the field holds decides what can be done to
+it:
+
+| `op` | Does | To a field that is |
+|---|---|---|
+| `set` | makes it `value` | a number, a whole number, a flag (`'true'`), a word |
+| `add` | adds `value` | a number, a whole number |
+| `multiply` | multiplies it by `value` | a number, a whole number (by a whole number) |
+| `toggle` | flips it; no `value` | a flag |
+| `include` | adds `value` to it, once | a list |
+| `dilate` | slows the world and the board for `value` seconds; no field | — |
+| `guard` | opens a guard window for `value` seconds, a hit absorbed in it runs the part's branch; no field | — |
+
+The fields are the payload's: `damage` `size` `speed` `range_px` (numbers),
+`pierce` `duplicates` (whole numbers), `homing` `reverse` `dash` `blink`
+`pull` `knockback` `shatter` `mana_drain` (flags), `form` (a word) and
+`elements` (a list). `value` is read as JSON — `8`, `1.6`, `'true'` — and a
+word may go without its quotes: `'FIRE'`. A row asking for a field there is
+not, or for something its field cannot take, is a fault the game reports as
+it reads the parts, and `tests/circuit/parts_test.tscn` fails on it.
+
+What an effect *means* is code, and so is anything a new one needs: a new
+field is a line in `Payload` and something in `feature/attacks/` that reads
+it; a new form is an attack that draws it. OVERCLOCK does nothing to a flow —
+the board's clock counts it — and the triggers' ids are the moments their
+branches run at.
+
+## A board
+
+The boards the game ships with — each weapon's own attack, every monster's,
+the starter skill, the dragon test's — are rows in `boards/`. The boards a
+player builds are theirs, and live in the save.
+
+```sql
+INSERT INTO boards (id) VALUES ('warden');
+
+INSERT INTO board_parts (board_id, x, y, part, facing) VALUES
+	('warden', 0, 2, 'INPUT', 'E'), ('warden', 1, 2, 'PROJECTILE', 'E'), ('warden', 2, 2, 'ICE', 'E'),
+	('warden', 3, 2, 'SPLIT', 'E'), ('warden', 3, 1, 'OUTPUT', 'E'), ('warden', 3, 3, 'OUTPUT', 'E');
+```
+
+| Column | Meaning |
+|---|---|
+| `boards.width` `height` | The grid, 7 by 5 unless it says; 16 at most, which is what a shared code carries. |
+| `boards.name` | What it is called when whoever builds it does not say. A weapon's and a monster's are named in the code, after the weapon or the monster. |
+| `board_parts.x` `y` | The cell the part is placed in. A two-cell part covers the next cell the way it faces too. |
+| `board_parts.facing` | Which way its east side points — `E`, `S`, `W` or `N` — which is where most parts send their flow. |
+
+Which part feeds which is written down nowhere: the ports and the facings
+already say it, and the board is walked, not stored. A weapon names its board
+as `innate` in `feature/core/weapons.gd`; a monster as `board`, and the
+Arbiter's second form as `board_phase2`, in `feature/actors/monsters.gd`. A
+part that does not fit where its row puts it — off the grid, over another, a
+second INPUT — is left off and reported, and `tests/feature/boards_test.tscn`
+fails unless every board builds whole, starts at one INPUT and reaches an
+OUTPUT, and every board the code asks for is here.
 
 ## Reading it from code
 
@@ -295,9 +456,12 @@ Db.meta("schema_version")
 ```
 
 `Dialogue` (`story/rules/dialogue.gd`) reads the conversations into the shape
-`Npc` plays, and `Machine` (`feature/core/machine.gd`) builds a state machine
-into the `FSMNode`s its owner runs; nothing else needs to know either came
-from a table. `Dialogue.reload()` picks up a rebuilt file without a restart.
+`Npc` plays, `Machine` (`feature/core/machine.gd`) builds a state machine
+into the `FSMNode`s its owner runs, `Components` (`circuit/components.gd`)
+reads the parts, and `Boards` (`feature/core/boards.gd`) builds a shipped
+board into the `SkillBoard` the circuit runs; nothing else needs to know any
+of it came from a table. `Dialogue.reload()` and `Components.reload()` pick up
+a rebuilt file without a restart.
 
 ## Changing the tables
 

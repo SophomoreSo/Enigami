@@ -157,7 +157,7 @@ func _ready() -> void:
 	# One tick per cell. What a part costs is the room it takes up, so a cycle can
 	# be counted off the grid instead of looked up part by part.
 	var drift: Array = []
-	for id in Components.DEFS:
+	for id in Components.ids():
 		if Components.tick_cost(id) != int(Components.get_def(id)["cells"]):
 			drift.append(id)
 	check(drift.is_empty(), "every part costs one tick per cell (%s)" % str(drift))

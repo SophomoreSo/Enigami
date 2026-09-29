@@ -1,21 +1,85 @@
 -- The player's movement machine (feature/actors/player.gd).
 --
--- Six states, and every one can reach every other: a dash can end in the air
--- or on the ground, a wall kick can go straight up, a ledge drops into a fall
--- from a standstill. The ways out of a state are tried in order; the player's
--- conditions are exclusive — at most one holds on any frame — so the order
--- only says which is asked first. Close a way by deleting its row. The
--- actions and the conditions are named in `Player._setup_fsm`.
+-- All of it is here: six states, what each does every frame, which can follow
+-- which, and what opens each way. Every state can reach every other: a dash
+-- can end in the air or on the ground, a wall kick can go straight up, a
+-- ledge drops into a fall from a standstill. What the player keeps is the
+-- words these rows are written in — the actions a step takes and the senses
+-- a condition reads — which `Player._setup_fsm` hands over by name.
 
 INSERT INTO machines (id, start) VALUES ('player', 'idle');
 
-INSERT INTO states (machine_id, id, label, action) VALUES
-	('player', 'idle',       'Idle',      'idle'),
-	('player', 'run',        'Run',       'run'),
-	('player', 'rise',       'Rise',      'air'),
-	('player', 'fall',       'Fall',      'air'),
-	('player', 'wall_slide', 'WallSlide', 'wall_slide'),
-	('player', 'dash',       'Dash',      'dash');
+INSERT INTO states (machine_id, id, label) VALUES
+	('player', 'idle',       'Idle'),
+	('player', 'run',        'Run'),
+	('player', 'rise',       'Rise'),
+	('player', 'fall',       'Fall'),
+	('player', 'wall_slide', 'WallSlide'),
+	('player', 'dash',       'Dash');
+
+-- What each state does every frame, in order. The actions:
+--
+--   brake    slows to a stop along the ground
+--   run      speeds up toward the direction held, along the ground
+--   steer    the same in the air, easing off when nothing is held
+--   gravity  falls faster, up to the fastest fall
+--   cling    a hugged wall holds the fall to a slide
+--   jump     a press becomes a jump — off the ground, off a wall, or the air
+--            jump — and letting go early cuts the rise short
+--   dash     a press starts a dash, when the stamina and the cooldown allow
+--   rush     a dash under way carries the body until its time runs out
+--
+-- Rising and falling do the same; they are two states so the arc can be told.
+INSERT INTO steps (machine_id, state_id, position, action) VALUES
+	('player', 'idle', 0, 'brake'),
+	('player', 'idle', 1, 'gravity'),
+	('player', 'idle', 2, 'jump'),
+	('player', 'idle', 3, 'dash'),
+
+	('player', 'run', 0, 'run'),
+	('player', 'run', 1, 'gravity'),
+	('player', 'run', 2, 'jump'),
+	('player', 'run', 3, 'dash'),
+
+	('player', 'rise', 0, 'steer'),
+	('player', 'rise', 1, 'gravity'),
+	('player', 'rise', 2, 'jump'),
+	('player', 'rise', 3, 'dash'),
+
+	('player', 'fall', 0, 'steer'),
+	('player', 'fall', 1, 'gravity'),
+	('player', 'fall', 2, 'jump'),
+	('player', 'fall', 3, 'dash'),
+
+	('player', 'wall_slide', 0, 'steer'),
+	('player', 'wall_slide', 1, 'gravity'),
+	('player', 'wall_slide', 2, 'cling'),
+	('player', 'wall_slide', 3, 'jump'),
+	('player', 'wall_slide', 4, 'dash'),
+
+	('player', 'dash', 0, 'rush');
+
+-- What opens each way: a question about what the player senses on the frame.
+--
+--   dashing   a dash is under way
+--   on_floor  standing on something
+--   wall      the wall being hugged: -1 on the left, 1 on the right, 0 none
+--   dir       the direction held, -1 to 1
+--   velocity  in pixels a second, y down: velocity.y < 0 is going up
+--
+-- Exactly one of these holds on any frame, whatever the senses say, and
+-- tests/feature/machine_test tries them all to be sure — so the order a
+-- state's ways are asked in only says which is asked first.
+INSERT INTO conditions (machine_id, id, expression) VALUES
+	('player', 'dashing',      'dashing'),
+	('player', 'wall_sliding', 'not dashing and not on_floor and wall != 0'),
+	('player', 'running',      'not dashing and on_floor and dir != 0'),
+	('player', 'standing',     'not dashing and on_floor and dir == 0'),
+	('player', 'rising',       'not dashing and not on_floor and wall == 0 and velocity.y < 0'),
+	('player', 'falling',      'not dashing and not on_floor and wall == 0 and velocity.y >= 0');
+
+-- The ways out, asked in order: the first whose condition holds is taken.
+-- Close a way by deleting its row.
 
 -- Out of idle.
 INSERT INTO transitions (machine_id, from_id, position, to_id, condition) VALUES

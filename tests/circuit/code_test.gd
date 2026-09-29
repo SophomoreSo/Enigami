@@ -2,9 +2,25 @@ extends Node
 ## A board must survive being written down as a code and read back, and a code
 ## with a mistake in it must be refused rather than quietly building a different
 ## board. Also guards the two things that can never be reordered: the alphabet a
-## code is spelled in, and the numbers parts are known by inside one — and what a
-## code or a save written while WIRE and BEND were parts, or while EXPLODE was
-## called AREA, reads back as.
+## code is spelled in, and the numbers parts are known by inside one — the
+## `codes` table in the content database — and what a code or a save written
+## while WIRE and BEND were parts, or while EXPLODE was called AREA, reads back as.
+
+## Every number already given out, in order, as it was given. A code written
+## down with any of these in it has to go on reading as the board it was, so
+## this list only ever grows: a part added to the end of `codes` is added to the
+## end of it too, and nothing in it ever changes.
+const GIVEN := [
+	"INPUT", "OUTPUT", "WIRE", "BEND",
+	"PROJECTILE", "SLASH", "EXPLODE", "DASHSLASH", "DASHSLASH_AUTO",
+	"FIRE", "ICE", "DAMAGE", "SIZE", "SPEED",
+	"PIERCE", "DASH", "BLINK", "HOMING", "REVERSE",
+	"SPLIT", "TEE", "DUPLICATE", "OVERCLOCK", "DELAY", "TIME_DILATION",
+	"ON_HIT", "ON_KILL", "ON_PARRY",
+	"SHATTER", "GRAVITY", "MANA_DRAIN",
+	"RANGE",
+	"KNOCKBACK",
+]
 
 var fails := 0
 
@@ -43,39 +59,46 @@ func round_trip(b: SkillBoard, what: String) -> String:
 
 func _ready() -> void:
 	# --- the table of part numbers ------------------------------------------
+	var numbered := Components.codes()
+	var moved: Array = []
+	for n in GIVEN.size():
+		if Components.part_for_code(n) != GIVEN[n]:
+			moved.append("%d is %s, not %s" % [n, Components.part_for_code(n), GIVEN[n]])
+	check(moved.is_empty(), "no number already given out has moved (%s)" % ", ".join(moved))
 	var seen: Dictionary = {}
-	var repeated: Array = []
 	var unknown: Array = []
-	for id in BoardCode.CODE_IDS:
-		if seen.has(id):
-			repeated.append(id)
-		seen[String(id)] = true
-		if not Components.exists(String(id)) and not Components.is_retired(String(id)):
+	for n in numbered:
+		var id := String(numbered[n])
+		seen[id] = true
+		if not Components.exists(id) and not Components.is_retired(id):
 			unknown.append(id)
-	check(repeated.is_empty(), "no part has two numbers (%s)" % str(repeated))
 	check(unknown.is_empty(),
 		"every number in the table names a part that exists or was retired (%s)" % str(unknown))
 	var kept: Array = []
-	for id in Components.RETIRED:
+	for id in Components.retired_ids():
 		if not seen.has(String(id)) or Components.exists(String(id)):
 			kept.append(id)
 	check(kept.is_empty(), "a retired part is gone from the game and keeps its number (%s)" % str(kept))
 	var misnamed: Array = []
-	for id in Components.RENAMED:
-		var now := String(Components.RENAMED[id])
+	var renames := Components.renamed()
+	for id in renames:
+		var now := String(renames[id])
 		if seen.has(String(id)) or Components.exists(String(id)) or not Components.exists(now):
 			misnamed.append(id)
 	check(misnamed.is_empty(),
 		"a renamed part is known only by its new id, in the table and out of it (%s)" % str(misnamed))
 	var uncoded: Array = []
-	for id in Components.DEFS:
+	for id in Components.ids():
 		if not seen.has(String(id)):
 			uncoded.append(id)
 	check(uncoded.is_empty(),
 		"every part has a number, or no board with one on it can be shared (%s)" % str(uncoded))
-	check(BoardCode.CODE_IDS.size() <= (1 << BoardCode.ID_BITS),
-		"the table still fits %d bits (%d of %d)" % [
-			BoardCode.ID_BITS, BoardCode.CODE_IDS.size(), 1 << BoardCode.ID_BITS])
+	var highest := -1
+	for n in numbered:
+		highest = maxi(highest, int(n))
+	check(highest < (1 << BoardCode.ID_BITS),
+		"the table still fits %d bits (the last number is %d of %d)" % [
+			BoardCode.ID_BITS, highest, (1 << BoardCode.ID_BITS) - 1])
 
 	# --- the alphabet -------------------------------------------------------
 	var alphabet: String = BoardCode.ALPHABET
@@ -145,8 +168,11 @@ func _ready() -> void:
 	var all := SkillBoard.new(11, 9, "everything")
 	var turn := 0
 	var placeable := 0
-	for id in BoardCode.CODE_IDS:
-		if Components.is_retired(String(id)):
+	var in_order: Array = numbered.keys()
+	in_order.sort()
+	for n in in_order:
+		var id := String(numbered[n])
+		if Components.is_retired(id):
 			continue
 		placeable += 1
 		var landed := false

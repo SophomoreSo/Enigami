@@ -22,8 +22,9 @@ localization/  every word the game says, one folder per language.
 `circuit/` is the engine under the rules: `Components`, `SkillBoard`,
 `SkillRunner`, `Payload` and `BoardCode`. It names nothing but itself and `Loc` —
 not a weapon, not an actor, not a hit — so it can be tested on its own and
-changed without a rule or a picture changing under it. What it needs from the
-game is handed in: a runner is given its base payload (`base_payload_provider`),
+changed without a rule or a picture changing under it. Its parts are rows in
+the content database, which `components.gd` reads through `Db`, the one other
+name in it. What it needs from the game is handed in: a runner is given its base payload (`base_payload_provider`),
 and the weapons, the player and the attacks are built on top of it in `feature/`.
 
 `story/` and `mobile/` are whole subsystems rather than one side of one — a
@@ -48,7 +49,7 @@ and a branch writing one opens no file the others touch.
 One rule, applied between the modules and again inside `story/` and `mobile/`:
 
 ```
-circuit/       reads none of them, only Loc
+circuit/       reads none of them, only Loc — and Db, for its parts
 feature/       may read  circuit/
 graphics/      may read  feature/ · circuit/ · mobile/input/
 story/rules/   may read  feature/
@@ -183,9 +184,10 @@ should have to reach into the other to find out how that word is spelled today.
 The format, and how a translation falls back while it is half-written, are in
 `localization/README.md`.
 
-The English still in `Components.DEFS`, `Weapons.DEFS`, `Monsters.DEFS`,
-`GameState.FACILITY_INFO`, `Controls.ACTIONS`, `Raid.TUTORIAL_STEPS` and the
-`text` in `data/` is the **fallback** under all of it, so a part added on the
+The English still in `Weapons.DEFS`, `Monsters.DEFS`,
+`GameState.FACILITY_INFO`, `Controls.ACTIONS`, `Raid.TUTORIAL_STEPS`, and in
+`data/` — a part's `name` and `description`, a line's `text` — is the
+**fallback** under all of it, so a part added on the
 feature branch is named on screen before anybody translates it — the same way
 a part with no glyph yet draws in its category's colour.
 `tests/shared/loc_test` compares the two and fails if they drift.
@@ -220,17 +222,32 @@ because sound belongs to the shell wherever it is asked for.
 read, and none should have to know it is a table. It is read-only, opened
 once, and answers with nothing rather than an error when the extension or the
 file is missing on a platform. `feature/` and `story/rules/` may name it, as
-they may `Loc`; `tests/shared/module_test` says so. Nothing else names
+they may `Loc`, and so may `circuit/components.gd`, for the parts;
+`tests/shared/module_test` says so. Nothing else names
 `SQLite` at all — a module asks `Db` for rows and gets dictionaries.
 
-The player's movement states are rows in it too — `machines`, `states` and
-`transitions` — built into `FSMNode`s by `Machine` (`feature/core/machine.gd`)
-over the actions and conditions `Player._setup_fsm` names. The graph is
-content; what a state does each frame, and what it takes for a way out to be
-open, is code the rows refer to by name. A row naming code the player does
-not have is reported, not guessed at.
+The player's movement is rows in it too — `machines`, `states`, `steps`,
+`conditions` and `transitions` — built into `FSMNode`s by `Machine`
+(`feature/core/machine.gd`). All of the machine is content: the states, what
+each does every frame, which can follow which, and what opens each way,
+which is a question about what the player senses —
+`not dashing and on_floor and dir != 0`. What stays code is the words the
+rows are written in, handed over by `Player._setup_fsm`: the actions a step
+takes, each one thing the body does on a frame, and the senses a condition
+reads. A row naming one the player does not have is reported, not guessed at.
 
-The `text` in those rows is the English fallback. What is actually said is
+So are the skill boards' parts — `parts`, their `ports`, their `effects` and
+their numbers in a shared code, `codes` — read once by `Components`
+(`circuit/components.gd`), and the boards the game ships with, `boards` and
+`board_parts`, built by `Boards` (`feature/core/boards.gd`): each weapon's
+own attack, every monster's, the starter skill and the dragon test's. A part
+is its numbers and what it does to a flow, each effect a change to one field
+of the payload; what an effect *means* — what a form spawns, what a flag does
+to a hit — is code, `SkillRunner._apply` and `feature/attacks/`, and the rows
+name it by field. A board is its parts and the way each faces: which feeds
+which is walked, not stored. What a part looks like stays in `Style`.
+
+The `text` in a conversation's rows is the English fallback. What is actually said is
 laid over it from `localization/<lang>/dialogue/<id>.json`, by node name —
 words only, never where a line leads. Scenes are still files,
 `data/scenes/<id>.json`, and work the same way, by beat.
@@ -259,20 +276,22 @@ knows what anybody said.
 
 | Change | File |
 |---|---|
-| New skill component | `circuit/components.gd` + its rule in `skill_runner.gd`; a number on the end of `CODE_IDS` in `board_code.gd`, or no board carrying it can be shared; its colour, glyph and icon in `graphics/style.gd` |
+| New skill component | a row in `data/db/parts/parts.sql` — its category, heat, cells, ports and what it does to a flow, as effects — and a number on the end of `codes` there, or no board carrying it can be shared; then `data/db/build.sh`. A new *kind* of effect, form or trigger is code: `SkillRunner._apply`, `Payload`, `feature/attacks/`. Its colour, glyph and icon in `graphics/style.gd` |
 | The share code — what it carries, how long it is | `circuit/board_code.gd`; the sheet that shows it, and spells its refusals, `graphics/ui/share_code_panel.gd` |
-| New monster | `feature/actors/monsters.gd`; its sprite and colour in `graphics/style.gd` |
+| New monster | `feature/actors/monsters.gd`; its attack, a board in `data/db/boards/monsters.sql`; its sprite and colour in `graphics/style.gd` |
 | How the player looks — plate, cape, glow | `graphics/assets/sprites/player/player.skin.png`, and nothing else: every pose beside it is painted in the colours of a map that names its pixels, and takes theirs from it. See that folder's README and `graphics/skin/` |
 | A new pose for the player | a strip beside the skin, painted in the map's colours; how it plays, `SkinnedCharacter.ANIMS`; when, `PlayerView._animate` |
 | New NPC or dialogue | a file in `data/db/dialogue/`, then `data/db/build.sh` — see `data/db/README.md`; no code. New *kinds* of direction: a column in `data/db/schema.sql`, read in `story/view/dialogue_box.gd` (emotion, portrait), `story/view/npc_view.gd` (camera) or `app/audio/audio_cues.gd` (sound) |
 | Content better kept as rows than as a file | a table in `data/db/schema.sql`, read through `Db` (`app/db.gd`) |
-| The player's movement states, and which can follow which | `data/db/machines/player.sql`, then `data/db/build.sh`. What a state does each frame, and when a way out is open, `_setup_fsm` in `feature/actors/player.gd` |
+| A board the game ships with — a weapon's own attack, a monster's, the starter skill | `data/db/boards/`, then `data/db/build.sh`; the weapon or the monster names it by id |
+| The player's movement — its states, what each does, which can follow which, and when | `data/db/machines/player.sql`, then `data/db/build.sh`. A new action for a step to take, or a new sense for a condition to read, `_setup_fsm` in `feature/actors/player.gd` |
 | A new directed scene, or a new staging direction | a file in `data/scenes/` — see its README; no code. A new direction is a case in `story/rules/cutscene.gd` and, if it shows, `story/view/cutscene_view.gd` |
 | How a conversation behaves — range, reveal speed, who is held still | `story/rules/npc.gd`. How it reads on screen, `story/view/dialogue_box.gd` |
 | Someone who talks free, and what they notice | a file in `data/db/dialogue/` of `rules`, `criteria` and `changes` — see **Free talk** in `data/db/README.md`; no code. A new kind of moment to notice, a row of `events` in `data/db/schema.sql` naming the cue. How free talk is picked and paced, `story/rules/free_talk.gd`; how the bubble looks, `story/view/speech_bubble.gd` |
 | What anyone actually says, on any screen, in any language | `localization/<lang>/` — see its README. A new language is a folder and an entry in `LANGUAGES` in `app/loc.gd` |
 | What an emotion looks like | `EMOTIONS` in `graphics/style.gd` |
 | Retune damage, room generation | `feature/` |
+| Retune a part — its heat, what it adds or multiplies, how long it slows the fight | `data/db/parts/parts.sql`, then `data/db/build.sh` |
 | Retune a board's timing — ticks, cooldowns, a pulse's life | `circuit/skill_runner.gd` |
 | The dragon test's tower — where the guards stand, where the stairwells are | `LAYOUT` in `feature/world/dragon_tower.gd`; how it is lit and dressed, `graphics/views/tower_view.gd` |
 | Retune shake, sparks, hitstop *feel* | `graphics/cue_visuals.gd` — except hitstop and dilation, see below |
@@ -300,7 +319,7 @@ nothing and live in `graphics/fx.gd`.
 | Name | Module | What it is |
 |---|---|---|
 | `Loc` | app | every word, in the language being played |
-| `Db` | app | the content database, `data/enigami.db` — the conversations and the state machines, as tables — read-only |
+| `Db` | app | the content database, `data/enigami.db` — the conversations, the state machines, the parts and the boards the game ships with, as tables — read-only |
 | `Cues` | app | the seam |
 | `Audio`, `AudioCues` | app | the synthesised sound bank, and what each cue sounds like |
 | `Pointer` | app | where the hand is pointing, at the speed the setting asks, and whether the system's arrow is hidden under it |

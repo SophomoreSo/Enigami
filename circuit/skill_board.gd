@@ -296,22 +296,15 @@ static func _reach_from(links: Dictionary, start: Vector2i) -> Dictionary:
 		queue.append_array(links.get(at, []))
 	return seen
 
-## Tags describe what a board does, which is what weapons check for compatibility.
+## Tags describe what a board does, which is what weapons check for
+## compatibility: the `tag` of every part on it, once each.
 func compute_tags() -> Array[String]:
 	var t: Array[String] = []
 	for c in cells:
-		var id: String = cells[c]["id"]
-		match id:
-			"PROJECTILE": t.append("ranged")
-			"SLASH", "DASHSLASH", "DASHSLASH_AUTO": t.append("melee")
-			"EXPLODE": t.append("area")
-			"DASH", "BLINK": t.append("mobility")
-			"ON_HIT", "ON_KILL", "ON_PARRY": t.append("trigger")
-	var uniq: Array[String] = []
-	for x in t:
-		if not uniq.has(x):
-			uniq.append(x)
-	return uniq
+		var tag := String(Components.get_def(String(cells[c]["id"])).get("tag", ""))
+		if tag != "" and not t.has(tag):
+			t.append(tag)
+	return t
 
 func is_empty() -> bool:
 	return cells.is_empty()
@@ -349,7 +342,7 @@ func drop_retired(retired: Array) -> void:
 	while stepped:
 		stepped = false
 		for r in left.duplicate():
-			var out := Components.rotate_dir(int(Components.RETIRED[r[0]]), int(r[2]))
+			var out := Components.rotate_dir(Components.retired_out(String(r[0])), int(r[2]))
 			if _step_into(r[1], out):
 				left.erase(r)
 				stepped = true

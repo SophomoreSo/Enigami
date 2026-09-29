@@ -42,16 +42,21 @@ func _ready() -> void:
 	var band := Band.new()
 	add_child(band)
 
-	check("SPEED" in Components.LOOT_POOL,
+	check("SPEED" in Components.loot_pool(),
 		"the part is in the loot pool, so it drops, forges and shows in the palette")
 
-	# It accelerates bolts, and stacks.
+	# It accelerates bolts by what its row says, and stacks.
+	var mul := 0.0
+	for e in Components.effects_of("SPEED"):
+		if String(e["op"]) == "multiply" and e["field"] == &"speed":
+			mul = float(e["value"])
+	check(mul > 1.0, "its row multiplies a bolt's speed (x%.2f)" % mul)
 	var v0 := shot("GUN", 0).speed
 	var v1 := shot("GUN", 1).speed
 	var v2 := shot("GUN", 2).speed
-	check(absf(v1 / v0 - SkillRunner.SPEED_MUL) < 0.01,
-		"one part multiplies bolt speed by %.2f (got %.2f)" % [SkillRunner.SPEED_MUL, v1 / v0])
-	check(absf(v2 / v0 - SkillRunner.SPEED_MUL * SkillRunner.SPEED_MUL) < 0.01,
+	check(absf(v1 / v0 - mul) < 0.01,
+		"one part multiplies bolt speed by %.2f (got %.2f)" % [mul, v1 / v0])
+	check(absf(v2 / v0 - mul * mul) < 0.01,
 		"and two stack (x%.2f)" % (v2 / v0))
 
 	# It costs cycle time, so it is a trade rather than a free upgrade.

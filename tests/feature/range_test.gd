@@ -93,7 +93,7 @@ func _ready() -> void:
 
 	# RANGE is the part for it, so it has to be the better answer — and it has
 	# to be the only thing it changes.
-	check("RANGE" in Components.LOOT_POOL,
+	check("RANGE" in Components.loot_pool(),
 		"the part is in the loot pool, so it drops, forges and shows in the palette")
 	var r1 := bolt("GUN", "RANGE", 1)
 	var r2 := bolt("GUN", "RANGE", 2)

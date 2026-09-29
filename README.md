@@ -44,6 +44,8 @@ godot res://tests/graphics/editor_pixel_test.tscn # every pixel of the assembly 
 godot res://tests/graphics/hideout_pixel_test.tscn # the hideout's pixel look, and everything on it fits
 godot res://tests/graphics/bench_pixel_test.tscn # the bench panel's pixel look and layout
 godot res://tests/circuit/code_test.tscn    # a board survives being written down as a code
+godot res://tests/circuit/parts_test.tscn   # every part's rows fit, and the runner does what they say
+godot res://tests/feature/boards_test.tscn  # every board the game ships builds whole and reaches an OUTPUT
 godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
 godot res://tests/feature/reach_test.tscn   # how far an attack goes when the stick says how far
 godot res://tests/feature/forge_test.tscn   # the forge's price, and one skill in one slot: the profile's rules
@@ -536,21 +538,23 @@ rather than something you can install.
 Five modules, and a shell around them. A picture may read the rules it draws;
 a rule never mentions its picture. `circuit/` is the engine under the rules — a
 board, the pulse that runs it, the payload it builds — and names nothing but
-itself and the words. `story/` and `mobile/` each carry both sides of one
+itself, the words, and the table its parts are rows in. `story/` and `mobile/` each carry both sides of one
 subsystem and so repeat that seam inside themselves. See
 [ARCHITECTURE.md](ARCHITECTURE.md) for how they talk.
 
 ```
 app/               entry scene, screen flow, the cue bus, the sound bank, the words
                    pointer: the drawn cursor and how fast it moves
-data/enigami.db    the content database: conversations and the player's state machine, as tables
+data/enigami.db    the content database: conversations, the player's state machine, the parts
+                   and the boards the game ships with, as tables
                    built from data/db/, see its README
 data/scenes/       directed scenes, one JSON file per scene — format in its README
 localization/      every word the game says: eng/ and kor/, a file per screen
                    plus dialogue/ and scenes/ — format in its README
                    kor/font.woff: the Korean pixel face, Silkscreen has no Hangul
 circuit/           the engine: components, board, runner, payload, share code
-feature/core/      weapons, the profile and its saves, time control, the arena, the state machine
+feature/core/      weapons, the profile and its saves, time control, the arena, the state machine,
+                   the boards the game ships with
 feature/actors/    actor base, player, monster catalogue, monster AI
 feature/attacks/   projectile, melee arc, area burst, dash slash, spawner
 feature/world/     room generation, raid map graph, raid loop, sandbox, pickups

@@ -152,11 +152,7 @@ func _new_profile() -> void:
 		stash[id] = 2
 	skill_library.append(Weapons.make_innate_board("SWORD"))
 	skill_library.append(Weapons.make_innate_board("GUN"))
-	var utility := SkillBoard.new(7, 5, "Blink Step")
-	utility.place("INPUT", Vector2i(0, 2), 0)
-	utility.place("BLINK", Vector2i(1, 2), 0)
-	utility.place("OUTPUT", Vector2i(2, 2), 0)
-	skill_library.append(utility)
+	skill_library.append(Boards.build("blink_step"))
 
 ## --- derived stats ----------------------------------------------------------
 func max_health() -> float:
@@ -269,7 +265,7 @@ func forge_component(inputs: Array[String]) -> String:
 		if not take_component(id, stash):
 			return ""
 	scrap -= FORGE_COST
-	var pool := Components.LOOT_POOL.duplicate()
+	var pool := Components.loot_pool()
 	var out: String = pool[randi() % pool.size()]
 	add_component(out, 1)
 	save_game()
@@ -293,7 +289,7 @@ const SHOP_PRICES := {
 ## parts are not among them — the editor hands those out for nothing, so a price
 ## on one would be a price on having a board at all.
 static func shop_stock() -> Array:
-	return Components.LOOT_POOL
+	return Components.loot_pool()
 
 func shop_price(id: String) -> int:
 	var cat := String(Components.get_def(id).get("cat", Components.CAT_STAT))

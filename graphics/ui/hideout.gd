@@ -352,7 +352,7 @@ func _facilities_column() -> Control:
 	list.add_theme_constant_override("separation", 4)
 	v.add_child(_scrolled(list, 104))
 	var any := false
-	for id in Components.LOOT_POOL:
+	for id in Components.loot_pool():
 		var n := int(GameState.stash.get(id, 0))
 		if n <= 0:
 			continue

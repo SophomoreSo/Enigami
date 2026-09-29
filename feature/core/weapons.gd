@@ -136,24 +136,10 @@ static func finalize(weapon_id: String, p: Payload) -> Payload:
 static func uses_gravity_shots(weapon_id: String) -> bool:
 	return bool(get_def(weapon_id)["gravity_shots"])
 
-## Each weapon ships with one fixed starter board so a fresh weapon is usable.
+## Each weapon ships with one fixed starter board so a fresh weapon is usable:
+## its `innate`, a board in the content database (`data/db/boards/weapons.sql`).
 ## Remaining slots are free, which keeps the weapon's identity without locking
 ## the whole build.
 static func make_innate_board(weapon_id: String) -> SkillBoard:
-	var kind: String = get_def(weapon_id)["innate"]
-	var b := SkillBoard.new(7, 5, Loc.t("weapons.basic_board", [name_for(weapon_id)]))
-	match kind:
-		"slash":
-			b.place("INPUT", Vector2i(0, 2), 0)
-			b.place("SLASH", Vector2i(1, 2), 0)
-			b.place("OUTPUT", Vector2i(2, 2), 0)
-		"bolt":
-			b.place("INPUT", Vector2i(0, 2), 0)
-			b.place("PROJECTILE", Vector2i(1, 2), 0)
-			b.place("OUTPUT", Vector2i(2, 2), 0)
-		"lob":
-			b.place("INPUT", Vector2i(0, 2), 0)
-			b.place("PROJECTILE", Vector2i(1, 2), 0)
-			b.place("DAMAGE", Vector2i(2, 2), 0)
-			b.place("OUTPUT", Vector2i(3, 2), 0)
-	return b
+	return Boards.build(String(get_def(weapon_id)["innate"]),
+		Loc.t("weapons.basic_board", [name_for(weapon_id)]))

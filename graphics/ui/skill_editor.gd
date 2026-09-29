@@ -276,8 +276,8 @@ func _palette_ids() -> Array:
 ## then everything that drops.
 func _pool_ids() -> Array:
 	var ids: Array = []
-	ids.append_array(Components.STRUCTURAL)
-	ids.append_array(Components.LOOT_POOL)
+	ids.append_array(Components.structural())
+	ids.append_array(Components.loot_pool())
 	return ids
 
 ## Rotation steps advance clockwise on screen (east -> south), so scrolling up
