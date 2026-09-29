@@ -1,13 +1,26 @@
 class_name Npc
 extends CharacterBody2D
 
-## Someone to talk to. Walk up and press interact and a conversation starts;
-## each further press moves it on. Some lines end in a question — move up and
-## down to pick an answer, interact to give it — and the answer decides what
-## they say next. The player is held still while they listen — no walking,
-## jumping, dashing or attacking — so a conversation ends by talking it through,
-## or by something else carrying the player out of range. Nothing here is drawn:
-## `story/view/npc_view.gd` and `story/view/dialogue_box.gd` show it.
+## Someone to talk to, in one of two ways.
+##
+## **In the box** — `Mode.FREEZE`. Walk up and press interact and a
+## conversation starts; each further press moves it on. Some lines end in a
+## question — move up and down to pick an answer, interact to give it — and the
+## answer decides what they say next. The player is held still while they
+## listen — no walking, jumping, dashing or attacking — so a conversation ends
+## by talking it through, or by something else carrying the player out of range.
+##
+## **Free** — `Mode.FREE`. What is said comes out in a bubble over whoever is
+## saying it, and the player goes on playing: nothing is held, a line moves on
+## by itself once it has been read, and a press up close only hurries it. It is
+## never a fixed path. Every line is a rule that an event gets when the facts
+## are right (see `FreeTalk`), and walking out of earshot in the middle of talk
+## the player started cuts it off — to be picked up again next time.
+##
+## A press starts whichever `mode` says. What they notice — the player coming
+## into earshot, a double jump, a blow — they answer free in either mode,
+## whenever their rules have something to say about it. Nothing here is drawn:
+## `story/view/npc_view.gd`, `dialogue_box.gd` and `speech_bubble.gd` show it.
 ##
 ## What each NPC says lives in the content database, as rows under their id
 ## (see `Dialogue`, and `data/db/README.md`).
@@ -20,11 +33,19 @@ signal line_started(npc: Npc, node_id: String)
 signal choice_made(npc: Npc, node_id: String, index: int)
 signal conversation_ended(npc: Npc)
 
+## What a press of interact starts: the conversation in the box, or free talk.
+enum Mode { FREEZE, FREE }
+
 const BODY := Vector2(18.0, 28.0)
 const GRAVITY := 1900.0
 const MAX_FALL := 900.0
 ## How close the player has to stand for a press to count, centre to centre.
 const TALK_RANGE := 64.0
+## How far a free talker's voice carries, centre to centre. They notice what the
+## player does inside it, and talk the player started goes on only while the
+## player stays in it: eight cells, far enough to try a move out in front of
+## them.
+const EARSHOT := 256.0
 ## Letters a line reveals per second, unless it sets its own `speed`. A press
 ## while one is still coming in finishes it rather than skipping it unread.
 const REVEAL_RATE := 45.0
@@ -48,6 +69,14 @@ var revealed: float = 0.0
 var selected: int = 0
 ## True while the player stands close enough to talk.
 var in_range: bool = false
+## True while the player is close enough to hear them talk free.
+var in_earshot: bool = false
+## What a press starts. A character with no conversation in the box talks free;
+## whoever stages them may say otherwise, since which way a character talks
+## where is the game's to decide.
+var mode: int = Mode.FREEZE
+## Their free talk, in either mode: see `FreeTalk`.
+var free_talk: FreeTalk
 ## The player being talked to, held still until the conversation ends.
 var _listener: Player = null
 
@@ -57,9 +86,12 @@ func setup(id: String) -> void:
 	display_name = String(data.get("name", id))
 	nodes = data.get("nodes", {})
 	start = String(data.get("start", ""))
+	mode = Mode.FREEZE if start != "" else Mode.FREE
+	free_talk = FreeTalk.new(id, data)
+	free_talk.started.connect(_on_free_line)
 
 func _ready() -> void:
-	if nodes.is_empty():
+	if data.is_empty():
 		setup(npc_id)
 	add_to_group("npcs")
 	var shape := CollisionShape2D.new()
@@ -73,8 +105,11 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 	var player := _player()
-	in_range = player != null and global_position.distance_to(player.global_position) <= TALK_RANGE
-	if in_range:
+	var away := INF if player == null else global_position.distance_to(player.global_position)
+	var was_in_earshot := in_earshot
+	in_range = away <= TALK_RANGE
+	in_earshot = away <= EARSHOT
+	if in_range or (free_talk.is_talking() and in_earshot):
 		face(int(signf(player.global_position.x - global_position.x)))
 	if is_talking():
 		# Walking off mid-sentence is how a player says they are done listening.
@@ -84,7 +119,8 @@ func _physics_process(delta: float) -> void:
 			var before := int(revealed)
 			revealed = minf(revealed + reveal_rate() * delta, float(current_line().length()))
 			_announce_letters(before)
-	if not in_range or player.input_locked:
+	_talk_free(delta, player, was_in_earshot)
+	if not in_range or player.input_locked or not _nearest(player):
 		return
 	if is_choosing():
 		if Input.is_action_just_pressed("move_up"):
@@ -92,7 +128,66 @@ func _physics_process(delta: float) -> void:
 		if Input.is_action_just_pressed("move_down"):
 			move_selection(1)
 	if Input.is_action_just_pressed("interact"):
-		interact()
+		if mode == Mode.FREEZE or is_talking():
+			interact()
+		elif answers_press() and not player.talk_locked:
+			free_talk.press()
+
+## Free talk, every frame: whether they can hear the game at all, the player
+## coming into earshot or walking out of it, and the line being said moving on.
+func _talk_free(delta: float, player: Player, was_in_earshot: bool) -> void:
+	# A conversation in the box has all of the player's attention, theirs or
+	# anybody's: free talk holds its tongue until it is over.
+	var hushed := player == null or player.talk_locked
+	free_talk.listening = in_earshot and not hushed
+	if hushed:
+		free_talk.cut()
+		return
+	if in_earshot and not was_in_earshot:
+		free_talk.hear(FreeTalk.NEAR)
+	elif was_in_earshot and not in_earshot and free_talk.is_talking() and free_talk.asked:
+		# Walking off is how a player says they are done listening. What they
+		# walked out on was never said, so it is what comes up again.
+		free_talk.cut()
+		free_talk.hear(FreeTalk.LEAVE)
+	var saying := free_talk.line_id
+	var before := int(free_talk.revealed)
+	free_talk.step(delta)
+	if saying != "" and free_talk.line_id == saying:
+		_blip(free_talk.current_line(), free_talk.current_rule(), before, int(free_talk.revealed),
+			free_speaker().global_position)
+
+## Whether a press of interact here would get an answer: in the box, always;
+## free, while a line is being said, or while there is something to say.
+func answers_press() -> bool:
+	if not in_range:
+		return false
+	if mode == Mode.FREEZE or is_talking():
+		return true
+	return free_talk.is_talking() or free_talk.would_answer(FreeTalk.TALK)
+
+## Whoever is saying the free line: the player, or them.
+func free_speaker() -> Node2D:
+	if free_talk.speaker() == "player":
+		var player := _player()
+		if player != null:
+			return player
+	return self
+
+## A free line starting. The cue carries the whole rule, the way the box's
+## carries its line, so the sound bank plays what the rule names.
+func _on_free_line(rule_id: String) -> void:
+	Cues.at(&"talk", free_speaker().global_position,
+		{"npc": npc_id, "rule": rule_id, "line": free_talk.current_rule()})
+
+## Two NPCs in reach of the player: the nearer one hears the press.
+func _nearest(player: Player) -> bool:
+	var mine := global_position.distance_to(player.global_position)
+	for n in get_tree().get_nodes_in_group("npcs"):
+		if n != self and n is Npc and (n as Npc).in_range \
+				and (n as Npc).global_position.distance_to(player.global_position) < mine:
+			return false
+	return true
 
 ## One press of interact: start talking, finish the line coming in, give the
 ## highlighted answer, move on to the next line, or — where there is none — stop.
@@ -167,10 +262,14 @@ func _release_listener() -> void:
 ## frame, so a fast line is a patter rather than a buzz, and never for spaces or
 ## punctuation.
 func _announce_letters(before: int) -> void:
-	var line := current_line()
-	for i in range(before, int(revealed)):
-		if i % 2 == 0 and not QUIET.contains(line[i]):
-			Cues.at(&"talk_letter", global_position, {"npc": npc_id, "line": current_node(), "index": i})
+	_blip(current_line(), current_node(), before, int(revealed), global_position)
+
+## The same for any line, box or free: `text` came out from letter `from` up to
+## `to`, said at `at`, and `line` is the row it came from.
+func _blip(text: String, line: Dictionary, from: int, to: int, at: Vector2) -> void:
+	for i in range(from, mini(to, text.length())):
+		if i % 2 == 0 and not QUIET.contains(text[i]):
+			Cues.at(&"talk_letter", at, {"npc": npc_id, "line": line, "index": i})
 			return
 
 func is_talking() -> bool:
@@ -222,8 +321,20 @@ func face(dir: int) -> void:
 	if dir != 0:
 		facing = signi(dir)
 
+## The player, as long as they are staying. A world being swapped out is freed
+## at the end of the frame, and until then its player is still in the group:
+## the world coming in would otherwise meet them for a frame, standing wherever
+## they stood in the old one — and a free talker would greet somebody who is
+## not there.
 func _player() -> Player:
 	for p in get_tree().get_nodes_in_group("player"):
-		if p is Player and not p.dead:
+		if p is Player and not p.dead and not _leaving(p):
 			return p
 	return null
+
+static func _leaving(n: Node) -> bool:
+	while n != null:
+		if n.is_queued_for_deletion():
+			return true
+		n = n.get_parent()
+	return false

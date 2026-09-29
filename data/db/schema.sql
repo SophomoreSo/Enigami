@@ -22,7 +22,7 @@ CREATE TABLE meta (
 );
 -- `Db.SCHEMA_VERSION` in app/db.gd is the same number: bump both when a
 -- change is one older code could not read. build.sh adds `source_hash`.
-INSERT INTO meta (key, value) VALUES ('schema_version', '2');
+INSERT INTO meta (key, value) VALUES ('schema_version', '3');
 
 -- How a portrait and the letters behave while a line is said: the ids
 -- `Style.EMOTIONS` (graphics/style.gd) draws. A line naming one not here
@@ -40,7 +40,8 @@ CREATE TABLE voices (
 );
 INSERT INTO voices (id) VALUES ('low'), ('mid'), ('high'), ('none');
 
--- Everyone with something to say. One conversation each, opening on `start`.
+-- Everyone with something to say: a conversation in the box, opening on
+-- `start`, free talk in `rules` further down, or both.
 --
 -- The `line_` columns are what their lines say when a line does not say it
 -- itself: `Dialogue` fills a line's missing `voice` from `line_voice`, and so
@@ -50,7 +51,7 @@ CREATE TABLE characters (
 	name         TEXT NOT NULL CHECK (name <> ''),     -- on the tab when they speak
 	sprite       TEXT NOT NULL CHECK (sprite <> ''),   -- their character in the atlas, in the world and on the portrait
 	player_name  TEXT,                                 -- on the tab when the player speaks; NULL reads hud.dialogue.player
-	start        TEXT NOT NULL,                        -- the line a conversation opens on
+	start        TEXT,                                 -- the line a conversation in the box opens on; NULL: they only talk free
 	line_speaker TEXT NOT NULL DEFAULT 'npc' CHECK (line_speaker IN ('npc', 'player')),
 	line_emotion TEXT NOT NULL DEFAULT 'neutral' REFERENCES emotions (id),
 	line_voice   TEXT NOT NULL DEFAULT 'low' REFERENCES voices (id),
@@ -85,6 +86,16 @@ CREATE TABLE nodes (
 	FOREIGN KEY (character_id, next) REFERENCES nodes (character_id, id) DEFERRABLE INITIALLY DEFERRED
 );
 
+-- A line in the box belongs to somebody the box opens on. A character with no
+-- `start` only talks free, and a line in the box for them is one that nothing
+-- will ever reach.
+CREATE TRIGGER nodes_need_a_start
+BEFORE INSERT ON nodes
+WHEN (SELECT start FROM characters WHERE id = NEW.character_id) IS NULL
+BEGIN
+	SELECT RAISE(ABORT, 'a line in the box for somebody the box never opens on');
+END;
+
 -- The answers to a question, in `position` order. `next` NULL ends the
 -- conversation on that answer.
 CREATE TABLE choices (
@@ -97,6 +108,136 @@ CREATE TABLE choices (
 	FOREIGN KEY (character_id, node_id) REFERENCES nodes (character_id, id) ON DELETE CASCADE,
 	FOREIGN KEY (character_id, next) REFERENCES nodes (character_id, id) DEFERRABLE INITIALLY DEFERRED
 );
+
+-- ---- free talk ----------------------------------------------------------------
+--
+-- The other way a character talks: free, in a bubble over whoever is
+-- speaking, while the player goes on playing. Nobody is held still, a line
+-- moves on by itself once it has had time to be read, and nothing follows a
+-- tree. Every line is a rule: the event it answers, the criteria the facts
+-- must meet for it, and the changes it makes to them once it has been said.
+-- Of the rules an event could get, the one with the most criteria that all
+-- hold is said — the most specific thing there is to say. It is aarthificial's
+-- Typewriter (Legacy devlog #23), after Elan Ruskin's dynamic dialog for
+-- Valve. `FreeTalk` (story/rules/free_talk.gd) plays it; how to write it is in
+-- README.md here.
+
+-- What the characters know: whole numbers by name, 0 until something sets
+-- them. `scope` is how long one is kept —
+--
+--   save   with the profile, for good (`GameState.memory`)
+--   visit  until the player leaves the world they are in
+--   game   what the game counts for itself, read off the profile each time it
+--          is asked (`GameState.facts`); a line may ask about one and never
+--          change it
+--
+-- Every event and every rule is a fact too, declared by the triggers below:
+-- how many times the event has been raised, or the line said — an event
+-- under its own name, a rule as `<CHARACTER>.<rule>`. A name means one thing,
+-- so a fact that shares one with an event fails the build.
+CREATE TABLE facts (
+	id    TEXT PRIMARY KEY CHECK (id <> ''),
+	scope TEXT NOT NULL CHECK (scope IN ('save', 'visit', 'game'))
+);
+-- The keys of `GameState.facts()` (feature/core/game_state.gd), and
+-- tests/story/free_talk_test fails on one that is not.
+INSERT INTO facts (id, scope) VALUES
+	('raids', 'game'), ('escapes', 'game'), ('deaths', 'game'), ('kills', 'game'),
+	('best_haul', 'game'), ('scrap', 'game'), ('kit_waiting', 'game');
+
+-- What a line can answer. An event with a `cue` is a moment the game already
+-- announces (app/cues.gd), heard by every free talker the player is in
+-- earshot of: that cue, whenever it carries everything `match` says. An event
+-- with none is raised by the game — the three below, by name — or by a line
+-- that `triggers` it.
+CREATE TABLE events (
+	id    TEXT PRIMARY KEY CHECK (id <> '' AND id = lower(id)),
+	cue   TEXT CHECK (cue <> ''),
+	match JSON CHECK (match IS NULL OR (json_valid(match) AND json_type(match) = 'object')),
+	CHECK (match IS NULL OR cue IS NOT NULL)
+);
+
+CREATE TRIGGER events_are_facts
+AFTER INSERT ON events
+BEGIN
+	INSERT INTO facts (id, scope) VALUES (NEW.id, 'save');
+END;
+
+-- talk: a press of interact beside them while nothing is being said.
+-- near: the player coming into earshot.
+-- leave: the player going out of it, halfway through talk they started.
+INSERT INTO events (id) VALUES ('talk'), ('near'), ('leave');
+
+-- The moments a free talker notices. Each is a cue `feature/` sends, and
+-- tests/story/free_talk_test fails on one it does not. When a cue is more
+-- than one of these, the one that matches more of it is answered first.
+INSERT INTO events (id, cue, match) VALUES
+	('jump',        'jump',    '{"kind": "ground"}'),
+	('double_jump', 'jump',    '{"kind": "air"}'),
+	('wall_kick',   'jump',    '{"kind": "wall"}'),
+	('dash',        'dash',    NULL),
+	('winded',      'refused', '{"kind": "stamina"}'),
+	('parry',       'parry',   NULL),
+	('strike',      'hit',     '{"target_team": 1}'),
+	('kill',        'hit',     '{"target_team": 1, "killed": true}'),
+	('hurt',        'hurt',    '{"team": 0}');
+
+-- The lines. `speaker` says whose head the bubble is over; the columns shared
+-- with `nodes` mean what they mean there, and fall back on the character's
+-- `line_` defaults the same way.
+CREATE TABLE rules (
+	character_id TEXT NOT NULL REFERENCES characters (id) ON DELETE CASCADE,
+	id           TEXT NOT NULL CHECK (id <> ''),
+	listens      TEXT REFERENCES events (id),                 -- the event it answers; NULL: said only as another's `next`
+	once         INTEGER NOT NULL DEFAULT 0 CHECK (once IN (0, 1)),   -- 1: never said twice
+	text         TEXT NOT NULL CHECK (text <> ''),
+	speaker      TEXT CHECK (speaker IN ('npc', 'player')),   -- NULL: the character's line_speaker
+	speed        INTEGER CHECK (speed >= 1),                  -- letters per second; NULL: line_speed
+	emotion      TEXT REFERENCES emotions (id),               -- NULL: line_emotion
+	sfx          TEXT,                                        -- a sound from the bank in app/audio/audio.gd, as the line starts
+	voice        TEXT REFERENCES voices (id),                 -- NULL: line_voice
+	hold         REAL CHECK (hold >= 0),                      -- seconds it stays up once it is out; NULL: long enough to read
+	next         TEXT,                                        -- said after it, whatever the facts
+	triggers     TEXT REFERENCES events (id),                 -- raised after it: whatever answers best is said next
+	PRIMARY KEY (character_id, id),
+	FOREIGN KEY (character_id, next) REFERENCES rules (character_id, id) DEFERRABLE INITIALLY DEFERRED,
+	CHECK (next IS NULL OR triggers IS NULL)
+);
+
+CREATE TRIGGER rules_are_facts
+AFTER INSERT ON rules
+BEGIN
+	INSERT INTO facts (id, scope) VALUES (NEW.character_id || '.' || NEW.id, 'save');
+END;
+
+-- What the facts must be for a rule to be said: every row of it at once.
+CREATE TABLE criteria (
+	character_id TEXT NOT NULL,
+	rule_id      TEXT NOT NULL,
+	fact         TEXT NOT NULL REFERENCES facts (id) DEFERRABLE INITIALLY DEFERRED,
+	op           TEXT NOT NULL DEFAULT '=' CHECK (op IN ('=', '<>', '<', '<=', '>', '>=')),
+	value        INTEGER NOT NULL CHECK (typeof(value) = 'integer'),
+	FOREIGN KEY (character_id, rule_id) REFERENCES rules (character_id, id) ON DELETE CASCADE
+);
+
+-- What a rule does to the facts once it has been said: `set` one to the
+-- value, or `add` the value to it — a negative one takes away.
+CREATE TABLE changes (
+	character_id TEXT NOT NULL,
+	rule_id      TEXT NOT NULL,
+	fact         TEXT NOT NULL REFERENCES facts (id) DEFERRABLE INITIALLY DEFERRED,
+	op           TEXT NOT NULL DEFAULT 'set' CHECK (op IN ('set', 'add')),
+	value        INTEGER NOT NULL CHECK (typeof(value) = 'integer'),
+	FOREIGN KEY (character_id, rule_id) REFERENCES rules (character_id, id) ON DELETE CASCADE
+);
+
+-- What the game counts, it counts: a line may ask, and never change it.
+CREATE TRIGGER changes_leave_game_facts_alone
+BEFORE INSERT ON changes
+WHEN (SELECT scope FROM facts WHERE id = NEW.fact) = 'game'
+BEGIN
+	SELECT RAISE(ABORT, 'a line cannot change a fact the game counts for itself');
+END;
 
 -- ---- state machines --------------------------------------------------------
 --

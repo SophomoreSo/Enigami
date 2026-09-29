@@ -103,6 +103,22 @@ id:
 Answers are a plain list, in the order the question asks them — where each one
 leads stays in `data/`, so a translator can never break a conversation.
 
+Someone who talks free has `rules` rather than `nodes`, one per rule, and only
+its words — which event it answers and when stays in `data/` too:
+
+```json
+{
+	"name": "Apprentice",
+	"rules": {
+		"hello": {"text": "Oh! Somebody new."},
+		"resume": {"text": "Where were we? Right, footwork."}
+	}
+}
+```
+
+A free line goes in a bubble of at most four rows, so a translation that runs
+long fails `loc_test` rather than being cut short on screen.
+
 A scene file is the same idea, addressed by the beat's position in
 `data/scenes/<id>.json`, counting from zero, and naming the cast:
 

@@ -14,11 +14,17 @@ signal editing_changed(on: bool)
 signal dragon_test_requested()
 
 const MONSTER_BUTTONS := ["CRAWLER", "SENTRY", "LOBBER", "HOPPER", "DRIFTER", "WARDEN", "ARBITER"]
+## The column the apprentice stands in: by the left wall, which the wall kick
+## they teach needs.
+const APPRENTICE_CELL := 5
 
 var room: Room
 var player: Player
 ## Someone on the bench to talk to.
 var npc: Npc
+## The Tinker's apprentice, who talks free — in a bubble, while the player goes
+## on trying things in front of them — and watches what they try.
+var apprentice: Npc
 var boards: Array = []
 var weapon_index: int = 0
 var inventory: Dictionary = {}
@@ -56,6 +62,7 @@ func _ready() -> void:
 
 	spawn_dummy()
 	spawn_npc()
+	spawn_apprentice()
 
 func _apply_weapon() -> void:
 	var ids := Weapons.ids()
@@ -95,6 +102,16 @@ func spawn_npc() -> void:
 	npc.collision_mask = 1
 	npc.position = room.cell_center(20, 16)
 	add_child(npc)
+
+## Stood on the floor by the wall, the way the dummy is.
+func spawn_apprentice() -> void:
+	apprentice = Npc.new()
+	apprentice.setup("APPRENTICE")
+	apprentice.mode = Npc.Mode.FREE
+	apprentice.collision_layer = 0
+	apprentice.collision_mask = 1
+	apprentice.position = room.cell_center(APPRENTICE_CELL, _standing_row(APPRENTICE_CELL))
+	add_child(apprentice)
 
 func spawn_monster(kind: String) -> void:
 	_spawn(kind, 2, room.cell_center(24 + randi() % 8, 10))
@@ -148,6 +165,9 @@ func set_tools_open(on: bool) -> void:
 func on_board_changed(slot: int) -> void:
 	player.rebuild_runner(slot)
 
-## The guest on the bench, in talking range.
+## Someone on the bench in talking range, with something to say.
 func use_nearby() -> bool:
-	return npc != null and is_instance_valid(npc) and npc.in_range
+	for n in [npc, apprentice]:
+		if n != null and is_instance_valid(n) and (n as Npc).answers_press():
+			return true
+	return false

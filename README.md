@@ -51,6 +51,8 @@ godot res://tests/graphics/share_code_test.tscn # sharing a board, and what a pa
 godot res://tests/circuit/ttl_test.tscn     # a pulse's life, and what bounds a loop
 godot res://tests/feature/charge_test.tscn  # holding the cast button buys life for mana
 godot res://tests/story/npc_test.tscn       # talking to an NPC, line by line
+godot res://tests/story/free_talk_test.tscn # talking free: the most specific rule, walking off, picking it back up
+godot res://tests/graphics/speech_bubble_test.tscn # the bubble over whoever talks free, on screen and on whole pixels
 godot res://tests/shared/loc_test.tscn      # every language says everything, and can be drawn
 godot res://tests/shared/module_test.tscn   # what each module may name, row by row, and what no rule may
 godot res://tests/mobile/touch_layout_test.tscn # SET BUTTON POSITIONS: drag a button, keep it, play with it there
@@ -94,7 +96,7 @@ not a thing to reach for once it errors.
 | mouse / right stick | aim, and where a lunge lands |
 | TAB | open assembly — **the raid keeps running**; TAB, ESC or the CLOSE button leaves it |
 | C | in assembly: the board as a share code — copy it out, or build someone else's board from theirs |
-| F | interact: talk to an NPC (again for the next line), and hold to extract |
+| F | interact: talk to an NPC (again for the next line), and hold to extract. Someone who talks free goes on by themselves; F only hurries their line |
 | W / S, ↑ / ↓ | when an NPC asks a question, move between answers; F gives the highlighted one |
 | ESC | pause |
 
@@ -555,7 +557,8 @@ feature/world/     room generation, raid map graph, raid loop, sandbox, pickups
                    lost kit: what a death leaves on the floor for the next run
                    dragon test: the hand-laid tower and its rules
 story/rules/       conversations and directed scenes: what is said, and what follows
-story/view/        the dialogue box, the cutscene box, the portraits, the camera
+                   free talk: rules, the facts they are written against, and the ear
+story/view/        the dialogue box, the speech bubble, the cutscene box, the portraits, the camera
 mobile/input/      whether the console is on the glass, and what a key on it presses
 mobile/view/       the two-thumb console drawn on the glass, and the screen that
                    moves its buttons (SET BUTTON POSITIONS)

@@ -83,4 +83,5 @@ source_hash="$(printf '%s' "$listing" | hash_of)"
 
 mv -f "$TMP" "$OUT"
 echo "Built $(basename "$OUT") from ${#rels[@]} file(s) — $(du -h "$OUT" | cut -f1), sources ${source_hash:0:12}"
+"$SQLITE" "$OUT" "SELECT '  ' || character_id || ' talks free: ' || count(*) || ' rules, ' || (SELECT count(*) FROM criteria c WHERE c.character_id = r.character_id) || ' criteria, ' || (SELECT count(*) FROM changes c WHERE c.character_id = r.character_id) || ' changes' FROM rules r GROUP BY character_id ORDER BY character_id;"
 "$SQLITE" "$OUT" "SELECT '  ' || id || ': ' || (SELECT count(*) FROM nodes WHERE character_id = characters.id) || ' lines, ' || (SELECT count(*) FROM choices WHERE character_id = characters.id) || ' answers' FROM characters ORDER BY id;"
