@@ -252,6 +252,14 @@ laid over it from `localization/<lang>/dialogue/<id>.json`, by node name —
 words only, never where a line leads. Scenes are still files,
 `data/scenes/<id>.json`, and work the same way, by beat.
 
+The menus are rows as well — `menus` and `menu_items` — read by `Menus`
+(`graphics/ui/menus.gd`) for the title screen and the shell's pause menu: a
+menu is its name, and its items in order, each opening a menu or naming an
+act of the screen's by its id. The screen keeps only the acts, and the look.
+An item that opens a menu says that menu's name, so a heading is written
+once and every door to it says it; the English in the rows is laid under
+`localization/<lang>/menu.json` by id.
+
 `story/rules/` hands a line on as it came out of the table, keyed by column
 name, and never names a column it does not use, so the rule above still holds:
 a new kind of direction is a column in `data/db/schema.sql`, a value in a
@@ -285,6 +293,8 @@ knows what anybody said.
 | Content better kept as rows than as a file | a table in `data/db/schema.sql`, read through `Db` (`app/db.gd`) |
 | A board the game ships with — a weapon's own attack, a monster's, the starter skill | `data/db/boards/`, then `data/db/build.sh`; the weapon or the monster names it by id |
 | The player's movement — its states, what each does, which can follow which, and when | `data/db/machines/player.sql`, then `data/db/build.sh`. A new action for a step to take, or a new sense for a condition to read, `_setup_fsm` in `feature/actors/player.gd` |
+| A kind of line that hangs — a cable, a chain — and its numbers: how stiff, how heavy, how much of a passing body it takes; and what a room hangs of each, how many, how long | a row of `ropes` and one of `hangings` in `data/db/ropes/ropes.sql`, then `data/db/build.sh` — see **A rope** in `data/db/README.md`. How a line moves and is drawn, `graphics/rope.gd`: a tree of nodes, each with a parent, a rest angle and distance — held at the distance, springing back to the angle — pixel by pixel on the world's grid. Where in a room one may hang, `_hang_lines` in `graphics/views/room_view.gd`; its colours, `Style.ROPE_LOOK`. Nothing in `feature/` knows they are there |
+| A menu — what it is called, what is on it, in what order, and what each item says or opens | `data/db/menus/menus.sql`, then `data/db/build.sh` — see **A menu** in `data/db/README.md`. What an item that opens no menu *does* is the screen's, by the item's id: `acts_for` in `graphics/ui/title_screen.gd`, `_pause_acts` in `app/game.gd`. How the items look — a tile's mark, a button's colour — stays with the screen |
 | A new directed scene, or a new staging direction | a file in `data/scenes/` — see its README; no code. A new direction is a case in `story/rules/cutscene.gd` and, if it shows, `story/view/cutscene_view.gd` |
 | How a conversation behaves — range, reveal speed, who is held still | `story/rules/npc.gd`. How it reads on screen, `story/view/dialogue_box.gd` |
 | Someone who talks free, and what they notice | a file in `data/db/dialogue/` of `rules`, `criteria` and `changes` — see **Free talk** in `data/db/README.md`; no code. A new kind of moment to notice, a row of `events` in `data/db/schema.sql` naming the cue. How free talk is picked and paced, `story/rules/free_talk.gd`; how the bubble looks, `story/view/speech_bubble.gd` |
@@ -319,7 +329,7 @@ nothing and live in `graphics/fx.gd`.
 | Name | Module | What it is |
 |---|---|---|
 | `Loc` | app | every word, in the language being played |
-| `Db` | app | the content database, `data/enigami.db` — the conversations, the state machines, the parts and the boards the game ships with, as tables — read-only |
+| `Db` | app | the content database, `data/enigami.db` — the conversations, the state machines, the parts and the boards the game ships with, the menus, and the lines that hang in the rooms, as tables — read-only |
 | `Cues` | app | the seam |
 | `Audio`, `AudioCues` | app | the synthesised sound bank, and what each cue sounds like |
 | `Pointer` | app | where the hand is pointing, at the speed the setting asks, and whether the system's arrow is hidden under it |

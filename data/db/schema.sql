@@ -22,7 +22,7 @@ CREATE TABLE meta (
 );
 -- `Db.SCHEMA_VERSION` in app/db.gd is the same number: bump both when a
 -- change is one older code could not read. build.sh adds `source_hash`.
-INSERT INTO meta (key, value) VALUES ('schema_version', '5');
+INSERT INTO meta (key, value) VALUES ('schema_version', '7');
 
 -- How a portrait and the letters behave while a line is said: the ids
 -- `Style.EMOTIONS` (graphics/style.gd) draws. A line naming one not here
@@ -446,4 +446,82 @@ CREATE TABLE board_parts (
 	part     TEXT NOT NULL REFERENCES parts (id) DEFERRABLE INITIALLY DEFERRED,
 	facing   TEXT NOT NULL DEFAULT 'E' CHECK (facing IN ('E', 'S', 'W', 'N')),
 	PRIMARY KEY (board_id, x, y)
+);
+
+-- ---- menus -----------------------------------------------------------------
+--
+-- The menus a screen is made of: the title's, the save slots behind its
+-- START, its SETTINGS and the two pages behind them, and PAUSED. A menu is
+-- its name — the heading over it, and what a button opening it says — and
+-- its items, in `position` order, each one thing: the menu it `opens`, or an
+-- act of the screen that shows it, by the item's id. The screen keeps only
+-- the acts, handed to `Menus` (graphics/ui/menus.gd) by name the way the
+-- player hands `Machine` its actions, and lays the items out: one that is a
+-- way out of the menu (`exit`) sits pinned at its foot. What an item looks
+-- like — its colour, the mark over a tile — is the screen's, keyed by the
+-- item's id, the way a part's look is `Style`'s.
+--
+-- The English here is the fallback under localization/<lang>/menu.json, by
+-- id: `menu.<menu>.heading` for a name, `menu.<menu>.<item>` for an item's
+-- text. tests/shared/loc_test fails if the two drift.
+
+CREATE TABLE menus (
+	id   TEXT PRIMARY KEY CHECK (id <> '' AND id = lower(id)),
+	name TEXT CHECK (name <> '')   -- the heading over it; NULL for one with none, the title's, which the seal heads
+);
+
+CREATE TABLE menu_items (
+	menu_id  TEXT NOT NULL REFERENCES menus (id) ON DELETE CASCADE,
+	id       TEXT NOT NULL CHECK (id <> ''),
+	position INTEGER NOT NULL CHECK (position >= 0),
+	text     TEXT CHECK (text <> ''),      -- what it says; NULL: the name of the menu it opens
+	opens    TEXT REFERENCES menus (id),   -- the menu it leads to; NULL: an act of the screen's, by the item's id
+	exit     INTEGER NOT NULL DEFAULT 0 CHECK (exit IN (0, 1)),   -- 1: a way out of the menu, gathered at its foot
+	PRIMARY KEY (menu_id, id),
+	UNIQUE (menu_id, position),
+	CHECK (text IS NOT NULL OR opens IS NOT NULL)
+);
+
+-- An item with no text of its own says the name of the menu it opens, so
+-- that menu has to have one — and to be written before it, since this asks
+-- as the item goes in.
+CREATE TRIGGER menu_items_say_something
+BEFORE INSERT ON menu_items
+WHEN NEW.text IS NULL AND (SELECT name FROM menus WHERE id = NEW.opens) IS NULL
+BEGIN
+	SELECT RAISE(ABORT, 'an item with no text of its own opens a menu with no name');
+END;
+
+-- ---- lines that hang -------------------------------------------------------
+--
+-- The lines that hang in the rooms — cables today; chains, vines and wires
+-- when somebody writes them — as `Rope` (graphics/rope.gd) moves them. A
+-- kind of line is the numbers the simulation shares along one: how far apart
+-- its nodes are, how firmly it keeps the angles it was hung with, how fast
+-- its motion dies, how hard the world pulls on it, and how much of a passing
+-- body's speed it takes. What keeps a line steady whatever these say — the
+-- most a node moves in a step, the slowest body that moves it — stays code,
+-- and so does the look: a kind's colours are graphics/style.gd's, by the
+-- same id, and a kind with none yet hangs in a cable's.
+
+CREATE TABLE ropes (
+	id        TEXT PRIMARY KEY CHECK (id <> '' AND id = lower(id)),
+	segment   REAL NOT NULL DEFAULT 12 CHECK (segment >= 2),            -- pixels between nodes: finer bends more, and costs more nodes
+	stiffness REAL NOT NULL DEFAULT 3 CHECK (stiffness >= 0),           -- how firmly it keeps its angles, per second: 0 a chain, 30 a rod
+	damping   REAL NOT NULL DEFAULT 0.8 CHECK (damping >= 0),           -- how fast its motion dies, per second
+	gravity   REAL NOT NULL DEFAULT 900,                                -- the pull on every free node, in pixels a second squared
+	give      REAL NOT NULL DEFAULT 0.35 CHECK (give BETWEEN 0 AND 1),  -- the share of a passing body's speed a node takes, each frame it is covered
+	push_most REAL NOT NULL DEFAULT 220 CHECK (push_most >= 0)          -- the most speed a body hands over, in pixels a second, however fast it goes
+);
+
+-- What a room hangs: of each kind of line, how many and how long, in cells
+-- of the room's grid. Where each hangs is rolled by `RoomView` from the
+-- room's own seed — from a solid cell with open air under it, never at the
+-- room's edge or under the readout — so a room looks the same every time.
+CREATE TABLE hangings (
+	rope     TEXT PRIMARY KEY REFERENCES ropes (id) ON DELETE CASCADE,
+	fewest   INTEGER NOT NULL DEFAULT 0 CHECK (fewest >= 0),
+	most     INTEGER NOT NULL CHECK (most >= fewest),
+	shortest INTEGER NOT NULL CHECK (shortest >= 1),
+	longest  INTEGER NOT NULL CHECK (longest >= shortest)
 );

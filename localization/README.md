@@ -147,6 +147,7 @@ Every lookup falls back, so a language is playable the moment its folder exists:
 | A line in every language | The key itself, and one warning |
 | A whole domain file | Every key in it falls back |
 | A part, weapon, monster or facility | The English in the parts table (`data/db/parts/parts.sql`), or in the code — `Weapons.DEFS` and its like |
+| A menu's name, or what an item on it says | The English in the menus table (`data/db/menus/menus.sql`), by id: `menu.<menu>.heading`, `menu.<menu>.<item>`. A door says the name of the menu it opens, and has no line of its own |
 | A dialogue line or a beat | The text in `data/` — the database, or the scene file |
 
 That last pair is why the English in the code and in `data/` is still there: it

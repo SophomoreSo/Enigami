@@ -594,6 +594,15 @@ static func region_tint(region: int) -> Color:
 	return REGION_TINT[clampi(region, 0, REGION_TINT.size() - 1)]
 
 const HAZARD := Color(0.9, 0.35, 0.4)
+## A line hanging in a room (`Rope`), by the kind of line it is — the rows of
+## `ropes` in the content database — as the colour of the line and of the
+## plug on its end. A kind with no look here hangs in a cable's.
+const ROPE_LOOK := {
+	"cable": {"line": Color(0.52, 0.44, 0.34), "end": Color(0.78, 0.68, 0.50)},
+}
+
+static func rope_look(kind: String) -> Dictionary:
+	return ROPE_LOOK.get(kind, ROPE_LOOK["cable"])
 const DOOR_FILL := Color(0.4, 0.75, 0.95, 0.18)
 const DOOR_EDGE := Color(0.45, 0.8, 1.0, 0.75)
 const EXIT_OPEN := Color(0.45, 0.95, 0.7)

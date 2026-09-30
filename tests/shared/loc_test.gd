@@ -145,6 +145,16 @@ func _check_fallbacks() -> void:
 	for i in Components.DIR_NAME.size():
 		checked += _same(eng, "parts.direction.%s" % Components.DIR_NAME[i],
 			String(Components.DIR_NAME[i]))
+	# A menu's name and what its items say, the same way: the rows are the
+	# fallback, by id. An item with no text of its own says the name of the
+	# menu it opens, and has no line to hold.
+	for id in Menus.ids():
+		var menu := Menus.source(id)
+		if menu.has("name"):
+			checked += _same(eng, "menu.%s.heading" % id, String(menu["name"]))
+		for item in menu.get("items", []):
+			if item.has("text"):
+				checked += _same(eng, "menu.%s.%s" % [id, String(item["id"])], String(item["text"]))
 	print("[LOC] %d lines checked against the English left in the code" % checked)
 
 func _same(eng: Dictionary, key: String, in_code: String) -> int:
