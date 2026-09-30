@@ -2,7 +2,8 @@ extends Node
 
 ## The content database, `data/enigami.db`: what the game reads and never
 ## writes, kept as tables. The conversations, the player's state machine, the
-## parts and the boards the game ships with, and the menus are in it today;
+## parts and the boards the game ships with, the menus, and the lines that
+## hang in the rooms are in it today;
 ## whatever else is better kept as rows than as a file goes in beside them. It is built from
 ## the SQL under `data/db/` by the `build.sh` there — the README beside it has
 ## the tables and how to change them — and committed built, so nothing at run
@@ -28,7 +29,7 @@ const PATH := "res://data/enigami.db"
 ## same number into `meta`, and `tests/story/dialogue_test` holds the two
 ## together, so a schema changed on one side is a failing test and not a
 ## conversation that reads as empty.
-const SCHEMA_VERSION := 6
+const SCHEMA_VERSION := 7
 
 enum State { CLOSED, OPEN, FAILED }
 

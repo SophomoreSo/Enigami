@@ -22,7 +22,7 @@ CREATE TABLE meta (
 );
 -- `Db.SCHEMA_VERSION` in app/db.gd is the same number: bump both when a
 -- change is one older code could not read. build.sh adds `source_hash`.
-INSERT INTO meta (key, value) VALUES ('schema_version', '6');
+INSERT INTO meta (key, value) VALUES ('schema_version', '7');
 
 -- How a portrait and the letters behave while a line is said: the ids
 -- `Style.EMOTIONS` (graphics/style.gd) draws. A line naming one not here
@@ -491,3 +491,37 @@ WHEN NEW.text IS NULL AND (SELECT name FROM menus WHERE id = NEW.opens) IS NULL
 BEGIN
 	SELECT RAISE(ABORT, 'an item with no text of its own opens a menu with no name');
 END;
+
+-- ---- lines that hang -------------------------------------------------------
+--
+-- The lines that hang in the rooms — cables today; chains, vines and wires
+-- when somebody writes them — as `Rope` (graphics/rope.gd) moves them. A
+-- kind of line is the numbers the simulation shares along one: how far apart
+-- its nodes are, how firmly it keeps the angles it was hung with, how fast
+-- its motion dies, how hard the world pulls on it, and how much of a passing
+-- body's speed it takes. What keeps a line steady whatever these say — the
+-- most a node moves in a step, the slowest body that moves it — stays code,
+-- and so does the look: a kind's colours are graphics/style.gd's, by the
+-- same id, and a kind with none yet hangs in a cable's.
+
+CREATE TABLE ropes (
+	id        TEXT PRIMARY KEY CHECK (id <> '' AND id = lower(id)),
+	segment   REAL NOT NULL DEFAULT 12 CHECK (segment >= 2),            -- pixels between nodes: finer bends more, and costs more nodes
+	stiffness REAL NOT NULL DEFAULT 3 CHECK (stiffness >= 0),           -- how firmly it keeps its angles, per second: 0 a chain, 30 a rod
+	damping   REAL NOT NULL DEFAULT 0.8 CHECK (damping >= 0),           -- how fast its motion dies, per second
+	gravity   REAL NOT NULL DEFAULT 900,                                -- the pull on every free node, in pixels a second squared
+	give      REAL NOT NULL DEFAULT 0.35 CHECK (give BETWEEN 0 AND 1),  -- the share of a passing body's speed a node takes, each frame it is covered
+	push_most REAL NOT NULL DEFAULT 220 CHECK (push_most >= 0)          -- the most speed a body hands over, in pixels a second, however fast it goes
+);
+
+-- What a room hangs: of each kind of line, how many and how long, in cells
+-- of the room's grid. Where each hangs is rolled by `RoomView` from the
+-- room's own seed — from a solid cell with open air under it, never at the
+-- room's edge or under the readout — so a room looks the same every time.
+CREATE TABLE hangings (
+	rope     TEXT PRIMARY KEY REFERENCES ropes (id) ON DELETE CASCADE,
+	fewest   INTEGER NOT NULL DEFAULT 0 CHECK (fewest >= 0),
+	most     INTEGER NOT NULL CHECK (most >= fewest),
+	shortest INTEGER NOT NULL CHECK (shortest >= 1),
+	longest  INTEGER NOT NULL CHECK (longest >= shortest)
+);

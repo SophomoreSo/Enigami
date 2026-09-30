@@ -48,6 +48,12 @@ extends Node2D
 ## not the one before it; `attach` puts another node on the line to ride it,
 ## the way the video offsets sprites along one.
 ##
+## A kind of line — a cable, a chain — is a row of `ropes` in the content
+## database, and its numbers are the ones below; `of` makes a line of a kind,
+## and `hangings` says what a room hangs of each ("A rope" in
+## data/db/README.md). What keeps a line steady whatever the numbers say
+## stays here, as constants, and so does its look, in `Style`.
+##
 ## Nothing here is a rule. It changes nothing and reads only where bodies are
 ## and how fast they move; a world without a picture has no cables in it and
 ## never misses them.
@@ -55,12 +61,13 @@ extends Node2D
 ## The width of the line, and the grid it is drawn on: one pixel of the buffer
 ## the pixel camera draws the world into.
 const S := PixelCamera.SCALE
-## How far apart a hung cable's nodes are, in world pixels: six buffer pixels,
-## close enough to bend where a body passes.
-const SEGMENT := 12.0
 ## Bodies moving slower than this move nothing. Standing in a cable is not
 ## pushing it, and the video's buffer holds no speed for a body standing still.
 const PUSH_MIN := 30.0
+## The most of its distance from its parent a node may move in one step.
+## Past half, a node could pass its parent within a step, and the line would
+## fold; at this, two neighbours cannot close on each other in a step either.
+const MOST_A_STEP := 0.4
 ## How far past a body's own edge it still reaches the line: the line's width.
 const PUSH_REACH := float(S)
 ## What `settle` runs, in physics frames at sixty a second: four seconds, long
@@ -70,6 +77,13 @@ const SETTLE_STEPS := 240
 const BODY_GUESS := Vector2(20.0, 30.0)
 
 ## --- what the whole line shares ---------------------------------------------
+## The numbers a kind of line is, as its row of `ropes` has them; made by
+## hand, a line has a cable's.
+## Which kind of line this is: the id of its row.
+var kind: String = "cable"
+## How far apart a hung line's nodes are, in world pixels: at 12, six buffer
+## pixels, close enough to bend where a body passes.
+var segment: float = 12.0
 ## How firmly the line keeps the angles it was made with, per second: a wire
 ## hung out from a wall droops under gravity at 1, and holds its line at 30.
 ## The distance to a parent is kept outright whatever this is, so a cable
@@ -84,12 +98,14 @@ var damping: float = 0.8
 var gravity: float = 900.0
 ## What part of a passing body's speed a node it covers takes, each physics frame.
 var give: float = 0.35
-## The most a node may move, in pixels a second: a dash through a cable bends
-## it, and does not throw it across the room.
-var max_speed: float = 900.0
-## The line's colour, and the plug on each free end.
-var color: Color = Style.ROPE
-var end_color: Color = Style.ROPE_END
+## The most speed a body hands over, in pixels a second, however fast it is
+## going: at 220, a walk's worth. A dash or a fall through a cable at the
+## body's own speed threw the nodes it touched further in a frame than they
+## hang apart, and the line folded over itself and shook.
+var push_most: float = 220.0
+## The line's colour, and the plug on each free end: the kind's look.
+var color: Color = Style.rope_look("cable")["line"]
+var end_color: Color = Style.rope_look("cable")["end"]
 
 ## The nodes, in the order they were added — a parent always before its
 ## children — each `{parent, angle, length, fixed, heading, pos, vel}`:
@@ -130,11 +146,14 @@ func add_node(parent: int, angle: float, length: float, fixed: bool = false) -> 
 		"heading": heading, "pos": pos, "vel": Vector2.ZERO})
 	return nodes.size() - 1
 
-## A cable: hung from `at` straight down, `length` long, a node every `segment`.
-func hang(at: Vector2, length: float, segment: float = SEGMENT) -> void:
+## A cable: hung from `at` straight down, `length` long, a node every
+## `spacing` — the kind's own `segment` unless told otherwise.
+func hang(at: Vector2, length: float, spacing: float = 0.0) -> void:
+	if spacing <= 0.0:
+		spacing = segment
 	var last := root(at, PI * 0.5)
-	for i in maxi(1, int(round(length / segment))):
-		last = add_node(last, 0.0, segment)
+	for i in maxi(1, int(round(length / spacing))):
+		last = add_node(last, 0.0, spacing)
 
 ## `rider` is carried to node `i`, `offset` from it, now and every frame after:
 ## a lamp on the end of its cable, a sign on its chain.
@@ -147,6 +166,46 @@ func attach(rider: Node2D, i: int, offset: Vector2 = Vector2.ZERO) -> void:
 func settle(steps: int = SETTLE_STEPS) -> void:
 	for i in steps:
 		step(1.0 / 60.0)
+
+## --- the table --------------------------------------------------------------
+
+## Every kind of line in the table, by id.
+static func kinds() -> PackedStringArray:
+	var out := PackedStringArray()
+	for r in Db.rows("SELECT id FROM ropes ORDER BY id"):
+		out.append(String(r["id"]))
+	return out
+
+## A kind as the table has it — its row of `ropes` — or {} for no such kind.
+static func source(id: String) -> Dictionary:
+	var found := Db.records("ropes", "id = ?", [id])
+	return found[0] if not found.is_empty() else {}
+
+## A line of kind `id`: its row's numbers, and its look. A kind that is not
+## in the table is said loudly, and the line is a cable.
+static func of(id: String) -> Rope:
+	var rope := Rope.new()
+	var row := source(id)
+	if row.is_empty():
+		push_error("Rope: no kind of line called '%s' in %s" % [id, Db.PATH])
+		return rope
+	rope.kind = id
+	rope.segment = float(row["segment"])
+	rope.stiffness = float(row["stiffness"])
+	rope.damping = float(row["damping"])
+	rope.gravity = float(row["gravity"])
+	rope.give = float(row["give"])
+	rope.push_most = float(row["push_most"])
+	var look := Style.rope_look(id)
+	rope.color = look["line"]
+	rope.end_color = look["end"]
+	return rope
+
+## What a room hangs: the rows of `hangings`, each the kind of line (`rope`),
+## how many (`fewest` to `most`) and how long in cells (`shortest` to
+## `longest`), in the order they were written.
+static func hangings() -> Array:
+	return Db.records("hangings", "", [], "rowid")
 
 ## --- asking -----------------------------------------------------------------
 
@@ -176,12 +235,13 @@ func tips() -> Array[int]:
 ## --- the simulation ---------------------------------------------------------
 
 ## One physics frame. Every free node falls, carries its speed, slows, takes
-## speed from any body moving through it, is pulled part of the way toward
-## where its parent's heading and its own rest angle put it, and is set at
-## exactly its distance from its parent. Parents go before children, and a
-## child reads its parent as it is now, so a bend runs down the line within
-## the frame it is made. What a node ends up moving is its speed for the
-## next frame, whatever it was asked to do.
+## speed from any body moving through it, moves — never more than
+## MOST_A_STEP of its segment — is pulled part of the way toward where its
+## parent's heading and its own rest angle put it, and is set at exactly its
+## distance from its parent. Parents go before children, and a child reads
+## its parent as it is now, so a bend runs down the line within the frame it
+## is made. What a node ends up moving is its speed for the next frame,
+## whatever it was asked to do.
 func step(delta: float) -> void:
 	if delta <= 0.0:
 		return
@@ -198,7 +258,7 @@ func step(delta: float) -> void:
 		for m in movers:
 			if (m["rect"] as Rect2).has_point(at):
 				vel = vel.lerp(m["vel"], give)
-		var next := at + vel.limit_length(max_speed) * delta
+		var next := at + (vel * delta).limit_length(MOST_A_STEP * float(n["length"]))
 		var hung: Vector2 = nodes[parent]["pos"]
 		var rest := hung + Vector2.from_angle(_heading(parent) + float(n["angle"])) * float(n["length"])
 		next = next.lerp(rest, keep)
@@ -237,7 +297,8 @@ func _movers() -> Array:
 		if not (size is Vector2):
 			size = BODY_GUESS
 		var at := to_local((a as Node2D).global_position)
-		out.append({"rect": Rect2(at - (size as Vector2) * 0.5, size).grow(PUSH_REACH), "vel": vel})
+		out.append({"rect": Rect2(at - (size as Vector2) * 0.5, size).grow(PUSH_REACH),
+			"vel": vel.limit_length(push_most)})
 	return out
 
 func _carry() -> void:

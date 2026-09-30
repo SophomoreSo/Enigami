@@ -293,7 +293,7 @@ knows what anybody said.
 | Content better kept as rows than as a file | a table in `data/db/schema.sql`, read through `Db` (`app/db.gd`) |
 | A board the game ships with — a weapon's own attack, a monster's, the starter skill | `data/db/boards/`, then `data/db/build.sh`; the weapon or the monster names it by id |
 | The player's movement — its states, what each does, which can follow which, and when | `data/db/machines/player.sql`, then `data/db/build.sh`. A new action for a step to take, or a new sense for a condition to read, `_setup_fsm` in `feature/actors/player.gd` |
-| A cable, a rope, a wire — a line that hangs and sways when somebody walks through it | `graphics/rope.gd`: a tree of nodes, each with a parent, a rest angle and distance — held at the distance, springing back to the angle — drawn pixel by pixel on the world's grid. Where a room hangs its cables, `_hang_cables` in `graphics/views/room_view.gd`; their colour, `Style.ROPE`. Nothing in `feature/` knows they are there |
+| A kind of line that hangs — a cable, a chain — and its numbers: how stiff, how heavy, how much of a passing body it takes; and what a room hangs of each, how many, how long | a row of `ropes` and one of `hangings` in `data/db/ropes/ropes.sql`, then `data/db/build.sh` — see **A rope** in `data/db/README.md`. How a line moves and is drawn, `graphics/rope.gd`: a tree of nodes, each with a parent, a rest angle and distance — held at the distance, springing back to the angle — pixel by pixel on the world's grid. Where in a room one may hang, `_hang_lines` in `graphics/views/room_view.gd`; its colours, `Style.ROPE_LOOK`. Nothing in `feature/` knows they are there |
 | A menu — what it is called, what is on it, in what order, and what each item says or opens | `data/db/menus/menus.sql`, then `data/db/build.sh` — see **A menu** in `data/db/README.md`. What an item that opens no menu *does* is the screen's, by the item's id: `acts_for` in `graphics/ui/title_screen.gd`, `_pause_acts` in `app/game.gd`. How the items look — a tile's mark, a button's colour — stays with the screen |
 | A new directed scene, or a new staging direction | a file in `data/scenes/` — see its README; no code. A new direction is a case in `story/rules/cutscene.gd` and, if it shows, `story/view/cutscene_view.gd` |
 | How a conversation behaves — range, reveal speed, who is held still | `story/rules/npc.gd`. How it reads on screen, `story/view/dialogue_box.gd` |
@@ -329,7 +329,7 @@ nothing and live in `graphics/fx.gd`.
 | Name | Module | What it is |
 |---|---|---|
 | `Loc` | app | every word, in the language being played |
-| `Db` | app | the content database, `data/enigami.db` — the conversations, the state machines, the parts and the boards the game ships with, and the menus, as tables — read-only |
+| `Db` | app | the content database, `data/enigami.db` — the conversations, the state machines, the parts and the boards the game ships with, the menus, and the lines that hang in the rooms, as tables — read-only |
 | `Cues` | app | the seam |
 | `Audio`, `AudioCues` | app | the synthesised sound bank, and what each cue sounds like |
 | `Pointer` | app | where the hand is pointing, at the speed the setting asks, and whether the system's arrow is hidden under it |

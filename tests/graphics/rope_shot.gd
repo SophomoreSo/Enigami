@@ -67,4 +67,15 @@ func _ready() -> void:
 	await shot("43_swinging")
 	await wait(2.5)
 	await shot("44_settled")
+	# Up through the same cable from under it, and back down through it: the
+	# pass that folds a line whose nodes may outrun their own segments.
+	var tip := rope.point_of(rope.nodes.size() - 1)
+	sb.player.global_position = tip + Vector2(-6, 40)
+	sb.player.velocity = Vector2(90, -Player.JUMP_VELOCITY * -1.0)
+	await frames(8)
+	await shot("45_jumped_through")
+	await wait(0.6)
+	await shot("46_fallen_back_through")
+	await wait(1.5)
+	await shot("47_after_the_jump")
 	get_tree().quit()

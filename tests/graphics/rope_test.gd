@@ -1,20 +1,27 @@
 extends Node
-## A rope: the line of nodes from aarthificial's Legacy devlog #21, and the
-## cables a room hangs from it.
+## A rope: the line of nodes from aarthificial's Legacy devlog #21, the
+## tables its kinds and their numbers are read from, and the cables a room
+## hangs from it.
 ##
-## Bresenham's line comes out whole and 8-connected however it lies. A cable
-## hung from a point settles straight under its anchor, hardly longer than it
-## was made; a push bends what hangs below it and nothing above, and dies
-## away; a fixed node never moves; a stiff wire sags less than a loose one,
-## and not at all without gravity; a branch keeps its angle; a rider follows
-## its node; a body moving through the line hands it speed, and one standing
-## still or elsewhere hands it none. And a room hangs its cables from rock
-## with open air under them, the same ones every time it is built.
+## A kind of line is made with its row's numbers, and a kind that is not
+## there is said and hangs as a cable. Bresenham's line comes out whole and
+## 8-connected however it lies. A cable hung from a point settles straight
+## under its anchor, hardly longer than it was made; a push bends what hangs
+## below it and nothing above, and dies away; a fixed node never moves; a
+## stiff wire sags less than a loose one, and not at all without gravity; a
+## branch keeps its angle; a rider follows its node; a body moving through
+## the line hands it speed, and one standing still or elsewhere hands it
+## none. A room hangs what the `hangings` rows say, as many and as long,
+## from rock with open air under them, the same ones every time it is built.
+## And what the schema promises to refuse is tried against a scratch copy.
 ##
 ## No renderer needed: the simulation is stepped by hand, and the pixels are
-## asked for rather than drawn.
+## asked for rather than drawn. The refusals print an `SQL error` line each
+## from the extension, which is the point of them.
 
 const DT := 1.0 / 60.0
+const SRC := "res://data/db"
+const SCRATCH := "user://rope_test.db"
 
 var fails := 0
 
@@ -30,6 +37,7 @@ func run(rope: Rope, steps: int) -> void:
 		rope.step(DT)
 
 func _ready() -> void:
+	_table()
 	_bresenham()
 	_hanging()
 	_pushed()
@@ -37,8 +45,41 @@ func _ready() -> void:
 	_branch_and_rider()
 	_movers()
 	_rooms()
+	_refusals()
 	print("[ROPE] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)
+
+## --- the table --------------------------------------------------------------
+
+func _table() -> void:
+	check(Db.available(), "the database opens (%s)" % Db.PATH)
+	for table in ["ropes", "hangings"]:
+		check(Db.has_table(table), "there is a table of %s" % table)
+	check(Db.meta("schema_version") == str(Db.SCHEMA_VERSION),
+		"the database is at the schema the code reads (file says %s, code says %d)"
+			% [Db.meta("schema_version"), Db.SCHEMA_VERSION])
+	var kinds := Rope.kinds()
+	check(kinds.has("cable"), "a cable is a kind of line (%s)" % str(kinds))
+	var row := Rope.source("cable")
+	var cable := Rope.of("cable")
+	check(cable.kind == "cable" and not row.is_empty()
+			and cable.segment == float(row.get("segment", -1)) and cable.stiffness == float(row.get("stiffness", -1))
+			and cable.damping == float(row.get("damping", -1)) and cable.gravity == float(row.get("gravity", -1))
+			and cable.give == float(row.get("give", -1)) and cable.push_most == float(row.get("push_most", -1)),
+		"a cable is made with its row's numbers (%s)" % str(row))
+	cable.hang(Vector2.ZERO, 96.0)
+	check(cable.nodes.size() == 1 + int(round(96.0 / float(row.get("segment", 1)))),
+		"and hung with its nodes its row's segment apart (%d)" % cable.nodes.size())
+	var plain := Rope.new()
+	var none := Rope.of("nowhere")
+	check(none.kind == "cable" and none.stiffness == plain.stiffness and none.segment == plain.segment,
+		"a kind that is not there is said above, and hangs as a cable")
+	var rows := Rope.hangings()
+	check(rows.size() >= 1 and String(rows[0].get("rope", "")) == "cable",
+		"the rooms hang cables (%s)" % str(rows))
+	cable.free()
+	plain.free()
+	none.free()
 
 ## --- the line ---------------------------------------------------------------
 
@@ -119,6 +160,12 @@ func _pushed() -> void:
 	rope.nudge(0, Vector2(400, 0))
 	run(rope, 10)
 	check(rope.point_of(0) == Vector2(100, 0), "a fixed node cannot be pushed")
+	rope.nudge(5, Vector2(5000, 0))
+	var was := rope.point_of(5)
+	rope.step(DT)
+	check(rope.point_of(5).distance_to(was) <= Rope.MOST_A_STEP * 16.0 + 0.01,
+		"however hard it is shoved, a node moves no further in a step than %.0f%% of its segment (%.1f)"
+			% [Rope.MOST_A_STEP * 100.0, rope.point_of(5).distance_to(was)])
 	rope.free()
 	# A long cable shoved hard in the middle: it swings, it never rises over
 	# its anchor, it never stretches, and it settles. A chain of springs did
@@ -227,9 +274,33 @@ func _movers() -> void:
 	walker.velocity = Vector2(500, 0)
 	idle.step(DT)
 	check(absf((idle.nodes[3]["vel"] as Vector2).x) < 0.01, "nor does one moving somewhere else")
+	# A body at a stone's speed — a dash, a fall — hands over a walk's worth
+	# and no more, and a fall up or down through the line folds nothing.
+	var struck := _hung_here(Vector2(300, 100))
+	walker.global_position = struck.point_of(3)
+	walker.velocity = Vector2(880, 0)
+	struck.step(DT)
+	check((struck.nodes[3]["vel"] as Vector2).length() <= struck.push_most * 0.35 + 0.5,
+		"a dash hands over no more than %.0f a second's worth (%.0f)"
+			% [struck.push_most, (struck.nodes[3]["vel"] as Vector2).length()])
+	var fallen := _hung_here(Vector2(300, 100))
+	var folded := false
+	for through in [Vector2(40, -900), Vector2(40, 900)]:
+		walker.global_position = fallen.point_of(5) + Vector2(0, 30) * signf(-through.y)
+		walker.velocity = through
+		for i in 12:
+			walker.global_position += through * DT
+			fallen.step(DT)
+			for k in range(1, fallen.nodes.size()):
+				var seg := fallen.point_of(k) - fallen.point_of(int(fallen.nodes[k]["parent"]))
+				if seg.y < 0.0 or absf(seg.length() - 16.0) > 0.01:
+					folded = true
+	check(not folded, "a body jumping up through the line and falling back down it folds no node over its parent")
 	walker.free()
 	rope.free()
 	idle.free()
+	struck.free()
+	fallen.free()
 
 ## --- a room -----------------------------------------------------------------
 
@@ -264,6 +335,19 @@ func _rooms() -> void:
 				"anchored on the pixel grid (%s)" % str(top))
 			check(rope.get_parent() == view and rope.z_index == -1,
 				"under the room's view, behind everything that moves")
+		for row in Rope.hangings():
+			var kind := String(row["rope"])
+			var of_kind: Array = view.ropes.filter(func(r: Rope) -> bool: return r.kind == kind)
+			check(of_kind.size() >= int(row["fewest"]) and of_kind.size() <= int(row["most"]),
+				"the room hangs as many of kind %s as its row says, %d to %d (%d)"
+					% [kind, int(row["fewest"]), int(row["most"]), of_kind.size()])
+			var sized := true
+			for r: Rope in of_kind:
+				var long := (r.nodes.size() - 1) * r.segment
+				if long < int(row["shortest"]) * Room.CELL - r.segment * 0.5 - 0.01 \
+						or long > int(row["longest"]) * Room.CELL + r.segment * 0.5 + 0.01:
+					sized = false
+			check(sized, "each %d to %d cells long, to the nearest node" % [int(row["shortest"]), int(row["longest"])])
 		var b := _room(record, 12345)
 		var vb := Views.of(b) as RoomView
 		check(vb != null and _anchors(vb) == _anchors(view),
@@ -281,3 +365,56 @@ func _rooms() -> void:
 		b.free()
 		flat.free()
 	a.free()
+
+## --- what the schema refuses ------------------------------------------------
+
+func _refusals() -> void:
+	var db = _scratch()
+	if db == null:
+		check(false, "a scratch copy of the schema can be made to try it against")
+		return
+	var kind := "INSERT INTO ropes (id, segment, stiffness, damping, gravity, give, push_most) VALUES ('chain', 16, 1, 0.5, 1200, 0.2, 180)"
+	var hang := "INSERT INTO hangings (rope, fewest, most, shortest, longest) VALUES ('chain', 0, 1, 2, 4)"
+	check(_accepted(db, [kind, hang]), "a second kind of line, and the rooms hanging it, are accepted (%s)" % db.error_message)
+	check(not _accepted(db, [kind.replace("0.5, 1200", "-0.5, 1200")]), "a damping under nothing is refused")
+	check(not _accepted(db, [kind.replace("0.2, 180", "1.2, 180")]), "a give past all of a body's speed is refused")
+	check(not _accepted(db, [kind.replace("'chain', 16", "'chain', 1")]), "nodes closer than two pixels are refused")
+	check(not _accepted(db, [kind.replace("'chain'", "'Chain'")]), "a kind not in lower case is refused")
+	check(not _accepted(db, [kind, hang.replace("0, 1, 2, 4", "2, 1, 2, 4")]), "a most under a fewest is refused")
+	check(not _accepted(db, [kind, hang.replace("2, 4)", "4, 2)")]), "a longest under a shortest is refused")
+	check(not _accepted(db, [kind, hang.replace("2, 4)", "0, 4)")]), "a line no cells long is refused")
+	check(not _accepted(db, [hang]), "hanging a kind of line that is not there is refused")
+	db.close_db()
+	DirAccess.remove_absolute(SCRATCH)
+
+## A fresh database with the real schema in it, foreign keys on, or null.
+func _scratch():
+	if not ClassDB.class_exists("SQLite"):
+		return null
+	if FileAccess.file_exists(SCRATCH):
+		DirAccess.remove_absolute(SCRATCH)
+	var db = ClassDB.instantiate("SQLite")
+	db.path = SCRATCH
+	db.foreign_keys = true
+	db.verbosity_level = 0
+	if not db.open_db():
+		push_error("ROPE: could not open %s: %s" % [SCRATCH, db.error_message])
+		return null
+	var schema := FileAccess.get_file_as_string(SRC.path_join("schema.sql"))
+	if schema == "" or not db.query(schema):
+		push_error("ROPE: the schema did not run: %s" % db.error_message)
+		return null
+	return db
+
+## Whether `statements` go in and commit, the way build.sh commits them. What
+## went in is taken out again afterwards, so every try starts from nothing.
+func _accepted(db, statements: Array) -> bool:
+	var ok: bool = db.query("BEGIN")
+	for st in statements:
+		ok = ok and db.query(st)
+	ok = ok and db.query("COMMIT")
+	if not ok:
+		db.query("ROLLBACK")
+		return false
+	db.query("DELETE FROM ropes")
+	return true
