@@ -1,11 +1,12 @@
 class_name RoomView
 extends Node2D
 
-## A room, drawn: the tile field, its hazards and door frames, and whatever
-## exit it holds.
+## A room, drawn: the tile field, its hazards and door frames, whatever exit it
+## holds, and the cables hung from its rock.
 ##
 ## Tiles never change while a room is loaded, so they are drawn once onto their
-## own layer the moment the room finishes building. Only the exit animates.
+## own layer the moment the room finishes building. The exit animates, and the
+## cables sway.
 ##
 ## The rock goes on past the room's edge, out to wherever the screen does. A
 ## room is 1280 across, and the screen is at least 1280x720 but takes the shape
@@ -15,8 +16,29 @@ extends Node2D
 ## dark past the world, and a door's gap runs on through it as a tunnel, so a
 ## way out still reads as one.
 
+## How many cables a room hangs, and how long each is, in cells. Scenery: they
+## hang from the ceiling and from under the ledges, and sway when somebody
+## walks through them (`Rope`).
+const CABLES_MIN := 1
+const CABLES_MAX := 3
+const CABLE_CELLS_MIN := 3
+const CABLE_CELLS_MAX := 5
+## Open cells a cable needs under the cell it hangs from: its own length and
+## room to swing, so it never hangs into a floor.
+const CABLE_CLEAR := CABLE_CELLS_MAX + 2
+## How far apart two cables hang, in cells, so they read as two.
+const CABLE_GAP := 3
+## The corner of the room the readout stands over — the health bar and the
+## slot cards, in the top left of the screen, which is the top left of the
+## room on a screen the room's own shape. A cable hung there is one nobody
+## sees.
+const READOUT_COLS := 10
+const READOUT_ROWS := 8
+
 var room: Room
 var _tiles: TileLayer
+## The cables hung in this room, in the order they were hung.
+var ropes: Array = []
 
 ## The static half. It sits behind everything and redraws only when asked.
 class TileLayer extends Node2D:
@@ -41,6 +63,59 @@ func _ready() -> void:
 
 func _on_built() -> void:
 	_tiles.queue_redraw()
+	_hang_cables()
+
+## Cables from the room's rock: from a solid cell with CABLE_CLEAR open cells
+## under it — the ceiling, or the underside of a ledge — never at the edge of
+## the room, never under the readout, and never two within CABLE_GAP of each
+## other. Which cells, how
+## many and how long is rolled from the room's own seed, so a room looks the
+## same every time it is walked into, and from a roll of its own rather than
+## the room's, so the monsters and the loot fall as they always did. Each is
+## settled before it is seen, so a room never opens on cables dropping into
+## place.
+func _hang_cables() -> void:
+	for r in ropes:
+		if is_instance_valid(r):
+			r.queue_free()
+	ropes.clear()
+	var spots: Array[Vector2i] = []
+	for y in range(0, Room.H - CABLE_CLEAR):
+		for x in range(2, Room.W - 2):
+			if x < READOUT_COLS and y < READOUT_ROWS:
+				continue
+			if room.is_solid(x, y) and _clear_under(x, y, CABLE_CLEAR):
+				spots.append(Vector2i(x, y))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = room.rng.seed ^ 0x5eedcab1e
+	var want := rng.randi_range(CABLES_MIN, CABLES_MAX)
+	var hung: Array[Vector2i] = []
+	var tries := 0
+	while hung.size() < want and not spots.is_empty() and tries < 40:
+		tries += 1
+		var spot: Vector2i = spots[rng.randi() % spots.size()]
+		var crowded := false
+		for h in hung:
+			if absi(h.x - spot.x) < CABLE_GAP:
+				crowded = true
+		if crowded:
+			continue
+		hung.append(spot)
+		var rope := Rope.new()
+		rope.z_index = -1
+		rope.visibility_layer = PixelCamera.WORLD_LAYER
+		rope.hang(Vector2((spot.x + 0.5) * Room.CELL, (spot.y + 1) * Room.CELL),
+			rng.randi_range(CABLE_CELLS_MIN, CABLE_CELLS_MAX) * Room.CELL)
+		rope.settle()
+		add_child(rope)
+		ropes.append(rope)
+
+## Whether the `n` cells under (x, y) are open.
+func _clear_under(x: int, y: int, n: int) -> bool:
+	for k in range(1, n + 1):
+		if room.is_solid(x, y + k):
+			return false
+	return true
 
 ## How many cells past the room the screen shows on each side, across and down,
 ## with two more for a shake to swing into — for whatever draws a room's

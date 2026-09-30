@@ -47,6 +47,7 @@ godot res://tests/circuit/code_test.tscn    # a board survives being written dow
 godot res://tests/circuit/parts_test.tscn   # every part's rows fit, and the runner does what they say
 godot res://tests/feature/boards_test.tscn  # every board the game ships builds whole and reaches an OUTPUT
 godot res://tests/graphics/menus_test.tscn  # every menu's rows name an act its screen has, in every language
+godot res://tests/graphics/rope_test.tscn   # a cable's line of nodes: hung, pushed, settled, and where a room hangs them
 godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
 godot res://tests/feature/reach_test.tscn   # how far an attack goes when the stick says how far
 godot res://tests/feature/forge_test.tscn   # the forge's price, and one skill in one slot: the profile's rules
@@ -62,6 +63,7 @@ godot res://tests/mobile/touch_layout_test.tscn # SET BUTTON POSITIONS: drag a b
 godot res://tests/feature/dragon_test.tscn  # one charged cast clears the whole tower
 godot res://tests/graphics/shots.tscn   # writes a screenshot of each screen to user://shots
 godot res://tests/graphics/dragon_shot.tscn  # ...and frames of the dragon test
+godot res://tests/graphics/rope_shot.tscn    # ...and frames of a cable dashed through
 SHOTS_DIR=/tmp/shots godot res://tests/graphics/shots.tscn   # ...or wherever you point it
 ```
 
