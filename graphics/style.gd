@@ -46,6 +46,7 @@ const COMPONENT := {
 	"EXPLODE": {"glyph": "◎"},
 	"DASHSLASH": {"glyph": "»"},
 	"DASHSLASH_AUTO": {"glyph": "»*"},
+	"ZAP": {"glyph": "⌁"},
 
 	"FIRE": {"glyph": "🔥"},
 	"ICE": {"glyph": "❄", "color": Color(0.45, 0.8, 0.98)},
@@ -164,6 +165,15 @@ const COMPONENT_ICON := {
 		"..#.#..",
 		".#.#...",
 		"#.#....",
+	],
+	"ZAP": [
+		".......",
+		"....#.#",
+		".....#.",
+		"###.###",
+		".....#.",
+		"....#.#",
+		".......",
 	],
 
 	"FIRE": [

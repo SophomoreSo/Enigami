@@ -17,6 +17,7 @@ func _on_cue(name: StringName, d: Dictionary) -> void:
 			match String(d.get("form", "")):
 				"PROJECTILE": Audio.play("shoot")
 				"SLASH": Audio.play("slash")
+				"ZAP": Audio.play("zap")
 		&"area_blast":
 			Audio.play("explode")
 		&"lunge_cut", &"lunge", &"dash":

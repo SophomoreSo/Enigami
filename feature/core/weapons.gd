@@ -129,6 +129,11 @@ static func finalize(weapon_id: String, p: Payload) -> Payload:
 			# of a room, the rock a good throw, and a bolt off the sword barely
 			# clears the space a swing would have covered.
 			p.range_px *= float(d["reach_mul"])
+		"ZAP":
+			# Ranged, and it reaches as far as the weapon throws: a beam off the
+			# gun crosses most of a room, one off a thrown rock a good throw.
+			p.damage *= float(d["ranged_mul"])
+			p.range_px *= float(d["reach_mul"])
 		"EXPLODE":
 			p.damage *= float(d["ranged_mul"])
 	return p

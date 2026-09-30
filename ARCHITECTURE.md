@@ -240,7 +240,7 @@ So are the skill boards' parts — `parts`, their `ports`, their `effects` and
 their numbers in a shared code, `codes` — read once by `Components`
 (`circuit/components.gd`), and the boards the game ships with, `boards` and
 `board_parts`, built by `Boards` (`feature/core/boards.gd`): each weapon's
-own attack, every monster's, the starter skill and the dragon test's. A part
+own attack, every monster's, the starter skills and the dragon test's. A part
 is its numbers and what it does to a flow, each effect a change to one field
 of the payload; what an effect *means* — what a form spawns, what a flag does
 to a hit — is code, `SkillRunner._apply` and `feature/attacks/`, and the rows
@@ -283,7 +283,7 @@ knows what anybody said.
 | A new pose for the player | a strip beside the skin, painted in the map's colours; how it plays, `SkinnedCharacter.ANIMS`; when, `PlayerView._animate` |
 | New NPC or dialogue | a file in `data/db/dialogue/`, then `data/db/build.sh` — see `data/db/README.md`; no code. New *kinds* of direction: a column in `data/db/schema.sql`, read in `story/view/dialogue_box.gd` (emotion, portrait), `story/view/npc_view.gd` (camera) or `app/audio/audio_cues.gd` (sound) |
 | Content better kept as rows than as a file | a table in `data/db/schema.sql`, read through `Db` (`app/db.gd`) |
-| A board the game ships with — a weapon's own attack, a monster's, the starter skill | `data/db/boards/`, then `data/db/build.sh`; the weapon or the monster names it by id |
+| A board the game ships with — a weapon's own attack, a monster's, a starter skill | `data/db/boards/`, then `data/db/build.sh`; the weapon or the monster names it by id |
 | The player's movement — its states, what each does, which can follow which, and when | `data/db/machines/player.sql`, then `data/db/build.sh`. A new action for a step to take, or a new sense for a condition to read, `_setup_fsm` in `feature/actors/player.gd` |
 | A new directed scene, or a new staging direction | a file in `data/scenes/` — see its README; no code. A new direction is a case in `story/rules/cutscene.gd` and, if it shows, `story/view/cutscene_view.gd` |
 | How a conversation behaves — range, reveal speed, who is held still | `story/rules/npc.gd`. How it reads on screen, `story/view/dialogue_box.gd` |

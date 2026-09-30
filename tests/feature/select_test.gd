@@ -55,6 +55,10 @@ func _ready() -> void:
 	game.goto_sandbox()
 	await frames(20)
 	sb = game.current
+	# Three slots, whatever the library opens with: the last check presses the
+	# key past the last slot, and a bench of four would answer to it.
+	sb.boards = sb.boards.slice(0, 3)
+	sb._apply_weapon()
 	var p := sb.player
 	for i in p.runners.size():
 		p.runners[i].fired.connect(func(_x: Payload) -> void: fired.append("slot %d" % (i + 1)))

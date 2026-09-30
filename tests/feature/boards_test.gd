@@ -68,7 +68,7 @@ func _ready() -> void:
 			var board_id := String(Monsters.get_def(m).get(key, ""))
 			if board_id != "":
 				asked.append(board_id)
-	asked.append_array(["blink_step", "dragon"])
+	asked.append_array(["blink_step", "zap", "dragon"])
 	var missing: Array = []
 	for id in asked:
 		if not ids.has(id):
@@ -95,6 +95,9 @@ func _ready() -> void:
 		"a monster with no board attacks with nothing")
 	check(Boards.build("blink_step").skill_name == "Blink Step",
 		"a board the code does not name is called what the table calls it")
+	var zap := Boards.build("zap")
+	check(zap.skill_name == "Zap" and zap.cells.size() == 3 and Boards.parts_of("zap").has("ZAP"),
+		"the beam a new profile opens with is three parts called Zap (%s)" % zap.skill_name)
 	var drops := Monsters.drop_pool("ARBITER")
 	var on_boards: Array = []
 	for id in Boards.parts_of("arbiter") + Boards.parts_of("arbiter_phase2"):

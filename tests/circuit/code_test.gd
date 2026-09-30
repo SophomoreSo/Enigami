@@ -20,6 +20,7 @@ const GIVEN := [
 	"SHATTER", "GRAVITY", "MANA_DRAIN",
 	"RANGE",
 	"KNOCKBACK",
+	"ZAP",
 ]
 
 var fails := 0

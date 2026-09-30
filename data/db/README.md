@@ -15,7 +15,7 @@ data/
     ├── boards/       the boards the game ships with, a file for each who uses them
     │   ├── weapons.sql      each weapon's own attack
     │   ├── monsters.sql     every monster's
-    │   ├── starter.sql      the skill a new profile starts with
+    │   ├── starter.sql      the skills a new profile starts with
     │   └── dragon_test.sql  the dragon test's tower's
     ├── dialogue/     the conversations, one file per character, named after their id in lower case
     │   ├── sage.sql         in the box
@@ -155,7 +155,7 @@ frames.
 
 Every sound is synthesised, so `sfx` names one from the bank in
 `app/audio/audio.gd`: `shoot` `slash` `hit` `explode` `jump` `dash` `hurt` `death`
-`pickup` `place` `erase` `ui` `deny` `extract` `parry` `boss` `voice`. An unknown
+`pickup` `place` `erase` `ui` `deny` `extract` `parry` `boss` `voice` `zap`. An unknown
 id plays nothing and warns in the output.
 
 ## Free talk
@@ -420,7 +420,7 @@ branches run at.
 ## A board
 
 The boards the game ships with — each weapon's own attack, every monster's,
-the starter skill, the dragon test's — are rows in `boards/`. The boards a
+the starter skills, the dragon test's — are rows in `boards/`. The boards a
 player builds are theirs, and live in the save.
 
 ```sql

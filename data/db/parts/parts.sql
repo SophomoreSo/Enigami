@@ -31,7 +31,8 @@ INSERT INTO codes (code, id) VALUES
 	(25, 'ON_HIT'), (26, 'ON_KILL'), (27, 'ON_PARRY'),
 	(28, 'SHATTER'), (29, 'GRAVITY'), (30, 'MANA_DRAIN'),
 	(31, 'RANGE'),
-	(32, 'KNOCKBACK');
+	(32, 'KNOCKBACK'),
+	(33, 'ZAP');
 
 -- WIRE and BEND carried a flow one cell and did nothing else to it, which
 -- every part already does: any part takes flow on any side and sends it where
@@ -60,17 +61,20 @@ INSERT INTO parts (id, name, category, heat, cells, tag, description) VALUES
 	('SLASH', 'SLASH', 'form', 0.5, 1, 'melee', 'An instant short arc at the aim direction. Fast, but reach is short.'),
 	('EXPLODE', 'EXPLODE', 'form', 1.2, 2, 'area', 'Damages everything inside a burst radius. Uses two board cells.'),
 	('DASHSLASH', 'DASHSLASH', 'form', 1.0, 2, 'melee', 'Lunges along the aim direction, cutting everything on the path. Uses two cells.'),
-	('DASHSLASH_AUTO', 'DASHSLASH+', 'form', 1.4, 2, 'melee', 'Seeks the nearest visible enemy and blinks through it, cutting the path. Uses two cells.');
+	('DASHSLASH_AUTO', 'DASHSLASH+', 'form', 1.4, 2, 'melee', 'Seeks the nearest visible enemy and blinks through it, cutting the path. Uses two cells.'),
+	('ZAP', 'ZAP', 'form', 0.7, 1, 'ranged', 'A beam to where the cursor points, striking the instant it is cast. Stops at the first wall, and at the first enemy unless PIERCE carries it on.');
 
 INSERT INTO ports (part_id, side) VALUES
-	('PROJECTILE', 'E'), ('SLASH', 'E'), ('EXPLODE', 'E'), ('DASHSLASH', 'E'), ('DASHSLASH_AUTO', 'E');
+	('PROJECTILE', 'E'), ('SLASH', 'E'), ('EXPLODE', 'E'), ('DASHSLASH', 'E'), ('DASHSLASH_AUTO', 'E'),
+	('ZAP', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('PROJECTILE', 0, 'form', 'set', 'PROJECTILE'),
 	('SLASH', 0, 'form', 'set', 'SLASH'),
 	('EXPLODE', 0, 'form', 'set', 'EXPLODE'),
 	('DASHSLASH', 0, 'form', 'set', 'DASHSLASH'),
-	('DASHSLASH_AUTO', 0, 'form', 'set', 'DASHSLASH_AUTO');
+	('DASHSLASH_AUTO', 0, 'form', 'set', 'DASHSLASH_AUTO'),
+	('ZAP', 0, 'form', 'set', 'ZAP');
 
 
 -- ---- element ----------------------------------------------------------------
@@ -91,8 +95,8 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 INSERT INTO parts (id, name, category, heat, description) VALUES
 	('DAMAGE', 'DAMAGE +', 'stat', 0.3, 'Raises damage. Stable and simple, but interacts with little else.'),
 	('SIZE', 'SIZE x', 'stat', 0.4, 'Scales the attack by 1.6. Melee arcs widen and reach further.'),
-	('SPEED', 'SPEED x', 'stat', 0.35, 'Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. Does nothing to a flow with no bolt in it.'),
-	('RANGE', 'RANGE x', 'stat', 0.35, 'Bolts carry 1.75x as far before they fade. Does nothing to a flow with no bolt in it.'),
+	('SPEED', 'SPEED x', 'stat', 0.35, 'Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. A beam reaches a little further too. Does nothing to a flow with neither.'),
+	('RANGE', 'RANGE x', 'stat', 0.35, 'Bolts carry 1.75x as far before they fade, and a beam reaches 1.75x as far. Does nothing to a flow with neither.'),
 	('SHATTER', 'SHATTER', 'stat', 0.45, 'Hits an enemy already slowed by frost far harder. Worth nothing on its own — pair it with ICE, or with a board that lands twice.');
 
 INSERT INTO ports (part_id, side) VALUES

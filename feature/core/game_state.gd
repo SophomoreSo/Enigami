@@ -153,6 +153,7 @@ func _new_profile() -> void:
 	skill_library.append(Weapons.make_innate_board("SWORD"))
 	skill_library.append(Weapons.make_innate_board("GUN"))
 	skill_library.append(Boards.build("blink_step"))
+	skill_library.append(Boards.build("zap"))
 
 ## --- derived stats ----------------------------------------------------------
 func max_health() -> float:
