@@ -16,7 +16,8 @@ extends RefCounted
 ## Inputs are not declared. A part takes flow on any edge that is not one of its
 ## own outputs, so the arrows drawn on the board describe its behaviour
 ## completely: rotation decides where a flow goes, never where it may come from.
-## (INPUT is the exception — it is the source, so nothing feeds into it.)
+## Where a flow *starts* is not a part's to say either: it is the board's root
+## cell, and whatever stands there — see `SkillBoard.root`.
 ##
 ## What a part does to a flow is rows too: its effects, each a change to one
 ## field of the `Payload` the flow carries, which `SkillRunner._apply` makes as
@@ -53,8 +54,8 @@ const CAT_TRIGGER := "trigger"
 const KEPT := ["heat", "branch", "follow_up", "on_hit", "on_kill", "on_parry"]
 
 ## id -> definition, in palette order. Fields:
-##   name, cat, heat, cells (1 or 2), source (a flow starts here), tag ("" for
-##   none), outs (local output dirs, in the order flows leave), payload_out
+##   name, cat, heat, cells (1 or 2), tag ("" for none), outs (local output
+##   dirs, in the order flows leave), payload_out
 ##   (local dir of a trigger's branch, -1 if none), effects (what entering it
 ##   does, see `_effect`), acts_on_entry (it does its work on the way in; see
 ##   below), code (its number in a shared code), desc
@@ -79,8 +80,8 @@ static func ids() -> Array:
 	_ensure()
 	return _defs.keys()
 
-## Parts that are structural: always available, never consumed as loot. INPUT
-## and OUTPUT, as the table's `categories` says.
+## Parts that are structural: always available, never consumed as loot. The
+## OUTPUT, as the table's `categories` says.
 static func structural() -> Array:
 	var out: Array = []
 	for id in ids():
@@ -218,8 +219,6 @@ static func side(letter: String) -> int:
 ## that cannot carry a flow.
 static func world_inputs(id: String, rot: int) -> Array:
 	var out: Array = []
-	if bool(get_def(id).get("source", false)):
-		return out
 	var blocked := world_outputs(id, rot)
 	var payload := world_payload_out(id, rot)
 	for d in 4:
@@ -284,7 +283,7 @@ static func _load() -> void:
 		_defs[id] = {
 			"name": String(p["name"]), "cat": String(p["category"]),
 			"heat": float(p.get("heat", 0.0)), "cells": int(p.get("cells", 1)),
-			"source": int(p.get("source", 0)) == 1, "tag": String(p.get("tag", "")),
+			"tag": String(p.get("tag", "")),
 			"outs": [], "payload_out": -1, "effects": [], "acts_on_entry": false,
 			"code": -1, "desc": String(p["description"]),
 		}

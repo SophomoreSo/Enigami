@@ -92,7 +92,7 @@ func has_line_of_sight(a: Vector2, b: Vector2) -> bool:
 			return false
 	return true
 
-## Stops a lunge at the first wall on the way.
+## Stops a lunge — or a beam — at the first wall on the way.
 func clamp_dash(from: Vector2, to: Vector2) -> Vector2:
 	var steps := int(from.distance_to(to) / 8.0) + 1
 	var last := from

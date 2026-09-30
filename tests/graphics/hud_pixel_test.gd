@@ -101,9 +101,7 @@ func _ready() -> void:
 	game.set_script(GameScript)
 	add_child(game)
 	await frames(6)
-	# The Sword refuses the Gun's ranged board, so slot 2 is the card that says
-	# a weapon will not carry it.
-	game._deploy("SWORD", [0, 1, 2])
+	game._deploy("SWORD")
 	await frames(24)
 	var raid: Raid = game.current
 	hud = Views.of(raid).hud
@@ -116,8 +114,7 @@ func _ready() -> void:
 	raid.player.health = raid.player.max_health * 0.7
 	raid.player.stamina = Player.MAX_STAMINA * 0.55
 	raid.player.mana = Player.MAX_MANA * 0.4
-	raid.player.select_slot(0)
-	var r: SkillRunner = raid.player.runners[0]
+	var r: SkillRunner = raid.player.runner
 	r.cooldown = 10
 	r.cycle_seconds = 2.0
 	r._elapsed = 0.6
@@ -135,28 +132,21 @@ func _ready() -> void:
 
 	# --- what the pixel face costs the layout --------------------------------
 	var vp := get_viewport().get_visible_rect().size
-	# The slots are squares under the bars now, so what the layout stands on is
-	# the column's own width rather than any card's: the widest weapon's slots
-	# have to come to the width of the bars over them or the corner stops
-	# reading as one column.
-	var most := 0
-	for id in Weapons.ids():
-		most = maxi(most, Weapons.slots(String(id)))
-	var row := float(most) * Hud.SLOT.x + float(most - 1) * Hud.SLOT_GAP
-	check(row <= Hud.BAR_W + 0.5,
-		"the row of slots is no wider than the bars over it at %d slots (%.0f of %.0f)"
-			% [most, row, Hud.BAR_W])
-	# The only text in a square is the binding, centred and cut short if it has
-	# to be — but the bindings the game ships with have to fit whole, or every
+	# The graph is a square under the bars, so what the layout stands on is the
+	# column's own width rather than any card's: the square has to sit inside
+	# the width of the bars over it or the corner stops reading as one column.
+	check(Hud.SLOT.x <= Hud.BAR_W + 0.5,
+		"the graph's square is no wider than the bars over it (%.0f of %.0f)" % [Hud.SLOT.x, Hud.BAR_W])
+	# The only text in the square is the binding, centred and cut short if it
+	# has to be — but the binding the game ships with has to fit whole, or the
 	# square starts life with an ellipsis in it.
 	var pad := 16.0
-	for action in ["skill_1", "skill_2", "skill_3", "skill_4"]:
-		var label := Controls.short_label_for(action)
-		check(PixelDraw.text_width(label) <= Hud.SLOT.x - pad,
-			"a slot square holds its binding whole, '%s' (%.0f of %.0f)"
-				% [label, PixelDraw.text_width(label), Hud.SLOT.x - pad])
-	# And the whole corner — bars, weapon, squares, the armed slot's name and the
-	# reason under it — stays clear of the two lines of keys along the bottom.
+	var label := Controls.short_label_for("attack")
+	check(PixelDraw.text_width(label) <= Hud.SLOT.x - pad,
+		"the square holds its binding whole, '%s' (%.0f of %.0f)"
+			% [label, PixelDraw.text_width(label), Hud.SLOT.x - pad])
+	# And the whole corner — bars, weapon, square and the name under it — stays
+	# clear of the two lines of keys along the bottom.
 	var column := Hud.SLOT_TOP + Hud.SLOT.y + 18.0 + PixelDraw.LINE
 	check(column <= vp.y - 34.0,
 		"the corner stops clear of the key hints under it (%.0f of %.0f)"

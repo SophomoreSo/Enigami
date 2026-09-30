@@ -13,7 +13,7 @@ func _ready() -> void:
 	# A flow entering a part from the side it does not point at is fine now:
 	# the arrow says where flow leaves, nothing says where it may come from.
 	var b := SkillBoard.new(7, 5, "sideways")
-	b.place("INPUT", Vector2i(0, 2), 0)
+	b.set_root("DELAY")
 	b.place("OVERCLOCK", Vector2i(1, 2), 1)      # entered from the west, leaves south
 	b.place("OVERCLOCK", Vector2i(1, 3), 2)      # entered from the north, leaves west
 	b.place("OVERCLOCK", Vector2i(0, 3), 1)      # entered from the east, leaves south
@@ -29,29 +29,33 @@ func _ready() -> void:
 
 	# Two outputs pointed at each other is the one join that cannot carry flow.
 	var h := SkillBoard.new(7, 5, "headon")
-	h.place("INPUT", Vector2i(0, 2), 0)
-	h.place("DELAY", Vector2i(1, 2), 2)          # points back west at the INPUT
+	h.set_root("DELAY")
+	h.place("DELAY", Vector2i(1, 2), 2)          # points back west at the root
 	var th := h.trace()
 	check((th["breaks"] as Array).size() == 1, "outputs meeting head-on is a break")
 	var hb: Dictionary = (th["breaks"] as Array)[0] if not (th["breaks"] as Array).is_empty() else {}
 	# The break is named at the part that would not take the flow — the DELAY
-	# turned back on the INPUT — not at the one that sent it.
+	# turned back on the root — not at the one that sent it.
 	check(String(hb.get("id", "")) == "DELAY" and hb.get("to") == Vector2i(1, 2)
 			and String(hb.get("why", "")) == "facing",
 		"and it is reported at the part that turned the flow back (%s)" % str(hb))
 
-	# Nothing may feed back into the INPUT.
+	# The root is a part like any other, so a flow may run back into it — and a
+	# ring through it with no way out is dead code like any other ring.
 	var fb := SkillBoard.new(7, 5, "feedback")
-	fb.place("INPUT", Vector2i(1, 2), 0)
+	fb.set_root("DELAY", Vector2i(1, 2), 0)
 	fb.place("DELAY", Vector2i(2, 2), 1)
 	fb.place("DELAY", Vector2i(2, 3), 2)
-	fb.place("DELAY", Vector2i(1, 3), 3)         # points north, back at the INPUT
+	fb.place("DELAY", Vector2i(1, 3), 3)         # points north, back into the root
 	var ti := fb.trace()
-	check((ti["breaks"] as Array).size() == 1, "a flow aimed at the INPUT is refused")
+	check((ti["breaks"] as Array).is_empty() and ti["reachable"].size() == 4,
+		"a flow aimed back at the root is taken: the root feeds on any side but its own output")
+	check((ti["dead"] as Dictionary).size() == 4,
+		"and a ring closed on it with no way out is dead code, root included")
 
 	# A ring must not run forever: a pulse gets a hop budget.
 	var r := SkillBoard.new(7, 5, "ring")
-	r.place("INPUT", Vector2i(0, 0), 0)          # feeds east into the ring
+	r.set_root("DELAY", Vector2i(0, 0), 0)      # feeds east into the ring
 	r.place("DELAY", Vector2i(1, 0), 0)          # east
 	r.place("DELAY", Vector2i(2, 0), 1)          # south
 	r.place("DELAY", Vector2i(2, 1), 2)          # west
@@ -86,10 +90,10 @@ func _ready() -> void:
 	# workbench previews with. A looping board therefore has to run at the cycle
 	# time and shot count the preview promised: when the runner counted total
 	# distance travelled instead, a ring held the cycle open for dozens of ticks
-	# with INPUT stuck behind it, and the board fired once where the preview
+	# with the root stuck behind it, and the board fired once where the preview
 	# said four.
 	var lp := SkillBoard.new(7, 5, "loop")
-	lp.place("INPUT", Vector2i(0, 1), 0)
+	lp.set_root("DELAY", Vector2i(0, 1), 0)
 	lp.place("DELAY", Vector2i(1, 1), 3)
 	lp.place("DELAY", Vector2i(1, 0), 0)
 	lp.place("DELAY", Vector2i(2, 0), 0)
@@ -130,10 +134,10 @@ func _ready() -> void:
 	# --- loops the flow can never leave ----------------------------------------
 	# The board from the report: a trigger feeding a four-part ring that never
 	# hands the flow back. Every part of the ring is dead code; nothing outside
-	# it is — the INPUT is doing its job, and the stranded OUTPUT is unreached
+	# it is — the root is doing its job, and the stranded OUTPUT is unreached
 	# rather than caught.
 	var dl := SkillBoard.new(7, 5, "deadloop")
-	dl.place("INPUT", Vector2i(0, 2), 0)
+	dl.set_root("DELAY")
 	dl.place("DUPLICATE", Vector2i(1, 2), 3)     # in from the west, out north
 	dl.place("FIRE", Vector2i(1, 1), 0)          # east
 	dl.place("DAMAGE", Vector2i(2, 1), 1)        # south
@@ -144,7 +148,7 @@ func _ready() -> void:
 	check(caught.size() == 4, "every part of a ring with no way out is dead code (%d)"
 		% caught.size())
 	check(not caught.has(Vector2i(0, 2)) and not caught.has(Vector2i(3, 2)),
-		"and neither the INPUT feeding it nor the OUTPUT it never reaches is")
+		"and neither the root feeding it nor the OUTPUT it never reaches is")
 	check((td["dead_links"] as Array).size() == 4,
 		"the ring's own seams come back with it, so one silhouette can go round it")
 	var trapped := false
@@ -163,7 +167,7 @@ func _ready() -> void:
 	orphan.place("DELAY", Vector2i(1, 1), 3)
 	check((orphan.trace()["dead"] as Dictionary).size() == 4,
 		"a ring with nothing feeding it is dead code all the same")
-	check((tr["dead"] as Dictionary).size() == 4, "and so is the one the INPUT feeds")
+	check((tr["dead"] as Dictionary).size() == 4, "and so is the one the root feeds")
 
 	# The ring that pays for itself is left alone. Laps through the stat parts
 	# and out through a TEE is the pattern charging a skill exists to buy, and
@@ -175,7 +179,7 @@ func _ready() -> void:
 	# Nor is a ring whose work is done on the way in rather than at an OUTPUT:
 	# trapped or not, it dilates time once a lap for as long as the life lasts.
 	var spin := SkillBoard.new(7, 5, "dilate")
-	spin.place("INPUT", Vector2i(0, 0), 0)
+	spin.set_root("DELAY", Vector2i(0, 0), 0)
 	spin.place("DELAY", Vector2i(1, 0), 0)
 	spin.place("TIME_DILATION", Vector2i(2, 0), 1)
 	spin.place("DELAY", Vector2i(2, 1), 2)
@@ -188,7 +192,7 @@ func _ready() -> void:
 	# DAMAGE parts collapsed into one enormous strike rather than the four
 	# separate attacks the board draws.
 	var tb := SkillBoard.new(7, 5, "trigger loop")
-	tb.place("INPUT", Vector2i(0, 2), 0)
+	tb.set_root("DELAY")
 	tb.place("DASHSLASH", Vector2i(1, 2), 0)   # head (1,2), tail (2,2)
 	tb.place("ON_HIT", Vector2i(3, 2), 0)      # onward E, branch S
 	tb.place("OUTPUT", Vector2i(4, 2), 0)
@@ -252,13 +256,13 @@ func _ready() -> void:
 
 	# Flow into the tail half of a two-cell part is a break, not a connection.
 	var c := SkillBoard.new(7, 5, "tail")
-	c.place("INPUT", Vector2i(0, 0), 1)          # points south
+	c.set_root("DELAY", Vector2i(0, 0), 1)      # points south
 	c.place("EXPLODE", Vector2i(0, 1), 1)        # turned to face north; tail at 0,2
 	var t2 := c.trace()
 	check((t2["breaks"] as Array).is_empty(), "entering a two-cell head is fine")
 	check(t2["reachable"].size() == 2, "and the two-cell part is reachable")
 	var d := SkillBoard.new(7, 5, "tail2")
-	d.place("INPUT", Vector2i(1, 0), 1)          # points south into the TAIL cell
+	d.set_root("DELAY", Vector2i(1, 0), 1)      # points south into the TAIL cell
 	d.place("EXPLODE", Vector2i(0, 1), 0)
 	var t3 := d.trace()
 	check((t3["breaks"] as Array).size() == 1, "entering a two-cell tail is a break")
@@ -269,28 +273,40 @@ func _ready() -> void:
 
 	# A flow running into empty space is a leak, not a break.
 	var e := SkillBoard.new(7, 5, "leak")
-	e.place("INPUT", Vector2i(0, 2), 0)
+	e.set_root("DELAY")
 	var t4 := e.trace()
 	check((t4["leaks"] as Array).size() == 1, "a dangling output is reported as a leak")
 	var lk: Dictionary = (t4["leaks"] as Array)[0] if not (t4["leaks"] as Array).is_empty() else {}
 	check(lk.get("from") == Vector2i(0, 2) and int(lk.get("dir", -1)) == 0,
 		"and it says where the flow leaves, and which way (%s)" % str(lk))
 
-	# No INPUT at all.
-	var f := SkillBoard.new(7, 5, "noinput")
+	# Nothing on the root at all.
+	var f := SkillBoard.new(7, 5, "unrooted")
 	f.place("SLASH", Vector2i(2, 2), 0)
-	check(not bool(f.trace()["has_input"]),
-		"a board with no INPUT says so")
+	check(not bool(f.trace()["has_root"]),
+		"a board with nothing on its root says so")
 
 	# A wired board with no attack form reports that, not a wiring fault.
 	var g := SkillBoard.new(7, 5, "noform")
-	g.place("INPUT", Vector2i(0, 2), 0)
+	g.set_root("DELAY")
 	g.place("DELAY", Vector2i(1, 2), 0)
 	g.place("OUTPUT", Vector2i(2, 2), 0)
 	var tg := g.trace()
-	check(bool(tg["has_input"]) and bool(tg["reaches_output"]) and (tg["breaks"] as Array).is_empty()
+	check(bool(tg["has_root"]) and bool(tg["reaches_output"]) and (tg["breaks"] as Array).is_empty()
 			and (tg["leaks"] as Array).is_empty() and g.compute_tags().is_empty(),
 		"a formless chain is wired clean, and carries no attack form")
+
+	# The root is the one part the hand cannot take off the board.
+	var w := SkillBoard.new(7, 5, "weapon")
+	w.set_root("DASHSLASH")
+	w.place("OUTPUT", Vector2i(2, 2), 0)
+	check(w.erase_at(SkillBoard.ROOT) == "" and w.erase_at(Vector2i(1, 2)) == "" and w.has_root(),
+		"erasing the root, by either of its cells, leaves it standing")
+	check(not w.can_place("FIRE", SkillBoard.ROOT, 0) and not w.can_place("FIRE", Vector2i(1, 2), 0),
+		"and nothing may be dropped on it")
+	check(w.erase_at(Vector2i(2, 2)) == "OUTPUT", "while everything else comes off as it always did")
+	check(w.used_components().is_empty(),
+		"the root is the weapon's, so it is not among the parts the build is made of")
 
 	print("[TRACE] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)

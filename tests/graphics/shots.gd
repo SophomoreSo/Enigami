@@ -30,7 +30,7 @@ func _ready() -> void:
 	await frames(8)
 	await shot("02_hideout")
 
-	game._edit_library_skill(0)
+	game._edit_weapon_graph()
 	await frames(4)
 	var ed: SkillEditor = game.editor
 	ed.selected = "SPLIT"
@@ -40,7 +40,7 @@ func _ready() -> void:
 	game._close_editor()
 	await frames(4)
 
-	game._deploy("SWORD", [0, 1, 2])
+	game._deploy("SWORD")
 	await frames(20)
 	var raid: Raid = game.current
 	# Walk to a room with monsters so the shot shows a fight.

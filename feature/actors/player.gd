@@ -1,15 +1,17 @@
 class_name Player
 extends Actor
 
-## Platforming plus a rack of live skill circuits.
+## Platforming plus one live skill circuit: the weapon's graph.
 ##
-## The number keys pick which circuit is armed; holding the cast button keeps
-## that one board's INPUT firing, and the board's own length decides the
-## cadence. The attack button runs the weapon's own innate board instead — that
-## one is not part of the loadout and cannot be lost, so a raid that goes badly
-## leaves the player poorer but never unarmed.
+## One board, the weapon's own — its attack form on the root, and whatever the
+## player has built on after it — and two ways to fire it. The attack button
+## runs the graph as it is, again and again for as long as it is held, and
+## costs nothing. Holding the cast button charges it instead: mana buys the
+## cast life, which a graph with a cycle in it spends on laps, and letting go
+## casts it with whatever the hold paid for. The graph's own length decides
+## the cadence either way.
 
-signal slot_fired(slot: int)   ## -1 for the weapon's own attack
+signal cast_fired()
 signal parry_success()
 
 ## The silhouette the sprite has to stand on, and the reach of a hit against it.
@@ -55,13 +57,15 @@ const DASH_COOLDOWN := 0.30
 ## longer than the dash itself so the move is covered end to end, and a blow
 ## arriving as the dash finishes still passes through.
 const DASH_INVULN := 0.10
-## How much longer the weapon's own attack waits between swings than its board alone would.
-## The innate boards are three or four cells long, so left alone they come round
-## again in a fortieth of a second — a held button became a blur with no swing
-## in it to read. The multiplier is what makes the basic a swing rather than a
-## stream: at ten it lands about two and a half times a second, slow enough to
-## see each one start and end, and still quick enough to combo off.
-const BASIC_COOLDOWN_MUL := 10.0
+## How much longer the weapon waits between casts than its graph alone would.
+## A bare graph is three or four cells long, so left alone it comes round again
+## in a fortieth of a second — a held button became a blur with no swing in it
+## to read. The multiplier is what makes a cast a swing rather than a stream:
+## at ten a bare sword lunges about two and a half times a second, slow enough
+## to see each one start and end, and still quick enough to chain. A graph with
+## more built on it waits proportionally longer, and every OVERCLOCK on it
+## shortens the wait as it always did.
+const CAST_COOLDOWN_MUL := 10.0
 const COYOTE := 0.10
 const JUMP_BUFFER := 0.12
 ## A stick has no cursor to point at, so it aims at a point far enough down
@@ -100,11 +104,8 @@ const CHARGE_DECAY := 150.0       ## how fast an unspent charge bleeds off
 const CAST_BUFFER := 0.18         ## grace for a release landing on a cooldown
 
 var weapon_id: String = "SWORD"
-var runners: Array[SkillRunner] = []
-## The weapon's innate attack, on its own button and outside the loadout.
-var basic_runner: SkillRunner
-## Which loadout slot the number keys have armed.
-var selected_slot: int = 0
+## The weapon's graph, run live. There is one: the weapon is the skill.
+var runner: SkillRunner = null
 var room = null
 var aim: Vector2 = Vector2.RIGHT
 ## Where the player is pointing, in world space, as opposed to `aim` which is
@@ -140,7 +141,6 @@ var _mana_pause: float = 0.0
 ## announced: it is a state that lasts, not a moment that happens.
 var charging: bool = false
 var parry_time: float = 0.0
-var parry_slot: int = -1
 ## Set while a screen over the game takes the keys — the skill editor.
 var input_locked: bool = false
 ## Set by an NPC for as long as they are talking to this player: the talk key
@@ -204,29 +204,18 @@ func _setup_fsm() -> void:
 	if machine.start == null:
 		push_error("Player: no state to start in, so the player will not move — is data/enigami.db built and shipped?")
 
-func setup(weapon: String, boards: Array) -> void:
+## Hands the player a weapon and the graph on it. The runner is rebuilt
+## wholesale; the old one goes away with its signals.
+func setup(weapon: String, board: SkillBoard) -> void:
 	weapon_id = weapon
-	# Runners are rebuilt wholesale; the old ones go away with their signals.
-	runners.clear()
-	for i in boards.size():
-		runners.append(_make_runner(boards[i], i))
-	basic_runner = _make_runner(Weapons.make_innate_board(weapon_id), -1)
-	basic_runner.cooldown_mul = BASIC_COOLDOWN_MUL
-	selected_slot = clampi(selected_slot, 0, maxi(runners.size() - 1, 0))
-
-func _make_runner(board: SkillBoard, slot: int) -> SkillRunner:
-	var runner := SkillRunner.new(board)
+	runner = SkillRunner.new(board)
+	runner.cooldown_mul = CAST_COOLDOWN_MUL
 	runner.base_payload_provider = func() -> Payload: return Weapons.base_payload(weapon_id)
-	runner.fired.connect(_on_fired.bind(slot))
+	runner.fired.connect(_on_fired)
+	runner.cycle_started.connect(_on_cycle_started)
 	runner.dilation_requested.connect(func(sec: float) -> void: TimeCtl.dilate(sec, 0.42))
-	runner.parry_opened.connect(_on_parry_opened.bind(slot))
-	return runner
+	runner.parry_opened.connect(_on_parry_opened)
 
-## Whether the weapon in hand will carry what is on this slot's board. The
-## hideout already refuses to equip a board a weapon rejects, but a board can
-## turn incompatible after it is equipped — edited mid-raid, or carried onto a
-## different weapon in the sandbox — so the rule is applied again at the moment
-## of firing rather than trusted from when the loadout was built.
 func stamina_ratio() -> float:
 	return clampf(stamina / MAX_STAMINA, 0.0, 1.0)
 
@@ -249,15 +238,15 @@ func charge_ratio() -> float:
 func charge_cap() -> float:
 	return MAX_CHARGE_TTL
 
-## Charging runs only while the cast button is held on a slot that could be cast
-## right now, and only while there is mana to pay for it. Released, it bleeds
-## off quickly: the depth is bought for this burst, not banked.
+## Charging runs only while the cast button is held on a graph that could be
+## cast right now, and only while there is mana to pay for it. Released, it
+## bleeds off quickly: the depth is bought for this burst, not banked.
 func _update_charge(delta: float, casting: bool) -> void:
 	# While the button is down the charge only ever holds or grows. Letting the
 	# decay branch run once it reached the cap made the two fight each other
 	# frame by frame — charge sat just under the cap while mana drained away
 	# into the gap being refilled.
-	if casting and can_charge(selected_slot):
+	if casting and can_charge():
 		charging = true
 		var cap := charge_cap()
 		if charge < cap and mana > 0.0:
@@ -268,8 +257,7 @@ func _update_charge(delta: float, casting: bool) -> void:
 			mana = maxf(0.0, mana - gained * MANA_PER_TTL)
 		_mana_pause = MANA_PAUSE
 		return
-	# Let go, or hold something that cannot take a charge — a slot the weapon
-	# refuses, or one still recovering — and it bleeds off.
+	# Let go, or hold a graph still recovering, and it bleeds off.
 	charging = false
 	charge = maxf(0.0, charge - CHARGE_DECAY * delta)
 	if _mana_pause > 0.0:
@@ -280,53 +268,36 @@ func _update_charge(delta: float, casting: bool) -> void:
 func can_dash() -> bool:
 	return _dash_cd <= 0.0 and stamina >= DASH_STAMINA
 
-func can_cast(slot: int) -> bool:
-	if slot < 0 or slot >= runners.size():
-		return false
-	return Weapons.accepts_board(weapon_id, runners[slot].board)
-
-## A skill still recovering cannot be charged. The wait is the board's own
+## A graph still recovering cannot be charged. The wait is the graph's own
 ## cadence, and letting a hold run alongside it would buy the next cast's life
-## out of time already being spent — a long board would come back charged for
+## out of time already being spent — a long graph would come back charged for
 ## free, and the hold would stop being a decision made against the cooldown.
 ## Holding through the wait is not punished: the charge simply starts building
-## the moment the slot comes free.
-func can_charge(slot: int) -> bool:
-	return can_cast(slot) and runners[slot].is_ready()
+## the moment the graph comes free.
+func can_charge() -> bool:
+	return runner != null and runner.is_ready()
 
-## Arms a slot. Out-of-range numbers are ignored rather than clamped, so a
-## weapon with two slots simply does not answer to "3".
-func select_slot(slot: int) -> void:
-	if slot < 0 or slot >= runners.size() or slot == selected_slot:
-		return
-	selected_slot = slot
-	Cues.emit_cue(&"ui", {"kind": "arm"})
+## The graph was edited under the runner: it walks it again.
+func rebuild_runner() -> void:
+	if runner != null:
+		runner.refresh()
 
-func rebuild_runner(slot: int) -> void:
-	if slot < 0 or slot >= runners.size():
-		return
-	runners[slot].refresh()
-
-## Say why, once, on the press. A skill the weapon will not carry doing nothing
-## at all is indistinguishable from the game having missed the input.
-func _refuse_cast() -> void:
-	if selected_slot < 0 or selected_slot >= runners.size():
-		return
-	Cues.at(&"refused", global_position, {"kind": "weapon",
-		"text": Weapons.rejection_note(weapon_id, runners[selected_slot].board)})
-
-func _on_parry_opened(seconds: float, slot: int) -> void:
+func _on_parry_opened(seconds: float) -> void:
 	parry_time = maxf(parry_time, seconds)
-	parry_slot = slot
 
-func _on_fired(payload: Payload, slot: int) -> void:
+## A cycle started. If a release was waiting for one, this is the cast it
+## bought: the life it paid for went in with the cycle, and the wait is over.
+func _on_cycle_started() -> void:
+	_cast_buffer = 0.0
+
+func _on_fired(payload: Payload) -> void:
 	var p := Weapons.finalize(weapon_id, payload)
 	Attacks.spawn(p, {
 		"attacker": self, "room": room, "team": team,
 		"aim": aim, "reach": aim_reach, "origin": global_position,
 		"gravity": Weapons.uses_gravity_shots(weapon_id),
 	})
-	slot_fired.emit(slot)
+	cast_fired.emit()
 
 ## How far the right stick asks an attack to reach, from how hard it is pushed:
 ## nothing at the edge of its dead zone, all of it at the rim.
@@ -339,14 +310,12 @@ static func reach_of(push: float) -> float:
 static func push_for(reach: float) -> float:
 	return lerpf(STICK_DEAD + 0.01, 1.0, clampf(reach, 0.0, 1.0))
 
-## Whether a cast asked for on `slot` has still to go off, or is going off: the
-## release is in the buffer, or the board's pulse is still out. For whatever has
-## to keep aiming a cast until it has gone — the touch console, whose thumb
-## leaves the stick in the same moment it casts.
-func casting(slot: int) -> bool:
-	if slot < 0 or slot >= runners.size():
-		return false
-	return (slot == selected_slot and _cast_buffer > 0.0) or not runners[slot].is_ready()
+## Whether a cast asked for has still to go off, or is going off: the release
+## is in the buffer, or the graph's pulse is still out. For whatever has to
+## keep aiming a cast until it has gone — the touch console, whose thumb leaves
+## the stick in the same moment it casts.
+func casting() -> bool:
+	return _cast_buffer > 0.0 or (runner != null and not runner.is_ready())
 
 func on_dashed() -> void:
 	invuln = maxf(invuln, 0.12)
@@ -360,19 +329,13 @@ func _process(delta: float) -> void:
 	_process_status(delta)
 	if parry_time > 0.0:
 		parry_time -= delta
-	if not controls_locked():
-		for i in runners.size():
-			if Input.is_action_just_pressed("skill_%d" % (i + 1)):
-				select_slot(i)
 	# Holding the cast button charges; letting go is what fires it. A tap is
 	# simply a charge of nothing, so a quick press still casts as it always did.
 	var holding := not controls_locked() and Input.is_action_pressed("cast_skill")
-	if holding and Input.is_action_just_pressed("cast_skill") and not can_cast(selected_slot):
-		_refuse_cast()
 	# Taken before the charge is touched: on the frame of the release the button
 	# already reads as up, and letting the bleed-off run first shaved a fifth
 	# off what the player had actually paid for.
-	if not controls_locked() and Input.is_action_just_released("cast_skill") and can_cast(selected_slot):
+	if not controls_locked() and Input.is_action_just_released("cast_skill"):
 		cast_charge = charge
 		charge = 0.0
 		# Held over a few frames, so a release landing on the tail of the last
@@ -380,22 +343,17 @@ func _process(delta: float) -> void:
 		_cast_buffer = CAST_BUFFER
 	_update_charge(delta, holding)
 	_cast_buffer = maxf(0.0, _cast_buffer - delta)
-	for i in runners.size():
-		var r: SkillRunner = runners[i]
-		var armed := i == selected_slot
-		# Whatever the release paid for stays with the cast it bought, right
-		# through to the end of it, and only clears once the slot is free again.
-		if armed and (_cast_buffer > 0.0 or not r.is_ready()):
-			r.ttl_bonus = int(cast_charge)
-		else:
-			r.ttl_bonus = 0
-		r.set_active(armed and _cast_buffer > 0.0 and can_cast(i))
-		r.update(delta)
-	if _cast_buffer > 0.0 and not runners[selected_slot].is_ready():
-		_cast_buffer = 0.0      # it went off; stop asking
-	if basic_runner != null:
-		basic_runner.set_active(not controls_locked() and Input.is_action_pressed("attack"))
-		basic_runner.update(delta)
+	# The attack button runs the graph as it is, for as long as it is held and
+	# as often as the graph comes round — and never while a charge is being
+	# built, which would spend the cast the hold is paying for on nothing.
+	var attacking := not controls_locked() and not holding and Input.is_action_pressed("attack")
+	if runner != null:
+		# Whatever a release paid for rides on the cast it bought, and on no
+		# other: the life is read once, as a cycle starts, so it is offered only
+		# while the release is still waiting for one.
+		runner.ttl_bonus = int(cast_charge) if _cast_buffer > 0.0 else 0
+		runner.set_active(_cast_buffer > 0.0 or attacking)
+		runner.update(delta)
 	# Aiming is the player's hand as much as walking is: while a screen has the
 	# controls, the weapon stays where it was pointing instead of following the
 	# pointer round a menu.
@@ -575,15 +533,10 @@ func apply_damage(amount: float, elements: Array = [], source: Node = null, is_h
 		Cues.at(&"parry", global_position)
 		invuln = maxf(invuln, 0.4)
 		parry_success.emit()
-		var guard: SkillRunner = null
-		if parry_slot == -1:
-			guard = basic_runner
-		elif parry_slot >= 0 and parry_slot < runners.size():
-			guard = runners[parry_slot]
-		if guard != null:
-			var p: Payload = guard.consume_parry()
+		if runner != null:
+			var p: Payload = runner.consume_parry()
 			if p != null:
-				_on_fired(p, parry_slot)
+				_on_fired(p)
 		return 0.0
 	var dealt := super.apply_damage(amount, elements, source, is_hit)
 	# Damage over time ticks every frame, so the cue and the i-frames hang off

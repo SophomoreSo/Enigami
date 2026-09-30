@@ -1,8 +1,8 @@
 class_name Hideout
 extends Control
 
-## Between raids. Pick the one weapon you will carry, fill its slots with
-## compatible skills, spend loot on the facilities, and deploy.
+## Between raids. Pick the one weapon you will carry, build on its graph at
+## the bench, spend loot on the facilities, and deploy.
 ##
 ## Built in UiKit's pixel look, like the title and the assembly screen: every
 ## piece of text is Silkscreen at a multiple of its native 8px and every box is
@@ -17,9 +17,10 @@ extends Control
 ## what a purchase cost — and it was taken out by hand: a panel is its rows and
 ## the way out of them, and nothing else.
 
-signal deploy_requested(weapon: String, slots: Array)
+signal deploy_requested(weapon: String)
 signal title_requested()
-signal edit_requested(board_index: int)
+## The graph on the weapon the rack is on was asked for.
+signal edit_requested()
 ## The rack was left on a different weapon. On the whole screen nobody needs to
 ## know — the columns beside it are rebuilt with it — but as a station's panel
 ## the room outside it is what carries the choice to the gate.
@@ -31,12 +32,11 @@ const COL_WEAPONS := 320.0
 const COL_FACILITIES := 348.0
 
 var weapon_id: String = ""
-var focus_slot: int = 0
-## Which of the three columns this screen is. "" builds all of them under a
-## header and a deploy footer — the screen the hideout used to be, kept for
-## anything that still wants it whole. Set to "weapons", "loadout" or "shop" and
-## it builds that column alone, which is how the hideout's stations open them:
-## the room is the header and the gate is the footer now.
+## Which of the two columns this screen is. "" builds both under a header and
+## a deploy footer — the screen the hideout used to be, kept for anything that
+## still wants it whole. Set to "weapons" or "shop" and it builds that column
+## alone, which is how the hideout's stations open them: the room is the header
+## and the gate is the footer now.
 var section: String = ""
 var _root: VBoxContainer
 
@@ -104,7 +104,6 @@ func rebuild() -> void:
 	cols.add_theme_constant_override("separation", 12)
 	_root.add_child(cols)
 	cols.add_child(_weapons_column())
-	cols.add_child(_loadout_column())
 	cols.add_child(_facilities_column())
 
 	_root.add_child(_footer())
@@ -116,7 +115,6 @@ func _section_column() -> Control:
 	var c: Control
 	match section:
 		"weapons": c = _weapons_column()
-		"loadout": c = _loadout_column()
 		_: c = _facilities_column()
 	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	c.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -205,102 +203,33 @@ func _weapons_column() -> Control:
 				Color(wc.r, wc.g, wc.b, 0.2), wc, 2, 3, true))
 		b.pressed.connect(func() -> void:
 			weapon_id = id
-			focus_slot = 0
 			weapon_changed.emit(id)
 			rebuild())
 		v.add_child(b)
-	# What the weapon is, and nothing more. The numbers behind it — how many
-	# slots, what they take, what it multiplies, what it costs to die carrying
-	# it — were four more wrapped blocks under this one, and are gone.
+	# What the weapon is, and nothing more. The numbers behind it — what it
+	# multiplies, what it costs to die carrying it — were four more wrapped
+	# blocks under this one, and are gone.
 	v.add_child(UiKit.spacer(6))
 	v.add_child(_wrapped(Weapons.desc_for(weapon_id)))
-	return p
-
-## --- loadout + library ------------------------------------------------------
-func _loadout_column() -> Control:
-	var p := UiKit.panel(UiKit.PANEL, Color(0.22, 0.3, 0.38), true)
-	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	p.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 6)
-	p.add_child(v)
-
-	var slots := GameState.get_loadout(weapon_id)
-	v.add_child(_label(Loc.t("hideout.loadout.heading"), UiKit.ACCENT))
-	v.add_child(UiKit.hline(true))
-	for i in slots.size():
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 6)
-		var idx := int(slots[i])
-		# The tags ride in the button with the name rather than in a label beside
-		# it: at this size the pair ran past the panel, and the button is the one
-		# of the two that can give ground.
-		var name_txt := Loc.t("hideout.loadout.empty")
-		if idx >= 0:
-			var b: SkillBoard = GameState.skill_library[idx]
-			name_txt = Loc.t("hideout.loadout.named",
-				[b.skill_name, Components.tag_names(b.compute_tags())])
-		var sel := _row_button(Loc.t("hideout.loadout.row", [">" if i == focus_slot else " ", i + 1, name_txt]),
-			UiKit.ACCENT if i == focus_slot else UiKit.DIM)
-		sel.pressed.connect(func() -> void:
-			focus_slot = i
-			rebuild())
-		row.add_child(sel)
-		if idx >= 0:
-			var ed := _button(Loc.t("hideout.loadout.edit"), UiKit.GOOD)
-			ed.pressed.connect(func() -> void: edit_requested.emit(idx))
-			row.add_child(ed)
-			var cl := _button(Loc.t("hideout.loadout.clear"), UiKit.BAD)
-			cl.pressed.connect(func() -> void:
-				var s := GameState.get_loadout(weapon_id)
-				s[i] = -1
-				GameState.set_loadout(weapon_id, s)
-				rebuild())
-			row.add_child(cl)
-		v.add_child(row)
-
-	v.add_child(UiKit.spacer(8))
-	var lib_head := HBoxContainer.new()
-	lib_head.add_child(_label(Loc.t("hideout.loadout.library", [focus_slot + 1]), UiKit.ACCENT))
-	lib_head.add_child(_pad())
-	var nb := _button(Loc.t("hideout.loadout.new"), UiKit.GOOD)
-	nb.pressed.connect(func() -> void:
-		GameState.new_skill()
-		edit_requested.emit(GameState.skill_library.size() - 1))
-	lib_head.add_child(nb)
-	v.add_child(lib_head)
-	v.add_child(UiKit.hline(true))
-
-	var list := VBoxContainer.new()
-	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", 4)
-	v.add_child(_scrolled(list, 132))
-
-	for i in GameState.skill_library.size():
-		var board: SkillBoard = GameState.skill_library[i]
-		var compatible := Weapons.accepts_board(weapon_id, board)
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 6)
-		var tags := board.compute_tags()
-		var btn := _row_button(Loc.t("hideout.loadout.entry", [board.skill_name,
-			Components.tag_names(tags) if tags.size() > 0 else Loc.t("hideout.loadout.utility")]),
-			UiKit.GOOD if compatible else UiKit.BAD)
-		btn.disabled = not compatible
-		btn.pressed.connect(func() -> void:
-			var s := GameState.assign_skill(weapon_id, focus_slot, i)
-			focus_slot = mini(focus_slot + 1, s.size() - 1)
-			rebuild())
-		row.add_child(btn)
-		var ed := _button(Loc.t("hideout.loadout.edit"))
-		ed.pressed.connect(func() -> void: edit_requested.emit(i))
-		row.add_child(ed)
-		# The pixel face has no ✕; an X in it is the same mark and one glyph.
-		var del := _button(Loc.t("hideout.loadout.delete"), UiKit.BAD)
-		del.pressed.connect(func() -> void:
-			GameState.delete_skill(i)
-			rebuild())
-		row.add_child(del)
-		list.add_child(row)
+	# And the graph on it: what has been built onto the weapon's own part, and
+	# the way onto the assembly board to build more. The bench opens the same
+	# board; this is it without the walk.
+	v.add_child(UiKit.spacer(6))
+	var graph := HBoxContainer.new()
+	graph.add_theme_constant_override("separation", 6)
+	var used := GameState.weapon_board(weapon_id).used_components()
+	var n := 0
+	for id in used:
+		n += int(used[id])
+	var line := _label(Loc.t("hideout.weapons.graph", [Components.name_for(Weapons.root_part(weapon_id)), n]), UiKit.DIM)
+	line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.clip_text = true
+	graph.add_child(line)
+	var build := _button(Loc.t("hideout.weapons.build"), UiKit.GOOD)
+	build.disabled = not GameState.owned_weapons.has(weapon_id)
+	build.pressed.connect(func() -> void: edit_requested.emit())
+	graph.add_child(build)
+	v.add_child(graph)
 	return p
 
 ## --- facilities & stash -----------------------------------------------------
@@ -433,9 +362,6 @@ func _forge() -> void:
 func _footer() -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 12)
-	var slots := GameState.get_loadout(weapon_id)
-	var filled := slots.filter(func(i: int) -> bool: return int(i) >= 0)
-	h.add_child(_label(Loc.t("hideout.footer.filled", [filled.size(), slots.size()]), UiKit.DIM))
 	h.add_child(_pad())
 	# The standing warning, unless there is something more pressing to say: a
 	# kit still lying in a raid is what this deployment is for, and it is the
@@ -447,8 +373,8 @@ func _footer() -> Control:
 		h.add_child(_label(Loc.t("hideout.footer.warning"), UiKit.BAD))
 	var b := _button(Loc.t("hideout.footer.deploy"), UiKit.GOOD)
 	b.custom_minimum_size = Vector2(180, 40)
-	b.disabled = filled.is_empty() or not GameState.owned_weapons.has(weapon_id)
+	b.disabled = not GameState.owned_weapons.has(weapon_id)
 	b.pressed.connect(func() -> void:
-		deploy_requested.emit(weapon_id, filled))
+		deploy_requested.emit(weapon_id))
 	h.add_child(b)
 	return h

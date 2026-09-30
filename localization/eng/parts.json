@@ -1,8 +1,4 @@
 {
-	"INPUT": {
-		"name": "INPUT",
-		"desc": "Flow origin. Starts the next pulse once the previous one has resolved."
-	},
 	"OUTPUT": {
 		"name": "OUTPUT",
 		"desc": "Converts the assembled flow into a real effect. A flow with no attack form produces no attack."
@@ -27,6 +23,10 @@
 		"name": "DASHSLASH+",
 		"desc": "Seeks the nearest visible enemy and blinks through it, cutting the path. Uses two cells."
 	},
+	"ZAP": {
+		"name": "ZAP",
+		"desc": "A beam to where the cursor points, striking the instant it is cast. Stops at the first wall, and at the first enemy unless PIERCE carries it on."
+	},
 	"FIRE": {
 		"name": "FIRE",
 		"desc": "Adds flame. Struck enemies burn for damage over time."
@@ -45,11 +45,11 @@
 	},
 	"SPEED": {
 		"name": "SPEED x",
-		"desc": "Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. Does nothing to a flow with no bolt in it."
+		"desc": "Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. A beam reaches a little further too. Does nothing to a flow with neither."
 	},
 	"RANGE": {
 		"name": "RANGE x",
-		"desc": "Bolts carry 1.75x as far before they fade. Does nothing to a flow with no bolt in it."
+		"desc": "Bolts carry 1.75x as far before they fade, and a beam reaches 1.75x as far. Does nothing to a flow with neither."
 	},
 	"SHATTER": {
 		"name": "SHATTER",

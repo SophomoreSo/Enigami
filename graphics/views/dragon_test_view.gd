@@ -51,7 +51,7 @@ func _ready() -> void:
 	editor = SkillEditor.new()
 	editor.visible = false
 	editor.closed.connect(func() -> void: screen.set_editing(false))
-	editor.board_changed.connect(func(slot: int) -> void: screen.on_board_changed(slot))
+	editor.board_changed.connect(func() -> void: screen.on_board_changed())
 	layer.add_child(editor)
 
 	screen.editing_changed.connect(_on_editing)
@@ -77,7 +77,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_editing(on: bool) -> void:
 	if on:
 		editor.weapon_id = screen.player.weapon_id
-		editor.configure(screen.boards, screen.inventory, true, screen.player.runners)
+		editor.configure(screen.board, screen.inventory, true, screen.player.runner)
 		editor.visible = true
 		editor.grab_focus()
 	else:

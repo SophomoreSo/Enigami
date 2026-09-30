@@ -14,9 +14,8 @@ data/
     ├── schema.sql    the tables: the contract the code reads against
     ├── build.sh      rebuilds enigami.db from everything here
     ├── boards/       the boards the game ships with, a file for each who uses them
-    │   ├── weapons.sql      each weapon's own attack
+    │   ├── weapons.sql      each weapon's graph, as a new profile gets it
     │   ├── monsters.sql     every monster's
-    │   ├── starter.sql      the skill a new profile starts with
     │   └── dragon_test.sql  the dragon test's tower's
     ├── dialogue/     the conversations, one file per character, named after their id in lower case
     │   ├── sage.sql         in the box
@@ -160,7 +159,7 @@ frames.
 
 Every sound is synthesised, so `sfx` names one from the bank in
 `app/audio/audio.gd`: `shoot` `slash` `hit` `explode` `jump` `dash` `hurt` `death`
-`pickup` `place` `erase` `ui` `deny` `extract` `parry` `boss` `voice`. An unknown
+`pickup` `place` `erase` `ui` `deny` `extract` `parry` `boss` `voice` `zap`. An unknown
 id plays nothing and warns in the output.
 
 ## Free talk
@@ -366,6 +365,11 @@ from. What a part *looks* like is not here: its colour, glyph and icon are
 `graphics/style.gd`'s, keyed by the same id, and a part added here draws in
 its category's colour until somebody gives it a look.
 
+There is no part for where a flow starts. Every board is rooted at one cell
+(`SkillBoard.ROOT`, the left end of the middle row), and whatever part stands
+there is the source of every cycle — a weapon's own attack form, a monster's.
+INPUT, which used to be that, is retired and keeps its number.
+
 ```sql
 INSERT INTO codes (code, id) VALUES (33, 'FROSTBOLT');
 
@@ -386,7 +390,6 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 | `parts.category` | Which block of the palette it sits in: `struct`, `form`, `element`, `stat`, `behavior`, `flow` or `trigger`. A `struct` part is always at hand and never drops. |
 | `parts.heat` | Added to the cooldown of every cast that passes through it. |
 | `parts.cells` | 1 or 2: its footprint, and the ticks a flow spends in it. |
-| `parts.source` | 1 for INPUT, where a flow starts; nothing flows into it. |
 | `parts.tag` | What it makes a board — `ranged`, `melee`, `area`, `mobility`, `trigger` — for a weapon's `accepts` to match. |
 | `ports` | The sides its flow leaves by, as it faces east, in the order the flows leave. It takes flow on every other side. A `branch` is a trigger's second way out, which carries its payload. A part with no ports is where a flow ends. |
 | `effects` | What it does to a flow as the flow enters it, in `position` order. See below. |
@@ -424,17 +427,21 @@ branches run at.
 
 ## A board
 
-The boards the game ships with — each weapon's own attack, every monster's,
-the starter skill, the dragon test's — are rows in `boards/`. The boards a
-player builds are theirs, and live in the save.
+The boards the game ships with — each weapon's graph as a new profile gets
+it, every monster's, the dragon test's — are rows in `boards/`. What a player
+builds onto a weapon's graph is theirs, and lives in the save.
 
 ```sql
 INSERT INTO boards (id) VALUES ('warden');
 
 INSERT INTO board_parts (board_id, x, y, part, facing) VALUES
-	('warden', 0, 2, 'INPUT', 'E'), ('warden', 1, 2, 'PROJECTILE', 'E'), ('warden', 2, 2, 'ICE', 'E'),
-	('warden', 3, 2, 'SPLIT', 'E'), ('warden', 3, 1, 'OUTPUT', 'E'), ('warden', 3, 3, 'OUTPUT', 'E');
+	('warden', 0, 2, 'PROJECTILE', 'E'), ('warden', 1, 2, 'ICE', 'E'),
+	('warden', 2, 2, 'SPLIT', 'E'), ('warden', 2, 1, 'OUTPUT', 'E'), ('warden', 2, 3, 'OUTPUT', 'E');
 ```
+
+The part at `(0, 2)` is the root: the flow starts in it, and a board with
+nothing there never fires. On a weapon's board it is the weapon's own attack
+form, which the player cannot lift or replace; on a monster's, the monster's.
 
 | Column | Meaning |
 |---|---|
@@ -445,12 +452,13 @@ INSERT INTO board_parts (board_id, x, y, part, facing) VALUES
 
 Which part feeds which is written down nowhere: the ports and the facings
 already say it, and the board is walked, not stored. A weapon names its board
-as `innate` in `feature/core/weapons.gd`; a monster as `board`, and the
-Arbiter's second form as `board_phase2`, in `feature/actors/monsters.gd`. A
-part that does not fit where its row puts it — off the grid, over another, a
-second INPUT — is left off and reported, and `tests/feature/boards_test.tscn`
-fails unless every board builds whole, starts at one INPUT and reaches an
-OUTPUT, and every board the code asks for is here.
+as `board` and its root part as `root` in `feature/core/weapons.gd`; a monster
+its board as `board`, and the Arbiter's second form as `board_phase2`, in
+`feature/actors/monsters.gd`. A part that does not fit where its row puts it —
+off the grid, over another — is left off and reported, and
+`tests/feature/boards_test.tscn` fails unless every board builds whole, has a
+part on its root and reaches an OUTPUT, and every board the code asks for is
+here.
 
 ## A menu
 

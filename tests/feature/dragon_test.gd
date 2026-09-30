@@ -49,7 +49,7 @@ func settle() -> void:
 
 func ready_to_cast() -> void:
 	var guard := 0
-	while not screen.player.runners[0].is_ready() and guard < 900:
+	while not screen.player.runner.is_ready() and guard < 900:
 		await get_tree().process_frame
 		guard += 1
 	await frames(2)
@@ -131,7 +131,6 @@ func _ready() -> void:
 	var need := screen.charge_to_clear()
 	check(need >= 0, "some charge the player can hold reaches every guard (+%d)" % need)
 	check(screen.chain_length(0) == 1, "while a tap is a single lunge (%d)" % screen.chain_length(0))
-	p.select_slot(0)
 	await ready_to_cast()
 	mouse(true)
 	var held := 0.0

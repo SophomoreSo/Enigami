@@ -96,8 +96,7 @@ func _ready() -> void:
 	for c in b.cells.keys().duplicate():
 		b.erase_at(c)
 	# A two-cell part and three facings, so the code carries more than a
-	# straight line of defaults.
-	b.place("INPUT", Vector2i(0, 1), 0)
+	# straight line of defaults — and the weapon's own root, which stays.
 	b.place("EXPLODE", Vector2i(1, 1), 0)
 	b.place("FIRE", Vector2i(3, 1), 1)
 	b.place("ICE", Vector2i(3, 2), 2)
@@ -119,10 +118,11 @@ func _ready() -> void:
 	check(ed.rotation_step == rot_before, "R does not reach the editor under the sheet")
 	check(ed._share_open(), "and the sheet is still up")
 
-	# Now wipe the board and build it back out of nothing but the code.
+	# Now wipe the build and put it back out of nothing but the code.
 	for c in b.cells.keys().duplicate():
 		b.erase_at(c)
-	check(b.cells.is_empty(), "the board is cleared before the code is typed")
+	check(b.used_components().is_empty() and b.cells.size() == 1,
+		"the build is cleared before the code is typed, down to the weapon's own part")
 	check(not code.contains("-"), "the sheet's code has no dashes in it (%s)" % code)
 	# A stray space in the middle, the way a code gets retyped off a screenshot.
 	await type_code(code.left(10) + " " + code.substr(10))
@@ -174,15 +174,14 @@ func _ready() -> void:
 	await frames(3)
 	check(not sb.editing, "the next ESC closes the editor")
 
-	# The header button opens it too, and the slot tabs still fit in front of it.
+	# The header button opens it too, and the graph's name still fits in front of it.
 	sb.set_editing(true)
 	await frames(6)
 	ed = Views.of(sb).editor
 	check(not ed._share_open(), "reopening the editor does not bring the sheet back with it")
-	var last := ed.boards.size() - 1
-	check(ed._tab_rect(last).end.x <= ed._share_rect().position.x,
-		"the tabs fit before the CODE button (%.0f of %.0f)" % [
-			ed._tab_rect(last).end.x, ed._share_rect().position.x])
+	check(ed._title_rect().end.x <= ed._share_rect().position.x,
+		"the name fits before the CODE button (%.0f of %.0f)" % [
+			ed._title_rect().end.x, ed._share_rect().position.x])
 	check(ed._share_rect().end.x <= ed._close_rect().position.x, "which sits clear of CLOSE")
 	await click(ed._share_rect().get_center())
 	await frames(2)
@@ -196,17 +195,23 @@ func _ready() -> void:
 	# --- the workbench: a code costs what the board costs --------------------
 	game.goto_hideout()
 	await frames(10)
-	game._edit_library_skill(0)
+	game.hideout_ref.set_weapon("GUN")
+	game._edit_weapon_graph()
 	await frames(6)
 	ed = game.editor
 	var lib: SkillBoard = ed.current_board()
+	# Something built on the gun, so the swap has a part to give back.
+	lib.erase_at(Vector2i(1, 2))
+	lib.place("SLASH", Vector2i(1, 2), 0)
+	lib.place("OUTPUT", Vector2i(2, 2), 0)
 	var before := lib.duplicate_board()
 	check(int(before.used_components().get("SLASH", 0)) == 1,
 		"the board being replaced has a SLASH built into it")
 
-	# A build wanting a part that is not in the stash.
+	# A build wanting a part that is not in the stash. Its author's own root is
+	# in the code like any other part, and stays behind: this gun has its own.
 	var shared := SkillBoard.new(7, 5, "theirs")
-	shared.place("INPUT", Vector2i(0, 2), 0)
+	shared.place("PROJECTILE", SkillBoard.ROOT, 0)
 	shared.place("DUPLICATE", Vector2i(1, 2), 0)
 	shared.place("FIRE", Vector2i(2, 2), 0)
 	shared.place("OUTPUT", Vector2i(3, 2), 0)

@@ -3,9 +3,9 @@ extends World
 
 ## Between raids, as a place rather than a screen. The player stands in a room
 ## and walks to what they want: the rack to pick the weapon they will carry, the
-## bench to compose skills into its slots, the counter to spend scrap, the gate
+## bench to build on that weapon's graph, the counter to spend scrap, the gate
 ## to go. Each is a `Station` — walk up, press interact, and that station's
-## panel opens over the room.
+## panel opens over the room; the bench opens the assembly board itself.
 ##
 ## The panels are the ones the old screen was made of, built one at a time
 ## instead of three at once; `graphics/ui/hideout.gd` still owns what is in
@@ -14,17 +14,15 @@ extends World
 ## Nothing here draws. `graphics/views/hideout_world_view.gd` builds the camera,
 ## the signs over the stations and the panels they open.
 
-signal deploy_requested(weapon: String, slots: Array)
+signal deploy_requested(weapon: String)
 signal title_requested()
-## A station was used: "weapons", "bench", "shop" or "gate". The view opens the
-## panel; the rules do not know there is one.
+## A station was used: "weapons" or "shop". The view opens the panel; the rules
+## do not know there is one.
 signal station_used(id: String)
-## A board in the library was asked for. The editor belongs to `app/game.gd` —
-## the same one the workbench has always opened — so this only passes the ask on.
-signal edit_requested(board_index: int)
-## Assembly was asked for by key rather than by walking to the bench. Same
-## editor, same owner; what it opens over is `armed_boards`.
-signal assembly_requested()
+## The weapon's graph was asked for — at the bench, or by the key that opens
+## assembly in a raid. The editor belongs to `app/game.gd`, the same one the
+## workbench has always opened, so this only passes the ask on.
+signal edit_requested()
 ## Something the room wants to say, for the HUD to toast. The raid says things
 ## the same way (`Raid.noticed`), and this is the same kind of thing: an answer
 ## to a press that would otherwise be silence.
@@ -98,10 +96,10 @@ func _ready() -> void:
 	for id in STATION_CELLS:
 		_build_station(String(id))
 	_refresh_gate()
-	GameState.loadout_changed.connect(_refresh_gate)
+	GameState.kit_changed.connect(_refresh_gate)
 	# The player standing in the room carries what the gate would carry, so a
-	# slot filled at the bench has to reach them before the HUD can show it.
-	GameState.loadout_changed.connect(refresh_kit)
+	# graph built at the bench has to reach them before the HUD can show it.
+	GameState.kit_changed.connect(refresh_kit)
 	GameState.stash_changed.connect(_refresh_gate)
 	# The signs are words written once, unlike everything the view draws every
 	# frame, so a language switched from the pause menu has to reach them.
@@ -136,63 +134,52 @@ func _floor_at(x: int) -> int:
 			return y
 	return int(Room.H / 2)
 
-## The gate is shut until there is a kit to carry through it: a weapon the vault
-## still has, and at least one skill in its slots. It says so rather than going
-## quiet, since "nothing happens" is the one thing a door must never do.
+## The gate is shut until there is a weapon to carry through it — one the
+## vault still has. It says so rather than going quiet, since "nothing happens"
+## is the one thing a door must never do. A weapon always has its graph, so
+## there is nothing else to be short of.
 func _refresh_gate() -> void:
 	var gate: Station = stations.get("gate")
 	if gate == null:
 		return
 	var owned: bool = GameState.owned_weapons.has(weapon_id)
-	var filled := filled_slots()
-	gate.open = owned and not filled.is_empty()
-	if not owned:
-		gate.closed_reason = Loc.t("hideout.gate.no_weapon")
-	elif filled.is_empty():
-		gate.closed_reason = Loc.t("hideout.gate.no_skills")
-	else:
-		gate.closed_reason = ""
+	gate.open = owned
+	gate.closed_reason = "" if owned else Loc.t("hideout.gate.no_weapon")
 
-## The library indices armed in the current weapon's slots, empties dropped.
-func filled_slots() -> Array:
-	var slots := GameState.get_loadout(weapon_id)
-	return slots.filter(func(i: int) -> bool: return int(i) >= 0)
-
-## The boards behind those slots, in slot order. `get_loadout` has already
-## dropped any index the library no longer has, so every one of these is real.
-##
-## The library's own boards, not copies. A raid carries copies because a raid
-## writes on them; here they are only read — to be shown on the HUD and to be
-## edited, which is editing the library and is meant to be.
-func armed_boards() -> Array:
-	var out: Array = []
-	for i in filled_slots():
-		out.append(GameState.skill_library[int(i)])
-	return out
+## The graph the gate would carry: the one on the weapon the rack was left on.
+## The profile's own board, not a copy. A raid carries a copy because a raid
+## writes on it; here it is only read — to be shown on the HUD and to be
+## edited, which is editing the profile and is meant to be.
+func armed_board() -> SkillBoard:
+	return GameState.weapon_board(weapon_id)
 
 ## Puts the kit back on the player in the room: the weapon the rack was left on
-## and the boards in its slots. Nothing in here fights, but the HUD over the
-## room reads the player rather than the profile, so anything that changes the
-## kit — the rack, the bench, a board coming back from the editor — comes
-## through here afterwards.
+## and the graph on it. Nothing in here fights, but the HUD over the room reads
+## the player rather than the profile, so anything that changes the kit — the
+## rack, a graph coming back from the editor — comes through here afterwards.
 func refresh_kit() -> void:
 	if player == null or not is_instance_valid(player):
 		return
-	player.setup(weapon_id, armed_boards())
+	player.setup(weapon_id, armed_board())
 
 func _on_station_used(s: Station) -> void:
 	if open_panel != "":
 		return
 	if s.id == "gate":
-		deploy_requested.emit(weapon_id, filled_slots())
+		deploy_requested.emit(weapon_id)
 		return
 	open_station(s.id)
 
 ## Opens a station's panel, from a press or from a test. The player is held
 ## still while it is up: `Player.controls_locked` is what an NPC conversation
 ## uses to the same end, and reading a shop list is no different from listening.
+## The bench has no panel: it opens the weapon's graph on the assembly board,
+## which holds the player the same way once the shell has raised it.
 func open_station(id: String) -> void:
 	if not stations.has(id) or id == "gate":
+		return
+	if id == "bench":
+		edit_requested.emit()
 		return
 	open_panel = id
 	_hold()
@@ -231,7 +218,7 @@ func _hold() -> void:
 	player.input_locked = held
 
 ## The weapon the rack was last left on. Changing it re-reads the gate, since a
-## weapon with nothing in its slots is a raid nobody should be let into.
+## weapon the vault no longer has is a raid nobody can be let into.
 func set_weapon(id: String) -> void:
 	weapon_id = id
 	refresh_kit()
@@ -248,15 +235,11 @@ func leave() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if reading():
 		return
-	# The key that opens assembly in a raid opens it here too, over the boards
-	# the gate would carry. With none of them armed there is nothing to open, and
-	# a key that does nothing is the one thing a key must never do — so the room
-	# says so, and says where the slots are filled.
+	# The key that opens assembly in a raid opens it here too, over the graph
+	# the gate would carry: the same thing the bench opens, reached without the
+	# walk.
 	if event.is_action_pressed("open_editor"):
-		if armed_boards().is_empty():
-			noticed.emit(Loc.t("hideout.no_kit"))
-		else:
-			assembly_requested.emit()
+		edit_requested.emit()
 		get_viewport().set_input_as_handled()
 		return
 	if not event.is_action_pressed("interact"):

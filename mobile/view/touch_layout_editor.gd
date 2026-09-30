@@ -5,8 +5,7 @@ extends Control
 ## screen behind SET BUTTON POSITIONS on the control settings, which is there
 ## while mobile mode is.
 ##
-## Every button is up at once — all four skill sticks, whether or not the
-## player carries four — drawn the way the pad draws them, where the arrangement
+## Every button is up at once — drawn the way the pad draws them, where the arrangement
 ## in force puts them (`TouchPad.layout`). A thumb, or the mouse, takes one and
 ## drags it. Let go somewhere it fits and it stays; let go where it does not —
 ## on another button, over the HUD's corner or this screen's own panel — and it
@@ -27,7 +26,7 @@ signal closed()
 const PANEL_W := 336.0
 const PANEL_X := 48.0
 
-## The HUD's corner — the bars, the weapon and the slot squares under them —
+## The HUD's corner — the bars, the weapon and the graph's square under them —
 ## which no button may cover: a thumb on JUMP would sit on the health bar for
 ## the whole of a fight.
 const HUD_CORNER := Rect2(Hud.BAR_AT,

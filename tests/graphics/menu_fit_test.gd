@@ -99,7 +99,7 @@ func _ready() -> void:
 	title._toggle_settings()
 	await frames(4)
 
-	game._deploy("SWORD", [0, 1, 2])
+	game._deploy("SWORD")
 	await frames(24)
 	game._pause()
 	await frames(8)

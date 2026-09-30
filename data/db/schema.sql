@@ -22,7 +22,7 @@ CREATE TABLE meta (
 );
 -- `Db.SCHEMA_VERSION` in app/db.gd is the same number: bump both when a
 -- change is one older code could not read. build.sh adds `source_hash`.
-INSERT INTO meta (key, value) VALUES ('schema_version', '7');
+INSERT INTO meta (key, value) VALUES ('schema_version', '8');
 
 -- How a portrait and the letters behave while a line is said: the ids
 -- `Style.EMOTIONS` (graphics/style.gd) draws. A line naming one not here
@@ -333,6 +333,12 @@ END;
 -- (circuit/payload.gd). What an effect *means* is code, `SkillRunner._apply`,
 -- and so is what a form, a trigger or a flag does once an attack carries it.
 -- What a part looks like is graphics/style.gd's, keyed by the same id.
+--
+-- Where a flow starts is not a part: every board is rooted at one cell
+-- (`SkillBoard.ROOT`, the left edge of the middle row), and whatever part
+-- stands there — a weapon's own DASHSLASH, a monster's SLASH — is the source
+-- of every cycle. INPUT, which used to be that, is retired and keeps its
+-- number.
 
 -- The kinds of part, which the palette groups them by. `loot` 0 is a kind
 -- always at hand — never dropped, sold, forged or spent from the stash — as
@@ -359,7 +365,6 @@ CREATE TABLE parts (
 	category    TEXT NOT NULL REFERENCES categories (id) DEFERRABLE INITIALLY DEFERRED,
 	heat        REAL NOT NULL DEFAULT 0 CHECK (heat >= 0),           -- added to the cooldown of a cast that passes through
 	cells       INTEGER NOT NULL DEFAULT 1 CHECK (cells IN (1, 2)),  -- its footprint, and a tick for each cell
-	source      INTEGER NOT NULL DEFAULT 0 CHECK (source IN (0, 1)), -- 1: a flow starts here, and none flows in
 	tag         TEXT CHECK (tag IN ('ranged', 'melee', 'area', 'mobility', 'trigger')),   -- what it makes a board, for a weapon to accept
 	description TEXT NOT NULL CHECK (description <> ''),             -- the English, too
 	FOREIGN KEY (id) REFERENCES codes (id) DEFERRABLE INITIALLY DEFERRED
@@ -368,8 +373,9 @@ CREATE TABLE parts (
 -- The sides a part's flow leaves by, as the part faces east, in the order the
 -- flows leave. A part takes flow on every other side — inputs are never
 -- declared — so rotation decides where a flow goes, never where it may come
--- from. A `branch` is a trigger's second way out, and carries its payload. A
--- part with no ports is where a flow ends.
+-- from; the root takes flow like any other part, so a ring may run back
+-- through it. A `branch` is a trigger's second way out, and carries its
+-- payload. A part with no ports is where a flow ends.
 CREATE TABLE ports (
 	part_id TEXT NOT NULL REFERENCES parts (id) ON DELETE CASCADE,
 	side    TEXT NOT NULL CHECK (side IN ('E', 'S', 'W', 'N')),
@@ -425,11 +431,12 @@ CREATE TABLE renamed_parts (
 	new_id TEXT NOT NULL REFERENCES parts (id) DEFERRABLE INITIALLY DEFERRED
 );
 
--- The boards the game ships with: each weapon's own attack, every monster's,
--- a new profile's starter skill, the dragon test's. The boards a player builds
--- are theirs, and live in the save. Which part feeds which is not written
--- down: the parts' ports and the way each faces already say it, and
--- `SkillBoard.trace` walks it.
+-- The boards the game ships with: each weapon's own graph as a new profile
+-- gets it, every monster's, the dragon test's. What a player builds onto a
+-- weapon's graph is theirs, and lives in the save. Which part feeds which is
+-- not written down: the parts' ports and the way each faces already say it,
+-- and `SkillBoard.trace` walks it. Every board has a part on its root cell,
+-- (0, 2), where its flow starts; feature/core/boards.gd refuses one without.
 CREATE TABLE boards (
 	id     TEXT PRIMARY KEY CHECK (id <> '' AND id = lower(id)),
 	width  INTEGER NOT NULL DEFAULT 7 CHECK (width BETWEEN 1 AND 16),     -- the most a shared code carries

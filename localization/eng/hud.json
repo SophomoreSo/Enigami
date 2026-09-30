@@ -8,8 +8,7 @@
 		"boss_phase": "%s: SECOND FORM"
 	},
 	"slot": {
-		"not_on": "NOT ON %s",
-		"hint": "%s attacks · number keys arm a skill · hold %s to charge, release to cast"
+		"hint": "%s casts · hold %s to charge, release to cast"
 	},
 	"map": {
 		"title": "MAP",

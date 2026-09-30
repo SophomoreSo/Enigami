@@ -5,12 +5,12 @@ extends Node2D
 ## station, and the panel a station opens.
 ##
 ## The panels are `graphics/ui/hideout.gd` built one column at a time — the same
-## weapon list, the same loadout and library, the same counter the screen used
-## to show all three of at once. Nothing about what is in them is decided here;
-## this only decides when they are on screen.
+## weapon list and the same counter the screen used to show at once. Nothing
+## about what is in them is decided here; this only decides when they are on
+## screen.
 ##
-## The assembly board is not here either: a board sent to the editor goes out
-## through the world as `edit_requested` and `app/game.gd` opens the workbench
+## The assembly board is not here either: the bench asks for the weapon's graph
+## through the world as `edit_requested`, and `app/game.gd` opens the workbench
 ## editor it has always opened, over the top of all of this.
 
 ## The sign over a station: a post, a plate, and the name on it. Drawn rather
@@ -56,7 +56,7 @@ var panel: Control = null
 ## rather than inside it: everything that reads `panel` wants the frame.
 var _shade: ColorRect = null
 ## The same readout the raid draws, over the same room: health, the weapon in
-## hand and a card per armed slot. What the gate would carry is a thing to look
+## hand and the square for the graph on it. What the gate would carry is a thing to look
 ## at while you are still deciding, and the player standing here is carrying it
 ## already — `HideoutWorld.refresh_kit` is what keeps that true.
 var hud: Hud
@@ -172,16 +172,8 @@ func _on_panel_changed(id: String) -> void:
 	_clear_panel()
 	if id == "":
 		return
-	if id == "bench":
-		_open_bench()
-		return
 	_host(_column("weapons" if id == "weapons" else "shop"),
 		Loc.t("hideout.station.%s" % id))
-
-## The bench: the weapon's slots, the library under them, and the way onto the
-## assembly board for any of it.
-func _open_bench() -> void:
-	_host(_column("loadout"), Loc.t("hideout.station.bench"))
 
 ## One column of the old hideout screen, pointed at the weapon the rack was left
 ## on and wired back to the room around it.
@@ -189,7 +181,8 @@ func _column(section: String) -> Hideout:
 	var h := Hideout.new()
 	h.section = section
 	h.weapon_id = world.weapon_id
-	h.edit_requested.connect(func(i: int) -> void: world.edit_requested.emit(i))
+	# The rack's BUILD button is the bench without the walk.
+	h.edit_requested.connect(func() -> void: world.edit_requested.emit())
 	# The rack is the one column that writes: what it picks is what the gate
 	# carries, so the room has to hear about it.
 	h.weapon_changed.connect(func(id: String) -> void: world.set_weapon(id))

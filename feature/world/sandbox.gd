@@ -1,9 +1,9 @@
 class_name Sandbox
 extends World
 
-## A room where nothing is at stake. Parts are unlimited, boards are copies of
-## the library, and the same skill can be tried on each weapon back to back so
-## the differences between weapons are something you see rather than read.
+## A room where nothing is at stake. Parts are unlimited, each weapon's graph
+## is a copy of the profile's, and the weapons can be swapped back to back so
+## the differences between them are something you see rather than read.
 ##
 ## The bench's own buttons are `graphics/ui/sandbox_panel.gd`, in a drawer built
 ## by the view that attaches itself to this node, beside the raid's own HUD.
@@ -25,7 +25,9 @@ var npc: Npc
 ## The Tinker's apprentice, who talks free — in a bubble, while the player goes
 ## on trying things in front of them — and watches what they try.
 var apprentice: Npc
-var boards: Array = []
+## weapon id -> the graph tried here: a copy of the profile's, so nothing done
+## on the bench reaches the hideout.
+var graphs: Dictionary = {}
 var weapon_index: int = 0
 var inventory: Dictionary = {}
 ## Whether the drawer of bench tools is out. The player is held still while it
@@ -45,12 +47,9 @@ func _ready() -> void:
 	room.build(Vector2i.ZERO, record, {}, 12345)
 
 	# Copies only: nothing here touches the hideout.
-	boards.clear()
-	for b in GameState.skill_library:
-		boards.append(b.duplicate_board())
-	if boards.is_empty():
-		boards.append(Weapons.make_innate_board("SWORD"))
-	boards = boards.slice(0, 4)
+	graphs.clear()
+	for w in Weapons.ids():
+		graphs[w] = GameState.weapon_board(String(w)).duplicate_board()
 
 	player = Player.new()
 	player.collision_layer = 2
@@ -67,9 +66,13 @@ func _ready() -> void:
 func _apply_weapon() -> void:
 	var ids := Weapons.ids()
 	weapon_index = weapon_index % ids.size()
-	player.setup(String(ids[weapon_index]), boards)
+	player.setup(String(ids[weapon_index]), board())
 	player.max_health = 9999.0
 	player.health = 9999.0
+
+## The graph on the weapon in hand: what the assembly board over the bench edits.
+func board() -> SkillBoard:
+	return graphs[current_weapon()]
 
 func cycle_weapon() -> void:
 	weapon_index += 1
@@ -77,7 +80,7 @@ func cycle_weapon() -> void:
 	Cues.emit_cue(&"ui", {"kind": "weapon"})
 
 func current_weapon() -> String:
-	return player.weapon_id
+	return String(Weapons.ids()[weapon_index % Weapons.ids().size()])
 
 ## Put down on the bench's own floor. It used to be dropped into a fixed cell
 ## partway up the room, and the generator is free to lay a platform through
@@ -162,8 +165,8 @@ func set_tools_open(on: bool) -> void:
 	tools_open = on
 	player.input_locked = editing or tools_open
 
-func on_board_changed(slot: int) -> void:
-	player.rebuild_runner(slot)
+func on_board_changed() -> void:
+	player.rebuild_runner()
 
 ## Someone on the bench in talking range, with something to say.
 func use_nearby() -> bool:

@@ -189,7 +189,6 @@ func _ready() -> void:
 	for id in Components.loot_pool():
 		GameState.stash[id] = 19
 	GameState.scrap = 99999
-	GameState.skill_library[0].skill_name = "Sword Basic With A Very Long Name"
 	game = Node.new()
 	game.set_script(GameScript)
 	add_child(game)
@@ -203,7 +202,6 @@ func _ready() -> void:
 	check(hideout != null, "the rack opens a column of its own")
 	for id in Weapons.ids():
 		hideout.weapon_id = id
-		hideout.focus_slot = 0
 		hideout.rebuild()
 		await audit(Weapons.name_for(id), 6, 12)
 
@@ -211,16 +209,6 @@ func _ready() -> void:
 	world.set_weapon("SWORD")
 	hideout = await open_section("shop")
 	await audit("the counter", 40, 40)
-
-	# The bench, whose list is the one a weapon can refuse: the Sword will not
-	# carry the Gun's ranged board, and the row says so by being dead.
-	hideout = await open_section("bench")
-	await audit("the bench", 8, 40)
-	var refused: Button = null
-	for c in controls_under(hideout):
-		if c is Button and (c as Button).disabled and (c as Button).text.begins_with(GameState.skill_library[1].skill_name):
-			refused = c
-	check(refused != null, "the sword shows the gun's board as refused")
 
 	# --- the forge, and the rebuild it triggers ------------------------------
 	# The forge is the counter's, like everything else that costs scrap. The

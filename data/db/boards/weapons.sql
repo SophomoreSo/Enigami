@@ -1,11 +1,14 @@
--- Each weapon's own attack, on its own button and outside the loadout: a
--- weapon names one of these as its `innate` (feature/core/weapons.gd), and a
--- new profile's library opens with the sword's and the gun's. Named in the
--- code, after the weapon, in the language being played.
+-- Each weapon's own graph, as a new profile gets it: the weapon's own part on
+-- the root cell, and an OUTPUT to fire it. The root is the weapon's and stays;
+-- everything a player builds on after it is theirs. A weapon names its graph
+-- as `board` and its root part as `root` (feature/core/weapons.gd), and
+-- tests/feature/boards_test holds the two to each other. Named in the code,
+-- after the weapon, in the language being played.
 
-INSERT INTO boards (id) VALUES ('slash'), ('bolt'), ('lob');
+INSERT INTO boards (id) VALUES ('sword'), ('gun'), ('rock');
 
 INSERT INTO board_parts (board_id, x, y, part) VALUES
-	('slash', 0, 2, 'INPUT'), ('slash', 1, 2, 'SLASH'), ('slash', 2, 2, 'OUTPUT'),
-	('bolt', 0, 2, 'INPUT'), ('bolt', 1, 2, 'PROJECTILE'), ('bolt', 2, 2, 'OUTPUT'),
-	('lob', 0, 2, 'INPUT'), ('lob', 1, 2, 'PROJECTILE'), ('lob', 2, 2, 'DAMAGE'), ('lob', 3, 2, 'OUTPUT');
+	-- DASHSLASH covers two cells, so the OUTPUT waits past both.
+	('sword', 0, 2, 'DASHSLASH'), ('sword', 2, 2, 'OUTPUT'),
+	('gun', 0, 2, 'PROJECTILE'), ('gun', 1, 2, 'OUTPUT'),
+	('rock', 0, 2, 'PROJECTILE'), ('rock', 1, 2, 'OUTPUT');

@@ -35,7 +35,7 @@ func _ready() -> void:
 	editor = SkillEditor.new()
 	editor.visible = false
 	editor.closed.connect(func() -> void: raid.set_editing(false))
-	editor.board_changed.connect(func(slot: int) -> void: raid.on_board_changed(slot))
+	editor.board_changed.connect(func() -> void: raid.on_board_changed())
 	layer.add_child(editor)
 
 	map_panel = MapPanel.new()
@@ -79,7 +79,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_editing(on: bool) -> void:
 	if on:
 		editor.weapon_id = raid.player.weapon_id
-		editor.configure(GameState.raid_boards, GameState.raid_bag, false, raid.player.runners)
+		editor.configure(GameState.raid_board, GameState.raid_bag, false, raid.player.runner)
 		editor.visible = true
 		editor.grab_focus()
 	else:

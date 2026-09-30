@@ -1,15 +1,15 @@
 extends Node
 ## The skill boards the game ships with, and the tables they are read from.
 ##
-## Each weapon's own attack, every monster's, a new profile's starter skill and
-## the dragon test's board are rows in the content database
-## (`data/db/boards/`): a grid, and the parts placed on it. Which part feeds
-## which follows from their ports and the way each faces, so a row a cell out
-## of place is a board that quietly does nothing — a monster that never
-## attacks, a weapon that will not swing. Every board has to build whole, start
-## somewhere and reach an OUTPUT; every board the code asks for by name has to
-## be in the table; and what the schema promises to refuse is tried against a
-## scratch copy of it.
+## Each weapon's graph as a new profile gets it, every monster's, and the
+## dragon test's board are rows in the content database (`data/db/boards/`):
+## a grid, and the parts placed on it. Which part feeds which follows from
+## their ports and the way each faces, so a row a cell out of place is a board
+## that quietly does nothing — a monster that never attacks, a weapon that will
+## not swing. Every board has to build whole, have a part on its root and
+## reach an OUTPUT; every board the code asks for by name has to be in the
+## table; a weapon's graph has to start with the part the weapon says it does;
+## and what the schema promises to refuse is tried against a scratch copy of it.
 ##
 ## No renderer needed: nothing here draws. The refusals print an `SQL error`
 ## line each from the extension, which is the point of them.
@@ -49,31 +49,27 @@ func _ready() -> void:
 		var found := Boards.problems(id)
 		var board := Boards.build(id)
 		var t := board.trace()
-		var inputs := 0
-		for c in board.cells:
-			if String(board.cells[c]["id"]) == "INPUT":
-				inputs += 1
 		check(found.is_empty() and board.cells.size() == (Boards.source(id)["parts"] as Array).size(),
 			"%s builds whole%s" % [id, "" if found.is_empty() else " — " + "; ".join(found)])
-		check(inputs == 1 and bool(t["reaches_output"]) and (t["dead"] as Dictionary).is_empty(),
-			"%s starts at one INPUT and reaches an OUTPUT, with no loop to lose its flow in" % id)
+		check(board.has_root() and bool(t["reaches_output"]) and (t["dead"] as Dictionary).is_empty(),
+			"%s starts on its root and reaches an OUTPUT, with no loop to lose its flow in" % id)
 		check(BoardCode.encode(board) != "", "%s can be written down as a code" % id)
 
 	# --- every board the code asks for ----------------------------------------
 	var asked: Array = []
 	for w in Weapons.ids():
-		asked.append(String(Weapons.get_def(w)["innate"]))
+		asked.append(String(Weapons.get_def(w)["board"]))
 	for m in Monsters.DEFS:
 		for key in ["board", "board_phase2"]:
 			var board_id := String(Monsters.get_def(m).get(key, ""))
 			if board_id != "":
 				asked.append(board_id)
-	asked.append_array(["blink_step", "dragon"])
+	asked.append("dragon")
 	var missing: Array = []
 	for id in asked:
 		if not ids.has(id):
 			missing.append(id)
-	check(missing.is_empty(), "every board a weapon, a monster, the profile or a world asks for is there (%s)" % str(missing))
+	check(missing.is_empty(), "every board a weapon, a monster or a world asks for is there (%s)" % str(missing))
 	var unasked: Array = []
 	for id in ids:
 		if not asked.has(id):
@@ -81,9 +77,20 @@ func _ready() -> void:
 	check(unasked.is_empty(), "and nothing is there that nobody asks for (%s)" % str(unasked))
 
 	# --- as the code hands them out -------------------------------------------
-	var sword := Weapons.make_innate_board("SWORD")
-	check(same_parts(sword, Boards.build("slash")) and sword.skill_name == Loc.t("weapons.basic_board", [Weapons.name_for("SWORD")]),
-		"a weapon's own attack is its board, named after the weapon (%s)" % sword.skill_name)
+	var sword := Weapons.make_board("SWORD")
+	check(same_parts(sword, Boards.build("sword")) and sword.skill_name == Weapons.name_for("SWORD"),
+		"a weapon's graph is its board, named after the weapon (%s)" % sword.skill_name)
+	var misrooted: Array = []
+	for w in Weapons.ids():
+		var b := Weapons.make_board(String(w))
+		if String(b.root_entry().get("id", "")) != Weapons.root_part(String(w)):
+			misrooted.append("%s starts with %s, not %s" % [w, b.root_entry().get("id", "nothing"), Weapons.root_part(String(w))])
+		if not b.used_components().is_empty():
+			misrooted.append("%s has %s built on it already" % [w, str(b.used_components())])
+	check(misrooted.is_empty(),
+		"every weapon's graph starts with the part the weapon says it does, and nothing built on after (%s)" % str(misrooted))
+	check(String(Weapons.make_board("SWORD").root_entry().get("id", "")) == "DASHSLASH",
+		"the sword's is a lunge: a DASHSLASH on the root")
 	var crawler := Monsters.build_board("CRAWLER")
 	check(same_parts(crawler, Boards.build("crawler")) and crawler.skill_name == Monsters.name_for("CRAWLER"),
 		"a monster's attack is its board, named after the monster (%s)" % crawler.skill_name)
@@ -93,32 +100,36 @@ func _ready() -> void:
 	var dummy := Monsters.build_board("DUMMY")
 	check(dummy.is_empty() and dummy.skill_name == Monsters.name_for("DUMMY"),
 		"a monster with no board attacks with nothing")
-	check(Boards.build("blink_step").skill_name == "Blink Step",
-		"a board the code does not name is called what the table calls it")
 	var drops := Monsters.drop_pool("ARBITER")
 	var on_boards: Array = []
 	for id in Boards.parts_of("arbiter") + Boards.parts_of("arbiter_phase2"):
 		if not Components.is_structural(id) and not on_boards.has(id):
 			on_boards.append(id)
-	check(drops == on_boards and drops.has("ON_HIT") and not drops.has("OUTPUT"),
-		"a monster drops what it was seen using, second form included, and never INPUT or OUTPUT (%s)" % str(drops))
+	check(drops == on_boards and drops.has("ON_HIT") and drops.has("PROJECTILE") and not drops.has("OUTPUT"),
+		"a monster drops what it was seen using, its root and second form included, and never an OUTPUT (%s)" % str(drops))
 
 	# --- the checker catches what it is for -----------------------------------
 	# Written out here rather than kept as broken rows in the database: these
 	# are the mistakes a writer makes, and every one is silent at run time if
 	# nothing goes looking.
 	var base := {"id": "b", "width": 7, "height": 5, "parts": [
-		{"x": 0, "y": 2, "part": "INPUT", "facing": "E"},
-		{"x": 1, "y": 2, "part": "EXPLODE", "facing": "E"},
-		{"x": 3, "y": 2, "part": "OUTPUT", "facing": "E"}]}
+		{"x": 0, "y": 2, "part": "EXPLODE", "facing": "E"},
+		{"x": 2, "y": 2, "part": "OUTPUT", "facing": "E"}]}
 	check(Boards.problems_in(base).is_empty(), "a sound board has no problems (%s)" % str(Boards.problems_in(base)))
 	check(_caught(base, {"x": 6, "y": 2, "part": "DASHSLASH", "facing": "E"}, "does not fit"),
 		"a two-cell part hanging off the grid is caught")
 	check(_caught(base, {"x": 2, "y": 1, "part": "SLASH", "facing": "S"}, "does not fit") == false
-			and _caught(base, {"x": 2, "y": 2, "part": "SLASH", "facing": "E"}, "does not fit"),
+			and _caught(base, {"x": 1, "y": 2, "part": "SLASH", "facing": "E"}, "does not fit"),
 		"a part on the cell another part covers is caught, and one beside it is not")
-	check(_caught(base, {"x": 0, "y": 0, "part": "INPUT", "facing": "E"}, "does not fit"), "a second INPUT is caught")
+	var unrooted := {"id": "u", "width": 7, "height": 5, "parts": [
+		{"x": 1, "y": 2, "part": "SLASH", "facing": "E"},
+		{"x": 2, "y": 2, "part": "OUTPUT", "facing": "E"}]}
+	var said := false
+	for problem in Boards.problems_in(unrooted):
+		said = said or String(problem).contains("root")
+	check(said, "a board with nothing on its root is caught (%s)" % str(Boards.problems_in(unrooted)))
 	check(_caught(base, {"x": 5, "y": 0, "part": "WIRE", "facing": "E"}, "no such part"), "a part that is not one is caught")
+	check(_caught(base, {"x": 5, "y": 0, "part": "INPUT", "facing": "E"}, "no such part"), "and so is an INPUT, which is one no longer")
 	check(_caught(base, {"x": 5, "y": 0, "part": "SLASH", "facing": "U"}, "no way to face"), "a facing that is not one is caught")
 
 	# --- what the schema refuses ----------------------------------------------
@@ -127,14 +138,14 @@ func _ready() -> void:
 		check(false, "a scratch copy of the schema can be made to try it against")
 	else:
 		var parts := [
-			"INSERT INTO categories (id, loot) VALUES ('struct', 0)",
-			"INSERT INTO codes (code, id) VALUES (0, 'INPUT'), (1, 'OUTPUT')",
-			"INSERT INTO parts (id, name, category, source, description) VALUES ('INPUT', 'INPUT', 'struct', 1, 'In.'), ('OUTPUT', 'OUTPUT', 'struct', 0, 'Out.')"]
+			"INSERT INTO categories (id, loot) VALUES ('struct', 0), ('form', 1)",
+			"INSERT INTO codes (code, id) VALUES (1, 'OUTPUT'), (5, 'SLASH')",
+			"INSERT INTO parts (id, name, category, description) VALUES ('SLASH', 'SLASH', 'form', 'Cut.'), ('OUTPUT', 'OUTPUT', 'struct', 'Out.')"]
 		var board := "INSERT INTO boards (id) VALUES ('b')"
-		var laid := "INSERT INTO board_parts (board_id, x, y, part, facing) VALUES ('b', 0, 2, 'INPUT', 'E'), ('b', 1, 2, 'OUTPUT', 'E')"
+		var laid := "INSERT INTO board_parts (board_id, x, y, part, facing) VALUES ('b', 0, 2, 'SLASH', 'E'), ('b', 1, 2, 'OUTPUT', 'E')"
 		check(_accepted(db, parts + [board, laid]), "a sound board is accepted (%s)" % db.error_message)
 		check(_accepted(db, [board, laid] + parts), "and it may be laid out before its parts are written")
-		check(not _accepted(db, parts + [board, laid.replace("'OUTPUT', 'E')", "'SLASH', 'E')")]),
+		check(not _accepted(db, parts + [board, laid.replace("'OUTPUT', 'E')", "'FIRE', 'E')")]),
 			"a board carrying a part that is not one is refused when the build commits")
 		check(not _accepted(db, parts + [board, laid.replace("'OUTPUT', 'E')", "'OUTPUT', 'U')")]),
 			"a part facing no way at all is refused")

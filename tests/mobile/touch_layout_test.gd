@@ -240,7 +240,7 @@ func _arranging(panel: ControlsPanel) -> void:
 ## --- in a fight ------------------------------------------------------------------
 
 func _in_a_raid() -> void:
-	game._deploy("SWORD", [0, 1, 2])
+	game._deploy("SWORD")
 	await frames(24)
 	var pad: TouchPad = game.touch_pad
 	check(pad != null and pad.visible, "a raid, with the console on the glass")

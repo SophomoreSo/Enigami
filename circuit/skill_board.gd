@@ -3,18 +3,34 @@ extends RefCounted
 
 ## A grid of placed components plus the rules for placing them.
 ## Pure data: the simulation lives in SkillRunner.
+##
+## Every board is rooted. The flow starts at `root`, the cell the weapon's own
+## part sits in — the sword's DASHSLASH, the gun's PROJECTILE, a monster's
+## SLASH — and whatever sits there is the source of every cycle. It is the one
+## part nobody may lift, turn or drop something on: it is the weapon's, not the
+## build's, and the build is everything wired on after it. There is no INPUT
+## part any more; the root stands where INPUT stood.
 
 signal changed()
+
+## Where every board starts, on every grid the game makes: the left edge, on
+## the middle row of the 7x5 the game ships and the third row of anything
+## taller. One cell for all of them rather than a cell each, so a build shared
+## as a code lands on any weapon's board with its wiring where its author had
+## it, and that weapon's own part already there to feed it.
+const ROOT := Vector2i(0, 2)
 
 var width: int = 7
 var height: int = 5
 var skill_name: String = "Skill"
-var tags: Array[String] = []  ## used for weapon compatibility, derived on demand
 
 ## Vector2i -> { "id": String, "rot": int }. Only origin cells are stored here.
 var cells: Dictionary = {}
 ## Vector2i -> Vector2i origin, for every covered cell (including origins).
 var occupancy: Dictionary = {}
+## The cell the flow starts in. `ROOT` on every board the game makes; a test
+## may root a board somewhere else to try a shape.
+var root: Vector2i = ROOT
 
 func _init(w: int = 7, h: int = 5, n: String = "Skill") -> void:
 	width = w
@@ -37,10 +53,55 @@ func comp_at(c: Vector2i) -> Dictionary:
 func comp_origin_at(c: Vector2i) -> Dictionary:
 	return cells.get(c, {})
 
+## --- the root ---------------------------------------------------------------
+
+## Whether the part filed under `origin` is the root: the weapon's own part.
+func is_root(origin: Vector2i) -> bool:
+	return origin == root and cells.has(root)
+
+func has_root() -> bool:
+	return cells.has(root)
+
+## The root's cell, or null while nothing sits there.
+func find_root() -> Variant:
+	return root if cells.has(root) else null
+
+## The part at the root: {id, rot}, or {} while nothing sits there.
+func root_entry() -> Dictionary:
+	return cells.get(root, {})
+
+## Roots the board at `at` with `id`, facing `rot`. Whatever was the root
+## before goes, and so does anything standing where the new one will: this is
+## for whoever makes a board — a weapon, a monster, a test — not for a hand on
+## the workbench, which never touches the root at all.
+func set_root(id: String, at: Vector2i = ROOT, rot: int = 0) -> bool:
+	if not Components.exists(id):
+		return false
+	var cover := Components.footprint(id, at, rot)
+	for c in cover:
+		if not in_bounds(c):
+			return false
+	if cells.has(root):
+		_erase_origin(root)
+	root = at
+	for c in cover:
+		var o = occupancy.get(c, null)
+		if o != null:
+			_erase_origin(o)
+	cells[at] = {"id": id, "rot": rot}
+	for c in cover:
+		occupancy[c] = at
+	changed.emit()
+	return true
+
+## --- placing ----------------------------------------------------------------
+
 func can_place(id: String, origin: Vector2i, rot: int) -> bool:
 	if not Components.exists(id):
 		return false
-	if id == "INPUT" and _count_of("INPUT") >= 1 and not (cells.has(origin) and cells[origin]["id"] == "INPUT"):
+	# The root is the weapon's: nothing is dropped on it. It is placed once,
+	# onto an empty root cell, by whoever roots the board — and then it stays.
+	if origin == root and cells.has(root):
 		return false
 	for c in Components.footprint(id, origin, rot):
 		if not in_bounds(c):
@@ -60,24 +121,26 @@ func place(id: String, origin: Vector2i, rot: int) -> bool:
 	changed.emit()
 	return true
 
-## Removes whatever covers `c` (clicking any cell of a two-cell part removes it).
+## Removes whatever covers `c` (clicking any cell of a two-cell part removes
+## it), and says what it was — or "" for an empty cell, and for the root, which
+## is never removed this way.
 func erase_at(c: Vector2i) -> String:
 	var o = occupancy.get(c, null)
-	if o == null:
+	if o == null or o == root:
 		return ""
-	var entry: Dictionary = cells[o]
+	return _erase_origin(o)
+
+## The part filed under `o`, taken off the board, root or not.
+func _erase_origin(o: Vector2i) -> String:
+	var entry: Dictionary = cells.get(o, {})
+	if entry.is_empty():
+		return ""
 	var id: String = entry["id"]
 	for cc in Components.footprint(id, o, entry["rot"]):
 		occupancy.erase(cc)
 	cells.erase(o)
 	changed.emit()
 	return id
-
-func find_input() -> Variant:
-	for c in cells:
-		if cells[c]["id"] == "INPUT":
-			return c
-	return null
 
 func _count_of(id: String) -> int:
 	var n := 0
@@ -86,10 +149,14 @@ func _count_of(id: String) -> int:
 			n += 1
 	return n
 
-## id -> count of every non-structural component currently on the board.
+## id -> count of every non-structural component the build put on the board.
+## The root is not among them: it is the weapon's, and neither came out of a
+## pool nor goes back into one.
 func used_components() -> Dictionary:
 	var used: Dictionary = {}
 	for c in cells:
+		if c == root:
+			continue
 		var id: String = cells[c]["id"]
 		if Components.is_structural(id):
 			continue
@@ -124,7 +191,7 @@ func analyze() -> Dictionary:
 		"penalty_seconds": penalty,
 		"forms": forms,
 		"cells_used": occupancy.size(),
-		"has_input": find_input() != null,
+		"has_root": has_root(),
 	}
 
 ## Walks the board exactly as the runner will, reporting what is actually
@@ -144,7 +211,7 @@ func trace() -> Dictionary:
 	var links: Array = []
 	var breaks: Array = []
 	var leaks: Array = []
-	# A loop is a property of the wiring and not of what the INPUT happens to
+	# A loop is a property of the wiring and not of what the root happens to
 	# reach, so it is found over the whole board and before the walk below.
 	# Every link out of a caught part stays inside its loop — that is what being
 	# caught means — so its ports are exactly the loop's own seams.
@@ -154,17 +221,17 @@ func trace() -> Dictionary:
 		for port in _ports_from(origin):
 			if String(port["why"]) == "":
 				dead_links.append([port["from"], port["to"]])
-	var input_cell = find_input()
-	if input_cell == null:
+	var start = find_root()
+	if start == null:
 		return {"reachable": reachable, "links": links, "breaks": breaks, "leaks": leaks,
 			"dead": dead, "dead_links": dead_links,
-			"has_input": false, "reaches_output": false}
+			"has_root": false, "reaches_output": false}
 
 	var reaches_output := false
 	# Each part is queued the once, the first time the flow reaches it, so the
 	# sweep is over when the board is — a ring is walked, not chased round.
-	var queue: Array = [input_cell]
-	reachable[input_cell] = true
+	var queue: Array = [start]
+	reachable[start] = true
 	while not queue.is_empty():
 		var origin: Vector2i = queue.pop_front()
 		var entry: Dictionary = cells.get(origin, {})
@@ -188,7 +255,7 @@ func trace() -> Dictionary:
 				queue.append(to)
 	return {"reachable": reachable, "links": links, "breaks": breaks, "leaks": leaks,
 		"dead": dead, "dead_links": dead_links,
-		"has_input": true, "reaches_output": reaches_output}
+		"has_root": true, "reaches_output": reaches_output}
 
 ## Where one part's ports lead, a port at a time. Every entry carries `from` —
 ## the cell the flow leaves by, which on a two-cell part is not the cell the
@@ -245,7 +312,7 @@ func _ports_from(origin: Vector2i) -> Array:
 ## its own stat parts on the way to an OUTPUT is the whole point of building
 ## one.
 ##
-## Read off the whole board rather than out from the INPUT, because a ring with
+## Read off the whole board rather than out from the root, because a ring with
 ## nothing feeding it is the same trap with nothing in it yet.
 ##
 ## The exception is a part that does its work on the way in rather than at an
@@ -296,8 +363,8 @@ static func _reach_from(links: Dictionary, start: Vector2i) -> Dictionary:
 		queue.append_array(links.get(at, []))
 	return seen
 
-## Tags describe what a board does, which is what weapons check for
-## compatibility: the `tag` of every part on it, once each.
+## Tags describe what a board does: the `tag` of every part on it, once each.
+## The share sheet reads them to say what a code builds.
 func compute_tags() -> Array[String]:
 	var t: Array[String] = []
 	for c in cells:
@@ -313,28 +380,32 @@ func serialize() -> Dictionary:
 	var out: Array = []
 	for c in cells:
 		out.append({"x": c.x, "y": c.y, "id": cells[c]["id"], "rot": cells[c]["rot"]})
-	return {"w": width, "h": height, "name": skill_name, "cells": out}
+	return {"w": width, "h": height, "name": skill_name, "root": [root.x, root.y], "cells": out}
 
 static func deserialize(d: Dictionary) -> SkillBoard:
 	var b := SkillBoard.new(int(d.get("w", 7)), int(d.get("h", 5)), String(d.get("name", "Skill")))
+	var at: Array = d.get("root", [])
+	if at.size() == 2:
+		b.root = Vector2i(int(at[0]), int(at[1]))
 	var retired: Array = []
 	for e in d.get("cells", []):
 		var id := Components.current_id(String(e["id"]))
-		var at := Vector2i(int(e["x"]), int(e["y"]))
+		var cell := Vector2i(int(e["x"]), int(e["y"]))
 		if Components.is_retired(id):
-			retired.append([id, at, int(e["rot"])])
+			retired.append([id, cell, int(e["rot"])])
 			continue
-		b.place(id, at, int(e["rot"]))
+		b.place(id, cell, int(e["rot"]))
 	b.drop_retired(retired)
 	return b
 
-## Reads a board back from before WIRE and BEND were retired, out of a save or a
-## code. `retired` is every one of them it carried, as [id, cell, rot], and none
-## is placed. Each was one cell of path and nothing more, so where one sat
-## against an end of the run — the OUTPUT it fed, or the INPUT that fed it —
-## and nothing else on the board was joined to that end, the end steps into its
-## cell: the flow goes exactly where it went, a cell sooner. Anywhere else the
-## cell is left empty, and the board shows the break the way it shows any other.
+## Reads a board back from before WIRE, BEND and INPUT were retired, out of a
+## save or a code. `retired` is every one of them it carried, as [id, cell,
+## rot], and none is placed. A WIRE or a BEND was one cell of path and nothing
+## more, so where one sat against the OUTPUT it fed, and nothing else on the
+## board was joined to that OUTPUT, the OUTPUT steps into its cell: the flow
+## goes exactly where it went, a cell sooner. Anywhere else the cell is left
+## empty, and the board shows the break the way it shows any other. An INPUT's
+## cell is simply left empty: the root stands where it stood.
 func drop_retired(retired: Array) -> void:
 	var left := retired.duplicate()
 	var stepped := true
@@ -347,10 +418,10 @@ func drop_retired(retired: Array) -> void:
 				left.erase(r)
 				stepped = true
 
-## One end of the run moving into `at`, the empty cell a retired part sending
-## its flow `out` used to fill. False, with nothing moved, when neither end can.
+## An OUTPUT ahead of `at` moving into it, the empty cell a retired part sending
+## its flow `out` used to fill. False, with nothing moved, when it cannot.
 func _step_into(at: Vector2i, out: int) -> bool:
-	if occupancy.has(at):
+	if occupancy.has(at) or at == root:
 		return false
 	var ahead := at + Components.dir_to_vec(out)
 	var next := comp_origin_at(ahead)
@@ -358,15 +429,6 @@ func _step_into(at: Vector2i, out: int) -> bool:
 		var rot := int(next["rot"])
 		erase_at(ahead)
 		return place("OUTPUT", at, rot)
-	# What fed the retired part: every flow landing on its cell except one
-	# coming back in through the edge it sent its own flow out of.
-	var fed: Array = []
-	for a in _arriving(at):
-		if Components.opposite(int(a[1])) != out:
-			fed.append(a[0])
-	if fed.size() == 1 and String(cells[fed[0]]["id"]) == "INPUT":
-		erase_at(fed[0])
-		return place("INPUT", at, out)
 	return false
 
 ## Every part whose flow lands on `cell`, as [origin, the way it is going].
@@ -392,24 +454,62 @@ func fits(other: SkillBoard) -> bool:
 				return false
 	return true
 
-## Takes on `other`'s parts, keeping this board's own grid and its own name —
-## which is what a shared code hands over: a circuit, not the workbench it was
-## drawn on and not what its author called it.
-##
-## All or nothing: a build that does not fit leaves this board exactly as it
-## was. The parts are moved across rather than re-`place`d because `other` is
-## already a board — its footprints are clear of each other and it has at most
-## one INPUT — so the only thing that could have been wrong is the grid, and
-## `fits` has just settled that.
-func adopt(other: SkillBoard) -> bool:
-	if not fits(other):
-		return false
-	cells.clear()
-	occupancy.clear()
+## The parts of `other` that would come onto this board, as [id, origin, rot]:
+## everything of it that lands inside the grid and clear of this board's own
+## root. A shared build carries its author's root along with the rest — it is
+## a part on their board like any other — and here that cell is already the
+## weapon's, so whatever the code has standing on it stays behind.
+func adoptable(other: SkillBoard) -> Array:
+	var taken := {}
+	var mine := root_entry()
+	if not mine.is_empty():
+		for c in Components.footprint(String(mine["id"]), root, int(mine["rot"])):
+			taken[c] = true
+	var out: Array = []
 	for origin in other.cells:
 		var entry: Dictionary = other.cells[origin]
 		var id := String(entry["id"])
 		var rot := int(entry["rot"])
+		var clear := true
+		for c in Components.footprint(id, origin, rot):
+			if not in_bounds(c) or taken.has(c):
+				clear = false
+		if clear:
+			out.append([id, origin, rot])
+	return out
+
+## What taking `other` on would cost from a pool: id -> how many of each part
+## that would come onto the board, the structural ones left out, since they are
+## never spent.
+func adoption_cost(other: SkillBoard) -> Dictionary:
+	var need: Dictionary = {}
+	for part in adoptable(other):
+		var id := String(part[0])
+		if Components.is_structural(id):
+			continue
+		need[id] = int(need.get(id, 0)) + 1
+	return need
+
+## Takes on `other`'s parts, keeping this board's own grid, its own name and
+## its own root — which is what a shared code hands over: a circuit, not the
+## workbench it was drawn on, not what its author called it, and not the weapon
+## it was built onto.
+##
+## All or nothing: a build that does not fit leaves this board exactly as it
+## was. The parts are moved across rather than re-`place`d because `other` is
+## already a board — its footprints are clear of each other — so the only thing
+## that could have been wrong is the grid, and `fits` has just settled that;
+## what stood on the root's cells is left behind, see `adoptable`.
+func adopt(other: SkillBoard) -> bool:
+	if not fits(other):
+		return false
+	for origin in cells.keys().duplicate():
+		if origin != root:
+			_erase_origin(origin)
+	for part in adoptable(other):
+		var id := String(part[0])
+		var origin: Vector2i = part[1]
+		var rot := int(part[2])
 		cells[origin] = {"id": id, "rot": rot}
 		for c in Components.footprint(id, origin, rot):
 			occupancy[c] = origin

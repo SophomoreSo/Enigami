@@ -13,12 +13,8 @@ const ACTIONS := [
 	["move_down", "Aim down / drop"],
 	["jump", "Jump"],
 	["dash", "Dash"],
-	["attack", "Attack (weapon)"],
-	["cast_skill", "Cast armed skill"],
-	["skill_1", "Arm slot 1"],
-	["skill_2", "Arm slot 2"],
-	["skill_3", "Arm slot 3"],
-	["skill_4", "Arm slot 4"],
+	["attack", "Attack"],
+	["cast_skill", "Charged cast"],
 	["open_editor", "Skill assembly"],
 	["open_map", "Map"],
 	["interact", "Interact / extract"],
@@ -133,15 +129,15 @@ static func label_for(action: String) -> String:
 
 ## The single binding a HUD should print: the first keyboard or mouse one, with
 ## the pad and any alternates left off. `label_for` lists everything, which is
-## right for the rebinding screen and far too long for a slot card.
+## right for the rebinding screen and far too long for the HUD's square.
 static func short_label_for(action: String) -> String:
 	if not InputMap.has_action(action):
 		return Loc.t("controls.none")
 	# While the console has the screen there is no key to name: what the player
 	# presses is the one under their thumb, so that is what a HUD should print.
 	# Everything that tells the player which control does what reads this, so
-	# one answer here is the whole difference between a slot card that says
-	# "LMB weapon attack" on a phone and one that says "HIT weapon attack".
+	# one answer here is the whole difference between a square that says "LMB"
+	# on a phone and one that says "HIT".
 	if _mouse_aside:
 		var word := word_for(action)
 		if word != "":

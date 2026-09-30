@@ -70,8 +70,8 @@ func _run() -> void:
 	await frames(5)
 	say("hideout ok, weapons=%s" % str(GameState.owned_weapons))
 
-	# Workbench editor over the hideout.
-	game._edit_library_skill(0)
+	# Workbench editor over the hideout: the weapon's graph.
+	game._edit_weapon_graph()
 	await frames(3)
 	var ed: SkillEditor = game.editor
 	ed.selected = "DAMAGE"
@@ -84,62 +84,34 @@ func _run() -> void:
 	await frames(3)
 	say("workbench editor ok")
 
-	# Deploy with every skill the library has.
-	var slots: Array = []
-	for i in mini(GameState.skill_library.size(), Weapons.slots("SWORD")):
-		slots.append(i)
-	game._deploy("SWORD", slots)
+	# Deploy with the sword and the graph on it.
+	game._deploy("SWORD")
 	await frames(6)
 	var raid: Raid = game.current
 	say("raid ok, rooms=%d entry=%s" % [raid.map.rooms.size(), str(raid.map.entry)])
 
-	# Fire every slot for a while.
+	# Fire the graph for a while, with both buttons: the cast button held and
+	# let go, and the attack button held.
 	var fire_count := [0]
-	for r in raid.player.runners:
-		r.fired.connect(func(_p: Payload) -> void: fire_count[0] += 1)
-	# The number keys arm a slot and never fire it; the mouse buttons do the
-	# firing, one for the weapon and one for whatever is armed.
-	for slot in range(1, 5):
-		var bound := Controls.short_label_for("skill_%d" % slot)
-		if bound != str(slot):
-			fail("skill_%d reads as '%s', not '%d'" % [slot, bound, slot])
-		for ev in InputMap.action_get_events("skill_%d" % slot):
-			if ev is InputEventMouseButton:
-				fail("skill_%d must not be on a mouse button" % slot)
+	raid.player.runner.fired.connect(func(_p: Payload) -> void: fire_count[0] += 1)
 	if Controls.short_label_for("attack") != "LMB":
 		fail("attack is on %s, not LMB" % Controls.short_label_for("attack"))
 	if Controls.short_label_for("cast_skill") != "RMB":
 		fail("cast_skill is on %s, not RMB" % Controls.short_label_for("cast_skill"))
-	say("numbers arm a slot, LMB attacks, RMB casts")
-
-	raid.player.basic_runner.fired.connect(func(_p: Payload) -> void: fire_count[0] += 1)
-	# Arm each slot in turn and cast it. A slot the weapon will not carry fires
-	# nothing on purpose, so it is skipped rather than counted as a failure.
-	var castable := 0
-	var refused := 0
-	for i in raid.player.runners.size():
-		raid.player.select_slot(i)
-		await frames(4)
-		if not raid.player.can_cast(i):
-			refused += 1
-			continue
-		castable += 1
-		Input.action_press("cast_skill")
-		await frames(40)
-		Input.action_release("cast_skill")
-		await frames(4)
+	say("LMB attacks, RMB charges and casts")
+	Input.action_press("cast_skill")
+	await frames(40)
+	Input.action_release("cast_skill")
+	await frames(4)
 	Input.action_press("attack")
 	await frames(40)
 	Input.action_release("attack")
-	say("circuits fired %d times across %d castable slot(s), %d refused by the weapon"
-		% [fire_count[0], castable, refused])
-	if castable <= 0:
-		fail("the weapon accepted none of its own loadout")
+	say("the graph fired %d times" % fire_count[0])
 	if fire_count[0] <= 0:
 		fail("casting produced no output")
 
 	# Every attack form, straight through the spawner.
-	for form in ["PROJECTILE", "SLASH", "EXPLODE", "DASHSLASH", "DASHSLASH_AUTO"]:
+	for form in ["PROJECTILE", "SLASH", "EXPLODE", "DASHSLASH", "DASHSLASH_AUTO", "ZAP"]:
 		var p := Payload.new()
 		p.form = form
 		p.damage = 5.0
@@ -169,7 +141,7 @@ func _run() -> void:
 	red._hover_cell = Vector2i(1, 1)
 	red._click_left()
 	red._update_hover(Vector2(300, 200))
-	if not GameState.raid_boards[0].comp_at(Vector2i(1, 1)).has("id"):
+	if not GameState.raid_board.comp_at(Vector2i(1, 1)).has("id"):
 		fail("mid-raid placement did not land on the board")
 	await frames(6)
 	raid.set_editing(false)
@@ -246,7 +218,7 @@ func _run() -> void:
 		(game.current as ResultsScreen).continued.emit()
 	await frames(6)
 	say("results ok, stash=%s scrap=%d" % [str(GameState.stash), GameState.scrap])
-	if not GameState.skill_library[0].comp_at(Vector2i(1, 1)).has("id"):
+	if not GameState.weapon_board("SWORD").comp_at(Vector2i(1, 1)).has("id"):
 		fail("a board edited mid-raid did not come home")
 	else:
 		say("mid-raid edit survived extraction")
@@ -329,19 +301,16 @@ func _run() -> void:
 	if game.state != 3:
 		fail("leaving the dragon test did not return to the bench")
 
-	# Death path.
-	var lib_before := GameState.skill_library.size()
-	var doomed := GameState.skill_library[1].skill_name
-	game._deploy("GUN", [1])
+	# Death path: the weapon and the graph on it go down together.
+	game._deploy("GUN")
 	await frames(6)
 	var raid2: Raid = game.current
 	raid2.player.apply_damage(99999.0, [], null)
 	await frames(10)
 	say("death path ok, state=%d weapons=%s" % [game.state, str(GameState.owned_weapons)])
-	if GameState.skill_library.size() != lib_before - 1:
-		fail("the skill carried into a lost raid survived")
+	if GameState.owned_weapons.has("GUN") or GameState.weapon_boards.has("GUN"):
+		fail("the weapon carried into a lost raid survived, or its graph did")
 	else:
-		say("death consumed the equipped skill '%s' (library %d -> %d)" % [
-			doomed, lib_before, GameState.skill_library.size()])
+		say("death took the gun and its graph with it")
 	game.goto_title()
 	await frames(5)

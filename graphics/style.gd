@@ -38,7 +38,6 @@ const CAT_NAME := {
 ## the part's `COMPONENT_ICON`); `color` is only given where a part should not
 ## wear its category's colour.
 const COMPONENT := {
-	"INPUT": {"glyph": "▶"},
 	"OUTPUT": {"glyph": "◉"},
 
 	"PROJECTILE": {"glyph": "→"},
@@ -46,6 +45,7 @@ const COMPONENT := {
 	"EXPLODE": {"glyph": "◎"},
 	"DASHSLASH": {"glyph": "»"},
 	"DASHSLASH_AUTO": {"glyph": "»*"},
+	"ZAP": {"glyph": "⌁"},
 
 	"FIRE": {"glyph": "🔥"},
 	"ICE": {"glyph": "❄", "color": Color(0.45, 0.8, 0.98)},
@@ -101,15 +101,6 @@ static func component_glyph(id: String) -> String:
 ## `#` for a pixel, drawn a `UiKit.PIXEL` block each. A part without one draws
 ## ICON_FALLBACK.
 const COMPONENT_ICON := {
-	"INPUT": [
-		"..#....",
-		"..##...",
-		"..###..",
-		"..####.",
-		"..###..",
-		"..##...",
-		"..#....",
-	],
 	"OUTPUT": [
 		"..###..",
 		".#...#.",
@@ -164,6 +155,15 @@ const COMPONENT_ICON := {
 		"..#.#..",
 		".#.#...",
 		"#.#....",
+	],
+	"ZAP": [
+		".......",
+		"....#.#",
+		".....#.",
+		"###.###",
+		".....#.",
+		"....#.#",
+		".......",
 	],
 
 	"FIRE": [

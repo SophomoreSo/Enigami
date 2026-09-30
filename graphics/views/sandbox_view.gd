@@ -31,7 +31,7 @@ func _ready() -> void:
 	editor = SkillEditor.new()
 	editor.visible = false
 	editor.closed.connect(func() -> void: sandbox.set_editing(false))
-	editor.board_changed.connect(func(slot: int) -> void: sandbox.on_board_changed(slot))
+	editor.board_changed.connect(func() -> void: sandbox.on_board_changed())
 	layer.add_child(editor)
 
 	panel = SandboxPanel.new()
@@ -63,7 +63,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_editing(on: bool) -> void:
 	if on:
 		editor.weapon_id = sandbox.player.weapon_id
-		editor.configure(sandbox.boards, sandbox.inventory, true, sandbox.player.runners)
+		editor.configure(sandbox.board(), sandbox.inventory, true, sandbox.player.runner)
 		editor.visible = true
 		editor.grab_focus()
 	# The bench controls share a canvas layer with the editor and would cover

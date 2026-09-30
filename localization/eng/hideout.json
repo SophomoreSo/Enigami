@@ -6,20 +6,9 @@
 	"weapons": {
 		"heading": "WEAPON — one per raid",
 		"row": "%s%s%s",
-		"lost": "  (lost)"
-	},
-	"loadout": {
-		"heading": "SKILL SLOTS",
-		"empty": "— empty —",
-		"named": "%s  [%s]",
-		"row": "%s %d: %s",
-		"edit": "EDIT",
-		"clear": "CLEAR",
-		"library": "SKILL LIBRARY — fits slot %d",
-		"new": "NEW SKILL",
-		"entry": "%s   [%s]",
-		"utility": "utility",
-		"delete": "X"
+		"lost": "  (lost)",
+		"graph": "on the %s: %d parts built",
+		"build": "BUILD >"
 	},
 	"facilities": {
 		"heading": "FACILITIES",
@@ -51,18 +40,15 @@
 		"empty": "Nothing stored. Bring something home."
 	},
 	"footer": {
-		"filled": "%d of %d slots filled",
 		"warning": "Everything you take can be lost.",
 		"kit_waiting": "Your kit is still down there (%d).",
 		"deploy": "DEPLOY >"
 	},
-	"skill_default": "Skill %d",
-	"no_kit": "nothing is armed — the workbench fills the slots",
 	"station": {
 		"weapons": "WEAPON RACK",
 		"weapons_prompt": "press F to pick what you carry",
 		"bench": "WORKBENCH",
-		"bench_prompt": "press F to fill the slots",
+		"bench_prompt": "press F to build on your weapon's graph",
 		"shop": "COUNTER",
 		"shop_prompt": "press F to spend scrap",
 		"gate": "THE GATE",
@@ -71,8 +57,7 @@
 		"arrow": "<"
 	},
 	"gate": {
-		"no_weapon": "the vault has no such weapon",
-		"no_skills": "nothing is armed"
+		"no_weapon": "the vault has no such weapon"
 	},
 	"shop": {
 		"heading": "FOR SALE",

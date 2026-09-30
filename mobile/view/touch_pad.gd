@@ -2,8 +2,8 @@ class_name TouchPad
 extends Control
 
 ## The console the game draws on the glass: a thumbstick under the left thumb,
-## and under the right a stick per skill, one for the weapon, and the keys that
-## take no direction.
+## and under the right a stick that charges and casts the weapon's graph, one
+## that swings it plain, and the keys that take no direction.
 ##
 ## Laid out the way a phone MOBA is, because that is the scheme this game's
 ## controls actually fit:
@@ -16,12 +16,13 @@ extends Control
 ##     reads movement as the strength of two actions, so a stick half over
 ##     walks and a stick hard over runs, which a cross of four keys could never
 ##     say.
-##   * **A skill button is a stick too.** Press it and the slot is armed and
-##     begins to charge; drag and the charge aims; let go and it casts, where
-##     you were pointing, with everything the hold paid for. The game's own
+##   * **The cast button is a stick too.** Press it and the graph begins to
+##     charge; drag and the charge aims; let go and it casts, where you were
+##     pointing, with everything the hold paid for. The game's own
 ##     hold-to-charge is what a phone MOBA already asks a thumb to do — press,
 ##     drag, release — so the two are the same gesture and nothing had to be
-##     invented. The weapon key is the same stick without the charge.
+##     invented. The weapon key is the same stick without the charge: the same
+##     graph, cast as it is for as long as the thumb is down.
 ##     A press with no drag in it goes the way the left stick is pushing, or
 ##     the way the player faces. A drag aims it, measured from where the thumb
 ##     came down rather than from the button's middle, and how far it is
@@ -66,9 +67,9 @@ extends Control
 ## `tests/mobile/touch_pad_test` holds it all there, at 16:9 and off it.
 ##
 ## **The buttons are twice the size they were first drawn at**, their words and
-## edges with them: on a phone's glass a skill button was smaller than the thumb
-## pressing it. Doubled, the hand fills the room the HUD leaves it — the skill
-## row just under the three screens, DASH just over HIT and JUMP — so
+## edges with them: on a phone's glass a cast button was smaller than the thumb
+## pressing it. Doubled, the hand fills the room the HUD leaves it — CAST just
+## under the three screens, DASH just over HIT and JUMP — so
 ## the gaps between them are about the least the test allows, and moving one
 ## means checking its neighbours. The movement stick kept its size: it is not a
 ## button, and is only ever drawn under a thumb that is already moving it.
@@ -109,31 +110,20 @@ enum Face { NONE, PLAY, TALK, SCREEN, CLEAR }
 ##
 ## A round control carries `at` and `radius`; the three screens carry a `rect`
 ## instead, because they are labelled plates rather than things a thumb rests
-## on, and looking different is how they say so. An `arm` is an action pressed
-## alongside the held one — a slot stick arms its slot and charges through
-## `cast_skill`, which is what makes one button a whole skill. A `slot` is which
-## of the player's slots it is, so a button for a slot they do not carry is not
-## drawn and does not answer.
+## on, and looking different is how they say so. A `throw` stick is one whose
+## release is a cast: it keeps the aim it was let go with until that cast has
+## gone off.
 const CONTROLS := [
 	# The stick. It has no place of its own — only a `zone` a thumb may summon
 	# it anywhere inside, which is the whole left of the screen between the
-	# health bars and the slot cards. That is the point of it: the hand goes
+	# health bars and the graph's square. That is the point of it: the hand goes
 	# where it likes and the stick comes to the hand.
 	{"kind": Kind.MOVE, "radius": 78.0, "knob": 30.0,
 		"zone": Rect2(0, 120, 456, 472), "grow": Vector2(0, 1), "faces": [Face.PLAY, Face.TALK]},
-	# One stick per slot, in a row above the hand. Press to arm and charge, drag
-	# to aim, let go to cast.
-	{"kind": Kind.AIM, "action": "cast_skill", "arm": "skill_1", "slot": 0,
-		"at": Vector2(772, 184), "pin": Vector2(1, 1), "radius": 64.0, "text": "1",
-		"faces": [Face.PLAY]},
-	{"kind": Kind.AIM, "action": "cast_skill", "arm": "skill_2", "slot": 1,
-		"at": Vector2(912, 184), "pin": Vector2(1, 1), "radius": 64.0, "text": "2",
-		"faces": [Face.PLAY]},
-	{"kind": Kind.AIM, "action": "cast_skill", "arm": "skill_3", "slot": 2,
-		"at": Vector2(1052, 184), "pin": Vector2(1, 1), "radius": 64.0, "text": "3",
-		"faces": [Face.PLAY]},
-	{"kind": Kind.AIM, "action": "cast_skill", "arm": "skill_4", "slot": 3,
-		"at": Vector2(1192, 184), "pin": Vector2(1, 1), "radius": 64.0, "text": "4",
+	# The cast stick, above the hand. Press to charge, drag to aim, let go to
+	# cast.
+	{"kind": Kind.AIM, "action": "cast_skill", "throw": true,
+		"at": Vector2(1052, 184), "pin": Vector2(1, 1), "radius": 64.0,
 		"faces": [Face.PLAY]},
 	# The hand. DASH takes no direction; the weapon does, so it is a stick —
 	# and it is the USE key too, `alt`, wherever there is something to use;
@@ -161,11 +151,11 @@ const CONTROLS := [
 ## The 1280x720 the controls are written out in. See `area`.
 const DESIGN := Vector2(1280, 720)
 
-## How far a thumb rides out from a skill button before the cast has a direction
-## of its own, and how far out the knob is drawn. Generous, because a short
-## throw makes a fine aim impossible — the ring is drawn over whatever is beside
-## it, which costs nothing for the moment it is up. Doubled with the buttons:
-## the throw is measured from a button's middle, and half a skill button's
+## How far a thumb rides out from the cast button before the cast has a
+## direction of its own, and how far out the knob is drawn. Generous, because a
+## short throw makes a fine aim impossible — the ring is drawn over whatever is
+## beside it, which costs nothing for the moment it is up. Doubled with the
+## buttons: the throw is measured from a button's middle, and half the button's
 ## radius is what lets a thumb that lands off-centre still tap rather than aim.
 const AIM_DEAD := 32.0
 const AIM_REACH := 184.0
@@ -213,9 +203,9 @@ const EDGE := Color(0.45, 0.85, 1.0, 0.38)
 const EDGE_HELD := Color(0.6, 0.95, 1.0, 0.95)
 const INK := Color(0.74, 0.84, 0.95, 0.8)
 const INK_HELD := Color(1, 1, 1, 1)
-## A slot the weapon refuses. The same red the slot cards use for it, quieted:
-## the button is still there and still presses, it just says beforehand what the
-## card below it says after.
+## A button that cannot do anything right now, quieted: still there and still
+## pressing, it just says so beforehand. The arrangement screen draws a button
+## it will not accept this way; nothing on the pad itself is like that today.
 const EDGE_OFF := Color(0.85, 0.42, 0.44, 0.34)
 const INK_OFF := Color(0.82, 0.5, 0.52, 0.55)
 ## The ring a skill aims in, and the pips that walk out to the knob.
@@ -246,7 +236,7 @@ var _down: Dictionary = {}
 ##
 ## The two places are usually the same one and are not always: a thumb landing
 ## within a radius of the edge of the zone would draw a ring half off the screen
-## or over the slot cards, so the ring slides in to fit. **The push is measured
+## or over the graph's square, so the ring slides in to fit. **The push is measured
 ## from where the thumb landed either way**, or a stick summoned in the corner
 ## would read as shoved the moment it appeared, and the player would walk off
 ## without having asked to.
@@ -256,25 +246,24 @@ var _stick: Vector2 = Vector2.ZERO
 ## Whether the thumb on the stick has dragged far enough to bring it out. Until
 ## it has, nothing is drawn and nothing is pushed: see STICK_OUT.
 var _stick_out: bool = false
-## The skill or weapon stick being aimed, where the thumb on it came down, and
+## The cast or weapon stick being aimed, where the thumb on it came down, and
 ## how far it has dragged from there. Measured from the landing rather than the
 ## button's middle: a button this big is rarely hit in the middle, and a tap off
 ## to one side of it is still a tap, not a throw that way.
 var _aim_from: int = -1
 var _aim_start: Vector2 = Vector2.ZERO
 var _aim_off: Vector2 = Vector2.ZERO
-## A skill thrown and let go: the aim it was let go with, the slot it casts,
-## and how long ago. The thumb that aims it is the thumb that casts it, so the
-## stick would drop back to the left thumb's aim in the very moment of the cast
-## — and while a cast's first OUTPUT goes off at once, everything the board does
-## after that plays out in real time: a second branch, a staggered DELAY. It is
-## held up until the cast has gone off (`Player.casting`) — see `_keep_throw`.
+## A cast thrown and let go: the aim it was let go with, and how long ago. The
+## thumb that aims it is the thumb that casts it, so the stick would drop back
+## to the left thumb's aim in the very moment of the cast — and while a cast's
+## first OUTPUT goes off at once, everything the board does after that plays
+## out in real time: a second branch, a staggered DELAY. It is held up until
+## the cast has gone off (`Player.casting`) — see `_keep_throw`.
 var _held_throw: Dictionary = {}
-## Whoever is being played and how many slots they carry, read once a frame
-## rather than once per control: the pad asks three questions of them while it
-## draws, and walking the tree for each would be three walks a frame.
+## Whoever is being played, read once a frame rather than once per control:
+## the pad asks questions of them while it draws, and walking the tree for
+## each would be a walk a frame apiece.
 var _player: Player = null
-var _slots: int = 0
 ## Whether this machine has ever reported a finger. The system turns a touch
 ## into a mouse click as well as reporting the touch, and answering both would
 ## press every control twice; once there are fingers the mouse is one of them.
@@ -312,7 +301,6 @@ func _process(delta: float) -> void:
 	if not up:
 		return
 	_player = _find_player()
-	_slots = 0 if _player == null else _player.runners.size()
 	_drive()
 	_keep_throw(delta)
 	Touch.aim(aim())
@@ -338,7 +326,7 @@ func _lean(action: String, amount: float, dead: float) -> void:
 		return
 	Touch.press(action, clampf((amount - dead) / (1.0 - dead), 0.0, 1.0))
 
-## Where the player is pointing, as a stick: the skill being aimed if one is —
+## Where the player is pointing, as a stick: the cast being aimed if one is —
 ## or one thrown and let go whose cast has not gone off yet — the movement stick
 ## if it is pushed, and the way they are facing otherwise. A throw is pushed as
 ## far as the thumb dragged (`throw_reach`), which the game reads as how far the
@@ -349,8 +337,8 @@ func _lean(action: String, amount: float, dead: float) -> void:
 ## pad aims the way a gamepad does, through the same right stick, which the game
 ## already understood — how hard the stick is pushed included (`Player.aim_reach`).
 ##
-## The skill being aimed wins, which is the whole of the scheme: a thumb can run
-## right and throw a skill up and to the left in the same moment. Facing is the
+## The cast being aimed wins, which is the whole of the scheme: a thumb can run
+## right and throw a cast up and to the left in the same moment. Facing is the
 ## last resort, so a tap with no throw in it still goes somewhere the player
 ## meant — forwards, where they are walking.
 func aim() -> Vector2:
@@ -367,15 +355,15 @@ func aim() -> Vector2:
 func throw_reach() -> float:
 	return clampf(inverse_lerp(AIM_DEAD, AIM_REACH, _aim_off.length()), 0.0, 1.0)
 
-## Lets a thrown skill's aim go the moment its cast has gone off — once the
-## rules have been seen casting it and have stopped — or once another stick is
-## taken up (`_take`).
+## Lets a thrown cast's aim go the moment it has gone off — once the rules
+## have been seen casting it and have stopped — or once another stick is taken
+## up (`_take`).
 func _keep_throw(delta: float) -> void:
 	if _held_throw.is_empty():
 		return
 	var t := float(_held_throw["t"]) + delta
 	_held_throw["t"] = t
-	var going := _player != null and _player.casting(int(_held_throw["slot"]))
+	var going := _player != null and _player.casting()
 	if going:
 		_held_throw["started"] = true
 	var started := bool(_held_throw["started"])
@@ -494,8 +482,6 @@ func _take(i: int, at: Vector2) -> void:
 				Touch.press(String(c["alt"]))
 				Audio.play("ui")
 				return
-			if c.has("arm"):
-				Touch.press(String(c["arm"]))
 			Touch.press(String(c["action"]))
 			_aim_from = i
 			_aim_start = at
@@ -523,13 +509,11 @@ func _drop(i: int) -> void:
 				_alt_held.erase(i)
 				_let_go_of(String(c["alt"]))
 				return
-			# A skill thrown somewhere keeps being aimed there after the thumb
+			# A cast thrown somewhere keeps being aimed there after the thumb
 			# lifts, until the cast the lift asked for has gone off.
-			if _aim_from == i and c.has("slot") and _aim_off.length() >= AIM_DEAD:
-				_held_throw = {"aim": aim(), "slot": int(c["slot"]), "t": 0.0, "started": false}
+			if _aim_from == i and bool(c.get("throw", false)) and _aim_off.length() >= AIM_DEAD:
+				_held_throw = {"aim": aim(), "t": 0.0, "started": false}
 			_let_go_of(String(c["action"]))
-			if c.has("arm"):
-				_let_go_of(String(c["arm"]))
 			if _aim_from == i:
 				_aim_from = -1
 				_aim_off = Vector2.ZERO
@@ -551,14 +535,13 @@ func _drag(i: int, at: Vector2) -> void:
 		_aim_from = i
 		_aim_off = at - _aim_start
 
-## Lets go of `action` unless some other finger is still holding it. Two
-## controls can press the same one: every slot stick charges through
-## `cast_skill`, so one thumb lifting must not cast another thumb's skill.
+## Lets go of `action` unless some other finger is still holding it: two
+## thumbs can be down at once, and HIT is USE as well.
 func _let_go_of(action: String) -> void:
 	for f in _down.values():
 		var c: Dictionary = CONTROLS[int(f)]
 		var pressing := String(c.get("alt", "")) if _alt_held.has(int(f)) else String(c.get("action", ""))
-		if pressing == action or String(c.get("arm", "")) == action:
+		if pressing == action:
 			return
 	Touch.release(action)
 
@@ -610,24 +593,9 @@ func stick_showing() -> bool:
 			return true
 	return false
 
-## Whether `c` can do anything if it is pressed. A weapon refuses some boards,
-## and a button that means "cast" should say so before the thumb goes down
-## rather than after — the slot card below it only says so once it is armed.
-func usable(c: Dictionary) -> bool:
-	if not c.has("slot") or _player == null:
-		return true
-	return _player.can_cast(int(c["slot"]))
-
-## Whether `c` is on the screen: on the face that is up, and, for a slot stick,
-## a slot the player is actually carrying. A slot they carry but cannot cast is
-## still drawn — see `usable` — because it is theirs and a weapon away from
-## working.
+## Whether `c` is on the screen: on the face that is up.
 func shown(c: Dictionary) -> bool:
-	if not (c["faces"] as Array).has(face):
-		return false
-	if c.has("slot"):
-		return int(c["slot"]) < _slots
-	return true
+	return (c["faces"] as Array).has(face)
 
 ## The room a screen of `screen` has past the design, in whole PIXELs, so what
 ## moves by it stays on the grid everything here is drawn to.
@@ -714,11 +682,9 @@ static func _read_layout() -> Dictionary:
 				"pin": Vector2(float(pin[0]), float(pin[1]))}
 	return out
 
-## What a control is called in an arrangement: the slot it arms for a skill
-## stick, since every one of them presses `cast_skill`, and its action for the
-## rest.
+## What a control is called in an arrangement: its action.
 static func key_of(c: Dictionary) -> String:
-	return String(c.get("arm", c.get("action", "move")))
+	return String(c.get("action", "move"))
 
 ## Whether the player may move `c`. Every button may; the stick's zone may not,
 ## being the left of the screen rather than a thing standing on it.
@@ -744,16 +710,14 @@ static func placed(c: Dictionary, l: Dictionary) -> Dictionary:
 func _screen() -> Vector2:
 	return get_viewport_rect().size
 
-## What is written on a control: a slot says its number, and everything else is
-## the word `controls.pad` gives its action — the same word the HUD prints
-## through `Controls.short_label_for`, so a key and everything that tells the
-## player to press it say the same thing. The stick says nothing; it is a stick.
-## With `use`, a control that has an `alt` says that instead — HIT reads USE.
+## What is written on a control: the word `controls.pad` gives its action —
+## the same word the HUD prints through `Controls.short_label_for`, so a key
+## and everything that tells the player to press it say the same thing. The
+## stick says nothing; it is a stick. With `use`, a control that has an `alt`
+## says that instead — HIT reads USE.
 static func label_of(c: Dictionary, use: bool = false) -> String:
 	if c.has("zone"):
 		return ""
-	if c.has("text"):
-		return String(c["text"])
 	if use and c.has("alt"):
 		return Controls.word_for(String(c["alt"]))
 	return Controls.word_for(String(c["action"]))
@@ -779,7 +743,7 @@ func _draw() -> void:
 					continue   # a tap area has no picture
 				# What the thumb on it is holding, or what a thumb would press.
 				var as_use := _alt_held.has(i) if _held(c) else uses(c)
-				paint_button(_px, placed(c, arranged), screen, _held(c), usable(c), as_use)
+				paint_button(_px, placed(c, arranged), screen, _held(c), true, as_use)
 	# The throw is drawn last and over everything, since it reaches across
 	# whatever is beside the button it came from.
 	if _aim_from >= 0 and _aim_off.length() >= AIM_DEAD:
@@ -830,7 +794,7 @@ static func paint_button(px: PixelDraw, c: Dictionary, screen: Vector2, held: bo
 	px.ring(at, radius, EDGE_W, edge)
 	px.text_centered(at - Vector2(radius, -drop), label_of(c, use), ink, radius * 2.0, LABEL_SIZE)
 
-## Where a held skill is pointing, and how far it will go: the ring is as far as
+## Where a held cast is pointing, and how far it will go: the ring is as far as
 ## it can, and the knob sits where the thumb has it — the distance this one
 ## goes, as a share of that — with a few pips walking out to it. Big enough to
 ## read out of the corner of an eye during a fight, which is the only time it

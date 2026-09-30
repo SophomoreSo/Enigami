@@ -68,10 +68,14 @@ func _draw() -> void:
 	y += 26.0
 	_line(Vector2(120, y), Loc.t("menu.results.scrap", [int(payload.get("scrap", 0))]),
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 14, UiKit.WARN if win else UiKit.BAD)
-	var lost_skills: Array = payload.get("skills", [])
-	if not lost_skills.is_empty():
+	# What was built onto the weapon's graph went down with it, part by part.
+	var lost_parts: Dictionary = payload.get("parts", {})
+	if not lost_parts.is_empty():
+		var built: Array[String] = []
+		for id in lost_parts:
+			built.append(Loc.t("menu.results.haul", [Components.name_for(String(id)), int(lost_parts[id])]))
 		y += 26.0
-		_line(Vector2(120, y), Loc.t("menu.results.skills_lost", [Loc.t("editor.payload.separator").join(lost_skills)]),
+		_line(Vector2(120, y), Loc.t("menu.results.build_lost", [Loc.t("editor.payload.separator").join(built)]),
 			HORIZONTAL_ALIGNMENT_LEFT, 700, 13, UiKit.BAD)
 	# What came back out with the player, and what is still down there. Both are
 	# the same fact from either end of a run: a kit is only ever lost until

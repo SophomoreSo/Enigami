@@ -59,8 +59,7 @@ func _ready() -> void:
 	await frames(6)
 
 	# --- raid ---------------------------------------------------------------
-	var slots: Array = [0, 1, 2]
-	game._deploy("SWORD", slots)
+	game._deploy("SWORD")
 	await frames(10)
 	var raid: Raid = game.current
 	await key(KEY_TAB)
@@ -158,17 +157,17 @@ func _ready() -> void:
 	# --- hideout workbench --------------------------------------------------
 	game.goto_hideout()
 	await frames(10)
-	game._edit_library_skill(0)
+	game._edit_weapon_graph()
 	await frames(6)
 	check(game.editor != null and is_instance_valid(game.editor), "workbench editor opened")
 	await key(KEY_TAB)
 	check(game.editor == null, "TAB closes the workbench editor")
-	game._edit_library_skill(0)
+	game._edit_weapon_graph()
 	await frames(6)
 	await key(KEY_ESCAPE)
 	check(game.editor == null, "ESC closes the workbench editor")
 	check(not game.get_tree().paused, "and does not pause the hideout behind it")
-	game._edit_library_skill(0)
+	game._edit_weapon_graph()
 	await frames(6)
 	var ed: SkillEditor = game.editor
 	await click(ed._close_rect().get_center())

@@ -42,7 +42,7 @@ func _ready() -> void:
 	add_child(game)
 	await frames(6)
 
-	game._deploy("SWORD", [0, 1, 2])
+	game._deploy("SWORD")
 	await frames(20)
 	var raid: Raid = game.current
 	check(raid != null and game.state == GameScript.State.RAID, "deployed into a raid")

@@ -154,7 +154,7 @@ func _ready() -> void:
 	await frames(8)
 
 	# A room with monsters in it, so actors and what they throw are in frame.
-	game._deploy("SWORD", [0, 1, 2])
+	game._deploy("SWORD")
 	await frames(20)
 	var raid: Raid = game.current
 	for c in raid.map.rooms.keys():

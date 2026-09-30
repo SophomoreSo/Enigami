@@ -29,7 +29,9 @@ extends RefCounted
 ## travels in the message beside it. Not the grid either, as a *rule*: a board
 ## pasted onto a workbench keeps that workbench's grid, and the size written
 ## into the code is there so a refusal can say which board the build was laid
-## out for (see `SkillBoard.adopt`).
+## out for (see `SkillBoard.adopt`). Its author's root goes into it like any
+## other part, and is left behind on the way in: the board it lands on has a
+## weapon's own part standing on that cell already.
 ##
 ## Pure data, like the board it reads. Nothing here draws.
 
@@ -222,11 +224,11 @@ static func decode(code: String) -> Dictionary:
 		if Components.is_retired(id):
 			retired.append([id, origin, rot])
 			continue
-		# `place` refuses an overlap, a footprint off the edge and a second
-		# INPUT, so a code that says any of those is turned away here. The one
-		# thing it allows is a part dropped on an origin already taken, which is
-		# the editor's replace — in a code it is two parts in one cell, so the
-		# cell is checked clear first and the board a code names is exact.
+		# `place` refuses an overlap and a footprint off the edge, so a code
+		# that says either is turned away here. The one thing it allows is a
+		# part dropped on an origin already taken, which is the editor's replace
+		# — in a code it is two parts in one cell, so the cell is checked clear
+		# first and the board a code names is exact.
 		if board.origin_at(origin) != null:
 			return _fail(IMPOSSIBLE)
 		if not board.place(id, origin, rot):

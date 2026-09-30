@@ -9,11 +9,12 @@ const GRAVITY := 1700.0
 
 ## How much longer a monster waits between attacks than its board alone would.
 ##
-## Monster boards are short by design — a Crawler is INPUT, SLASH, OUTPUT — and
-## a short board comes round again almost immediately, so every monster in the
-## game was attacking twelve to thirty times a second: a Sentry held down a wall
-## of bolts, and walking into a Crawler was a death with no blow in it to read.
-## The player's own basic is paced the same way, by `Player.BASIC_COOLDOWN_MUL`.
+## Monster boards are short by design — a Crawler is a SLASH and an OUTPUT —
+## and a short board comes round again almost immediately, so every monster in
+## the game was attacking twelve to thirty times a second: a Sentry held down a
+## wall of bolts, and walking into a Crawler was a death with no blow in it to
+## read. The player's own casts are paced the same way, by
+## `Player.CAST_COOLDOWN_MUL`.
 ##
 ## It is one number for every monster on purpose. What separates a Crawler's
 ## slash from an Arbiter's volley is already in their boards — length and heat —
