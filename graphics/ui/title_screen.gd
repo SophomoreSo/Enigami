@@ -137,6 +137,16 @@ const MARK_QUIT := [
 	"...##...##...",
 	".....###.....",
 ]
+## Which mark stands over which tile, by the item's id in the `title` menu's
+## rows — the look of an item is the screen's, the way a part's is `Style`'s.
+## An item with none here gets a plate with only its name on it.
+const MARKS := {"start": MARK_START, "sandbox": MARK_SANDBOX,
+	"settings": MARK_SETTINGS, "quit": MARK_QUIT}
+## The menus this screen shows, each as a page of its own: the title's, the
+## save slots behind START, the settings and the two pages behind them. What
+## is on each is its rows (`Menus`); `_open` knows which page each is, and
+## `acts_for` what its other items do.
+const MENUS := ["title", "save_slots", "settings", "general", "controls"]
 
 ## The seal and the wordmark are drawn at this fraction of the screen and
 ## blitted back with nearest filtering. The copper is all axis-aligned and
@@ -208,6 +218,8 @@ var _general: UiKit.ScreenFrame
 var _controls: UiKit.ScreenFrame
 ## One entry per slot: {"n", "pick", "stamp", "bin"}.
 var _slot_rows: Array = []
+## The heading over them, read with the page: it is drawn every frame.
+var _slot_prompt: String = ""
 ## The slot whose trashcan is armed, or -1, and how long it stays that way.
 var _armed_slot: int = -1
 var _armed_left: float = 0.0
@@ -486,27 +498,36 @@ func _arc_slice(pts: PackedVector2Array, a: float, b: float) -> PackedVector2Arr
 	return out
 
 ## --- the menu ---------------------------------------------------------------
-## A column of lines, or in mobile mode a row of tiles: the same four entries
-## either way, doing the same four things.
+## A column of lines, or in mobile mode a row of tiles: the same entries
+## either way, doing the same things. Which entries, in what order, and what
+## each says is the `title` menu's rows; what each does is this screen's, by
+## the item's id — `_open` for one that leads to a page, `acts_for` for the
+## rest.
 func _build_menu(focus: bool = true) -> void:
 	_mobile = Touch.wanted()
 	if _mobile:
 		_menu_root = _tile_row()
 	else:
 		_menu_root = _column(MENU_TOP)
-	_start_button = _menu_item(Loc.t("menu.title.start"), MARK_START)
-	_start_button.pressed.connect(_show_save_slots)
-	var sandbox := _menu_item(Loc.t("menu.title.sandbox"), MARK_SANDBOX)
-	sandbox.pressed.connect(func() -> void: sandbox_requested.emit())
-	_settings_button = _menu_item(Loc.t("menu.title.settings"), MARK_SETTINGS)
-	_settings_button.pressed.connect(_toggle_settings)
-	var quit := _menu_item(Loc.t("menu.title.quit"), MARK_QUIT)
-	quit.pressed.connect(func() -> void: get_tree().quit())
+	var acts := acts_for("title")
+	var made := {}
+	for item in Menus.items("title"):
+		var id := String(item["id"])
+		var b := _menu_item(String(item["text"]), MARKS.get(id, []))
+		b.pressed.connect(Menus.press("title", item, acts, _open))
+		made[id] = b
+	# The two the screen comes back to: START takes the keyboard when the menu
+	# comes up, SETTINGS when the settings close over it.
+	_start_button = made.get("start")
+	_settings_button = made.get("settings")
+	for id in ["start", "settings"]:
+		if not made.has(id):
+			push_error("TitleScreen: the title menu has no '%s' — see data/db/menus/menus.sql" % id)
 	if _mobile:
 		# Centred under the seal on whole pixels, now its width is known.
 		var n := _menu_root.get_child_count()
 		_menu_root.position.x = SEAL.x - floorf((TILE * n + TILE_GAP * (n - 1)) * 0.5)
-	if focus:
+	if focus and _start_button != null:
 		_start_button.grab_focus()
 
 ## Mobile mode was thrown — on the controls page, which is the only place it
@@ -525,6 +546,42 @@ func _rebuild_menu() -> void:
 
 func _menu_item(text: String, mark: Array) -> Button:
 	return _tile(text, mark) if _mobile else _menu_button(text, _menu_root)
+
+## Opening a menu from an item that leads to one: the page it is on this
+## screen. The rows name menus; this is the one place that knows which page
+## each is, so a row opening one the screen has no page for is said, not
+## guessed at.
+func _open(menu: String) -> void:
+	match menu:
+		"save_slots":
+			_show_save_slots()
+		"settings":
+			_toggle_settings()
+		"general":
+			_toggle_general()
+		"controls":
+			_toggle_controls()
+		_:
+			push_error("TitleScreen: no page for the %s menu" % menu)
+
+## What an item that opens no menu does, by its id, on each menu this screen
+## shows — the words its rows are written in. `back` is the way out of the
+## page it is on: one level up, to wherever that page was opened from.
+## `tests/graphics/menus_test` holds every row to these.
+func acts_for(menu: String) -> Dictionary:
+	match menu:
+		"title":
+			return {"sandbox": func() -> void: sandbox_requested.emit(),
+				"quit": func() -> void: get_tree().quit()}
+		"save_slots":
+			return {"back": _hide_save_slots}
+		"settings":
+			return {"back": _toggle_settings}
+		"general":
+			return {"back": _toggle_general}
+		"controls":
+			return {"back": _toggle_controls}
+	return {}
 
 ## The row mobile mode's tiles stand in, from TILE_TOP down. `_build_menu`
 ## centres it once the tiles are in it.
@@ -559,15 +616,19 @@ func _tile(text: String, mark: Array) -> Button:
 func _build_save_slots() -> void:
 	_save_slot_root = _column(SAVE_SLOT_TOP, SAVE_SLOT_WIDTH)
 	_save_slot_root.visible = false
+	_slot_prompt = Menus.name_for("save_slots")
 	_slot_rows.clear()
 	for i in SAVE_SLOTS:
 		var row := _slot_row(i + 1)
 		_slot_rows.append(row)
 		if i == 0:
 			_first_save_slot = row["pick"]
-	var back := _menu_button(Loc.t("menu.title.back"), _save_slot_root)
-	back.add_theme_font_size_override("font_size", Loc.text_size(back.text, 16))
-	back.pressed.connect(_hide_save_slots)
+	# Under the slots, what the menu's own rows put there: the way back.
+	var acts := acts_for("save_slots")
+	for item in Menus.items("save_slots"):
+		var b := _menu_button(String(item["text"]), _save_slot_root)
+		b.add_theme_font_size_override("font_size", Loc.text_size(b.text, 16))
+		b.pressed.connect(Menus.press("save_slots", item, acts, _open))
 	_refresh_slots()
 
 ## One slot: its name on the left, when it was last saved on the right, and a
@@ -583,7 +644,7 @@ func _slot_row(n: int) -> Dictionary:
 	# `_draw_focus_marks` sets either side of the focused control land against
 	# SLOT 1 the way they do against every other line on this screen. Stretched,
 	# the right-hand one sat in the middle of the date.
-	var pick := _bare_button(Loc.t("menu.title.slot", [n]), 24)
+	var pick := _bare_button(Loc.t("menu.save_slots.slot", [n]), 24)
 	pick.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	pick.pressed.connect(func() -> void:
 		save_slot = n
@@ -618,10 +679,10 @@ func _slot_row(n: int) -> Dictionary:
 ## words around it, for a slot with nothing in it and for one being thrown away.
 func _slot_stamp(n: int) -> String:
 	if _armed_slot == n:
-		return Loc.t("menu.title.slot_delete")
+		return Loc.t("menu.save_slots.slot_delete")
 	var at := int(GameState.slot_info(n).get("saved_at", 0))
 	if at <= 0:
-		return Loc.t("menu.title.slot_empty")
+		return Loc.t("menu.save_slots.slot_empty")
 	var local := at + int(Time.get_time_zone_from_system().get("bias", 0)) * 60
 	var d := Time.get_datetime_dict_from_unix_time(local)
 	return "%04d-%02d-%02d %02d:%02d" % [d["year"], d["month"], d["day"], d["hour"], d["minute"]]
@@ -716,31 +777,21 @@ func _bare_button(text: String, px: int) -> Button:
 	return b
 
 ## SETTINGS holds nothing of its own any more: it is two buttons and the way
-## back, and every setting lives on the page behind one of them.
+## back, and every setting lives on the page behind one of them. All three are
+## the `settings` menu's rows, each door saying the name of the page it opens.
 func _build_settings() -> void:
 	_settings = _settings_page()
-	var v := _settings_column(_settings, Loc.t("menu.settings.heading"))
-	var to_general := UiKit.button(Loc.t("menu.settings.general"), UiKit.ACCENT, true)
-	to_general.pressed.connect(_toggle_general)
-	v.add_child(to_general)
-	var to_controls := UiKit.button(Loc.t("controls.open"), UiKit.ACCENT, true)
-	to_controls.pressed.connect(_toggle_controls)
-	v.add_child(to_controls)
-	_settings.foot.add_child(UiKit.spacer(8))
-	var back := UiKit.button(Loc.t("menu.settings.back"), UiKit.ACCENT, true)
-	back.pressed.connect(_toggle_settings)
-	_settings.foot.add_child(back)
+	_settings_column(_settings, Menus.name_for("settings"))
+	_fill_page(_settings, "settings")
 
-## The volumes and the language, on the page behind GENERAL SETTINGS.
+## The volumes and the language, on the page behind GENERAL SETTINGS. The rows
+## themselves are the screen's; the way back under them is the menu's.
 func _build_general() -> void:
 	_general = _settings_page()
-	var v := _settings_column(_general, Loc.t("menu.settings.general"))
+	var v := _settings_column(_general, Menus.name_for("general"))
 	for row in SettingsRows.rows() + VideoRows.rows():
 		v.add_child(row)
-	_general.foot.add_child(UiKit.spacer(8))
-	var back := UiKit.button(Loc.t("menu.settings.back"), UiKit.ACCENT, true)
-	back.pressed.connect(_toggle_general)
-	_general.foot.add_child(back)
+	_fill_page(_general, "general")
 
 ## The rebinding list, on the page behind CONTROL SETTINGS. It is fifteen rows
 ## of two columns — longer than every other setting put together — and inline
@@ -749,14 +800,30 @@ func _build_general() -> void:
 ## settings, so no page inherits another's scroll position.
 func _build_controls() -> void:
 	_controls = _settings_page()
-	var v := _settings_column(_controls, Loc.t("controls.open"))
+	var v := _settings_column(_controls, Menus.name_for("controls"))
 	var controls := ControlsPanel.new()
 	controls.pixel = true
 	v.add_child(controls)
-	_controls.foot.add_child(UiKit.spacer(8))
-	var back := UiKit.button(Loc.t("controls.back"), UiKit.ACCENT, true)
-	back.pressed.connect(_toggle_controls)
-	_controls.foot.add_child(back)
+	_fill_page(_controls, "controls")
+
+## A page's items, from its menu's rows: a button each, in order, under
+## whatever the page already holds. One that is a way out of the page is
+## pinned in the frame's foot, so however long the rows above it grow it stays
+## on the screen. What pressing each does is `_open` for a door and `acts_for`
+## for the rest.
+func _fill_page(page: UiKit.ScreenFrame, menu: String) -> void:
+	var acts := acts_for(menu)
+	var foot_open := false
+	for item in Menus.items(menu):
+		var b := UiKit.button(String(item["text"]), UiKit.ACCENT, true)
+		b.pressed.connect(Menus.press(menu, item, acts, _open))
+		if bool(item["exit"]):
+			if not foot_open:
+				page.foot.add_child(UiKit.spacer(8))
+				foot_open = true
+			page.foot.add_child(b)
+		else:
+			page.rows.add_child(b)
 
 ## An empty settings page, hidden until its button is pressed: UiKit's pixel
 ## look, like the menu that opens it. The pixel face runs up to twice as wide as
@@ -1189,6 +1256,8 @@ func _octagon(r: Rect2, cut: float) -> PackedVector2Array:
 ## A mark, hung from the middle of its top edge: each run of `#` along a line
 ## of the table is one block MARK_UNIT high.
 func _draw_mark(mark: Array, top_middle: Vector2, col: Color) -> void:
+	if mark.is_empty():
+		return
 	var u := MARK_UNIT
 	var at := (top_middle - Vector2(String(mark[0]).length() * u * 0.5, 0.0)).floor()
 	for y in mark.size():
@@ -1209,7 +1278,7 @@ func _draw_mark(mark: Array, top_middle: Vector2, col: Color) -> void:
 func _draw_save_slot_prompt() -> void:
 	if _save_slot_root == null or not _save_slot_root.visible:
 		return
-	var line := Loc.t("menu.title.select_slot")
+	var line := _slot_prompt
 	var size := Loc.text_size(line, 16)
 	var w := _menu_font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 	draw_string(_menu_font, Vector2(SEAL.x - w * 0.5, SAVE_SLOT_TOP - 12.0), line,

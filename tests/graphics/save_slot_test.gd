@@ -68,10 +68,10 @@ func _ready() -> void:
 		rows.append((row["pick"] as Button).text)
 	var want: Array = []
 	for i in TitleScreen.SAVE_SLOTS:
-		want.append(Loc.t("menu.title.slot", [i + 1]))
+		want.append(Loc.t("menu.save_slots.slot", [i + 1]))
 	check(rows == want, "three slots (%s)" % str(rows))
 	check((title._save_slot_root.get_child(TitleScreen.SAVE_SLOTS) as Button).text
-		== Loc.t("menu.title.back"), "and a way back under them")
+		== Menus.text_for("save_slots", "back"), "and a way back under them")
 	check(focus_owner() == title._first_save_slot,
 		"the keyboard lands on SLOT 1 (owner=%s)" % str(focus_owner()))
 
@@ -115,7 +115,7 @@ func _ready() -> void:
 	var t3: TitleScreen = game.current
 	t3._start_button.emit_signal("pressed")
 	await frames(4)
-	check(stamp_of(t3, 0) == Loc.t("menu.title.slot_empty"),
+	check(stamp_of(t3, 0) == Loc.t("menu.save_slots.slot_empty"),
 		"a slot nothing has been saved into reads EMPTY (%s)" % stamp_of(t3, 0))
 	check(dated(stamp_of(t3, 1)),
 		"and one that has been played carries when it was last written (%s)"
@@ -136,7 +136,7 @@ func _ready() -> void:
 	bin.emit_signal("pressed")
 	await frames(2)
 	check(GameState.slot_used(2), "one press on the can throws nothing away")
-	check(stamp_of(t3, 1) == Loc.t("menu.title.slot_delete"),
+	check(stamp_of(t3, 1) == Loc.t("menu.save_slots.slot_delete"),
 		"it asks first (%s)" % stamp_of(t3, 1))
 
 	await cancel()
@@ -149,7 +149,7 @@ func _ready() -> void:
 	bin.emit_signal("pressed")
 	await frames(2)
 	check(not GameState.slot_used(2), "a second press on an armed can empties the slot")
-	check(stamp_of(t3, 1) == Loc.t("menu.title.slot_empty"),
+	check(stamp_of(t3, 1) == Loc.t("menu.save_slots.slot_empty"),
 		"which the row then says (%s)" % stamp_of(t3, 1))
 	check(GameState.slot_used(1), "and the slot beside it is untouched")
 

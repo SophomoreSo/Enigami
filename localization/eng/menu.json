@@ -2,20 +2,28 @@
 	"title": {
 		"start": "START",
 		"sandbox": "SANDBOX",
-		"settings": "SETTINGS",
-		"quit": "QUIT",
-		"back": "BACK",
+		"quit": "QUIT"
+	},
+	"save_slots": {
+		"heading": "SELECT SAVE SLOT",
 		"slot": "SLOT %d",
 		"slot_empty": "EMPTY",
 		"slot_delete": "DELETE?",
-		"select_slot": "SELECT SAVE SLOT"
+		"back": "BACK"
 	},
 	"settings": {
 		"heading": "SETTINGS",
 		"music": "Music",
 		"sound": "Sound",
 		"language": "Language",
-		"general": "GENERAL SETTINGS",
+		"back": "BACK"
+	},
+	"general": {
+		"heading": "GENERAL SETTINGS",
+		"back": "BACK"
+	},
+	"controls": {
+		"heading": "CONTROL SETTINGS",
 		"back": "BACK"
 	},
 	"video": {
@@ -29,8 +37,6 @@
 	"pause": {
 		"heading": "PAUSED",
 		"resume": "BACK TO GAME",
-		"general": "GENERAL SETTINGS",
-		"back": "BACK",
 		"title": "MAIN MENU",
 		"park": "MAIN MENU — the raid is kept where you left it",
 		"abandon": "ABANDON RAID — forfeits the kit",

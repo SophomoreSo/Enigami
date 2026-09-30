@@ -2,20 +2,28 @@
 	"title": {
 		"start": "시작",
 		"sandbox": "연습장",
-		"settings": "설정",
-		"quit": "종료",
-		"back": "뒤로",
+		"quit": "종료"
+	},
+	"save_slots": {
+		"heading": "저장 슬롯 선택",
 		"slot": "슬롯 %d",
 		"slot_empty": "비어 있음",
 		"slot_delete": "삭제할까요?",
-		"select_slot": "저장 슬롯 선택"
+		"back": "뒤로"
 	},
 	"settings": {
 		"heading": "설정",
 		"music": "음악",
 		"sound": "효과음",
 		"language": "언어",
-		"general": "일반 설정",
+		"back": "뒤로"
+	},
+	"general": {
+		"heading": "일반 설정",
+		"back": "뒤로"
+	},
+	"controls": {
+		"heading": "조작 설정",
 		"back": "뒤로"
 	},
 	"video": {
@@ -29,8 +37,6 @@
 	"pause": {
 		"heading": "일시정지",
 		"resume": "게임으로 돌아가기",
-		"general": "일반 설정",
-		"back": "뒤로",
 		"title": "메인 메뉴",
 		"park": "메인 메뉴 — 레이드는 떠난 자리에 그대로 남습니다",
 		"abandon": "레이드 포기 — 장비를 모두 잃습니다",

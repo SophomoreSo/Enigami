@@ -46,6 +46,7 @@ godot res://tests/graphics/bench_pixel_test.tscn # the bench panel's pixel look 
 godot res://tests/circuit/code_test.tscn    # a board survives being written down as a code
 godot res://tests/circuit/parts_test.tscn   # every part's rows fit, and the runner does what they say
 godot res://tests/feature/boards_test.tscn  # every board the game ships builds whole and reaches an OUTPUT
+godot res://tests/graphics/menus_test.tscn  # every menu's rows name an act its screen has, in every language
 godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
 godot res://tests/feature/reach_test.tscn   # how far an attack goes when the stick says how far
 godot res://tests/feature/forge_test.tscn   # the forge's price, and one skill in one slot: the profile's rules

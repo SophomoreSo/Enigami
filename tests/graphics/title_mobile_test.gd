@@ -15,7 +15,6 @@ extends Node
 ## position are the same number, and a click sent to the wrong one lands anyway.
 
 const GameScript := preload("res://app/game.gd")
-const NAMES := ["menu.title.start", "menu.title.sandbox", "menu.title.settings", "menu.title.quit"]
 
 var fails := 0
 var game: Node
@@ -142,7 +141,7 @@ func _the_row() -> void:
 	var names: Array = []
 	for b: Button in e:
 		names.append(b.text)
-	var want: Array = NAMES.map(func(k: String) -> String: return Loc.t(k))
+	var want: Array = Menus.items("title").map(func(i: Dictionary) -> String: return String(i["text"]))
 	check(names == want, "in the order the lines were in (%s)" % str(names))
 
 	var rects: Array = e.map(func(b: Control) -> Rect2: return b.get_global_rect())

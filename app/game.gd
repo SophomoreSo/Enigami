@@ -45,6 +45,11 @@ var pause_abandon: Button = null
 var pause_title: Button = null
 var pause_park: Button = null
 var hideout_ref: HideoutWorld = null
+## The menus the pause menu shows, each as a page of its own: PAUSED, and the
+## two pages behind its doors — the same two the title's settings show, from
+## the same rows. What is on each is its rows (`Menus`); `_pause_open` knows
+## which page each is, and `_pause_acts` what its other items do.
+const PAUSE_MENUS := ["pause", "general", "controls"]
 
 func _ready() -> void:
 	randomize()
@@ -378,60 +383,108 @@ func _build_pause_menu() -> void:
 	var frame := UiKit.screen_frame(608.0, 36.0, 28.0, true)
 	pause_menu.add_child(frame)
 	pause_main = frame
-	frame.head.add_child(_pause_heading(Loc.t("menu.pause.heading"), _unpause))
+	frame.head.add_child(_pause_heading(Menus.name_for("pause"), _unpause))
 	frame.head.add_child(UiKit.hline(true))
-	var to_general := UiKit.button(Loc.t("menu.pause.general"), UiKit.ACCENT, true)
-	to_general.custom_minimum_size = Vector2(280, 36)
-	to_general.pressed.connect(func() -> void: _pause_general(true))
-	frame.rows.add_child(to_general)
-	var to_controls := UiKit.button(Loc.t("controls.open"), UiKit.ACCENT, true)
-	to_controls.custom_minimum_size = Vector2(280, 36)
-	to_controls.pressed.connect(func() -> void: _pause_controls(true))
-	frame.rows.add_child(to_controls)
-	# The ways out of the menu, gathered at the bottom and ordered by what they
-	# cost: back into the game, out to the title, and last the one that forfeits
-	# a raid — its own act and its own colour, so it stays its own button. They
-	# sit in the frame's foot, which is pinned: whatever is added to this menu
-	# above them, they stay on the screen.
+	# The two doors, and the ways out of the menu gathered at the bottom and
+	# ordered by what they cost: back into the game, out to the title, and last
+	# the one that forfeits a raid — its own act and its own colour, so it stays
+	# its own button. Which is which, and what each says, is the `pause` menu's
+	# rows; the three ways to the title are kept by name, since `_pause` shows
+	# whichever of them apply.
 	#
 	# Everywhere but a raid, leaving is leaving, and the button says where it
 	# lands rather than what it is walking out of. The bench used to word it
 	# LEAVE THE BENCH, which was the same act under a name that did not say
-	# where it went. `_pause` shows whichever of these apply.
-	frame.foot.add_child(UiKit.spacer(8))
-	var resume := UiKit.button(Loc.t("menu.pause.resume"), UiKit.GOOD, true)
-	resume.custom_minimum_size = Vector2(280, 40)
-	resume.pressed.connect(_unpause)
-	frame.foot.add_child(resume)
-	pause_title = UiKit.button(Loc.t("menu.pause.title"), UiKit.ACCENT, true)
-	pause_title.custom_minimum_size = Vector2(280, 36)
-	pause_title.pressed.connect(func() -> void:
-		_unpause()
-		goto_title())
-	frame.foot.add_child(pause_title)
-	# The same destination from inside a raid, and the raid survives it: the run
-	# is written into the save slot as it stands and walked back into when that
-	# slot is opened again. It is the only way out of a raid that costs nothing,
-	# which is why it says so on it.
-	pause_park = UiKit.button(Loc.t("menu.pause.park"), UiKit.ACCENT, true)
-	pause_park.custom_minimum_size = Vector2(280, 36)
-	pause_park.pressed.connect(func() -> void:
-		_unpause()
-		if state == State.RAID and current != null and is_instance_valid(current):
-			GameState.park_raid((current as Raid).park())
-		goto_title())
-	frame.foot.add_child(pause_park)
-	pause_abandon = UiKit.button(Loc.t("menu.pause.abandon"), UiKit.BAD, true)
-	pause_abandon.custom_minimum_size = Vector2(280, 36)
-	pause_abandon.pressed.connect(func() -> void:
-		_unpause()
-		if state == State.RAID:
-			var lost := GameState.die()
-			_raid_finished("died", lost))
-	frame.foot.add_child(pause_abandon)
+	# where it went.
+	var made := _pause_items(frame, "pause")
+	pause_title = made.get("title")
+	pause_park = made.get("park")
+	pause_abandon = made.get("abandon")
+	for id in ["title", "park", "abandon"]:
+		if not made.has(id):
+			push_error("Game: PAUSED has no '%s' — see data/db/menus/menus.sql" % id)
 	_build_pause_general()
 	_build_pause_controls()
 	overlay_layer.add_child(pause_menu)
+
+## A pause page's items, from its menu's rows: a button each, in order, under
+## whatever the page already holds. The ways out of the page go in the
+## frame's foot, which is pinned: whatever is added to the page above them,
+## they stay on the screen. What each says and where it leads is the rows';
+## what pressing it does is `_pause_open` for a door and `_pause_acts` for the
+## rest; and its colour and height are this menu's own, by the item's id —
+## BACK TO GAME stands taller, in the colour of a way in, and ABANDON RAID in
+## the colour of a cost.
+func _pause_items(frame: UiKit.ScreenFrame, menu: String) -> Dictionary:
+	var acts := _pause_acts(menu)
+	var made := {}
+	var foot_open := false
+	for item in Menus.items(menu):
+		var id := String(item["id"])
+		var tone := UiKit.ACCENT
+		if id == "resume":
+			tone = UiKit.GOOD
+		elif id == "abandon":
+			tone = UiKit.BAD
+		var b := UiKit.button(String(item["text"]), tone, true)
+		b.custom_minimum_size = Vector2(280, 40 if id == "resume" else 36)
+		b.pressed.connect(Menus.press(menu, item, acts, _pause_open))
+		if bool(item["exit"]):
+			if not foot_open:
+				frame.foot.add_child(UiKit.spacer(8))
+				foot_open = true
+			frame.foot.add_child(b)
+		else:
+			frame.rows.add_child(b)
+		made[id] = b
+	return made
+
+## Opening a menu from an item that leads to one: the pause page it is. A row
+## opening a menu the pause menu has no page for is said, not guessed at.
+func _pause_open(menu: String) -> void:
+	match menu:
+		"general":
+			_pause_general(true)
+		"controls":
+			_pause_controls(true)
+		_:
+			push_error("Game: the pause menu has no page for the %s menu" % menu)
+
+## What an item that opens no menu does, by its id, on each page of the pause
+## menu — the words its rows are written in. `back` is one level up.
+## `tests/graphics/menus_test` holds every row to these.
+func _pause_acts(menu: String) -> Dictionary:
+	match menu:
+		"pause":
+			return {"resume": _unpause, "title": _pause_to_title,
+				"park": _pause_park, "abandon": _pause_abandon}
+		"general":
+			return {"back": func() -> void: _pause_general(false)}
+		"controls":
+			return {"back": func() -> void: _pause_controls(false)}
+	return {}
+
+## MAIN MENU: to the title from wherever it is pressed.
+func _pause_to_title() -> void:
+	_unpause()
+	goto_title()
+
+## The same destination from inside a raid, and the raid survives it: the run
+## is written into the save slot as it stands and walked back into when that
+## slot is opened again. It is the only way out of a raid that costs nothing,
+## which is why the button says so.
+func _pause_park() -> void:
+	_unpause()
+	if state == State.RAID and current != null and is_instance_valid(current):
+		GameState.park_raid((current as Raid).park())
+	goto_title()
+
+## ABANDON RAID: the run ends where it stands, and the kit stays behind.
+func _pause_abandon() -> void:
+	_unpause()
+	if state == State.RAID:
+		var lost := GameState.die()
+		_raid_finished("died", lost)
 
 ## The page behind GENERAL SETTINGS: the volumes, the language, and the way back
 ## to PAUSED. The same three the title's settings hold — the same rows, in fact,
@@ -449,16 +502,12 @@ func _build_pause_general() -> void:
 	frame.visible = false
 	pause_general = frame
 	pause_menu.add_child(frame)
-	frame.head.add_child(_pause_heading(Loc.t("menu.pause.general"),
+	frame.head.add_child(_pause_heading(Menus.name_for("general"),
 		func() -> void: _pause_general(false)))
 	frame.head.add_child(UiKit.hline(true))
 	for row in SettingsRows.rows() + VideoRows.rows():
 		frame.rows.add_child(row)
-	frame.foot.add_child(UiKit.spacer(8))
-	var back := UiKit.button(Loc.t("menu.pause.back"), UiKit.ACCENT, true)
-	back.custom_minimum_size = Vector2(280, 36)
-	back.pressed.connect(func() -> void: _pause_general(false))
-	frame.foot.add_child(back)
+	_pause_items(frame, "general")
 
 ## The second page: the rebinding list, and the way back to the first. Built as
 ## a sibling frame rather than a panel swapped into the first one, so each page
@@ -472,17 +521,13 @@ func _build_pause_controls() -> void:
 	frame.visible = false
 	pause_controls = frame
 	pause_menu.add_child(frame)
-	frame.head.add_child(_pause_heading(Loc.t("controls.open"),
+	frame.head.add_child(_pause_heading(Menus.name_for("controls"),
 		func() -> void: _pause_controls(false)))
 	frame.head.add_child(UiKit.hline(true))
 	var cp := ControlsPanel.new()
 	cp.pixel = true
 	frame.rows.add_child(cp)
-	frame.foot.add_child(UiKit.spacer(8))
-	var back := UiKit.button(Loc.t("controls.back"), UiKit.ACCENT, true)
-	back.custom_minimum_size = Vector2(280, 36)
-	back.pressed.connect(func() -> void: _pause_controls(false))
-	frame.foot.add_child(back)
+	_pause_items(frame, "controls")
 
 ## Which of the pause menu's pages is on screen. Only one ever is: `page` is
 ## the one to show, or null for PAUSED itself.

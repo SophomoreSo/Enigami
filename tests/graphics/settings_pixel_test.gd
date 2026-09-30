@@ -167,8 +167,8 @@ func _ready() -> void:
 	# settings are two buttons and the way back, and nothing else.
 	check(find_under(title._settings, func(c: Node) -> bool: return c is HSlider) == null,
 		"the settings no longer carry the volume rows themselves")
-	var open_general := button_named(title._settings, Loc.t("menu.settings.general"))
-	check(open_general != null, "the settings offer '%s'" % Loc.t("menu.settings.general"))
+	var open_general := button_named(title._settings, Menus.name_for("general"))
+	check(open_general != null, "the settings offer '%s'" % Menus.name_for("general"))
 	check(title._general != null and not title._general.visible,
 		"and the page behind it starts closed")
 	if open_general != null:
@@ -204,7 +204,7 @@ func _ready() -> void:
 				"and leaves the general page open, where the button was")
 			var heading := ""
 			for c in controls_under(title._general):
-				if c is Label and (c as Label).text == Loc.t("menu.settings.general"):
+				if c is Label and (c as Label).text == Menus.name_for("general"):
 					heading = (c as Label).text
 			check(heading != "", "the page is rebuilt in %s ('%s')" % [other, heading])
 			check(title._start_button != null
@@ -264,8 +264,8 @@ func _ready() -> void:
 	Video._save()
 	await frames(4)
 
-	var general_back := button_named(title._general, Loc.t("menu.settings.back"))
-	check(general_back != null, "the general page offers '%s'" % Loc.t("menu.settings.back"))
+	var general_back := button_named(title._general, Menus.text_for("general", "back"))
+	check(general_back != null, "the general page offers '%s'" % Menus.text_for("general", "back"))
 	if general_back != null:
 		general_back.emit_signal("pressed")
 		await frames(8)
@@ -277,8 +277,8 @@ func _ready() -> void:
 	# own, and CONTROL SETTINGS is the only way onto it.
 	check(find_under(title._settings, func(c: Node) -> bool: return c is ControlsPanel) == null,
 		"the settings no longer carry the rebinding list themselves")
-	var open_controls := button_named(title._settings, Loc.t("controls.open"))
-	check(open_controls != null, "the settings offer '%s'" % Loc.t("controls.open"))
+	var open_controls := button_named(title._settings, Menus.name_for("controls"))
+	check(open_controls != null, "the settings offer '%s'" % Menus.name_for("controls"))
 	check(title._controls != null and not title._controls.visible,
 		"and the page behind it starts closed")
 	if open_controls != null:
@@ -300,8 +300,8 @@ func _ready() -> void:
 		check(columns.size() == 1, "the bindings line up in one column (%d x positions)" % columns.size())
 		check(tight.is_empty(), "every binding fits its button (too tight: %s)" % str(tight))
 
-	var back := button_named(title._controls, Loc.t("controls.back"))
-	check(back != null, "the controls page offers '%s'" % Loc.t("controls.back"))
+	var back := button_named(title._controls, Menus.text_for("controls", "back"))
+	check(back != null, "the controls page offers '%s'" % Menus.text_for("controls", "back"))
 	if back != null:
 		back.emit_signal("pressed")
 		await frames(8)
@@ -325,8 +325,8 @@ func _ready() -> void:
 	check(find_under(game.pause_main, func(c: Node) -> bool: return c is HSlider) == null,
 		"nor the volume rows, which are behind GENERAL SETTINGS now")
 
-	var pause_general := button_named(game.pause_main, Loc.t("menu.pause.general"))
-	check(pause_general != null, "the pause menu offers '%s'" % Loc.t("menu.pause.general"))
+	var pause_general := button_named(game.pause_main, Menus.name_for("general"))
+	check(pause_general != null, "the pause menu offers '%s'" % Menus.name_for("general"))
 	if pause_general != null:
 		pause_general.emit_signal("pressed")
 		await frames(6)
@@ -362,7 +362,7 @@ func _ready() -> void:
 
 	video_rows(game.pause_general, "the pause menu's general page")
 
-	var pause_general_back := button_named(game.pause_general, Loc.t("menu.pause.back"))
+	var pause_general_back := button_named(game.pause_general, Menus.text_for("general", "back"))
 	if pause_general_back != null:
 		pause_general_back.emit_signal("pressed")
 		await frames(6)
@@ -397,8 +397,8 @@ func _ready() -> void:
 		game._pause_controls(false)
 		await frames(6)
 
-	var pause_open := button_named(game.pause_main, Loc.t("controls.open"))
-	check(pause_open != null, "the pause menu offers '%s'" % Loc.t("controls.open"))
+	var pause_open := button_named(game.pause_main, Menus.name_for("controls"))
+	check(pause_open != null, "the pause menu offers '%s'" % Menus.name_for("controls"))
 	if pause_open != null:
 		pause_open.emit_signal("pressed")
 		await frames(6)
@@ -407,7 +407,7 @@ func _ready() -> void:
 	audit(game.pause_controls as UiKit.ScreenFrame, "the pause controls page", 1, 25)
 	var pause_cp: ControlsPanel = find_under(game.pause_controls, func(c: Node) -> bool: return c is ControlsPanel) as ControlsPanel
 	check(pause_cp != null and pause_cp.pixel, "the pause menu's controls list is the pixel one too")
-	var pause_back := button_named(game.pause_controls, Loc.t("controls.back"))
+	var pause_back := button_named(game.pause_controls, Menus.text_for("controls", "back"))
 	if pause_back != null:
 		pause_back.emit_signal("pressed")
 		await frames(6)

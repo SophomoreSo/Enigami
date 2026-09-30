@@ -2,8 +2,8 @@
 
 `data/enigami.db` is what the game reads and never writes, kept as tables:
 the conversations, the player's state machine, the parts a skill board is
-built from and the boards the game ships with, today, and whatever else is
-better kept as rows than as a file tomorrow. The game reaches it through `Db`
+built from, the boards the game ships with and the menus, today, and whatever
+else is better kept as rows than as a file tomorrow. The game reaches it through `Db`
 (`app/db.gd`), and it is built from the SQL in this folder:
 
 ```
@@ -22,6 +22,8 @@ data/
     │   └── apprentice.sql   free
     ├── machines/     the state machines, one file each
     │   └── player.sql
+    ├── menus/        the menus, and what is on each
+    │   └── menus.sql
     └── parts/        every part a board is built from, and its number in a shared code
         └── parts.sql
 ```
@@ -447,6 +449,48 @@ second INPUT — is left off and reported, and `tests/feature/boards_test.tscn`
 fails unless every board builds whole, starts at one INPUT and reaches an
 OUTPUT, and every board the code asks for is here.
 
+## A menu
+
+The menus a screen is made of — the title's, the save slots behind its
+START, its SETTINGS and the two pages behind them, and PAUSED — are rows in
+`menus/menus.sql`: a menu is its name, and its items in order. Each item is
+one thing: the menu it opens, or an act of the screen that shows it, by the
+item's id. What stays code is the acts, handed to `Menus`
+(`graphics/ui/menus.gd`) by name, the way the player hands `Machine` its
+actions: the title's `acts_for` and the shell's `_pause_acts`, each a
+dictionary of what its items do. An item naming an act the screen does not
+have does nothing, and says so; `tests/graphics/menus_test` fails on one.
+
+```sql
+INSERT INTO menus (id, name) VALUES
+	('settings', 'SETTINGS'),
+	('general',  'GENERAL SETTINGS');
+
+INSERT INTO menu_items (menu_id, id, position, text, opens, exit) VALUES
+	('settings', 'general', 0, NULL,   'general', 0),
+	('settings', 'back',    1, 'BACK', NULL,      1);
+```
+
+| Table · column | Meaning |
+|---|---|
+| `menus.name` | The heading over the menu, and what an item opening it says. Leave it out for a menu with no heading, which is the title's — the seal heads it. |
+| `menu_items.position` | The order the items are shown in. |
+| `menu_items.text` | What the item says. Leave it out for a door, which says the name of the menu it opens — so GENERAL SETTINGS is written once, as that menu's name, and every door to it says it. The build refuses one with neither. |
+| `menu_items.opens` | The menu it leads to. The screen knows which page each menu is, and a door to a menu it has no page for is reported, not guessed at. Written before the item, since a door with no text asks for the name as it goes in. |
+| `menu_items.exit` | 1: a way out of the menu — BACK, BACK TO GAME, MAIN MENU — which the screen gathers at the foot of the page, pinned, however long the rows above it grow. |
+
+The two pages behind the settings, `general` and `controls`, are shown by
+the title and by PAUSED alike, from the same rows: each carries its own rows
+— the sliders, the switches, the bindings, which are the screen's — and the
+menu holds only its way back, which is one level up from wherever the page
+was opened. What an item looks like — its colour, the mark over a tile in
+mobile mode, how tall it stands — is the screen's, keyed by the item's id, as
+a part's look is `Style`'s.
+
+`menus.name` and `menu_items.text` are the English, laid under
+`localization/<lang>/menu.json` by id — `menu.<menu>.heading` and
+`menu.<menu>.<item>` — and `loc_test` fails if the two drift.
+
 ## Reading it from code
 
 ```gdscript
@@ -458,9 +502,10 @@ Db.meta("schema_version")
 `Dialogue` (`story/rules/dialogue.gd`) reads the conversations into the shape
 `Npc` plays, `Machine` (`feature/core/machine.gd`) builds a state machine
 into the `FSMNode`s its owner runs, `Components` (`circuit/components.gd`)
-reads the parts, and `Boards` (`feature/core/boards.gd`) builds a shipped
-board into the `SkillBoard` the circuit runs; nothing else needs to know any
-of it came from a table. `Dialogue.reload()` and `Components.reload()` pick up
+reads the parts, `Boards` (`feature/core/boards.gd`) builds a shipped board
+into the `SkillBoard` the circuit runs, and `Menus` (`graphics/ui/menus.gd`)
+hands a screen its menus' items, in the language being played; nothing else
+needs to know any of it came from a table. `Dialogue.reload()` and `Components.reload()` pick up
 a rebuilt file without a restart.
 
 ## Changing the tables
