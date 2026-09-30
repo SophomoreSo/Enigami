@@ -174,9 +174,6 @@ func _ready() -> void:
 	# every run after it starts on the biggest board there is.
 	var facilities_before: Dictionary = GameState.facilities.duplicate()
 	seed(5)
-	# A fourth skill, so the bench brings the most boards it can and the header
-	# has the most tabs to fit.
-	GameState.new_skill()
 	game = Node.new()
 	game.set_script(GameScript)
 	add_child(game)
@@ -189,13 +186,15 @@ func _ready() -> void:
 	sb.set_editing(true)
 	await frames(4)
 	var ed: SkillEditor = Views.of(sb).editor
-	check(ed.boards.size() == 4, "the bench brings four boards (%d)" % ed.boards.size())
-	check(ed._tab_rect(ed.boards.size() - 1).end.x <= ed._share_rect().position.x,
-		"four tabs fit before CODE (%.0f of %.0f)" % [ed._tab_rect(3).end.x, ed._share_rect().position.x])
+	check(ed.current_board() == sb.board(), "the bench brings the weapon's graph")
+	check(ed._title_rect().end.x <= ed._share_rect().position.x,
+		"its name fits before CODE (%.0f of %.0f)" % [ed._title_rect().end.x, ed._share_rect().position.x])
 	check(ed._share_rect().end.x <= ed._close_rect().position.x, "and CODE before CLOSE")
 	var b := ed.current_board()
 	for c in b.cells.keys().duplicate():
 		b.erase_at(c)
+	# The root stays, as it always does; the parts go on around it.
+	check(b.has_root(), "the weapon's own part is still on the board once everything else is off")
 	# Every part at once no longer fits the 7x5 a starting Workbench grows — the
 	# parts fill it to the last cell, leaving none for the hovered ghost below —
 	# so the shot is taken on a bigger one. It is still a board the editor draws
@@ -209,6 +208,11 @@ func _ready() -> void:
 		var w := int(Components.get_def(id).get("cells", 1))
 		if at.x + w > b.width:
 			at = Vector2i(0, at.y + 1)
+		# Over the root's own cells the part goes on to the next free ones.
+		while not b.can_place(id, at, 0) and at.y < b.height:
+			at.x += 1
+			if at.x + w > b.width:
+				at = Vector2i(0, at.y + 1)
 		b.place(id, at, 0)
 		at.x += w
 	# Where the next part would land is where the hovered ghost is drawn, so what
@@ -220,7 +224,7 @@ func _ready() -> void:
 			% [str(ghost), b.width, b.height])
 	ed._sim_dirty = true
 	# Pulses at three points of crossing a part. A long timer holds them there.
-	var runner: SkillRunner = ed.runners[ed.slot]
+	var runner: SkillRunner = ed.runner
 	runner.pulses.clear()
 	for spot in [[Vector2i(0, 0), 0.8], [Vector2i(2, 0), 0.35], [Vector2i(3, 2), 0.1]]:
 		var pulse := SkillRunner.Pulse.new(spot[0], 1000, Payload.new(), 50)
@@ -239,7 +243,7 @@ func _ready() -> void:
 	await frames(2)
 
 	# --- a raid: every hover at once -----------------------------------------
-	game._deploy("SWORD", [0, 1, 2])
+	game._deploy("SWORD")
 	await frames(20)
 	var raid: Raid = game.current
 	raid.set_editing(true)
@@ -247,7 +251,6 @@ func _ready() -> void:
 	var red: SkillEditor = Views.of(raid).editor
 	red.selected = "SLASH"
 	red._hover_pal = 5
-	red._hover_tab = 1
 	red._hover_close = true
 	hidden = isolate(red)
 	await blocks("raid")
@@ -255,17 +258,18 @@ func _ready() -> void:
 	raid.set_editing(false)
 	await frames(2)
 
-	# --- the workbench: the biggest board, on a weapon that refuses it ---------
+	# --- the workbench: the biggest board ------------------------------------
 	GameState.facilities["workbench"] = int(GameState.FACILITY_INFO["workbench"]["max"])
 	var most := GameState.board_size()
 	game.goto_hideout()
 	await frames(8)
-	var big := GameState.new_skill()
+	game.hideout_ref.set_weapon("GUN")
+	var big := GameState.weapon_board("GUN")
+	big.resize_grid(most.x, most.y)
 	big.place("PROJECTILE", Vector2i(1, int(most.y / 2)), 0)
-	game._edit_library_skill(GameState.skill_library.size() - 1)
+	game._edit_weapon_graph()
 	await frames(4)
 	var wb: SkillEditor = game.editor
-	wb.weapon_id = "SWORD"
 	wb._sim_dirty = true
 	wb._update_hover(wb._cell_center(Vector2i(most.x - 1, most.y - 1)))
 	hidden = isolate(wb)
@@ -305,12 +309,11 @@ func _ready() -> void:
 	wb._close_share()
 
 	# --- rings the flow can never leave ---------------------------------------
-	# Two of them: the board from the report, fed by its INPUT, and an unfed one
+	# Two of them: the board from the report, fed by the root, and an unfed one
 	# beside it. Both are drawn switched off, both come out as one shape rather
 	# than as a box a part, and the notice is up over the one under the cursor.
 	for dc in big.cells.keys().duplicate():
 		big.erase_at(dc)
-	big.place("INPUT", Vector2i(0, 2), 0)
 	big.place("DUPLICATE", Vector2i(1, 2), 3)   # in from the west, out north
 	big.place("FIRE", Vector2i(1, 1), 0)
 	big.place("DAMAGE", Vector2i(2, 1), 1)
@@ -347,13 +350,12 @@ func _ready() -> void:
 	for last_rot in [2, 3]:                          # the last part west, then north
 		for bc in big.cells.keys().duplicate():
 			big.erase_at(bc)
-		big.place("INPUT", Vector2i(0, 1), 0)
-		big.place("DASHSLASH", Vector2i(1, 1), 0)    # two cells, out east
-		big.place("ON_HIT", Vector2i(3, 1), 0)       # out east, branch south
-		big.place("OUTPUT", Vector2i(4, 1), 0)
-		big.place("OVERCLOCK", Vector2i(3, 2), 2)    # the branch, running west
-		big.place("OVERCLOCK", Vector2i(2, 2), 2)
-		big.place("OVERCLOCK", Vector2i(1, 2), last_rot)
+		big.place("DASHSLASH", Vector2i(1, 2), 0)    # two cells, out east, off the root
+		big.place("ON_HIT", Vector2i(3, 2), 0)       # out east, branch south
+		big.place("OUTPUT", Vector2i(4, 2), 0)
+		big.place("OVERCLOCK", Vector2i(3, 3), 2)    # the branch, running west
+		big.place("OVERCLOCK", Vector2i(2, 3), 2)
+		big.place("OVERCLOCK", Vector2i(1, 3), last_rot)
 		wb._sim_dirty = true
 		wb._update_hover(Vector2(-1, -1))
 		await frames(2)
@@ -361,8 +363,8 @@ func _ready() -> void:
 		# Every cell of the seam the flow does not cross, which is every one the
 		# editor has left an edge on rather than fusing away.
 		for sx in [1, 2]:
-			var seam := wb._cell_center(Vector2i(sx, 1)) + Vector2(0, SkillEditor.CELL * 0.5)
-			if wb._fused_seam.has(Vector3i(sx, 1, Components.S)):
+			var seam := wb._cell_center(Vector2i(sx, 2)) + Vector2(0, SkillEditor.CELL * 0.5)
+			if wb._fused_seam.has(Vector3i(sx, 2, Components.S)):
 				continue
 			check(_on_track(wb, seam) <= 0.5,
 				"%s: the track runs the seam under cell %d (%.1f off it)"
@@ -387,11 +389,11 @@ func _ready() -> void:
 		# home, and both at once down the seam between them, which is one side of
 		# each. The seam is the pair: the two lips are the same line on screen.
 		var half := SkillEditor.CELL * 0.5
-		check(_runs_one_way(wb, wb._cell_center(Vector2i(2, 1)) - Vector2(0, half), Vector2.RIGHT),
+		check(_runs_one_way(wb, wb._cell_center(Vector2i(2, 2)) - Vector2(0, half), Vector2.RIGHT),
 			"%s: the dots run east over the main line" % how)
-		check(_runs_one_way(wb, wb._cell_center(Vector2i(2, 2)) + Vector2(0, half), Vector2.LEFT),
+		check(_runs_one_way(wb, wb._cell_center(Vector2i(2, 3)) + Vector2(0, half), Vector2.LEFT),
 			"%s: and west under the branch running home" % how)
-		var seam_ways := _dot_ways(wb, wb._cell_center(Vector2i(2, 1)) + Vector2(0, half))
+		var seam_ways := _dot_ways(wb, wb._cell_center(Vector2i(2, 2)) + Vector2(0, half))
 		check(seam_ways.has(Vector2.RIGHT) and seam_ways.has(Vector2.LEFT),
 			"%s: and both ways down the seam between them (%s)" % [how, str(seam_ways)])
 		# The branch only runs when the trigger fires, so it is drawn drained of
@@ -399,32 +401,31 @@ func _ready() -> void:
 		var drained: Array = []
 		var coloured: Array = []
 		for cx in [1, 2, 3]:
-			if wb._conditional.has(Vector2i(cx, 2)):
+			if wb._conditional.has(Vector2i(cx, 3)):
 				drained.append(cx)
-			if not wb._conditional.has(Vector2i(cx, 1)):
+			if not wb._conditional.has(Vector2i(cx, 2)):
 				coloured.append(cx)
 		check(drained == [1, 2, 3] and coloured == [1, 2, 3],
 			"%s: the branch is drawn conditional and the main line is not (%s, %s)"
 				% [how, str(drained), str(coloured)])
 		if last_rot == 3:
 			# The branch hands the flow back up into the form at the west end.
-			check(_runs_one_way(wb, wb._cell_center(Vector2i(1, 2)) - Vector2(half, 0), Vector2.UP),
+			check(_runs_one_way(wb, wb._cell_center(Vector2i(1, 3)) - Vector2(half, 0), Vector2.UP),
 				"%s: and north up the side the branch feeds back on" % how)
 
 	# A line of parts with two ends is not a circle and must not be drawn as one:
-	# the dots leave where the INPUT hands over, go both ways round the shape and
+	# the dots leave where the root hands over, go both ways round the shape and
 	# meet again where the flow leaves it, so both sides of it run with the flow.
 	for lc in big.cells.keys().duplicate():
 		big.erase_at(lc)
-	big.place("INPUT", Vector2i(0, 1), 0)
-	big.place("FIRE", Vector2i(1, 1), 0)
-	big.place("DAMAGE", Vector2i(2, 1), 0)
-	big.place("SLASH", Vector2i(3, 1), 0)
-	big.place("OUTPUT", Vector2i(4, 1), 0)
+	big.place("FIRE", Vector2i(1, 2), 0)
+	big.place("DAMAGE", Vector2i(2, 2), 0)
+	big.place("SLASH", Vector2i(3, 2), 0)
+	big.place("OUTPUT", Vector2i(4, 2), 0)
 	wb._sim_dirty = true
 	await frames(2)
 	for side in [-1.0, 1.0]:
-		var edge := wb._cell_center(Vector2i(2, 1)) + Vector2(0, side * SkillEditor.CELL * 0.5)
+		var edge := wb._cell_center(Vector2i(2, 2)) + Vector2(0, side * SkillEditor.CELL * 0.5)
 		check(_runs_one_way(wb, edge, Vector2.RIGHT),
 			"a straight run carries its dots east %s it too (%s)"
 				% ["over" if side < 0.0 else "under", str(_dot_ways(wb, edge))])

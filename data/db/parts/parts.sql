@@ -37,24 +37,26 @@ INSERT INTO codes (code, id) VALUES
 -- WIRE and BEND carried a flow one cell and did nothing else to it, which
 -- every part already does: any part takes flow on any side and sends it where
 -- it points. A board that still has one reads with it taken out, and the run
--- closed up round it.
-INSERT INTO retired_parts (id, sends) VALUES ('WIRE', 'E'), ('BEND', 'S');
+-- closed up round it. INPUT was where a flow started; a board's root cell is
+-- that now, and the weapon's own part stands on it (`SkillBoard.ROOT`). A
+-- board that still has an INPUT reads with its cell left empty.
+INSERT INTO retired_parts (id, sends) VALUES ('WIRE', 'E'), ('BEND', 'S'), ('INPUT', 'E');
 
 INSERT INTO renamed_parts (old_id, new_id) VALUES ('AREA', 'EXPLODE');
 
 
--- ---- structure: where a flow starts, and where it becomes an attack --------
+-- ---- structure: where a flow becomes an attack -------------------------------
+-- Where it starts is the root, not a part: see the top of the file.
 
-INSERT INTO parts (id, name, category, source, description) VALUES
-	('INPUT', 'INPUT', 'struct', 1, 'Flow origin. Starts the next pulse once the previous one has resolved.'),
-	('OUTPUT', 'OUTPUT', 'struct', 0, 'Converts the assembled flow into a real effect. A flow with no attack form produces no attack.');
-
-INSERT INTO ports (part_id, side) VALUES ('INPUT', 'E');
+INSERT INTO parts (id, name, category, description) VALUES
+	('OUTPUT', 'OUTPUT', 'struct', 'Converts the assembled flow into a real effect. A flow with no attack form produces no attack.');
 
 
 -- ---- form: what the attack is ------------------------------------------------
 -- A form is only as good as the attack that draws it: feature/attacks/ spawns
--- each by its id, and `Weapons.finalize` weighs it.
+-- each by its id, and `Weapons.finalize` weighs it. A weapon's own form is the
+-- root of its graph, so every cast off it starts as that form; a form placed
+-- after it makes the flow that instead.
 
 INSERT INTO parts (id, name, category, heat, cells, tag, description) VALUES
 	('PROJECTILE', 'PROJECTILE', 'form', 0.6, 1, 'ranged', 'Fires a bolt along the aim direction. The standard ranged form.'),

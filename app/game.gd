@@ -225,8 +225,7 @@ func goto_hideout() -> void:
 	var h := HideoutWorld.new()
 	h.deploy_requested.connect(_deploy)
 	h.title_requested.connect(goto_title)
-	h.edit_requested.connect(_edit_library_skill)
-	h.assembly_requested.connect(_edit_kit)
+	h.edit_requested.connect(_edit_weapon_graph)
 	add_child(h)
 	current = h
 	hideout_ref = h
@@ -254,8 +253,8 @@ func goto_dragon_test() -> void:
 	add_child(d)
 	current = d
 
-func _deploy(weapon: String, slots: Array) -> void:
-	GameState.deploy(weapon, slots)
+func _deploy(weapon: String) -> void:
+	GameState.deploy(weapon)
 	_clear()
 	state = State.RAID
 	var r := Raid.new()
@@ -274,31 +273,23 @@ func _raid_finished(result: String, payload: Dictionary) -> void:
 	current = rs
 
 ## --- hideout skill editing --------------------------------------------------
-## One board, picked off the bench's library list by its EDIT button.
-func _edit_library_skill(index: int) -> void:
-	if index < 0 or index >= GameState.skill_library.size():
-		return
-	_open_boards([GameState.skill_library[index]])
-
-## The armed kit, opened with the key a raid opens assembly with. Tabs, one per
-## slot, the same way the raid shows the boards it carries — and the same boards
-## the bench edits one at a time, so this is that reached without the walk.
-func _edit_kit() -> void:
+## The graph on the weapon the rack was left on, opened at the bench, off the
+## rack's BUILD button, or with the key a raid opens assembly with — the same
+## board however it is reached, and the profile's own, so what is built is
+## what the gate carries.
+func _edit_weapon_graph() -> void:
 	if hideout_ref == null or not is_instance_valid(hideout_ref):
 		return
-	var boards: Array = hideout_ref.armed_boards()
-	if boards.is_empty():
-		return
-	_open_boards(boards)
+	_open_board(hideout_ref.armed_board())
 
-## The workbench editor over whatever boards it is given, spending the stash.
-func _open_boards(boards: Array) -> void:
+## The workbench editor over the board it is given, spending the stash.
+func _open_board(board: SkillBoard) -> void:
 	_close_editor()
 	editor = SkillEditor.new()
 	editor.weapon_id = hideout_ref.weapon_id if hideout_ref != null else "SWORD"
-	editor.configure(boards, GameState.stash, false, [])
+	editor.configure(board, GameState.stash, false, null)
 	editor.closed.connect(_close_editor)
-	editor.board_changed.connect(func(_s: int) -> void: GameState.save_game())
+	editor.board_changed.connect(func() -> void: GameState.save_game())
 	window_layer.add_child(editor)
 	editor.grab_focus()
 	# The room holds the player still under it, which is also what hands the

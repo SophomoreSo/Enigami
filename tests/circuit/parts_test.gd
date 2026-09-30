@@ -36,23 +36,23 @@ func _ready() -> void:
 	check(faults.is_empty(), "every row fits what reads it%s" % ("" if faults.is_empty() else " — " + "; ".join(faults)))
 	var ids := Components.ids()
 	check(ids.size() > 20, "the parts are read, %d of them" % ids.size())
-	check(Components.structural() == ["INPUT", "OUTPUT"],
-		"INPUT and OUTPUT are always at hand, and nothing else is (%s)" % str(Components.structural()))
+	check(Components.structural() == ["OUTPUT"],
+		"the OUTPUT is always at hand, and nothing else is (%s)" % str(Components.structural()))
 	var pool := Components.loot_pool()
-	check(pool.size() == ids.size() - 2 and not pool.has("INPUT") and not pool.has("OUTPUT"),
+	check(pool.size() == ids.size() - 1 and not pool.has("OUTPUT"),
 		"every other part drops, in the palette's order (%d)" % pool.size())
 
 	# --- what the code leans on -----------------------------------------------
 	# The runner and the attacks name a few parts for themselves: where a flow
-	# starts and ends, the triggers whose branches a payload carries, the forms
-	# the attacks are spawned by, and the clock. Each has to be in the table,
-	# and in the shape the code takes for granted.
-	var sources: Array = []
-	for id in ids:
-		if bool(Components.get_def(id).get("source", false)):
-			sources.append(id)
-	check(sources == ["INPUT"] and Components.world_outputs("INPUT", 0) == [Components.E],
-		"INPUT is the one place a flow starts, and it sends it east (%s)" % str(sources))
+	# ends, the triggers whose branches a payload carries, the forms the attacks
+	# are spawned by, and the clock. Each has to be in the table, and in the
+	# shape the code takes for granted. Where a flow starts is no part's: it is
+	# the board's root cell, and INPUT, which was that, is retired.
+	check(not Components.exists("INPUT") and Components.is_retired("INPUT")
+			and Components.retired_out("INPUT") == Components.E,
+		"INPUT is retired: it keeps its number, and its cell reads back empty the way WIRE's does")
+	check(Components.world_inputs("SLASH", 0) == [Components.S, Components.W, Components.N],
+		"no part is a source: every part takes flow on every side but its own outputs, the root's included")
 	check(Components.world_outputs("OUTPUT", 0).is_empty() and Components.world_payload_out("OUTPUT", 0) < 0,
 		"OUTPUT is where a flow ends: it sends nothing on")
 	var nowhere: Array = []

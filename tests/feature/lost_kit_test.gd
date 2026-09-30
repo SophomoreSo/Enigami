@@ -60,9 +60,12 @@ func _same_floor() -> void:
 
 ## --- what a death writes down -----------------------------------------------
 func _rules() -> void:
-	var skill_name: String = GameState.skill_library[0].skill_name
-	var library := GameState.skill_library.size()
-	GameState.deploy("SWORD", [0])
+	# Something built onto the sword, so the drop has a graph worth having.
+	var sword := GameState.weapon_board("SWORD")
+	sword.erase_at(Vector2i(2, 2))
+	sword.place("FIRE", Vector2i(2, 2), 0)
+	sword.place("OUTPUT", Vector2i(3, 2), 0)
+	GameState.deploy("SWORD")
 	GameState.add_component("FIRE", 2, GameState.raid_bag)
 	GameState.raid_scrap = 17
 	var seed_used := GameState.raid_seed
@@ -70,20 +73,23 @@ func _rules() -> void:
 	var lost := GameState.die({"room": [2, 3], "pos": [640.0, 320.0]})
 	check(bool(lost.get("dropped", false)), "a death with somewhere to fall leaves the kit there")
 	check(GameState.has_lost_kit(), "and the drop outlives the raid that made it")
-	check(GameState.skill_library.size() == library - 1,
-		"the skill is out of the library (%d -> %d)" % [library, GameState.skill_library.size()])
+	check(not GameState.weapon_boards.has("SWORD"), "the sword's graph went with it")
 	check(not GameState.owned_weapons.has("SWORD"), "and the weapon is off the rack")
+	check(int((lost.get("parts", {}) as Dictionary).get("FIRE", 0)) == 1,
+		"the results are told what was built onto it (%s)" % str(lost.get("parts", {})))
 
 	var kit: Dictionary = GameState.lost_kit
 	check(int(kit.get("seed", 0)) == seed_used, "the drop remembers which map it is in")
 	check((kit.get("room", []) as Array) == [2, 3] and (kit.get("pos", []) as Array).size() == 2,
 		"and the room and the spot in it (%s)" % str(kit.get("room", [])))
-	check((kit.get("boards", []) as Array).size() == 1
+	check((kit.get("boards", {}) as Dictionary).has("SWORD")
 			and (kit.get("weapons", []) as Array) == ["SWORD"],
-		"it holds the skill and the weapon")
+		"it holds the weapon and the graph on it")
 	check(int((kit.get("bag", {}) as Dictionary).get("FIRE", 0)) == 2
 			and int(kit.get("scrap", 0)) == 17,
 		"the bag and the scrap that were being carried")
+	check(GameState.lost_kit_size() == 1 + 1 + 2,
+		"and counts as the weapon, the part built on it and the bag (%d)" % GameState.lost_kit_size())
 
 	# Through disk, the way the next session will find it. A drop is the one
 	# thing a run leaves for a later one, so it has to survive the app closing.
@@ -93,11 +99,11 @@ func _rules() -> void:
 	check(int(GameState.lost_kit.get("seed", 0)) == seed_used
 			and (GameState.lost_kit.get("room", []) as Array).size() == 2,
 		"with the map and the room it belongs to intact")
-	check((GameState.lost_kit.get("boards", []) as Array).size() == 1,
-		"and the skill still in it")
+	check((GameState.lost_kit.get("boards", {}) as Dictionary).has("SWORD"),
+		"and the graph still in it")
 
 	# The map a kit is lying in is the map the next deployment walks into.
-	GameState.deploy("ROCK", [])
+	GameState.deploy("ROCK")
 	check(GameState.raid_seed == seed_used,
 		"deploying again goes back to the same floor (%d)" % GameState.raid_seed)
 
@@ -106,21 +112,39 @@ func _rules() -> void:
 	check(not got.is_empty() and not GameState.has_lost_kit(), "recovering it clears the drop")
 	check(int(GameState.raid_bag.get("FIRE", 0)) == 2 and GameState.raid_scrap == 17,
 		"the bag and the scrap are being carried again")
-	check(GameState.raid_carried_boards.size() == 1 and GameState.raid_carried_weapons == ["SWORD"],
-		"the skill and the weapon ride along as cargo")
-	check(GameState.skill_library.size() == library - 1,
-		"and are not home yet — the library is untouched")
+	check(GameState.raid_carried_boards.has("SWORD") and GameState.raid_carried_weapons == ["SWORD"],
+		"the weapon and its graph ride along as cargo")
+	check(not GameState.weapon_boards.has("SWORD") and not GameState.owned_weapons.has("SWORD"),
+		"and are not home yet — the rack is untouched")
 
 	var stash_before := int(GameState.stash.get("FIRE", 0))
 	var result := GameState.extract()
-	check(GameState.skill_library.size() == library,
-		"walking out puts the skill back in the library (%d)" % GameState.skill_library.size())
-	check(GameState.skill_library[GameState.skill_library.size() - 1].skill_name == skill_name,
-		"the same skill, by name (%s)" % skill_name)
-	check(GameState.owned_weapons.has("SWORD"), "and the weapon back on the rack")
+	check(GameState.owned_weapons.has("SWORD"), "walking out puts the weapon back on the rack")
+	check(GameState.weapon_board("SWORD").used_components() == {"FIRE": 1},
+		"with the graph that fell with it, FIRE and all (%s)" % str(GameState.weapon_board("SWORD").used_components()))
 	check(int(GameState.stash.get("FIRE", 0)) == stash_before + 2, "the bag goes to the stash")
 	check((result.get("recovered", []) as Array).size() == 1,
 		"and the results sheet is told what came back out")
+
+	# A graph that comes back to a weapon built on since goes to the shelves
+	# instead: the rock is never lost, and what fell with it is not allowed to
+	# wipe what was built onto it meanwhile.
+	GameState.deploy("ROCK")
+	GameState.raid_board.erase_at(Vector2i(1, 2))
+	GameState.raid_board.place("PIERCE", Vector2i(1, 2), 0)
+	GameState.raid_board.place("OUTPUT", Vector2i(2, 2), 0)
+	GameState.die({"room": [2, 3], "pos": [640.0, 320.0]})
+	var rock := GameState.weapon_board("ROCK")
+	rock.erase_at(Vector2i(1, 2))
+	rock.place("DAMAGE", Vector2i(1, 2), 0)
+	rock.place("OUTPUT", Vector2i(2, 2), 0)
+	GameState.deploy("SWORD")
+	GameState.recover_lost_kit()
+	var pierce_before := int(GameState.stash.get("PIERCE", 0))
+	GameState.extract()
+	check(GameState.weapon_board("ROCK").used_components() == {"DAMAGE": 1}
+			and int(GameState.stash.get("PIERCE", 0)) == pierce_before + 1,
+		"a graph won back for a weapon built on since goes to the shelves, part by part")
 
 ## --- what the next raid puts back on the floor ------------------------------
 ## Somewhere in this room a body could be standing: open floor, with something
@@ -147,7 +171,7 @@ func start_raid() -> Raid:
 	return r
 
 func _floor() -> void:
-	GameState.deploy("SWORD", [0])
+	GameState.deploy("SWORD")
 	var raid := await start_raid()
 	var died_in: Vector2i = raid.room.coord
 	var died_at := standing_spot(raid.room, raid.room.spawn_point())
@@ -161,7 +185,7 @@ func _floor() -> void:
 	await frames(2)
 
 	# Back in. The map is the same map, so the room is where it was.
-	GameState.deploy("ROCK", [])
+	GameState.deploy("ROCK")
 	var back := await start_raid()
 	check(back.map.has_room(died_in), "the floor is the one that was died on")
 	check((back.map.get_record(died_in) as Dictionary).has("lost_kit"),

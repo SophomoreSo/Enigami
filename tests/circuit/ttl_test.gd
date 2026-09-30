@@ -20,7 +20,7 @@ func runner(b: SkillBoard, bonus: int = 0) -> SkillRunner:
 ## A ring that tees out to an attack on every lap.
 func ring() -> SkillBoard:
 	var b := SkillBoard.new(7, 5, "ring")
-	b.place("INPUT", Vector2i(0, 1), 0)
+	b.set_root("DELAY", Vector2i(0, 1), 0)
 	b.place("DELAY", Vector2i(1, 1), 3)
 	b.place("DELAY", Vector2i(1, 0), 0)
 	b.place("DELAY", Vector2i(2, 0), 0)
@@ -31,10 +31,11 @@ func ring() -> SkillBoard:
 	b.place("OUTPUT", Vector2i(3, 2), 0)
 	return b
 
-## A straight run of `n` DELAYs into an attack: no cycle, just length.
+## A straight run of `n` DELAYs into an attack, off a DELAY on the root: no
+## cycle, just length.
 func chain(n: int) -> SkillBoard:
 	var b := SkillBoard.new(60, 5, "chain")
-	b.place("INPUT", Vector2i(0, 2), 0)
+	b.set_root("DELAY")
 	for i in n:
 		b.place("DELAY", Vector2i(1 + i, 2), 0)
 	b.place("SLASH", Vector2i(1 + n, 2), 0)
@@ -44,17 +45,17 @@ func chain(n: int) -> SkillBoard:
 func shots(r: SkillRunner) -> int:
 	return (r.simulate()["outputs"] as Array).size()
 
-## A DASHSLASH+ whose ON HIT walks three OVERCLOCKs back round into it, so every
-## lap the life pays for is one more follow-up.
+## A DASHSLASH+ on the root whose ON HIT walks three OVERCLOCKs back round into
+## it, so every lap the life pays for is one more follow-up. The root takes
+## flow like any other part, which is what closes the ring.
 func trigger_ring() -> SkillBoard:
 	var b := SkillBoard.new(7, 5, "trigger ring")
-	b.place("INPUT", Vector2i(0, 2), 0)
-	b.place("DASHSLASH_AUTO", Vector2i(1, 2), 0)
-	b.place("ON_HIT", Vector2i(3, 2), 0)
-	b.place("OUTPUT", Vector2i(4, 2), 0)
-	b.place("OVERCLOCK", Vector2i(3, 3), 2)
+	b.set_root("DASHSLASH_AUTO")
+	b.place("ON_HIT", Vector2i(2, 2), 0)
+	b.place("OUTPUT", Vector2i(3, 2), 0)
 	b.place("OVERCLOCK", Vector2i(2, 3), 2)
-	b.place("OVERCLOCK", Vector2i(1, 3), 3)
+	b.place("OVERCLOCK", Vector2i(1, 3), 2)
+	b.place("OVERCLOCK", Vector2i(0, 3), 3)
 	return b
 
 ## Attacks in a chain: the one fired, and every follow-up hung off it.
@@ -122,8 +123,8 @@ func _ready() -> void:
 	for bonus in [0, 12, 24, SkillRunner.MAX_TTL_BONUS]:
 		check(shots(runner(chain(3), bonus)) == 1,
 			"a cycle-free board fires once at +%d charge" % bonus)
-	check(shots(runner(Weapons.make_innate_board("SWORD"), SkillRunner.MAX_TTL_BONUS)) == 1,
-		"and so does a fully charged starter board")
+	check(shots(runner(Weapons.make_board("SWORD"), SkillRunner.MAX_TTL_BONUS)) == 1,
+		"and so does a fully charged bare graph")
 
 	# What a charge buys has to ride on the cast that paid for it. A trigger
 	# branch walks behind the attack that carries it, and each cast used to carry

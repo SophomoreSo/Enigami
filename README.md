@@ -26,7 +26,7 @@ godot res://tests/graphics/focus_test.tscn   # in-game buttons never steal the k
 godot res://tests/graphics/pointer_test.tscn # the drawn cursor, and how far it moves
 godot res://tests/graphics/player_skin_test.tscn # the player's poses name skin pixels, and the skin swaps under them
 godot res://tests/feature/trigger_test.tscn # a trigger chain lands as separate attacks
-godot res://tests/circuit/cooldown_test.tscn # the numbers behind the slot cooldown wipe
+godot res://tests/circuit/cooldown_test.tscn # the numbers behind the graph's cooldown wipe
 godot res://tests/feature/speed_test.tscn   # the SPEED part, and bolt collision at speed
 godot res://tests/feature/range_test.tscn   # how far a bolt carries before it fades
 godot res://tests/feature/dash_test.tscn    # where a lunge lands, aimed and auto-aimed
@@ -34,8 +34,7 @@ godot res://tests/feature/dash_move_test.tscn # the dash key: flat, a step long,
 godot res://tests/feature/hurt_test.tscn    # the second of grace a blow that lands buys
 godot res://tests/feature/lost_kit_test.tscn # dying drops the kit, and the next run goes back for it
 godot res://tests/feature/climb_test.tscn   # going up a room and staying there
-godot res://tests/feature/select_test.tscn  # arming a slot, and what each button fires
-godot res://tests/feature/weapon_fit_test.tscn  # a weapon refuses skills it cannot carry
+godot res://tests/feature/cast_test.tscn    # the two buttons: attack casts the graph, cast charges it
 godot res://tests/feature/stamina_test.tscn # the dash budget under the health bar
 godot res://tests/graphics/menu_fit_test.tscn # menus stay on screen and scroll the rest
 godot res://tests/graphics/title_mobile_test.tscn # mobile mode's title: a row of big square tiles
@@ -48,7 +47,7 @@ godot res://tests/circuit/parts_test.tscn   # every part's rows fit, and the run
 godot res://tests/feature/boards_test.tscn  # every board the game ships builds whole and reaches an OUTPUT
 godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
 godot res://tests/feature/reach_test.tscn   # how far an attack goes when the stick says how far
-godot res://tests/feature/forge_test.tscn   # the forge's price, and one skill in one slot: the profile's rules
+godot res://tests/feature/forge_test.tscn   # the forge's price, and a weapon is its graph: the profile's rules
 godot res://tests/graphics/share_code_test.tscn # sharing a board, and what a pasted code costs
 godot res://tests/circuit/ttl_test.tscn     # a pulse's life, and what bounds a loop
 godot res://tests/feature/charge_test.tscn  # holding the cast button buys life for mana
@@ -92,9 +91,8 @@ not a thing to reach for once it errors.
 | A / D, ← / → | move |
 | SPACE | jump; again in mid-air to double jump; against a wall to kick off |
 | SHIFT | dash — left or right only, never up; brief invulnerability from the press; spends stamina, four dashes to a full bar |
-| LMB | attack with the weapon's own board — always available, never lost |
-| 1 / 2 / 3 / 4 | arm a skill slot (numpad works too); arming does not fire it |
-| RMB | hold to charge the armed skill, release to cast it — a tap is a charge of nothing; a skill still recovering cannot be charged, and a weapon refuses skills it cannot carry |
+| LMB | cast the weapon's graph as it is — again and again while held, and it costs nothing |
+| RMB | hold to charge the weapon's graph, release to cast it with what the hold paid for — a tap is a charge of nothing, and a graph still recovering cannot be charged |
 | mouse / right stick | aim, and where a lunge lands |
 | TAB | open assembly — **the raid keeps running**; TAB, ESC or the CLOSE button leaves it |
 | C | in assembly: the board as a share code — copy it out, or build someone else's board from theirs |
@@ -103,8 +101,8 @@ not a thing to reach for once it errors.
 | ESC | pause |
 
 Gamepad: left stick moves, A jumps, B dashes, the right trigger attacks and the
-left one casts, X/Y arm slots 1–2, select opens assembly, RB interacts. Every keyboard binding is remappable
-from Settings (title screen) or the pause menu.
+left one charges and casts, select opens assembly, RB interacts. Every keyboard
+binding is remappable from Settings (title screen) or the pause menu.
 
 ### The screen's shape
 
@@ -136,13 +134,14 @@ controls turn out to fit:
   the way of the fight, and never flashes up under a tap. It is analog — the
   game reads movement as the strength of two actions — so a stick half over
   walks and a stick hard over runs, which four keys could never say.
-* **A skill button is a stick too.** Press one and the slot is armed and begins
-  to charge; drag and the charge aims; let go and it casts, where you were
-  pointing, carrying everything the hold paid for. The game's own
-  hold-to-charge is already press-drag-release, so the two are one gesture and
-  nothing had to be invented for the phone. The weapon key (**HIT**) is the same
-  stick without the arming. The two hands are independent: you can run right and
-  throw a skill up and to the left in the same moment.
+* **The cast button is a stick too.** Press it and the graph begins to charge;
+  drag and the charge aims; let go and it casts, where you were pointing,
+  carrying everything the hold paid for. The game's own hold-to-charge is
+  already press-drag-release, so the two are one gesture and nothing had to be
+  invented for the phone. The weapon key (**HIT**) is the same stick without
+  the charge: the same graph, cast as it is for as long as the thumb is down.
+  The two hands are independent: you can run right and throw a cast up and to
+  the left in the same moment.
 * **HIT is USE when there is something to use.** Beside an NPC, a station or an
   exit you are standing in, the weapon's button becomes the interact key; a
   thumb already down keeps what it pressed. One button fewer under the right
@@ -153,12 +152,8 @@ controls turn out to fit:
 * **Everything else is a key.** JUMP, DASH, and KIT / MAP / MENU in the far
   corner take no direction, so they are buttons and nothing more.
 
-A slot the player is not carrying is not drawn; one the weapon refuses is drawn
-in the same red the slot card uses, so a button that means *cast* says whether
-it can before the thumb goes down.
-
 The buttons are twice the size they were first drawn at, words and all: on a
-phone's glass a skill button was smaller than the thumb pressing it. The
+phone's glass the cast button was smaller than the thumb pressing it. The
 movement stick kept its size, since it is not a button.
 
 **SET BUTTON POSITIONS**, under the mobile mode switch while it is on, puts
@@ -173,12 +168,12 @@ never learn what a finger is. What changes while it is up:
 
 * **Aim is the throw, not a pointer.** A phone has nothing on the glass until a
   finger lands, and where it lands is where it is going. So the console aims the
-  way a gamepad does — the skill being thrown if one is, the movement stick if
+  way a gamepad does — the cast being thrown if one is, the movement stick if
   it is pushed, and the way the player is facing otherwise, so a tap with no
   throw in it still goes somewhere they meant. A throw is measured from where
   the thumb came down, so a tap anywhere on a big button is still a tap. The
   crosshair and the pointer setting stand down.
-* **How far is how far the thumb drags.** A skill dragged just past the dead
+* **How far is how far the thumb drags.** A cast dragged just past the dead
   zone goes a third of its distance, and one dragged out to the ring goes all
   of it — a bolt's range, a thrown shot's arc, a lunge, a DASH; a burst or a
   swing happens where the player stands either way. It rides on the same right
@@ -190,10 +185,10 @@ never learn what a finger is. What changes while it is up:
   weapon for as long as it rested there. The mouse bindings are set aside for as
   long as the console is up and handed straight back when it goes; the rebinding
   screen still shows them, and they are still what gets saved.
-* **Every prompt names the control on the glass.** The slot cards, the extract
-  prompt, the hint over an NPC — all of them ask `Controls.short_label_for`,
-  which answers with the console's own word, so a card reads `HIT weapon attack`
-  rather than `LMB weapon attack`. The two keyboard legends along the bottom of
+* **Every prompt names the control on the glass.** The graph's square, the
+  extract prompt, the hint over an NPC — all of them ask
+  `Controls.short_label_for`, which answers with the console's own word, so the
+  square reads `HIT` rather than `LMB`. The two keyboard legends along the bottom of
   the HUD are dropped outright: with the controls drawn on the screen with their
   names on them, a line telling you to press one is two rows of a small screen
   spent saying nothing.
@@ -209,9 +204,9 @@ never learn what a finger is. What changes while it is up:
 None of it is eyeballed. `tests/mobile/touch_pad_test` measures every control
 against the HUD's two bands, against every other control, and against its own
 word in both languages — then drives real fingers through a real raid: the stick
-walks and runs, a stick dragged over a button does not press it, a skill button
-arms its slot, charges while it is held, aims where it is thrown and casts what
-the hold paid for.
+walks and runs, a stick dragged over a button does not press it, the cast button
+charges while it is held, aims where it is thrown and casts what the hold paid
+for.
 
 The pointer you aim with is the game's own: a crosshair, drawn at boot from a
 table of characters like every other asset here that is not a sprite or a font,
@@ -243,16 +238,29 @@ nobody spends that week again.
 
 ## How a skill works
 
-A board is a circuit. A pulse leaves `INPUT`, spends **one tick in every cell**
+**A weapon is a graph.** Its own attack form stands on the root of a board —
+the sword's `DASHSLASH`, the gun's and the rock's `PROJECTILE` — on the left of
+the middle row, and everything you build is wired on after it. There are no
+skills apart from weapons and no weapon without its graph: what you carry into
+a raid is the weapon and whatever is on it, the rack picks the weapon and the
+bench opens its graph. The root is the one part you cannot lift, turn or cover;
+the cells after it are yours. `LMB` casts the graph as it is, again and again
+while it is held, for nothing; `RMB` charges it (below) and casts on release.
+
+A board is a circuit. A pulse leaves the root, spends **one tick in every cell**
 it passes through, and mutates a payload on the way through — a part costs
 exactly the room it takes up, so a two-cell part like `EXPLODE` costs two ticks
-and everything else costs one. When the pulse reaches an `OUTPUT`, whatever the
-payload has become is fired into the world. `INPUT` only restarts once every
+and everything else costs one. The root is entered like any other part, so the
+weapon's own form is the first thing on the payload; a form placed after it
+makes the flow that instead. When the pulse reaches an `OUTPUT`, whatever the
+payload has become is fired into the world. The root only restarts once every
 pulse from the previous cycle has resolved — **the length and shape of the board
 is the cooldown**, which is why a bigger build is not automatically a better
 one, and why a cycle can be counted off the grid rather than looked up part by
 part. What still separates one part from another in time is heat, which is
-added to the cooldown at the end of the cycle.
+added to the cooldown at the end of the cycle. Every cast off the weapon waits
+ten times what its graph alone would, so a bare graph is a swing and not a
+stream; everything built on after it lengthens that wait in proportion.
 
 The board is the *cooldown*, not the cast time: the walk up to the cycle's
 first `OUTPUT` is spent the moment you press, so the attack lands on the press,
@@ -318,8 +326,9 @@ the pool. Right-click removes.
 Each part draws one triangle, on the edge its flow leaves by, and takes flow on
 any other edge. Rotation therefore decides where a flow *goes*, never where it
 may come from, so a flow can turn a corner through any part and the arrows on
-the board describe its behaviour completely. The two joins that cannot carry
-flow are two outputs meeting head-on, and anything aimed back at the INPUT.
+the board describe its behaviour completely. The one join that cannot carry
+flow is two outputs meeting head-on; the root takes flow like any other part,
+so a ring back through the weapon's own form is a build like any other.
 
 Because a flow can enter from any side, rings are easy to build. Every pulse
 therefore carries a **time to live** — how many more parts it may enter — and
@@ -329,14 +338,14 @@ two branches out of a `TEE` race for the last of it and which one starves comes
 down to the order they happen to be stepped in. A pulse starts with one full
 pass of its own board, so length alone never costs a board its shot.
 
-Holding the cast button **charges** the armed board, spending mana the whole
+Holding the cast button **charges** the weapon's graph, spending mana the whole
 time it is held; **letting go is what casts it**, with whatever the hold paid
 for. A tap is simply a charge of nothing, so a quick press casts as it always
-did. A skill still recovering cannot be charged: the wait is the board's own
+did. A graph still recovering cannot be charged: the wait is the board's own
 cadence, and a hold running alongside it would buy the next cast's life out of
 time already being spent. Holding through the wait costs nothing and loses
-nothing — the charge starts building the moment the slot comes free. Charging
-engages on every skill alike — nothing is special-cased on the shape of the
+nothing — the charge starts building the moment the graph comes free. Charging
+engages on every graph alike — nothing is special-cased on the shape of the
 board — but all it ever buys is life, and life is only ever spent
 going round. A board with no cycle in it walks to its OUTPUT and stops there
 however much it was given, so it fires **once** charged exactly as it fires once
@@ -356,10 +365,10 @@ while two parts that merely touch stay two boxes with a red cross on the seam
 between them. That outline stays lit the whole time — what is joined to what
 does not change from moment to moment — and the movement is dots running a
 track laid into the edge rather than sitting on top of it. The track goes
-round everything between the INPUT and the part the flow finishes on, leaving
+round everything between the root and the part the flow finishes on, leaving
 the side of the start the run departs by and meeting the side of the end it
 arrives on: with a board laid out left to right the dots set off from the
-middle of the INPUT's right edge, go over and under what lies between, and
+middle of the root's right edge, go over and under what lies between, and
 arrive at the middle of the OUTPUT's left edge. Nothing goes round in a
 circle. A part the flow cannot reach keeps its own box, drawn faint and with
 no dots on it. When a board produces nothing the preview names the first fault
@@ -369,7 +378,7 @@ A ring the flow can never leave is **dead code**, and is drawn switched off:
 the colour comes out of the parts, the silhouette round the whole ring goes
 red, and the cursor anywhere on it brings up a box saying why — whatever gets
 in goes round until its life runs out, and nothing comes of it. It counts
-whether or not the INPUT feeds it, and being fed is exactly what makes it dead
+whether or not the root feeds it, and being fed is exactly what makes it dead
 code rather than a part waiting to be wired up. A ring with a branch out of it
 is not one of these and is drawn as it always was: laps through the stat parts
 and out through a TEE is the pattern charging a skill exists to buy. Nor is one
@@ -414,11 +423,14 @@ characters too.
 
 What a code does *not* carry is the name — that travels in the message beside it
 — or the grid: a build arrives on your workbench's own board, and one laid out
-on a bigger one is turned away whole rather than in pieces. **A code is a
-blueprint, not the parts.** Pasting one at the workbench spends the stash
-exactly as building the same board by hand would, the board it replaces goes
-back into the stash as it goes, and one you cannot afford changes nothing at all
-and says what it is short of. At the bench, where parts are free, it never asks.
+on a bigger one is turned away whole rather than in pieces. Nor the weapon: a
+build arrives on the weapon you open it over, with that weapon's own part on
+the root, and whatever the code had standing on that cell — its author's own
+root — stays behind. **A code is a blueprint, not the parts.** Pasting one at
+the workbench spends the stash exactly as building the same board by hand
+would, the build it replaces goes back into the stash as it goes, and one you
+cannot afford changes nothing at all and says what it is short of. At the
+bench, where parts are free, it never asks.
 
 The format is `circuit/board_code.gd`. The alphabet is fixed for good, and
 the table that numbers the parts may only ever be appended to, or every code
@@ -426,9 +438,11 @@ anyone has written down stops meaning what it meant.
 
 A retired part keeps its number. WIRE and BEND are gone — any part already
 carries a flow and turns it — and a code or a save that still has one reads back
-without it. Where one sat against the INPUT or an OUTPUT, that end steps into its
-cell, so the old starter boards and a WIRE-led build come back working; anywhere
-else the cell is left empty and the board shows the break.
+without it. Where one sat against an OUTPUT, the OUTPUT steps into its cell, so
+a WIRE-led build comes back working; anywhere else the cell is left empty and
+the board shows the break. INPUT is gone too: the root is where a flow starts
+now, and a code or a save with an INPUT reads back with that cell empty, which
+on any weapon's board is the cell the weapon's own part already fills.
 
 A renamed part keeps its number too. EXPLODE was called AREA, and a code or a
 save from then reads back with an EXPLODE wherever it had an AREA.
@@ -440,9 +454,9 @@ across it, after the room in Katana ZERO where the Dragon tries out his dash:
 one cut kills a guard, and the whole building is inside one cast of the board
 the screen hands you.
 
-That board is `DASHSLASH+` with an `ON HIT` whose branch runs three
-`OVERCLOCK`s back round into it, so **every lap the cast has life for is one
-more lunge at the nearest guard still standing**. A tap is one lunge and one
+That board is `DASHSLASH+` on the root with an `ON HIT` whose branch runs
+three `OVERCLOCK`s back round into it, so **every lap the cast has life for is
+one more lunge at the nearest guard still standing**. A tap is one lunge and one
 body; hold the cast button and the chain grows a link at a time — the read-out
 along the top counts what a release right now would reach, the mark on the
 charge bar is where that becomes all eight, and letting go there sends you
@@ -463,19 +477,20 @@ whether one cast still clears it.
 
 The PRD left eight questions open. This build answers them as follows.
 
-1. **Slots per weapon** — they differ. Sword and Gun get 3, the Rock gets 2.
-   The slot count is part of a weapon's identity, not a uniform budget.
-2. **Weapons and their starter skills** — each weapon ships with one fixed
-   starter board so a fresh weapon is immediately usable; every other slot is
-   free. Identity without locking the build.
-3. **Compatibility** — by slot tags, not per-skill exceptions. A board's tags
-   (`melee`, `ranged`, `area`, `mobility`, `trigger`) come from what is placed
-   on it, and a weapon accepts a board that shares one. A board with no
-   offensive tag is pure utility and fits anywhere. The Sword refuses `ranged`,
-   the Gun refuses `melee`, the Rock takes everything.
-4. **Editing during a raid** — components inside the slotted skills only. You
-   cannot swap a whole skill into a slot mid-raid; the kit you deployed with is
-   the kit you run. Edits made in the field come home with you when you extract.
+1. **One graph per weapon.** A weapon is its graph: its own attack form
+   stands on the root and everything you build is wired on after it. There
+   are no slots and no skills apart from weapons — what you carry is the
+   weapon and what is on it, and the rack, the bench and the gate are three
+   ways of looking at the same thing.
+2. **A weapon starts bare** — its own part and an `OUTPUT`, so it works the
+   moment it is picked up, and every cell after the root is yours. Identity
+   without locking the build.
+3. **No compatibility rule.** The weapon's own form starts every flow, and a
+   form placed after it makes the flow that instead: a bolt off the sword is a
+   bolt off the sword, and is weighed as one (`Weapons.finalize`).
+4. **Editing during a raid** — the graph you deployed with; the kit you
+   deployed with is the kit you run. Edits made in the field come home with you
+   when you extract.
 5. **Rising danger** — a pressure clock rather than a timer. Staying longer
    raises the chance that a room you re-enter has picked up a wanderer. Nothing
    forces you out; the map just gets less friendly the longer you work it.
@@ -493,17 +508,18 @@ The PRD left eight questions open. This build answers them as follows.
 
 ## Losing a raid
 
-Deploying binds the weapon and the skills in its slots into one kit. Dying
-costs you the weapon, those skills (and every component built into them), and
-everything found along the way — but none of it is destroyed. It is left lying
+Deploying binds the weapon and the graph on it into one kit. Dying costs you
+the weapon, everything built onto its graph — the rock itself always comes back,
+bare — and everything found along the way; but none of it is destroyed. It is left lying
 on the spot you fell on, and the next deployment goes back in after it: the
 same floor, grown from the same seed, with the room you died in still in the
 same place and the drop still lying in it. The map marks the room; the hideout says how
 much is waiting before you commit to the run.
 
 Picking it up does not end the story. A recovered kit is **carried**, not
-returned — the skills cannot be slotted mid-raid and the weapon cannot be
-drawn — so it only becomes yours again at an exit. Die on the way out and the
+returned — the weapon cannot be drawn mid-raid — so it only becomes yours again
+at an exit, where the weapon goes back on the rack with the graph it fell with
+(or, for a weapon built on since, the graph's parts go to the shelves). Die on the way out and the
 whole lot goes down a second time, wherever you fell that time; the older drop
 is gone. There is one drop at a time, and dying is what moves it — extracting
 without it does not lose it, it just leaves it there, and the run after that

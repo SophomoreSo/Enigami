@@ -34,10 +34,10 @@ func wait(secs: float) -> void:
 		await get_tree().process_frame
 		t += get_process_delta_time()
 
-## Waits for the armed slot to come free, so one cast cannot bleed into the next.
+## Waits for the graph to come free, so one cast cannot bleed into the next.
 func settle(p: Player) -> void:
 	var guard := 0
-	while not p.runners[p.selected_slot].is_ready() and guard < 900:
+	while not p.runner.is_ready() and guard < 900:
 		await get_tree().process_frame
 		guard += 1
 	await frames(4)
@@ -84,14 +84,13 @@ func _ready() -> void:
 	await frames(20)
 	sb = game.current
 	var p := sb.player
-	p.runners[0].fired.connect(func(_x: Payload) -> void: shots += 1)
-	p.select_slot(0)
+	p.runner.fired.connect(func(_x: Payload) -> void: shots += 1)
 	await frames(4)
 
 	check(is_equal_approx(p.mana, Player.MAX_MANA), "mana starts full")
 	check(is_equal_approx(p.charge, 0.0), "and nothing is charged")
-	var base := p.runners[0].cycle_ttl()
-	check(base == p.runners[0].pass_cost,
+	var base := p.runner.cycle_ttl()
+	check(base == p.runner.pass_cost,
 		"an uncharged cast is worth exactly one pass of the board (%d)" % base)
 
 	# Holding fires nothing; the release is what casts.
@@ -132,13 +131,14 @@ func _ready() -> void:
 		"every board has room for some charge (%.0f)" % p.charge_cap())
 	# Read from what the release banked: `charge` is emptied into it on the way.
 	check(p.cast_charge > 0.0, "and the release banks real charge (%.0f)" % p.cast_charge)
-	check(shots_at(p.runners[0], int(p.cast_charge)) == shots_at(p.runners[0], 0),
-		"but on this board it buys no extra casts (%d)" % shots_at(p.runners[0], 0))
+	check(shots_at(p.runner, int(p.cast_charge)) == shots_at(p.runner, 0),
+		"but on this board it buys no extra casts (%d)" % shots_at(p.runner, 0))
 	await frames(2)
 
-	# A looping board is what has somewhere to spend it.
+	# A looping board is what has somewhere to spend it: the sword's own lunge
+	# on the root, and a ring built on after it.
 	var loop := SkillBoard.new(7, 5, "Winding Blade")
-	loop.place("INPUT", Vector2i(0, 1), 0)
+	loop.set_root("DELAY", Vector2i(0, 1), 0)
 	loop.place("DELAY", Vector2i(1, 1), 3)
 	loop.place("DAMAGE", Vector2i(1, 0), 0)
 	loop.place("DAMAGE", Vector2i(2, 0), 0)
@@ -147,13 +147,13 @@ func _ready() -> void:
 	loop.place("TEE", Vector2i(2, 1), 1)
 	loop.place("SLASH", Vector2i(2, 2), 0)
 	loop.place("OUTPUT", Vector2i(3, 2), 0)
-	sb.boards[0] = loop
-	p.setup("SWORD", sb.boards)
-	p.select_slot(0)
+	sb.graphs[sb.current_weapon()] = loop
+	sb._apply_weapon()
+	p.runner.fired.connect(func(_x: Payload) -> void: shots += 1)
 	await frames(6)
-	check(shots_at(p.runners[0], SkillRunner.MAX_TTL_BONUS) > shots_at(p.runners[0], 0),
+	check(shots_at(p.runner, SkillRunner.MAX_TTL_BONUS) > shots_at(p.runner, 0),
 		"charging a loop does buy more (%d -> %d)"
-			% [shots_at(p.runners[0], 0), shots_at(p.runners[0], SkillRunner.MAX_TTL_BONUS)])
+			% [shots_at(p.runner, 0), shots_at(p.runner, SkillRunner.MAX_TTL_BONUS)])
 	p.mana = Player.MAX_MANA
 	p.charge = 0.0
 	await frames(6)
@@ -168,7 +168,7 @@ func _ready() -> void:
 	p.mana = Player.MAX_MANA
 	p.charge = 0.0
 	await frames(4)
-	check(not p.runners[0].is_ready(), "the cast that hold bought is still running")
+	check(not p.runner.is_ready(), "the cast that hold bought is still running")
 	press(true)
 	# Sampled only for as long as it really is recovering, and read before each
 	# frame rather than after it. Both halves of the rule are true at once — the
@@ -178,7 +178,7 @@ func _ready() -> void:
 	var bought := 0.0
 	var spent := 0.0
 	var held := 0.0
-	while held < 0.4 and not p.runners[0].is_ready():
+	while held < 0.4 and not p.runner.is_ready():
 		bought = maxf(bought, p.charge)
 		spent = maxf(spent, Player.MAX_MANA - p.mana)
 		await get_tree().process_frame
@@ -186,7 +186,7 @@ func _ready() -> void:
 	check(bought <= 0.01, "holding a recovering skill buys no life (%.1f)" % bought)
 	check(spent <= 0.01, "and spends no mana on it (%.1f)" % spent)
 	var guard := 0
-	while not p.runners[0].is_ready() and guard < 900:
+	while not p.runner.is_ready() and guard < 900:
 		await get_tree().process_frame
 		guard += 1
 	await wait(0.4)
@@ -199,10 +199,10 @@ func _ready() -> void:
 	p.mana = 0.0
 	p.charge = 0.0
 	await frames(4)
-	var before_ttl := p.runners[0].cycle_ttl()
+	var before_ttl := p.runner.cycle_ttl()
 	await hold(1.0)
-	check(p.runners[0].cycle_ttl() <= before_ttl + 1,
-		"with no mana, holding buys no life (%d)" % p.runners[0].cycle_ttl())
+	check(p.runner.cycle_ttl() <= before_ttl + 1,
+		"with no mana, holding buys no life (%d)" % p.runner.cycle_ttl())
 
 	# It comes back on its own.
 	var t := 0.0
@@ -220,7 +220,7 @@ func _ready() -> void:
 		decay += get_process_delta_time()
 	check(p.charge <= 0.01, "charge bleeds off once released (%.2fs)" % decay)
 	await frames(2)
-	check(p.runners[0].ttl_bonus == 0, "and the board drops back to base life")
+	check(p.runner.ttl_bonus == 0, "and the board drops back to base life")
 
 	print("[CHG] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)

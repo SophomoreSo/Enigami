@@ -1,7 +1,7 @@
 class_name Hud
 extends Control
 
-## Raid HUD: health, and the live state of each skill circuit.
+## Raid HUD: health, and the live state of the weapon's graph.
 ##
 ## Drawn rather than built, in UiKit's pixel look: Silkscreen at its own size,
 ## boxes square and unsmoothed with a PIXEL of edge, everything on the PIXEL
@@ -14,12 +14,11 @@ extends Control
 ## numbers it stands on are bigger too: the bars, the slots and the gaps between
 ## them are all `PIXEL`-multiples.
 ##
-## The slots used to be a row of cards along the bottom of the screen, each one
-## carrying a name, a state and a pulse count. They are squares under the bars
-## now: the corner is where the eye already goes for health, and a fight is not
-## read off the bottom of the screen. What a square cannot hold — the name, and
-## the reason a red one is red — is written once, under the row, about the one
-## slot the cast button would actually run.
+## The graph is a square under the bars: the corner is where the eye already
+## goes for health, and a fight is not read off the bottom of the screen. It
+## carries the key that casts and the wait until the next cast, and nothing
+## else; the graph's own name is written under it only when it is not the
+## weapon's, which is already written above.
 ##
 ## What is not here is deliberate. The map is a window of its own now — see
 ## `MapPanel`, opened from `RaidView` — and the bag is gone: a list of parts
@@ -31,15 +30,10 @@ const BAR_W := 264.0
 const BAR_AT := Vector2(24, 24)
 const HEALTH_H := 24.0
 const THIN_H := 12.0
-## A slot, and the gap to the next one along. A square holds a binding and a
-## cooldown wipe and nothing else, so it is sized by the column it belongs to
-## rather than by any text: the three slots the widest weapon has sit inside
-## BAR_W, and the corner reads as one column. The weapon's own attack has no
-## square: it has no wait worth watching, and a square that never changes was
-## one more thing in the corner saying nothing.
+## The graph's square. It holds a binding and a cooldown wipe and nothing else,
+## so it is sized to read at a glance rather than by any text.
 const SLOT := Vector2(60, 60)
-const SLOT_GAP := 8.0
-## Where the row sits, under the bars and the weapon's name.
+## Where it sits, under the bars and the weapon's name.
 const SLOT_TOP := 120.0
 ## How far the prompt stands off the bottom: clear of the two lines of key
 ## hints down there, and no longer pushed up by a row of cards.
@@ -142,58 +136,31 @@ func _draw_mana() -> void:
 	var bar := Rect2(BAR_AT + Vector2(0, HEALTH_H + THIN_H + 8.0), Vector2(BAR_W, THIN_H))
 	_px.bar(bar, player.mana_ratio(), Color(0.38, 0.55, 0.95), BAR_GROUND, BAR_EDGE)
 
-## Each slot, in order. Which slot is armed has to be obvious at a glance: it
-## is the one the cast button will run.
+## The weapon's graph: one square, and its name under it when that is not the
+## weapon's own.
 func _draw_slots() -> void:
-	var at := Vector2(BAR_AT.x, SLOT_TOP)
-	for i in player.runners.size():
-		_draw_slot(Rect2(at, SLOT), player.runners[i],
-			Controls.short_label_for("skill_%d" % (i + 1)),
-			i == player.selected_slot, player.can_cast(i))
-		at.x += SLOT.x + SLOT_GAP
-	_draw_armed()
+	var r := player.runner
+	if r == null:
+		return
+	_draw_slot(Rect2(Vector2(BAR_AT.x, SLOT_TOP), SLOT), r, Controls.short_label_for("attack"))
+	if r.board.skill_name != Weapons.name_for(player.weapon_id):
+		_px.text(Vector2(BAR_AT.x, SLOT_TOP + SLOT.y + 18.0), r.board.skill_name,
+			Color(1, 1, 1), BAR_W)
 
 ## One square: the key that casts it, how much of its wait is left, and an edge
-## saying what it is. Nothing is written in it but the binding — read from the
-## binding rather than spelled out here, so it stays honest after a rebind.
-func _draw_slot(rect: Rect2, r: SkillRunner, key: String, armed: bool, usable: bool) -> void:
-	_px.rect(rect, Color(0.10, 0.13, 0.17, 0.9) if armed else Color(0.08, 0.09, 0.12, 0.85))
-	var ink := Color(0.85, 0.92, 1.0)
-	if not usable:
-		ink = Color(0.72, 0.55, 0.58)
-	elif armed:
-		ink = Color(1, 1, 1)
+## that lights while the graph is running. Nothing is written in it but the
+## binding — read from the binding rather than spelled out here, so it stays
+## honest after a rebind.
+func _draw_slot(rect: Rect2, r: SkillRunner, key: String) -> void:
+	_px.rect(rect, Color(0.10, 0.13, 0.17, 0.9))
 	# Capitals stand 10 of the 60, so this baseline sits them in the middle of it.
 	# A binding longer than the square — a rebind onto SHIFT — is cut short.
 	var pad := 4.0
-	_px.text_centered(rect.position + Vector2(pad, 36), key, ink, rect.size.x - pad * 2.0)
-	# Drawn last: the sheet covers the key as it recedes, which is what makes a
-	# slot read as unavailable at a glance.
-	var border := Color(0.3, 0.35, 0.42)
-	if not usable:
-		border = Color(0.85, 0.35, 0.35)
-	elif r.active:
-		border = Color(0.5, 0.9, 1.0)
-	elif armed:
-		border = Color(0.45, 0.95, 0.8)
+	_px.text_centered(rect.position + Vector2(pad, 36), key, Color(1, 1, 1), rect.size.x - pad * 2.0)
+	# Drawn last: the sheet covers the key as it recedes, which is what makes
+	# the wait read at a glance.
+	var border := Color(0.5, 0.9, 1.0) if r.active else Color(0.45, 0.95, 0.8)
 	_px.cooldown(rect, r.ready_ratio(), r.ready_flash, border)
-
-## What the cast button would run, spelled out under the row. A square has no
-## width for a name, and the one name worth carrying is the armed slot's — with
-## the reason under it when the weapon in hand will not have it, since a red
-## edge says that something is wrong and not what.
-func _draw_armed() -> void:
-	if player.selected_slot < 0 or player.selected_slot >= player.runners.size():
-		return
-	var at := Vector2(BAR_AT.x, SLOT_TOP + SLOT.y + 18.0)
-	var usable := player.can_cast(player.selected_slot)
-	_px.text(at, player.runners[player.selected_slot].board.skill_name,
-		Color(1, 1, 1) if usable else Color(0.72, 0.55, 0.58), BAR_W)
-	if not usable:
-		# The weapon is the reason, so name the weapon.
-		_px.text(at + Vector2(0, PixelDraw.LINE),
-			Loc.t("hud.slot.not_on", [Weapons.name_for(player.weapon_id).to_upper()]),
-			Color(1.0, 0.5, 0.48), BAR_W)
 
 func _draw_prompts(vp: Vector2) -> void:
 	var band := 600.0
@@ -211,9 +178,8 @@ func _draw_prompts(vp: Vector2) -> void:
 	if toast_time > 0.0:
 		var a := clampf(toast_time / 0.8, 0.0, 1.0)
 		_px.text_centered(Vector2((vp.x - band) * 0.5, 120.0), toast, Color(1, 0.95, 0.8, a), band)
-	# The two lines of keys, along the bottom where the cards used to be. They
-	# are the same kind of thing the footer is — what a press would do — and the
-	# slots said it from the middle of the screen only because they were there.
+	# The two lines of keys, along the bottom. They are the same kind of thing
+	# the footer is — what a press would do.
 	#
 	# Both are for a keyboard: they say which key does what. With the console up
 	# the keys are on the screen with their names written on them, so the legend

@@ -128,7 +128,7 @@ func bar(r: Rect2, ratio: float, fill: Color, ground: Color, edge: Color) -> voi
 	rect(Rect2(r.position, Vector2(r.size.x * clampf(ratio, 0.0, 1.0), r.size.y)), fill)
 	frame(r, edge)
 
-## The cooldown state a skill slot shows, on the grid: `UiKit.draw_cooldown` is
+## The cooldown state the graph's square shows, on the grid: `UiKit.draw_cooldown` is
 ## the same thing drawn smooth, and carries why it looks the way it does. The
 ## flash thickens the edge by a PIXEL rather than growing a line width, which at
 ## this size is the only way to thicken anything.

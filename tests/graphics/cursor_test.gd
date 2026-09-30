@@ -106,24 +106,15 @@ func _the_hideout() -> void:
 
 	hideout.open_station("bench")
 	await frames(3)
-	arrow("the bench")
-	game._edit_library_skill(0)
-	await frames(3)
+	check(game.editor != null, "the bench opens the workbench itself")
 	arrow("the workbench, opened at the bench")
 	await key(KEY_ESCAPE)
 	check(game.editor == null, "ESC puts the workbench away")
-	arrow("the bench, with the workbench put away")
-	hideout.close_panel()
-	await frames(3)
+	aiming("the floor, with the workbench put away")
 
-	# The key that opens assembly in a raid opens it here too, over whatever is
-	# armed. Nothing held the player still under it, so the game went on taking
+	# The key that opens assembly in a raid opens it here too, over the weapon's
+	# graph. Nothing held the player still under it, so the game went on taking
 	# the mouse for them.
-	var slots := GameState.get_loadout(hideout.weapon_id)
-	slots[0] = 0
-	GameState.set_loadout(hideout.weapon_id, slots)
-	hideout.set_weapon(hideout.weapon_id)
-	await frames(3)
 	await key(KEY_TAB)
 	check(game.editor != null, "TAB on the floor opens the workbench")
 	arrow("the workbench, opened by key from the floor")
@@ -146,7 +137,7 @@ func _the_hideout() -> void:
 	aiming("the floor, unpaused")
 
 func _the_battleground() -> void:
-	game._deploy("SWORD", [0, 1, 2])
+	game._deploy("SWORD")
 	await frames(12)
 	var raid := game.current as Raid
 	aiming("the raid")

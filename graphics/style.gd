@@ -38,7 +38,6 @@ const CAT_NAME := {
 ## the part's `COMPONENT_ICON`); `color` is only given where a part should not
 ## wear its category's colour.
 const COMPONENT := {
-	"INPUT": {"glyph": "▶"},
 	"OUTPUT": {"glyph": "◉"},
 
 	"PROJECTILE": {"glyph": "→"},
@@ -102,15 +101,6 @@ static func component_glyph(id: String) -> String:
 ## `#` for a pixel, drawn a `UiKit.PIXEL` block each. A part without one draws
 ## ICON_FALLBACK.
 const COMPONENT_ICON := {
-	"INPUT": [
-		"..#....",
-		"..##...",
-		"..###..",
-		"..####.",
-		"..###..",
-		"..##...",
-		"..#....",
-	],
 	"OUTPUT": [
 		"..###..",
 		".#...#.",

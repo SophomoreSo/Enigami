@@ -33,9 +33,8 @@ func flight(p: Payload) -> float:
 
 func bolt(weapon: String, part: String = "", n: int = 0) -> Payload:
 	var b := SkillBoard.new(9, 5, "rng")
-	b.place("INPUT", Vector2i(0, 2), 0)
-	b.place("PROJECTILE", Vector2i(1, 2), 0)
-	var x := 2
+	b.set_root("PROJECTILE")
+	var x := 1
 	for i in n:
 		b.place(part, Vector2i(x, 2), 0)
 		x += 1
@@ -121,10 +120,9 @@ func _ready() -> void:
 
 	# It does nothing to a flow with no bolt in it, which is what it says.
 	var mb := SkillBoard.new(9, 5, "melee")
-	mb.place("INPUT", Vector2i(0, 2), 0)
-	mb.place("SLASH", Vector2i(1, 2), 0)
-	mb.place("RANGE", Vector2i(2, 2), 0)
-	mb.place("OUTPUT", Vector2i(3, 2), 0)
+	mb.set_root("SLASH")
+	mb.place("RANGE", Vector2i(1, 2), 0)
+	mb.place("OUTPUT", Vector2i(2, 2), 0)
 	var mr := SkillRunner.new(mb)
 	mr.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
 	var mp: Payload = mr.simulate()["outputs"][0]

@@ -72,7 +72,7 @@ func _doorway() -> void:
 
 ## --- the raid, walked north -------------------------------------------------
 func _raid() -> void:
-	GameState.deploy("GUN", [0])
+	GameState.deploy("GUN")
 	var raid := Raid.new()
 	raid.finished.connect(func(_r: String, _p: Dictionary) -> void: raid.queue_free())
 	add_child(raid)

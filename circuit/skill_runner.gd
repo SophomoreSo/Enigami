@@ -3,13 +3,15 @@ extends RefCounted
 
 ## Runs a SkillBoard as a live circuit.
 ##
-## A pulse starts at INPUT carrying a base payload, spends one tick inside each
-## cell of every component it enters, and mutates the payload on entry. Reaching an OUTPUT turns the
-## payload into a real effect. The INPUT only restarts once every pulse of the
-## previous cycle has resolved, so board length *is* the cooldown.
+## A pulse starts at the board's root — the weapon's own part, which is the
+## first thing it enters — carrying a base payload, spends one tick inside each
+## cell of every component it enters, and mutates the payload on entry.
+## Reaching an OUTPUT turns the payload into a real effect. The root only
+## restarts once every pulse of the previous cycle has resolved, so board length
+## *is* the cooldown.
 ##
-## Board length is the cooldown, though — not the cast time. The walk from
-## INPUT to the first OUTPUT is spent the moment a cycle starts and charged back
+## Board length is the cooldown, though — not the cast time. The walk from the
+## root to the first OUTPUT is spent the moment a cycle starts and charged back
 ## onto the cooldown at the end, so the attack lands on the press and the
 ## cadence is unchanged. See `_spend_lead`.
 
@@ -217,7 +219,7 @@ func set_active(v: bool) -> void:
 	active = v
 
 func update(delta: float) -> void:
-	if board == null or not _analysis.get("has_input", false):
+	if board == null or not _analysis.get("has_root", false):
 		return
 	# A press starts its cycle on the frame it lands, not on the next tick
 	# boundary. Waiting for one is up to a whole tick of input lag and buys
@@ -297,7 +299,7 @@ func _advance() -> void:
 			trigger_payloads[k] = pending_triggers[k]
 
 func _start_cycle() -> void:
-	if board.find_input() == null:
+	if board.find_root() == null:
 		return
 	_cycle_life = cycle_ttl()
 	if not dry_run:
@@ -313,16 +315,20 @@ func _start_cycle() -> void:
 	cycle_started.emit()
 	_spend_lead()
 
-## Puts the cast's one pulse on the INPUT.
+## Puts the cast's one pulse on the root. The root is a part like any other
+## — the weapon's DASHSLASH, a monster's SLASH — so the pulse enters it the way
+## it enters everything after: its effects are applied on the way in, and its
+## heat is counted.
 func _begin_pass() -> bool:
-	var input_cell = board.find_input()
-	if input_cell == null:
+	var start = board.find_root()
+	if start == null:
 		return false
-	var entry: Dictionary = board.comp_origin_at(input_cell)
+	var entry: Dictionary = board.comp_origin_at(start)
 	if entry.is_empty():
 		return false
-	pulses = [Pulse.new(input_cell, Components.tick_cost(entry["id"]),
-		_base_payload(), cycle_ttl())]
+	var p := _base_payload()
+	_apply(String(entry["id"]), p)
+	pulses = [Pulse.new(start, Components.tick_cost(entry["id"]), p, cycle_ttl())]
 	return true
 
 ## What a trigger branch produces is a property of the board and the life it was
@@ -338,7 +344,7 @@ func _arm_triggers(life: int) -> void:
 		_walk(life)
 	trigger_payloads = (_triggers_at_life[life] as Dictionary).duplicate()
 
-## Everything between INPUT and the cycle's first visible effect is time the
+## Everything between the root and the cycle's first visible effect is time the
 ## player waits with nothing on screen: input lag, not cooldown. A cycle burns
 ## those ticks the instant it starts so the attack lands on the press, then
 ## charges exactly the same number back onto the cooldown when the cycle ends.
@@ -494,7 +500,7 @@ func consume_parry() -> Payload:
 ## cast shared one pool of life between its pulses the two even disagreed about
 ## which pulse got the last of it. There is only one walk now, so they cannot.
 ##
-## `error` is "" when the board ran, or the id of what stopped it — `no_input`
+## `error` is "" when the board ran, or the id of what stopped it — `no_root`
 ## — for a screen to spell in the language being played. Nothing here names a
 ## word.
 func simulate() -> Dictionary:
@@ -507,8 +513,8 @@ func simulate() -> Dictionary:
 		"overclock": int(a.get("overclock", 0)), "cycle_seconds": 0.0, "heat": 0.0,
 		"ttl": cycle_ttl(), "expired": false, "error": "",
 	}
-	if board.find_input() == null:
-		blank["error"] = "no_input"
+	if board.find_root() == null:
+		blank["error"] = "no_root"
 		return blank
 
 	var dry := SkillRunner.new(board)

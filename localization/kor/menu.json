@@ -44,7 +44,7 @@
 		"default_exit": "정문",
 		"weapon": "무기 %s",
 		"scrap": "고철 %d",
-		"skills_lost": "잃은 스킬: %s",
+		"build_lost": "무기에 짜 넣었다가 잃은 것: %s",
 		"kit_waits": "모두 쓰러진 자리에 남아 있습니다. 다시 출격하면 같은 지형으로 들어갑니다.",
 		"recovered": "들고 나온 것: %s",
 		"components": "부품",

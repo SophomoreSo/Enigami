@@ -12,8 +12,8 @@ extends World
 
 signal exit_requested()
 signal editing_changed(on: bool)
-## The loadout changed under the screen, so anything cached about it is stale.
-signal loadout_changed()
+## The graph changed under the screen, so anything cached about it is stale.
+signal board_changed()
 ## The last guard fell. `one_cast` says whether a single cast took all of them.
 signal cleared(one_cast: bool)
 ## Every guard is back at their post and the player is back at the door.
@@ -25,7 +25,8 @@ const RESET_DELAY := 2.4
 
 var room: DragonTower
 var player: Player
-var boards: Array = []
+## The board the player is handed here: `dragon_board`, on the sword.
+var board: SkillBoard
 ## The editor's pool: unused, because parts are unlimited here as on the bench.
 var inventory: Dictionary = {}
 var total_guards: int = 0
@@ -41,15 +42,14 @@ var reset_in: float = 0.0
 ## Seconds since the screen opened.
 var elapsed: float = 0.0
 
-## Whether kills are being counted for a cast: set when a skill's cycle starts,
-## and cleared by the weapon's own swing, which is not what the count is about.
+## Whether kills are being counted for a cast: set when a cycle starts.
 var _counting: bool = false
 var _chain_cache: Dictionary = {}
 
 ## The board this room is built around, `dragon` in the content database
-## (`data/db/boards/dragon_test.sql`): a DASHSLASH+ whose ON HIT walks three
-## OVERCLOCKs back round into it. Every lap the cast has life for is one more
-## lunge at the nearest guard still standing.
+## (`data/db/boards/dragon_test.sql`): a DASHSLASH+ on the root whose ON HIT
+## walks three OVERCLOCKs back round into it. Every lap the cast has life for is
+## one more lunge at the nearest guard still standing.
 static func dragon_board() -> SkillBoard:
 	return Boards.build("dragon", Loc.t("hud.dragon.board"))
 
@@ -66,22 +66,20 @@ func _ready() -> void:
 		"enemies": guards, "loot": []}, {}, 0)
 	room.enemy_killed.connect(_on_guard_down)
 
-	boards = [dragon_board()]
+	board = dragon_board()
 	player = Player.new()
 	player.collision_layer = 2
 	player.collision_mask = 1
 	add_child(player)
 	player.room = room
 	player.global_position = room.spawn_point()
-	player.setup(WEAPON, boards)
+	player.setup(WEAPON, board)
 	player.max_health = 9999.0
 	player.health = 9999.0
 	# The cycle starting is the hook, not the attack going out: a lunge resolves
 	# its first kill inside the call that fires it, so a count opened on the
 	# attack would already be a kill behind by the time it was zeroed.
-	for r in player.runners:
-		r.cycle_started.connect(_begin_cast.bind(r))
-	player.basic_runner.cycle_started.connect(_end_cast)
+	player.runner.cycle_started.connect(_begin_cast)
 
 func _process(delta: float) -> void:
 	elapsed += delta
@@ -90,15 +88,12 @@ func _process(delta: float) -> void:
 		if reset_in <= 0.0:
 			reset_floor()
 
-func _begin_cast(r: SkillRunner) -> void:
+func _begin_cast() -> void:
 	_counting = true
 	cast_kills = 0
 	# The charge is spent by now and back at zero, so what this cast is worth is
 	# read off the life it actually started with.
-	cast_chain = chain_length(r.ttl_bonus)
-
-func _end_cast() -> void:
-	_counting = false
+	cast_chain = chain_length(player.runner.ttl_bonus)
 
 func _on_guard_down(_kind: String, _pos: Vector2) -> void:
 	guards_left = maxi(guards_left - 1, 0)
@@ -136,13 +131,12 @@ func reset_floor() -> void:
 	player.charge = 0.0
 	floor_reset.emit()
 
-## Attacks one cast of the armed skill would land at `bonus` charge if every one
+## Attacks one cast of the graph would land at `bonus` charge if every one
 ## connects: the cast itself and each ON HIT follow-up hung off it.
 func chain_length(bonus: int) -> int:
-	var slot := player.selected_slot
-	var key := Vector2i(slot, bonus)
+	var key := bonus
 	if not _chain_cache.has(key):
-		var sim := SkillRunner.new(player.runners[slot].board)
+		var sim := SkillRunner.new(player.runner.board)
 		sim.base_payload_provider = func() -> Payload: return Weapons.base_payload(WEAPON)
 		sim.ttl_bonus = bonus
 		var walk := sim.simulate()
@@ -169,10 +163,10 @@ func set_editing(on: bool) -> void:
 	player.input_locked = on
 	editing_changed.emit(on)
 
-func on_board_changed(slot: int) -> void:
-	player.rebuild_runner(slot)
+func on_board_changed() -> void:
+	player.rebuild_runner()
 	_chain_cache.clear()
-	loadout_changed.emit()
+	board_changed.emit()
 
 func leave() -> void:
 	exit_requested.emit()

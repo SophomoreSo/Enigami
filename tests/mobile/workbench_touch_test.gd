@@ -140,11 +140,7 @@ func _ready() -> void:
 func _on_a_desk() -> void:
 	hideout.open_station("bench")
 	await frames(4)
-	check(pad.visible and pad.face == TouchPad.Face.SCREEN,
-		"the bench's panel leaves the console its keys (face %d)" % pad.face)
-	game._edit_library_skill(0)
-	await frames(4)
-	check(workbench_up(), "EDIT raises the workbench over the bench")
+	check(workbench_up(), "the bench raises the workbench over the room")
 	if not workbench_up():
 		return
 	check(pad.face == TouchPad.Face.CLEAR, "and the workbench leaves the console CLEAR")
@@ -158,18 +154,16 @@ func _on_a_desk() -> void:
 	await click(game.editor._close_rect().get_center())
 	check(not paused(), "a click on the workbench's CLOSE does not open the pause menu")
 	check(not workbench_up(), "it closes the workbench")
-	check(pad.face == TouchPad.Face.SCREEN, "and the bench's panel is back with its keys")
+	check(pad.face == TouchPad.Face.PLAY, "and the floor is back with its keys")
 	await tidy()
 
 	# CODE stood over KIT and MAP the same way, and neither does anything here.
-	game._edit_library_skill(0)
+	game._edit_weapon_graph()
 	await frames(4)
 	await click(game.editor._share_rect().get_center())
 	check(workbench_up() and game.editor._share_open(),
 		"a click on the workbench's CODE opens the share sheet")
 	await tidy()
-	hideout.close_panel()
-	await frames(4)
 
 ## --- opened by key, from the floor ------------------------------------------
 
@@ -177,14 +171,11 @@ func _on_a_desk() -> void:
 ## not even on its screen face: all of it answered, and a press on the grid
 ## grew the movement stick instead of reaching the board.
 func _from_the_floor() -> void:
-	var slots := GameState.get_loadout(hideout.weapon_id)
-	slots[0] = 0
-	GameState.set_loadout(hideout.weapon_id, slots)
 	hideout.set_weapon(hideout.weapon_id)
 	await frames(4)
 	check(pad.face == TouchPad.Face.PLAY, "on the floor the console is all there")
 	await click(TouchPad.area(control_of("open_editor")).get_center())
-	check(workbench_up(), "and its KIT opens the workbench over the armed boards")
+	check(workbench_up(), "and its KIT opens the workbench over the weapon's graph")
 	if not workbench_up():
 		return
 	check(pad.face == TouchPad.Face.CLEAR, "which leaves it CLEAR (face %d)" % pad.face)
@@ -212,7 +203,7 @@ func _from_the_floor() -> void:
 ## workbench, and the workbench has to stop under it: ESC is the menu's then,
 ## and a workbench still answering keys closed itself behind the menu.
 func _from_a_gamepad() -> void:
-	game._edit_library_skill(0)
+	game._edit_weapon_graph()
 	await frames(4)
 	var start := InputEventJoypadButton.new()
 	start.button_index = JOY_BUTTON_START
@@ -239,19 +230,15 @@ func _from_a_gamepad() -> void:
 func _with_a_thumb() -> void:
 	hideout.open_station("bench")
 	await frames(4)
-	game._edit_library_skill(0)
-	await frames(4)
 	await tap(game.editor._close_rect().get_center())
 	check(not workbench_up(), "a thumb on the workbench's CLOSE closes it")
 	check(not paused(), "and presses nothing else on the way")
 	await tidy()
-	hideout.close_panel()
-	await frames(4)
 
 ## --- the raid's board, and the map ------------------------------------------
 
 func _the_raids_board() -> void:
-	game._deploy("SWORD", [0, 1, 2])
+	game._deploy("SWORD")
 	await frames(16)
 	var raid := game.current as Raid
 	raid.set_editing(true)

@@ -100,7 +100,7 @@ func way_out(raid: Raid) -> int:
 func _ready() -> void:
 	GameState.reset_profile()
 	GameState.raid_seed = 20260919
-	GameState.deploy("GUN", [])
+	GameState.deploy("GUN")
 	var raid := Raid.new()
 	add_child(raid)
 	await phys(2)

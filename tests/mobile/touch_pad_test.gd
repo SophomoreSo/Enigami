@@ -361,17 +361,17 @@ func _the_setting() -> void:
 
 ## --- a raid to play with ----------------------------------------------------
 
-## Everything below runs against a real raid: a player who really arms, really
-## charges and really casts. A stick that presses the right action and changes
-## nothing would pass every check written against the pad alone.
+## Everything below runs against a real raid: a player who really charges and
+## really casts. A stick that presses the right action and changes nothing
+## would pass every check written against the pad alone.
 func _into_a_raid() -> void:
-	game._deploy("SWORD", [0, 1, 2])
+	game._deploy("SWORD")
 	await frames(20)
 	raid = game.current as Raid
 	player = raid.player
 	check(player != null, "a raid, with somebody in it to control")
-	check(player != null and player.runners.size() == 3,
-		"carrying three slots (%d)" % (0 if player == null else player.runners.size()))
+	check(player != null and player.runner != null,
+		"carrying the weapon's graph")
 	await frames(4)
 	check(pad.visible, "and with the console on, the pad is on the screen")
 
@@ -478,33 +478,12 @@ func _the_stick() -> void:
 	touch(0, corner, false)
 	await frames(2)
 
-## --- the skills -------------------------------------------------------------
+## --- the cast -----------------------------------------------------------------
 
 func _the_skills() -> void:
-	# The player is carrying three, so the fourth button is not there to press.
-	check(pad.shown(control_of("skill_3")), "a slot the player carries is on the pad")
-	check(not pad.shown(control_of("skill_4")),
-		"and one they do not carry is not")
-	touch(0, spot("skill_4"), true)
-	await frames(2)
-	check(not Input.is_action_pressed("cast_skill"),
-		"a thumb where it would have been presses nothing")
-	touch(0, spot("skill_4"), false)
-	await frames(2)
-
-	# A slot this weapon can actually cast. The kit is dealt out of the profile
-	# and a sword refuses some boards; a slot it refuses cannot be charged
-	# either, which is the rules' business and not the pad's.
-	var slot := -1
-	for i in player.runners.size():
-		if player.can_cast(i):
-			slot = i
-			break
-	check(slot >= 0, "the kit has a slot this weapon can cast (%d)" % slot)
-	if slot < 0:
-		return
-	var key := "skill_%d" % (slot + 1)
-	var where := spot(key)
+	# One cast stick, whatever the weapon: there are no slots to carry or not.
+	check(pad.shown(control_of("cast_skill")), "the cast stick is on the pad")
+	var where := spot("cast_skill")
 	# A cast's first OUTPUT goes off the moment it is let go of; whatever the
 	# board does after that plays out in real time. This board's second attack
 	# comes a good eight frames later — by which time a console that did not
@@ -513,21 +492,13 @@ func _the_skills() -> void:
 	var dry := SkillRunner.new(later).simulate()
 	check(String(dry["error"]) == "" and (dry["outputs"] as Array).size() == 2,
 		"the board runs clean, to two attacks (%s)" % dry["error"])
-	var boards: Array = []
-	for r in player.runners:
-		boards.append(r.board)
-	boards[slot] = later
-	player.setup(player.weapon_id, boards)
+	player.setup(player.weapon_id, later)
 	await frames(2)
 
-	# Press: the slot is armed and the charge starts.
-	player.select_slot((slot + 1) % player.runners.size())
-	await frames(2)
+	# Press: the charge starts.
 	touch(0, where, true)
 	await frames(4)
-	check(player.selected_slot == slot,
-		"pressing a slot arms it (%d)" % player.selected_slot)
-	check(Input.is_action_pressed("cast_skill"), "and holds the cast down")
+	check(Input.is_action_pressed("cast_skill"), "pressing it holds the cast down")
 	var charged_for := 0.0
 	for i in 20:
 		await get_tree().process_frame
@@ -561,8 +532,8 @@ func _the_skills() -> void:
 	# ticks later — so the left thumb runs right as the right one lets go, and
 	# every attack the cast fires is watched for where it went.
 	var went: Array = []
-	var watch := func(_slot: int) -> void: went.append(player.aim)
-	player.slot_fired.connect(watch)
+	var watch := func() -> void: went.append(player.aim)
+	player.cast_fired.connect(watch)
 	touch(1, landed, true)
 	drag(1, landed + Vector2(radius * 2.0, 0.0))
 	await frames(1)
@@ -570,17 +541,16 @@ func _the_skills() -> void:
 	touch(0, where + Vector2(0.0, -TouchPad.AIM_REACH), false)
 	await frames(3)
 	check(not Input.is_action_pressed("cast_skill"), "letting go lets go of the cast")
-	check(not Input.is_action_pressed(key), "and of the slot it armed")
 	check(paid > 0.0 and player.cast_charge >= paid
 			and player.cast_charge <= player.charge_cap() + 0.001,
 		"the cast carries what the hold paid for (%.1f, at least the %.1f on the meter)"
 			% [player.cast_charge, paid])
 	var waited := 0
-	while player.casting(slot) and waited < 600:
+	while player.casting() and waited < 600:
 		await get_tree().process_frame
 		waited += 1
 	await frames(3)
-	player.slot_fired.disconnect(watch)
+	player.cast_fired.disconnect(watch)
 	check(went.size() == 2 and went.all(func(a: Vector2) -> bool: return a.y < -0.9),
 		"both attacks the cast fires go up, where it was thrown — the later one too, though the left thumb is running right (%s)"
 			% str(went))
@@ -595,7 +565,7 @@ func _the_skills() -> void:
 	check(pad.aim().is_equal_approx(Vector2.LEFT),
 		"with nothing held the pad aims the way the player faces (%s)" % str(pad.aim()))
 
-	# The weapon is the same stick without the arming.
+	# The weapon is the same stick without the charge.
 	touch(0, spot("attack"), true)
 	await frames(3)
 	check(Input.is_action_pressed("attack"), "the weapon button swings the weapon")
@@ -609,18 +579,11 @@ func _the_skills() -> void:
 
 ## --- how far ------------------------------------------------------------------
 
-## How far a skill goes is how far its thumb drags, measured from where it came
+## How far a cast goes is how far its thumb drags, measured from where it came
 ## down — and a thumb that comes down anywhere on the button without dragging is
 ## a tap, which goes the way the left stick does, all the way.
 func _the_reach() -> void:
-	var slot := -1
-	for i in player.runners.size():
-		if player.can_cast(i):
-			slot = i
-			break
-	if slot < 0:
-		return
-	var where := spot("skill_%d" % (slot + 1))
+	var where := spot("cast_skill")
 	touch(0, where, true)
 	await frames(3)
 	var half := TouchPad.AIM_DEAD + (TouchPad.AIM_REACH - TouchPad.AIM_DEAD) * 0.5
@@ -639,7 +602,7 @@ func _the_reach() -> void:
 	check(player.aim_reach < 0.05 and player.aim.x > 0.9,
 		"just past the dead zone, next to nothing — but still that way (%.2f)" % player.aim_reach)
 	touch(0, where + Vector2(TouchPad.AIM_DEAD + 2.0, 0.0), false)
-	await _cast_done(slot)
+	await _cast_done()
 
 	# A tap off the button's middle, with the left thumb pushing right. The
 	# thumb trembles as thumbs do; it does not drag.
@@ -659,16 +622,17 @@ func _the_reach() -> void:
 			% str(pad.aim()))
 	check(player.aim_reach > 0.99, "and all the way (%.2f)" % player.aim_reach)
 	touch(0, off + Vector2(3.0, -2.0), false)
-	await _cast_done(slot)
+	await _cast_done()
 	touch(1, landed + Vector2(radius * 2.0, 0.0), false)
 	await frames(2)
 
-## INPUT, a SLASH and a TEE: the main line fires at once, as a cast's first
-## OUTPUT always does, and the branch walks the rest of the board — back and
-## forth through a run of DELAY — to a second OUTPUT twenty-six ticks later.
+## A DELAY on the root, a SLASH and a TEE: the main line fires at once, as a
+## cast's first OUTPUT always does, and the branch walks the rest of the board
+## — back and forth through a run of DELAY — to a second OUTPUT twenty-six
+## ticks later.
 func one_now_one_later() -> SkillBoard:
 	var b := SkillBoard.new(7, 5, "one now, one later")
-	b.place("INPUT", Vector2i(0, 0), 0)
+	b.set_root("DELAY", Vector2i(0, 0), 0)
 	b.place("SLASH", Vector2i(1, 0), 0)
 	b.place("TEE", Vector2i(2, 0), 0)
 	b.place("OUTPUT", Vector2i(3, 0), 0)
@@ -686,9 +650,9 @@ func one_now_one_later() -> SkillBoard:
 	b.place("OUTPUT", Vector2i(0, 4), 0)
 	return b
 
-func _cast_done(slot: int) -> void:
+func _cast_done() -> void:
 	var waited := 0
-	while player.casting(slot) and waited < 600:
+	while player.casting() and waited < 600:
 		await get_tree().process_frame
 		waited += 1
 	await frames(3)
@@ -865,8 +829,9 @@ func _the_drawer() -> void:
 			and Controls.word_for("attack") != "",
 		"a HUD asking what attacks is told the key on the glass ('%s')"
 			% Controls.short_label_for("attack"))
-	check(Controls.short_label_for("skill_1") == "1",
-		"a slot is its own number either way ('%s')" % Controls.short_label_for("skill_1"))
+	check(Controls.short_label_for("cast_skill") == Controls.word_for("cast_skill")
+			and Controls.word_for("cast_skill") != "",
+		"and what casts, the same way ('%s')" % Controls.short_label_for("cast_skill"))
 
 	Touch.set_mode(Touch.OFF)
 	await frames(3)

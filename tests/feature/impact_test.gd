@@ -86,13 +86,14 @@ func knock_travel(kind: String, p: Payload) -> float:
 	m.queue_free()
 	return moved
 
-## A board with `ids` in a line, run through the runner so the payload under
-## test is the one the rules actually build — not one hand-set here.
+## A board with `ids` in a line — the first on the root, the way a weapon's own
+## part is — run through the runner so the payload under test is the one the
+## rules actually build, not one hand-set here.
 func payload_of(ids: Array) -> Payload:
 	var b := SkillBoard.new(7, 5, "test")
-	b.place("INPUT", Vector2i(0, 2), 0)
+	b.set_root(String(ids[0]))
 	var x := 1
-	for id in ids:
+	for id in ids.slice(1):
 		b.place(String(id), Vector2i(x, 2), 0)
 		x += 1
 	b.place("OUTPUT", Vector2i(x, 2), 0)

@@ -1,9 +1,7 @@
 {
-	"rejection": "%s will not carry a %s skill.",
-	"rejection_note": "%s: no %s",
 	"SWORD": {
 		"name": "Sword",
-		"desc": "Close work. Melee flows hit far harder; bolts leave the blade sluggish."
+		"desc": "Close work. A lunge that cuts everything on its line; melee flows hit far harder, and bolts leave the blade sluggish."
 	},
 	"GUN": {
 		"name": "Gun",
@@ -12,6 +10,5 @@
 	"ROCK": {
 		"name": "Rock",
 		"desc": "A thrown stone takes anything. Heavy, arcing, and fussy about nothing."
-	},
-	"basic_board": "%s Basic"
+	}
 }

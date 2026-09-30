@@ -240,12 +240,17 @@ So are the skill boards' parts — `parts`, their `ports`, their `effects` and
 their numbers in a shared code, `codes` — read once by `Components`
 (`circuit/components.gd`), and the boards the game ships with, `boards` and
 `board_parts`, built by `Boards` (`feature/core/boards.gd`): each weapon's
-own attack, every monster's, the starter skills and the dragon test's. A part
+graph as a new profile gets it, every monster's and the dragon test's. A part
 is its numbers and what it does to a flow, each effect a change to one field
 of the payload; what an effect *means* — what a form spawns, what a flag does
 to a hit — is code, `SkillRunner._apply` and `feature/attacks/`, and the rows
 name it by field. A board is its parts and the way each faces: which feeds
-which is walked, not stored. What a part looks like stays in `Style`.
+which is walked, not stored. Every board is rooted: the part on its root cell
+(`SkillBoard.ROOT`) is where every cycle starts — a weapon's own attack form,
+which is the one part the player never lifts — and there is no INPUT part.
+A weapon *is* its graph (`GameState.weapon_boards`): one each, carried into a
+raid as a copy, lost and won back with the weapon. What a part looks like stays
+in `Style`.
 
 The `text` in a conversation's rows is the English fallback. What is actually said is
 laid over it from `localization/<lang>/dialogue/<id>.json`, by node name —
@@ -283,7 +288,7 @@ knows what anybody said.
 | A new pose for the player | a strip beside the skin, painted in the map's colours; how it plays, `SkinnedCharacter.ANIMS`; when, `PlayerView._animate` |
 | New NPC or dialogue | a file in `data/db/dialogue/`, then `data/db/build.sh` — see `data/db/README.md`; no code. New *kinds* of direction: a column in `data/db/schema.sql`, read in `story/view/dialogue_box.gd` (emotion, portrait), `story/view/npc_view.gd` (camera) or `app/audio/audio_cues.gd` (sound) |
 | Content better kept as rows than as a file | a table in `data/db/schema.sql`, read through `Db` (`app/db.gd`) |
-| A board the game ships with — a weapon's own attack, a monster's, a starter skill | `data/db/boards/`, then `data/db/build.sh`; the weapon or the monster names it by id |
+| A board the game ships with — a weapon's graph as it starts, a monster's | `data/db/boards/`, then `data/db/build.sh`; the weapon or the monster names it by id, and a weapon names its root part beside it (`Weapons.DEFS`) |
 | The player's movement — its states, what each does, which can follow which, and when | `data/db/machines/player.sql`, then `data/db/build.sh`. A new action for a step to take, or a new sense for a condition to read, `_setup_fsm` in `feature/actors/player.gd` |
 | A new directed scene, or a new staging direction | a file in `data/scenes/` — see its README; no code. A new direction is a case in `story/rules/cutscene.gd` and, if it shows, `story/view/cutscene_view.gd` |
 | How a conversation behaves — range, reveal speed, who is held still | `story/rules/npc.gd`. How it reads on screen, `story/view/dialogue_box.gd` |
@@ -301,7 +306,7 @@ knows what anybody said.
 | What a moment says on screen — WINDED, a boss's second form | `hud.fx` in `localization/`, spelled in `graphics/cue_visuals.gd`; the rule sends the id |
 | A setting on both settings pages — a volume, the language, the screen | `graphics/ui/settings_rows.gd` for the game's, `graphics/ui/video_rows.gd` for the machine's; the title and the pause menu both ask for the rows |
 | A new thing a press of `interact` can use in a world | that world's `use_nearby()`, see `feature/world/world.gd`; the shell asks and names nothing |
-| What the forge costs, and that a skill sits in one slot at a time | `feature/core/game_state.gd` (`FORGE_COST`, `FORGE_INPUTS`, `assign_skill`); the counter only asks |
+| What the forge costs, and that a weapon is its graph — one each, deployed as a copy, lost and won back with the weapon | `feature/core/game_state.gd` (`FORGE_COST`, `FORGE_INPUTS`, `weapon_board`, `die`, `extract`); the screens only ask |
 | A control on the on-screen console — where it sits, whether it is a key or a stick, what it says | `CONTROLS` in `mobile/view/touch_pad.gd`, and its word in `controls.pad` in `localization/`. What pressing it does to the game is `mobile/input/touch.gd`, which sends the action a keyboard would and is the only thing that knows a finger from a key |
 | Where a player may move a console button, and what is kept of it | `mobile/view/touch_layout_editor.gd`; the arrangement itself, `TouchPad.layout` in `mobile/view/touch_pad.gd` |
 | A new screen | `app/game.gd`, plus its Control in `graphics/ui/` |

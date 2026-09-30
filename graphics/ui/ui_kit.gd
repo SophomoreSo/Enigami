@@ -93,7 +93,7 @@ static func overlay_button(text: String, accent: Color = ACCENT, pixel: bool = f
 	b.focus_mode = Control.FOCUS_NONE
 	return b
 
-## The cooldown state a skill slot shows, drawn over the card and shared by
+## The cooldown state the graph's square shows, drawn over the card and shared by
 ## every screen that lists slots so they cannot drift apart.
 ## `PixelDraw.cooldown` is this same wipe on the pixel grid, for the screens
 ## drawn that way; what it means is described here.

@@ -140,7 +140,7 @@ func _with_the_crosshair() -> void:
 	await frames(2)
 	check(panel.is_out(), "a click with the crosshair on the tab pulls the drawer out")
 	check(bench.player.input_locked, "the player is held still while it is out")
-	check(bench.player.basic_runner == null or not bench.player.basic_runner.active,
+	check(bench.player.runner == null or not bench.player.runner.active,
 		"so the click that pulled it does not swing the weapon")
 	press(hidden_at, false)
 	await settle()

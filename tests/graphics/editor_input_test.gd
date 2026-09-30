@@ -160,7 +160,7 @@ func _ready() -> void:
 	sb.set_editing(false)
 	game.goto_hideout()
 	await frames(8)
-	game._edit_library_skill(0)
+	game._edit_weapon_graph()
 	await frames(6)
 	ed = game.editor
 	var lib: SkillBoard = ed.current_board()

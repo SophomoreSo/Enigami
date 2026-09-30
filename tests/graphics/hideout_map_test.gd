@@ -231,16 +231,6 @@ func _ready() -> void:
 	check(aimed_left < 0.0 and world.player.aim.x > 0.0,
 		"and the pointer turns the weapon again (%.2f, then %.2f)" % [aimed_left, world.player.aim.x])
 
-	# Nothing is armed yet, so assembly has nothing to open over. The press is
-	# answered all the same: a key that does nothing is indistinguishable from a
-	# key that is broken.
-	check(world.armed_boards().is_empty(), "nothing is armed yet")
-	await tap_key(KEY_TAB)
-	check(game.editor == null, "TAB with an empty kit opens nothing")
-	var hud: Hud = Views.of(world).hud
-	check(hud != null and hud.toast == Loc.t("hideout.no_kit") and hud.toast_time > 0.0,
-		"and the room says why (%s)" % ("no readout" if hud == null else hud.toast))
-
 	# --- the counter sells parts --------------------------------------------
 	await stand_at("shop")
 	(world.stations["shop"] as Station).interact()
@@ -293,49 +283,50 @@ func _ready() -> void:
 	await frames(6)
 
 	# --- the gate ------------------------------------------------------------
+	# A weapon always has its graph, so the gate is open for any weapon the
+	# vault still has, and shut — saying why — for one it has lost.
 	var gate: Station = world.stations["gate"]
 	await stand_at("gate")
-	check(not gate.open, "the gate is shut with nothing armed")
-	check(gate.closed_reason == Loc.t("hideout.gate.no_skills"), "and says why")
+	world.set_weapon("SWORD")
+	await frames(4)
+	check(gate.open, "the gate is open: a weapon on the rack always has its graph to carry")
 	# Appended, not assigned: a GDScript lambda captures a local by value, so
 	# `deployed = [...]` inside one is a write nobody out here would ever see.
 	var deployed: Array = []
-	world.deploy_requested.connect(func(w: String, slots: Array) -> void:
-		deployed.append(w)
-		deployed.append(slots))
+	world.deploy_requested.connect(func(w: String) -> void: deployed.append(w))
+	GameState.owned_weapons.erase("SWORD")
+	world.set_weapon("SWORD")
+	await frames(4)
+	check(not gate.open and gate.closed_reason == Loc.t("hideout.gate.no_weapon"),
+		"a weapon the vault has lost shuts it, and it says why")
 	gate.interact()
 	await frames(4)
 	check(deployed.is_empty(), "a shut gate does not answer")
-
-	# Arm something, and it opens.
-	var slots := GameState.get_loadout("GUN")
-	slots[0] = 1
-	GameState.set_loadout("GUN", slots)
+	GameState.owned_weapons.append("SWORD")
 	world.set_weapon("GUN")
 	await frames(4)
-	check(gate.open, "arming a skill opens it")
+	check(gate.open, "a weapon the vault has opens it")
 
 	# --- the kit, on the player and on the key -------------------------------
 	# The readout over the room reads the player rather than the profile, so what
-	# the gate would carry has to be on them before it can be shown: a runner per
-	# armed slot, put back by whatever changed one.
-	var armed: Array = world.armed_boards()
-	check(armed.size() == 1 and world.player.runners.size() == armed.size(),
-		"the player standing in the room carries what the gate would carry (%d of %d)"
-			% [world.player.runners.size(), armed.size()])
+	# the gate would carry has to be on them before it can be shown: the graph
+	# on the weapon the rack is on, put back by whatever changed it.
+	var hud: Hud = Views.of(world).hud
+	check(world.player.runner != null and world.player.runner.board == world.armed_board()
+			and world.player.weapon_id == "GUN",
+		"the player standing in the room carries the graph the gate would carry")
 	check(hud != null and hud.player == world.player,
 		"and the readout over the room is reading them")
 
-	# The key that opens assembly in a raid opens it here, over those same
-	# boards. The second press is the editor closing itself, and this must not
-	# see it and open the editor straight back up.
+	# The key that opens assembly in a raid opens it here, over that same graph.
+	# The second press is the editor closing itself, and this must not see it
+	# and open the editor straight back up.
 	await tap_key(KEY_TAB)
 	check(game.editor != null and is_instance_valid(game.editor),
 		"TAB opens assembly over the room")
 	if game.editor != null and is_instance_valid(game.editor):
-		check(game.editor.boards.size() == armed.size(),
-			"on the armed boards, a tab each (%d of %d)"
-				% [game.editor.boards.size(), armed.size()])
+		check(game.editor.current_board() == world.armed_board(),
+			"on the weapon's own graph")
 	check(world.player.controls_locked(), "and holds the player still under it, as a panel does")
 	walked = await walk("move_right")
 	check(walked < 1.0, "so the movement keys do nothing while it is up (%.0f px)" % walked)
@@ -345,33 +336,28 @@ func _ready() -> void:
 	check(not world.player.controls_locked() and walked > 5.0,
 		"giving the keys back (%.0f px)" % walked)
 
-	# The bench's own panel holds the player like the others, and a board opened
-	# off its list hands back to the bench rather than to the room: shutting the
-	# board leaves the player still reading the bench, and still held.
+	# The bench opens the same graph, with no panel between, and holds the
+	# player under it the way a panel would; shutting it hands back to the room.
 	await stand_at("bench")
 	(world.stations["bench"] as Station).interact()
 	await frames(8)
-	check(world.open_panel == "bench", "the bench opens the same way")
+	check(game.editor != null and is_instance_valid(game.editor) and world.open_panel == "",
+		"the bench opens the weapon's graph itself, with no panel between")
+	if game.editor != null and is_instance_valid(game.editor):
+		check(game.editor.current_board() == world.armed_board(), "the same graph the key opens")
 	walked = await walk("move_right")
-	check(walked < 1.0, "and holds the player the same way (%.0f px)" % walked)
-	world.edit_requested.emit(0)
-	await frames(6)
-	check(game.editor != null and is_instance_valid(game.editor),
-		"a board off its list opens the editor over it")
+	check(walked < 1.0, "and holds the player under it (%.0f px)" % walked)
 	await tap_key(KEY_ESCAPE)
-	check(game.editor == null and world.open_panel == "bench",
-		"shutting the board goes back to the bench, not the room")
+	check(game.editor == null, "shutting the board goes back to the room")
 	walked = await walk("move_right")
-	check(world.player.controls_locked() and walked < 1.0,
-		"where the player is still held (%.0f px)" % walked)
-	world.close_panel()
-	await frames(6)
+	check(not world.player.controls_locked() and walked > 5.0,
+		"where the player walks again (%.0f px)" % walked)
 
 	await stand_at("gate")
 	gate.interact()
 	await frames(4)
-	check(deployed.size() == 2 and String(deployed[0]) == "GUN",
-		"and walking through deploys what was built (%s)" % str(deployed))
+	check(deployed.size() == 1 and String(deployed[0]) == "GUN",
+		"and walking through deploys the weapon and what is on it (%s)" % str(deployed))
 
 	print("[HIDE] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)

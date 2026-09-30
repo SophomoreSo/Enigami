@@ -12,10 +12,11 @@ func check(ok: bool, what: String) -> void:
 		fails += 1
 		push_error("OC FAIL: " + what)
 
-## A snake of `n` overclocks feeding a SLASH into an OUTPUT.
+## A snake of `n` overclocks feeding a SLASH into an OUTPUT, off a DELAY on the
+## root in the corner.
 func build(n: int) -> SkillBoard:
 	var b := SkillBoard.new(12, 9, "oc")
-	b.place("INPUT", Vector2i(0, 0), 0)
+	b.set_root("DELAY", Vector2i(0, 0), 0)
 	var cells: Array[Vector2i] = []
 	for y in 9:
 		var row: Array[Vector2i] = []

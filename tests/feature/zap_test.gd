@@ -115,17 +115,17 @@ func _ready() -> void:
 	check(int(def.get("cells", 0)) == 1 and float(def.get("heat", 0.0)) > 0.0,
 		"one cell, and it carries heat (%.2f)" % float(def.get("heat", 0.0)))
 	check("ZAP" in Components.loot_pool(), "it drops, forges and shows in the palette")
-	var b := SkillBoard.new(7, 5, "zap")
-	b.place("INPUT", Vector2i(0, 2), 0)
+	# On the gun's graph, after the gun's own bolt: the last form on a flow is
+	# the form it fires as.
+	var b := Weapons.make_board("GUN")
+	b.erase_at(Vector2i(1, 2))
 	b.place("ZAP", Vector2i(1, 2), 0)
 	b.place("OUTPUT", Vector2i(2, 2), 0)
 	var r := SkillRunner.new(b)
 	r.base_payload_provider = func() -> Payload: return Weapons.base_payload("GUN")
 	var outs: Array = r.simulate()["outputs"]
 	check(outs.size() == 1 and (outs[0] as Payload).form == "ZAP",
-		"a flow through it comes out of the OUTPUT as a beam")
-	check(Weapons.accepts_board("GUN", b) and Weapons.accepts_board("ROCK", b) and not Weapons.accepts_board("SWORD", b),
-		"the gun and the rock carry it, and the sword will not")
+		"built on after the gun's bolt, a flow comes out of the OUTPUT as a beam")
 	var gun := Weapons.finalize("GUN", (outs[0] as Payload).clone())
 	var sword := Weapons.finalize("SWORD", (outs[0] as Payload).clone())
 	check(is_equal_approx(gun.damage, float(Weapons.DEFS["GUN"]["base_damage"]) * float(Weapons.DEFS["GUN"]["ranged_mul"]))
@@ -133,11 +133,7 @@ func _ready() -> void:
 		"a weapon weighs it as it weighs a bolt: its ranged damage, its own reach (%.1f dmg, %.0f px)" % [gun.damage, gun.range_px])
 	check(gun.range_px > sword.range_px, "so the gun's beam outreaches the sword's (%.0f > %.0f)" % [gun.range_px, sword.range_px])
 	GameState.reset_profile()
-	var opens_with: Array = []
-	for board in GameState.skill_library:
-		if board.skill_name == "Zap" and (board as SkillBoard).used_components().has("ZAP"):
-			opens_with.append(board)
-	check(opens_with.size() == 1, "a new profile's library opens with one, called Zap")
+	check(int(GameState.stash.get("ZAP", 0)) > 0, "a new profile's shelves hold one to build with")
 
 	# --- it lands at once, on what is under the cursor ---------------------------
 	var z := fire(beam(), d1.global_position)

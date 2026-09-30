@@ -1,7 +1,7 @@
 extends Node
-## The numbers behind the slot's cooldown wipe: one continuous 0 → 1 fill across
-## the whole wait, measured against how long a cycle really takes, and a flash
-## at the moment it lands.
+## The numbers behind the graph's cooldown wipe: one continuous 0 → 1 fill
+## across the whole wait, measured against how long a cycle really takes, and a
+## flash at the moment it lands.
 
 ## Finer than a frame, because this measures a cycle rather than plays one: at
 ## the base clock a plain board's whole cadence is a couple of frames long, and
@@ -21,7 +21,7 @@ func check(ok: bool, what: String) -> void:
 		push_error("CD FAIL: " + what)
 
 func make(weapon: String) -> SkillRunner:
-	var r := SkillRunner.new(Weapons.make_innate_board(weapon))
+	var r := SkillRunner.new(Weapons.make_board(weapon))
 	r.base_payload_provider = func() -> Payload: return Weapons.base_payload(weapon)
 	return r
 
@@ -55,11 +55,11 @@ func cast_at(r: SkillRunner, bonus: int) -> Dictionary:
 			break
 	return {"wipe": wipe, "seconds": secs}
 
-## A straight board: INPUT, the listed parts in a row, then OUTPUT. Returns how
-## many ticks one whole cycle of it takes.
+## A straight board: a DELAY on the root, the listed parts in a row, then
+## OUTPUT. Returns how many ticks one whole cycle of it takes.
 func ticks_of(ids: Array) -> int:
 	var b := SkillBoard.new(12, 5, "chain")
-	b.place("INPUT", Vector2i(0, 2), 0)
+	b.set_root("DELAY")
 	var x := 1
 	for id in ids:
 		b.place(String(id), Vector2i(x, 2), 0)
@@ -114,24 +114,26 @@ func _ready() -> void:
 	check(q.ready_flash <= 0.0, "the flash fades out rather than sticking on")
 
 	# A slower board must take proportionally longer to fill. Counted over a run
-	# of cycles rather than read off one of them: these two boards are only a
+	# of cycles rather than read off one of them: two bare graphs are only a
 	# cell and a tick of heat apart, a couple of steps of this loop, so a single
 	# reading of either is mostly quantisation.
-	var slow_cycle := float(make("ROCK").simulate()["cycle_seconds"])
-	check(slow_cycle > predicted,
-		"the ROCK board really is the slower one (%.4fs vs %.4fs)" % [slow_cycle, predicted])
-	var slow_n := cycles_in(make("ROCK"), 3.0)
-	var fast_n := cycles_in(make("SWORD"), 3.0)
+	var rock_cycle := float(make("ROCK").simulate()["cycle_seconds"])
+	check(not is_equal_approx(rock_cycle, predicted),
+		"the ROCK's and the SWORD's bare graphs take different times (%.4fs vs %.4fs)" % [rock_cycle, predicted])
+	var slow := "ROCK" if rock_cycle > predicted else "SWORD"
+	var fast := "SWORD" if slow == "ROCK" else "ROCK"
+	var slow_n := cycles_in(make(slow), 3.0)
+	var fast_n := cycles_in(make(fast), 3.0)
 	check(slow_n < fast_n,
-		"and its slot fills more slowly to match (%d ROCK cycles in 3s against %d SWORD)"
-			% [slow_n, fast_n])
+		"and the slower one's square fills more slowly to match (%d %s cycles in 3s against %d %s)"
+			% [slow_n, slow, fast_n, fast])
 
 	# Charging changes how long a cast takes, so one cycle stopped predicting the
 	# next one the moment holding the button bought laps. The wipe has to fill
 	# against the cast actually running: a charged cast followed by an uncharged
 	# one had the slot reading four tenths full at the instant it was castable.
 	var ring := SkillBoard.new(7, 5, "ring")
-	ring.place("INPUT", Vector2i(0, 1), 0)
+	ring.set_root("DELAY", Vector2i(0, 1), 0)
 	ring.place("DELAY", Vector2i(1, 1), 3)
 	ring.place("DELAY", Vector2i(1, 0), 0)
 	ring.place("DELAY", Vector2i(2, 0), 0)

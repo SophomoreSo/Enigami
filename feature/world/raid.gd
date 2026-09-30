@@ -56,7 +56,7 @@ func _ready() -> void:
 	player = Player.new()
 	player.collision_layer = 2
 	player.collision_mask = 1
-	player.setup(GameState.raid_weapon, GameState.raid_boards)
+	player.setup(GameState.raid_weapon, GameState.raid_board)
 	player.died.connect(_on_player_died)
 	add_child(player)
 
@@ -364,8 +364,8 @@ func set_reading_map(on: bool) -> void:
 	Cues.emit_cue(&"ui", {"kind": "map"})
 	reading_map_changed.emit(on)
 
-func on_board_changed(slot: int) -> void:
-	player.rebuild_runner(slot)
+func on_board_changed() -> void:
+	player.rebuild_runner()
 
 ## An exit the player is standing in, with nothing sealing it.
 func use_nearby() -> bool:

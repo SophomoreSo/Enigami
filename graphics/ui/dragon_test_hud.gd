@@ -95,17 +95,17 @@ func _draw_guards(vp: Vector2) -> void:
 ## nine-link chain said nothing about what was happening on screen.
 func _draw_chain(vp: Vector2) -> void:
 	var p := screen.player
-	var n := screen.cast_chain if not p.runners[p.selected_slot].is_ready() \
+	var n := screen.cast_chain if not p.runner.is_ready() \
 		else screen.chain_length(int(p.charge))
 	var need := screen.total_guards
 	_text(Vector2(vp.x - 424.0, 30), Loc.t("hud.dragon.chain", [n, need]), CYAN if n >= need else PINK,
 		SIZE, HORIZONTAL_ALIGNMENT_RIGHT, 400.0)
 
-## The armed skill on the ground: its card and cooldown, the charge with a mark
-## where it reaches every guard, the mana paying for it, and the keys.
+## The graph on the ground: its card and cooldown, the charge with a mark where
+## it reaches every guard, the mana paying for it, and the keys.
 func _draw_skill(vp: Vector2) -> void:
 	var p := screen.player
-	var r: SkillRunner = p.runners[p.selected_slot]
+	var r: SkillRunner = p.runner
 	var y := vp.y - 58.0
 	var card := Rect2(24, y, 272, 40)
 	draw_rect(card, Color(0.05, 0.03, 0.1, 0.88))

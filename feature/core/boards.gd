@@ -3,19 +3,21 @@ extends RefCounted
 
 ## The skill boards the game ships with, read from the content database and
 ## built into the `SkillBoard`s the circuit runs: the rows of `boards` and
-## `board_parts` (see `data/db/README.md`). Each weapon's own attack, every
-## monster's, a new profile's starter skill and the dragon test's are here. The
-## boards a player builds are theirs, and live in the save.
+## `board_parts` (see `data/db/README.md`). Each weapon's own graph as a new
+## profile gets it, every monster's, and the dragon test's are here. What a
+## player builds onto a weapon's graph is theirs, and lives in the save.
 ##
 ## A board is its grid and the parts placed on it. Which part feeds which is
 ## written down nowhere: the parts' ports and the way each faces already say
-## it, and `SkillBoard.trace` walks it.
+## it, and `SkillBoard.trace` walks it. Where the flow starts is the root cell
+## (`SkillBoard.ROOT`), and every board here has a part standing on it.
 ##
 ## Nothing here falls back. A board that is not in the table comes back with
-## nothing on it, and a part that cannot go where its row puts it — off the
-## grid, over another, a second INPUT — is left off; `problems` says which, and
-## `build` says so loudly. A weapon or a monster cannot fight with half a board,
-## and would do it without a word if nobody looked.
+## nothing on it, a part that cannot go where its row puts it — off the grid,
+## over another — is left off, and a board with nothing on its root is a board
+## that never fires; `problems` says which, and `build` says so loudly. A
+## weapon or a monster cannot fight with half a board, and would do it without
+## a word if nobody looked.
 
 ## Every board in the table, by id.
 static func ids() -> PackedStringArray:
@@ -86,5 +88,8 @@ static func _lay(def: Dictionary, name: String) -> Array:
 		# `place` would take a part dropped on another's cell as the editor's
 		# replace; in a table it is two parts in one cell, so it is refused.
 		elif board.origin_at(at) != null or not board.place(part, at, Components.side(facing)):
-			wrong.append("%s: it does not fit — off the grid, over another part, or a second INPUT" % where)
+			wrong.append("%s: it does not fit — off the grid, or over another part" % where)
+	if not board.has_root():
+		wrong.append("nothing stands on the root cell %d,%d, so the flow has nowhere to start"
+			% [board.root.x, board.root.y])
 	return [board, wrong]

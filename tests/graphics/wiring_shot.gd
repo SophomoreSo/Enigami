@@ -25,6 +25,9 @@ func _ready() -> void:
 	game.goto_sandbox()
 	await frames(12)
 	var sb: Sandbox = game.current
+	# On the gun: a one-cell root, so the boards below start a cell in.
+	while sb.current_weapon() != "GUN":
+		sb.cycle_weapon()
 	sb.set_editing(true)
 	await frames(4)
 	var ed: SkillEditor = Views.of(sb).editor
@@ -33,8 +36,8 @@ func _ready() -> void:
 		b.erase_at(c)
 
 	# The board from the second report: flow turns a corner through parts that
-	# do not point back at their feeder. This now wires up.
-	b.place("INPUT", Vector2i(0, 2), 0)
+	# do not point back at their feeder. This now wires up. The gun's own bolt
+	# is on the root and feeds it.
 	b.place("OVERCLOCK", Vector2i(1, 2), 1)   # in from the west, out south
 	b.place("OVERCLOCK", Vector2i(1, 3), 2)   # in from the north, out west
 	b.place("OVERCLOCK", Vector2i(0, 3), 1)   # in from the east, out south
@@ -47,7 +50,6 @@ func _ready() -> void:
 	# Three overclocks: the readout shows both halves of the trade.
 	for c2 in b.cells.keys().duplicate():
 		b.erase_at(c2)
-	b.place("INPUT", Vector2i(0, 2), 0)
 	b.place("OVERCLOCK", Vector2i(1, 2), 0)
 	b.place("OVERCLOCK", Vector2i(2, 2), 0)
 	b.place("OVERCLOCK", Vector2i(3, 2), 0)
@@ -62,7 +64,6 @@ func _ready() -> void:
 	# switched off, the cursor is on it, and the notice says why.
 	for c3 in b.cells.keys().duplicate():
 		b.erase_at(c3)
-	b.place("INPUT", Vector2i(0, 2), 0)
 	b.place("DUPLICATE", Vector2i(1, 2), 3)   # in from the west, out north
 	b.place("FIRE", Vector2i(1, 1), 0)        # east
 	b.place("DAMAGE", Vector2i(2, 1), 1)      # south

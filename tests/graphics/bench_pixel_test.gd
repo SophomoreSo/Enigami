@@ -108,9 +108,6 @@ func blocks(name: String) -> void:
 func _ready() -> void:
 	GameState.reset_profile()
 	seed(9)
-	# A fourth skill, so the bench carries the most boards it can and the HUD's
-	# row of slots is as wide as it ever gets here.
-	GameState.new_skill()
 	game = Node.new()
 	game.set_script(GameScript)
 	add_child(game)
@@ -121,14 +118,11 @@ func _ready() -> void:
 	panel = Views.of(sb).panel
 	check(panel != null, "the bench builds its drawer")
 
-	# A monster on the floor, a slot armed that the sword will not carry — so
-	# the HUD writes the line under its name that the readout has to clear —
-	# and the drawer all the way out, so the whole of it is in the frame.
+	# A monster on the floor and the drawer all the way out, so the whole of it
+	# is in the frame.
 	sb.spawn_monster("CRAWLER")
-	sb.player.select_slot(1)
 	panel.set_out(true)
 	await get_tree().create_timer(SandboxPanel.SLIDE + 0.15).timeout
-	check(not sb.player.can_cast(1), "the armed slot is one the weapon refuses")
 
 	var hidden := isolate()
 	await blocks("bench")
@@ -165,9 +159,10 @@ func _ready() -> void:
 
 	# --- the layout ---------------------------------------------------------
 	var vp := get_viewport().get_visible_rect().size
-	check(sb.player.runners.size() == 4, "the bench carries four boards (%d)" % sb.player.runners.size())
-	var slots_right := Hud.BAR_AT.x + 4.0 * (Hud.SLOT.x + Hud.SLOT_GAP) - Hud.SLOT_GAP
-	check(slots_right <= vp.x, "the HUD's row of four slots fits the screen (%.0f)" % slots_right)
+	check(sb.player.runner != null and sb.player.runner.board == sb.board(),
+		"the bench carries the weapon's graph")
+	var slots_right := Hud.BAR_AT.x + Hud.SLOT.x
+	check(slots_right <= vp.x, "the HUD's square fits the screen (%.0f)" % slots_right)
 
 	# Capitals stand 10 above their baseline and nothing descends.
 	var hud_last := Hud.SLOT_TOP + Hud.SLOT.y + 18.0 + PixelDraw.LINE
