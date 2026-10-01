@@ -295,14 +295,15 @@ comes out of the far end.
 
 ```
 Hands      the keys, a pad, the console, the pointer: what the player says
+AimAssist  a stick's aim bent toward what it is near: what they meant
 HandsOff   a screen over the game, a conversation in the box: the hands taken off
 WalkTo     the walk over to talk: the body driven somewhere, and given back
            to a push the other way
 ```
 
-Each stands at its rank — what fills the state in, then what holds it, then
-what steers — so a walk still moves a body nobody may move, the way the
-devlog's navigation comes after its dialogue. What lasts (which way and how
+Each stands at its rank — what fills the state in, what helps it, then what
+holds it, then what steers — so a walk still moves a body nobody may move, the
+way the devlog's navigation comes after its dialogue. What lasts (which way and how
 hard, a button held, where to aim) is read for its value; what happens (a jump
 pressed, a cast let go of) is an act, which any stop may raise and a gate shut
 anywhere on the line drops. `input_locked` and `talk_locked` are two
@@ -331,6 +332,7 @@ has to hear about it.
 | A new directed scene, or a new staging direction | a file in `data/scenes/` — see its README; no code. A new direction is a case in `story/rules/cutscene.gd` and, if it shows, `story/view/cutscene_view.gd` |
 | How a conversation behaves — range, reveal speed, who is held still, where the player is walked to stand | `story/rules/npc.gd`. How it reads on screen, `story/view/dialogue_box.gd` |
 | Something that takes the player's controls for a while — holds them, walks them somewhere, presses for them | an `InputMiddleware` in `feature/input/`, put on `player.input` and taken off again or left to finish; see `InputProvider`. What the player's own hands say is `Hands`; how a walk gets there and is refused, `WalkTo` |
+| How a stick's aim is helped — the least virtual size a target keeps, how far its pull reaches, how steep the ground between two may get | `feature/input/aim_curve.gd`, the curve from where the stick points to where the weapon does, after t3ssel8r's devlog on aim assist. What counts as a target, and how a change in them fades in, `feature/input/aim_assist.gd`; how much of it the player wants, a row in `graphics/ui/controls_panel.gd` |
 | Someone who talks free, and what they notice | a file in `data/db/dialogue/` of `rules`, `criteria` and `changes` — see **Free talk** in `data/db/README.md`; no code. A new kind of moment to notice, a row of `events` in `data/db/schema.sql` naming the cue. How free talk is picked and paced, `story/rules/free_talk.gd`; how the bubble looks, `story/view/speech_bubble.gd` |
 | What anyone actually says, on any screen, in any language | `localization/<lang>/` — see its README. A new language is a folder and an entry in `LANGUAGES` in `app/loc.gd` |
 | What an emotion looks like | `EMOTIONS` in `graphics/style.gd` |

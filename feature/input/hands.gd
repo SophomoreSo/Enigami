@@ -30,6 +30,7 @@ func _aim(s: InputState) -> void:
 	s.aiming = true
 	var stick := Vector2(Input.get_joy_axis(0, JOY_AXIS_RIGHT_X), Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y))
 	if stick.length() > Player.STICK_DEAD:
+		s.aim_by_stick = true
 		s.aim = stick.normalized()
 		s.aim_reach = Player.reach_of(stick.length())
 		s.aim_point = body.global_position + s.aim * Player.STICK_AIM_REACH

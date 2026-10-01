@@ -183,6 +183,7 @@ var _dir: float = 0.0
 func _init() -> void:
 	input = InputProvider.new(self)
 	input.add(Hands.new())
+	input.add(AimAssist.new())
 
 func _ready() -> void:
 	team = 0

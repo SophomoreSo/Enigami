@@ -9,13 +9,16 @@ extends RefCounted
 
 ## Where on the line it stands, lowest first. Middlewares of one rank stand in
 ## the order they joined.
-##   HANDS  what fills the state in: the player's own hands (`Hands`), or
-##          anything else that might drive a body.
-##   HOLD   what takes the hands off it again (`HandsOff`).
-##   STEER  what drives the body for itself (`WalkTo`). After the holds, so the
-##          game can still walk a body nobody may move — the devlog puts its
-##          navigation after its dialogue for the same reason.
+##   HANDS   what fills the state in: the player's own hands (`Hands`), or
+##           anything else that might drive a body.
+##   ASSIST  what helps the hands say what they meant (`AimAssist`). Before the
+##           holds, so a hold still has the last word.
+##   HOLD    what takes the hands off it again (`HandsOff`).
+##   STEER   what drives the body for itself (`WalkTo`). After the holds, so the
+##           game can still walk a body nobody may move — the devlog puts its
+##           navigation after its dialogue for the same reason.
 const HANDS := 0
+const ASSIST := 5
 const HOLD := 10
 const STEER := 20
 

@@ -3,6 +3,7 @@
 	"reset": "RESET TO DEFAULTS",
 	"listening": "press a key…",
 	"sensitivity": "Mouse sensitivity",
+	"aim_assist": "Aim assist",
 	"mobile": "Mobile mode",
 	"arrange": {
 		"open": "SET BUTTON POSITIONS",

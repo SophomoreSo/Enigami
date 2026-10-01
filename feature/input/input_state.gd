@@ -36,6 +36,9 @@ var aiming: bool = false
 ## Which way, as a unit vector — or zero, when the pointer is on the body itself
 ## and says no way at all.
 var aim: Vector2 = Vector2.ZERO
+## Whether that is a stick's: a way rather than a place pointed at, and so
+## something aim assist may bend (`AimAssist`).
+var aim_by_stick: bool = false
 ## Where, in the world.
 var aim_point: Vector2 = Vector2.ZERO
 ## How far an attack should go, 0 to 1 (`Player.aim_reach`).
