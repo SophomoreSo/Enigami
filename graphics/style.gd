@@ -603,6 +603,26 @@ const ROPE_LOOK := {
 
 static func rope_look(kind: String) -> Dictionary:
 	return ROPE_LOOK.get(kind, ROPE_LOOK["cable"])
+## What grows on a room's floor (`Foliage`), by the kind it is — the rows of
+## `foliage` in the content database. Blades and a bush are drawn dark at the
+## root, `mid` through the body and `light` where the light catches them; a
+## flower is a `stem` with a head of one of its `petals` round a `heart`. A
+## bush stands on `stem`s. A kind with no look here grows in grass's.
+##
+## Cool greens, to sit in the rooms' blue rock rather than shout over it, and
+## no red or pink anywhere: on the floor, that colour is spikes.
+const FOLIAGE_LOOK := {
+	"grass": {"dark": Color(0.17, 0.33, 0.27), "mid": Color(0.26, 0.47, 0.34),
+		"light": Color(0.49, 0.69, 0.42), "stem": Color(0.26, 0.47, 0.34)},
+	"flowers": {"stem": Color(0.26, 0.47, 0.34), "light": Color(0.49, 0.69, 0.42),
+		"petals": [Color(0.94, 0.83, 0.44), Color(0.80, 0.87, 0.97), Color(0.70, 0.62, 0.93)],
+		"heart": Color(0.99, 0.95, 0.78)},
+	"bush": {"dark": Color(0.14, 0.27, 0.24), "mid": Color(0.22, 0.40, 0.31),
+		"light": Color(0.40, 0.60, 0.38), "stem": Color(0.42, 0.35, 0.28)},
+}
+
+static func foliage_look(kind: String) -> Dictionary:
+	return FOLIAGE_LOOK.get(kind, FOLIAGE_LOOK["grass"])
 const DOOR_FILL := Color(0.4, 0.75, 0.95, 0.18)
 const DOOR_EDGE := Color(0.45, 0.8, 1.0, 0.75)
 const EXIT_OPEN := Color(0.45, 0.95, 0.7)

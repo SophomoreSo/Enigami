@@ -47,6 +47,8 @@ godot res://tests/circuit/parts_test.tscn   # every part's rows fit, and the run
 godot res://tests/feature/boards_test.tscn  # every board the game ships builds whole and reaches an OUTPUT
 godot res://tests/graphics/menus_test.tscn  # every menu's rows name an act its screen has, in every language
 godot res://tests/graphics/rope_test.tscn   # a cable's line of nodes: hung, pushed, settled, and where a room hangs them
+godot res://tests/graphics/foliage_test.tscn # the grass, flowers and bushes a patch grows, its mask, and where a room grows them
+godot res://tests/graphics/velocity_test.tscn # the velocity buffer: what moving things push, how it springs back, and the foliage leaning for it
 godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
 godot res://tests/feature/reach_test.tscn   # how far an attack goes when the stick says how far
 godot res://tests/feature/forge_test.tscn   # the forge's price, and a weapon is its graph: the profile's rules
@@ -63,6 +65,7 @@ godot res://tests/feature/dragon_test.tscn  # one charged cast clears the whole 
 godot res://tests/graphics/shots.tscn   # writes a screenshot of each screen to user://shots
 godot res://tests/graphics/dragon_shot.tscn  # ...and frames of the dragon test
 godot res://tests/graphics/rope_shot.tscn    # ...and frames of a cable dashed through
+godot res://tests/graphics/foliage_shot.tscn # ...and frames of the grass run, dashed and blasted through
 SHOTS_DIR=/tmp/shots godot res://tests/graphics/shots.tscn   # ...or wherever you point it
 ```
 

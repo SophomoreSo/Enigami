@@ -22,7 +22,7 @@ CREATE TABLE meta (
 );
 -- `Db.SCHEMA_VERSION` in app/db.gd is the same number: bump both when a
 -- change is one older code could not read. build.sh adds `source_hash`.
-INSERT INTO meta (key, value) VALUES ('schema_version', '8');
+INSERT INTO meta (key, value) VALUES ('schema_version', '9');
 
 -- How a portrait and the letters behave while a line is said: the ids
 -- `Style.EMOTIONS` (graphics/style.gd) draws. A line naming one not here
@@ -527,6 +527,45 @@ CREATE TABLE ropes (
 -- room's edge or under the readout — so a room looks the same every time.
 CREATE TABLE hangings (
 	rope     TEXT PRIMARY KEY REFERENCES ropes (id) ON DELETE CASCADE,
+	fewest   INTEGER NOT NULL DEFAULT 0 CHECK (fewest >= 0),
+	most     INTEGER NOT NULL CHECK (most >= fewest),
+	shortest INTEGER NOT NULL CHECK (shortest >= 1),
+	longest  INTEGER NOT NULL CHECK (longest >= shortest)
+);
+
+-- ---- foliage ---------------------------------------------------------------
+--
+-- What grows on the rooms' floors — grass, flowers, a bush — as `Foliage`
+-- (graphics/foliage.gd) draws it: aarthificial's interactive foliage, a
+-- picture whose pixels sway in the wind and bend where something moving has
+-- left its speed in the velocity buffer (graphics/velocity_buffer.gd). A kind
+-- is how it is drawn and how it moves: which picture it is (`form`), which
+-- way it gives (`sway` — `along` the ground and lower as it leans, as grass
+-- and flowers do, or `any` way, as a bush does), how tall it stands, how
+-- thickly, and how far a push or the wind moves its tip. How the air itself
+-- springs back — how stiff, how damped, how far a push spreads — is the
+-- buffer's, and shared by everything that reads it, so it stays code; and so
+-- does the look: a kind's colours are graphics/style.gd's, by the same id, and
+-- a kind with none yet grows in grass's.
+
+CREATE TABLE foliage (
+	id       TEXT PRIMARY KEY CHECK (id <> '' AND id = lower(id)),
+	form     TEXT NOT NULL CHECK (form IN ('blades', 'flowers', 'bush')),  -- the picture: blades of grass, flowers on stems, a bush on its stems
+	sway     TEXT NOT NULL CHECK (sway IN ('along', 'any')),               -- along the ground, lower as it leans; or any way at all
+	shortest INTEGER NOT NULL CHECK (shortest >= 1),                       -- the shortest plant, in pixels of the picture
+	tallest  INTEGER NOT NULL CHECK (tallest >= shortest),                 -- and the tallest
+	density  REAL NOT NULL CHECK (density > 0 AND density <= 1),           -- the share of a patch's columns a plant stands in
+	push     REAL NOT NULL CHECK (push >= 0),                              -- how far a full push moves a tip, in pixels
+	wind     REAL NOT NULL CHECK (wind >= 0)                               -- how far the wind sways one, in pixels
+);
+
+-- What a room grows: of each kind, how many patches and how long each is, in
+-- cells of the room's grid. Where each grows is rolled by `RoomView` from the
+-- room's own seed — on a floor with open air over it, never on spikes and
+-- never at the room's edge — so a room looks the same every time. Kinds are
+-- drawn in the order they are written here, each over the last.
+CREATE TABLE growths (
+	foliage  TEXT PRIMARY KEY REFERENCES foliage (id) ON DELETE CASCADE,
 	fewest   INTEGER NOT NULL DEFAULT 0 CHECK (fewest >= 0),
 	most     INTEGER NOT NULL CHECK (most >= fewest),
 	shortest INTEGER NOT NULL CHECK (shortest >= 1),

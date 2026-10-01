@@ -136,3 +136,18 @@ pause={
 renderer/rendering_method="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0.055, 0.06, 0.08, 1)
+
+[shader_globals]
+
+velocity_buffer={
+"type": "sampler2D",
+"value": ""
+}
+velocity_area={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 0)
+}
+velocity_time={
+"type": "float",
+"value": 0.0
+}
