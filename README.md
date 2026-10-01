@@ -38,6 +38,8 @@ godot res://tests/feature/cast_test.tscn    # the two buttons: attack casts the 
 godot res://tests/feature/stamina_test.tscn # the dash budget under the health bar
 godot res://tests/feature/input_test.tscn   # the input line: the hands, a hold, a gate, and a walk that gives the body back
 godot res://tests/feature/aim_assist_test.tscn # aim assist: the stick-to-weapon curve, and what it bends toward
+godot res://tests/feature/pool_test.tscn    # pooling: lent, played out and handed back, and taken back when a screen goes
+godot res://tests/graphics/fx_pool_test.tscn # sparks, rings and floating numbers come out of pools, never out of nothing
 godot res://tests/graphics/menu_fit_test.tscn # menus stay on screen and scroll the rest
 godot res://tests/graphics/title_mobile_test.tscn # mobile mode's title: a row of big square tiles
 godot res://tests/graphics/screen_fit_test.tscn # a phone- or tablet-shaped screen is filled to its edges

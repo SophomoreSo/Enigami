@@ -93,44 +93,53 @@ func _steer(d: float) -> void:
 		_releasing = false
 
 ## --- spawned visuals --------------------------------------------------------
-## Loose visuals hang off whatever screen is running, so they are cleared with
-## it and never outlive the fight they belong to.
+## Loose visuals are lent to whatever screen is running rather than made for
+## it and thrown away. Every moment of a fight asks for some — a hit, a jump, a
+## landing, a slide down a wall asks every frame — so each kind is drawn from a
+## pool of its own (`Pool`): borrowed, set going and let go of in one breath,
+## it plays itself out and goes back to wait for the next. A screen that goes
+## away takes back at once whatever it still had out, so none outlives the
+## fight it belonged to.
+var sparks := Pool.new(Spark, 64)
+var rings := Pool.new(Ring, 16)
+var words := Pool.new(FloatText, 24)
+
 func _world() -> Node:
 	return Arena.current()
+
 func burst(pos: Vector2, color: Color, count: int = 8, power: float = 180.0) -> void:
 	var world := _world()
 	if world == null:
 		return
-	var n := Spark.new()
+	var n := sparks.borrow(world) as Spark
 	n.setup(pos, color, count, power)
-	world.add_child(n)
+	sparks.dispose(n)
 
 func ring(pos: Vector2, color: Color, radius: float) -> void:
 	var world := _world()
 	if world == null:
 		return
-	var n := Ring.new()
+	var n := rings.borrow(world) as Ring
 	n.setup(pos, color, radius)
-	world.add_child(n)
+	rings.dispose(n)
 
 func damage_number(pos: Vector2, amount: float, color: Color = Color(1, 1, 1)) -> void:
-	var world := _world()
-	if world == null:
-		return
-	var n := FloatText.new()
-	n.setup(pos, "%d" % int(round(amount)), color)
-	world.add_child(n)
+	text(pos, "%d" % int(round(amount)), color)
 
 func text(pos: Vector2, s: String, color: Color = Color(1, 1, 1)) -> void:
 	var world := _world()
 	if world == null:
 		return
-	var n := FloatText.new()
+	var n := words.borrow(world) as FloatText
 	n.setup(pos, s, color)
-	world.add_child(n)
+	words.dispose(n)
 
 ## --- primitives -------------------------------------------------------------
+## Each is set up afresh every time it is lent, and let go of the moment it is:
+## `_disposed` is a primitive saying it has a little left to play, and it hands
+## itself back to its pool once it has played it.
 class Spark extends Node2D:
+	var pool: Pool = null
 	var parts: Array = []
 	var life: float = 0.45
 	var color: Color = Color.WHITE
@@ -139,6 +148,8 @@ class Spark extends Node2D:
 		position = pos
 		color = c
 		z_index = 60
+		life = 0.45
+		parts.clear()
 		for i in count:
 			var a := randf() * TAU
 			parts.append({
@@ -146,11 +157,15 @@ class Spark extends Node2D:
 				"v": Vector2(cos(a), sin(a)) * randf_range(0.4, 1.0) * power,
 				"s": randf_range(1.5, 3.5),
 			})
+		queue_redraw()
+
+	func _disposed() -> void:
+		pass
 
 	func _process(delta: float) -> void:
 		life -= delta
 		if life <= 0.0:
-			queue_free()
+			pool.give_back(self)
 			return
 		for part in parts:
 			part["p"] += part["v"] * delta
@@ -166,6 +181,7 @@ class Spark extends Node2D:
 			draw_circle(part["p"], part["s"] * a, c)
 
 class Ring extends Node2D:
+	var pool: Pool = null
 	var life: float = 0.3
 	var max_life: float = 0.3
 	var color: Color = Color.WHITE
@@ -176,11 +192,16 @@ class Ring extends Node2D:
 		color = c
 		radius = r
 		z_index = 60
+		life = max_life
+		queue_redraw()
+
+	func _disposed() -> void:
+		pass
 
 	func _process(delta: float) -> void:
 		life -= delta
 		if life <= 0.0:
-			queue_free()
+			pool.give_back(self)
 			return
 		queue_redraw()
 
@@ -191,6 +212,7 @@ class Ring extends Node2D:
 		draw_arc(Vector2.ZERO, radius * (0.3 + t), 0, TAU, 28, c, 2.5 + 3.0 * (1.0 - t))
 
 class FloatText extends Node2D:
+	var pool: Pool = null
 	var life: float = 0.8
 	var label: String = ""
 	var color: Color = Color.WHITE
@@ -200,12 +222,17 @@ class FloatText extends Node2D:
 		label = s
 		color = c
 		z_index = 70
+		life = 0.8
+		queue_redraw()
+
+	func _disposed() -> void:
+		pass
 
 	func _process(delta: float) -> void:
 		life -= delta
 		position.y -= 46.0 * delta
 		if life <= 0.0:
-			queue_free()
+			pool.give_back(self)
 			return
 		queue_redraw()
 

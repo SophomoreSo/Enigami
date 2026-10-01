@@ -341,6 +341,7 @@ has to hear about it.
 | Retune a board's timing — ticks, cooldowns, a pulse's life | `circuit/skill_runner.gd` |
 | The dragon test's tower — where the guards stand, where the stairwells are | `LAYOUT` in `feature/world/dragon_tower.gd`; how it is lit and dressed, `graphics/views/tower_view.gd` |
 | Retune shake, sparks, hitstop *feel* | `graphics/cue_visuals.gd` — except hitstop and dilation, see below |
+| Something spawned again and again — a spark, a ring, a number that floats off | borrow it from a `Pool` (`feature/core/pool.gd`, after aarthificial's devlog on pooling), lent to the screen it is for, and let it hand itself back once it has played out; a screen that goes takes back whatever it still had out. `graphics/fx.gd`'s sparks, rings and words are drawn that way |
 | HUD layout, editor look — where a thing sits, not what it says | `graphics/ui/` |
 | The resolution the world is drawn at | `graphics/pixel_camera.gd` (the size comes from `Sprites.PIXEL_SCALE`) |
 | A new sound | `app/audio/audio_cues.gd` |
@@ -374,7 +375,7 @@ nothing and live in `graphics/fx.gd`.
 | `TimeCtl` | feature | hitstop and dilation |
 | `GameState` | feature | the profile, the stash, the raid in progress |
 | `Sprites` | graphics | the atlas, sliced |
-| `Fx` | graphics | shake, sparks, floating numbers |
+| `Fx` | graphics | shake, and the sparks, rings and floating numbers it lends out of its pools |
 | `Views` | graphics | attaches views to gameplay nodes |
 | `CueVisuals` | graphics | what each cue looks like |
 
