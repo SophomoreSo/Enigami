@@ -161,6 +161,10 @@ var talk_locked: bool = false:
 		input.put(_held_by_talk, on)
 var _held_by_screen := HandsOff.new()
 var _held_by_talk := HandsOff.new()
+## On the line for as long as the player stands stunned (`Actor.stun`): the
+## hands come off the body the way they do for a conversation, and go back on
+## the frame it comes round.
+var _held_by_stun := HandsOff.new()
 ## What the line asked of the body this physics frame. The state's actions
 ## read it rather than asking again.
 var _asked := InputState.new()
@@ -350,6 +354,7 @@ func controls_locked() -> bool:
 
 func _process(delta: float) -> void:
 	_process_status(delta)
+	input.put(_held_by_stun, stunned())
 	if parry_time > 0.0:
 		parry_time -= delta
 	var s := input.state()

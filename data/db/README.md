@@ -373,7 +373,7 @@ there is the source of every cycle — a weapon's own attack form, a monster's.
 INPUT, which used to be that, is retired and keeps its number.
 
 ```sql
-INSERT INTO codes (code, id) VALUES (33, 'FROSTBOLT');
+INSERT INTO codes (code, id) VALUES (36, 'FROSTBOLT');
 
 INSERT INTO parts (id, name, category, heat, tag, description) VALUES
 	('FROSTBOLT', 'FROSTBOLT', 'form', 0.9, 'ranged', 'A bolt that slows what it strikes.');
@@ -395,6 +395,7 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 | `parts.tag` | What it makes a board — `ranged`, `melee`, `area`, `mobility`, `trigger` — for a weapon's `accepts` to match. |
 | `ports` | The sides its flow leaves by, as it faces east, in the order the flows leave. It takes flow on every other side. A `branch` is a trigger's second way out, which carries its payload. A part with no ports is where a flow ends. |
 | `effects` | What it does to a flow as the flow enters it, in `position` order. See below. |
+| `inversions` | What it does instead when an INVERT comes straight after it — its opposite. See below. |
 | `retired_parts` `renamed_parts` | Parts the game no longer has, or has under a new id, so a save or a code written before still reads. |
 
 ### Effects
@@ -412,20 +413,43 @@ it:
 | `include` | adds `value` to it, once | a list |
 | `dilate` | slows the world and the board for `value` seconds; no field | — |
 | `guard` | opens a guard window for `value` seconds, a hit absorbed in it runs the part's branch; no field | — |
+| `invert` | takes back what the part the flow came from did, and does its `inversions` instead; no field, no `value` | — |
 
-The fields are the payload's: `damage` `size` `speed` `range_px` (numbers),
-`pierce` `duplicates` (whole numbers), `homing` `reverse` `dash` `blink`
-`pull` `knockback` `shatter` `mana_drain` (flags), `form` (a word) and
-`elements` (a list). `value` is read as JSON — `8`, `1.6`, `'true'` — and a
-word may go without its quotes: `'FIRE'`. A row asking for a field there is
-not, or for something its field cannot take, is a fault the game reports as
-it reads the parts, and `tests/circuit/parts_test.tscn` fails on it.
+The fields are the payload's: `damage` `size` `speed` `range_px` `stun`
+`heal` (numbers), `pierce` `duplicates` (whole numbers), `homing` `reverse`
+`dash` `blink` `pull` `knockback` `shatter` `mana_drain` `cleanse` `repel`
+`hook` (flags), `form` (a word) and `elements` (a list). `value` is read as
+JSON — `8`, `1.6`, `'true'` — and a word may go without its quotes: `'FIRE'`.
+A row asking for a field there is not, or for something its field cannot
+take, is a fault the game reports as it reads the parts, and
+`tests/circuit/parts_test.tscn` fails on it.
 
 What an effect *means* is code, and so is anything a new one needs: a new
 field is a line in `Payload` and something in `feature/attacks/` that reads
 it; a new form is an attack that draws it. OVERCLOCK does nothing to a flow —
 the board's clock counts it — and the triggers' ids are the moments their
 branches run at.
+
+### Opposites
+
+INVERT turns round the part straight before it. As the flow enters INVERT,
+the runner puts every field that part's effects name back to what it held
+before the part, and then does the part's rows of `inversions` — rows like
+its effects, but only the five ops that change a field:
+
+```sql
+INSERT INTO inversions (part_id, position, field, op, value) VALUES
+	('DAMAGE', 0, 'heal', 'add', 8),          -- what it added heals the enemy struck instead
+	('ICE', 0, 'cleanse', 'set', 'true'),     -- no chill: every burn, chill and stun on it ends
+	('SIZE', 0, 'size', 'multiply', 0.625);   -- as much smaller as SIZE makes it bigger
+```
+
+Only that one part is turned round: FIRE, FIRE, INVERT still burns, from the
+first FIRE. A part with no rows here has no opposite, and an INVERT after it —
+or after a form, a trigger, SPLIT, TEE or another INVERT — does nothing.
+What an opposite gives lands on the enemy the hit strikes, once the hit has
+landed (`Attacks.resolve_hit`). Each number is its effect's turned round, and
+`tests/circuit/invert_test.tscn` holds every multiply to one over its effect's.
 
 ## A board
 

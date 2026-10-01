@@ -23,6 +23,7 @@ func _ready() -> void:
 	actor = get_parent() as Actor
 	if actor != null:
 		actor.damaged.connect(_on_damaged)
+		actor.healed.connect(_on_healed)
 
 ## Runs once, on the first frame — by which time the actor has finished its own
 ## `_ready` and its collider and identity are settled.
@@ -70,6 +71,7 @@ func _process(delta: float) -> void:
 	_animate()
 	_update_status()
 	_burn_sparks(delta)
+	_stun_stars(delta)
 	queue_redraw()
 
 ## Whether this actor's art has an animation of that name. The atlas characters
@@ -114,6 +116,9 @@ func _update_status() -> void:
 		t = t.lerp(Color(0.45, 0.8, 1.0), 0.5)
 	if actor.burn_time > 0.0:
 		t = t.lerp(Color(1.0, 0.45, 0.2), 0.4)
+	# Stunned is dulled: the colour goes out of it while it stands there.
+	if actor.stunned():
+		t = t.lerp(Color(0.6, 0.6, 0.62), 0.45)
 	_mat.set_shader_parameter("tint", t)
 	_mat.set_shader_parameter("flash", clampf(status_flash(), 0.0, 1.0))
 
@@ -133,6 +138,25 @@ func _burn_sparks(delta: float) -> void:
 	_ember = 0.08
 	Fx.burst(actor.global_position + Vector2(randf_range(-6, 6), 0),
 		Style.ELEMENT_COLOR["FIRE"], 1, 40.0)
+
+var _star: float = 0.0
+var _star_turn: float = 0.0
+
+## Stars going round over the head of whatever is stunned, one at a time.
+func _stun_stars(delta: float) -> void:
+	if not actor.stunned():
+		return
+	_star -= delta
+	if _star > 0.0:
+		return
+	_star = 0.09
+	_star_turn += 1.9
+	var over := Vector2(cos(_star_turn) * actor.body_size.x * 0.45, -actor.body_size.y * 0.5 - 8.0)
+	Fx.burst(actor.global_position + over, Style.STUN_COLOR, 1, 18.0)
+
+## Health given back reads beside the damage numbers, green and signed.
+func _on_healed(a: Actor, amount: float) -> void:
+	Fx.text(a.global_position + Vector2(0, -a.hurt_radius - 6), "+%d" % int(round(amount)), Style.HEAL_COLOR)
 
 func _on_damaged(a: Actor, amount: float) -> void:
 	# Damage over time never reaches here: it is not a connection, so it neither

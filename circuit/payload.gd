@@ -34,6 +34,16 @@ var pull: bool = false
 var knockback: bool = false        ## the struck enemy is thrown on along the attack
 var shatter: bool = false          ## far harder on an enemy frost has slowed
 var mana_drain: bool = false       ## every connection pays the caster back
+var stun: float = 0.0              ## seconds the struck enemy stands stunned
+## What an INVERT makes of the part before it (the `inversions` rows), each
+## landing on the struck enemy once the hit has: health given back, every burn,
+## chill and stun ended, the enemies round the impact driven off rather than
+## gathered (GRAVITY's opposite), the struck one hauled back the way the attack
+## came rather than thrown on (KNOCKBACK's).
+var heal: float = 0.0
+var cleanse: bool = false
+var repel: bool = false
+var hook: bool = false
 var duplicates: int = 1
 var heat: float = 0.0              ## accumulated while travelling; feeds cycle cooldown
 var branch: String = ""            ## "", "ON_HIT", "ON_KILL", "ON_PARRY"
@@ -63,6 +73,11 @@ func clone() -> Payload:
 	p.knockback = knockback
 	p.shatter = shatter
 	p.mana_drain = mana_drain
+	p.stun = stun
+	p.heal = heal
+	p.cleanse = cleanse
+	p.repel = repel
+	p.hook = hook
 	p.duplicates = duplicates
 	p.heat = heat
 	p.branch = branch

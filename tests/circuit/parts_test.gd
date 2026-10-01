@@ -152,7 +152,12 @@ func _ready() -> void:
 	check(whole is Dictionary and typeof(whole["value"]) == TYPE_INT, "a whole one to a whole number, as a whole number")
 	var flag = Components._effect({"op": "set", "field": "dash", "value": 1}, shape)
 	check(flag is Dictionary and flag["value"] is bool and flag["value"], "and a 1 set on a flag as true")
+	var turn = Components._effect({"op": "invert", "field": null, "value": null}, shape)
+	check(turn is Dictionary and turn["op"] == "invert" and turn["field"] == &"" and turn["value"] == null,
+		"an invert, which names nothing of its own, is read as one (%s)" % str(turn))
 	for bad in [
+			[{"op": "invert", "field": "damage"}, "turns round the part before it", "an invert that names a field"],
+			[{"op": "invert", "value": 1}, "turns round the part before it", "an invert with an amount"],
 			[{"op": "add", "field": "damge", "value": 8}, "not a field of a payload", "a field a payload does not have"],
 			[{"op": "add", "field": "heat", "value": 1}, "keeps for itself", "a field the runner keeps"],
 			[{"op": "add", "field": "dash", "value": 1}, "it is a flag", "a number added to a flag"],

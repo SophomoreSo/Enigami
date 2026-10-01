@@ -48,12 +48,14 @@ godot res://tests/graphics/hideout_pixel_test.tscn # the hideout's pixel look, a
 godot res://tests/graphics/bench_pixel_test.tscn # the bench panel's pixel look and layout
 godot res://tests/circuit/code_test.tscn    # a board survives being written down as a code
 godot res://tests/circuit/parts_test.tscn   # every part's rows fit, and the runner does what they say
+godot res://tests/circuit/invert_test.tscn  # INVERT turns round the one part before it, by that part's opposites
 godot res://tests/feature/boards_test.tscn  # every board the game ships builds whole and reaches an OUTPUT
 godot res://tests/graphics/menus_test.tscn  # every menu's rows name an act its screen has, in every language
 godot res://tests/graphics/rope_test.tscn   # a cable's line of nodes: hung, pushed, settled, and where a room hangs them
 godot res://tests/graphics/foliage_test.tscn # the grass, flowers and bushes a patch grows, its mask, and where a room grows them
 godot res://tests/graphics/velocity_test.tscn # the velocity buffer: what moving things push, how it springs back, and the foliage leaning for it
 godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
+godot res://tests/feature/invert_hit_test.tscn # a stun, a heal, a cleanse, a push away and a haul back, as they land
 godot res://tests/feature/reach_test.tscn   # how far an attack goes when the stick says how far
 godot res://tests/feature/forge_test.tscn   # the forge's price, and a weapon is its graph: the profile's rules
 godot res://tests/graphics/share_code_test.tscn # sharing a board, and what a pasted code costs
@@ -323,6 +325,17 @@ after that first `OUTPUT` still plays out in real time, which is what lets
   simply the next cycle.
 - `MANA DRAIN` takes mana back off every enemy an attack connects with. A board
   that lands often pays for its own charging.
+- `STUN` stands the enemy it strikes still for a moment: it stops where it is,
+  and neither attacks nor hurts by touch until it comes round. A stun cannot
+  be stretched by another landing on it, and once it is over the enemy shrugs
+  off the next one for a second and a half, so no board can hold one for good.
+- `INVERT` turns round the part straight before it. `DAMAGE` heals the enemy
+  struck instead; `FIRE`, `ICE` and `STUN` cleanse it of every burn, chill and
+  stun; `GRAVITY` drives the room away from the impact instead of gathering
+  it; `KNOCKBACK` hauls the struck enemy back the way the attack came; and
+  `SIZE`, `SPEED` and `RANGE` make the attack as much less as they would have
+  made it more. Only the one part before it is turned round, and after a part
+  with no opposite — a form, a trigger, `SPLIT`, `TEE` — it does nothing.
 - `TIME DILATION` slows the world *and* the board together — it changes the
   pace of a fight rather than buffing attack speed.
 

@@ -2,6 +2,7 @@
 	"health": "%d / %d",
 	"burning": "화상",
 	"chilled": "냉각",
+	"stunned": "기절",
 	"fx": {
 		"winded": "탈진",
 		"parry": "막아냄",

@@ -419,6 +419,16 @@ static func summary(p: Payload) -> String:
 		parts.append(Loc.t("editor.payload.shatter", [SHATTER_MUL]))
 	if p.mana_drain:
 		parts.append(Loc.t("editor.payload.mana_drain", [MANA_PER_HIT]))
+	if p.stun > 0.0:
+		parts.append(Loc.t("editor.payload.stun", [p.stun]))
+	if p.heal > 0.0:
+		parts.append(Loc.t("editor.payload.heal", [p.heal]))
+	if p.cleanse:
+		parts.append(Loc.t("editor.payload.cleanse"))
+	if p.repel:
+		parts.append(Loc.t("editor.payload.repel"))
+	if p.hook:
+		parts.append(Loc.t("editor.payload.hook"))
 	return Loc.t("editor.payload.separator").join(parts)
 
 ## A single connection: damage, feedback, and any trigger flows it unlocks.
@@ -451,7 +461,7 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 	# struck enemy becomes the point every other enemy nearby is pulled onto.
 	if p.pull:
 		_pull(p, pos, team)
-	else:
+	elif not p.hook:
 		target.knockback(dir, 120.0 + p.damage * 2.0)
 	# KNOCKBACK throws the struck enemy on the way the attack was going, which is
 	# the `dir` every form hands in: along a bolt's flight, out from a swing or a
@@ -460,9 +470,29 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 	# the one it struck flying out of the middle of it.
 	if p.knockback:
 		target.knockback(dir, KNOCKBACK_FORCE)
+	# What an INVERT made of KNOCKBACK: the struck enemy is hauled back the way
+	# the attack came, as hard as KNOCKBACK throws it on — and in place of the
+	# shove every hit gives (above), or a heavy blow's would cancel the pull.
+	if p.hook:
+		target.knockback(-dir, KNOCKBACK_FORCE)
+	# And of GRAVITY: everything round the impact is driven off it.
+	if p.repel:
+		_repel(p, pos, team)
+	if p.stun > 0.0 and target.stun(p.stun):
+		Cues.at(&"stun", target.global_position, {"seconds": p.stun, "target_team": target.team})
 	if p.mana_drain and atk != null and atk.has_method("gain_mana"):
 		atk.gain_mana(MANA_PER_HIT)
 		Cues.at(&"mana_drain", pos, {"amount": MANA_PER_HIT})
+	# What an INVERT turned to help lands on the enemy struck, after the harm
+	# and only while it still stands: health given back, and every burn, chill
+	# and stun it carries ended — the ones this same hit brought included.
+	if not target.dead:
+		if p.heal > 0.0:
+			var healed := target.heal(p.heal)
+			if healed > 0.0:
+				Cues.at(&"heal", target.global_position, {"amount": healed, "target_team": target.team})
+		if p.cleanse and target.cleanse():
+			Cues.at(&"cleanse", target.global_position, {"target_team": target.team})
 	# A connection stops the clock for a frame. That is a rule — everything in
 	# the fight feels it — so it is applied here and not left to the screen.
 	TimeCtl.hitstop(CHAIN_HITSTOP if p.follow_up else HITSTOP)
@@ -500,6 +530,21 @@ static func _pull(p: Payload, pos: Vector2, team: int) -> void:
 			continue   # already there; a zero direction would be a shove nowhere
 		a.knockback(to / d, PULL_FORCE * lerpf(PULL_NEAR, 1.0, d / radius))
 	Cues.at(&"pull", pos, {"radius": radius})
+
+## Everything `team` may hurt, driven off `pos`: GRAVITY's drag turned round,
+## over the same reach and as hard, but the nearer harder, the way a blast
+## throws. The enemy struck on `pos` itself has the hit's own shove instead.
+static func _repel(p: Payload, pos: Vector2, team: int) -> void:
+	var radius := PULL_RADIUS * p.size
+	for a in targets(team):
+		var away: Vector2 = a.global_position - pos
+		var d := away.length()
+		if d > radius:
+			continue
+		if d < 0.01:
+			continue   # standing on it; a zero direction would be a shove nowhere
+		a.knockback(away / d, PULL_FORCE * lerpf(1.0, PULL_NEAR, d / radius))
+	Cues.at(&"repel", pos, {"radius": radius})
 
 ## A link of a chain, marked as belonging to the blow that caused it rather than
 ## being one of its own. A parry's riposte is deliberately not marked: that is a

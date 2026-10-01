@@ -22,6 +22,7 @@ const GIVEN := [
 	"RANGE",
 	"KNOCKBACK",
 	"ZAP",
+	"INVERT", "STUN",
 ]
 
 var fails := 0

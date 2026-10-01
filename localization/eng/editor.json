@@ -61,6 +61,11 @@
 		"knockback": "knocks back",
 		"shatter": "x%.1f on chilled",
 		"mana_drain": "+%.0f mana a hit",
+		"stun": "stuns %.1fs",
+		"heal": "heals %.0f",
+		"cleanse": "cleanses",
+		"repel": "pushes away",
+		"hook": "hauls back",
 		"separator": ", ",
 		"then": "then"
 	}
