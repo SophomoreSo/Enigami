@@ -47,8 +47,8 @@ const MODE_KEYS := ["off", "auto", "on"]
 const STEP := 0.02
 
 ## Which stick the pad aims with. The right one, because that is the one the
-## player already aims with on a gamepad — see `Player._update_aim`, which
-## needs no line changed for any of this.
+## player already aims with on a gamepad — see `Hands`, at the head of the
+## player's input line, which needs no line changed for any of this.
 const AIM_AXES := [JOY_AXIS_RIGHT_X, JOY_AXIS_RIGHT_Y]
 
 static var mode: int = AUTO

@@ -141,11 +141,29 @@ var _mana_pause: float = 0.0
 ## announced: it is a state that lasts, not a moment that happens.
 var charging: bool = false
 var parry_time: float = 0.0
-## Set while a screen over the game takes the keys — the skill editor.
-var input_locked: bool = false
+## Everything the player is asked to do comes down this line: their own hands
+## at the head of it, then whatever else wants a say — a screen that takes the
+## keys, a conversation that holds them still, a walk that brings them over to
+## talk. The body reads what comes out of the far end, and never `Input`
+## itself. See `InputProvider`.
+var input: InputProvider
+## Set while a screen over the game takes the keys — the skill editor. It puts
+## the hands off on the line, and setting it back takes them on again.
+var input_locked: bool = false:
+	set(on):
+		input_locked = on
+		input.put(_held_by_screen, on)
 ## Set by an NPC for as long as they are talking to this player: the talk key
 ## still moves the conversation on, but nothing else the player does acts.
-var talk_locked: bool = false
+var talk_locked: bool = false:
+	set(on):
+		talk_locked = on
+		input.put(_held_by_talk, on)
+var _held_by_screen := HandsOff.new()
+var _held_by_talk := HandsOff.new()
+## What the line asked of the body this physics frame. The state's actions
+## read it rather than asking again.
+var _asked := InputState.new()
 
 ## Movement runs as a state machine. Every frame the senses are read, the state
 ## is re-picked from them, and only then does that state act — so the state an
@@ -161,6 +179,10 @@ var current_state: FSMNode
 var debug_mode: bool = false
 ## Horizontal input this frame, -1..1.
 var _dir: float = 0.0
+
+func _init() -> void:
+	input = InputProvider.new(self)
+	input.add(Hands.new())
 
 func _ready() -> void:
 	team = 0
@@ -320,22 +342,23 @@ func casting() -> bool:
 func on_dashed() -> void:
 	invuln = maxf(invuln, 0.12)
 
-## Whether the player's own input is ignored: a screen has the keys, or someone
-## is talking to them.
+## Whether the player's own input is ignored: a screen has the keys, someone is
+## talking to them, or anything else has taken the hands off on their line.
 func controls_locked() -> bool:
-	return input_locked or talk_locked
+	return input.held()
 
 func _process(delta: float) -> void:
 	_process_status(delta)
 	if parry_time > 0.0:
 		parry_time -= delta
+	var s := input.state()
 	# Holding the cast button charges; letting go is what fires it. A tap is
 	# simply a charge of nothing, so a quick press still casts as it always did.
-	var holding := not controls_locked() and Input.is_action_pressed("cast_skill")
+	var holding := s.cast
 	# Taken before the charge is touched: on the frame of the release the button
 	# already reads as up, and letting the bleed-off run first shaved a fifth
 	# off what the player had actually paid for.
-	if not controls_locked() and Input.is_action_just_released("cast_skill"):
+	if s.cast_released:
 		cast_charge = charge
 		charge = 0.0
 		# Held over a few frames, so a release landing on the tail of the last
@@ -346,7 +369,7 @@ func _process(delta: float) -> void:
 	# The attack button runs the graph as it is, for as long as it is held and
 	# as often as the graph comes round — and never while a charge is being
 	# built, which would spend the cast the hold is paying for on nothing.
-	var attacking := not controls_locked() and not holding and Input.is_action_pressed("attack")
+	var attacking := not holding and s.attack
 	if runner != null:
 		# Whatever a release paid for rides on the cast it bought, and on no
 		# other: the life is read once, as a cycle starts, so it is offered only
@@ -357,35 +380,31 @@ func _process(delta: float) -> void:
 	# Aiming is the player's hand as much as walking is: while a screen has the
 	# controls, the weapon stays where it was pointing instead of following the
 	# pointer round a menu.
-	if not controls_locked():
-		_update_aim()
+	_update_aim(s)
 
-func _update_aim() -> void:
-	var stick := Vector2(Input.get_joy_axis(0, JOY_AXIS_RIGHT_X), Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y))
-	if stick.length() > STICK_DEAD:
-		aim = stick.normalized()
-		aim_reach = reach_of(stick.length())
-		aim_point = global_position + aim * STICK_AIM_REACH
-	else:
-		aim_reach = 1.0
-		# `Pointer` rather than the viewport: while the player has the controls
-		# the game is doing the pointing, at whatever speed the setting asks
-		# for. It answers the system's own pointer the rest of the time, and at
-		# 1.0 the two are the same thing.
-		var at := Pointer.world_point(self)
-		var m := at - global_position
-		if m.length() > 4.0:
-			aim = m.normalized()
-		aim_point = at
+## Points the weapon where the line says the hand points — the stick or the
+## pointer, see `Hands` — and leaves it where it was while the line says the
+## hand is off it.
+func _update_aim(s: InputState = null) -> void:
+	if s == null:
+		s = input.state()
+	if not s.aiming:
+		return
+	if s.aim != Vector2.ZERO:
+		aim = s.aim
+	aim_reach = s.aim_reach
+	aim_point = s.aim_point
 
 func _physics_process(delta: float) -> void:
 	if dead:
 		return
-	_dir = 0.0
-	if not controls_locked():
-		_dir = Input.get_axis("move_left", "move_right")
+	_asked = input.state()
+	_dir = _asked.move
 	if _dir != 0.0:
 		face(int(signf(_dir)))
+	# Turned without a step: by whatever walked them here, to face what they
+	# came for.
+	face(_asked.turn)
 	if _dash_cd > 0.0:
 		_dash_cd -= delta
 	# A dash owns the body outright: nothing is sensed, buffered or refilled
@@ -417,7 +436,7 @@ func _sense(delta: float) -> void:
 	else:
 		_coyote = maxf(0.0, _coyote - delta)
 	_buffer = maxf(0.0, _buffer - delta)
-	if not controls_locked() and Input.is_action_just_pressed("jump"):
+	if _asked.jump_pressed:
 		_buffer = JUMP_BUFFER
 
 	# Wall interaction: hugging a wall slows the fall and enables a kick-off.
@@ -494,13 +513,13 @@ func _action_jump() -> void:
 			_buffer = 0.0
 			Cues.at(&"jump", global_position, {"kind": "air"})
 	# Releasing jump early cuts the arc short.
-	if not controls_locked() and Input.is_action_just_released("jump") and velocity.y < 0.0:
+	if _asked.jump_released and velocity.y < 0.0:
 		velocity.y *= 0.45
 
 ## A press starts a dash, when the stamina and the cooldown allow. It takes
 ## over from the next frame, when the machine sees it under way.
 func _action_dash() -> void:
-	if not controls_locked() and Input.is_action_just_pressed("dash") and _dash_cd <= 0.0:
+	if _asked.dash_pressed and _dash_cd <= 0.0:
 		if stamina < DASH_STAMINA:
 			# Nothing happening at all reads as a dropped input, so say why.
 			Cues.at(&"refused", global_position, {"kind": "stamina"})

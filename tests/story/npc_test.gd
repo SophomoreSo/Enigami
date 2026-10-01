@@ -37,6 +37,13 @@ func press(action: String = "interact") -> void:
 	Input.action_release(action)
 	await phys(1)
 
+func until(cond: Callable, limit: int = 240) -> bool:
+	for i in limit:
+		if cond.call():
+			return true
+		await get_tree().physics_frame
+	return bool(cond.call())
+
 ## Waits for the current line to finish typing by itself.
 func listen(n: Npc) -> void:
 	var guard := 0
@@ -195,10 +202,51 @@ func _ready() -> void:
 		"a line the table gives the player is said by the player, under their name")
 	n.end_conversation()
 
+	# Walked over. A press from anywhere in range brings the player to where
+	# people stand to talk before anything opens.
+	var spot := n.global_position.x - Npc.TALK_SPOT
+	p.global_position = Vector2(n.global_position.x - 62.0, n.global_position.y)
+	await phys(4)
+	await press()
+	check(n.approaching() and not n.is_talking(), "a press from further out walks the player over first")
+	check(await until(func() -> bool: return n.is_talking()), "and the conversation opens once they are there")
+	check(absf(p.global_position.x - spot) <= WalkTo.THERE + 1.0,
+		"standing TALK_SPOT out, on the side they came from (%.1f off)" % (p.global_position.x - spot))
+	check(p.facing == 1 and p.controls_locked(), "facing them, and held")
+	n.end_conversation()
+
+	# Standing right on them, they step back to talk — and turn round to face them.
+	p.global_position = Vector2(n.global_position.x - 6.0, n.global_position.y)
+	await phys(4)
+	await press()
+	check(await until(func() -> bool: return n.is_talking()), "standing on top of them, a press still opens it")
+	check(absf(p.global_position.x - spot) <= WalkTo.THERE + 1.0,
+		"once they have stepped back to the spot (%.1f off)" % (p.global_position.x - spot))
+	check(p.facing == 1, "turned to face them, though the step back was the other way")
+	n.end_conversation()
+
+	# Changing your mind on the way over.
+	p.global_position = Vector2(n.global_position.x - 62.0, n.global_position.y)
+	await phys(4)
+	await press()
+	check(n.approaching(), "the walk over has begun")
+	Input.action_press("move_left")
+	await phys(3)
+	check(not n.approaching() and not n.is_talking(), "a push the other way is a change of mind: nothing opens")
+	var turned_from := p.global_position.x
+	await phys(12)
+	Input.action_release("move_left")
+	await phys(2)
+	check(p.global_position.x < turned_from - 10.0 and not p.controls_locked() and not n.is_talking(),
+		"and the player walks off free (%.0f)" % (p.global_position.x - turned_from))
+
 	# Locked input, like the skill editor being open.
+	p.global_position = Vector2(spot, n.global_position.y)
+	await phys(4)
 	p.input_locked = true
 	await press()
-	check(not n.is_talking(), "no conversation starts while the player's input is locked")
+	check(n.in_range and not n.is_talking() and not n.approaching(),
+		"no conversation starts while the player's input is locked, nor any walk over")
 	p.input_locked = false
 
 	print("[NPC] ---- %d failures ----" % fails)

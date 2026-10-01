@@ -285,6 +285,34 @@ cues the box sends. What a free talker remembers is kept with the profile
 counts `GameState.facts()` hands over by name — so nothing in `feature/`
 knows what anybody said.
 
+### The player's input — a line anything may stand on
+
+The player never reads `Input`. Everything they are asked to do comes down one
+line, `Player.input` (`feature/input/`), after aarthificial's devlog on
+stealing control from players: an empty `InputState` goes in at the head,
+every `InputMiddleware` on the line has its say, and the body does whatever
+comes out of the far end.
+
+```
+Hands      the keys, a pad, the console, the pointer: what the player says
+HandsOff   a screen over the game, a conversation in the box: the hands taken off
+WalkTo     the walk over to talk: the body driven somewhere, and given back
+           to a push the other way
+```
+
+Each stands at its rank — what fills the state in, then what holds it, then
+what steers — so a walk still moves a body nobody may move, the way the
+devlog's navigation comes after its dialogue. What lasts (which way and how
+hard, a button held, where to aim) is read for its value; what happens (a jump
+pressed, a cast let go of) is an act, which any stop may raise and a gate shut
+anywhere on the line drops. `input_locked` and `talk_locked` are two
+`HandsOff`s on that line, and `controls_locked()` asks the line.
+
+So a system that wants the player's body — `Npc` walks them over before a
+conversation in the box — puts a middleware on the line and takes it off
+again, or lets it finish, and nothing else on the line, the player included,
+has to hear about it.
+
 ## Where does it go?
 
 | Change | File |
@@ -301,7 +329,8 @@ knows what anybody said.
 | A kind of line that hangs — a cable, a chain — and its numbers: how stiff, how heavy, how much of a passing body it takes; and what a room hangs of each, how many, how long | a row of `ropes` and one of `hangings` in `data/db/ropes/ropes.sql`, then `data/db/build.sh` — see **A rope** in `data/db/README.md`. How a line moves and is drawn, `graphics/rope.gd`: a tree of nodes, each with a parent, a rest angle and distance — held at the distance, springing back to the angle — pixel by pixel on the world's grid. Where in a room one may hang, `_hang_lines` in `graphics/views/room_view.gd`; its colours, `Style.ROPE_LOOK`. Nothing in `feature/` knows they are there |
 | A menu — what it is called, what is on it, in what order, and what each item says or opens | `data/db/menus/menus.sql`, then `data/db/build.sh` — see **A menu** in `data/db/README.md`. What an item that opens no menu *does* is the screen's, by the item's id: `acts_for` in `graphics/ui/title_screen.gd`, `_pause_acts` in `app/game.gd`. How the items look — a tile's mark, a button's colour — stays with the screen |
 | A new directed scene, or a new staging direction | a file in `data/scenes/` — see its README; no code. A new direction is a case in `story/rules/cutscene.gd` and, if it shows, `story/view/cutscene_view.gd` |
-| How a conversation behaves — range, reveal speed, who is held still | `story/rules/npc.gd`. How it reads on screen, `story/view/dialogue_box.gd` |
+| How a conversation behaves — range, reveal speed, who is held still, where the player is walked to stand | `story/rules/npc.gd`. How it reads on screen, `story/view/dialogue_box.gd` |
+| Something that takes the player's controls for a while — holds them, walks them somewhere, presses for them | an `InputMiddleware` in `feature/input/`, put on `player.input` and taken off again or left to finish; see `InputProvider`. What the player's own hands say is `Hands`; how a walk gets there and is refused, `WalkTo` |
 | Someone who talks free, and what they notice | a file in `data/db/dialogue/` of `rules`, `criteria` and `changes` — see **Free talk** in `data/db/README.md`; no code. A new kind of moment to notice, a row of `events` in `data/db/schema.sql` naming the cue. How free talk is picked and paced, `story/rules/free_talk.gd`; how the bubble looks, `story/view/speech_bubble.gd` |
 | What anyone actually says, on any screen, in any language | `localization/<lang>/` — see its README. A new language is a folder and an entry in `LANGUAGES` in `app/loc.gd` |
 | What an emotion looks like | `EMOTIONS` in `graphics/style.gd` |
