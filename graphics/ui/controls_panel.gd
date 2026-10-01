@@ -1,9 +1,9 @@
 class_name ControlsPanel
 extends PanelContainer
 
-## The input settings: how fast the pointer moves, whether the game is in
-## mobile mode — and, while it is, where its buttons stand — and which key does
-## what.
+## The input settings: how fast the pointer moves, how much a stick's aim is
+## helped, whether the game is in mobile mode — and, while it is, where its
+## buttons stand — and which key does what.
 ##
 ## The pointer and mobile mode sit at the top rather than with the volumes,
 ## because what they belong with is this — they are controls, and this is the
@@ -46,6 +46,27 @@ func _pointer_row(name_width: int, bind_width: int) -> Control:
 	s.custom_minimum_size = Vector2(bind_width, 24)
 	UiKit.pixel_slider(s)
 	s.value_changed.connect(func(v: float) -> void: Pointer.set_sensitivity(v))
+	row.add_child(s)
+	return row
+
+## How much a stick's aim is bent toward what it is near — a gamepad's, or the
+## console's on the glass (`AimAssist`): none of it at the left end, all of it
+## at the right. The pointer is never bent, so this sits under the pointer's
+## own row as the other half of aiming, and like it answers while it is dragged.
+func _assist_row(name_width: int, bind_width: int) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var l := UiKit.label(Loc.t("controls.aim_assist"), 11, UiKit.TEXT, pixel)
+	l.custom_minimum_size = Vector2(name_width, 0)
+	row.add_child(l)
+	var s := HSlider.new()
+	s.min_value = 0.0
+	s.max_value = 1.0
+	s.step = AimAssist.STEP
+	s.value = AimAssist.strength
+	s.custom_minimum_size = Vector2(bind_width, 24)
+	UiKit.pixel_slider(s)
+	s.value_changed.connect(func(v: float) -> void: AimAssist.set_strength(v))
 	row.add_child(s)
 	return row
 
@@ -140,6 +161,7 @@ func _build() -> void:
 	var name_width := 200 if pixel else 150
 	var bind_width := 352 if pixel else 200
 	v.add_child(_pointer_row(name_width, bind_width))
+	v.add_child(_assist_row(name_width, bind_width))
 	v.add_child(_touch_row(name_width))
 	v.add_child(_arrange_row())
 	v.add_child(UiKit.hline(pixel))

@@ -3,6 +3,7 @@
 	"reset": "기본값으로 되돌리기",
 	"listening": "키를 누르세요…",
 	"sensitivity": "마우스 감도",
+	"aim_assist": "조준 보정",
 	"mobile": "모바일 모드",
 	"arrange": {
 		"open": "버튼 위치 설정",

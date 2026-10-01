@@ -55,6 +55,7 @@ func _ready() -> void:
 	randomize()
 	Controls.load_saved()
 	Touch.load_saved()
+	AimAssist.load_saved()
 	ui_layer = CanvasLayer.new()
 	ui_layer.layer = 5
 	add_child(ui_layer)

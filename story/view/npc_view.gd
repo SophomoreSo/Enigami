@@ -132,9 +132,11 @@ func _focus_point(focus: String) -> Vector2:
 
 ## Only while nobody is talking: once they are, the box or the bubble says it
 ## all. And only when a press would get an answer — a free talker with nothing
-## left to say has no prompt over their head.
+## left to say has no prompt over their head — and has not already had one: the
+## player walking over to talk has pressed it.
 func _draw_prompt() -> void:
-	if sprite == null or npc.is_talking() or npc.free_talk.is_talking() or not npc.answers_press():
+	if sprite == null or npc.is_talking() or npc.free_talk.is_talking() or not npc.answers_press() \
+			or npc.approaching():
 		return
 	var tip_y := _head_y - PROMPT_GAP
 	var text := "%s  Talk" % Controls.short_label_for("interact")

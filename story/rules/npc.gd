@@ -3,12 +3,15 @@ extends CharacterBody2D
 
 ## Someone to talk to, in one of two ways.
 ##
-## **In the box** — `Mode.FREEZE`. Walk up and press interact and a
-## conversation starts; each further press moves it on. Some lines end in a
-## question — move up and down to pick an answer, interact to give it — and the
-## answer decides what they say next. The player is held still while they
-## listen — no walking, jumping, dashing or attacking — so a conversation ends
-## by talking it through, or by something else carrying the player out of range.
+## **In the box** — `Mode.FREEZE`. Walk up and press interact, and the last
+## step is walked for the player: to where people stand to talk, turned to face
+## them (`_come_over`). Pushing the other way on that step is changing your
+## mind, and nothing opens. Once they are there a conversation starts; each
+## further press moves it on. Some lines end in a question — move up and down to
+## pick an answer, interact to give it — and the answer decides what they say
+## next. The player is held still while they listen — no walking, jumping,
+## dashing or attacking — so a conversation ends by talking it through, or by
+## something else carrying the player out of range.
 ##
 ## **Free** — `Mode.FREE`. What is said comes out in a bubble over whoever is
 ## saying it, and the player goes on playing: nothing is held, a line moves on
@@ -41,6 +44,10 @@ const GRAVITY := 1900.0
 const MAX_FALL := 900.0
 ## How close the player has to stand for a press to count, centre to centre.
 const TALK_RANGE := 64.0
+## Where the player stands to talk in the box, centre to centre, on whichever
+## side of them they came from: near enough to talk, and far enough apart that
+## the two of them never stand inside each other.
+const TALK_SPOT := 40.0
 ## How far a free talker's voice carries, centre to centre. They notice what the
 ## player does inside it, and talk the player started goes on only while the
 ## player stays in it: eight cells, far enough to try a move out in front of
@@ -79,6 +86,9 @@ var mode: int = Mode.FREEZE
 var free_talk: FreeTalk
 ## The player being talked to, held still until the conversation ends.
 var _listener: Player = null
+## The walk bringing the player over to talk, from the press until they get
+## here or change their mind; null the rest of the time.
+var _approach: WalkTo = null
 
 func setup(id: String) -> void:
 	npc_id = id
@@ -120,6 +130,8 @@ func _physics_process(delta: float) -> void:
 			revealed = minf(revealed + reveal_rate() * delta, float(current_line().length()))
 			_announce_letters(before)
 	_talk_free(delta, player, was_in_earshot)
+	if _approach != null:
+		_mind_approach(player)
 	if not in_range or player.input_locked or not _nearest(player):
 		return
 	if is_choosing():
@@ -189,11 +201,12 @@ func _nearest(player: Player) -> bool:
 			return false
 	return true
 
-## One press of interact: start talking, finish the line coming in, give the
-## highlighted answer, move on to the next line, or — where there is none — stop.
+## One press of interact: come over to talk, finish the line coming in, give
+## the highlighted answer, move on to the next line, or — where there is none —
+## stop.
 func interact() -> void:
 	if not is_talking():
-		_go(start)
+		_come_over()
 		return
 	if not line_finished():
 		revealed = float(current_line().length())
@@ -219,6 +232,42 @@ func move_selection(step: int) -> void:
 		return
 	selected = wrapi(selected + step, 0, choices().size())
 	Cues.emit_cue(&"ui", {"kind": "arm"})
+
+## A press to talk. The player is walked over to where people stand to talk,
+## `TALK_SPOT` out on the side they are on, and turned to face them, and the
+## conversation opens once they are there; for one standing there already it
+## opens at once. The walk goes on the player's own input line, after anything
+## that holds them, and it is theirs to refuse: a push the other way takes the
+## body back, and nothing opens.
+func _come_over() -> void:
+	var player := _player()
+	if player == null or _approach != null:
+		return
+	var side := signf(player.global_position.x - global_position.x)
+	if side == 0.0:
+		# Standing right on them: back off the way they are not facing.
+		side = -float(player.facing)
+	var spot := global_position.x + side * TALK_SPOT
+	if absf(player.global_position.x - spot) <= WalkTo.THERE:
+		_go(start)
+		return
+	_approach = WalkTo.new(spot, -int(side))
+	player.input.add(_approach)
+
+## The walk over, each frame: they are here, and the conversation opens; or it
+## ended without them — they pushed the other way, something carried them off,
+## a screen came up over the game.
+func _mind_approach(player: Player) -> void:
+	if _approach.arrived and player != null and in_range:
+		_approach = null
+		_go(start)
+	elif _approach.done or player == null or not in_range or player.input_locked:
+		_approach.cancel()
+		_approach = null
+
+## Whether the player is being walked over to talk.
+func approaching() -> bool:
+	return _approach != null
 
 func end_conversation() -> void:
 	if not is_talking():
@@ -246,11 +295,17 @@ func _go(to: String) -> void:
 		_listener = _player()
 		if _listener != null:
 			_listener.talk_locked = true
+			# Face to face, whichever way they were standing.
+			_listener.face(int(signf(global_position.x - _listener.global_position.x)))
 	Cues.at(&"talk", global_position, {"npc": npc_id, "node": to, "line": current_node()})
 	line_started.emit(self, node_id)
 
-## An NPC taken away mid-sentence must not leave the player frozen.
+## An NPC taken away mid-sentence must not leave the player frozen, nor
+## walking over to talk to nobody.
 func _exit_tree() -> void:
+	if _approach != null:
+		_approach.cancel()
+		_approach = null
 	_release_listener()
 
 func _release_listener() -> void:
