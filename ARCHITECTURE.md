@@ -328,6 +328,8 @@ has to hear about it.
 | A board the game ships with — a weapon's graph as it starts, a monster's | `data/db/boards/`, then `data/db/build.sh`; the weapon or the monster names it by id, and a weapon names its root part beside it (`Weapons.DEFS`) |
 | The player's movement — its states, what each does, which can follow which, and when | `data/db/machines/player.sql`, then `data/db/build.sh`. A new action for a step to take, or a new sense for a condition to read, `_setup_fsm` in `feature/actors/player.gd` |
 | A kind of line that hangs — a cable, a chain — and its numbers: how stiff, how heavy, how much of a passing body it takes; and what a room hangs of each, how many, how long | a row of `ropes` and one of `hangings` in `data/db/ropes/ropes.sql`, then `data/db/build.sh` — see **A rope** in `data/db/README.md`. How a line moves and is drawn, `graphics/rope.gd`: a tree of nodes, each with a parent, a rest angle and distance — held at the distance, springing back to the angle — pixel by pixel on the world's grid. Where in a room one may hang, `_hang_lines` in `graphics/views/room_view.gd`; its colours, `Style.ROPE_LOOK`. Nothing in `feature/` knows they are there |
+| What grows on the rooms' floors — grass, flowers, a bush — and how it sways: how tall and how thick it stands, how far a push or the wind moves it; and what a room grows of each, how many, how long | a row of `foliage` and one of `growths` in `data/db/foliage/foliage.sql`, then `data/db/build.sh` — see **Foliage** in `data/db/README.md`. How a patch is drawn — its picture and its mask, pixel by pixel — `graphics/foliage.gd`; how its pixels move for a push and for the wind, `graphics/assets/shaders/foliage.gdshader`. Where in a room a patch may grow, `_grow_foliage` in `graphics/views/room_view.gd`; its colours, `Style.FOLIAGE_LOOK`. Nothing in `feature/` knows it is there |
+| What moving things do to the air the picture is drawn in — what writes into it (a body, a bolt, a blast's ring), how stiff it is and how fast a push dies — for the foliage, or anything else drawn that should give way | `graphics/velocity_buffer.gd`, aarthificial's velocity buffer, and the step it takes every frame, `graphics/assets/shaders/velocity.gdshader`; the `PixelCamera` carries one on its own grid. Any shader reads it through the globals `velocity_buffer`, `velocity_area` and `velocity_time`, declared in `project.godot` |
 | A menu — what it is called, what is on it, in what order, and what each item says or opens | `data/db/menus/menus.sql`, then `data/db/build.sh` — see **A menu** in `data/db/README.md`. What an item that opens no menu *does* is the screen's, by the item's id: `acts_for` in `graphics/ui/title_screen.gd`, `_pause_acts` in `app/game.gd`. How the items look — a tile's mark, a button's colour — stays with the screen |
 | A new directed scene, or a new staging direction | a file in `data/scenes/` — see its README; no code. A new direction is a case in `story/rules/cutscene.gd` and, if it shows, `story/view/cutscene_view.gd` |
 | How a conversation behaves — range, reveal speed, who is held still, where the player is walked to stand | `story/rules/npc.gd`. How it reads on screen, `story/view/dialogue_box.gd` |
@@ -366,7 +368,7 @@ nothing and live in `graphics/fx.gd`.
 | Name | Module | What it is |
 |---|---|---|
 | `Loc` | app | every word, in the language being played |
-| `Db` | app | the content database, `data/enigami.db` — the conversations, the state machines, the parts and the boards the game ships with, the menus, and the lines that hang in the rooms, as tables — read-only |
+| `Db` | app | the content database, `data/enigami.db` — the conversations, the state machines, the parts and the boards the game ships with, the menus, the lines that hang in the rooms and what grows on their floors, as tables — read-only |
 | `Cues` | app | the seam |
 | `Audio`, `AudioCues` | app | the synthesised sound bank, and what each cue sounds like |
 | `Pointer` | app | where the hand is pointing, at the speed the setting asks, and whether the system's arrow is hidden under it |
@@ -387,5 +389,5 @@ and its picture is built by `app/game.gd`. Keep it that way: an autoload is the
 one thing a module's branch cannot add without touching `project.godot`.
 
 `project.godot` is the one file any branch may need to touch — adding an
-autoload, an input action or a collision layer. Its autoload block is grouped
+autoload, an input action, a collision layer or a global shader uniform. Its autoload block is grouped
 by module so two additions rarely collide.

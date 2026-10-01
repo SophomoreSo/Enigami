@@ -30,6 +30,11 @@ extends CanvasLayer
 ## all. That is how the room grid and the tile outlines disappeared when this
 ## went in, at 1.0 wide; they, and every other line that was set thinner, are
 ## SCALE wide now.
+##
+## It carries the air the picture is drawn in, too: a `VelocityBuffer` the
+## size of its own buffer and on the same grid, which the foliage reads to
+## bend where something moves through it — the way the package that buffer
+## comes from hangs it on the camera.
 
 const SCALE := int(Sprites.PIXEL_SCALE)
 const BORDER := 1
@@ -52,6 +57,8 @@ static var _live := 0
 
 var _view: SubViewport
 var _image: Sprite2D
+## What everything moving does to the air in the picture, on its grid.
+var velocity: VelocityBuffer
 
 ## Draws text into the world, centred on `at`, `size` in buffer pixels.
 ##
@@ -91,6 +98,10 @@ func _ready() -> void:
 	# After the camera it copies has settled this frame, so the picture is
 	# never a frame behind a shake.
 	process_priority = 100
+	# Up before the picture is, so its viewports are drawn first each frame and
+	# what bends this frame bends in this frame's picture.
+	velocity = VelocityBuffer.new()
+	add_child(velocity)
 	_view = SubViewport.new()
 	_view.world_2d = get_viewport().world_2d
 	_view.disable_3d = true
@@ -121,6 +132,8 @@ func _follow() -> void:
 		-grid / SCALE + Vector2.ONE * BORDER)
 	_image.scale = Vector2.ONE * zoom * SCALE
 	_image.position = -Vector2.ONE * BORDER * SCALE * zoom - (leftover * zoom).round()
+	# The buffer's first pixel is this one's, BORDER pixels out from the grid.
+	velocity.follow(grid - Vector2.ONE * BORDER * SCALE, want)
 	# The crosshair is drawn over this picture, at this picture's scale, by the
 	# shell — which has no other way to learn where this grid starts. Handed over
 	# rather than fetched: `PixelCamera` is a graphics class and the pointer is

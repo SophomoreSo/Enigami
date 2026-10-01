@@ -2,9 +2,9 @@
 
 `data/enigami.db` is what the game reads and never writes, kept as tables:
 the conversations, the player's state machine, the parts a skill board is
-built from, the boards the game ships with, the menus and the lines that hang
-in the rooms, today, and whatever else is better kept as rows than as a file
-tomorrow. The game reaches it through `Db`
+built from, the boards the game ships with, the menus, the lines that hang
+in the rooms and what grows on their floors, today, and whatever else is
+better kept as rows than as a file tomorrow. The game reaches it through `Db`
 (`app/db.gd`), and it is built from the SQL in this folder:
 
 ```
@@ -26,6 +26,8 @@ data/
     │   └── menus.sql
     ├── ropes/        the lines that hang in the rooms, and what a room hangs of each
     │   └── ropes.sql
+    ├── foliage/      what grows on the rooms' floors, and how much of each a room grows
+    │   └── foliage.sql
     └── parts/        every part a board is built from, and its number in a shared code
         └── parts.sql
 ```
@@ -541,6 +543,52 @@ that moves it. What a kind looks like is `Style.ROPE_LOOK`
 cable's colours. `tests/graphics/rope_test.tscn` reads the tables, makes a
 line of each kind, and tries what the schema refuses.
 
+## Foliage
+
+What grows on the rooms' floors — grass, flowers, a bush — is `Foliage`
+(`graphics/foliage.gd`): aarthificial's interactive foliage, a picture
+whose pixels sway in the wind and bend where something moving has left its
+speed in the velocity buffer (`graphics/velocity_buffer.gd`). A **kind** of
+foliage is a row of `foliage` — what is drawn, which way it gives, how tall
+and how thick it stands, how far a push and the wind move it — and what a
+room grows of each kind is a row of `growths`. Change a number in
+`foliage/foliage.sql` and rebuild, and every patch of that kind is drawn and
+moves that way.
+
+```sql
+INSERT INTO foliage (id, form, sway, shortest, tallest, density, push, wind) VALUES
+	('fern', 'blades', 'along', 6, 14, 0.5, 8, 3);
+
+INSERT INTO growths (foliage, fewest, most, shortest, longest) VALUES
+	('fern', 0, 2, 1, 3);
+```
+
+| Table · column | Meaning |
+|---|---|
+| `foliage.form` | The picture: `blades` of grass, `flowers` on stems, or a `bush`. Drawn by `Foliage`, pixel by pixel; a new picture is code there. |
+| `foliage.sway` | Which way it gives — the package's two shaders. `along`: back and forth along the ground, and lower at the tip the further it leans, as grass and flowers do. `any`: whichever way it is pushed, as a bush does. |
+| `foliage.shortest` `tallest` | How tall a plant stands, in pixels of the picture — one is two world units. A patch of blades swells between the two and thins to the shortest at its ends. |
+| `foliage.density` | The share of a patch's columns a plant stands in. A bush is one to a patch whatever this says. |
+| `foliage.push` | How far, in pixels, a tip moves for a push of one in the buffer — about what a dash leaves behind it. A run leaves less than half of that. |
+| `foliage.wind` | How far, in pixels, the wind sways a tip at its strongest. Most of the time it is half that or less. |
+| `growths.fewest` `most` | How many patches of the kind a room grows. |
+| `growths.shortest` `longest` | How long each patch is, in cells of the room's grid. |
+
+Where a patch grows is `RoomView`'s (`graphics/views/room_view.gd`): along
+the top of solid cells with open air over them — the floor and the tops of
+the ledges — never on the spikes, never at the room's edge and never over a
+patch of its own kind, rolled from the room's own seed so a room looks the
+same every time. Kinds are drawn in the order their `growths` rows are
+written, each over the last. How the air springs back once it is pushed —
+how stiff it is, how damped, how far a push spreads — is the velocity
+buffer's, and shared by everything that reads it, so it stays code, as
+constants on `VelocityBuffer`; so does the wind's direction and the size of
+a gust, in `foliage.gdshader`. What a kind looks like is
+`Style.FOLIAGE_LOOK` (`graphics/style.gd`), by the same id; a kind with no
+look yet grows in grass's colours. `tests/graphics/foliage_test.tscn` reads
+the tables, grows a patch of each kind, and tries what the schema refuses;
+`tests/graphics/velocity_test.tscn` pushes them.
+
 ## Reading it from code
 
 ```gdscript
@@ -554,9 +602,10 @@ Db.meta("schema_version")
 into the `FSMNode`s its owner runs, `Components` (`circuit/components.gd`)
 reads the parts, `Boards` (`feature/core/boards.gd`) builds a shipped board
 into the `SkillBoard` the circuit runs, `Menus` (`graphics/ui/menus.gd`)
-hands a screen its menus' items, in the language being played, and `Rope.of`
-(`graphics/rope.gd`) makes a line of a kind with its row's numbers; nothing
-else needs to know any of it came from a table. `Dialogue.reload()` and `Components.reload()` pick up
+hands a screen its menus' items, in the language being played, `Rope.of`
+(`graphics/rope.gd`) makes a line of a kind with its row's numbers, and
+`Foliage.of` (`graphics/foliage.gd`) a patch of a kind; nothing else needs
+to know any of it came from a table. `Dialogue.reload()` and `Components.reload()` pick up
 a rebuilt file without a restart.
 
 ## Changing the tables

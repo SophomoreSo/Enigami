@@ -2,11 +2,11 @@ class_name RoomView
 extends Node2D
 
 ## A room, drawn: the tile field, its hazards and door frames, whatever exit it
-## holds, and the cables hung from its rock.
+## holds, the cables hung from its rock and the foliage growing on its floors.
 ##
 ## Tiles never change while a room is loaded, so they are drawn once onto their
-## own layer the moment the room finishes building. The exit animates, and the
-## cables sway.
+## own layer the moment the room finishes building. The exit animates, the
+## cables sway, and the grass bends where somebody walks through it.
 ##
 ## The rock goes on past the room's edge, out to wherever the screen does. A
 ## room is 1280 across, and the screen is at least 1280x720 but takes the shape
@@ -34,6 +34,9 @@ var room: Room
 var _tiles: TileLayer
 ## The lines hung in this room, in the order they were hung.
 var ropes: Array = []
+## The patches growing on this room's floors, in the order they were grown,
+## which is the order they are drawn in (`Foliage`).
+var plants: Array = []
 
 ## The static half. It sits behind everything and redraws only when asked.
 class TileLayer extends Node2D:
@@ -59,6 +62,7 @@ func _ready() -> void:
 func _on_built() -> void:
 	_tiles.queue_redraw()
 	_hang_lines()
+	_grow_foliage()
 
 ## What hangs from the room's rock is the `hangings` rows of the content
 ## database: of each kind of line, how many and how long. Where each hangs is
@@ -124,6 +128,66 @@ func _clear_under(x: int, y: int, n: int) -> bool:
 		if room.is_solid(x, y + k):
 			return false
 	return true
+
+## What grows on the room's floors is the `growths` rows of the content
+## database: of each kind of foliage, how many patches and how long. Where each
+## grows is decided here: along the top of solid cells with open air over
+## them — the floor and the tops of the ledges — never on the spikes, never at
+## the room's edge, and never over a patch of its own kind. Which cells, how
+## many and how long is rolled from the room's own seed, so a room looks the
+## same every time it is walked into, and from a roll of its own rather than
+## the room's, so the monsters and the loot fall as they always did.
+func _grow_foliage() -> void:
+	for p in plants:
+		if is_instance_valid(p):
+			p.queue_free()
+	plants.clear()
+	var ground := _ground()
+	if ground.is_empty():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = room.rng.seed ^ 0xf011a6e
+	for row in Foliage.growths():
+		var kind := String(row["foliage"])
+		var want := rng.randi_range(int(row["fewest"]), int(row["most"]))
+		var taken := {}
+		var count := 0
+		var tries := 0
+		while count < want and tries < 40:
+			tries += 1
+			var long := rng.randi_range(int(row["shortest"]), int(row["longest"]))
+			var start: Vector2i = ground.keys()[rng.randi() % ground.size()]
+			var fits := true
+			for k in long:
+				var cell := start + Vector2i(k, 0)
+				if not ground.has(cell) or taken.has(cell):
+					fits = false
+					break
+			if not fits:
+				continue
+			for k in long:
+				taken[start + Vector2i(k, 0)] = true
+			count += 1
+			var patch := Foliage.of(kind)
+			patch.grow(long * Room.CELL / Foliage.S, rng.randi())
+			patch.position = Vector2(start.x * Room.CELL, start.y * Room.CELL)
+			patch.z_index = -1
+			patch.visibility_layer = PixelCamera.WORLD_LAYER
+			add_child(patch)
+			plants.append(patch)
+
+## The cells foliage may grow on top of, as a set: solid, with open air over
+## them inside the room, in from its edge and not under the spikes.
+func _ground() -> Dictionary:
+	var spiked := {}
+	for h: Vector2i in room.hazards:
+		spiked[h + Vector2i(0, 1)] = true
+	var out := {}
+	for y in range(1, Room.H):
+		for x in range(1, Room.W - 1):
+			if room.is_solid(x, y) and not room.is_solid(x, y - 1) and not spiked.has(Vector2i(x, y)):
+				out[Vector2i(x, y)] = true
+	return out
 
 ## How many cells past the room the screen shows on each side, across and down,
 ## with two more for a shake to swing into — for whatever draws a room's
