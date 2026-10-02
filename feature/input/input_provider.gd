@@ -71,6 +71,15 @@ func held() -> bool:
 			return true
 	return false
 
+## Whether the computer has the body rather than the player: something on the
+## line has taken it over — a hold that is the game's own, a walk, another pair
+## of hands (`InputMiddleware.takes_over`).
+func taken_over() -> bool:
+	for m in _line:
+		if not m.done and m.takes_over():
+			return true
+	return false
+
 ## On the line or off it, as `on` says: for something that comes and goes with
 ## a flag.
 func put(m: InputMiddleware, on: bool) -> void:

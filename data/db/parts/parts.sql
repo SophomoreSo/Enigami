@@ -37,7 +37,8 @@ INSERT INTO codes (code, id) VALUES
 	(28, 'SHATTER'), (29, 'GRAVITY'), (30, 'MANA_DRAIN'),
 	(31, 'RANGE'),
 	(32, 'KNOCKBACK'),
-	(33, 'ZAP');
+	(33, 'ZAP'),
+	(34, 'INVERT'), (35, 'STUN');
 
 -- WIRE and BEND carried a flow one cell and did nothing else to it, which
 -- every part already does: any part takes flow on any side and sends it where
@@ -62,8 +63,8 @@ INSERT INTO parts (id, name, category, heat, cells, tag, description) VALUES
 	('PROJECTILE', 'PROJECTILE', 'form', 0.6, 1, 'ranged', 'Fires a bolt along the aim direction. The standard ranged form.'),
 	('SLASH', 'SLASH', 'form', 0.5, 1, 'melee', 'An instant short arc at the aim direction. Fast, but reach is short.'),
 	('EXPLODE', 'EXPLODE', 'form', 1.2, 2, 'area', 'Damages everything inside a burst radius. Uses two board cells.'),
-	('DASHSLASH', 'DASHSLASH', 'form', 1.0, 2, 'melee', 'Lunges along the aim direction, cutting everything on the path. Uses two cells.'),
-	('DASHSLASH_AUTO', 'DASHSLASH+', 'form', 1.4, 2, 'melee', 'Seeks the nearest visible enemy and blinks through it, cutting the path. Uses two cells.'),
+	('DASHSLASH', 'SWIFT STRIKE', 'form', 1.0, 2, 'melee', 'Lunges along the aim direction, cutting everything on the path. Uses two cells.'),
+	('DASHSLASH_AUTO', 'SWIFT STRIKE+', 'form', 1.4, 2, 'melee', 'Seeks the nearest visible enemy and blinks through it, cutting the path. Uses two cells.'),
 	('ZAP', 'ZAP', 'form', 0.7, 1, 'ranged', 'A beam to where the cursor points, striking the instant it is cast. Stops at the first wall, and at the first enemy unless PIERCE carries it on.');
 
 INSERT INTO ports (part_id, side) VALUES
@@ -131,11 +132,13 @@ INSERT INTO parts (id, name, category, heat, tag, description) VALUES
 	('REVERSE', 'REVERSE', 'behavior', 0.4, NULL, 'Flips travel direction. Bolts return to you; other forms invert in their own way.'),
 	('GRAVITY', 'GRAVITY', 'behavior', 0.7, NULL, 'The enemy struck is not knocked back but pinned, and every other enemy nearby is dragged onto it. Gathers a room into one place for whatever comes next.'),
 	('KNOCKBACK', 'KNOCKBACK', 'behavior', 0.5, NULL, 'Hits throw the enemy back the way the attack was going. Buys room, but can put it out of reach.'),
-	('MANA_DRAIN', 'MANA DRAIN', 'behavior', 0.5, NULL, 'Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting.');
+	('MANA_DRAIN', 'MANA DRAIN', 'behavior', 0.5, NULL, 'Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting.'),
+	('STUN', 'STUN', 'behavior', 0.6, NULL, 'Struck enemies are stunned: for a moment they stand where they are and cannot attack. Once it wears off, an enemy shrugs off the next stun for a while.');
 
 INSERT INTO ports (part_id, side) VALUES
 	('PIERCE', 'E'), ('DASH', 'E'), ('BLINK', 'E'), ('HOMING', 'E'),
-	('REVERSE', 'E'), ('GRAVITY', 'E'), ('KNOCKBACK', 'E'), ('MANA_DRAIN', 'E');
+	('REVERSE', 'E'), ('GRAVITY', 'E'), ('KNOCKBACK', 'E'), ('MANA_DRAIN', 'E'),
+	('STUN', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('PIERCE', 0, 'pierce', 'add', 2),
@@ -145,7 +148,8 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('REVERSE', 0, 'reverse', 'toggle', NULL),
 	('GRAVITY', 0, 'pull', 'set', 'true'),
 	('KNOCKBACK', 0, 'knockback', 'set', 'true'),
-	('MANA_DRAIN', 0, 'mana_drain', 'set', 'true');
+	('MANA_DRAIN', 0, 'mana_drain', 'set', 'true'),
+	('STUN', 0, 'stun', 'set', 0.8);
 
 
 -- ---- flow ---------------------------------------------------------------------
@@ -158,19 +162,24 @@ INSERT INTO parts (id, name, category, heat, description) VALUES
 	('DUPLICATE', 'DUPLICATE x3', 'flow', 3.0, 'Produces the same result three times at full damage. Generates a lot of heat.'),
 	('OVERCLOCK', 'OVERCLOCK', 'flow', 0.0, 'Runs the whole board on a faster clock, at the price of a settling delay between cycles. Each one adds less speed than the last while the delay grows faster, so a few pay off and a wall of them does not.'),
 	('DELAY', 'DELAY', 'flow', 0.0, 'One cell of waiting and nothing more: it turns a flow and leaves it as it was. Steer a branch round to the way out with it, or stagger one against another by giving it further to walk.'),
-	('TIME_DILATION', 'TIME DILATION', 'flow', 2.0, 'Slows the world and the board alike. Not a speed buff — a change in the pace of the fight.');
+	('TIME_DILATION', 'TIME DILATION', 'flow', 2.0, 'Slows the world and the board alike. Not a speed buff — a change in the pace of the fight.'),
+	('INVERT', 'INVERT', 'flow', 0.4, 'Turns the part right before it inside out: DAMAGE heals what it strikes, FIRE, ICE and STUN cleanse it, GRAVITY pushes away, KNOCKBACK pulls in, and SIZE, SPEED and RANGE shrink. After anything else it does nothing.');
 
 -- SPLIT sends north first, then south; TEE east, then south.
 INSERT INTO ports (part_id, side) VALUES
 	('SPLIT', 'N'), ('SPLIT', 'S'),
 	('TEE', 'E'), ('TEE', 'S'),
-	('DUPLICATE', 'E'), ('OVERCLOCK', 'E'), ('DELAY', 'E'), ('TIME_DILATION', 'E');
+	('DUPLICATE', 'E'), ('OVERCLOCK', 'E'), ('DELAY', 'E'), ('TIME_DILATION', 'E'),
+	('INVERT', 'E');
 
 -- SPLIT halves a flow as it enters, so each of the two it sends carries half.
+-- INVERT does whatever the part before it has rows of `inversions` for: see
+-- the foot of the file.
 INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('SPLIT', 0, 'damage', 'multiply', 0.5),
 	('DUPLICATE', 0, 'duplicates', 'multiply', 3),
-	('TIME_DILATION', 0, NULL, 'dilate', 1.4);
+	('TIME_DILATION', 0, NULL, 'dilate', 1.4),
+	('INVERT', 0, NULL, 'invert', NULL);
 
 
 -- ---- trigger: a second flow, run as the payload of a moment -------------------
@@ -193,3 +202,28 @@ INSERT INTO ports (part_id, side, kind) VALUES
 -- tick per cell would have cut to a third.
 INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('ON_PARRY', 0, NULL, 'guard', 0.2);
+
+
+-- ---- inversions: what a part does when an INVERT follows it -------------------
+-- The runner puts back every field the part's effects changed, then does these
+-- instead (`SkillRunner._invert`). What harms the struck enemy turns to what
+-- helps it — DAMAGE's eight to a heal of eight, a burn, a chill or a stun to a
+-- cleanse of all three — and what pulls pushes, what pushes pulls, and what
+-- makes an attack more makes it less. A part with no rows here has no
+-- opposite: an INVERT after a form, a trigger, SPLIT or TEE does nothing.
+--
+-- Each number is its effect's turned round: the heal is DAMAGE's add, and every
+-- multiply here is one over the one above (1/1.6, 1/1.5, 1/1.2, 1/1.75).
+-- Change one, change the other — tests/circuit/invert_test holds the
+-- multiplies to it.
+INSERT INTO inversions (part_id, position, field, op, value) VALUES
+	('DAMAGE', 0, 'heal', 'add', 8),
+	('FIRE', 0, 'cleanse', 'set', 'true'),
+	('ICE', 0, 'cleanse', 'set', 'true'),
+	('STUN', 0, 'cleanse', 'set', 'true'),
+	('GRAVITY', 0, 'repel', 'set', 'true'),
+	('KNOCKBACK', 0, 'hook', 'set', 'true'),
+	('SIZE', 0, 'size', 'multiply', 0.625),
+	('SPEED', 0, 'speed', 'multiply', 0.6667),
+	('SPEED', 1, 'range_px', 'multiply', 0.8333),
+	('RANGE', 0, 'range_px', 'multiply', 0.5714);

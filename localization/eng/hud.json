@@ -2,6 +2,7 @@
 	"health": "%d / %d",
 	"burning": "BURNING",
 	"chilled": "CHILLED",
+	"stunned": "STUNNED",
 	"fx": {
 		"winded": "WINDED",
 		"parry": "PARRY",

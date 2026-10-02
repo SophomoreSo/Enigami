@@ -114,8 +114,10 @@ const THUMB_TAB_W := 132.0
 const THUMB_GAP := 4.0
 ## The most a tab or a part's plate stands; a long block's stand shorter, to fit.
 const THUMB_PLATE := 72.0
-## TURN and REMOVE, along the foot of the column.
-const THUMB_ACT := 72.0
+## TURN and REMOVE, along the foot of the column: a button's height, as CODE and
+## CLOSE are, which leaves the plates the room for a block of nine — the
+## behaviours — at a thumb's 56.
+const THUMB_ACT := THUMB_BTN
 ## The most a cell is across: past this a short board would be all cells and no
 ## board. And the least, on a screen too small to be fair to anybody.
 const THUMB_CELL_MOST := 98

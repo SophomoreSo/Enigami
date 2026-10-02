@@ -69,6 +69,10 @@ class Pulse extends RefCounted:
 	var total: int
 	var payload: Payload
 	var ttl: int    ## parts this pulse may still enter before it dies
+	## What the part this pulse stands in did to its flow, for an INVERT straight
+	## after it to take back: the part's `id`, and what every field its effects
+	## name held `before` it entered (`SkillRunner._before`).
+	var undo: Dictionary = {}
 	func _init(c: Vector2i, t: int, p: Payload, life: int) -> void:
 		cell = c
 		timer = t
@@ -332,8 +336,12 @@ func _begin_pass() -> bool:
 	if entry.is_empty():
 		return false
 	var p := _base_payload()
-	_apply(String(entry["id"]), p)
-	pulses = [Pulse.new(start, Components.tick_cost(entry["id"]), p, cycle_ttl())]
+	var id := String(entry["id"])
+	var before := _before(id, p)
+	_apply(id, p)
+	var first := Pulse.new(start, Components.tick_cost(id), p, cycle_ttl())
+	first.undo = {"id": id, "before": before}
+	pulses = [first]
 	return true
 
 ## What a trigger branch produces is a property of the board and the life it was
@@ -396,11 +404,11 @@ func _exit(p: Pulse) -> Array[Pulse]:
 		bp.branch = id
 		bp.form = ""
 		bp.duplicates = 1
-		_send(ex, pay_dir, bp, result, p.ttl)
+		_send(ex, pay_dir, bp, result, p.ttl, p.undo)
 
 	var outs := Components.world_outputs(id, rot)
 	for d in outs:
-		_send(ex, d, p.payload.clone(), result, p.ttl)
+		_send(ex, d, p.payload.clone(), result, p.ttl, p.undo)
 	return result
 
 ## A flow sent out of `from` heading `dir`, to wherever the board says it goes
@@ -412,7 +420,11 @@ func _exit(p: Pulse) -> Array[Pulse]:
 ## is not one: a pulse that has spent its last on the part it is leaving still
 ## gets out of the board, which is what lets one full pass be worth exactly the
 ## parts on it.
-func _send(from: Vector2i, dir: int, payload: Payload, result: Array[Pulse], ttl: int) -> void:
+##
+## `came` is the part the flow is leaving and what it did (`Pulse.undo`), for
+## an INVERT it walks into.
+func _send(from: Vector2i, dir: int, payload: Payload, result: Array[Pulse], ttl: int,
+		came: Dictionary = {}) -> void:
 	var port := board.follow(from, dir)
 	if String(port["why"]) != "":
 		return
@@ -423,37 +435,81 @@ func _send(from: Vector2i, dir: int, payload: Payload, result: Array[Pulse], ttl
 		expired = true
 		return  # out of life; a ring winds down here
 	var tid := String(port["id"])
-	_apply(tid, payload)
-	result.append(Pulse.new(port["to"], Components.tick_cost(tid), payload, ttl - 1))
+	var before := _before(tid, payload)
+	_apply(tid, payload, came)
+	var next := Pulse.new(port["to"], Components.tick_cost(tid), payload, ttl - 1)
+	next.undo = {"id": tid, "before": before}
+	result.append(next)
 
 ## Mutate the payload as it enters a component: its heat, then each of its
 ## effects in turn — the part's rows of `effects`, which `Components` has held
-## to the payload already, so every one fits the field it names.
-func _apply(id: String, p: Payload) -> void:
+## to the payload already, so every one fits the field it names. `came` is the
+## part the flow came from and what it did, which only INVERT reads.
+func _apply(id: String, p: Payload, came: Dictionary = {}) -> void:
 	var def := Components.get_def(id)
 	p.heat += float(def.get("heat", 0.0))
 	cycle_heat += float(def.get("heat", 0.0))
 	for e: Dictionary in def.get("effects", []):
-		var field: StringName = e["field"]
 		match String(e["op"]):
-			"set":
-				p.set(field, e["value"])
-			"add":
-				p.set(field, p.get(field) + e["value"])
-			"multiply":
-				p.set(field, p.get(field) * e["value"])
-			"toggle":
-				p.set(field, not p.get(field))
-			"include":
-				var list: Array = p.get(field)
-				if not list.has(e["value"]):
-					list.append(e["value"])
 			"dilate":
 				_had_effect = true
 				dilation_requested.emit(float(e["value"]))
 			"guard":
 				_had_effect = true
 				parry_opened.emit(float(e["value"]))
+			"invert":
+				_invert(p, came)
+			_:
+				_do(p, e)
+
+## One change to one field of `p`, an effect's or an opposite's: set, add,
+## multiply, toggle or include.
+static func _do(p: Payload, e: Dictionary) -> void:
+	var field: StringName = e["field"]
+	match String(e["op"]):
+		"set":
+			p.set(field, e["value"])
+		"add":
+			p.set(field, p.get(field) + e["value"])
+		"multiply":
+			p.set(field, p.get(field) * e["value"])
+		"toggle":
+			p.set(field, not p.get(field))
+		"include":
+			var list: Array = p.get(field)
+			if not list.has(e["value"]):
+				list.append(e["value"])
+
+## INVERT: takes back what the part the flow came from did to it, and does that
+## part's opposite instead — its rows of `inversions`. Every field the part's
+## effects name goes back to what it held before the part (`came["before"]`),
+## so only that part is turned round: FIRE after FIRE keeps the first one's.
+## A part with no opposite is left as it was, so an INVERT after a form, a
+## trigger, SPLIT, TEE or another INVERT does nothing.
+func _invert(p: Payload, came: Dictionary) -> void:
+	var opposite := Components.inversions_of(String(came.get("id", "")))
+	if opposite.is_empty():
+		return
+	var before: Dictionary = came.get("before", {})
+	for field in before:
+		p.set(field, _kept(before[field]))
+	for e: Dictionary in opposite:
+		_do(p, e)
+
+## What every field `id`'s effects name holds in `p`, taken before they change
+## it: what an INVERT straight after puts back.
+static func _before(id: String, p: Payload) -> Dictionary:
+	var out := {}
+	for e: Dictionary in Components.effects_of(id):
+		var field: StringName = e["field"]
+		if field != &"" and not out.has(field):
+			out[field] = _kept(p.get(field))
+	return out
+
+## A field's value to keep aside or put back. A list is copied, since `include`
+## adds to the one the payload is holding.
+static func _kept(v: Variant) -> Variant:
+	return (v as Array).duplicate() if v is Array else v
 
 ## A branch leaving the board defines a follow-up attack rather than firing
 ## one. A loop can bring the same branch round several times in a single cycle,

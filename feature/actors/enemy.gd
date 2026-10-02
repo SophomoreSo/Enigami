@@ -116,8 +116,11 @@ func _process(delta: float) -> void:
 	if def.get("boss", false):
 		_boss_logic(delta)
 		want_attack = aggro and target != null
-	runner.set_active(want_attack)
-	runner.update(delta)
+	runner.set_active(want_attack and not stunned())
+	# A stunned monster's board waits with it: a cast already on its way would
+	# otherwise land while it stands there, and that is an attack.
+	if not stunned():
+		runner.update(delta)
 	_update_facing()
 
 ## Monsters look at what they are hunting, and at where they are going
@@ -155,18 +158,33 @@ func _physics_process(delta: float) -> void:
 	var spd := float(def["speed"]) * speed_scale()
 	if modifier == "swift":
 		spd *= 1.5
-	match String(def["ai"]):
-		"runner": _ai_runner(delta, spd)
-		"walker": _ai_walker(delta, spd)
-		"jumper": _ai_jumper(delta, spd)
-		"turret": _ai_turret(delta)
-		"flyer": _ai_flyer(delta, spd)
-		"boss": _ai_boss(delta, spd)
+	if stunned():
+		_stand_stunned(delta)
+	else:
+		match String(def["ai"]):
+			"runner": _ai_runner(delta, spd)
+			"walker": _ai_walker(delta, spd)
+			"jumper": _ai_jumper(delta, spd)
+			"turret": _ai_turret(delta)
+			"flyer": _ai_flyer(delta, spd)
+			"boss": _ai_boss(delta, spd)
 	move_and_slide()
 	# The AI above has just written `velocity` outright, so anything the world
 	# is pushing this monster with is carried separately and applied here.
 	apply_shove(delta)
-	_contact_damage(delta)
+	# Standing stunned is doing nothing, and that includes hurting by touch.
+	if not stunned():
+		_contact_damage(delta)
+
+## A stunned monster does nothing of its own: it stops where it is, mid-stride,
+## falling if it walks and hanging where it was if it flies. A shove still
+## carries it, since that is the world's and not its own.
+func _stand_stunned(delta: float) -> void:
+	if String(def["ai"]) == "flyer":
+		velocity = Vector2.ZERO
+	else:
+		_fall(delta)
+		velocity.x = 0.0
 
 func _fall(delta: float) -> void:
 	velocity.y = minf(velocity.y + GRAVITY * delta, 1000.0)

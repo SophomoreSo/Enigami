@@ -115,9 +115,9 @@ func _draw_health() -> void:
 	_draw_stamina()
 	_draw_mana()
 
-	# The weapon, and what is burning or freezing whoever carries it, on one
-	# line: each stands where the one before it ended, so a long name in any
-	# language pushes them along rather than being written over.
+	# The weapon, and what is burning, freezing or stunning whoever carries it,
+	# on one line: each stands where the one before it ended, so a long name in
+	# any language pushes them along rather than being written over.
 	var at := Vector2(BAR_AT.x, 108.0)
 	var weapon := Weapons.name_for(player.weapon_id).to_upper()
 	_px.text(at, weapon, Style.weapon_color(player.weapon_id))
@@ -127,7 +127,11 @@ func _draw_health() -> void:
 		_px.text(at, burning, Color(1, 0.5, 0.2))
 		at.x += PixelDraw.text_width(burning) + 16.0
 	if player.chill_time > 0.0:
-		_px.text(at, Loc.t("hud.chilled"), Color(0.5, 0.85, 1))
+		var chilled := Loc.t("hud.chilled")
+		_px.text(at, chilled, Color(0.5, 0.85, 1))
+		at.x += PixelDraw.text_width(chilled) + 16.0
+	if player.stunned():
+		_px.text(at, Loc.t("hud.stunned"), Style.STUN_COLOR)
 
 ## Slimmer and quieter than health: this is a budget, not a life. It is divided
 ## into one segment per dash, so the question it answers at a glance is "how

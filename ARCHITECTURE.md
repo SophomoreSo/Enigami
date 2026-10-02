@@ -308,11 +308,13 @@ every `InputMiddleware` on the line has its say, and the body does whatever
 comes out of the far end.
 
 ```
-Hands      the keys, a pad, the console, the pointer: what the player says
-AimAssist  a stick's aim bent toward what it is near: what they meant
-HandsOff   a screen over the game, a conversation in the box: the hands taken off
-WalkTo     the walk over to talk: the body driven somewhere, and given back
-           to a push the other way
+Hands          the keys, a pad, the console, the pointer: what the player says
+ComputerHands  something playing the body in their place — a demo, a test: what
+               the player said dropped, and what the computer says instead
+AimAssist      a stick's aim bent toward what it is near: what they meant
+HandsOff       a screen over the game, a conversation in the box: the hands taken off
+WalkTo         the walk over to talk: the body driven somewhere, and given back
+               to a push the other way
 ```
 
 Each stands at its rank — what fills the state in, what helps it, then what
@@ -323,6 +325,14 @@ pressed, a cast let go of) is an act, which any stop may raise and a gate shut
 anywhere on the line drops. `input_locked` and `talk_locked` are two
 `HandsOff`s on that line, and `controls_locked()` asks the line.
 
+The line also says whose the body is. Anything on it may answer `takes_over()`:
+a hold that is the game's own — a conversation, a stun — a walk, and the
+computer's hands do; a hold that is a screen's does not, since a window over
+the game is the player's own doing. `Player.taken_over()` asks the line, and
+`Pointer` asks the player: while the computer has the body the crosshair is the
+computer's — it rests where it was, or goes where `ComputerHands.point_at`
+leads it — and the system pointer is shown beside it, moving nothing.
+
 So a system that wants the player's body — `Npc` walks them over before a
 conversation in the box — puts a middleware on the line and takes it off
 again, or lets it finish, and nothing else on the line, the player included,
@@ -332,7 +342,7 @@ has to hear about it.
 
 | Change | File |
 |---|---|
-| New skill component | a row in `data/db/parts/parts.sql` — its category, heat, cells, ports and what it does to a flow, as effects — and a number on the end of `codes` there, or no board carrying it can be shared; then `data/db/build.sh`. A new *kind* of effect, form or trigger is code: `SkillRunner._apply`, `Payload`, `feature/attacks/`. Its colour, glyph and icon in `graphics/style.gd` |
+| New skill component | a row in `data/db/parts/parts.sql` — its category, heat, cells, ports and what it does to a flow, as effects, and what it does instead after an INVERT, as `inversions` — and a number on the end of `codes` there, or no board carrying it can be shared; then `data/db/build.sh`. A new *kind* of effect, form or trigger is code: `SkillRunner._apply`, `Payload`, `feature/attacks/`. Its colour, glyph and icon in `graphics/style.gd` |
 | The share code — what it carries, how long it is | `circuit/board_code.gd`; the sheet that shows it, and spells its refusals, `graphics/ui/share_code_panel.gd` |
 | New monster | `feature/actors/monsters.gd`; its attack, a board in `data/db/boards/monsters.sql`; its sprite and colour in `graphics/style.gd` |
 | How the player looks — plate, cape, glow | `graphics/assets/sprites/player/player.skin.png`, and nothing else: every pose beside it is painted in the colours of a map that names its pixels, and takes theirs from it. See that folder's README and `graphics/skin/` |
@@ -347,8 +357,11 @@ has to hear about it.
 | A menu — what it is called, what is on it, in what order, and what each item says or opens | `data/db/menus/menus.sql`, then `data/db/build.sh` — see **A menu** in `data/db/README.md`. What an item that opens no menu *does* is the screen's, by the item's id: `acts_for` in `graphics/ui/title_screen.gd`, `_pause_acts` in `app/game.gd`. How the items look — a tile's mark, a button's colour — stays with the screen |
 | A new directed scene, or a new staging direction | a file in `data/scenes/` — see its README; no code. A new direction is a case in `story/rules/cutscene.gd` and, if it shows, `story/view/cutscene_view.gd` |
 | How a conversation behaves — range, reveal speed, who is held still, where the player is walked to stand | `story/rules/npc.gd`. How it reads on screen, `story/view/dialogue_box.gd` |
-| Something that takes the player's controls for a while — holds them, walks them somewhere, presses for them | an `InputMiddleware` in `feature/input/`, put on `player.input` and taken off again or left to finish; see `InputProvider`. What the player's own hands say is `Hands`; how a walk gets there and is refused, `WalkTo` |
+| Something that takes the player's controls for a while — holds them, walks them somewhere, presses for them | an `InputMiddleware` in `feature/input/`, put on `player.input` and taken off again or left to finish; see `InputProvider`. What the player's own hands say is `Hands`; how a walk gets there and is refused, `WalkTo`. If it leaves the body the computer's rather than the player's, it answers `takes_over()` |
+| Something that plays the character in the player's place — a demo, a scripted test | a `ComputerHands` on `player.input`: told which way to walk, what is held and pressed, and where to point. It drops what the player's hands say and points with the game's crosshair. Which pointer is on the screen meanwhile, and what a window over it does, `app/pointer.gd` |
 | How a stick's aim is helped — the least virtual size a target keeps, how far its pull reaches, how steep the ground between two may get | `feature/input/aim_curve.gd`, the curve from where the stick points to where the weapon does, after t3ssel8r's devlog on aim assist. What counts as a target, and how a change in them fades in, `feature/input/aim_assist.gd`; how much of it the player wants, a row in `graphics/ui/controls_panel.gd` |
+| The crouch — how low, how small a thing to hit, what asks for it | `Player.CROUCH_BODY` and `CROUCH_HURT_RADIUS`; its steps and the ways in and out of it, rows in `data/db/machines/player.sql`; its pose, `player.crouch.png`. Down held is what asks (`Hands`): how far a gamepad's stick has to be pushed for that is `move_down`'s dead zone in `project.godot`; the console's stick has to be dragged far out below its ring, `TouchPad.STICK_CROUCH`, or as far as the glass goes, `TouchPad.gate` |
+| The sprint — how fast, and what asks for it | `Player.SPRINT_SPEED`: a pace of the run, not a state. The `sprint` action asks (`Hands`): a key, a gamepad's stick clicked in, and the console's stick dragged far out to a side of its ring, `TouchPad.STICK_SPRINT` — beside `STICK_RUN`, how far it is dragged inside the ring before it walks, `STICK_FAR`, how far the knob follows a thumb, `gate`, which brings the sprint and the crouch in to what a thumb can reach where the glass ends first, and `_draw_reach`, which marks the walk on the ring and the other two on lines out past it, and lights them as they are reached |
 | Someone who talks free, and what they notice | a file in `data/db/dialogue/` of `rules`, `criteria` and `changes` — see **Free talk** in `data/db/README.md`; no code. A new kind of moment to notice, a row of `events` in `data/db/schema.sql` naming the cue. How free talk is picked and paced, `story/rules/free_talk.gd`; how the bubble looks, `story/view/speech_bubble.gd` |
 | What anyone actually says, on any screen, in any language | `localization/<lang>/` — see its README. A new language is a folder and an entry in `LANGUAGES` in `app/loc.gd` |
 | What an emotion looks like | `EMOTIONS` in `graphics/style.gd` |
@@ -386,7 +399,7 @@ nothing and live in `graphics/fx.gd`.
 | `Db` | app | the content database, `data/enigami.db` — the conversations, the state machines, the parts and the boards the game ships with, the menus, the lines that hang in the rooms and what grows on their floors, as tables — read-only |
 | `Cues` | app | the seam |
 | `Audio`, `AudioCues` | app | the synthesised sound bank, and what each cue sounds like |
-| `Pointer` | app | where the hand is pointing, at the speed the setting asks, and whether the system's arrow is hidden under it |
+| `Pointer` | app | where the game is pointing and who is doing it — the player's hand, at the speed the setting asks, with the system's arrow hidden under it; the computer, with the arrow shown beside it; or the system alone, for a window |
 | `Video` | app | whether the window takes the whole display, and whether an impact may move the camera |
 | `Arena` | feature | the node live world objects are parented to |
 | `TimeCtl` | feature | hitstop and dilation |

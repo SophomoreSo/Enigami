@@ -38,6 +38,14 @@ func _on_cue(name: StringName, d: Dictionary) -> void:
 			Audio.play("explode", 0.7)
 		&"mana_drain":
 			Audio.play("pickup", 1.4)
+		&"repel":
+			Audio.play("explode", 1.25)
+		&"stun":
+			Audio.play("zap", 0.55)
+		&"heal":
+			Audio.play("pickup", 1.05)
+		&"cleanse":
+			Audio.play("pickup", 1.8)
 		&"parry":
 			Audio.play("parry")
 		&"refused":

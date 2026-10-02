@@ -7,6 +7,15 @@ extends CharacterBody2D
 
 signal died(actor: Actor)
 signal damaged(actor: Actor, amount: float)
+## Health was given back (`heal`) — by how much it really rose.
+signal healed(actor: Actor, amount: float)
+
+## How long, once a stun is over, before another can take. A STUN on a board
+## that strikes twice a second would otherwise hold a monster still for good:
+## with this, one stands stunned for its stun and then has this long to act,
+## however fast the stuns come. It is what keeps a stun from being a lock
+## whatever a part's row says, so it is a rule here and not a number there.
+const STUN_GUARD := 1.5
 
 @export var max_health: float = 40.0
 var health: float = 40.0
@@ -14,6 +23,9 @@ var hurt_radius: float = 14.0
 var team: int = 1  ## 0 = player, 1 = monsters
 ## Size of the collider, which is also what a sprite has to stand on.
 var body_size: Vector2 = Vector2(20.0, 30.0)
+## The collider `_make_body` made, kept for a body that changes size while it
+## lives: a player crouching.
+var _collider: RectangleShape2D = null
 ## Which way the actor is facing: +1 right, -1 left. A dash with no direction
 ## held goes this way, so it is a rule and not only a flipped sprite.
 var facing: int = 1
@@ -21,6 +33,10 @@ var facing: int = 1
 var burn_time: float = 0.0
 var burn_dps: float = 0.0
 var chill_time: float = 0.0
+## How long this actor stands stunned yet, doing nothing of its own (`stunned`),
+## and once that is over, how long before another stun can take.
+var stun_time: float = 0.0
+var stun_guard: float = 0.0
 var invuln: float = 0.0
 var dead: bool = false
 
@@ -36,6 +52,12 @@ func _process_status(delta: float) -> void:
 		invuln -= delta
 	if chill_time > 0.0:
 		chill_time -= delta
+	if stun_time > 0.0:
+		stun_time -= delta
+		if stun_time <= 0.0:
+			_come_round()
+	elif stun_guard > 0.0:
+		stun_guard -= delta
 	if burn_time > 0.0:
 		burn_time -= delta
 		apply_damage(burn_dps * delta, [], null, false)
@@ -53,18 +75,67 @@ func apply_damage(amount: float, elements: Array = [], _source: Node = null, is_
 	health -= amount
 	if is_hit:
 		damaged.emit(self, amount)
+	afflict(amount, elements)
+	if health <= 0.0:
+		_kill()
+	return amount
+
+## What a blow of `amount` carrying `elements` leaves on this actor: a burn for
+## FIRE, as hard as the blow was, and a chill for ICE. Neither is cut short by a
+## lesser one landing on it. `apply_damage` does this for the blow it lands; a
+## hit that cleanses does it itself, once the cleanse has been through
+## (`Attacks.resolve_hit`).
+func afflict(amount: float, elements: Array) -> void:
 	for e in elements:
 		if e == "FIRE":
 			burn_time = maxf(burn_time, 2.5)
 			burn_dps = maxf(burn_dps, amount * 0.22)
 		elif e == "ICE":
 			chill_time = maxf(chill_time, 2.0)
-	if health <= 0.0:
-		_kill()
-	return amount
 
-func heal(amount: float) -> void:
-	health = minf(max_health, health + amount)
+## Gives back up to `amount` health, never past the most this actor has, and
+## says so (`healed`). Returns what it really gave back: nothing to the dead,
+## and nothing to one already whole.
+func heal(amount: float) -> float:
+	if dead or amount <= 0.0:
+		return 0.0
+	var got := minf(max_health, health + amount) - health
+	if got <= 0.0:
+		return 0.0
+	health += got
+	healed.emit(self, got)
+	return got
+
+## Stuns this actor for `seconds`, unless it is stunned already — a stun is not
+## stretched by another landing on it — or has only just come round from one
+## (`STUN_GUARD`). Whether it took.
+func stun(seconds: float) -> bool:
+	if dead or seconds <= 0.0 or stun_time > 0.0 or stun_guard > 0.0:
+		return false
+	stun_time = seconds
+	return true
+
+## Whether this actor is stunned: it stands where it is and does nothing of its
+## own. A monster neither moves, casts nor touches (`Enemy`); the player's
+## hands are taken off their line (`Player`).
+func stunned() -> bool:
+	return stun_time > 0.0
+
+## Ends every burn, chill and stun on this actor at once. A stun ended early is
+## over like any other, so the guard after one starts. Whether there was
+## anything to end.
+func cleanse() -> bool:
+	var had := burn_time > 0.0 or chill_time > 0.0 or stun_time > 0.0
+	burn_time = 0.0
+	burn_dps = 0.0
+	chill_time = 0.0
+	if stun_time > 0.0:
+		_come_round()
+	return had
+
+func _come_round() -> void:
+	stun_time = 0.0
+	stun_guard = STUN_GUARD
 
 ## A push the world is putting on this actor — a knockback, GRAVITY's drag —
 ## kept apart from the motion the actor chooses for itself.
@@ -123,7 +194,7 @@ func face(dir: int) -> void:
 func _make_body(w: float, h: float) -> void:
 	body_size = Vector2(w, h)
 	var shape := CollisionShape2D.new()
-	var rect := RectangleShape2D.new()
-	rect.size = body_size
-	shape.shape = rect
+	_collider = RectangleShape2D.new()
+	_collider.size = body_size
+	shape.shape = _collider
 	add_child(shape)

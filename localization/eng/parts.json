@@ -12,11 +12,11 @@
 		"desc": "Damages everything inside a burst radius. Uses two board cells."
 	},
 	"DASHSLASH": {
-		"name": "DASHSLASH",
+		"name": "SWIFT STRIKE",
 		"desc": "Lunges along the aim direction, cutting everything on the path. Uses two cells."
 	},
 	"DASHSLASH_AUTO": {
-		"name": "DASHSLASH+",
+		"name": "SWIFT STRIKE+",
 		"desc": "Seeks the nearest visible enemy and blinks through it, cutting the path. Uses two cells."
 	},
 	"ZAP": {
@@ -83,6 +83,10 @@
 		"name": "MANA DRAIN",
 		"desc": "Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting."
 	},
+	"STUN": {
+		"name": "STUN",
+		"desc": "Struck enemies are stunned: for a moment they stand where they are and cannot attack. Once it wears off, an enemy shrugs off the next stun for a while."
+	},
 	"SPLIT": {
 		"name": "SPLIT",
 		"desc": "Divides one flow into two. Each branch carries half the damage."
@@ -106,6 +110,10 @@
 	"TIME_DILATION": {
 		"name": "TIME DILATION",
 		"desc": "Slows the world and the board alike. Not a speed buff — a change in the pace of the fight."
+	},
+	"INVERT": {
+		"name": "INVERT",
+		"desc": "Turns the part right before it inside out: DAMAGE heals what it strikes, FIRE, ICE and STUN cleanse it, GRAVITY pushes away, KNOCKBACK pulls in, and SIZE, SPEED and RANGE shrink. After anything else it does nothing."
 	},
 	"ON_HIT": {
 		"name": "ON HIT",

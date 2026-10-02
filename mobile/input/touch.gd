@@ -111,10 +111,12 @@ static func up() -> bool:
 
 ## --- what a key does --------------------------------------------------------
 
-## Holds `action` down. `strength` is how far the stick driving it is pushed:
-## the game reads movement through `Input.get_axis`, which is the strength of
-## the two actions either side of it, so a stick half over walks and a stick all
-## the way over runs. A press already held is leant on rather than pressed
+## Holds `action` down. `strength` is how hard, for an action that is read as
+## one side of an axis: the game reads movement through `Input.get_axis`, which
+## is the strength of the two actions either side of it. The pad's own movement
+## stick does not lean — it holds its keys all the way or not at all, and how
+## far it is dragged picks which of them (`TouchPad._drive`) — so the strength
+## is for whatever does. A press already held is leant on rather than pressed
 ## again — the same event with a new strength, which moves the axis without
 ## reporting a second press to anything watching for one.
 static func press(action: String, strength: float = 1.0) -> void:

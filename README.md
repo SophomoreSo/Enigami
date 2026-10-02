@@ -25,7 +25,7 @@ godot                      # opens the project
 godot res://tests/shared/smoke.tscn   # drives every screen and asserts the core rules
 godot res://tests/feature/jump_test.tscn    # ground jump, wall kick and the air jump
 godot res://tests/graphics/focus_test.tscn   # in-game buttons never steal the keyboard
-godot res://tests/graphics/pointer_test.tscn # the drawn cursor, and how far it moves
+godot res://tests/graphics/pointer_test.tscn # the drawn cursor, how far it moves, and whose it is: the hand's, the computer's or the system's
 godot res://tests/graphics/player_skin_test.tscn # the player's poses name skin pixels, and the skin swaps under them
 godot res://tests/feature/trigger_test.tscn # a trigger chain lands as separate attacks
 godot res://tests/circuit/cooldown_test.tscn # the numbers behind the graph's cooldown wipe
@@ -38,8 +38,10 @@ godot res://tests/feature/lost_kit_test.tscn # dying drops the kit, and the next
 godot res://tests/feature/climb_test.tscn   # going up a room and staying there
 godot res://tests/feature/cast_test.tscn    # the two buttons: attack casts the graph, cast charges it
 godot res://tests/feature/stamina_test.tscn # the dash budget under the health bar
-godot res://tests/feature/input_test.tscn   # the input line: the hands, a hold, a gate, and a walk that gives the body back
+godot res://tests/feature/input_test.tscn   # the input line: the hands, a hold, a gate, a walk that gives the body back, and the computer's hands
 godot res://tests/feature/aim_assist_test.tscn # aim assist: the stick-to-weapon curve, and what it bends toward
+godot res://tests/feature/crouch_test.tscn  # the crouch: down lets the body onto its feet, a stick's threshold for it, and what stands it up again
+godot res://tests/feature/sprint_test.tscn  # the sprint: a run half as fast again while it is held, and what stops it
 godot res://tests/feature/pool_test.tscn    # pooling: lent, played out and handed back, and taken back when a screen goes
 godot res://tests/graphics/fx_pool_test.tscn # sparks, rings and floating numbers come out of pools, never out of nothing
 godot res://tests/graphics/menu_fit_test.tscn # menus stay on screen and scroll the rest
@@ -50,12 +52,14 @@ godot res://tests/graphics/hideout_pixel_test.tscn # the hideout's pixel look, a
 godot res://tests/graphics/bench_pixel_test.tscn # the bench panel's pixel look and layout
 godot res://tests/circuit/code_test.tscn    # a board survives being written down as a code
 godot res://tests/circuit/parts_test.tscn   # every part's rows fit, and the runner does what they say
+godot res://tests/circuit/invert_test.tscn  # INVERT turns round the one part before it, by that part's opposites
 godot res://tests/feature/boards_test.tscn  # every board the game ships builds whole and gets all its flow out
 godot res://tests/graphics/menus_test.tscn  # every menu's rows name an act its screen has, in every language
 godot res://tests/graphics/rope_test.tscn   # a cable's line of nodes: hung, pushed, settled, and where a room hangs them
 godot res://tests/graphics/foliage_test.tscn # the grass, flowers and bushes a patch grows, its mask, and where a room grows them
 godot res://tests/graphics/velocity_test.tscn # the velocity buffer: what moving things push, how it springs back, and the foliage leaning for it
 godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
+godot res://tests/feature/invert_hit_test.tscn # a stun, a heal, a cleanse, a push away and a haul back, as they land
 godot res://tests/feature/reach_test.tscn   # how far an attack goes when the stick says how far
 godot res://tests/feature/forge_test.tscn   # the forge's price, and a weapon is its graph: the profile's rules
 godot res://tests/graphics/share_code_test.tscn # sharing a board, and what a pasted code costs
@@ -106,8 +110,10 @@ not a thing to reach for once it errors.
 | | |
 |---|---|
 | A / D, ← / → | move |
+| S, ↓ | crouch, on the floor: the body is let down onto its feet — lower, and a smaller thing to hit — and stays where it is; a direction held with it turns it round. A jump or a dash goes out of it, and there is no crouch in the air |
 | SPACE | jump; again in mid-air to double jump; against a wall to kick off |
 | SHIFT | dash — left or right only, never up; brief invulnerability from the press; spends stamina, four dashes to a full bar |
+| CTRL | sprint — held with a direction, the same run half as fast again. It costs nothing, turns and jumps as a run does and carries into the air while it is held; a crouch stops it |
 | LMB | cast the weapon's graph as it is — again and again while held, and it costs nothing |
 | RMB | hold to charge the weapon's graph, release to cast it with what the hold paid for — a tap is a charge of nothing, and a graph still recovering cannot be charged |
 | mouse / right stick | aim, and where a lunge lands. A stick's aim is bent toward a monster it is near — never snapped, and never the mouse's; how much is AIM ASSIST in the control settings |
@@ -117,9 +123,10 @@ not a thing to reach for once it errors.
 | W / S, ↑ / ↓ | when an NPC asks a question, move between answers; F gives the highlighted one |
 | ESC | pause |
 
-Gamepad: left stick moves, A jumps, B dashes, the right trigger attacks and the
-left one charges and casts, select opens assembly, RB interacts. Every keyboard
-binding is remappable from Settings (title screen) or the pause menu.
+Gamepad: left stick moves and, pushed down three quarters of the way, crouches;
+clicked in and held, it sprints. A jumps, B dashes, the right trigger attacks
+and the left one charges and casts, select opens assembly, RB interacts. Every
+keyboard binding is remappable from Settings (title screen) or the pause menu.
 
 ### The screen's shape
 
@@ -149,9 +156,20 @@ controls turn out to fit:
   lower-left of the screen is empty; a thumb put down anywhere in it and dragged
   grows the stick where it landed, and lifting takes it away again. A thumb that
   only touches grows nothing — so it is never somewhere to reach for, never in
-  the way of the fight, and never flashes up under a tap. It is analog — the
-  game reads movement as the strength of two actions — so a stick half over
-  walks and a stick hard over runs, which four keys could never say.
+  the way of the fight, and never flashes up under a tap. It has to be dragged
+  a long way before it does anything, and its ring is the line between two
+  steps. Inside the ring, three quarters of the way out sideways, it walks —
+  the ordinary run, whole from the moment it starts. Dragged far out of the
+  ring — as far past it again as the ring is from its middle, the knob
+  following the thumb out and standing clear of the ring by then — it means
+  it: out to a side it sprints, and out below it crouches. Anything nearer is
+  still a walk, down does nothing until then, and a diagonal is a walk at
+  most. A thumb put down too near the edge of the glass for that much drag is
+  asked for as much as there is, a little short of the edge, and never less
+  than the ring. The ring is marked to the left and the right, and lights when
+  the stick is walking that way; a short line out past it to either side and
+  one below show how far a sprint and a crouch are, and go white when the knob
+  reaches them.
 * **The cast button is a stick too.** Press it and the graph begins to charge;
   drag and the charge aims; let go and it casts, where you were pointing,
   carrying everything the hold paid for. The game's own hold-to-charge is
@@ -194,9 +212,10 @@ never learn what a finger is. What changes while it is up:
   finger lands, and where it lands is where it is going. So the console aims the
   way a gamepad does — the cast being thrown if one is, the movement stick if
   it is pushed, and the way the player is facing otherwise, so a tap with no
-  throw in it still goes somewhere they meant. A throw is measured from where
-  the thumb came down, so a tap anywhere on a big button is still a tap. The
-  crosshair and the pointer setting stand down.
+  throw in it still goes somewhere they meant. A stick held down in a crouch is
+  the exception: it aims the way they face, not at their own feet. A throw is
+  measured from where the thumb came down, so a tap anywhere on a big button is
+  still a tap. The crosshair and the pointer setting stand down.
 * **How far is how far the thumb drags.** A cast dragged just past the dead
   zone goes a third of its distance, and one dragged out to the ring goes all
   of it — a bolt's range, a thrown shot's arc, a lunge, a DASH; a burst or a
@@ -301,12 +320,25 @@ than per save — a property of the desk, like the language and the bindings.
 It moves the game crosshair, not the system pointer, which is the whole of the
 design. While the player has the controls the game hides the system arrow — the
 crosshair takes its place, and that is what the setting drives. Let go of the
-controls for a menu, a map or a conversation and the system pointer comes back
+controls for a menu or a map and the system pointer comes back
 into sight for the buttons, wherever the hand has taken it and at whatever speed
 the desk runs it at: the game never moves it. At 1.0 that is exactly where the
 crosshair was; at any other speed the two have gone their own ways. Setting it is
 therefore something you see in the game rather than on the settings page, the
 way a shooter'''s sensitivity slider never moves its own menu cursor.
+
+When it is the computer that has the controls, both pointers are on the screen,
+and they are two things. That is any time your own hands are not what is
+driving the character: someone talking to you holds you still, a stun stands
+you where you are, the game walks you over to whoever you asked to talk to — or
+something plays the character in your place, a demo or a test
+(`ComputerHands`). The crosshair stays, and it is the computer's: it rests
+where it was or goes where the computer points it, the character aims by it,
+and the mouse does not move it. The system arrow is shown beside it, yours, free
+to go anywhere on the desk and moving nothing in the game. Open the pause menu
+and the arrow is the only pointer, as it is in every menu; put it away, and the
+crosshair is back where the computer had it — or back under your hand, if the
+controls are yours again by then.
 
 It was built the other way first — the game moving the system pointer — which
 works on a bench and not on a desk. The macOS call that moves a pointer unhooks
@@ -319,7 +351,7 @@ nobody spends that week again.
 ## How a skill works
 
 **A weapon is a graph.** Its own attack form is the root of a board — the
-sword's `DASHSLASH`, the gun's and the rock's `PROJECTILE` — and everything you
+sword's `SWIFT STRIKE`, the gun's and the rock's `PROJECTILE` — and everything you
 build is wired on round it. There are no skills apart from weapons and no
 weapon without its graph: what you carry into a raid is the weapon and
 whatever is on it, the rack picks the weapon and the bench opens its graph.
@@ -409,6 +441,20 @@ what lets `DELAY` stagger branches and triggers against each other.
   simply the next cycle.
 - `MANA DRAIN` takes mana back off every enemy an attack connects with. A board
   that lands often pays for its own charging.
+- `STUN` stands the enemy it strikes still for a moment: it stops where it is,
+  and neither attacks nor hurts by touch until it comes round. A stun cannot
+  be stretched by another landing on it, and once it is over the enemy shrugs
+  off the next one for a second and a half, so no board can hold one for good.
+- `INVERT` turns round the part straight before it. `DAMAGE` heals the enemy
+  struck instead; `FIRE`, `ICE` and `STUN` cleanse it of every burn, chill and
+  stun it was carrying; `GRAVITY` drives the room away from the impact instead
+  of gathering it; `KNOCKBACK` hauls the struck enemy back the way the attack
+  came; and `SIZE`, `SPEED` and `RANGE` make the attack as much less as they
+  would have made it more. Only the one part before it is turned round: `FIRE`,
+  `FIRE`, `INVERT` puts out whatever the enemy came burning with and sets it
+  alight again from the first `FIRE`, since a cleanse ends what was there
+  before the hit and never what the hit itself brings. After a part with no
+  opposite — a form, a trigger, `SPLIT`, `TEE` — it does nothing.
 - `TIME DILATION` slows the world *and* the board together — it changes the
   pace of a fight rather than buffing attack speed.
 
@@ -557,7 +603,7 @@ across it, after the room in Katana ZERO where the Dragon tries out his dash:
 one cut kills a guard, and the whole building is inside one cast of the board
 the screen hands you.
 
-That board is `DASHSLASH+` on the root with an `ON HIT` whose branch runs
+That board is `SWIFT STRIKE+` on the root with an `ON HIT` whose branch runs
 three `OVERCLOCK`s back round into it, so **every lap the cast has life for is
 one more lunge at the nearest guard still standing**. A tap is one lunge and one
 body; hold the cast button and the chain grows a link at a time — the read-out

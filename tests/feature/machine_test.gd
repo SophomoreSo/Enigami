@@ -17,7 +17,7 @@ extends Node2D
 
 const SRC := "res://data/db"
 const SCRATCH := "user://machine_test.db"
-const ACTIONS := ["brake", "run", "steer", "gravity", "cling", "jump", "dash", "rush"]
+const ACTIONS := ["brake", "run", "steer", "gravity", "cling", "jump", "dash", "rush", "duck"]
 
 var fails := 0
 
@@ -83,13 +83,13 @@ func _ready() -> void:
 
 	var src := Machine.source("player")
 	var states: Dictionary = src.get("states", {})
-	check(String(src.get("start", "")) == "idle" and states.size() == 6,
-		"the player starts idle and has six states (%s, %d)" % [src.get("start", ""), states.size()])
+	check(String(src.get("start", "")) == "idle" and states.size() == 7,
+		"the player starts idle and has seven states (%s, %d)" % [src.get("start", ""), states.size()])
 	var labels: Array = []
 	for sid in states:
 		labels.append(String(states[sid].get("label", "")))
-	check(labels == ["Idle", "Run", "Rise", "Fall", "WallSlide", "Dash"],
-		"named Idle, Run, Rise, Fall, WallSlide and Dash, in that order (%s)" % str(labels))
+	check(labels == ["Idle", "Run", "Crouch", "Rise", "Fall", "WallSlide", "Dash"],
+		"named Idle, Run, Crouch, Rise, Fall, WallSlide and Dash, in that order (%s)" % str(labels))
 	var does := {}
 	for sid in states:
 		does[sid] = " ".join(states[sid].get("steps", []))
@@ -97,8 +97,10 @@ func _ready() -> void:
 			and does.get("rise") == "steer gravity jump dash" and does.get("fall") == does.get("rise")
 			and does.get("wall_slide") == "steer gravity cling jump dash" and does.get("dash") == "rush",
 		"each state takes its steps in order: brake or run or steer, gravity, a wall's cling, jump, dash — and a dash rushes (%s)" % str(does))
+	check(does.get("crouch") == "duck " + String(does.get("idle")),
+		"and a crouch is an idle that ducks first (%s)" % does.get("crouch"))
 	var edges: Array = src.get("transitions", [])
-	check(edges.size() == 30, "every state has a way into every other: thirty ways out (%d)" % edges.size())
+	check(edges.size() == 42, "every state has a way into every other: forty-two ways out (%d)" % edges.size())
 	var pairs: Dictionary = {}
 	for t in edges:
 		pairs["%s>%s" % [t.get("from_id", ""), t.get("to_id", "")]] = true
@@ -112,11 +114,11 @@ func _ready() -> void:
 	for t in edges:
 		if String(t.get("from_id", "")) == "idle":
 			out_of_idle.append(String(t.get("to_id", "")))
-	check(out_of_idle == ["dash", "wall_slide", "run", "rise", "fall"],
-		"the ways out of idle are asked dash first, then wall slide, run, rise, fall (%s)" % str(out_of_idle))
+	check(out_of_idle == ["dash", "wall_slide", "crouch", "run", "rise", "fall"],
+		"the ways out of idle are asked dash first, then wall slide, crouch, run, rise, fall (%s)" % str(out_of_idle))
 	var questions: Dictionary = src.get("conditions", {})
-	check(questions.keys() == ["dashing", "wall_sliding", "running", "standing", "rising", "falling"],
-		"six conditions open them (%s)" % str(questions.keys()))
+	check(questions.keys() == ["dashing", "wall_sliding", "crouching", "running", "standing", "rising", "falling"],
+		"seven conditions open them (%s)" % str(questions.keys()))
 
 	# --- the checker catches what it is for -----------------------------------
 	# Written out here rather than kept as broken rows in the database: these
@@ -193,12 +195,12 @@ func _ready() -> void:
 	for a in ACTIONS:
 		actions[a] = _nothing
 	# The senses read from here, so the questions can be put to any of them.
-	var world := {"dashing": false, "on_floor": true, "wall": 0, "dir": 0.0, "velocity": Vector2.ZERO}
+	var world := {"dashing": false, "on_floor": true, "crouch": false, "wall": 0, "dir": 0.0, "velocity": Vector2.ZERO}
 	var senses := {}
 	for s in world:
 		senses[s] = func(): return world[s]
 	var whole := Machine.build("player", actions, senses)
-	check(whole.faults.is_empty() and whole.states.size() == 6 and whole.conditions.size() == 6
+	check(whole.faults.is_empty() and whole.states.size() == 7 and whole.conditions.size() == 7
 			and whole.start == whole.states.get("idle"),
 		"over an owner with every word, the whole machine is built (%s)" % str(whole.faults))
 	# Exactly one holds, whatever the player senses: which is why the order a
@@ -208,21 +210,23 @@ func _ready() -> void:
 	var tried := 0
 	for dashing in [false, true]:
 		for on_floor in [false, true]:
-			for wall in [-1, 0, 1]:
-				for dir in [-1.0, -0.4, 0.0, 1.0]:
-					for vy in [-300.0, 0.0, 300.0]:
-						world["dashing"] = dashing
-						world["on_floor"] = on_floor
-						world["wall"] = wall
-						world["dir"] = dir
-						world["velocity"] = Vector2(0.0, vy)
-						var open: Array = []
-						for cid in whole.conditions:
-							if (whole.conditions[cid] as Callable).call():
-								open.append(cid)
-						tried += 1
-						if open.size() != 1:
-							wrong.append("%s: %s" % [str(world), str(open)])
+			for crouch in [false, true]:
+				for wall in [-1, 0, 1]:
+					for dir in [-1.0, -0.4, 0.0, 1.0]:
+						for vy in [-300.0, 0.0, 300.0]:
+							world["dashing"] = dashing
+							world["on_floor"] = on_floor
+							world["crouch"] = crouch
+							world["wall"] = wall
+							world["dir"] = dir
+							world["velocity"] = Vector2(0.0, vy)
+							var open: Array = []
+							for cid in whole.conditions:
+								if (whole.conditions[cid] as Callable).call():
+									open.append(cid)
+							tried += 1
+							if open.size() != 1:
+								wrong.append("%s: %s" % [str(world), str(open)])
 	check(wrong.is_empty(), "exactly one of the conditions holds, whatever the player senses (%d of %d not%s)"
 		% [wrong.size(), tried, "" if wrong.is_empty() else ": " + wrong[0]])
 
@@ -231,14 +235,14 @@ func _ready() -> void:
 	var short_one := Machine.build("player", fewer, senses)
 	check(short_one.faults.size() == 1 and String(short_one.faults[0]).contains("dash does rush"),
 		"a state taking a step the owner cannot is reported (%s)" % str(short_one.faults))
-	check(short_one.states.size() == 5 and short_one.start != null, "and the rest is still built")
+	check(short_one.states.size() == 6 and short_one.start != null, "and the rest is still built")
 	var blind := senses.duplicate()
 	blind.erase("dir")
 	var unsure := Machine.build("player", actions, blind)
 	check(unsure.faults.size() == 2 and String(unsure.faults[0]).contains("reads dir, which the owner does not sense"),
 		"a condition reading a sense the owner does not have is reported, once for each (%s)" % str(unsure.faults))
-	check(unsure.conditions.size() == 4 and unsure.states["rise"].next_nodes.size() == 3,
-		"and the ways they open are left out: rise keeps dash, wall slide and fall (%d)" % unsure.states["rise"].next_nodes.size())
+	check(unsure.conditions.size() == 5 and unsure.states["rise"].next_nodes.size() == 4,
+		"and the ways they open are left out: rise keeps dash, wall slide, crouch and fall (%d)" % unsure.states["rise"].next_nodes.size())
 	var odd := senses.duplicate()
 	odd["wall"] = func(): return "left"
 	var muddled := Machine.build("player", actions, odd)
@@ -262,18 +266,18 @@ func _ready() -> void:
 	await phys(2)
 	check(p.machine != null and p.machine.faults.is_empty(),
 		"the player builds its machine with nothing unresolved (%s)" % str(p.machine.faults if p.machine != null else "no machine"))
-	check(p.machine.states.size() == 6 and p.current_state == p.machine.states.get("idle"),
+	check(p.machine.states.size() == 7 and p.current_state == p.machine.states.get("idle"),
 		"and stands in idle (%s)" % p.state_name())
 	check(p.state_name() == "Idle", "which it calls Idle (%s)" % p.state_name())
 	var wired := true
 	for sid in p.machine.states:
 		var node: FSMNode = p.machine.states[sid]
-		wired = wired and node.steps.size() == (states[sid]["steps"] as Array).size() and node.next_nodes.size() == 5
+		wired = wired and node.steps.size() == (states[sid]["steps"] as Array).size() and node.next_nodes.size() == 6
 		for step in node.steps:
 			wired = wired and step.is_valid()
 		for way in node.next_nodes:
 			wired = wired and (way["condition"] as Callable).is_valid() and (way["destinations"] as Array).size() == 1
-	check(wired, "every state takes all its steps, and has five certain ways out, each with a condition that answers")
+	check(wired, "every state takes all its steps, and has six certain ways out, each with a condition that answers")
 
 	Input.action_press("move_right")
 	await phys(6)
@@ -281,6 +285,12 @@ func _ready() -> void:
 	Input.action_release("move_right")
 	await phys(12)
 	check(p.state_name() == "Idle", "letting go stands (%s)" % p.state_name())
+	Input.action_press("move_down")
+	await phys(4)
+	check(p.state_name() == "Crouch", "holding down crouches (%s)" % p.state_name())
+	Input.action_release("move_down")
+	await phys(4)
+	check(p.state_name() == "Idle", "and letting go stands back up (%s)" % p.state_name())
 	await press("jump")
 	check(p.state_name() == "Rise", "a jump rises (%s)" % p.state_name())
 	var fell := false

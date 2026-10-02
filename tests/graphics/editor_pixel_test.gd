@@ -237,7 +237,7 @@ func _ready() -> void:
 	ed._update_hover(ed._cell_center(Vector2i(at.x + 1, at.y)))
 	ed._drag_id = "DASHSLASH"
 	ed._mouse_pos = Vector2(611, 333)
-	ed._notify("No room for DASHSLASH there.")
+	ed._notify("No room for SWIFT STRIKE there.")
 	var hidden := isolate(ed)
 	await blocks("bench")
 	restore(hidden)

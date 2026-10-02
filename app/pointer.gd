@@ -28,11 +28,23 @@ extends Node
 ## So the system pointer is never moved, never held, and never argued with.
 ## While the player has the controls the game hides it and keeps a pointer of
 ## its own, `point`, which it moves at whatever speed the setting asks for and
-## draws the crosshair at. Let go of the controls for a menu, a map or a
-## conversation, and the system pointer comes straight back into sight, at its
-## own speed, for the buttons — as the system's own arrow, wherever the hand
-## has taken it. The crosshair is for aiming, so it is only ever on the screens
-## the player aims on: the battleground and the hideout floor.
+## draws the crosshair at. Let go of the controls for a menu or a map, and the
+## system pointer comes straight back into sight, at its own speed, for the
+## buttons — as the system's own arrow, wherever the hand has taken it. The
+## crosshair is for aiming, so it is only ever on the screens the player aims
+## on: the battleground and the hideout floor.
+##
+## And when it is the computer that has the controls — the game holding the
+## player through a conversation or a stun, walking them over to talk, or
+## something playing them in their place (`ComputerHands`) — both are on the
+## screen at once. The crosshair stays, and is the computer's: it rests where it
+## was, or goes where the computer leads it (`lead`), and the mouse does not
+## move it. The system pointer is shown beside it as the system's own arrow,
+## free to go wherever the hand takes it and moving nothing in the game: the
+## person watching still has a mouse. A window over all that — the pause menu —
+## is the system's like any other, and with it put away the crosshair is back
+## where the computer had it, for as long as the computer still has the
+## controls.
 ##
 ## Hidden rather than taken. Taking the mouse is how a game usually gets its
 ## movement, and it is not as hands-off as it sounds: for as long as Godot has
@@ -90,8 +102,9 @@ var sensitivity: float = 1.0
 
 ## Where the game is pointing, on the screen it is drawn at: 1280x720, or wider
 ## or taller on a display of another shape. While the system pointer is doing
-## the pointing this is simply where that is; while the game is doing it, this
-## is what the mouse has been moving.
+## the pointing this is simply where that is; while the player's hand is doing
+## it, this is what the mouse has been moving; and while the computer is, it is
+## where the computer has led it, whatever the mouse does.
 var point: Vector2 = Vector2.ZERO
 
 ## Where the grid the picture is drawn on starts, in screen pixels.
@@ -112,6 +125,13 @@ var _tex: ImageTexture = null
 var _worn: Texture2D = null
 var _hidden: bool = false
 var _crosshair: TextureRect = null
+## Who was doing the pointing last frame, to see it change hands.
+var _who: int = Who.SYSTEM
+## Where the computer has the pointer, for as long as it has the controls: kept
+## through a window that covers them — the pause menu — so the crosshair can go
+## back to it. `_has_led` is whether there is such a place to go back to.
+var _led: Vector2 = Vector2.ZERO
+var _has_led: bool = false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -138,45 +158,102 @@ func _exit_tree() -> void:
 	_tex = null
 
 ## --- whose pointer it is ----------------------------------------------------
-## The game is pointing whenever somebody has the controls: a raid, the bench,
-## the hideout floor. Every screen that takes the keys away — the assembly
-## overlay, the map, a conversation, the pause menu — hands the pointer back on
-## the same frame, because the same thing decides both.
-func game_is_pointing() -> bool:
+## Who is doing the pointing.
+##
+##   SYSTEM    nobody is aiming: a menu, a map, the assembly overlay, the pause
+##             menu, the title. The system's own arrow, for the buttons.
+##   HAND      the player has the controls: a raid, the bench, the hideout
+##             floor. The system pointer is hidden, and the crosshair goes
+##             where the mouse takes it.
+##   COMPUTER  the computer has them (`Player.taken_over`): the game is holding
+##             the player or walking them, or something is playing them in
+##             their place. The crosshair is the computer's, and the system
+##             pointer is shown beside it and moves nothing.
+enum Who { SYSTEM, HAND, COMPUTER }
+
+## Every screen that takes the keys away hands the pointer back to the system
+## on the same frame, because the same thing decides both — and a screen over a
+## player the computer has is still a screen. With more than one player on the
+## floor, a hand on any of them is a hand on the pointer.
+func who() -> int:
 	if get_tree() == null or get_tree().paused:
-		return false
+		return Who.SYSTEM
+	var taken := false
 	for p in get_tree().get_nodes_in_group("player"):
-		if p.has_method("controls_locked") and not p.controls_locked():
-			return true
-	return false
+		if not p.has_method("controls_locked"):
+			continue
+		if p.has_method("taken_over") and p.taken_over():
+			taken = true
+		elif not p.controls_locked():
+			return Who.HAND
+	return Who.COMPUTER if taken else Who.SYSTEM
+
+## Whether the game is doing the pointing, with its own crosshair: the player's
+## hand on it, or the computer's.
+func game_is_pointing() -> bool:
+	return who() != Who.SYSTEM
+
+## Whether it is the computer the crosshair answers to.
+func computer_is_pointing() -> bool:
+	return who() == Who.COMPUTER
 
 func _process(_delta: float) -> void:
-	var aiming := game_is_pointing()
-	# The crosshair while somebody is aiming, and the system's arrow for every
+	var now := who()
+	if now != _who:
+		_change_hands(_who, now)
+		_who = now
+	# The crosshair while the player is aiming, and the system's arrow for every
 	# window over them. Most of the time the game hides the window's pointer
 	# while they aim and draws its own; the window's is on show when the
-	# console is up, which never hides it.
-	var wear: Texture2D = _tex if aiming else null
+	# console is up, which never hides it. While the computer has the controls
+	# the window's pointer is on show as well, and as the arrow: it is the
+	# person's own pointer, there to be told apart from the crosshair.
+	var wear: Texture2D = _tex if now == Who.HAND else null
 	if wear != _worn:
 		_wear(wear)
 	# Not while the console is on the screen. A phone aims with the movement
 	# keys — `TouchPad._aim` says why it can be nothing else — so there is no
 	# pointer to move, and a crosshair nothing moves would sit wherever the
 	# last thing to touch it left it.
-	var hide := aiming and not Touch.wanted()
+	var hide := now == Who.HAND and not Touch.wanted()
 	if hide != _hidden:
 		_hidden = hide
 		# Hidden, not taken and not confined: the system pointer goes on
 		# following the hand out of sight, and is shown again wherever that
 		# left it. Nothing here ever tells it where to be.
 		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN if hide else Input.MOUSE_MODE_VISIBLE
-	if not _hidden:
+	if now == Who.COMPUTER:
+		point = _led
+	elif not _hidden:
 		var vp := get_viewport()
 		if vp != null:
 			point = vp.get_mouse_position()
 	if _crosshair != null:
-		_crosshair.visible = _hidden
+		# The computer's crosshair is drawn like the hand's — but not on the
+		# console, where the hand's is not either: a phone has no pointer for
+		# it to be told apart from.
+		_crosshair.visible = _hidden or (now == Who.COMPUTER and not Touch.wanted())
 		_crosshair.position = on_grid(point - hotspot())
+
+## The pointing has changed hands, from `was` to `now`.
+func _change_hands(was: int, now: int) -> void:
+	match now:
+		Who.COMPUTER:
+			# Back out of a window that covered the computer's turn — the pause
+			# menu — the pointer goes back to where the computer had it. Any
+			# other way in, its turn starts from where the pointer is.
+			if not (was == Who.SYSTEM and _has_led):
+				_led = point
+			_has_led = true
+		Who.HAND:
+			_has_led = false
+			# The hand takes the pointer up where the hand is, the way it does
+			# coming out of a menu: all through the computer's turn the system
+			# pointer was in sight and going where the mouse took it.
+			if was == Who.COMPUTER:
+				var vp := get_viewport()
+				if vp != null:
+					point = on_screen(vp.get_mouse_position(), vp.get_visible_rect().size)
 
 func _input(event: InputEvent) -> void:
 	if not _hidden:
@@ -228,6 +305,40 @@ func world_point(node: CanvasItem) -> Vector2:
 	if vp == null:
 		return point
 	return vp.get_canvas_transform().affine_inverse() * point
+
+## Where the person at the desk is pointing, for what is still theirs to press
+## on a screen the game points on: the crosshair while their hand is what moves
+## it, and the system pointer the rest of the time — which is every window, and
+## any moment the computer has the crosshair.
+func hand_point() -> Vector2:
+	if _hidden:
+		return point
+	var vp := get_viewport()
+	return vp.get_mouse_position() if vp != null else point
+
+## --- led by the computer ----------------------------------------------------
+## Leads the game's pointer to `at` on the screen, kept on it: what the
+## computer points with while it has the controls, since the system pointer is
+## nobody's to move. It is held to — through a window that covers the
+## computer's turn and back out of it — until it is led somewhere else or the
+## player's hand takes the pointer up. Returns where it landed.
+func lead(at: Vector2) -> Vector2:
+	var vp := get_viewport()
+	_led = on_screen(at, vp.get_visible_rect().size) if vp != null else at
+	_has_led = true
+	if who() == Who.COMPUTER:
+		point = _led
+	return _led
+
+## The same, to a place in the world `node` stands in — what `world_point`
+## answers, the other way round. Returns where in that world it landed: the
+## place asked for, unless that is off the screen.
+func lead_to(node: CanvasItem, at: Vector2) -> Vector2:
+	var vp := node.get_viewport()
+	if vp == null:
+		return at
+	var onto := vp.get_canvas_transform()
+	return onto.affine_inverse() * lead(onto * at)
 
 func set_sensitivity(v: float) -> void:
 	sensitivity = clampf(v, MIN_SENS, MAX_SENS)

@@ -113,7 +113,10 @@ func park() -> Dictionary:
 		room.save_state()
 	var saved := map.to_save()
 	saved["room"] = [room.coord.x, room.coord.y] if room != null else [map.entry.x, map.entry.y]
-	saved["pos"] = [player.global_position.x, player.global_position.y]
+	# Where they stand, not where a crouch has let them down to: they come back
+	# standing.
+	var at := player.standing_position()
+	saved["pos"] = [at.x, at.y]
 	saved["health"] = player.health
 	return saved
 

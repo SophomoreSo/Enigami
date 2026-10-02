@@ -106,7 +106,7 @@ func _ready() -> void:
 	if sk == null:
 		_finish()
 		return
-	for anim in ["idle", "run", "hit", "rise", "fall", "wall_slide", "dash"]:
+	for anim in ["idle", "run", "crouch", "hit", "rise", "fall", "wall_slide", "dash"]:
 		check(sk.frames.has_animation(anim) and sk.frames.get_frame_count(anim) > 0,
 			"it has a '%s' pose" % anim)
 	check(sk.frames.get_frame_count("run") >= 6, "the run is a cycle, not a shuffle (%d frames)" % sk.frames.get_frame_count("run"))
@@ -174,6 +174,31 @@ func _ready() -> void:
 	check(seen["skin"] >= 300, "the body is on screen in the skin's colours (%d pixels)" % seen["skin"])
 	check(seen["other"] == 0, "and in nothing else: no raw coordinates, no blending (%d pixels: %s)"
 		% [seen["other"], ", ".join(seen["examples"])])
+
+	# Crouched: the pose is the crouch's, lower, and stood on the feet of a body
+	# that has just changed size under it.
+	var scale := Sprites.PIXEL_SCALE
+	var under_art := (Sprites.frame_size(art).y * 0.5 - (Sprites.frame_size(art).y - Sprites.art_rect(art).end.y)) * scale
+	Input.action_press("move_down")
+	for i in 6:
+		await get_tree().physics_frame
+	await frames(4)
+	check(player.crouched and view.sprite.animation == "crouch",
+		"crouched, the player takes the crouch pose (%s)" % view.sprite.animation)
+	check(is_equal_approx(view.sprite.position.y + under_art, player.body_size.y * 0.5),
+		"with the art's feet on the lowered body's (%.1f, body %.1f)"
+			% [view.sprite.position.y + under_art, player.body_size.y * 0.5])
+	var low: Dictionary = await sample(palette, "player_crouch")
+	check(low["skin"] >= 200 and low["skin"] < seen["skin"] and low["other"] == 0,
+		"in the skin's colours and nothing else, and less of it than standing (%d pixels, %d other)"
+			% [low["skin"], low["other"]])
+	Input.action_release("move_down")
+	for i in 6:
+		await get_tree().physics_frame
+	await frames(4)
+	check(not player.crouched and view.sprite.animation == "idle"
+			and is_equal_approx(view.sprite.position.y + under_art, player.body_size.y * 0.5),
+		"and stands back into the idle, on the standing body's feet (%s)" % view.sprite.animation)
 
 	# A second skin, the channels rotated so no colour survives, under the same frames.
 	var original: Image = sk.skin_image.duplicate()

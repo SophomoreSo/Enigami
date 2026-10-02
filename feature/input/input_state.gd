@@ -26,6 +26,13 @@ extends RefCounted
 var move: float = 0.0
 ## Which way to turn without walking: -1, 1, or 0 to leave the facing alone.
 var turn: int = 0
+## Crouching, for as long as it is asked: down held — a key, or a stick pushed
+## down past its threshold.
+var crouch: bool = false
+## Sprinting, for as long as it is asked: whatever way the body walks, it goes
+## that way faster (`Player.SPRINT_SPEED`). A key, or the console's stick
+## dragged far out of its ring.
+var sprint: bool = false
 ## The attack button, held: the graph cast as it is, again and again.
 var attack: bool = false
 ## The cast button, held: what charges.

@@ -165,6 +165,12 @@ static func codes() -> Dictionary:
 static func effects_of(id: String) -> Array:
 	return get_def(id).get("effects", [])
 
+## What a part does instead when an INVERT comes straight after it, in order:
+## {op, field, value}, like its effects — its rows of `inversions`. Empty for a
+## part with no opposite. See `SkillRunner._invert`.
+static func inversions_of(id: String) -> Array:
+	return get_def(id).get("inversions", [])
+
 ## Whether a part does its work the moment a flow enters it, rather than by
 ## carrying that flow on out of the board — it slows the fight or opens a guard.
 ## `SkillRunner._apply` is where those two effects happen; the flag is worked
@@ -259,7 +265,7 @@ static func _load() -> void:
 			"name": String(p["name"]), "cat": String(p["category"]),
 			"heat": float(p.get("heat", 0.0)), "cells": int(p.get("cells", 1)),
 			"tag": String(p.get("tag", "")),
-			"outs": [], "payload_out": -1, "effects": [], "acts_on_entry": false,
+			"outs": [], "payload_out": -1, "effects": [], "inversions": [], "acts_on_entry": false,
 			"code": -1, "desc": String(p["description"]),
 		}
 	for n in _codes:
@@ -286,6 +292,21 @@ static func _load() -> void:
 		(def["effects"] as Array).append(made)
 		if made["op"] == "dilate" or made["op"] == "guard":
 			def["acts_on_entry"] = true
+	# A part's opposite is held to the payload the same way its effects are, and
+	# changes a field like they do: the schema keeps the ops that change the
+	# fight, and INVERT's own, out of the table already.
+	for row in Db.records("inversions", "", [], "part_id, position"):
+		var id := String(row["part_id"])
+		var def: Dictionary = _defs.get(id, {})
+		if def.is_empty():
+			continue
+		var made = _effect(row, shape)
+		if made is Dictionary and made["field"] == &"":
+			made = "%s, which changes no field — an opposite has to" % String(row.get("op", ""))
+		if made is String:
+			_faults.append("%s's opposite %d %s" % [id, int(row.get("position", 0)), made])
+			continue
+		(def["inversions"] as Array).append(made)
 	for r in Db.records("retired_parts"):
 		_retired[String(r["id"])] = true
 	for r in Db.records("renamed_parts"):
@@ -306,6 +327,15 @@ static func _load() -> void:
 static func _effect(row: Dictionary, shape: Payload) -> Variant:
 	var op := String(row.get("op", ""))
 	var value = row.get("value", null)
+	if op == "invert":
+		# INVERT's: what it changes is whatever the part before it changed, so
+		# it names no field of its own, and has no amount to change one by.
+		var named = row.get("field", null)
+		var has_field: bool = named != null and str(named) != ""
+		if has_field or value != null:
+			return "invert with %s, which it takes nothing of — it turns round the part before it" \
+				% ("a field" if has_field else "a value")
+		return {"op": op, "field": &"", "value": null}
 	if op == "dilate" or op == "guard":
 		if not (value is float or value is int) or float(value) <= 0.0:
 			return "%s for %s seconds, which is no time at all" % [op, str(value)]

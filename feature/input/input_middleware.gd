@@ -32,3 +32,13 @@ var done: bool = false
 ## This middleware's say in the frame: change `state`, and hand it on.
 func process(state: InputState) -> InputState:
 	return state
+
+## Whether, for as long as it stands on a line, the body is the computer's
+## rather than the player's: the game is holding it for itself or walking it
+## somewhere, or something else is playing it in the player's place. Most
+## things on a line only help or stop the player's own hands, and do not.
+## `Pointer` asks, through the player (`Player.taken_over`): while the computer
+## has the body the crosshair is the computer's too, and the system pointer is
+## shown beside it.
+func takes_over() -> bool:
+	return false

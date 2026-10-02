@@ -22,7 +22,7 @@ CREATE TABLE meta (
 );
 -- `Db.SCHEMA_VERSION` in app/db.gd is the same number: bump both when a
 -- change is one older code could not read. build.sh adds `source_hash`.
-INSERT INTO meta (key, value) VALUES ('schema_version', '10');
+INSERT INTO meta (key, value) VALUES ('schema_version', '11');
 
 -- How a portrait and the letters behave while a line is said: the ids
 -- `Style.EMOTIONS` (graphics/style.gd) draws. A line naming one not here
@@ -398,6 +398,11 @@ CREATE UNIQUE INDEX ports_one_branch ON ports (part_id) WHERE kind = 'branch';
 --   guard     a guard window opens for `value` seconds; a hit absorbed in it
 --             runs the part's branch
 --
+-- and one turns the part before it inside out, and names no field or value:
+--
+--   invert    what the part the flow came from did is taken back, and its
+--             rows of `inversions` are done instead
+--
 -- `value` is read as JSON — 8, 1.6, 'true' — and a word may go without its
 -- quotes: 'FIRE'. Which fields a payload has, and what each holds, is the
 -- payload's to say: `Components` holds every row to it as it reads them, and
@@ -406,10 +411,27 @@ CREATE TABLE effects (
 	part_id  TEXT NOT NULL REFERENCES parts (id) ON DELETE CASCADE,
 	position INTEGER NOT NULL CHECK (position >= 0),
 	field    TEXT CHECK (field <> ''),
-	op       TEXT NOT NULL CHECK (op IN ('set', 'add', 'multiply', 'toggle', 'include', 'dilate', 'guard')),
+	op       TEXT NOT NULL CHECK (op IN ('set', 'add', 'multiply', 'toggle', 'include', 'dilate', 'guard', 'invert')),
 	value    JSON,
 	PRIMARY KEY (part_id, position),
-	CHECK ((field IS NULL) = (op IN ('dilate', 'guard'))),
+	CHECK ((field IS NULL) = (op IN ('dilate', 'guard', 'invert'))),
+	CHECK ((value IS NULL) = (op IN ('toggle', 'invert')))
+);
+
+-- What a part does instead when an INVERT comes straight after it: rows like
+-- its effects, in `position` order, done once the runner has put back every
+-- field its effects changed. They change fields only — a part's opposite is
+-- what the struck enemy gets instead (a heal for its damage, a cleanse for its
+-- burn), or the attack made the other way (smaller for SIZE) — so the ops are
+-- the five that do. A part with no rows here has no opposite, and an INVERT
+-- after it does nothing (`SkillRunner._invert`).
+CREATE TABLE inversions (
+	part_id  TEXT NOT NULL REFERENCES parts (id) ON DELETE CASCADE,
+	position INTEGER NOT NULL CHECK (position >= 0),
+	field    TEXT NOT NULL CHECK (field <> ''),
+	op       TEXT NOT NULL CHECK (op IN ('set', 'add', 'multiply', 'toggle', 'include')),
+	value    JSON,
+	PRIMARY KEY (part_id, position),
 	CHECK ((value IS NULL) = (op = 'toggle'))
 );
 

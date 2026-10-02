@@ -75,6 +75,14 @@ func _on_cue(name: StringName, d: Dictionary) -> void:
 			Fx.shake(3.5)
 		&"mana_drain":
 			Fx.burst(pos, Style.MANA_SPARK, 4, 90.0)
+		&"repel":
+			# GRAVITY's ring turned round: the same reach, thrown open.
+			Fx.ring(pos, Style.REPEL_RING, float(d.get("radius", 150.0)))
+			Fx.shake(3.5)
+		&"stun":
+			Fx.burst(pos + Vector2(0, -18), Style.STUN_COLOR, 6, 70.0)
+		&"cleanse":
+			Fx.burst(pos, Style.CLEANSE_COLOR, 8, 120.0)
 		&"parry":
 			Fx.shake(8.0)
 			Fx.ring(pos, Style.PARRY, 60.0)
