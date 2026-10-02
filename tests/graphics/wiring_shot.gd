@@ -25,7 +25,7 @@ func _ready() -> void:
 	game.goto_sandbox()
 	await frames(12)
 	var sb: Sandbox = game.current
-	# On the gun: a one-cell root, so the boards below start a cell in.
+	# On the gun: a one-cell root, moved to wherever each board below starts.
 	while sb.current_weapon() != "GUN":
 		sb.cycle_weapon()
 	sb.set_editing(true)
@@ -37,12 +37,13 @@ func _ready() -> void:
 
 	# The board from the second report: flow turns a corner through parts that
 	# do not point back at their feeder. This now wires up. The gun's own bolt
-	# is on the root and feeds it.
-	b.place("OVERCLOCK", Vector2i(1, 2), 1)   # in from the west, out south
-	b.place("OVERCLOCK", Vector2i(1, 3), 2)   # in from the north, out west
-	b.place("OVERCLOCK", Vector2i(0, 3), 1)   # in from the east, out south
-	b.place("SLASH", Vector2i(0, 4), 0)
-	b.place("OUTPUT", Vector2i(1, 4), 0)
+	# is the root and feeds it, and the chain ends against the way out.
+	b.move_root(Vector2i(3, 2), 1)            # south
+	b.place("OVERCLOCK", Vector2i(3, 3), 0)   # in from the north, out east
+	b.place("OVERCLOCK", Vector2i(4, 3), 3)   # in from the west, out north
+	b.place("OVERCLOCK", Vector2i(4, 2), 0)   # in from the south, out east
+	b.place("SLASH", Vector2i(5, 2), 0)
+	b.place("DELAY", Vector2i(6, 2), 0)
 	ed._sim_dirty = true
 	await frames(6)
 	await shot("14_corner_board")
@@ -50,25 +51,26 @@ func _ready() -> void:
 	# Three overclocks: the readout shows both halves of the trade.
 	for c2 in b.cells.keys().duplicate():
 		b.erase_at(c2)
-	b.place("OVERCLOCK", Vector2i(1, 2), 0)
-	b.place("OVERCLOCK", Vector2i(2, 2), 0)
+	b.move_root(Vector2i(2, 2), 0)
 	b.place("OVERCLOCK", Vector2i(3, 2), 0)
-	b.place("SLASH", Vector2i(4, 2), 0)
-	b.place("OUTPUT", Vector2i(5, 2), 0)
+	b.place("OVERCLOCK", Vector2i(4, 2), 0)
+	b.place("OVERCLOCK", Vector2i(5, 2), 0)
+	b.place("SLASH", Vector2i(6, 2), 0)
 	ed._sim_dirty = true
 	await frames(6)
 	await shot("16_overclock")
 
 	# The board from the third report: a trigger feeding a ring that never hands
-	# the flow back, with an OUTPUT stranded beside it. The ring is drawn
-	# switched off, the cursor is on it, and the notice says why.
+	# the flow back, with a SLASH stranded beside it and the way out dark. The
+	# ring is drawn switched off, the cursor is on it, and the notice says why.
 	for c3 in b.cells.keys().duplicate():
 		b.erase_at(c3)
+	b.move_root(SkillBoard.ROOT, 0)
 	b.place("DUPLICATE", Vector2i(1, 2), 3)   # in from the west, out north
 	b.place("FIRE", Vector2i(1, 1), 0)        # east
 	b.place("DAMAGE", Vector2i(2, 1), 1)      # south
 	b.place("FIRE", Vector2i(2, 2), 2)        # west, closing the ring
-	b.place("OUTPUT", Vector2i(3, 2), 0)
+	b.place("SLASH", Vector2i(3, 2), 0)
 	ed._sim_dirty = true
 	ed._update_hover(ed._cell_center(Vector2i(2, 1)))
 	ed._mouse_pos = ed._cell_center(Vector2i(2, 1))

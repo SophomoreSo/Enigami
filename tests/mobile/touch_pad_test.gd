@@ -182,7 +182,7 @@ func _layout() -> void:
 
 	var unknown: Array = []
 	for c in TouchPad.CONTROLS:
-		for key in ["action", "arm"]:
+		for key in ["action", "arm", "alt", "hold"]:
 			var a := String(c.get(key, ""))
 			if a != "" and not InputMap.has_action(a):
 				unknown.append(a)
@@ -236,7 +236,11 @@ func _placed_on(s: Vector2) -> void:
 		var name := String(c.get("action", "move"))
 		if not screen_rect.encloses(r):
 			off.append(name)
-		if r.intersects(HUD_BARS) or r.intersects(hud_cards(s)):
+		# Only what is up while the HUD is. The page in a conversation is the
+		# whole screen, and lies over a HUD that has stepped aside for it.
+		var beside_hud: bool = (c["faces"] as Array).has(TouchPad.Face.PLAY) \
+			or (c["faces"] as Array).has(TouchPad.Face.SCREEN)
+		if beside_hud and (r.intersects(HUD_BARS) or r.intersects(hud_cards(s))):
 			on_hud.append(name)
 		# Each axis measured from the side the control is pinned to.
 		var pin := Vector2(c.get("pin", Vector2.ZERO))
@@ -300,10 +304,10 @@ func _the_setting() -> void:
 	check(panel != null, "the controls page carries the settings panel")
 	if panel == null:
 		return
-	var switch := switch_under(panel)
+	var switch := switch_under(title._controls)
 	check(switch != null, "it offers mobile mode as a switch")
 	var named := false
-	for c in controls_under(panel):
+	for c in controls_under(title._controls):
 		if c is Label and (c as Label).text == Loc.t("controls.mobile"):
 			named = true
 	check(named, "under the name the row is given")
@@ -320,19 +324,31 @@ func _the_setting() -> void:
 	await frames(2)
 	title._toggle_controls()
 	await frames(4)
-	check(switch.button_pressed == Touch.wanted(),
-		"and the switch shows what AUTO came to (%s)" % str(switch.button_pressed))
+	# The page is laid out for the mode in force, so it is built again whenever
+	# the mode changes — and the switch on it is a new one each time.
+	switch = switch_under(title._controls)
+	check(switch != null and switch.button_pressed == Touch.wanted(),
+		"and the switch shows what AUTO came to (%s)" % str(Touch.wanted()))
 
 	# Thrown by a click, the way a mouse or a thumb throws it, both ways.
 	Touch.set_mode(Touch.OFF)
-	switch.show_on(false)
+	await frames(3)
+	switch = switch_under(title._controls)
 	await click(switch.get_global_rect().get_center())
-	check(Touch.mode == Touch.ON and Touch.wanted() and switch.button_pressed,
+	await frames(3)
+	switch = switch_under(title._controls)
+	check(Touch.mode == Touch.ON and Touch.wanted() and switch != null and switch.button_pressed,
 		"a click throws it on, and puts the console on (mode %d)" % Touch.mode)
+	check(title._controls.visible and title._controls.thumb,
+		"and the page it is on is laid out again, for a thumb, and still up")
 	await click(switch.get_global_rect().get_center())
-	check(Touch.mode == Touch.OFF and not Touch.wanted() and not switch.button_pressed,
+	await frames(3)
+	switch = switch_under(title._controls)
+	check(Touch.mode == Touch.OFF and not Touch.wanted() and switch != null and not switch.button_pressed,
 		"and another throws it off again (mode %d)" % Touch.mode)
+	check(title._controls.visible and not title._controls.thumb, "and the page is a desk's again")
 	await click(switch.get_global_rect().get_center())
+	await frames(3)
 	check(Touch.mode == Touch.ON, "and on again")
 
 	Touch.mode = Touch.OFF
@@ -484,9 +500,9 @@ func _the_skills() -> void:
 	# One cast stick, whatever the weapon: there are no slots to carry or not.
 	check(pad.shown(control_of("cast_skill")), "the cast stick is on the pad")
 	var where := spot("cast_skill")
-	# A cast's first OUTPUT goes off the moment it is let go of; whatever the
+	# A cast's first attack goes off the moment it is let go of; whatever the
 	# board does after that plays out in real time. This board's second attack
-	# comes a good eight frames later — by which time a console that did not
+	# comes a good five frames later — by which time a console that did not
 	# hold the aim would be aiming with the other thumb.
 	var later := one_now_one_later()
 	var dry := SkillRunner.new(later).simulate()
@@ -626,28 +642,27 @@ func _the_reach() -> void:
 	touch(1, landed + Vector2(radius * 2.0, 0.0), false)
 	await frames(2)
 
-## A DELAY on the root, a SLASH and a TEE: the main line fires at once, as a
-## cast's first OUTPUT always does, and the branch walks the rest of the board
-## — back and forth through a run of DELAY — to a second OUTPUT twenty-six
-## ticks later.
+## A DELAY on the root, a SLASH and a TEE: the main line leaves the board at
+## once, as a cast's first attack always does, and the branch walks the rest of
+## the board — down, round the bottom, up the left side and along the top — to
+## come back into the DELAY against the way out and leave eighteen ticks later.
 func one_now_one_later() -> SkillBoard:
 	var b := SkillBoard.new(7, 5, "one now, one later")
-	b.set_root("DELAY", Vector2i(0, 0), 0)
-	b.place("SLASH", Vector2i(1, 0), 0)
-	b.place("TEE", Vector2i(2, 0), 0)
-	b.place("OUTPUT", Vector2i(3, 0), 0)
-	var walk: Array = []
-	for x in range(2, 7):
-		walk.append([Vector2i(x, 1), 1 if x == 6 else 0])
-	for x in range(6, -1, -1):
-		walk.append([Vector2i(x, 2), 1 if x == 0 else 2])
-	for x in 7:
-		walk.append([Vector2i(x, 3), 1 if x == 6 else 0])
-	for x in range(6, 0, -1):
+	b.set_root("DELAY", Vector2i(3, 2), 0)
+	b.place("SLASH", Vector2i(4, 2), 0)
+	b.place("TEE", Vector2i(5, 2), 0)
+	b.place("DELAY", Vector2i(6, 2), 0)
+	var walk: Array = [[Vector2i(5, 3), 1], [Vector2i(5, 4), 2]]
+	for x in range(4, 0, -1):
 		walk.append([Vector2i(x, 4), 2])
+	for y in range(4, 0, -1):
+		walk.append([Vector2i(0, y), 3])
+	for x in 6:
+		walk.append([Vector2i(x, 0), 0])
+	walk.append([Vector2i(6, 0), 1])
+	walk.append([Vector2i(6, 1), 1])
 	for step in walk:
 		b.place("DELAY", step[0], step[1])
-	b.place("OUTPUT", Vector2i(0, 4), 0)
 	return b
 
 func _cast_done() -> void:
@@ -668,32 +683,77 @@ func _the_faces() -> void:
 		if pad.shown(c):
 			shown.append(String(c.get("action", "move")))
 	shown.sort()
-	check(shown == ["interact", "move"],
-		"which is the stick that picks an answer and the page, the right of the screen (%s)" % str(shown))
-	var page := {}
+	check(shown == ["hurry"],
+		"which is the page and nothing else (%s)" % str(shown))
+	var page := TouchPad.area(control_of("hurry"), screen())
+	check(page.is_equal_approx(Rect2(Vector2.ZERO, screen())),
+		"and the page is the whole of the screen (%s)" % str(page))
+	var drawn: Array = []
 	for c in TouchPad.CONTROLS:
-		if c.has("zone") and String(c.get("action", "")) == "interact":
-			page = c
-	check(not page.is_empty() and TouchPad.label_of(page) == "" and not TouchPad.movable(page),
-		"and the page has no picture, and cannot be moved")
+		if pad.shown(c) and (not c.has("zone") or TouchPad.label_of(c) != "" or TouchPad.movable(c)):
+			drawn.append(String(c.get("action", "move")))
+	check(drawn.is_empty(), "none of them with a picture, and none of them movable (%s)" % str(drawn))
+
+	# The right: a tap hurries the line and nothing else, and a thumb that stays
+	# presses interact as well, once, until it lifts.
 	touch(0, spot("jump"), true)
 	await frames(2)
-	check(not Input.is_action_pressed("jump") and Input.is_action_pressed("interact"),
-		"a thumb where JUMP was turns the page, not JUMP")
+	check(Input.is_action_pressed("hurry") and not Input.is_action_pressed("jump")
+			and not Input.is_action_pressed("interact"),
+		"a thumb where JUMP was hurries the line, and is neither JUMP nor a turn of the page")
 	touch(0, spot("jump"), false)
 	await frames(2)
+	check(not Input.is_action_pressed("hurry") and not Input.is_action_pressed("interact"),
+		"and lifted, it has let go")
 	touch(0, Vector2(700, 300), true)
 	await frames(2)
-	check(Input.is_action_pressed("interact") and not Input.is_action_pressed("attack"),
-		"and so does one on the empty right of the screen")
-	touch(0, Vector2(700, 300), false)
+	check(Input.is_action_pressed("hurry") and not Input.is_action_pressed("attack"),
+		"so does one on the empty right of the screen")
+	await get_tree().create_timer(TouchPad.HOLD + 0.1).timeout
 	await frames(2)
-	touch(0, Vector2(200, 300), true)
+	check(Input.is_action_pressed("interact") and Input.is_action_pressed("hurry"),
+		"and kept there past a hold, it presses interact as well")
+	drag(0, Vector2(300, 300))
 	await frames(2)
-	check(not Input.is_action_pressed("interact"), "while the left is still the stick's")
-	touch(0, Vector2(200, 300), false)
+	check(Input.is_action_pressed("interact") and not Input.is_action_pressed("move_up")
+			and not Input.is_action_pressed("move_down"),
+		"still holding it when it wanders to the left, which is the same page")
+	touch(0, Vector2(300, 300), false)
+	await frames(2)
+	check(not Input.is_action_pressed("interact") and not Input.is_action_pressed("hurry"),
+		"and lifted, it lets go of both")
+
+	# The left is the page too: where the stick grows while there is somebody to
+	# play, a thumb reads. Picking an answer is not the console's — the box puts
+	# each on a plate of its own (`tests/mobile/talk_touch_test`).
+	touch(0, Vector2(200, 400), true)
+	await frames(3)
+	check(Input.is_action_pressed("hurry") and not pad.stick_showing()
+			and not Input.is_action_pressed("move_up") and not Input.is_action_pressed("move_down"),
+		"a thumb on the left hurries the line like any other, and grows no stick")
+	touch(0, Vector2(200, 400), false)
+	await frames(2)
+	check(not Input.is_action_pressed("hurry"), "until it lifts")
+
+	# The faces coming and going under a thumb that stays down: what it was
+	# doing was the face's, and it does nothing on the next until it lifts.
+	touch(0, Vector2(700, 300), true)
+	await get_tree().create_timer(TouchPad.HOLD + 0.1).timeout
+	await frames(2)
 	player.talk_locked = false
 	await frames(3)
+	check(pad.face == TouchPad.Face.PLAY and not Input.is_action_pressed("interact"),
+		"a hold still down as the conversation ends is let go of")
+	drag(0, spot("jump"))
+	await frames(2)
+	check(not Input.is_action_pressed("jump"), "and its thumb, dragged over JUMP, presses nothing")
+	touch(0, spot("jump"), false)
+	await frames(2)
+	touch(0, spot("jump"), true)
+	await frames(2)
+	check(Input.is_action_pressed("jump"), "until it has lifted and come down again")
+	touch(0, spot("jump"), false)
+	await frames(2)
 
 	player.input_locked = true
 	await frames(3)

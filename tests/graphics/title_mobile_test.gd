@@ -124,6 +124,9 @@ func _thrown_on() -> void:
 		return
 	await click(switch.get_global_rect().get_center())
 	check(Touch.mode == Touch.ON, "a click on the switch throws it on (mode %d)" % Touch.mode)
+	await frames(3)
+	check(t._controls.visible and t._controls.thumb,
+		"and the page it is on is laid out again for a thumb, still up")
 	await action("ui_cancel")
 	await action("ui_cancel")
 	await frames(2)

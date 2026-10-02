@@ -14,6 +14,22 @@ extends Control
 ## Screen space, at the screen's resolution: this is reading text, and the pixel
 ## camera would blur it. The portrait is the one piece of pixel art in it, blown
 ## up by a whole multiple so every art pixel stays square.
+##
+## **In mobile mode it is laid out for a thumb** (`UiKit.mobile`). The box runs
+## most of the width of the screen and its words are written twice the size —
+## at a desk's size a line stands under a millimetre of a phone's glass. And the
+## answers are not lines in it: each is a plate under the box, as wide as the
+## box and PLATE tall, there once the question is out. A plate is picked by
+## touching it and given by holding it, the plate filling as the hold counts
+## (HOLD). So the rule the console keeps for a conversation holds here too —
+## going on is the one thing that cannot be taken back, so it is the one thing a
+## tap cannot do — and what a tap does is the thing a thumb on an answer means
+## first: this one. Under the plates, and beside the arrow on a line with none,
+## the box says so in words.
+##
+## A thumb on a plate is the plate's, taken in `_input` ahead of the console,
+## which is earlier in the tree: everywhere else on the glass a tap hurries the
+## line and a hold goes on, and a plate is neither.
 
 ## Over the pixel picture and its prompts, under the screens (5) and the HUD (10).
 const LAYER := 4
@@ -50,6 +66,32 @@ const POP_TIME := 0.12
 ## Where an emotion's mark sits, in from the portrait's top outer corner.
 const MARK_INSET := Vector2(18.0, 20.0)
 
+## --- for a thumb --------------------------------------------------------------
+## Mobile mode's box: clear of the screen's edges by THUMB_SIDE, as wide as
+## THUMB_WIDTH where the screen has it, and hung low enough for the name's tab,
+## which stands twice as tall. The HUD and the console's keys are both off the
+## screen while somebody talks, so there are no corners to keep out of.
+const THUMB_TOP := 52.0
+const THUMB_SIDE := 40.0
+const THUMB_WIDTH := 1100.0
+const THUMB_PORTRAIT := 120.0
+const THUMB_PAD := 16.0
+## The least an answer's plate stands, the room between two, and from a plate's
+## edge to its words — past the marker's room, on the left.
+const PLATE := 64.0
+const PLATE_GAP := 8.0
+const PLATE_PAD := 20.0
+const PLATE_MARK := 36.0
+## How long a thumb stays on a plate before its answer is given, and how long
+## before the plate starts to fill: the console's own HOLD and HOLD_SHOW, which
+## `tests/mobile/talk_touch_test` holds these to. A tap shows nothing; a thumb
+## that stays sees the plate fill, so the first tap that was slow is the one
+## that says holding does something.
+const HOLD := 0.4
+const HOLD_SHOW := 0.12
+## The mouse, as a finger: mobile mode on a desk has one pointer and no index.
+const MOUSE := -1
+
 var npc: Npc
 var _font: Font
 var _open: float = 0.0
@@ -58,6 +100,16 @@ var _t: float = 0.0
 var _node: String = ""
 ## When each letter of the line came out, by `_t`.
 var _arrived := PackedFloat32Array()
+## Mobile mode's plates as they stand this frame, one rect an answer, for the
+## thumb to be tested against: empty unless a question is out.
+var _plates: Array[Rect2] = []
+## The thumb on a plate: which finger, which answer, and when it came down
+## (msec, on the wall clock like the console's holds). Empty with none.
+var _press: Dictionary = {}
+## Fingers that came down on a plate, until they lift. A thumb that slid off
+## its plate, or whose answer has been given, is still not the page's: left to
+## the console it would be a hold that goes on past the next line unread.
+var _mine: Dictionary = {}
 
 func _ready() -> void:
 	UiKit.fill_screen(self)
@@ -73,7 +125,160 @@ func _process(delta: float) -> void:
 	# line left to show while it closed.
 	_open = minf(_open + delta / OPEN_TIME, 1.0) if talking else 0.0
 	_track_arrivals(talking)
+	_keep_plates(talking)
 	queue_redraw()
+
+## --- for a thumb: the plates ----------------------------------------------------
+
+## Whether the box is laid out for a thumb: mobile mode.
+func thumb() -> bool:
+	return UiKit.mobile()
+
+## The sizes the box is written at: a desk's, or twice that for a thumb.
+func _text_size() -> int:
+	return TEXT_SIZE * 2 if thumb() else TEXT_SIZE
+
+func _name_size() -> int:
+	return NAME_SIZE * 2 if thumb() else NAME_SIZE
+
+func _line_h() -> float:
+	return LINE_H * 2.0 if thumb() else LINE_H
+
+func _tab_h() -> float:
+	return TAB_HEIGHT * 2.0 - 4.0 if thumb() else TAB_HEIGHT
+
+func _pad() -> float:
+	return THUMB_PAD if thumb() else PAD
+
+## Where mobile mode's box and its plates stand, worked out from the line and
+## its answers: `box`, `portrait`, the line's `rows`, and `plates` — one
+## `{rect, rows}` an answer, under the box. The box is as tall as its line and
+## no taller: the plates are things of their own under it, so it does not grow
+## when they come.
+func _thumb_layout() -> Dictionary:
+	var w := clampf(size.x - THUMB_SIDE * 2.0, MIN_WIDTH, THUMB_WIDTH)
+	var text_w := w - THUMB_PORTRAIT - THUMB_PAD * 3.0
+	var rows := _wrap(npc.current_line(), text_w, _text_size())
+	var h := maxf(THUMB_PORTRAIT, _line_h() * rows.size()) + THUMB_PAD * 2.0
+	var box := Rect2(roundf((size.x - w) * 0.5), THUMB_TOP, w, h)
+	var on_right := npc.speaker() == "player"
+	var portrait := Rect2(
+		Vector2(box.end.x - THUMB_PAD - THUMB_PORTRAIT if on_right else box.position.x + THUMB_PAD,
+			box.position.y + THUMB_PAD),
+		Vector2(THUMB_PORTRAIT, THUMB_PORTRAIT))
+	var plates: Array = []
+	var y := box.end.y + PLATE_GAP
+	for c in npc.choices():
+		var words := _wrap(String(c.get("text", "")), w - PLATE_MARK - PLATE_PAD * 2.0, _text_size())
+		var tall := maxf(PLATE, _line_h() * words.size() + PLATE - _line_h())
+		plates.append({"rect": Rect2(box.position.x, y, w, tall), "rows": words})
+		y += tall + PLATE_GAP
+	return {"box": box, "portrait": portrait, "rows": rows, "plates": plates,
+		"on_right": on_right, "foot": y}
+
+## The plates a thumb can land on this frame, and the hold on one of them: given
+## once the thumb has stayed HOLD, and off if the question has gone from under it.
+func _keep_plates(talking: bool) -> void:
+	_plates.clear()
+	if talking and thumb() and _open >= 1.0 and npc.is_choosing():
+		for plate in _thumb_layout()["plates"]:
+			_plates.append(plate["rect"])
+	if _press.is_empty():
+		return
+	var i := int(_press["index"])
+	if i >= _plates.size():
+		_press = {}
+		return
+	if _held_for() >= HOLD:
+		_press = {}
+		npc.choose(i)
+
+## The game stopping, or starting again, under a thumb: a lift while it was
+## stopped is one nobody saw, and a hold timed across it is not a hold.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PAUSED or what == NOTIFICATION_UNPAUSED:
+		_press = {}
+		_mine.clear()
+
+## How long the thumb on a plate has been there, in seconds.
+func _held_for() -> float:
+	if _press.is_empty():
+		return 0.0
+	return float(Time.get_ticks_msec() - int(_press["from"])) / 1000.0
+
+## The plate under `at`, or -1.
+func _plate_at(at: Vector2) -> int:
+	for i in _plates.size():
+		if _plates[i].has_point(at):
+			return i
+	return -1
+
+## A thumb on a plate. Down picks the answer and starts the hold; sliding off the
+## plate or lifting calls the hold off; and the finger is this box's until it
+## lifts, whatever it does meanwhile. Everything else — a press anywhere but on
+## a plate — is left for the console, which hurries the line or holds it on.
+##
+## The system hands a touch over as a click as well, and first. That click is
+## swallowed with the touch it belongs to, or the console would take it for a
+## thumb on the page under the plate: a tap would hurry nothing, but a hold on
+## an answer would be a hold on the page too.
+func _input(event: InputEvent) -> void:
+	var finger := MOUSE
+	var at := Vector2.INF
+	var down := false
+	var lifted := false
+	var touch := event as InputEventScreenTouch
+	var drag := event as InputEventScreenDrag
+	var click := event as InputEventMouseButton
+	var moved := event as InputEventMouseMotion
+	if touch != null:
+		finger = touch.index
+		at = touch.position
+		down = touch.pressed
+		lifted = not touch.pressed
+	elif drag != null:
+		finger = drag.index
+		at = drag.position
+	elif click != null and click.button_index == MOUSE_BUTTON_LEFT:
+		at = click.position
+		if click.device == InputEvent.DEVICE_ID_EMULATION:
+			# The touch's own click: the plate's if it is on one, and nothing
+			# more — the touch that follows is the press.
+			if _plate_at(at) >= 0 or not _mine.is_empty():
+				get_viewport().set_input_as_handled()
+			return
+		down = click.pressed
+		lifted = not click.pressed
+	elif moved != null:
+		if moved.device == InputEvent.DEVICE_ID_EMULATION:
+			if not _mine.is_empty():
+				get_viewport().set_input_as_handled()
+			return
+		at = moved.position
+	else:
+		return
+
+	if down:
+		# A finger coming down is a new touch, whatever it was before.
+		_mine.erase(finger)
+		var i := _plate_at(at)
+		if i < 0:
+			return
+		_mine[finger] = true
+		get_viewport().set_input_as_handled()
+		# One hold at a time: a second thumb on another plate picks it and
+		# takes the hold over.
+		npc.select(i)
+		_press = {"finger": finger, "index": i, "from": Time.get_ticks_msec()}
+		return
+	if not _mine.has(finger):
+		return
+	get_viewport().set_input_as_handled()
+	if lifted:
+		_mine.erase(finger)
+	if not _press.is_empty() and int(_press["finger"]) == finger \
+			and (lifted or _plate_at(at) != int(_press["index"])):
+		_press = {}
 
 ## Notes when each letter comes out, so it can rise into place in its own time.
 ## The reveal stops dead at the end of the line, so this cannot be read off how
@@ -96,6 +301,9 @@ func _track_arrivals(talking: bool) -> void:
 
 func _draw() -> void:
 	if _open <= 0.0:
+		return
+	if thumb():
+		_draw_for_a_thumb()
 		return
 	var w := clampf(size.x - SIDE_CLEAR * 2.0, MIN_WIDTH, MAX_WIDTH)
 	var text_w := w - PORTRAIT - PAD * 3.0
@@ -166,16 +374,83 @@ func _draw() -> void:
 			m + Vector2(-8, -8), m + Vector2(8, -8), m,
 		]), Style.DIALOGUE_MARK)
 
+## Mobile mode's box: the same parts, at a thumb's size, with the answers on
+## plates under it. See `_thumb_layout` for where everything stands.
+func _draw_for_a_thumb() -> void:
+	var l := _thumb_layout()
+	var full: Rect2 = l["box"]
+	var e := 1.0 - pow(1.0 - _open, 3.0)
+	if _open < 1.0:
+		var opening := Rect2(full.position.x, full.get_center().y - full.size.y * 0.5 * e,
+			full.size.x, full.size.y * e)
+		draw_rect(opening, Style.DIALOGUE_FILL)
+		draw_rect(opening, Style.DIALOGUE_EDGE, false, 2.0)
+		return
+	var node := npc.current_node()
+	var mood := Style.emotion(String(node.get("emotion", "neutral")))
+	var on_right: bool = l["on_right"]
+	var portrait: Rect2 = l["portrait"]
+	var rows: PackedStringArray = l["rows"]
+	_draw_name_tab(portrait, on_right)
+	draw_rect(full, Style.DIALOGUE_FILL)
+	draw_rect(full, Style.DIALOGUE_EDGE, false, 2.0)
+	_draw_portrait(portrait, _portrait_art(node), mood, on_right)
+	var pen := Vector2(full.position.x + THUMB_PAD if on_right else portrait.end.x + THUMB_PAD,
+		full.position.y + THUMB_PAD)
+	var text_right := portrait.position.x - THUMB_PAD if on_right else full.end.x - THUMB_PAD
+	_draw_line(pen, rows, _line_h(), mood)
+
+	if npc.is_choosing():
+		var plates: Array = l["plates"]
+		for i in plates.size():
+			_draw_plate(plates[i], i)
+		_text(Vector2(full.position.x, float(l["foot"])), _choice_hint(), HINT_SIZE, Style.DIALOGUE_HINT)
+	elif npc.line_finished():
+		# The bouncing arrow, twice the size, and what it is asking for beside it:
+		# on the glass the line goes on for a hold, and nothing else says so.
+		var m := Vector2(text_right - 16.0, full.end.y - THUMB_PAD - 4.0 - roundf(absf(sin(_t * 5.0)) * 5.0))
+		draw_colored_polygon(PackedVector2Array([
+			m + Vector2(-16, -16), m + Vector2(16, -16), m,
+		]), Style.DIALOGUE_MARK)
+		var hint := Loc.t("hud.dialogue.next_touch")
+		_text(Vector2(text_right - 44.0 - _width(hint, HINT_SIZE), full.end.y - THUMB_PAD - LINE_H),
+			hint, HINT_SIZE, Style.DIALOGUE_HINT)
+
+## One answer's plate: the box's own ground and edge, lit for the answer picked,
+## with the marker before its words — and filling from the left while a thumb
+## holds it, once the press has outlasted a tap.
+func _draw_plate(plate: Dictionary, i: int) -> void:
+	var r: Rect2 = plate["rect"]
+	var rows: PackedStringArray = plate["rows"]
+	var chosen := i == npc.selected
+	draw_rect(r, Style.DIALOGUE_FILL)
+	if not _press.is_empty() and int(_press["index"]) == i and _held_for() >= HOLD_SHOW:
+		var k := clampf((_held_for() - HOLD_SHOW) / (HOLD - HOLD_SHOW), 0.0, 1.0)
+		draw_rect(Rect2(r.position, Vector2(roundf(r.size.x * k), r.size.y)),
+			Color(Style.DIALOGUE_MARK, 0.45))
+	draw_rect(r, Style.DIALOGUE_EDGE if chosen else Color(Style.DIALOGUE_EDGE, 0.35), false, 2.0)
+	var top := r.position.y + (r.size.y - _line_h() * rows.size()) * 0.5
+	if chosen:
+		var mid := r.position.y + r.size.y * 0.5
+		var nudge := roundf(absf(sin(_t * 6.0)) * 4.0)
+		draw_colored_polygon(PackedVector2Array([
+			Vector2(r.position.x + 12.0 + nudge, mid - 12.0), Vector2(r.position.x + 28.0 + nudge, mid),
+			Vector2(r.position.x + 12.0 + nudge, mid + 12.0),
+		]), Style.DIALOGUE_MARK)
+	for k in rows.size():
+		_text(Vector2(r.position.x + PLATE_MARK + PLATE_PAD, top + _line_h() * k), rows[k], _text_size(),
+			Style.DIALOGUE_TEXT if chosen else Style.DIALOGUE_CHOICE)
+
 ## The name on a tab over the portrait's end of the box, drawn first so the
 ## box's edge runs across its foot.
 func _draw_name_tab(portrait: Rect2, on_right: bool) -> void:
 	var speaker := npc.speaker_name()
-	var tab_w := _width(speaker, NAME_SIZE) + 24.0
+	var tab_w := _width(speaker, _name_size()) + 24.0
 	var x := portrait.end.x - tab_w if on_right else portrait.position.x
-	var tab := Rect2(Vector2(x, portrait.position.y - PAD - TAB_HEIGHT + 2.0), Vector2(tab_w, TAB_HEIGHT))
+	var tab := Rect2(Vector2(x, portrait.position.y - _pad() - _tab_h() + 2.0), Vector2(tab_w, _tab_h()))
 	draw_rect(tab, Style.DIALOGUE_TAB)
-	_text(tab.position + Vector2(12.0, (TAB_HEIGHT - LINE_H) * 0.5), speaker,
-		NAME_SIZE, Style.DIALOGUE_NAME)
+	_text(tab.position + Vector2(12.0, (_tab_h() - _line_h()) * 0.5), speaker,
+		_name_size(), Style.DIALOGUE_NAME)
 
 ## Whose face goes in the frame: the line's own `sprite` if it names one the
 ## atlas has, otherwise whoever is speaking — in their face for the line's
@@ -256,7 +531,7 @@ func _draw_mark(kind: String, at: Vector2) -> void:
 ## out (see `_track_arrivals`), trembling or rippling as the emotion asks.
 func _draw_line(pen: Vector2, rows: PackedStringArray, line_h: float, mood: Dictionary) -> void:
 	var shown := mini(int(npc.revealed), _arrived.size())
-	var ascent := roundf(_font.get_ascent(TEXT_SIZE))
+	var ascent := roundf(_font.get_ascent(_text_size()))
 	var jitter := float(mood.get("jitter", 0.0))
 	var wave := float(mood.get("wave", 0.0))
 	var i := 0
@@ -275,13 +550,17 @@ func _draw_line(pen: Vector2, rows: PackedStringArray, line_h: float, mood: Dict
 			if wave > 0.0:
 				off.y += sin(_t * 6.0 + float(i) * 0.5) * wave
 			x += _font.draw_char(get_canvas_item(), Vector2(x, pen.y + ascent) + off.round(),
-				row.unicode_at(k), TEXT_SIZE, col)
+				row.unicode_at(k), _text_size(), col)
 			i += 1
 		i += 1   # the space the wrap swallowed
 		pen.y += line_h
 
-## How to answer, in whatever the player has the keys bound to.
+## How to answer, in whatever the player has the keys bound to. On the glass
+## there are no keys for it to name: an answer's plate is touched to pick it and
+## held to give it.
 func _choice_hint() -> String:
+	if thumb() or Controls.on_glass():
+		return Loc.t("hud.dialogue.choose_touch")
 	return Loc.t("hud.dialogue.choose", [Controls.short_label_for("move_up"),
 		Controls.short_label_for("move_down"), Controls.short_label_for("interact")])
 

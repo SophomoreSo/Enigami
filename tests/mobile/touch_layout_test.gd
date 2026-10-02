@@ -161,6 +161,12 @@ func _the_row() -> ControlsPanel:
 	await click(panel._mobile.get_global_rect().get_center())
 	await frames(3)
 	check(Touch.wanted(), "throwing mobile mode on")
+	# The page is built again for a thumb, and its panel with it.
+	panel = find_under(title._controls, func(n: Node) -> bool: return n is ControlsPanel) \
+		as ControlsPanel
+	check(panel != null and panel.thumb(), "lays the page out again for a thumb")
+	if panel == null:
+		return null
 	check(panel._arrange.is_visible_in_tree(), "brings SET BUTTON POSITIONS up under the switch")
 	check(panel._arrange.text == Loc.t("controls.arrange.open"),
 		"which says what it does ('%s')" % panel._arrange.text)

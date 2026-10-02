@@ -95,12 +95,12 @@ func _ready() -> void:
 	var b: SkillBoard = ed.current_board()
 	for c in b.cells.keys().duplicate():
 		b.erase_at(c)
-	# A two-cell part and three facings, so the code carries more than a
+	# A two-cell part and four facings, so the code carries more than a
 	# straight line of defaults — and the weapon's own root, which stays.
 	b.place("EXPLODE", Vector2i(1, 1), 0)
 	b.place("FIRE", Vector2i(3, 1), 1)
 	b.place("ICE", Vector2i(3, 2), 2)
-	b.place("OUTPUT", Vector2i(2, 2), 0)
+	b.place("DAMAGE", Vector2i(2, 2), 3)
 	var want := b.duplicate_board()
 	var code := BoardCode.encode(b)
 	say("the bench board is " + code)
@@ -201,9 +201,7 @@ func _ready() -> void:
 	ed = game.editor
 	var lib: SkillBoard = ed.current_board()
 	# Something built on the gun, so the swap has a part to give back.
-	lib.erase_at(Vector2i(1, 2))
 	lib.place("SLASH", Vector2i(1, 2), 0)
-	lib.place("OUTPUT", Vector2i(2, 2), 0)
 	var before := lib.duplicate_board()
 	check(int(before.used_components().get("SLASH", 0)) == 1,
 		"the board being replaced has a SLASH built into it")
@@ -214,7 +212,6 @@ func _ready() -> void:
 	shared.place("PROJECTILE", SkillBoard.ROOT, 0)
 	shared.place("DUPLICATE", Vector2i(1, 2), 0)
 	shared.place("FIRE", Vector2i(2, 2), 0)
-	shared.place("OUTPUT", Vector2i(3, 2), 0)
 	var shared_code := BoardCode.encode(shared)
 	GameState.stash.clear()
 	GameState.stash["FIRE"] = 1

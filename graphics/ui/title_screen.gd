@@ -203,7 +203,9 @@ var _menu_root: BoxContainer
 ## the mark drawn over its name.
 var _mobile: bool = false
 var _tiles: Dictionary = {}
-var _save_slot_root: VBoxContainer
+## The save slots: a column under the seal, or in mobile mode a page of its own
+## — see `_build_save_slots`.
+var _save_slot_root: Control
 var _buttons: Array = []
 var _start_button: Button
 var _settings_button: Button
@@ -216,7 +218,8 @@ var _first_save_slot: Button
 var _settings: UiKit.ScreenFrame
 var _general: UiKit.ScreenFrame
 var _controls: UiKit.ScreenFrame
-## One entry per slot: {"n", "pick", "stamp", "bin"}.
+## One entry per slot: {"n", "pick", "stamp", "bin"}, and "thumb" for a row
+## built for mobile mode's page.
 var _slot_rows: Array = []
 ## The heading over them, read with the page: it is drawn every frame.
 var _slot_prompt: String = ""
@@ -531,18 +534,20 @@ func _build_menu(focus: bool = true) -> void:
 		_start_button.grab_focus()
 
 ## Mobile mode was thrown — on the controls page, which is the only place it
-## can be — so the menu under the settings is laid out again for the new one.
-## Only the menu: the page with the switch on it is still up, and stays as it
-## is, and so does whatever the keyboard is on there.
-func _rebuild_menu() -> void:
-	var shown := _menu_root.visible
-	for b in _menu_root.get_children():
-		_buttons.erase(b)
-	_tiles.clear()
-	_stage.remove_child(_menu_root)
-	_menu_root.queue_free()
-	_build_menu(shown)
-	_menu_root.visible = shown
+## can be — so everything here that is laid out for the one mode is laid out
+## again for the other: the menu under the settings, the save slots, and the
+## pages themselves, the one with the switch on it among them. Whichever was up
+## is put back up, and the keyboard, which was on the switch if it was anywhere,
+## is put on the switch that took its place.
+func _remode() -> void:
+	var focused := get_viewport().gui_get_focus_owner()
+	var on_switch := focused is UiKit.Switch and is_ancestor_of(focused)
+	_rebuild()
+	if on_switch and _controls != null and _controls.visible:
+		for c in _controls.find_children("*", "", true, false):
+			if c is UiKit.Switch:
+				(c as Control).grab_focus()
+				break
 
 func _menu_item(text: String, mark: Array) -> Button:
 	return _tile(text, mark) if _mobile else _menu_button(text, _menu_root)
@@ -613,11 +618,21 @@ func _tile(text: String, mark: Array) -> Button:
 ## START asks which save slot before it hands over. Each row says which slot it
 ## is, when that profile was last written, and offers a way to throw it away.
 ## Picking one opens it, so what `start_requested` hands on is that profile.
+##
+## In mobile mode it is a page like the settings', over the seal, and for the
+## tiles' reason: a line of text 24 high with a can 28 high at the end of it is
+## two small things to land a thumb on, and one of them throws a profile away.
+## There a row is one plate to press, THUMB tall, with its can a plate of its
+## own beside it.
 func _build_save_slots() -> void:
-	_save_slot_root = _column(SAVE_SLOT_TOP, SAVE_SLOT_WIDTH)
-	_save_slot_root.visible = false
 	_slot_prompt = Menus.name_for("save_slots")
 	_slot_rows.clear()
+	if _mobile:
+		_build_save_slot_page()
+		return
+	var column := _column(SAVE_SLOT_TOP, SAVE_SLOT_WIDTH)
+	_save_slot_root = column
+	_save_slot_root.visible = false
 	for i in SAVE_SLOTS:
 		var row := _slot_row(i + 1)
 		_slot_rows.append(row)
@@ -626,10 +641,59 @@ func _build_save_slots() -> void:
 	# Under the slots, what the menu's own rows put there: the way back.
 	var acts := acts_for("save_slots")
 	for item in Menus.items("save_slots"):
-		var b := _menu_button(String(item["text"]), _save_slot_root)
+		var b := _menu_button(String(item["text"]), column)
 		b.add_theme_font_size_override("font_size", Loc.text_size(b.text, 16))
 		b.pressed.connect(Menus.press("save_slots", item, acts, _open))
 	_refresh_slots()
+
+## Mobile mode's save slots: the kit's frame, a plate per slot, and the menu's
+## own way back pinned under them.
+func _build_save_slot_page() -> void:
+	var page := _settings_page()
+	_save_slot_root = page
+	var v := _settings_column(page, _slot_prompt)
+	for i in SAVE_SLOTS:
+		var row := _slot_plate(i + 1)
+		_slot_rows.append(row)
+		v.add_child(row["box"])
+		if i == 0:
+			_first_save_slot = row["pick"]
+	_fill_page(page, "save_slots")
+	_refresh_slots()
+
+## One slot, for a thumb: a plate that says which slot it is and when it was
+## last saved, the whole of it the thing to press, and the can on a plate of its
+## own at the end, as wide as it is tall. The stamp rides on the plate rather
+## than beside it, so a thumb on the date opens the slot like one on the name.
+func _slot_plate(n: int) -> Dictionary:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 8)
+	var pick := UiKit.button(Loc.t("menu.save_slots.slot", [n]), UiKit.ACCENT, true)
+	pick.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pick.pressed.connect(func() -> void:
+		save_slot = n
+		GameState.load_slot(n)
+		start_requested.emit())
+	h.add_child(pick)
+	var stamp := UiKit.label("", UiKit.THUMB_TEXT, UiKit.DIM, true)
+	stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stamp.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	stamp.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	stamp.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	stamp.offset_right = -20.0
+	pick.add_child(stamp)
+	# No word on it: the can is drawn on the plate, at twice the size the
+	# column's is, in the row's ink.
+	var bin := UiKit.button("", UiKit.BAD, true)
+	bin.custom_minimum_size = Vector2(UiKit.THUMB + 16.0, UiKit.THUMB)
+	bin.pressed.connect(_bin_pressed.bind(n))
+	bin.draw.connect(func() -> void:
+		var col := WARN_INK if _armed_slot == n \
+			else (Color.WHITE if bin.has_focus() or bin.is_hovered() else UiKit.DIM)
+		_paint_bin(bin, (bin.size * 0.5).floor(), col, BIN_UNIT * 2.0))
+	h.add_child(bin)
+	return {"n": n, "pick": pick, "stamp": stamp, "bin": bin, "box": h, "thumb": true}
 
 ## One slot: its name on the left, when it was last saved on the right, and a
 ## trashcan past that. A row rather than a single button because the can has to
@@ -695,6 +759,12 @@ func _refresh_slots() -> void:
 		var line := _slot_stamp(n)
 		var stamp: Label = row["stamp"]
 		stamp.text = line
+		if bool(row.get("thumb", false)):
+			# A plate: the kit's ink, the kit's size, and its can drawn again.
+			stamp.add_theme_font_size_override("font_size", Loc.text_size(line, UiKit.THUMB_TEXT))
+			stamp.add_theme_color_override("font_color", WARN_INK if _armed_slot == n else UiKit.DIM)
+			(row["bin"] as Button).queue_redraw()
+			continue
 		stamp.add_theme_font_size_override("font_size", Loc.text_size(line, 14))
 		stamp.add_theme_color_override("font_color", WARN_INK if _armed_slot == n
 			else Color(CREAM.r, CREAM.g, CREAM.b, 0.55))
@@ -845,7 +915,7 @@ func _settings_page() -> UiKit.ScreenFrame:
 ## The column a page's rows go in, under a heading and a rule pinned above it.
 ## What the caller then puts in the page's `foot` is pinned under it.
 func _settings_column(page: UiKit.ScreenFrame, heading: String) -> VBoxContainer:
-	page.head.add_child(UiKit.label(heading, 24, UiKit.ACCENT, true))
+	page.head.add_child(UiKit.label(heading, UiKit.text(24), UiKit.ACCENT, true))
 	page.head.add_child(UiKit.hline(true))
 	return page.rows
 
@@ -854,6 +924,11 @@ func _settings_column(page: UiKit.ScreenFrame, heading: String) -> VBoxContainer
 ## and whichever settings page was up is put back open, because that is where
 ## the switch was just pressed.
 func _relanguage(_lang: String) -> void:
+	_rebuild()
+
+## Every menu and page on this screen, built again as the language and the mode
+## now have them, with whichever was up put back up.
+func _rebuild() -> void:
 	var was_settings: bool = _settings != null and _settings.visible
 	var was_general: bool = _general != null and _general.visible
 	var was_controls: bool = _controls != null and _controls.visible
@@ -940,9 +1015,9 @@ func _process(delta: float) -> void:
 	_fit_stage()
 	_t += delta
 	# Asked every frame, as the console asks it: nothing announces mobile mode
-	# being thrown, and the switch that throws it is on a page over this menu.
+	# being thrown, and the switch that throws it is on a page of this screen.
 	if _menu_root != null and Touch.wanted() != _mobile:
-		_rebuild_menu()
+		_remode()
 	if _armed_slot >= 0:
 		_armed_left -= delta
 		if _armed_left <= 0.0:
@@ -1276,7 +1351,8 @@ func _draw_mark(mark: Array, top_middle: Vector2, col: Color) -> void:
 ## The heading over the save slots. Drawn rather than laid out, so the column
 ## below it keeps the exact spacing the main menu has.
 func _draw_save_slot_prompt() -> void:
-	if _save_slot_root == null or not _save_slot_root.visible:
+	# Mobile mode's page carries its own heading, and its own cans.
+	if _save_slot_root == null or not _save_slot_root.visible or _mobile:
 		return
 	var line := _slot_prompt
 	var size := Loc.text_size(line, 16)
@@ -1291,7 +1367,7 @@ func _draw_save_slot_prompt() -> void:
 const BIN_UNIT := 2.0
 
 func _draw_slot_bins() -> void:
-	if _save_slot_root == null or not _save_slot_root.visible:
+	if _save_slot_root == null or not _save_slot_root.visible or _mobile:
 		return
 	var focused := get_viewport().gui_get_focus_owner()
 	for row in _slot_rows:
@@ -1306,17 +1382,21 @@ func _draw_slot_bins() -> void:
 		_draw_bin(r.get_center().floor(), col)
 
 func _draw_bin(at: Vector2, col: Color) -> void:
-	var u := BIN_UNIT
+	_paint_bin(self, at, col, BIN_UNIT)
+
+## The can, drawn on `cv` with its middle at `at`, a block of it `u` across:
+## this screen's own canvas for the column's, and the plate's for mobile mode's.
+static func _paint_bin(cv: CanvasItem, at: Vector2, col: Color, u: float) -> void:
 	# The handle, and the lid across the top of it.
-	draw_rect(Rect2(at + Vector2(-2, -7) * u, Vector2(4, 1) * u), col)
-	draw_rect(Rect2(at + Vector2(-5, -6) * u, Vector2(10, 1) * u), col)
+	cv.draw_rect(Rect2(at + Vector2(-2, -7) * u, Vector2(4, 1) * u), col)
+	cv.draw_rect(Rect2(at + Vector2(-5, -6) * u, Vector2(10, 1) * u), col)
 	# Two walls and a base rather than a filled block, so it reads as a can.
-	draw_rect(Rect2(at + Vector2(-4, -4) * u, Vector2(1, 9) * u), col)
-	draw_rect(Rect2(at + Vector2(3, -4) * u, Vector2(1, 9) * u), col)
-	draw_rect(Rect2(at + Vector2(-4, 5) * u, Vector2(8, 1) * u), col)
+	cv.draw_rect(Rect2(at + Vector2(-4, -4) * u, Vector2(1, 9) * u), col)
+	cv.draw_rect(Rect2(at + Vector2(3, -4) * u, Vector2(1, 9) * u), col)
+	cv.draw_rect(Rect2(at + Vector2(-4, 5) * u, Vector2(8, 1) * u), col)
 	# And the two slots down its face.
-	draw_rect(Rect2(at + Vector2(-2, -3) * u, Vector2(1, 7) * u), col)
-	draw_rect(Rect2(at + Vector2(1, -3) * u, Vector2(1, 7) * u), col)
+	cv.draw_rect(Rect2(at + Vector2(-2, -3) * u, Vector2(1, 7) * u), col)
+	cv.draw_rect(Rect2(at + Vector2(1, -3) * u, Vector2(1, 7) * u), col)
 
 ## Scanlines and a vignette, to sit the whole thing behind glass.
 func _draw_glass() -> void:

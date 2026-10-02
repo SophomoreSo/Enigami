@@ -5,14 +5,15 @@ extends RefCounted
 ##
 ## A pulse starts at the board's root — the weapon's own part, which is the
 ## first thing it enters — carrying a base payload, spends one tick inside each
-## cell of every component it enters, and mutates the payload on entry.
-## Reaching an OUTPUT turns the payload into a real effect. The root only
+## cell of every component it enters, and mutates the payload on entry. It goes
+## from a part into the part beside it (`SkillBoard.follow`), and leaving the
+## board by its way out turns the payload into a real effect. The root only
 ## restarts once every pulse of the previous cycle has resolved, so board length
 ## *is* the cooldown.
 ##
 ## Board length is the cooldown, though — not the cast time. The walk from the
-## root to the first OUTPUT is spent the moment a cycle starts and charged back
-## onto the cooldown at the end, so the attack lands on the press and the
+## root to the first flow out is spent the moment a cycle starts and charged
+## back onto the cooldown at the end, so the attack lands on the press and the
 ## cadence is unchanged. See `_spend_lead`.
 
 signal fired(payload: Payload)
@@ -31,7 +32,11 @@ signal cycle_started()
 ## exactly what it did, which makes stacking overclocks a worse trade than it
 ## was.
 const BASE_TICK := 0.005
-const BASE_COOLDOWN_TICKS := 3
+## What every cast waits before the next, whatever its board. One of the four
+## is the tick a flow used to spend inside an OUTPUT, back when the way out was
+## a part: taking the part away was not meant to make every weapon and every
+## monster a tick quicker, so the tick is kept here.
+const BASE_COOLDOWN_TICKS := 4
 const HEAT_TO_TICKS := 2.2
 ## Ticks one `update` may run. It stops a long frame turning into an unbounded
 ## catch-up; the ceiling is taken from the frame rather than fixed because a
@@ -50,7 +55,7 @@ const MAX_TICKS_PER_UPDATE := 64
 ## what it always did — one pass, and never truncated for being long.
 ##
 ## CHARGE adds to that life. It never adds a pass and never adds a loop: a board
-## with no cycle in it walks to its OUTPUT and stops there whatever life it was
+## with no cycle in it walks to its way out and stops there whatever life it was
 ## given, so it fires once charged exactly as it fires once uncharged. What the
 ## life is for is a cycle the player built — that is what has somewhere to spend
 ## it, and it spends it going round again.
@@ -132,7 +137,7 @@ var _cycle_life: int = 0
 var _elapsed: float = 0.0
 var _lead: int = 0
 var _had_effect: bool = false
-var _reaches_output: bool = false
+var _gets_out: bool = false
 
 func _init(b: SkillBoard) -> void:
 	board = b
@@ -141,7 +146,7 @@ func _init(b: SkillBoard) -> void:
 func refresh() -> void:
 	_analysis = board.analyze()
 	var t := board.trace()
-	_reaches_output = bool(t.get("reaches_output", false))
+	_gets_out = bool(t.get("gets_out", false))
 	# One pass costs one entry per part the flow can actually get to. Taking it
 	# from the board rather than from a constant is what lets the base cast be
 	# exactly one pass on a four-part board and on a thirty-part one alike, so
@@ -352,13 +357,13 @@ func _arm_triggers(life: int) -> void:
 ## first effect still plays out in real time — DELAY goes on staggering
 ## branches and triggers against each other exactly as before.
 ##
-## A board that never reaches an OUTPUT has no cast to bring forward, and
-## running it dry here would collapse a whole circulating cycle into one frame,
-## so it is left to tick in real time.
+## A board no flow gets out of has no cast to bring forward, and running it
+## dry here would collapse a whole circulating cycle into one frame, so it is
+## left to tick in real time.
 func _spend_lead() -> void:
 	_lead = 0
 	_had_effect = false
-	if dry_run or not _reaches_output:
+	if dry_run or not _gets_out:
 		return
 	# The walk ends at the first effect, or — on a board that never produces one
 	# — when the cast's life does.
@@ -391,31 +396,35 @@ func _exit(p: Pulse) -> Array[Pulse]:
 		bp.branch = id
 		bp.form = ""
 		bp.duplicates = 1
-		_try_enter(ex + Components.dir_to_vec(pay_dir), pay_dir, bp, result, p.ttl)
+		_send(ex, pay_dir, bp, result, p.ttl)
 
 	var outs := Components.world_outputs(id, rot)
 	for d in outs:
-		_try_enter(ex + Components.dir_to_vec(d), d, p.payload.clone(), result, p.ttl)
+		_send(ex, d, p.payload.clone(), result, p.ttl)
 	return result
 
-func _try_enter(cell: Vector2i, from_dir: int, payload: Payload,
-		result: Array[Pulse], ttl: int) -> void:
+## A flow sent out of `from` heading `dir`, to wherever the board says it goes
+## (`SkillBoard.follow`): out of the board, which is the attack; into the part
+## beside it, as a pulse; or nowhere — into an empty cell, off some other edge,
+## or onto a part that will not take it — where it simply stops.
+##
+## Going out costs no life. Life is counted in parts entered, and the way out
+## is not one: a pulse that has spent its last on the part it is leaving still
+## gets out of the board, which is what lets one full pass be worth exactly the
+## parts on it.
+func _send(from: Vector2i, dir: int, payload: Payload, result: Array[Pulse], ttl: int) -> void:
+	var port := board.follow(from, dir)
+	if String(port["why"]) != "":
+		return
+	if not port.has("to"):
+		_resolve(payload)
+		return
 	if ttl <= 0:
 		expired = true
 		return  # out of life; a ring winds down here
-	if not board.in_bounds(cell):
-		return
-	var target: Dictionary = board.comp_origin_at(cell)
-	if target.is_empty():
-		return  # a flow that leaks into empty space simply stops
-	var tid: String = target["id"]
-	var trot: int = target["rot"]
-	if not Components.world_inputs(tid, trot).has(Components.opposite(from_dir)):
-		return
+	var tid := String(port["id"])
 	_apply(tid, payload)
-	if tid == "OUTPUT":
-		_resolve(payload)
-	result.append(Pulse.new(cell, Components.tick_cost(tid), payload, ttl - 1))
+	result.append(Pulse.new(port["to"], Components.tick_cost(tid), payload, ttl - 1))
 
 ## Mutate the payload as it enters a component: its heat, then each of its
 ## effects in turn — the part's rows of `effects`, which `Components` has held
@@ -446,7 +455,7 @@ func _apply(id: String, p: Payload) -> void:
 				_had_effect = true
 				parry_opened.emit(float(e["value"]))
 
-## A branch reaching an OUTPUT defines a follow-up attack rather than firing
+## A branch leaving the board defines a follow-up attack rather than firing
 ## one. A loop can bring the same branch round several times in a single cycle,
 ## and each pass is its own attack: they are chained head to tail so they land
 ## one after another, which is how the board reads. Overwriting instead — which

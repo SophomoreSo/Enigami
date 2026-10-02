@@ -17,6 +17,12 @@ extends Control
 ## It knows nothing about boards or parts. It collects characters, shows what
 ## `BoardCode` makes of them, and hands them up to the editor, which owns the
 ## board and the bag the parts come out of.
+##
+## In mobile mode (`UiKit.mobile`) its buttons are a thumb's: THUMB_BTN tall,
+## their words at a thumb's size. The codes are left at the size they are — a
+## code is a line forty characters long, and is copied and pasted there rather
+## than read — and the line about keys is left off, there being none: a code
+## comes in by PASTE.
 
 signal build_requested(code: String)
 signal closed()
@@ -57,6 +63,8 @@ const BTN_H := 30.0
 ## A row's baseline, from its top: capitals stand 10 tall, so this centres them.
 const BTN_TEXT_Y := 20.0
 const BTN_GAP := 10.0
+## A button for a thumb, in mobile mode: the assembly screen's own plates' height.
+const THUMB_BTN := 64.0
 
 const BG := Color(0.07, 0.08, 0.11, 0.97)
 const EDGE := Color(0.35, 0.55, 0.75, 0.85)
@@ -70,6 +78,21 @@ var _note: String = ""
 var _note_col: Color = UiKit.DIM
 var _caret: float = 0.0
 var _px := PixelDraw.new(self)
+
+## Whether the sheet is laid out for a thumb: mobile mode.
+func thumb() -> bool:
+	return UiKit.mobile()
+
+## A button's height, the size its word is written at, and that word's baseline
+## from the button's top — a desk's, or a thumb's.
+func _btn_h() -> float:
+	return THUMB_BTN if thumb() else BTN_H
+
+func _btn_size(label: String) -> int:
+	return Loc.text_size(label, UiKit.THUMB_TEXT) if thumb() else PixelDraw.SIZE
+
+func _btn_text_y() -> float:
+	return (THUMB_BTN + 20.0) * 0.5 if thumb() else BTN_TEXT_Y
 
 func _ready() -> void:
 	UiKit.fill_screen(self)
@@ -206,32 +229,35 @@ func _layout() -> Dictionary:
 	var w := box_w + PAD * 2.0
 	var code_h := CODE_LINES * LINE + BOX_PAD * 2.0
 	var entry_h := ENTRY_LINES * LINE + BOX_PAD * 2.0
-	var h := PAD + BTN_H + GAP + LINE + code_h + GAP_SMALL + BTN_H + GAP \
-		+ LINE + entry_h + GAP_SMALL + BTN_H + GAP + NOTE_LINES * LINE + GAP_SMALL + LINE + PAD
+	var btn := _btn_h()
+	# The last line is about keys, and is not on a thumb's sheet.
+	var keys := 0.0 if thumb() else GAP_SMALL + LINE
+	var h := PAD + btn + GAP + LINE + code_h + GAP_SMALL + btn + GAP \
+		+ LINE + entry_h + GAP_SMALL + btn + GAP + NOTE_LINES * LINE + keys + PAD
 	var vp := get_viewport_rect().size
 	var at := _px.snap(Vector2(maxf((vp.x - w) * 0.5, 0.0), maxf((vp.y - h) * 0.5, 0.0)))
 
 	var l := {"panel": Rect2(at, Vector2(w, h))}
 	var x := at.x + PAD
 	var y := at.y + PAD
-	l["title"] = Vector2(x, y + BTN_TEXT_Y)
+	l["title"] = Vector2(x, y + _btn_text_y())
 	var close_w := _button_width(Loc.t("editor.share.close"))
-	l["close"] = Rect2(at.x + w - PAD - close_w, y, close_w, BTN_H)
-	y += BTN_H + GAP
+	l["close"] = Rect2(at.x + w - PAD - close_w, y, close_w, btn)
+	y += btn + GAP
 	l["code_label"] = Vector2(x, y + 14.0)
 	y += LINE
 	l["code_box"] = Rect2(x, y, box_w, code_h)
 	y += code_h + GAP_SMALL
-	l["copy"] = Rect2(x, y, _button_width(Loc.t("editor.share.copy")), BTN_H)
-	l["copy_note"] = Vector2((l["copy"] as Rect2).end.x + BTN_GAP, y + BTN_TEXT_Y)
-	y += BTN_H + GAP
+	l["copy"] = Rect2(x, y, _button_width(Loc.t("editor.share.copy")), btn)
+	l["copy_note"] = Vector2((l["copy"] as Rect2).end.x + BTN_GAP, y + (btn + 10.0) * 0.5)
+	y += btn + GAP
 	l["entry_label"] = Vector2(x, y + 14.0)
 	y += LINE
 	l["entry_box"] = Rect2(x, y, box_w, entry_h)
 	y += entry_h + GAP_SMALL
-	l["paste"] = Rect2(x, y, _button_width(Loc.t("editor.share.paste")), BTN_H)
-	l["build"] = Rect2((l["paste"] as Rect2).end.x + BTN_GAP, y, _button_width(Loc.t("editor.share.build")), BTN_H)
-	y += BTN_H + GAP
+	l["paste"] = Rect2(x, y, _button_width(Loc.t("editor.share.paste")), btn)
+	l["build"] = Rect2((l["paste"] as Rect2).end.x + BTN_GAP, y, _button_width(Loc.t("editor.share.build")), btn)
+	y += btn + GAP
 	l["note"] = Vector2(x, y + 14.0)
 	# A gap before the controls line, or a note that wraps to its second line
 	# runs straight on into it and the two read as one paragraph.
@@ -253,7 +279,8 @@ func _box_width() -> float:
 	return ceilf((w + BOX_PAD * 2.0) / PX) * PX
 
 func _button_width(label: String) -> float:
-	return ceilf((PixelDraw.ink_width(label) + 28.0) / PX) * PX
+	var size := _btn_size(label)
+	return ceilf((PixelDraw.ink_width(label, size) + (48.0 if thumb() else 28.0)) / PX) * PX
 
 ## --- drawing ----------------------------------------------------------------
 func _draw() -> void:
@@ -266,7 +293,8 @@ func _draw() -> void:
 	_px.rect(panel, BG)
 	_px.frame(panel, EDGE)
 
-	_px.text(l["title"], Loc.t("editor.share.heading"), Color(0.85, 0.92, 1.0))
+	var heading := Loc.t("editor.share.heading")
+	_px.text(l["title"], heading, Color(0.85, 0.92, 1.0), -1.0, _btn_size(heading))
 	_draw_button(l["close"], Loc.t("editor.share.close"), Color(1.0, 0.6, 0.6), _hover == "close", true)
 
 	var width: float = l["text_width"]
@@ -300,14 +328,15 @@ func _draw() -> void:
 	var rows := PixelDraw.wrap(says, width, NOTE_LINES)
 	for i in rows.size():
 		_px.text(note_at + Vector2(0, i * LINE), rows[i], col)
-	_px.text(l["hint"], Loc.t("editor.share.hint"), Color(0.5, 0.58, 0.68), width)
+	if not thumb():
+		_px.text(l["hint"], Loc.t("editor.share.hint"), Color(0.5, 0.58, 0.68), width)
 
 ## What the sheet says about the code so far, with no action behind it: a code
 ## still being typed is not a mistake, so nothing is called wrong until it is
 ## the length of a whole one.
 func _live_note() -> String:
 	if entry.is_empty():
-		return Loc.t("editor.share.prompt")
+		return Loc.t("editor.share.prompt_touch" if thumb() else "editor.share.prompt")
 	if entry.length() < BoardCode.WORD_CHARS + 1 or entry.length() % BoardCode.WORD_CHARS != 1:
 		return Loc.t("editor.share.typing", [entry.length()])
 	var read := BoardCode.decode(entry)
@@ -329,9 +358,13 @@ func _draw_button(r: Rect2, label: String, accent: Color, hot: bool, on: bool) -
 	var edge := accent if on else Color(0.32, 0.34, 0.38)
 	_px.rect(r, Color(accent.r, accent.g, accent.b, 0.3) if (hot and on) else Color(0.11, 0.13, 0.17))
 	_px.frame(r, Color(1, 1, 1, 0.75) if (hot and on) else edge)
+	# A thumb's plate has the edge the assembly screen's do: two PIXELs of it.
+	if thumb():
+		_px.frame(r.grow(-PX), Color(1, 1, 1, 0.75) if (hot and on) else edge)
 	var ink := Color(0.95, 0.98, 1.0) if on else Color(0.45, 0.48, 0.52)
-	_px.text(r.position + Vector2((r.size.x - PixelDraw.ink_width(label)) * 0.5, BTN_TEXT_Y),
-		label, ink)
+	var size := _btn_size(label)
+	_px.text(r.position + Vector2((r.size.x - PixelDraw.ink_width(label, size)) * 0.5, _btn_text_y()),
+		label, ink, -1.0, size)
 
 ## A code broken into lines of CHARS_PER_LINE. One too long for its box keeps
 ## the end when a caret is sitting in it and the start when one is not, and the

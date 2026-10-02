@@ -115,17 +115,17 @@ func _ready() -> void:
 	check(int(def.get("cells", 0)) == 1 and float(def.get("heat", 0.0)) > 0.0,
 		"one cell, and it carries heat (%.2f)" % float(def.get("heat", 0.0)))
 	check("ZAP" in Components.loot_pool(), "it drops, forges and shows in the palette")
-	# On the gun's graph, after the gun's own bolt: the last form on a flow is
-	# the form it fires as.
+	# On the gun's graph, after the gun's own bolt — moved back a cell to make
+	# room in front of the way out: the last form on a flow is the form it fires
+	# as.
 	var b := Weapons.make_board("GUN")
-	b.erase_at(Vector2i(1, 2))
-	b.place("ZAP", Vector2i(1, 2), 0)
-	b.place("OUTPUT", Vector2i(2, 2), 0)
+	b.move_root(b.root - Vector2i(1, 0), 0)
+	b.place("ZAP", b.way_out(), 0)
 	var r := SkillRunner.new(b)
 	r.base_payload_provider = func() -> Payload: return Weapons.base_payload("GUN")
 	var outs: Array = r.simulate()["outputs"]
 	check(outs.size() == 1 and (outs[0] as Payload).form == "ZAP",
-		"built on after the gun's bolt, a flow comes out of the OUTPUT as a beam")
+		"built on after the gun's bolt, a flow leaves the board as a beam")
 	var gun := Weapons.finalize("GUN", (outs[0] as Payload).clone())
 	var sword := Weapons.finalize("SWORD", (outs[0] as Payload).clone())
 	check(is_equal_approx(gun.damage, float(Weapons.DEFS["GUN"]["base_damage"]) * float(Weapons.DEFS["GUN"]["ranged_mul"]))

@@ -62,9 +62,7 @@ func _same_floor() -> void:
 func _rules() -> void:
 	# Something built onto the sword, so the drop has a graph worth having.
 	var sword := GameState.weapon_board("SWORD")
-	sword.erase_at(Vector2i(2, 2))
 	sword.place("FIRE", Vector2i(2, 2), 0)
-	sword.place("OUTPUT", Vector2i(3, 2), 0)
 	GameState.deploy("SWORD")
 	GameState.add_component("FIRE", 2, GameState.raid_bag)
 	GameState.raid_scrap = 17
@@ -130,14 +128,10 @@ func _rules() -> void:
 	# instead: the rock is never lost, and what fell with it is not allowed to
 	# wipe what was built onto it meanwhile.
 	GameState.deploy("ROCK")
-	GameState.raid_board.erase_at(Vector2i(1, 2))
 	GameState.raid_board.place("PIERCE", Vector2i(1, 2), 0)
-	GameState.raid_board.place("OUTPUT", Vector2i(2, 2), 0)
 	GameState.die({"room": [2, 3], "pos": [640.0, 320.0]})
 	var rock := GameState.weapon_board("ROCK")
-	rock.erase_at(Vector2i(1, 2))
 	rock.place("DAMAGE", Vector2i(1, 2), 0)
-	rock.place("OUTPUT", Vector2i(2, 2), 0)
 	GameState.deploy("SWORD")
 	GameState.recover_lost_kit()
 	var pierce_before := int(GameState.stash.get("PIERCE", 0))

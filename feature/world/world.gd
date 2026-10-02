@@ -18,3 +18,9 @@ var editing: bool = false
 
 func use_nearby() -> bool:
 	return false
+
+## Whether a panel of the world's own is up over it with the whole screen to
+## itself and its own way out on it — a station's, in the hideout. The shell
+## asks, to clear the console's keys from under one.
+func paneled() -> bool:
+	return false

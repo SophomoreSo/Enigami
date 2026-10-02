@@ -234,6 +234,13 @@ func press() -> void:
 	_wait_left = 0.0
 	_next_beat()
 
+## A press of `hurry`: the typing finishes if it is still running, and nothing
+## else happens. The beat moves on only for `press`, so a scene can be hurried
+## as often as a reader likes without a line going by unread.
+func hurry() -> void:
+	if not done and line() != "" and not line_finished():
+		revealed = float(line().length())
+
 ## Out of the whole scene, however far through it is.
 func skip() -> void:
 	if done:
@@ -256,6 +263,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_accept") or event.is_action_pressed("interact"):
 		press()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("hurry"):
+		hurry()
 		get_viewport().set_input_as_handled()
 
 ## --- what the picture reads -------------------------------------------------

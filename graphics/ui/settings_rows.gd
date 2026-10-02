@@ -20,13 +20,12 @@ static func rows() -> Array:
 		language_row(),
 	]
 
-## A label and a slider from 0 to 1, in the pixel look.
+## A label and a slider from 0 to 1, in the pixel look — and at a thumb's size
+## in mobile mode, where the slider takes the rest of the row (`UiKit.pixel_slider`).
 static func slider(name: String, value: float, cb: Callable) -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
-	var l := UiKit.label(name, 16, UiKit.TEXT, true)
-	l.custom_minimum_size = Vector2(UiKit.SETTING_LABEL_W, 0)
-	h.add_child(l)
+	h.add_child(UiKit.setting_label(name))
 	var s := HSlider.new()
 	s.min_value = 0.0
 	s.max_value = 1.0
@@ -46,13 +45,14 @@ static func slider(name: String, value: float, cb: Callable) -> Control:
 static func language_row() -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
-	var l := UiKit.label(Loc.t("menu.settings.language"), 16, UiKit.TEXT, true)
-	l.custom_minimum_size = Vector2(UiKit.SETTING_LABEL_W, 0)
-	h.add_child(l)
+	h.add_child(UiKit.setting_label(Loc.t("menu.settings.language")))
 	for lang in Loc.languages():
 		var picked: bool = lang == Loc.language
 		var b := UiKit.button(Loc.language_name(lang),
 			UiKit.ACCENT if picked else UiKit.DIM, true)
+		# As a `ChoiceRow`'s answers do: in mobile mode they share the row.
+		if UiKit.mobile():
+			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		if picked:
 			UiKit.mark_chosen(b)
 		b.pressed.connect(func() -> void:

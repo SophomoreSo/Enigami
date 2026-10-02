@@ -1,5 +1,11 @@
 extends Node
-## The editor must be able to say exactly where a board breaks.
+## The editor must be able to say exactly where a board breaks: what the flow
+## reaches, where it gets out of the board, and where it is lost.
+##
+## A flow goes from a part into the part beside it and no further, and the one
+## place it becomes an attack is the way out: the middle of the board's right
+## edge. There is no OUTPUT part — see `SkillBoard.follow`. And the root, where
+## the flow starts, is moved and turned like any part, but never taken off.
 var fails := 0
 
 func check(ok: bool, what: String) -> void:
@@ -13,19 +19,78 @@ func _ready() -> void:
 	# A flow entering a part from the side it does not point at is fine now:
 	# the arrow says where flow leaves, nothing says where it may come from.
 	var b := SkillBoard.new(7, 5, "sideways")
-	b.set_root("DELAY")
-	b.place("OVERCLOCK", Vector2i(1, 2), 1)      # entered from the west, leaves south
-	b.place("OVERCLOCK", Vector2i(1, 3), 2)      # entered from the north, leaves west
-	b.place("OVERCLOCK", Vector2i(0, 3), 1)      # entered from the east, leaves south
-	b.place("SLASH", Vector2i(0, 4), 0)
-	b.place("OUTPUT", Vector2i(1, 4), 0)
+	b.set_root("DELAY", Vector2i(3, 2), 1)       # south
+	b.place("OVERCLOCK", Vector2i(3, 3), 0)      # entered from the north, leaves east
+	b.place("OVERCLOCK", Vector2i(4, 3), 3)      # entered from the west, leaves north
+	b.place("OVERCLOCK", Vector2i(4, 2), 0)      # entered from the south, leaves east
+	b.place("SLASH", Vector2i(5, 2), 0)
+	b.place("DELAY", Vector2i(6, 2), 0)          # against the way out
 	var t := b.trace()
 	check((t["breaks"] as Array).is_empty(), "turning a corner through any part is a valid join")
-	check(t["reachable"].size() == 6, "the whole snaking chain is live")
-	check(bool(t["reaches_output"]), "and it reaches the OUTPUT")
+	check(t["reachable"].size() == 6, "the whole snaking chain is live (%d)" % t["reachable"].size())
+	check((t["leaks"] as Array).is_empty(), "and none of it runs out anywhere")
+	check(bool(t["gets_out"]) and (t["outs"] as Array).size() == 1,
+		"it gets out, by the one way there is")
 	var sim := SkillRunner.new(b)
 	sim.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
 	check((sim.simulate()["outputs"] as Array).size() == 1, "it produces an attack")
+
+	# --- the way out ----------------------------------------------------------
+	# The middle of the right edge, on every grid a Workbench grows — of an even
+	# number of rows, the upper of the two in the middle.
+	var outs_at := {}
+	for size in [Vector2i(7, 5), Vector2i(8, 6), Vector2i(9, 7), Vector2i(10, 8), Vector2i(11, 9)]:
+		outs_at[size] = SkillBoard.new(size.x, size.y).way_out()
+	check(outs_at[Vector2i(7, 5)] == Vector2i(6, 2) and outs_at[Vector2i(8, 6)] == Vector2i(7, 2)
+			and outs_at[Vector2i(9, 7)] == Vector2i(8, 3) and outs_at[Vector2i(10, 8)] == Vector2i(9, 3)
+			and outs_at[Vector2i(11, 9)] == Vector2i(10, 4),
+		"the way out is the middle of the right edge (%s)" % str(outs_at))
+	# A root standing against it fires on its own, which is how a weapon nobody
+	# has built on fires.
+	var bare := SkillBoard.new(7, 5, "bare")
+	bare.set_root("SLASH", Vector2i(6, 2))
+	var tb0 := bare.trace()
+	check(bool(tb0["gets_out"]) and (tb0["leaks"] as Array).is_empty() and (tb0["breaks"] as Array).is_empty(),
+		"a root against the way out gets out")
+	var bare_run := SkillRunner.new(bare)
+	bare_run.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
+	var bare_sim := bare_run.simulate()
+	check((bare_sim["outputs"] as Array).size() == 1 and not bool(bare_sim["expired"]),
+		"and is an attack: going out costs no life, so the root's one pass is enough")
+	# Anywhere else, an empty cell carries nothing: the flow goes into the cell
+	# beside it and stops there.
+	var far := SkillBoard.new(7, 5, "far")
+	far.set_root("SLASH")
+	var tf := far.trace()
+	var lk0: Dictionary = (tf["leaks"] as Array)[0] if not (tf["leaks"] as Array).is_empty() else {}
+	check(not bool(tf["gets_out"]) and (tf["leaks"] as Array).size() == 1
+			and lk0.get("from") == SkillBoard.ROOT and int(lk0.get("dir", -1)) == Components.E
+			and String(lk0.get("why", "")) == "empty",
+		"a root across the board from it leaks into the empty cell beside it (%s)" % str(lk0))
+	var far_run := SkillRunner.new(far)
+	far_run.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
+	check((far_run.simulate()["outputs"] as Array).is_empty(), "and fires nothing")
+	# A chain one cell short is a leak at its end; the last part makes it whole.
+	for x in range(1, 6):
+		far.place("DELAY", Vector2i(x, 2), 0)
+	var short_of := far.trace()
+	check(not bool(short_of["gets_out"]) and (short_of["leaks"] as Array).size() == 1
+			and (short_of["leaks"] as Array)[0].get("from") == Vector2i(5, 2),
+		"a chain that stops a cell short leaks there")
+	far.place("DELAY", Vector2i(6, 2), 0)
+	check(bool(far.trace()["gets_out"]) and (far.trace()["leaks"] as Array).is_empty(),
+		"and reaches the way out once the cell is filled")
+	# Any other edge is not a way out — another row's end of the right edge
+	# included — and a flow off one is a leak.
+	var above := SkillBoard.new(7, 5, "above")
+	above.set_root("SLASH", Vector2i(6, 1))
+	var ta := above.trace()
+	var lk1: Dictionary = (ta["leaks"] as Array)[0] if not (ta["leaks"] as Array).is_empty() else {}
+	check(not bool(ta["gets_out"]) and String(lk1.get("why", "")) == "edge",
+		"a flow off the right edge a row from the middle runs off the board (%s)" % str(lk1))
+	var down := SkillBoard.new(7, 5, "down")
+	down.set_root("SLASH", Vector2i(6, 2), 1)    # against the way out, but turned south
+	check(not bool(down.trace()["gets_out"]), "and one turned away from the way out does not get out by it")
 
 	# Two outputs pointed at each other is the one join that cannot carry flow.
 	var h := SkillBoard.new(7, 5, "headon")
@@ -93,15 +158,12 @@ func _ready() -> void:
 	# with the root stuck behind it, and the board fired once where the preview
 	# said four.
 	var lp := SkillBoard.new(7, 5, "loop")
-	lp.set_root("DELAY", Vector2i(0, 1), 0)
-	lp.place("DELAY", Vector2i(1, 1), 3)
-	lp.place("DELAY", Vector2i(1, 0), 0)
-	lp.place("DELAY", Vector2i(2, 0), 0)
-	lp.place("DELAY", Vector2i(3, 0), 1)
-	lp.place("DELAY", Vector2i(3, 1), 2)
-	lp.place("TEE", Vector2i(2, 1), 1)      # round the ring, and out to the attack
-	lp.place("SLASH", Vector2i(2, 2), 0)
-	lp.place("OUTPUT", Vector2i(3, 2), 0)
+	lp.set_root("DELAY", Vector2i(3, 2))
+	lp.place("DELAY", Vector2i(4, 2), 0)
+	lp.place("TEE", Vector2i(5, 2), 0)      # on to the attack, and round the ring
+	lp.place("SLASH", Vector2i(6, 2), 0)    # east, and out
+	lp.place("DELAY", Vector2i(5, 3), 2)
+	lp.place("DELAY", Vector2i(4, 3), 3)    # north, back into the first DELAY
 	var lr := SkillRunner.new(lp)
 	lr.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
 	# An uncharged cast is worth one pass, so the laps this is checking are
@@ -134,28 +196,28 @@ func _ready() -> void:
 	# --- loops the flow can never leave ----------------------------------------
 	# The board from the report: a trigger feeding a four-part ring that never
 	# hands the flow back. Every part of the ring is dead code; nothing outside
-	# it is — the root is doing its job, and the stranded OUTPUT is unreached
-	# rather than caught.
+	# it is — the root is doing its job, and the SLASH stranded past it is
+	# unreached rather than caught.
 	var dl := SkillBoard.new(7, 5, "deadloop")
 	dl.set_root("DELAY")
 	dl.place("DUPLICATE", Vector2i(1, 2), 3)     # in from the west, out north
 	dl.place("FIRE", Vector2i(1, 1), 0)          # east
 	dl.place("DAMAGE", Vector2i(2, 1), 1)        # south
 	dl.place("FIRE", Vector2i(2, 2), 2)          # west, closing the ring
-	dl.place("OUTPUT", Vector2i(3, 2), 0)
+	dl.place("SLASH", Vector2i(3, 2), 0)
 	var td := dl.trace()
 	var caught: Dictionary = td["dead"]
 	check(caught.size() == 4, "every part of a ring with no way out is dead code (%d)"
 		% caught.size())
 	check(not caught.has(Vector2i(0, 2)) and not caught.has(Vector2i(3, 2)),
-		"and neither the root feeding it nor the OUTPUT it never reaches is")
+		"and neither the root feeding it nor the part it never reaches is")
 	check((td["dead_links"] as Array).size() == 4,
 		"the ring's own seams come back with it, so one silhouette can go round it")
 	var trapped := false
 	for origin in td["reachable"]:
 		if caught.has(origin):
 			trapped = true
-	check(trapped and not bool(td["reaches_output"]),
+	check(trapped and not bool(td["gets_out"]),
 		"and the flow runs into the trap, so nothing comes out")
 
 	# The same ring with nothing feeding it: a trap is a trap before anything
@@ -175,9 +237,31 @@ func _ready() -> void:
 	check((lp.trace()["dead"] as Dictionary).is_empty(),
 		"a ring with a branch out of it is not dead code")
 	check((b.trace()["dead"] as Dictionary).is_empty(), "and neither is a plain chain")
+	# Nor is a ring one of whose own parts sends its flow out of the board, with
+	# no part between: every part of it leads to every other, and it is still the
+	# way out. The dragon test's board is this shape.
+	var lo := SkillBoard.new(7, 5, "leaves")
+	lo.set_root("SLASH", Vector2i(5, 2))
+	lo.place("TEE", Vector2i(6, 2), 0)           # east and out, and south round the ring
+	lo.place("DELAY", Vector2i(6, 3), 2)
+	lo.place("DELAY", Vector2i(5, 3), 3)         # north, back into the root
+	var tlo := lo.trace()
+	check((tlo["dead"] as Dictionary).is_empty() and bool(tlo["gets_out"]),
+		"a ring that lets its flow out of the board itself is not dead code either")
+	# The same ring a cell further in, its TEE sending into a part that will
+	# not take it, is.
+	var shut := SkillBoard.new(7, 5, "shut")
+	shut.set_root("SLASH", Vector2i(4, 2))
+	shut.place("TEE", Vector2i(5, 2), 0)
+	shut.place("DELAY", Vector2i(5, 3), 2)
+	shut.place("DELAY", Vector2i(4, 3), 3)
+	shut.place("DELAY", Vector2i(6, 2), 2)       # facing back at the TEE
+	check((shut.trace()["dead"] as Dictionary).size() == 4,
+		"but one with its way out shut is")
 
-	# Nor is a ring whose work is done on the way in rather than at an OUTPUT:
-	# trapped or not, it dilates time once a lap for as long as the life lasts.
+	# Nor is a ring whose work is done on the way in rather than by sending a
+	# flow out: trapped or not, it dilates time once a lap for as long as the
+	# life lasts.
 	var spin := SkillBoard.new(7, 5, "dilate")
 	spin.set_root("DELAY", Vector2i(0, 0), 0)
 	spin.place("DELAY", Vector2i(1, 0), 0)
@@ -192,15 +276,14 @@ func _ready() -> void:
 	# DAMAGE parts collapsed into one enormous strike rather than the four
 	# separate attacks the board draws.
 	var tb := SkillBoard.new(7, 5, "trigger loop")
-	tb.set_root("DELAY")
-	tb.place("DASHSLASH", Vector2i(1, 2), 0)   # head (1,2), tail (2,2)
-	tb.place("ON_HIT", Vector2i(3, 2), 0)      # onward E, branch S
-	tb.place("OUTPUT", Vector2i(4, 2), 0)
-	tb.place("DAMAGE", Vector2i(3, 3), 1)
-	tb.place("DAMAGE", Vector2i(3, 4), 2)
-	tb.place("DELAY", Vector2i(2, 4), 2)
-	tb.place("DAMAGE", Vector2i(1, 4), 3)
-	tb.place("DAMAGE", Vector2i(1, 3), 3)      # back into the DASHSLASH head
+	tb.set_root("DELAY", Vector2i(3, 2))
+	tb.place("DASHSLASH", Vector2i(4, 2), 0)   # head (4,2), tail (5,2)
+	tb.place("ON_HIT", Vector2i(6, 2), 0)      # onward E and out, branch S
+	tb.place("DAMAGE", Vector2i(6, 3), 1)
+	tb.place("DAMAGE", Vector2i(6, 4), 2)
+	tb.place("DELAY", Vector2i(5, 4), 2)
+	tb.place("DAMAGE", Vector2i(4, 4), 3)
+	tb.place("DAMAGE", Vector2i(4, 3), 3)      # back into the DASHSLASH head
 	var tr2 := SkillRunner.new(tb)
 	tr2.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
 	tr2.ttl_bonus = 48   # charged, so the branch goes round more than once
@@ -270,15 +353,15 @@ func _ready() -> void:
 	check(String(sb.get("why", "")) == "side" and String(sb.get("id", "")) == "EXPLODE"
 			and sb.get("to") == Vector2i(1, 1),
 		"and it is reported as the tail cell entered (%s)" % str(sb))
-
-	# A flow running into empty space is a leak, not a break.
-	var e := SkillBoard.new(7, 5, "leak")
-	e.set_root("DELAY")
-	var t4 := e.trace()
-	check((t4["leaks"] as Array).size() == 1, "a dangling output is reported as a leak")
-	var lk: Dictionary = (t4["leaks"] as Array)[0] if not (t4["leaks"] as Array).is_empty() else {}
-	check(lk.get("from") == Vector2i(0, 2) and int(lk.get("dir", -1)) == 0,
-		"and it says where the flow leaves, and which way (%s)" % str(lk))
+	# A part two cells off is not reached at all: the flow leaks into the empty
+	# cell between, and nothing carries it on.
+	var d2 := SkillBoard.new(7, 5, "gap")
+	d2.set_root("DELAY", Vector2i(1, 0), 1)     # south, down the column
+	d2.place("EXPLODE", Vector2i(0, 3), 0)       # tail at 1,3, two cells down
+	var td2 := d2.trace()
+	check((td2["breaks"] as Array).is_empty() and (td2["leaks"] as Array).size() == 1
+			and td2["reachable"].size() == 1,
+		"a part across an empty cell is not reached: the flow leaks into the gap")
 
 	# Nothing on the root at all.
 	var f := SkillBoard.new(7, 5, "unrooted")
@@ -288,25 +371,63 @@ func _ready() -> void:
 
 	# A wired board with no attack form reports that, not a wiring fault.
 	var g := SkillBoard.new(7, 5, "noform")
-	g.set_root("DELAY")
-	g.place("DELAY", Vector2i(1, 2), 0)
-	g.place("OUTPUT", Vector2i(2, 2), 0)
+	g.set_root("DELAY", Vector2i(5, 2))
+	g.place("DELAY", Vector2i(6, 2), 0)
 	var tg := g.trace()
-	check(bool(tg["has_root"]) and bool(tg["reaches_output"]) and (tg["breaks"] as Array).is_empty()
+	check(bool(tg["has_root"]) and bool(tg["gets_out"]) and (tg["breaks"] as Array).is_empty()
 			and (tg["leaks"] as Array).is_empty() and g.compute_tags().is_empty(),
 		"a formless chain is wired clean, and carries no attack form")
+	var formless := SkillRunner.new(g)
+	check((formless.simulate()["outputs"] as Array).is_empty(),
+		"so what it lets out of the board is no attack")
 
-	# The root is the one part the hand cannot take off the board.
+	# --- the root ---------------------------------------------------------------
+	# The one part the hand cannot take off the board, or drop something on.
 	var w := SkillBoard.new(7, 5, "weapon")
 	w.set_root("DASHSLASH")
-	w.place("OUTPUT", Vector2i(2, 2), 0)
+	w.place("FIRE", Vector2i(2, 2), 0)
 	check(w.erase_at(SkillBoard.ROOT) == "" and w.erase_at(Vector2i(1, 2)) == "" and w.has_root(),
 		"erasing the root, by either of its cells, leaves it standing")
 	check(not w.can_place("FIRE", SkillBoard.ROOT, 0) and not w.can_place("FIRE", Vector2i(1, 2), 0),
 		"and nothing may be dropped on it")
-	check(w.erase_at(Vector2i(2, 2)) == "OUTPUT", "while everything else comes off as it always did")
+	check(w.erase_at(Vector2i(2, 2)) == "FIRE", "while everything else comes off as it always did")
 	check(w.used_components().is_empty(),
 		"the root is the weapon's, so it is not among the parts the build is made of")
+	# But it moves, and turns, like any part — never over another, and never off
+	# the grid. Where it goes the flow starts.
+	w.place("FIRE", Vector2i(3, 2), 0)
+	check(not w.can_move_root(Vector2i(2, 2), 0) and not w.move_root(Vector2i(2, 2), 0)
+			and w.root == SkillBoard.ROOT,
+		"the root is not moved where it would cover another part")
+	check(not w.move_root(Vector2i(6, 2), 0) and w.root == SkillBoard.ROOT,
+		"nor where it would hang off the grid")
+	check(w.move_root(Vector2i(1, 2), 0) and w.root == Vector2i(1, 2)
+			and w.comp_at(SkillBoard.ROOT).is_empty() and w.is_root(Vector2i(1, 2)),
+		"it moves onto a cell of its own and the next one along")
+	w.erase_at(Vector2i(3, 2))
+	check(w.move_root(Vector2i(5, 2), 0) and bool(w.trace()["gets_out"]),
+		"and against the way out its flow leaves the board")
+	check(w.move_root(w.root, 1) and int(w.root_entry()["rot"]) == 1
+			and w.comp_at(Vector2i(5, 3)) == w.root_entry() and w.comp_at(Vector2i(6, 2)).is_empty(),
+		"turned where it stands, its second cell swings round with it")
+	check(not w.move_root(Vector2i(5, 4), 1) and w.root == Vector2i(5, 2),
+		"and turned off the grid it is not")
+
+	# --- a board grown ----------------------------------------------------------
+	# A Workbench grows the board round what is on it, so a build against the way
+	# out stays against it: new columns come in on the left, new rows above or
+	# below as the middle moves.
+	var grown := SkillBoard.new(7, 5, "grown")
+	grown.set_root("SLASH", Vector2i(5, 2))
+	grown.place("DAMAGE", Vector2i(6, 2), 0)
+	var still := true
+	for level in range(2, 6):
+		grown.resize_grid(6 + level, 4 + level)
+		still = still and bool(grown.trace()["gets_out"]) \
+			and grown.comp_at(grown.way_out()).get("id", "") == "DAMAGE" and grown.is_root(grown.root)
+	check(still and grown.width == 11 and grown.height == 9 and grown.root == Vector2i(9, 4),
+		"a build against the way out stays against it through every upgrade (%s, root at %s)"
+			% [str(Vector2i(grown.width, grown.height)), str(grown.root)])
 
 	print("[TRACE] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)

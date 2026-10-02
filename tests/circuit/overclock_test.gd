@@ -12,35 +12,15 @@ func check(ok: bool, what: String) -> void:
 		fails += 1
 		push_error("OC FAIL: " + what)
 
-## A snake of `n` overclocks feeding a SLASH into an OUTPUT, off a DELAY on the
-## root in the corner.
+## A row of `n` overclocks feeding a SLASH, off a DELAY on the root, on a
+## board exactly as long and one row high — so the row is the middle one, and
+## the SLASH stands against the way out.
 func build(n: int) -> SkillBoard:
-	var b := SkillBoard.new(12, 9, "oc")
+	var b := SkillBoard.new(n + 2, 1, "oc")
 	b.set_root("DELAY", Vector2i(0, 0), 0)
-	var cells: Array[Vector2i] = []
-	for y in 9:
-		var row: Array[Vector2i] = []
-		for x in 12:
-			row.append(Vector2i(x, y))
-		if y % 2 == 1:
-			row.reverse()
-		for c in row:
-			if c != Vector2i(0, 0):
-				cells.append(c)
-	var placed := 0
-	var i := 0
-	while placed < n and i < cells.size() - 2:
-		var d: Vector2i = cells[i + 1] - cells[i]
-		var rot := 0
-		if d == Vector2i(1, 0): rot = 0
-		elif d == Vector2i(0, 1): rot = 1
-		elif d == Vector2i(-1, 0): rot = 2
-		else: rot = 3
-		if b.place("OVERCLOCK", cells[i], rot):
-			placed += 1
-		i += 1
-	b.place("SLASH", cells[i], 0)
-	b.place("OUTPUT", cells[i + 1], 0)
+	for i in n:
+		b.place("OVERCLOCK", Vector2i(1 + i, 0), 0)
+	b.place("SLASH", Vector2i(n + 1, 0), 0)
 	return b
 
 func cycle(n: int) -> float:

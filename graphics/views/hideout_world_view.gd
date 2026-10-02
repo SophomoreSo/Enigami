@@ -55,6 +55,10 @@ var panel: Control = null
 ## The shade under it, over the room and the readout. Kept beside the panel
 ## rather than inside it: everything that reads `panel` wants the frame.
 var _shade: ColorRect = null
+## Whether the panel on screen was built for a thumb (`UiKit.mobile`). The pause
+## menu comes up over a panel, and its controls page is where the mode is
+## thrown, so a panel can outlive the mode it was built in — and is built again.
+var _panel_thumb: bool = false
 ## The same readout the raid draws, over the same room: health, the weapon in
 ## hand and the square for the graph on it. What the gate would carry is a thing to look
 ## at while you are still deciding, and the player standing here is carrying it
@@ -95,6 +99,9 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if hud != null and is_instance_valid(hud):
 		hud.player = world.player if world != null and is_instance_valid(world) else null
+	if panel != null and is_instance_valid(panel) and _panel_thumb != UiKit.mobile() \
+			and world != null and is_instance_valid(world):
+		_on_panel_changed(world.open_panel)
 	# The signs say what a press would do, and that changes as the player walks
 	# and as the kit fills up: `queue_redraw` every frame is what the raid's own
 	# prompts do, and the whole screen is four plates.
@@ -205,13 +212,14 @@ func _host(inner: Hideout, heading: String) -> void:
 	var frame := UiKit.screen_frame(668.0, 40.0, 28.0, true)
 	layer.add_child(frame)
 	panel = frame
+	_panel_thumb = UiKit.mobile()
 
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 10)
 	head.add_child(_back_arrow())
-	head.add_child(UiKit.label(heading, 24, UiKit.ACCENT, true))
+	head.add_child(UiKit.label(heading, UiKit.text(24), UiKit.ACCENT, true))
 	head.add_child(_pad())
-	head.add_child(UiKit.label(Loc.t("hideout.scrap", [GameState.scrap]), 16, UiKit.WARN, true))
+	head.add_child(UiKit.label(Loc.t("hideout.scrap", [GameState.scrap]), UiKit.text(16), UiKit.WARN, true))
 	frame.head.add_child(head)
 	frame.head.add_child(UiKit.hline(true))
 
@@ -233,13 +241,14 @@ func _host(inner: Hideout, heading: String) -> void:
 ## end of the counter's list it is where the scroll has already put you.
 func _back_arrow() -> Button:
 	var b := UiKit.button(Loc.t("hideout.station.arrow"), UiKit.ACCENT, true)
-	b.custom_minimum_size = Vector2(44, 34)
+	b.custom_minimum_size = UiKit.corner_button()
 	b.pressed.connect(func() -> void: world.close_panel())
 	return b
 
 func _pad() -> Control:
 	var c := Control.new()
 	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return c
 
 func _clear_panel() -> void:

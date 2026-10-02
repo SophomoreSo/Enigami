@@ -24,6 +24,11 @@ extends Control
 ## `MapPanel`, opened from `RaidView` — and the bag is gone: a list of parts
 ## nobody can spend until they are at the workbench was five lines of the screen
 ## saying nothing the assembly screen does not say better.
+##
+## It steps aside while somebody talks to the player (`talking`). A conversation
+## in the box holds the player still and has the screen, and the bars, the square
+## and the lines of keys are a readout of a fight nobody is in: only something
+## else to look at beside the box.
 
 ## The bars in the top-left corner: health, then the two thin ones under it.
 const BAR_W := 264.0
@@ -44,6 +49,10 @@ const PROMPT_LIFT := 92.0
 const BAR_GROUND := Color(0, 0, 0, 0.55)
 const BAR_EDGE := Color(0.5, 0.6, 0.7, 0.8)
 
+## How long the readout takes to step aside as a conversation opens, and to come
+## back once it is over: about as long as the box takes to open.
+const STEP_ASIDE := 0.14
+
 var player: Player = null
 var prompt: String = ""
 ## Whether the player stands in an exit that will take them. The HUD writes the
@@ -60,6 +69,9 @@ var footer: String = ""
 ## Whether the two lines of keys are drawn along the bottom. The hideout floor
 ## turns them off: its stations' signs already say what a press does there.
 var key_hints: bool = true
+## How much of the readout is on the screen: 1, or 0 once it has stepped aside
+## for a conversation.
+var shown: float = 1.0
 ## The pixel grid, bound to this screen.
 var _px := PixelDraw.new(self)
 
@@ -75,10 +87,17 @@ func _process(delta: float) -> void:
 	UiKit.sync_screen(self)
 	if toast_time > 0.0:
 		toast_time -= delta
+	shown = move_toward(shown, 0.0 if talking() else 1.0, delta / STEP_ASIDE)
+	modulate.a = shown
 	queue_redraw()
 
+## Whether somebody is talking to the player in the box: `Player.talk_locked`,
+## which the NPC holds for exactly as long as the conversation is open.
+func talking() -> bool:
+	return player != null and is_instance_valid(player) and player.talk_locked
+
 func _draw() -> void:
-	if player == null or not is_instance_valid(player):
+	if player == null or not is_instance_valid(player) or shown <= 0.0:
 		return
 	var vp := get_viewport_rect().size
 	_draw_health()

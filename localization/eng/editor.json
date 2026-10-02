@@ -1,5 +1,7 @@
 {
 	"close": "CLOSE",
+	"turn": "TURN",
+	"remove": "REMOVE",
 	"code": "CODE",
 	"count": "x%d",
 	"dead": {
@@ -9,7 +11,7 @@
 	"no_room_turn": "No room to turn %s there.",
 	"no_room_place": "No room for %s there.",
 	"none_left": "No %s left in the bag.",
-	"root_fixed": "%s is the weapon's own. It stays where it is, facing the way it faces.",
+	"root_fixed": "%s is the weapon's own. Move it and turn it, but it stays on the board.",
 	"title_on": "%s — on the %s",
 	"share": {
 		"heading": "SHARE CODE",
@@ -23,6 +25,7 @@
 		"entry": "BUILD FROM A CODE",
 		"hint": "type either case · ENTER builds · ESC closes",
 		"prompt": "Type a code in, or PASTE one from the clipboard.",
+		"prompt_touch": "PASTE a code in from the clipboard.",
 		"typing": "%d characters so far…",
 		"summary": "%dx%d · %d parts · %s",
 		"utility": "utility",

@@ -17,29 +17,28 @@ func runner(b: SkillBoard, bonus: int = 0) -> SkillRunner:
 	r.ttl_bonus = bonus
 	return r
 
-## A ring that tees out to an attack on every lap.
+## A ring that tees out to an attack on every lap: the TEE sends one flow on
+## through the SLASH and out of the board, and the other round two DELAYs and
+## back in.
 func ring() -> SkillBoard:
 	var b := SkillBoard.new(7, 5, "ring")
-	b.set_root("DELAY", Vector2i(0, 1), 0)
-	b.place("DELAY", Vector2i(1, 1), 3)
-	b.place("DELAY", Vector2i(1, 0), 0)
-	b.place("DELAY", Vector2i(2, 0), 0)
-	b.place("DELAY", Vector2i(3, 0), 1)
-	b.place("DELAY", Vector2i(3, 1), 2)
-	b.place("TEE", Vector2i(2, 1), 1)
-	b.place("SLASH", Vector2i(2, 2), 0)
-	b.place("OUTPUT", Vector2i(3, 2), 0)
+	b.set_root("DELAY", Vector2i(3, 2))
+	b.place("DELAY", Vector2i(4, 2), 0)
+	b.place("TEE", Vector2i(5, 2), 0)
+	b.place("SLASH", Vector2i(6, 2), 0)
+	b.place("DELAY", Vector2i(5, 3), 2)
+	b.place("DELAY", Vector2i(4, 3), 3)
 	return b
 
-## A straight run of `n` DELAYs into an attack, off a DELAY on the root: no
-## cycle, just length.
+## A straight run of `n` DELAYs into an attack, off a DELAY on the root, on a
+## board exactly as long, so the SLASH is against the way out: no cycle, just
+## length.
 func chain(n: int) -> SkillBoard:
-	var b := SkillBoard.new(60, 5, "chain")
+	var b := SkillBoard.new(n + 2, 5, "chain")
 	b.set_root("DELAY")
 	for i in n:
 		b.place("DELAY", Vector2i(1 + i, 2), 0)
 	b.place("SLASH", Vector2i(1 + n, 2), 0)
-	b.place("OUTPUT", Vector2i(2 + n, 2), 0)
 	return b
 
 func shots(r: SkillRunner) -> int:
@@ -50,12 +49,11 @@ func shots(r: SkillRunner) -> int:
 ## flow like any other part, which is what closes the ring.
 func trigger_ring() -> SkillBoard:
 	var b := SkillBoard.new(7, 5, "trigger ring")
-	b.set_root("DASHSLASH_AUTO")
-	b.place("ON_HIT", Vector2i(2, 2), 0)
-	b.place("OUTPUT", Vector2i(3, 2), 0)
-	b.place("OVERCLOCK", Vector2i(2, 3), 2)
-	b.place("OVERCLOCK", Vector2i(1, 3), 2)
-	b.place("OVERCLOCK", Vector2i(0, 3), 3)
+	b.set_root("DASHSLASH_AUTO", Vector2i(4, 2))
+	b.place("ON_HIT", Vector2i(6, 2), 0)
+	b.place("OVERCLOCK", Vector2i(6, 3), 2)
+	b.place("OVERCLOCK", Vector2i(5, 3), 2)
+	b.place("OVERCLOCK", Vector2i(4, 3), 3)
 	return b
 
 ## Attacks in a chain: the one fired, and every follow-up hung off it.
@@ -110,15 +108,18 @@ func _ready() -> void:
 	check(rising, "more life buys strictly more laps (up to %d shots)" % last)
 
 	# Length alone must never cost a board its shot: a cast's life starts at
-	# exactly one pass of whatever board it is, short or long.
+	# exactly one pass of whatever board it is, short or long. A pass is the
+	# parts on it — the root, the DELAYs and the SLASH — and nothing for going
+	# out.
 	for n in [2, 12, 40]:
 		var r := runner(chain(n))
-		check(r.pass_cost == n + 3,
-			"a %d-DELAY chain costs %d to walk once (%d)" % [n, n + 3, r.pass_cost])
+		check(r.pass_cost == n + 2,
+			"a %d-DELAY chain costs %d to walk once (%d)" % [n, n + 2, r.pass_cost])
 		check(shots(r) == 1, "and one pass is exactly what an uncharged cast takes")
+		check(not bool(r.simulate()["expired"]), "with nothing cut short for want of life")
 
 	# Charge buys life, and life is only ever spent going round. A board with no
-	# cycle in it walks to its OUTPUT and stops there however much it is given,
+	# cycle in it walks to its way out and stops there however much it is given,
 	# so charging must never turn one cast into several.
 	for bonus in [0, 12, 24, SkillRunner.MAX_TTL_BONUS]:
 		check(shots(runner(chain(3), bonus)) == 1,

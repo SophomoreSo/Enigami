@@ -5,9 +5,9 @@ extends RefCounted
 ## `parts`, `ports`, `effects`, `codes`, `retired_parts` and `renamed_parts`
 ## (see `data/db/README.md`), read the first time anything asks and kept.
 ##
-## A component occupies one (or two) grid cells and declares its OUTPUT ports in
-## LOCAL space. Rotation `r` turns a local direction `d` into world direction
-## `(d + r) % 4`. Direction indices: 0=East 1=South 2=West 3=North.
+## A component occupies one (or two) grid cells and declares the ports its flow
+## leaves by in LOCAL space. Rotation `r` turns a local direction `d` into world
+## direction `(d + r) % 4`. Direction indices: 0=East 1=South 2=West 3=North.
 ##
 ## A part costs one tick per cell it occupies, so `cells` is its tick cost too:
 ## time on the board is distance on the board, and what a cycle costs can be
@@ -16,8 +16,10 @@ extends RefCounted
 ## Inputs are not declared. A part takes flow on any edge that is not one of its
 ## own outputs, so the arrows drawn on the board describe its behaviour
 ## completely: rotation decides where a flow goes, never where it may come from.
-## Where a flow *starts* is not a part's to say either: it is the board's root
-## cell, and whatever stands there — see `SkillBoard.root`.
+## Where a flow *starts* is not a part's to say either: it is the board's root,
+## whichever part that is — see `SkillBoard.root`. Nor is where it becomes an
+## attack: that is the middle of the board's right edge — see
+## `SkillBoard.way_out`.
 ##
 ## What a part does to a flow is rows too: its effects, each a change to one
 ## field of the `Payload` the flow carries, which `SkillRunner._apply` makes as
@@ -40,7 +42,6 @@ const SIDES := "ESWN"
 
 # Categories are used for palette grouping and for weapon compatibility tags.
 # What each one looks like is `Style.CAT_COLOR`, over in the graphics module.
-const CAT_STRUCT := "struct"
 const CAT_FORM := "form"
 const CAT_ELEMENT := "element"
 const CAT_STAT := "stat"
@@ -62,12 +63,10 @@ const KEPT := ["heat", "branch", "follow_up", "on_hit", "on_kill", "on_parry"]
 static var _defs: Dictionary = {}
 ## code -> id, a retired part's included.
 static var _codes: Dictionary = {}
-## Retired id -> the local direction it sent its flow.
+## Retired id -> true.
 static var _retired: Dictionary = {}
 ## Old id -> the id the part goes by now.
 static var _renamed: Dictionary = {}
-## Category -> whether its parts drop, sell and are spent from the stash.
-static var _loot: Dictionary = {}
 static var _faults: Array = []
 static var _read := false
 
@@ -80,22 +79,11 @@ static func ids() -> Array:
 	_ensure()
 	return _defs.keys()
 
-## Parts that are structural: always available, never consumed as loot. The
-## OUTPUT, as the table's `categories` says.
-static func structural() -> Array:
-	var out: Array = []
-	for id in ids():
-		if is_structural(id):
-			out.append(id)
-	return out
-
-## Loot-able components, in the order the palette shows them.
+## The parts that drop, forge, sell and are spent from a stash, in the order
+## the palette shows them: every part there is. Nothing is handed out for
+## nothing — the one part that was, the OUTPUT, is the board's own edge now.
 static func loot_pool() -> Array:
-	var out: Array = []
-	for id in ids():
-		if not is_structural(id):
-			out.append(id)
-	return out
+	return ids()
 
 ## What is wrong with the tables, in words: a row that does not fit what reads
 ## it. Empty when every part is whole. Said once, loudly, as they are read.
@@ -134,10 +122,6 @@ static func tag_names(tags: Array) -> String:
 static func exists(id: String) -> bool:
 	return not get_def(id).is_empty()
 
-static func is_structural(id: String) -> bool:
-	var def := get_def(id)
-	return not def.is_empty() and not bool(_loot.get(String(def["cat"]), true))
-
 ## Parts the game no longer has, which keep their numbers. See `retired_parts`.
 static func retired_ids() -> Array:
 	_ensure()
@@ -146,12 +130,6 @@ static func retired_ids() -> Array:
 static func is_retired(id: String) -> bool:
 	_ensure()
 	return _retired.has(id)
-
-## The local direction a retired part sent its flow, which is what
-## `SkillBoard.drop_retired` closes a board up along.
-static func retired_out(id: String) -> int:
-	_ensure()
-	return int(_retired.get(id, E))
 
 ## Old id -> the id the part goes by now. See `renamed_parts`.
 static func renamed() -> Dictionary:
@@ -188,7 +166,7 @@ static func effects_of(id: String) -> Array:
 	return get_def(id).get("effects", [])
 
 ## Whether a part does its work the moment a flow enters it, rather than by
-## carrying that flow on to an OUTPUT — it slows the fight or opens a guard.
+## carrying that flow on out of the board — it slows the fight or opens a guard.
 ## `SkillRunner._apply` is where those two effects happen; the flag is worked
 ## out beside the part so that a board can tell a loop still doing something
 ## every lap from one that only swallows the flow — see `SkillBoard.dead_loops`.
@@ -272,10 +250,7 @@ static func _load() -> void:
 	_codes.clear()
 	_retired.clear()
 	_renamed.clear()
-	_loot.clear()
 	_faults.clear()
-	for c in Db.records("categories"):
-		_loot[String(c["id"])] = int(c.get("loot", 1)) == 1
 	for c in Db.records("codes", "", [], "code"):
 		_codes[int(c["code"])] = String(c["id"])
 	for p in Db.records("parts", "", [], "rowid"):
@@ -312,7 +287,7 @@ static func _load() -> void:
 		if made["op"] == "dilate" or made["op"] == "guard":
 			def["acts_on_entry"] = true
 	for r in Db.records("retired_parts"):
-		_retired[String(r["id"])] = side(String(r["sends"]))
+		_retired[String(r["id"])] = true
 	for r in Db.records("renamed_parts"):
 		_renamed[String(r["old_id"])] = String(r["new_id"])
 	if _defs.is_empty():

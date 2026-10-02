@@ -6,10 +6,12 @@ extends Node
 ## a grid, and the parts placed on it. Which part feeds which follows from
 ## their ports and the way each faces, so a row a cell out of place is a board
 ## that quietly does nothing — a monster that never attacks, a weapon that will
-## not swing. Every board has to build whole, have a part on its root and
-## reach an OUTPUT; every board the code asks for by name has to be in the
-## table; a weapon's graph has to start with the part the weapon says it does;
-## and what the schema promises to refuse is tried against a scratch copy of it.
+## not swing. Every board has to build whole, have a root and let its flow out
+## of the board — all of it: a board has one way out, and a branch that never
+## gets there is an attack the monster was meant to have. Every board
+## the code asks for by name has to be in the table; a weapon's graph has to
+## start with the part the weapon says it does; and what the schema promises to
+## refuse is tried against a scratch copy of it.
 ##
 ## No renderer needed: nothing here draws. The refusals print an `SQL error`
 ## line each from the extension, which is the point of them.
@@ -51,8 +53,12 @@ func _ready() -> void:
 		var t := board.trace()
 		check(found.is_empty() and board.cells.size() == (Boards.source(id)["parts"] as Array).size(),
 			"%s builds whole%s" % [id, "" if found.is_empty() else " — " + "; ".join(found)])
-		check(board.has_root() and bool(t["reaches_output"]) and (t["dead"] as Dictionary).is_empty(),
-			"%s starts on its root and reaches an OUTPUT, with no loop to lose its flow in" % id)
+		check(board.has_root() and bool(t["gets_out"]) and (t["dead"] as Dictionary).is_empty(),
+			"%s starts on its root and gets out of the board, with no loop to lose its flow in" % id)
+		check((t["leaks"] as Array).is_empty() and (t["breaks"] as Array).is_empty()
+				and (t["reachable"] as Dictionary).size() == board.cells.size(),
+			"%s loses none of it on the way: every part is reached, and no flow runs off an edge or into a part that will not take it (%s)"
+				% [id, str(t["leaks"] + t["breaks"])])
 		check(BoardCode.encode(board) != "", "%s can be written down as a code" % id)
 
 	# --- every board the code asks for ----------------------------------------
@@ -91,6 +97,15 @@ func _ready() -> void:
 		"every weapon's graph starts with the part the weapon says it does, and nothing built on after (%s)" % str(misrooted))
 	check(String(Weapons.make_board("SWORD").root_entry().get("id", "")) == "DASHSLASH",
 		"the sword's is a lunge: a DASHSLASH on the root")
+	# A weapon nobody has built on fires: its own part starts against the way out.
+	var unfired: Array = []
+	for w in Weapons.ids():
+		var b := Weapons.make_board(String(w))
+		var run := SkillRunner.new(b)
+		run.base_payload_provider = func() -> Payload: return Weapons.base_payload(String(w))
+		if b.cells.size() != 1 or (run.simulate()["outputs"] as Array).size() != 1:
+			unfired.append(w)
+	check(unfired.is_empty(), "every weapon fires as it comes, its own part against the way out (%s)" % str(unfired))
 	var crawler := Monsters.build_board("CRAWLER")
 	check(same_parts(crawler, Boards.build("crawler")) and crawler.skill_name == Monsters.name_for("CRAWLER"),
 		"a monster's attack is its board, named after the monster (%s)" % crawler.skill_name)
@@ -103,18 +118,55 @@ func _ready() -> void:
 	var drops := Monsters.drop_pool("ARBITER")
 	var on_boards: Array = []
 	for id in Boards.parts_of("arbiter") + Boards.parts_of("arbiter_phase2"):
-		if not Components.is_structural(id) and not on_boards.has(id):
+		if not on_boards.has(id):
 			on_boards.append(id)
-	check(drops == on_boards and drops.has("ON_HIT") and drops.has("PROJECTILE") and not drops.has("OUTPUT"),
-		"a monster drops what it was seen using, its root and second form included, and never an OUTPUT (%s)" % str(drops))
+	check(drops == on_boards and drops.has("ON_HIT") and drops.has("PROJECTILE"),
+		"a monster drops what it was seen using, its root and second form included (%s)" % str(drops))
+
+	# --- the two that branch ---------------------------------------------------
+	# A board has one way out, so a monster whose attack is more than one flow
+	# has every one of them walked round to it. The Warden's bolt is split, and
+	# both halves have to leave — and leave together, or it is two shots a beat
+	# apart instead of one volley.
+	var warden := SkillRunner.new(Monsters.build_board("WARDEN"))
+	warden.dry_run = true
+	var volley: Array = []
+	warden.fired.connect(func(p: Payload) -> void: volley.append([warden._cycle_ticks, p]))
+	warden.active = true
+	warden._start_cycle()
+	while not warden.pulses.is_empty():
+		warden._advance()
+	var whole := Payload.new().damage
+	var halves := volley.size() == 2
+	for shot in volley:
+		var p: Payload = shot[1]
+		halves = halves and p.form == "PROJECTILE" and p.has_element("ICE") and is_equal_approx(p.damage, whole * 0.5)
+	check(halves, "the Warden's frost bolt leaves the board as two, half the damage each (%d)" % volley.size())
+	check(volley.size() == 2 and int(volley[0][0]) == int(volley[1][0]),
+		"on the same tick: each half walks the same distance round to the way out")
+	# The Arbiter's second form is an explosion whose every hit sends a split
+	# bolt: one attack out of the board, and two follow-ups hung off its ON HIT.
+	var rage_run := SkillRunner.new(rage).simulate()
+	var blasts: Array = rage_run["outputs"]
+	var after: Array = []
+	var link = (rage_run["triggers"] as Dictionary).get("ON_HIT", null)
+	while link != null:
+		after.append(link)
+		link = link.on_hit
+	var bolts := after.size() == 2
+	for bolt in after:
+		bolts = bolts and (bolt as Payload).form == "PROJECTILE" and is_equal_approx((bolt as Payload).damage, whole * 0.5)
+	check(blasts.size() == 1 and (blasts[0] as Payload).form == "EXPLODE" and bolts,
+		"the Arbiter's second form explodes, and each hit of it sends two half bolts (%d and %d)"
+			% [blasts.size(), after.size()])
 
 	# --- the checker catches what it is for -----------------------------------
 	# Written out here rather than kept as broken rows in the database: these
 	# are the mistakes a writer makes, and every one is silent at run time if
 	# nothing goes looking.
 	var base := {"id": "b", "width": 7, "height": 5, "parts": [
-		{"x": 0, "y": 2, "part": "EXPLODE", "facing": "E"},
-		{"x": 2, "y": 2, "part": "OUTPUT", "facing": "E"}]}
+		{"x": 0, "y": 2, "part": "EXPLODE", "facing": "E", "root": 1},
+		{"x": 2, "y": 2, "part": "FIRE", "facing": "E"}]}
 	check(Boards.problems_in(base).is_empty(), "a sound board has no problems (%s)" % str(Boards.problems_in(base)))
 	check(_caught(base, {"x": 6, "y": 2, "part": "DASHSLASH", "facing": "E"}, "does not fit"),
 		"a two-cell part hanging off the grid is caught")
@@ -123,13 +175,26 @@ func _ready() -> void:
 		"a part on the cell another part covers is caught, and one beside it is not")
 	var unrooted := {"id": "u", "width": 7, "height": 5, "parts": [
 		{"x": 1, "y": 2, "part": "SLASH", "facing": "E"},
-		{"x": 2, "y": 2, "part": "OUTPUT", "facing": "E"}]}
+		{"x": 2, "y": 2, "part": "FIRE", "facing": "E"}]}
 	var said := false
 	for problem in Boards.problems_in(unrooted):
 		said = said or String(problem).contains("root")
-	check(said, "a board with nothing on its root is caught (%s)" % str(Boards.problems_in(unrooted)))
+	check(said, "a board with no part marked as its root is caught (%s)" % str(Boards.problems_in(unrooted)))
+	check(_caught(base, {"x": 5, "y": 0, "part": "SLASH", "facing": "E", "root": 1}, "a root already"),
+		"and so is one with two")
+	# The root is laid first whatever order the rows come in, so a part listed
+	# before it is laid round it rather than under it.
+	var root_last := {"id": "r", "width": 7, "height": 5, "parts": [
+		{"x": 6, "y": 2, "part": "FIRE", "facing": "E"},
+		{"x": 4, "y": 2, "part": "DASHSLASH", "facing": "E", "root": 1}]}
+	var last_in: SkillBoard = Boards._lay(root_last, "")[0]
+	check(Boards.problems_in(root_last).is_empty() and last_in.root == Vector2i(4, 2)
+			and String(last_in.root_entry().get("id", "")) == "DASHSLASH" and last_in.cells.size() == 2,
+		"a root listed last is the root all the same")
 	check(_caught(base, {"x": 5, "y": 0, "part": "WIRE", "facing": "E"}, "no such part"), "a part that is not one is caught")
-	check(_caught(base, {"x": 5, "y": 0, "part": "INPUT", "facing": "E"}, "no such part"), "and so is an INPUT, which is one no longer")
+	check(_caught(base, {"x": 5, "y": 0, "part": "INPUT", "facing": "E"}, "no such part")
+			and _caught(base, {"x": 5, "y": 0, "part": "OUTPUT", "facing": "E"}, "no such part"),
+		"and so are an INPUT and an OUTPUT, which are parts no longer")
 	check(_caught(base, {"x": 5, "y": 0, "part": "SLASH", "facing": "U"}, "no way to face"), "a facing that is not one is caught")
 
 	# --- what the schema refuses ----------------------------------------------
@@ -138,16 +203,16 @@ func _ready() -> void:
 		check(false, "a scratch copy of the schema can be made to try it against")
 	else:
 		var parts := [
-			"INSERT INTO categories (id, loot) VALUES ('struct', 0), ('form', 1)",
-			"INSERT INTO codes (code, id) VALUES (1, 'OUTPUT'), (5, 'SLASH')",
-			"INSERT INTO parts (id, name, category, description) VALUES ('SLASH', 'SLASH', 'form', 'Cut.'), ('OUTPUT', 'OUTPUT', 'struct', 'Out.')"]
+			"INSERT INTO categories (id) VALUES ('form')",
+			"INSERT INTO codes (code, id) VALUES (5, 'SLASH'), (33, 'ZAP')",
+			"INSERT INTO parts (id, name, category, description) VALUES ('SLASH', 'SLASH', 'form', 'Cut.'), ('ZAP', 'ZAP', 'form', 'Beam.')"]
 		var board := "INSERT INTO boards (id) VALUES ('b')"
-		var laid := "INSERT INTO board_parts (board_id, x, y, part, facing) VALUES ('b', 0, 2, 'SLASH', 'E'), ('b', 1, 2, 'OUTPUT', 'E')"
+		var laid := "INSERT INTO board_parts (board_id, x, y, part, facing) VALUES ('b', 0, 2, 'SLASH', 'E'), ('b', 1, 2, 'ZAP', 'E')"
 		check(_accepted(db, parts + [board, laid]), "a sound board is accepted (%s)" % db.error_message)
 		check(_accepted(db, [board, laid] + parts), "and it may be laid out before its parts are written")
-		check(not _accepted(db, parts + [board, laid.replace("'OUTPUT', 'E')", "'FIRE', 'E')")]),
+		check(not _accepted(db, parts + [board, laid.replace("'ZAP', 'E')", "'FIRE', 'E')")]),
 			"a board carrying a part that is not one is refused when the build commits")
-		check(not _accepted(db, parts + [board, laid.replace("'OUTPUT', 'E')", "'OUTPUT', 'U')")]),
+		check(not _accepted(db, parts + [board, laid.replace("'ZAP', 'E')", "'ZAP', 'U')")]),
 			"a part facing no way at all is refused")
 		check(not _accepted(db, parts + [board, laid.replace("('b', 1, 2", "('b', 0, 2")]),
 			"two parts in one cell are refused")
@@ -156,6 +221,9 @@ func _ready() -> void:
 		check(not _accepted(db, parts + [board.replace("'b'", "'B'"), laid.replace("'b'", "'B'")]),
 			"a board id that is not lower case is refused")
 		check(not _accepted(db, parts + [laid]), "parts laid on a board nobody wrote are refused")
+		check(not _accepted(db, parts + [board,
+				"INSERT INTO board_parts (board_id, x, y, part, root) VALUES ('b', 0, 2, 'SLASH', 1), ('b', 1, 2, 'ZAP', 1)"]),
+			"a board with two roots is refused")
 		db.close_db()
 		DirAccess.remove_absolute(SCRATCH)
 

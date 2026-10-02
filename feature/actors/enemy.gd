@@ -9,7 +9,7 @@ const GRAVITY := 1700.0
 
 ## How much longer a monster waits between attacks than its board alone would.
 ##
-## Monster boards are short by design — a Crawler is a SLASH and an OUTPUT —
+## Monster boards are short by design — a Crawler is a SLASH and nothing else —
 ## and a short board comes round again almost immediately, so every monster in
 ## the game was attacking twelve to thirty times a second: a Sentry held down a
 ## wall of bolts, and walking into a Crawler was a death with no blow in it to

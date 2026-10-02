@@ -13,7 +13,6 @@ extends RefCounted
 
 ## --- components -------------------------------------------------------------
 const CAT_COLOR := {
-	Components.CAT_STRUCT: Color(0.55, 0.58, 0.66),
 	Components.CAT_FORM: Color(0.98, 0.78, 0.26),
 	Components.CAT_ELEMENT: Color(0.95, 0.42, 0.32),
 	Components.CAT_STAT: Color(0.45, 0.85, 0.62),
@@ -25,7 +24,6 @@ const CAT_COLOR := {
 ## What each category is called where the editor groups the palette by it. The
 ## ids are the rules' own; the wording on screen is ours.
 const CAT_NAME := {
-	Components.CAT_STRUCT: "STRUCTURE",
 	Components.CAT_FORM: "FORM",
 	Components.CAT_ELEMENT: "ELEMENT",
 	Components.CAT_STAT: "STAT",
@@ -38,8 +36,6 @@ const CAT_NAME := {
 ## the part's `COMPONENT_ICON`); `color` is only given where a part should not
 ## wear its category's colour.
 const COMPONENT := {
-	"OUTPUT": {"glyph": "◉"},
-
 	"PROJECTILE": {"glyph": "→"},
 	"SLASH": {"glyph": "/"},
 	"EXPLODE": {"glyph": "◎"},
@@ -91,7 +87,7 @@ static func component_color(id: String) -> Color:
 	var look: Dictionary = COMPONENT.get(id, {})
 	if look.has("color"):
 		return look["color"]
-	return category_color(String(Components.get_def(id).get("cat", Components.CAT_STRUCT)))
+	return category_color(String(Components.get_def(id).get("cat", "")))
 
 static func component_glyph(id: String) -> String:
 	return String(COMPONENT.get(id, {}).get("glyph", "?"))
@@ -101,16 +97,6 @@ static func component_glyph(id: String) -> String:
 ## `#` for a pixel, drawn a `UiKit.PIXEL` block each. A part without one draws
 ## ICON_FALLBACK.
 const COMPONENT_ICON := {
-	"OUTPUT": [
-		"..###..",
-		".#...#.",
-		"#.....#",
-		"#..#..#",
-		"#.....#",
-		".#...#.",
-		"..###..",
-	],
-
 	"PROJECTILE": [
 		".......",
 		"....#..",

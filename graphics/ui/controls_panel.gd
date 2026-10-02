@@ -10,6 +10,15 @@ extends PanelContainer
 ## page controls are on. They are drawn in the same two columns as the bindings
 ## under them, so the name and the thing that sets it line up all the way down
 ## the panel.
+##
+## **In mobile mode it is a different list** (`UiKit.mobile`), laid out for a
+## thumb: the aim's help, the switch, and SET BUTTON POSITIONS, each a row THUMB
+## tall. The pointer's speed and the bindings are a desk's — the mouse is put
+## away while the console is up, and there is no key on the glass to press for
+## a binding — so they are not on it; where the console's buttons stand is what
+## SET BUTTON POSITIONS is for. Throwing the switch off brings them back. The
+## panel is built in one layout or the other, and whoever holds it builds the
+## page again when the mode is thrown, as for a language.
 
 ## Set before it enters the tree to build it in UiKit's pixel look. Both screens
 ## that hold one do — the title's settings and the pause menu.
@@ -35,9 +44,7 @@ func _ready() -> void:
 func _pointer_row(name_width: int, bind_width: int) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
-	var l := UiKit.label(Loc.t("controls.sensitivity"), 11, UiKit.TEXT, pixel)
-	l.custom_minimum_size = Vector2(name_width, 0)
-	row.add_child(l)
+	row.add_child(_name(Loc.t("controls.sensitivity"), name_width))
 	var s := HSlider.new()
 	s.min_value = Pointer.MIN_SENS
 	s.max_value = Pointer.MAX_SENS
@@ -56,9 +63,7 @@ func _pointer_row(name_width: int, bind_width: int) -> Control:
 func _assist_row(name_width: int, bind_width: int) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
-	var l := UiKit.label(Loc.t("controls.aim_assist"), 11, UiKit.TEXT, pixel)
-	l.custom_minimum_size = Vector2(name_width, 0)
-	row.add_child(l)
+	row.add_child(_name(Loc.t("controls.aim_assist"), name_width))
 	var s := HSlider.new()
 	s.min_value = 0.0
 	s.max_value = 1.0
@@ -83,9 +88,7 @@ func _assist_row(name_width: int, bind_width: int) -> Control:
 func _touch_row(name_width: int) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
-	var l := UiKit.label(Loc.t("controls.mobile"), 11, UiKit.TEXT, pixel)
-	l.custom_minimum_size = Vector2(name_width, 0)
-	row.add_child(l)
+	row.add_child(_name(Loc.t("controls.mobile"), name_width))
 	_mobile = UiKit.switch(Touch.wanted(), func(on: bool) -> void:
 		Audio.play("ui")
 		Touch.set_mode(Touch.ON if on else Touch.OFF)
@@ -149,11 +152,25 @@ func _rebuild() -> void:
 		child.queue_free()
 	_build()
 
+## Whether the panel is laid out for a thumb: in the pixel look, in mobile mode.
+func thumb() -> bool:
+	return pixel and UiKit.mobile()
+
+## A row's name, in the column the rows keep: the size the mode writes a menu's
+## words at.
+func _name(text: String, width: float) -> Label:
+	var l := UiKit.label(text, UiKit.text(11) if pixel else 11, UiKit.TEXT, pixel)
+	l.custom_minimum_size = Vector2(width, 0)
+	return l
+
 func _build() -> void:
 	add_theme_stylebox_override("panel", UiKit.style(UiKit.PANEL, Color(0.22, 0.3, 0.38), 1, 3, pixel))
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 4 if pixel else 3)
 	add_child(v)
+	if thumb():
+		_build_for_a_thumb(v)
+		return
 	v.add_child(UiKit.label(Loc.t("controls.heading"), 13, UiKit.ACCENT, pixel))
 	v.add_child(UiKit.hline(pixel))
 	# The pixel face runs up to twice as wide, so both columns widen with it:
@@ -185,6 +202,17 @@ func _build() -> void:
 		Controls.reset()
 		_refresh())
 	v.add_child(rb)
+
+## Mobile mode's list: what a thumb sets, and nothing a thumb cannot. No heading
+## of its own — the one a desk's carries is about pressing a key for a binding —
+## and no bindings under it.
+func _build_for_a_thumb(v: VBoxContainer) -> void:
+	UiKit.pass_presses(self)
+	v.add_theme_constant_override("separation", 8)
+	var name_width := int(UiKit.setting_label_w())
+	v.add_child(_assist_row(name_width, 0))
+	v.add_child(_touch_row(name_width))
+	v.add_child(_arrange_row())
 
 func _refresh() -> void:
 	for a in _rows:

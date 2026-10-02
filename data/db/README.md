@@ -367,10 +367,11 @@ from. What a part *looks* like is not here: its colour, glyph and icon are
 `graphics/style.gd`'s, keyed by the same id, and a part added here draws in
 its category's colour until somebody gives it a look.
 
-There is no part for where a flow starts. Every board is rooted at one cell
-(`SkillBoard.ROOT`, the left end of the middle row), and whatever part stands
-there is the source of every cycle — a weapon's own attack form, a monster's.
-INPUT, which used to be that, is retired and keeps its number.
+There is no part for where a flow starts: every board has a root, one of its
+own parts — a weapon's own attack form, a monster's — and that is the source of
+every cycle. Nor is there one for where a flow becomes an attack: that is the
+board's way out, the middle of its right edge (`SkillBoard.way_out`). INPUT
+and OUTPUT, which used to be those two, are retired and keep their numbers.
 
 ```sql
 INSERT INTO codes (code, id) VALUES (33, 'FROSTBOLT');
@@ -389,11 +390,11 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 |---|---|
 | `codes` | Every number a part has ever had in a shared code. **Only ever add to the end:** a code written today has to mean the same board next year. Every part needs one, or no board carrying it can be shared; `tests/circuit/code_test` holds the ones already given out. |
 | `parts.name` `description` | The English, laid under `localization/<lang>/parts.json`; `loc_test` fails if the two drift. |
-| `parts.category` | Which block of the palette it sits in: `struct`, `form`, `element`, `stat`, `behavior`, `flow` or `trigger`. A `struct` part is always at hand and never drops. |
+| `parts.category` | Which block of the palette it sits in: `form`, `element`, `stat`, `behavior`, `flow` or `trigger`. Every part drops, sells and is spent from the stash alike. |
 | `parts.heat` | Added to the cooldown of every cast that passes through it. |
 | `parts.cells` | 1 or 2: its footprint, and the ticks a flow spends in it. |
 | `parts.tag` | What it makes a board — `ranged`, `melee`, `area`, `mobility`, `trigger` — for a weapon's `accepts` to match. |
-| `ports` | The sides its flow leaves by, as it faces east, in the order the flows leave. It takes flow on every other side. A `branch` is a trigger's second way out, which carries its payload. A part with no ports is where a flow ends. |
+| `ports` | The sides its flow leaves by, as it faces east, in the order the flows leave. It takes flow on every other side. A `branch` is a trigger's second way out, which carries its payload. Every part has one: a flow ends by leaving the board, never on a part. |
 | `effects` | What it does to a flow as the flow enters it, in `position` order. See below. |
 | `retired_parts` `renamed_parts` | Parts the game no longer has, or has under a new id, so a save or a code written before still reads. |
 
@@ -436,14 +437,23 @@ builds onto a weapon's graph is theirs, and lives in the save.
 ```sql
 INSERT INTO boards (id) VALUES ('warden');
 
-INSERT INTO board_parts (board_id, x, y, part, facing) VALUES
-	('warden', 0, 2, 'PROJECTILE', 'E'), ('warden', 1, 2, 'ICE', 'E'),
-	('warden', 2, 2, 'SPLIT', 'E'), ('warden', 2, 1, 'OUTPUT', 'E'), ('warden', 2, 3, 'OUTPUT', 'E');
+INSERT INTO board_parts (board_id, x, y, part, facing, root) VALUES
+	('warden', 3, 2, 'PROJECTILE', 'E', 1), ('warden', 4, 2, 'ICE', 'E', 0),
+	('warden', 5, 2, 'SPLIT', 'E', 0),
+	('warden', 5, 1, 'DELAY', 'E', 0), ('warden', 6, 1, 'DELAY', 'S', 0),
+	('warden', 5, 3, 'DELAY', 'E', 0), ('warden', 6, 3, 'DELAY', 'N', 0),
+	('warden', 6, 2, 'DELAY', 'E', 0);
 ```
 
-The part at `(0, 2)` is the root: the flow starts in it, and a board with
-nothing there never fires. On a weapon's board it is the weapon's own attack
-form, which the player cannot lift or replace; on a monster's, the monster's.
+The part with `root` 1 is the root: the flow starts in it, and a board with
+none never fires. On a weapon's board it is the weapon's own attack form,
+which the player moves and turns but never takes off; on a monster's, the
+monster's. A flow goes from a part into the part beside it, and leaves the
+board by the middle of its right edge — past `(6, 2)`, heading east, on a 7×5
+— and only what leaves there is an attack. So a board is a chain of parts
+touching from its root to that cell, and every branch on it is walked back
+round to it: above, the SPLIT's two halves go up and down and are turned home
+on DELAYs.
 
 | Column | Meaning |
 |---|---|
@@ -451,6 +461,7 @@ form, which the player cannot lift or replace; on a monster's, the monster's.
 | `boards.name` | What it is called when whoever builds it does not say. A weapon's and a monster's are named in the code, after the weapon or the monster. |
 | `board_parts.x` `y` | The cell the part is placed in. A two-cell part covers the next cell the way it faces too. |
 | `board_parts.facing` | Which way its east side points — `E`, `S`, `W` or `N` — which is where most parts send their flow. |
+| `board_parts.root` | 1 on the part the flow starts in, and on one part of a board at most; 0 on the rest. |
 
 Which part feeds which is written down nowhere: the ports and the facings
 already say it, and the board is walked, not stored. A weapon names its board
@@ -459,8 +470,9 @@ its board as `board`, and the Arbiter's second form as `board_phase2`, in
 `feature/actors/monsters.gd`. A part that does not fit where its row puts it —
 off the grid, over another — is left off and reported, and
 `tests/feature/boards_test.tscn` fails unless every board builds whole, has a
-part on its root and reaches an OUTPUT, and every board the code asks for is
-here.
+root and gets all of its flow out — none of it run into an empty cell, off an
+edge or into a part that will not take it — and every board the code asks for
+is here.
 
 ## A menu
 

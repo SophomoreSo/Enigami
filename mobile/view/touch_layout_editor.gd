@@ -80,7 +80,9 @@ func _build_panel() -> void:
 	cancel.pressed.connect(func() -> void: _close())
 	var column := [_save, reset, cancel]
 	for b: Button in column:
-		b.custom_minimum_size = Vector2(0, 36)
+		# A thumb's, like every button the kit makes while mobile mode is on —
+		# which it is, to be here at all.
+		b.custom_minimum_size = Vector2(0, maxf(36, UiKit.thumb()))
 		v.add_child(b)
 	add_child(_panel)
 	# The keyboard goes round these three and nowhere else: the page under them

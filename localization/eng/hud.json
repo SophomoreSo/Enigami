@@ -42,10 +42,13 @@
 	},
 	"dialogue": {
 		"choose": "%s/%s choose  ·  %s answer",
+		"choose_touch": "tap to choose  ·  hold to answer",
+		"next_touch": "hold to continue",
 		"player": "You"
 	},
 	"cutscene": {
-		"hint": "%s continue  ·  %s skip"
+		"hint": "%s continue  ·  %s skip",
+		"hint_touch": "hold to continue"
 	},
 	"sandbox": {
 		"swap_weapon": "SWAP WEAPON",

@@ -87,16 +87,19 @@ func knock_travel(kind: String, p: Payload) -> float:
 	return moved
 
 ## A board with `ids` in a line — the first on the root, the way a weapon's own
-## part is — run through the runner so the payload under test is the one the
-## rules actually build, not one hand-set here.
+## part is — on a board exactly as long, so the last of them is against the way
+## out; run through the runner so the payload under test is the one the rules
+## actually build, not one hand-set here.
 func payload_of(ids: Array) -> Payload:
-	var b := SkillBoard.new(7, 5, "test")
+	var long := 0
+	for id in ids:
+		long += int(Components.get_def(String(id)).get("cells", 1))
+	var b := SkillBoard.new(long, 5, "test")
 	b.set_root(String(ids[0]))
-	var x := 1
+	var x := int(Components.get_def(String(ids[0])).get("cells", 1))
 	for id in ids.slice(1):
 		b.place(String(id), Vector2i(x, 2), 0)
-		x += 1
-	b.place("OUTPUT", Vector2i(x, 2), 0)
+		x += int(Components.get_def(String(id)).get("cells", 1))
 	var sim := SkillRunner.new(b)
 	sim.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
 	var outs: Array = sim.simulate()["outputs"]

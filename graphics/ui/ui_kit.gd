@@ -52,16 +52,69 @@ static func pixel_grid() -> int:
 		return 0
 	return maxi(1, PIXEL_TEXT / Loc.face_size())
 
+## --- mobile mode --------------------------------------------------------------
+## Every menu has two layouts, and mobile mode (`Touch.wanted`) is what picks.
+##
+## A desk's is dense — a row is a line of text and a button the size of its
+## word — because a pointer lands on a pixel. On a phone the 720 the game is
+## laid out in is about 65mm of glass, so that same row is under 3mm of it and
+## its words stand under a millimetre: a thing a thumb covers twice over, read
+## at arm's length. So in mobile mode the kit builds the same rows at a thumb's
+## size. Nothing to press stands under THUMB, a menu's words are written at
+## THUMB_TEXT, a border is twice as thick, and a page runs most of the width of
+## the screen. It is what the console already does with its own buttons
+## (`TouchPad`), carried to the menus.
+##
+## What is on a page may differ too, and that is each screen's to say: the
+## rebinding list has nothing to bind on a phone, a conversation's answers are
+## plates to press, the assembly board's parts come a category at a time.
+##
+## A screen built of Controls is built again when the mode is thrown, the way it
+## is when the language changes; one that draws itself asks every frame.
+static func mobile() -> bool:
+	return Touch.wanted()
+
+## The least a thing to press stands, in mobile mode: a little over 7mm on a
+## phone, which is what the phones' own guidelines ask of a button.
+const THUMB := 80.0
+## What a menu's words are written at in mobile mode: twice PIXEL_TEXT, which is
+## the next size up either face draws cleanly at.
+const THUMB_TEXT := PIXEL_TEXT * 2
+## How wide a page runs in mobile mode, and how far it keeps from the screen's
+## edges where the screen is narrower than that.
+const THUMB_PAGE := 1040.0
+const THUMB_EDGE := 16.0
+## How far a thumb may move and still be pressing rather than dragging: about a
+## phone's own touch slop, and what the console's stick waits for before it
+## comes out (`TouchPad.STICK_OUT`).
+const TOUCH_SLOP := 12.0
+
+## The least height of a thing to press: THUMB in mobile mode, and nothing of
+## the kit's at a desk, where a row is as tall as its word.
+static func thumb() -> float:
+	return THUMB if mobile() else 0.0
+
+## The size a menu's words are written at: `size` at a desk, THUMB_TEXT in
+## mobile mode.
+static func text(size: int = PIXEL_TEXT) -> int:
+	return THUMB_TEXT if mobile() else size
+
+## The size of the way back in a page's top corner — the arrow beside its
+## heading: a word's worth at a desk, a square a thumb can find in mobile mode.
+static func corner_button() -> Vector2:
+	return Vector2(THUMB + 16.0, THUMB) if mobile() else Vector2(44, 34)
+
 static func style(bg: Color, border: Color, width: int = 1, radius: int = 3,
 		pixel: bool = false) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
+	var thick := pixel and mobile()
 	s.bg_color = bg
 	s.border_color = border
-	s.set_border_width_all(width * PIXEL if pixel else width)
+	s.set_border_width_all(width * PIXEL * (2 if thick else 1) if pixel else width)
 	s.set_corner_radius_all(0 if pixel else radius)
 	s.anti_aliasing = not pixel
-	s.content_margin_left = 10
-	s.content_margin_right = 10
+	s.content_margin_left = 20 if thick else 10
+	s.content_margin_right = 20 if thick else 10
 	s.content_margin_top = 6
 	s.content_margin_bottom = 6
 	return s
@@ -81,7 +134,19 @@ static func button(text: String, accent: Color = ACCENT, pixel: bool = false) ->
 	if pixel:
 		b.add_theme_font_override("font", PIXEL_FONT)
 	b.add_theme_font_size_override("font_size", Loc.text_size(text, PIXEL_TEXT) if pixel else 13)
+	if pixel and mobile():
+		_thumb_sized(b, text)
 	return b
+
+## A pixel button at a thumb's size: THUMB tall, its word at THUMB_TEXT. And it
+## passes a press on to whatever holds it, which is what lets a list of these be
+## dragged up and down by a thumb that lands on one — a button that kept the
+## press would be a list that only scrolls from its gaps.
+static func _thumb_sized(b: BaseButton, text: String = "") -> void:
+	b.custom_minimum_size = Vector2(0, THUMB)
+	b.mouse_filter = Control.MOUSE_FILTER_PASS
+	if text != "":
+		b.add_theme_font_size_override("font_size", Loc.text_size(text, THUMB_TEXT))
 
 ## A button layered over a running game. It never takes keyboard focus, so the
 ## keys the player is playing with keep reaching the game after they click one:
@@ -133,7 +198,17 @@ static func panel(color: Color = PANEL, border: Color = Color(0.22, 0.3, 0.38),
 		pixel: bool = false) -> PanelContainer:
 	var p := PanelContainer.new()
 	p.add_theme_stylebox_override("panel", style(color, border, 1, 3, pixel))
+	if pixel and mobile():
+		pass_presses(p)
 	return p
+
+## Lets a press on `c` go on to whatever holds it. A box keeps the presses that
+## land on it, which is right at a desk and wrong for a list under a thumb: a
+## page is dragged by whatever the thumb happens to be on, and a box in the way
+## is a stretch of the page that will not move. In mobile mode the kit's own
+## boxes pass theirs on; anything else that sits in a page's rows says so here.
+static func pass_presses(c: Control) -> void:
+	c.mouse_filter = Control.MOUSE_FILTER_PASS
 
 static func title(text: String, size: int = 22, pixel: bool = false) -> Label:
 	return label(text, size, Color(0.9, 0.95, 1.0), pixel)
@@ -169,6 +244,13 @@ class ScreenFrame extends PanelContainer:
 	## middle of the screen rather than filling it.
 	var top_margin := 40.0
 	var bottom_margin := 28.0
+	## Whether the page was built for a thumb (`UiKit.mobile`), which is a page
+	## that takes the screen: THUMB_PAGE wide where the screen has it, and all of
+	## the height but THUMB_EDGE at either end, since its rows are THUMB tall and
+	## a phone is not. Set when the frame is made and kept: what is in it was
+	## built at one size or the other, and a page is built again when the mode
+	## changes rather than stretched.
+	var thumb := false
 	## The three boxes a page is made of, ready to fill the moment the frame is
 	## made. `head` and `foot` are pinned; `rows` is what scrolls between them.
 	var head: VBoxContainer
@@ -213,11 +295,14 @@ class ScreenFrame extends PanelContainer:
 
 	func _fit() -> void:
 		var vp := get_viewport_rect().size
-		var room := maxf(vp.y - top_margin - bottom_margin, 160.0)
-		size = Vector2(content_width, minf(_wanted_height(), room))
+		var top := UiKit.THUMB_EDGE if thumb else top_margin
+		var bottom := UiKit.THUMB_EDGE if thumb else bottom_margin
+		var wide := minf(UiKit.THUMB_PAGE, vp.x - UiKit.THUMB_EDGE * 2.0) if thumb else content_width
+		var room := maxf(vp.y - top - bottom, 160.0)
+		size = Vector2(wide, minf(_wanted_height(), room))
 		# Whole pixels, or the pixel face lands between two of them.
 		position = Vector2(floorf((vp.x - size.x) * 0.5),
-			maxf(floorf((vp.y - size.y) * 0.5), top_margin))
+			maxf(floorf((vp.y - size.y) * 0.5), top))
 
 	## How tall the frame would be with nothing scrolled, so a page the screen
 	## has room for is shown whole and only a longer one grows a bar. A
@@ -228,13 +313,16 @@ class ScreenFrame extends PanelContainer:
 			+ rows.get_combined_minimum_size().y - body.get_combined_minimum_size().y
 
 ## A frame in the middle of the screen, `width` wide, with its `head`, `rows`
-## and `foot` waiting to be filled.
+## and `foot` waiting to be filled. In mobile mode a pixel one is a page for a
+## thumb instead — see `ScreenFrame.thumb` — whatever width and margins a desk
+## gives it.
 static func screen_frame(width: float, top: float, bottom: float,
 		pixel: bool = false) -> ScreenFrame:
 	var f := ScreenFrame.new()
 	f.content_width = width
 	f.top_margin = top
 	f.bottom_margin = bottom
+	f.thumb = pixel and mobile()
 	f.add_theme_stylebox_override("panel",
 		style(PANEL, Color(0.22, 0.3, 0.38), 1, 3, pixel))
 	return f
@@ -253,6 +341,19 @@ static func mark_chosen(b: Button) -> void:
 ## written in.
 const SETTING_LABEL_W := 160.0
 
+## That column in the mode the page is built in: twice as wide for a thumb's
+## page, where the names are written twice the size.
+static func setting_label_w() -> float:
+	return SETTING_LABEL_W * (2.0 if mobile() else 1.0)
+
+## A setting's name, in the column every row on the page keeps: the size a
+## menu's words are written at in the mode it is built in, and that mode's
+## width.
+static func setting_label(name: String) -> Label:
+	var l := label(name, text(PIXEL_TEXT), TEXT, true)
+	l.custom_minimum_size = Vector2(setting_label_w(), 0)
+	return l
+
 ## A setting answered by picking one of a few words: the name, then a button
 ## each, with the answer in force accented and unpressable. It is the shape the
 ## language row has always had, made once here because the title's settings and
@@ -262,6 +363,9 @@ const SETTING_LABEL_W := 160.0
 ## No tick and no box: a disabled accented button says which answer is in force
 ## without a second widget to theme, and every answer stays a thing you can
 ## reach with a gamepad.
+##
+## In mobile mode the answers share the rest of the row between them, so each is
+## as much of it as a thumb can be given.
 class ChoiceRow extends HBoxContainer:
 	## Called with the index picked. Set through `UiKit.choice_row`.
 	var on_pick: Callable
@@ -299,13 +403,13 @@ class ChoiceRow extends HBoxContainer:
 		for c in get_children():
 			remove_child(c)
 			c.queue_free()
-		var l := UiKit.label(_name, 16, UiKit.TEXT, true)
-		l.custom_minimum_size = Vector2(UiKit.SETTING_LABEL_W, 0)
-		add_child(l)
+		add_child(UiKit.setting_label(_name))
 		var first: Button = null
 		for i in _options.size():
 			var in_force: bool = i == _picked
 			var b := UiKit.button(_options[i], UiKit.ACCENT if in_force else UiKit.DIM, true)
+			if UiKit.mobile():
+				b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			if in_force:
 				UiKit.mark_chosen(b)
 			b.pressed.connect(func() -> void:
@@ -336,6 +440,9 @@ static func choice_row(name: String, options: PackedStringArray, picked: int,
 ##
 ## A BaseButton in toggle mode, so a click, a finger, `ui_accept` and a gamepad
 ## all throw it the same way, and `toggled` says which way it went.
+##
+## In mobile mode it is drawn twice the size, a block being two PIXELs, and the
+## thing a thumb lands on is THUMB tall with the track in the middle of it.
 class Switch extends BaseButton:
 	## The track and the knob, in PIXELs. The knob sits two in from the edge of
 	## the track's inside, and crosses the rest of it.
@@ -345,14 +452,27 @@ class Switch extends BaseButton:
 	const SLIDE := 0.08
 	## Where the knob is drawn: 0 at the off end, 1 at the on end.
 	var _at := 0.0
+	## How many PIXELs a block of it is drawn at: 1, or 2 built for a thumb.
+	var _unit := 1
 
 	func _init() -> void:
 		toggle_mode = true
 		focus_mode = Control.FOCUS_ALL
 		custom_minimum_size = Vector2(TRACK) * UiKit.PIXEL
+		if UiKit.mobile():
+			_unit = 2
+			custom_minimum_size = Vector2(TRACK.x * UiKit.PIXEL * _unit,
+				maxf(TRACK.y * UiKit.PIXEL * _unit, UiKit.THUMB))
+			mouse_filter = Control.MOUSE_FILTER_PASS
 		size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		set_process(false)
 		toggled.connect(func(_on: bool) -> void: set_process(true))
+
+	## The track where it is drawn, in this control's own space: all of it at a
+	## desk, and in the middle of the taller thing a thumb is given.
+	func track_rect() -> Rect2:
+		var s := Vector2(TRACK) * UiKit.PIXEL * _unit
+		return Rect2(Vector2(0.0, floorf((size.y - s.y) * 0.5 / UiKit.PIXEL) * UiKit.PIXEL), s)
 
 	## Thrown to `on` at once, the knob already there and nobody told: for
 	## showing a setting as it stands rather than changing it.
@@ -370,7 +490,8 @@ class Switch extends BaseButton:
 		queue_redraw()
 
 	func _draw() -> void:
-		var p := float(UiKit.PIXEL)
+		var p := float(UiKit.PIXEL * _unit)
+		draw_set_transform(track_rect().position)
 		var on := button_pressed
 		var lit := has_focus() or is_hovered()
 		var w := float(TRACK.x)
@@ -419,39 +540,59 @@ static func switch(on: bool, on_toggle: Callable) -> Switch:
 	s.toggled.connect(on_toggle)
 	return s
 
+## Room, and a rule across a page. Neither is a thing to press, so neither
+## keeps a press that lands on it: under a thumb it goes to the page, which is
+## dragged by it.
 static func spacer(h: int = 8) -> Control:
 	var c := Control.new()
 	c.custom_minimum_size = Vector2(0, h)
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return c
 
 static func hline(pixel: bool = false) -> ColorRect:
 	var r := ColorRect.new()
 	r.color = Color(0.25, 0.32, 0.4, 0.7)
-	r.custom_minimum_size = Vector2(0, PIXEL if pixel else 1)
+	r.custom_minimum_size = Vector2(0, PIXEL * (2 if pixel and mobile() else 1) if pixel else 1)
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return r
 
 ## A slider in the pixel look: a flat track whose filled part is the accent, and
-## a square knob in place of the theme's round one.
+## a square knob in place of the theme's round one. In mobile mode the track and
+## the knob are twice the size and the slider stands THUMB tall — a press
+## anywhere along it carries the knob there, so the whole row is what a thumb
+## lands on, and the knob only has to be seen.
 static func pixel_slider(s: Slider) -> void:
-	s.add_theme_stylebox_override("slider", _pixel_box(LINE, PIXEL))
-	s.add_theme_stylebox_override("grabber_area", _pixel_box(ACCENT, PIXEL))
-	s.add_theme_stylebox_override("grabber_area_highlight", _pixel_box(ACCENT, PIXEL))
+	var k := 2 if mobile() else 1
+	s.add_theme_stylebox_override("slider", _pixel_box(LINE, PIXEL * k))
+	s.add_theme_stylebox_override("grabber_area", _pixel_box(ACCENT, PIXEL * k))
+	s.add_theme_stylebox_override("grabber_area_highlight", _pixel_box(ACCENT, PIXEL * k))
 	s.add_theme_stylebox_override("focus", style(Color(0, 0, 0, 0), ACCENT, 1, 0, true))
-	s.add_theme_icon_override("grabber", _pixel_knob(TEXT))
-	s.add_theme_icon_override("grabber_highlight", _pixel_knob(Color.WHITE))
-	s.add_theme_icon_override("grabber_disabled", _pixel_knob(DIM))
+	s.add_theme_icon_override("grabber", _pixel_knob(TEXT, k))
+	s.add_theme_icon_override("grabber_highlight", _pixel_knob(Color.WHITE, k))
+	s.add_theme_icon_override("grabber_disabled", _pixel_knob(DIM, k))
+	if mobile():
+		s.custom_minimum_size.y = maxf(s.custom_minimum_size.y, THUMB)
+		s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 ## A scroll container in the pixel look: flat, square bars four PIXELs wide, and
 ## a square focus border in place of the theme's rounded one, which the
-## container draws through an internal panel of its own.
+## container draws through an internal panel of its own. Twice as wide in mobile
+## mode, where the bar is only there to be seen: a thumb moves the list by the
+## list.
 static func pixel_scroll(sc: ScrollContainer) -> void:
+	var wide := PIXEL * (4 if mobile() else 2)
+	# How far a thumb moves before the list goes with it. With none, the tremor
+	# of a thumb coming down on a button is a drag, and a drag lets go of the
+	# button: nothing in the list could be pressed.
+	if mobile():
+		sc.scroll_deadzone = int(TOUCH_SLOP)
 	sc.add_theme_stylebox_override("focus", style(Color(0, 0, 0, 0), ACCENT, 1, 0, true))
 	for bar: ScrollBar in [sc.get_v_scroll_bar(), sc.get_h_scroll_bar()]:
-		bar.add_theme_stylebox_override("scroll", _pixel_box(PANEL, PIXEL * 2))
-		bar.add_theme_stylebox_override("scroll_focus", _pixel_box(PANEL, PIXEL * 2))
-		bar.add_theme_stylebox_override("grabber", _pixel_box(LINE, PIXEL * 2))
-		bar.add_theme_stylebox_override("grabber_highlight", _pixel_box(ACCENT, PIXEL * 2))
-		bar.add_theme_stylebox_override("grabber_pressed", _pixel_box(ACCENT, PIXEL * 2))
+		bar.add_theme_stylebox_override("scroll", _pixel_box(PANEL, wide))
+		bar.add_theme_stylebox_override("scroll_focus", _pixel_box(PANEL, wide))
+		bar.add_theme_stylebox_override("grabber", _pixel_box(LINE, wide))
+		bar.add_theme_stylebox_override("grabber_highlight", _pixel_box(ACCENT, wide))
+		bar.add_theme_stylebox_override("grabber_pressed", _pixel_box(ACCENT, wide))
 
 ## A flat, borderless, unsmoothed box. Its margins are what give a slider track
 ## or a scrollbar its thickness.
@@ -462,9 +603,11 @@ static func _pixel_box(bg: Color, margin: int) -> StyleBoxFlat:
 	s.set_content_margin_all(margin)
 	return s
 
-## The slider knob: a block of `fill` inside a one-PIXEL dark border.
-static func _pixel_knob(fill: Color) -> ImageTexture:
-	var img := Image.create_empty(PIXEL * 6, PIXEL * 8, false, Image.FORMAT_RGBA8)
+## The slider knob: a block of `fill` inside a one-PIXEL dark border, a block
+## being `k` PIXELs.
+static func _pixel_knob(fill: Color, k: int = 1) -> ImageTexture:
+	var p := PIXEL * k
+	var img := Image.create_empty(p * 6, p * 8, false, Image.FORMAT_RGBA8)
 	img.fill(BG)
-	img.fill_rect(Rect2i(PIXEL, PIXEL, PIXEL * 4, PIXEL * 6), fill)
+	img.fill_rect(Rect2i(p, p, p * 4, p * 6), fill)
 	return ImageTexture.create_from_image(img)

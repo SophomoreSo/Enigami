@@ -31,14 +31,15 @@ func flight(p: Payload) -> float:
 		proj.queue_free()
 	return flew
 
+## A bolt off `weapon` through `n` of `part`, on a board exactly as long as the
+## chain, so its last part is against the way out.
 func bolt(weapon: String, part: String = "", n: int = 0) -> Payload:
-	var b := SkillBoard.new(9, 5, "rng")
+	var b := SkillBoard.new(n + 1, 5, "rng")
 	b.set_root("PROJECTILE")
 	var x := 1
 	for i in n:
 		b.place(part, Vector2i(x, 2), 0)
 		x += 1
-	b.place("OUTPUT", Vector2i(x, 2), 0)
 	var r := SkillRunner.new(b)
 	r.base_payload_provider = func() -> Payload: return Weapons.base_payload(weapon)
 	return Weapons.finalize(weapon, (r.simulate()["outputs"][0] as Payload).clone())
@@ -119,10 +120,9 @@ func _ready() -> void:
 		"and carries heat, so the reach is paid for on the cooldown")
 
 	# It does nothing to a flow with no bolt in it, which is what it says.
-	var mb := SkillBoard.new(9, 5, "melee")
+	var mb := SkillBoard.new(2, 5, "melee")
 	mb.set_root("SLASH")
 	mb.place("RANGE", Vector2i(1, 2), 0)
-	mb.place("OUTPUT", Vector2i(2, 2), 0)
 	var mr := SkillRunner.new(mb)
 	mr.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
 	var mp: Payload = mr.simulate()["outputs"][0]

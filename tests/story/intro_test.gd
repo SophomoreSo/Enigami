@@ -126,6 +126,21 @@ func _ready() -> void:
 	var released := await play(cut, func() -> bool: return tinker.forced_anim == "idle")
 	check(released, "and a later one hands them back")
 
+	# A hurry — the console's tap on the right of the screen — brings a line
+	# out whole and does nothing else; the beat moves on for interact, which is
+	# the console's hold. Sent the way the console sends them, as actions down
+	# the tree rather than calls.
+	var typing := await play(cut, func() -> bool: return cut.line() != "" and not cut.line_finished())
+	check(typing, "a later line is typing")
+	var at := cut.index
+	await send("hurry")
+	check(cut.index == at and cut.line_finished(), "a hurry part-way brings the rest of the line out")
+	await send("hurry")
+	await frames(10)
+	check(cut.index == at, "and a hurry on a read line moves nothing on")
+	await send("interact")
+	check(cut.index == at + 1, "where interact does")
+
 	# --- skipping -----------------------------------------------------------
 	check(not cut.done, "the scene is still running before it is skipped")
 	cut.skip()
@@ -158,6 +173,17 @@ func play(cut: Cutscene, cond: Callable, most: int = 3000) -> bool:
 			cut.press()
 		await get_tree().process_frame
 	return false
+
+## Presses `action` and lets it go, the way the console does: an event sent
+## down the tree, which is what a scene answers.
+func send(action: String) -> void:
+	for down in [true, false]:
+		var e := InputEventAction.new()
+		e.action = action
+		e.pressed = down
+		e.strength = 1.0 if down else 0.0
+		Input.parse_input_event(e)
+		await frames(2)
 
 ## Whether checking a scene made of `beats` complains about `want`.
 func _caught(base: Dictionary, beats: Array, want: String) -> bool:
