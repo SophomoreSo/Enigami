@@ -67,7 +67,9 @@ godot res://tests/graphics/logo_card_test.tscn # the game opens on a logo from t
 godot res://tests/shared/loc_test.tscn      # every language says everything, and can be drawn
 godot res://tests/shared/module_test.tscn   # what each module may name, row by row, and what no rule may
 godot res://tests/mobile/touch_layout_test.tscn # SET BUTTON POSITIONS: drag a button, keep it, play with it there
-godot res://tests/mobile/talk_touch_test.tscn # a conversation on the glass: the left picks, a tap on the right hurries, a hold goes on
+godot res://tests/mobile/talk_touch_test.tscn # a conversation on the glass: a tap hurries, a hold goes on, an answer's plate is touched to pick and held to give
+godot res://tests/mobile/menu_thumb_test.tscn # mobile mode's menus: every page a thumb's size, and a desk's with the mode off
+godot res://tests/mobile/editor_touch_test.tscn # mobile mode's assembly board: tabs, plates, TURN and REMOVE, worked with a thumb
 godot res://tests/feature/dragon_test.tscn  # one charged cast clears the whole tower
 godot res://tests/graphics/shots.tscn   # writes a screenshot of each screen to user://shots
 godot res://tests/graphics/dragon_shot.tscn  # ...and frames of the dragon test
@@ -128,9 +130,10 @@ another shape, or a phone turned, is followed as it happens.
 
 ### Touch — the console on the glass
 
-**Mobile mode**, the switch on the second row of the control settings, draws a
-console on the screen for two thumbs to play on, and lays the title's menu out
-as a row of big square tiles — a mark over each name — for a thumb to land on.
+**Mobile mode**, the switch on the control settings, draws a console on the
+screen for two thumbs to play on, and lays every menu out for a thumb rather
+than a pointer — the title's as a row of big square tiles, a mark over each
+name, and the rest as below, under *The menus, for a thumb*.
 A fresh install is in AUTO: on wherever the machine is one you touch and off
 everywhere else, so an Android or iOS build has controls before anyone finds
 the switch, and the switch shows what AUTO came to. Throwing it is an answer for
@@ -158,15 +161,15 @@ controls turn out to fit:
   exit you are standing in, the weapon's button becomes the interact key; a
   thumb already down keeps what it pressed. One button fewer under the right
   thumb.
-* **In a conversation the screen is two halves, and neither is drawn.** The
-  left picks an answer: a tap on its top half moves the highlight up, one on
-  its bottom half down. The right reads: a tap brings the line coming in out
-  whole and does nothing else, and a thumb held there goes on — to the next
-  line, or with the answer picked — once a ring has closed in round it. Going
-  on is the one thing that cannot be taken back, so it is the one thing a tap
-  cannot do: tapping to hurry the words never passes a line or gives an answer
-  unread. The intro reads the same way, and the hint under a question, or under
-  the intro's box, says so in place of a key.
+* **In a conversation the whole screen is the page, and it is not drawn.** A
+  tap anywhere brings the line coming in out whole and does nothing else, and a
+  thumb held there goes on — to the next line, or with the answer picked — once
+  a ring has closed in round it. Going on is the one thing that cannot be taken
+  back, so it is the one thing a tap cannot do: tapping to hurry the words never
+  passes a line or gives an answer unread. The answers are plates under the box,
+  touched to pick one and held to give it (below). The intro reads the same
+  way, and the hint under a question, beside the arrow on a line, or under the
+  intro's box, says so in place of a key.
 * **Everything else is a key.** JUMP, DASH, and KIT / MAP / MENU in the far
   corner take no direction, so they are buttons and nothing more.
 
@@ -211,13 +214,58 @@ never learn what a finger is. What changes while it is up:
   names on them, a line telling you to press one is two rows of a small screen
   spent saying nothing.
 * **What is on the console follows the screen.** Playing shows everything; a
-  conversation or a scene shows the two halves of the screen, the left picking
-  an answer and the right turning the page; a window that has taken the
-  controls — the map, a station's panel — keeps only the keys that close it
-  again, since the map is opened and shut with the same key and on a phone that
-  key is on the console or it is nowhere. The assembly board leaves the glass clear: it covers all of it, it is
-  itself what the thumb is for, and its own CLOSE is right where KIT, MAP and
-  MENU would stand. The pause menu replaces it: those are buttons you tap.
+  conversation or a scene shows nothing, the whole screen being the page; a
+  window that has taken the controls — the map, the bench's drawer — keeps only
+  the keys that close it again, since the map is opened and shut with the same
+  key and on a phone that key is on the console or it is nowhere. The assembly
+  board leaves the glass clear: it covers all of it, it is itself what the
+  thumb is for, and its own CLOSE is right where KIT, MAP and MENU would stand.
+  So does a station's panel in the hideout, which is a page nearly the width of
+  the screen with its own way out in two corners. The pause menu replaces the
+  console: those are buttons you tap.
+
+**The menus, for a thumb.** A desk's menus are dense because a pointer lands
+on a pixel: a row is a line of text, a button the size of its word. On a phone
+the 720 the game is laid out in is about 65mm of glass, so that row is under
+3mm of it and its words stand under a millimetre. So in mobile mode every menu
+has a second layout (`UiKit.mobile`), and at a desk each is exactly as it was:
+
+* **The pages** — the title's settings and save slots, the pause menu, a
+  station's panel — run most of the width of the screen, with nothing to press
+  under 80 high, their words twice the size, and a border twice as thick. A
+  slider is a row a thumb runs along, a choice's answers share its row between
+  them, and the switch is drawn at twice the size. A page longer than the
+  screen is dragged by whatever the thumb lands on. The save slots are a page
+  of plates rather than a column of lines, each with its can on a plate of its
+  own; the rack's weapons stand side by side so BUILD stays on the page.
+* **The controls page is a different list.** The aim's help, the switch, and
+  SET BUTTON POSITIONS. The pointer's speed and the bindings are a desk's — the
+  mouse is put away while the console is up, and there is no key on the glass
+  to press for a binding — so they are not on it. Throwing the switch off
+  brings them back; the page is laid out again as it is thrown, in either
+  direction, with the keyboard still on the switch.
+* **A conversation's box** runs most of the width of the screen with its words
+  twice the size, and its answers are not lines in it: each is a plate under
+  the box, as wide as the box. A touch picks an answer and a hold gives it, the
+  plate filling as the hold counts — the console's own rule for going on, on
+  the thing a thumb would reach for. A thumb on a plate is the plate's: it
+  hurries nothing and holds nothing on. The intro's box is the same size.
+* **The assembly board** is a different screen rather than the desk's drawn
+  bigger. A desk's is worked with a wheel to turn a part, a second button to
+  take one off, and thirty-six parts in rows 20 high; a thumb has none of
+  those. So the board is as big as the screen lets it be — a first workbench's
+  cells are 90 across where a desk's are 50, and the biggest grid still fits
+  at 58 — the parts come a category at a time, on tabs, each a plate with its
+  name written big, and under them are TURN and REMOVE. A touch on a plate
+  takes the part in hand and a touch on an empty cell sets it down; a touch on
+  a part on the board picks it, bringing its tab up, for TURN to turn and
+  REMOVE to put back in the bag; a part dragged is moved, and one dragged onto
+  the parts is put away. Nothing scrolls, so a drag is never asked to mean two
+  things. CODE and CLOSE are plates in the corner, and the share sheet's
+  buttons are a thumb's, with a code coming in by PASTE.
+* **The rest** follow: the bench's drawer has buttons and a tab a thumb can
+  land on, the screen behind SET BUTTON POSITIONS likewise, and the page after
+  a raid is written bigger, in two columns, with the way back a plate.
 
 None of it is eyeballed. `tests/mobile/touch_pad_test` measures every control
 against the HUD's two bands, against every other control, and against its own
@@ -226,9 +274,14 @@ walks and runs, a stick dragged over a button does not press it, the cast button
 charges while it is held, aims where it is thrown and casts what the hold paid
 for. `tests/mobile/talk_touch_test` talks to the sandbox's SAGE with thumbs
 alone, from the USE that opens the conversation to the hold that ends it: taps
-never move a line on, a hold goes on once however long it stays, and a thumb
-still down as the conversation opens or ends presses nothing on the face that
-comes up under it.
+never move a line on, a hold goes on once however long it stays, a plate is
+picked by a touch and given by a hold, and a thumb still down as the
+conversation opens or ends — or resting on the glass through it — presses
+nothing on the face that comes up under it. `tests/mobile/menu_thumb_test`
+holds every page to a thumb's size on two shapes of screen, and to a desk's
+with the mode off; `tests/mobile/editor_touch_test` builds on the board with a
+thumb — tabs, plates, a part picked, turned, taken off and dragged — and checks
+its frame is on the pixel grid like the desk's.
 
 The pointer you aim with is the game's own: a crosshair, drawn at boot from a
 table of characters like every other asset here that is not a sprite or a font,

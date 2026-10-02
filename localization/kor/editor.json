@@ -1,5 +1,7 @@
 {
 	"close": "닫기",
+	"turn": "회전",
+	"remove": "제거",
 	"code": "코드",
 	"count": "x%d",
 	"dead": {
@@ -23,6 +25,7 @@
 		"entry": "코드로 조립하기",
 		"hint": "대소문자 구분 없음 · ENTER 조립 · ESC 닫기",
 		"prompt": "코드를 입력하거나 클립보드에서 붙여넣으세요.",
+		"prompt_touch": "클립보드의 코드를 붙여넣으세요.",
 		"typing": "%d자 입력됨…",
 		"summary": "%dx%d · 부품 %d · %s",
 		"utility": "범용",

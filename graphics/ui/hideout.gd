@@ -16,6 +16,11 @@ extends Control
 ## said what the mouse was on — a facility's effect, why a board would not fit,
 ## what a purchase cost — and it was taken out by hand: a panel is its rows and
 ## the way out of them, and nothing else.
+##
+## As a station's panel in mobile mode (`UiKit.mobile`) the same rows are built
+## for a thumb: the words at THUMB_TEXT, and everything to press THUMB tall —
+## which the kit's buttons already are there. The room builds the panel again
+## when the mode is thrown under it (`HideoutWorldView`).
 
 signal deploy_requested(weapon: String)
 signal title_requested()
@@ -30,6 +35,9 @@ signal weapon_changed(weapon: String)
 ## a button, and a stash row's part with a count beside it.
 const COL_WEAPONS := 320.0
 const COL_FACILITIES := 348.0
+## The least a weapon's plate is across on the rack in mobile mode, where they
+## stand in a row: three to a page's width, and a word's room in each.
+const RACK_PLATE := 280.0
 
 var weapon_id: String = ""
 ## Which of the two columns this screen is. "" builds both under a header and
@@ -56,6 +64,10 @@ func _ready() -> void:
 	# stretching a panel's column back out to the whole viewport every frame,
 	# with its buttons a screen and a half off to the right.
 	set_process(section == "")
+	# In a page for a thumb, a press that lands between the rows is the page's:
+	# it is what the list is dragged by.
+	if section != "" and UiKit.mobile():
+		UiKit.pass_presses(self)
 	Loc.language_changed.connect(_relanguage)
 	if weapon_id == "" or not GameState.owned_weapons.has(weapon_id):
 		weapon_id = GameState.owned_weapons[0] if GameState.owned_weapons.size() > 0 else "SWORD"
@@ -122,8 +134,10 @@ func _section_column() -> Control:
 	return c
 
 ## --- the kit, in the pixel look ---------------------------------------------
+## A station's panel in mobile mode writes its words at a thumb's size; the
+## whole screen never does, having three columns of them to fit.
 func _label(text: String, color: Color = UiKit.TEXT, size: int = UiKit.PIXEL_TEXT) -> Label:
-	return UiKit.label(text, size, color, true)
+	return UiKit.label(text, UiKit.text(size) if section != "" else size, color, true)
 
 ## A line that is allowed to run on: it wraps inside its column instead of
 ## pushing the column wider.
@@ -146,6 +160,7 @@ func _row_button(text: String, accent: Color = UiKit.ACCENT) -> Button:
 func _pad() -> Control:
 	var c := Control.new()
 	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return c
 
 ## The box a long list sits in. On the whole screen, where three columns share
@@ -187,6 +202,15 @@ func _weapons_column() -> Control:
 	p.add_child(v)
 	v.add_child(_label(Loc.t("hideout.weapons.heading"), UiKit.ACCENT))
 	v.add_child(UiKit.hline(true))
+	# One under another at a desk. For a thumb they stand side by side, as many
+	# to a row as fit: a plate THUMB tall for each, stacked, left no room on a
+	# phone for what the rack says under them, and BUILD went off the bottom.
+	var rack: Container = v
+	if section != "" and UiKit.mobile():
+		rack = HFlowContainer.new()
+		rack.add_theme_constant_override("h_separation", 8)
+		rack.add_theme_constant_override("v_separation", 8)
+		v.add_child(rack)
 	for id in Weapons.ids():
 		var owned: bool = GameState.owned_weapons.has(id)
 		var selected: bool = id == weapon_id
@@ -196,7 +220,10 @@ func _weapons_column() -> Control:
 			Weapons.name_for(id), "" if owned else Loc.t("hideout.weapons.lost")]),
 			wc if selected else UiKit.DIM)
 		b.disabled = not owned
-		b.custom_minimum_size = Vector2(0, 40 if selected else 34)
+		b.custom_minimum_size = Vector2(0, maxf(40 if selected else 34, UiKit.thumb()))
+		if rack != v:
+			b.custom_minimum_size.x = RACK_PLATE
+			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		if selected:
 			b.add_theme_color_override("font_color", wc)
 			b.add_theme_stylebox_override("normal", UiKit.style(
@@ -205,7 +232,7 @@ func _weapons_column() -> Control:
 			weapon_id = id
 			weapon_changed.emit(id)
 			rebuild())
-		v.add_child(b)
+		rack.add_child(b)
 	# What the weapon is, and nothing more. The numbers behind it — what it
 	# multiplies, what it costs to die carrying it — were four more wrapped
 	# blocks under this one, and are gone.

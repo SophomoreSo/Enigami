@@ -244,6 +244,15 @@ func move_selection(step: int) -> void:
 	selected = wrapi(selected + step, 0, choices().size())
 	Cues.emit_cue(&"ui", {"kind": "arm"})
 
+## Puts the highlight on answer `index`: an answer picked by pointing at it —
+## its plate, on the glass — rather than stepped to. It gives nothing; `choose`
+## and `interact` do that.
+func select(index: int) -> void:
+	if not is_choosing() or index < 0 or index >= choices().size() or index == selected:
+		return
+	selected = index
+	Cues.emit_cue(&"ui", {"kind": "arm"})
+
 ## A press to talk. The player is walked over to where people stand to talk,
 ## `TALK_SPOT` out on the side they are on, and turned to face them, and the
 ## conversation opens once they are there; for one standing there already it

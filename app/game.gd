@@ -44,6 +44,10 @@ var pause_abandon: Button = null
 ## (nothing) and is a different act (the run is written down, not ended).
 var pause_title: Button = null
 var pause_park: Button = null
+## Whether the pause menu was built for a thumb (`UiKit.mobile`). It is built
+## once and kept, so it is built again when the mode it was built for is no
+## longer the one in force — see `_pause_remode`.
+var pause_thumb: bool = false
 var hideout_ref: HideoutWorld = null
 ## The menus the pause menu shows, each as a page of its own: PAUSED, and the
 ## two pages behind its doors — the same two the title's settings show, from
@@ -77,6 +81,24 @@ func _ready() -> void:
 	# built under it in the same frame, which it fades into — see `LogoCard`.
 	if LogoCard.wanted(self):
 		overlay_layer.add_child(LogoCard.new())
+
+## The pause menu, built again if mobile mode has been thrown since it was
+## built: the title's settings throw it with this menu nowhere on screen, and
+## the menu's own controls page throws it from inside. On that page the keyboard
+## was on the switch if it was anywhere, so it is put on the one that took its
+## place.
+func _pause_remode() -> void:
+	if pause_thumb == UiKit.mobile():
+		return
+	var focused := get_viewport().gui_get_focus_owner()
+	var on_switch: bool = focused is UiKit.Switch and pause_menu != null \
+		and pause_menu.is_ancestor_of(focused)
+	_rebuild_pause_menu(Loc.language)
+	if on_switch and pause_controls != null and pause_controls.is_visible_in_tree():
+		for c in pause_controls.find_children("*", "", true, false):
+			if c is UiKit.Switch:
+				(c as Control).grab_focus()
+				break
 
 func _rebuild_pause_menu(_lang: String) -> void:
 	var was_open: bool = pause_menu != null and pause_menu.visible
@@ -130,10 +152,15 @@ func _process(_delta: float) -> void:
 ## which is where KIT, MAP and MENU stand, so with them up a press on CLOSE was
 ## a press on MENU. The pad stays up with nothing on it, so the words the board
 ## prints for a control are still the ones on the glass.
+##
+## So does a panel a world puts up over itself — a station's, in the hideout.
+## In mobile mode it is a page nearly the width of the screen, with its own way
+## out in each corner a thumb might look, and the three keys would stand on its
+## heading.
 func _touch_face() -> int:
 	if state == State.INTRO:
 		return TouchPad.Face.TALK
-	if _assembling():
+	if _assembling() or _paneled():
 		return TouchPad.Face.CLEAR
 	for p in get_tree().get_nodes_in_group("player"):
 		if not p.controls_locked():
@@ -150,6 +177,11 @@ func _use_nearby() -> bool:
 	if current == null or not is_instance_valid(current) or not (current is World):
 		return false
 	return (current as World).use_nearby()
+
+## Whether the world has a panel of its own up over it — see `World.paneled`.
+func _paneled() -> bool:
+	return current != null and is_instance_valid(current) and current is World \
+		and (current as World).paneled()
 
 ## Whether an assembly board is up: the hideout's workbench, which is the
 ## shell's own, or the one the world under it carries.
@@ -333,8 +365,15 @@ class PauseMenu extends Control:
 	# Built once and kept for the whole run, so the screen can change shape under
 	# it — a window dragged, a phone turned — and its shade has to go on covering
 	# the lot. The pages centre themselves.
+	#
+	# And it is the one thing running while the tree is stopped, so it is what
+	# notices mobile mode thrown on its own controls page. The rebuild replaces
+	# this node, so it is asked for and left to happen once this frame is done.
 	func _process(_delta: float) -> void:
 		UiKit.sync_screen(self)
+		if visible and game != null and is_instance_valid(game) \
+				and game.pause_thumb != UiKit.mobile() and not is_queued_for_deletion():
+			game._pause_remode.call_deferred()
 	func _unhandled_input(event: InputEvent) -> void:
 		if not visible or not event.is_action_pressed("pause"):
 			return
@@ -367,6 +406,7 @@ class PauseMenu extends Control:
 ## pages the title's settings keep, reached the same way, so the menu the player
 ## pauses into is the menu they already know.
 func _build_pause_menu() -> void:
+	pause_thumb = UiKit.mobile()
 	pause_menu = PauseMenu.new()
 	(pause_menu as PauseMenu).game = self
 	pause_menu.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
@@ -423,7 +463,7 @@ func _pause_items(frame: UiKit.ScreenFrame, menu: String) -> Dictionary:
 		elif id == "abandon":
 			tone = UiKit.BAD
 		var b := UiKit.button(String(item["text"]), tone, true)
-		b.custom_minimum_size = Vector2(280, 40 if id == "resume" else 36)
+		b.custom_minimum_size = Vector2(280, maxf(40 if id == "resume" else 36, UiKit.thumb()))
 		b.pressed.connect(Menus.press(menu, item, acts, _pause_open))
 		if bool(item["exit"]):
 			if not foot_open:
@@ -546,10 +586,10 @@ func _pause_heading(text: String, back: Callable) -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 10)
 	var arrow := UiKit.button(Loc.t("menu.pause.arrow"), UiKit.ACCENT, true)
-	arrow.custom_minimum_size = Vector2(44, 34)
+	arrow.custom_minimum_size = UiKit.corner_button()
 	arrow.pressed.connect(back)
 	h.add_child(arrow)
-	h.add_child(UiKit.title(text, 24, true))
+	h.add_child(UiKit.title(text, UiKit.text(24), true))
 	return h
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -569,6 +609,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _pause() -> void:
+	# In the layout the mode in force asks for, whichever it was built in.
+	_pause_remode()
 	_pause_exits()
 	# Always on PAUSED, however it was left last time.
 	pause_main.visible = true

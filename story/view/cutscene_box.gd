@@ -8,6 +8,9 @@ extends Control
 ## Deliberately its own panel rather than the `DialogueBox`: a conversation is
 ## framed around two portraits facing each other, and a prologue is a voice over
 ## a room. It sits at the bottom so the stage above it is never covered.
+##
+## In mobile mode (`UiKit.mobile`) it is the conversation's box's size: most of
+## the width of the screen, its words twice as big, for the same glass.
 
 const LAYER := 32
 
@@ -33,6 +36,12 @@ const TAB_HEIGHT := 24.0
 const ROWS_SHOWN := 3       ## the panel is this tall whatever the line, so it never jumps
 const OPEN_TIME := 0.18
 const MARK_INSET := Vector2(16.0, 16.0)
+## Mobile mode's panel: as wide as THUMB_WIDTH where the screen has it, clear of
+## its edges by THUMB_SIDE, and nearer the bottom, the hint under it being one
+## short line.
+const THUMB_WIDTH := 1100.0
+const THUMB_SIDE := 40.0
+const THUMB_BOTTOM := 52.0
 
 var cut: Cutscene
 var _font: Font
@@ -54,14 +63,39 @@ func _process(delta: float) -> void:
 	_open = minf(_open + delta / OPEN_TIME, 1.0) if showing else 0.0
 	queue_redraw()
 
+## Whether the panel is laid out for a thumb: mobile mode.
+func thumb() -> bool:
+	return UiKit.mobile()
+
+## The sizes the panel is written at: a desk's, or twice that for a thumb.
+func _text_size() -> int:
+	return TEXT_SIZE * 2 if thumb() else TEXT_SIZE
+
+func _name_size() -> int:
+	return NAME_SIZE * 2 if thumb() else NAME_SIZE
+
+func _line_h() -> float:
+	return LINE_H * 2.0 if thumb() else LINE_H
+
+func _tab_h() -> float:
+	return TAB_HEIGHT * 2.0 - 4.0 if thumb() else TAB_HEIGHT
+
+## Where the panel stands: `ROWS_SHOWN` rows of the size it is written at.
+func box_rect() -> Rect2:
+	var w := clampf(size.x - SIDE_CLEAR * 2.0, MIN_WIDTH, MAX_WIDTH)
+	if thumb():
+		w = clampf(size.x - THUMB_SIDE * 2.0, MIN_WIDTH, THUMB_WIDTH)
+	var h := PAD * 2.0 + _line_h() * float(ROWS_SHOWN)
+	return Rect2(Vector2((size.x - w) * 0.5, size.y - (THUMB_BOTTOM if thumb() else BOTTOM) - h),
+		Vector2(w, h))
+
 func _draw() -> void:
 	if _open <= 0.0:
 		return
-	var w := clampf(size.x - SIDE_CLEAR * 2.0, MIN_WIDTH, MAX_WIDTH)
+	var box := box_rect()
+	var w := box.size.x
 	var text_w := w - PAD * 2.0
-	var line_h := LINE_H
-	var h := PAD * 2.0 + line_h * float(ROWS_SHOWN)
-	var box := Rect2(Vector2((size.x - w) * 0.5, size.y - BOTTOM - h), Vector2(w, h))
+	var line_h := _line_h()
 	# Rises the last few pixels as it opens, which reads as the scene handing
 	# the line over rather than the panel being switched on.
 	box.position.y += (1.0 - _open) * 8.0
@@ -76,7 +110,7 @@ func _draw() -> void:
 
 	# Wrapped from the whole line rather than the part typed so far, so a word
 	# never jumps down a row halfway through arriving.
-	var rows := _wrap(cut.line(), text_w, TEXT_SIZE)
+	var rows := _wrap(cut.line(), text_w, _text_size())
 	var shown := int(cut.revealed)
 	var pen := box.position + Vector2(PAD, PAD)
 	var used := 0
@@ -85,7 +119,7 @@ func _draw() -> void:
 		var left := shown - used
 		if left <= 0:
 			break
-		_text(pen, row.left(left), TEXT_SIZE, ink)
+		_text(pen, row.left(left), _text_size(), ink)
 		used += row.length() + 1   # the space the wrap ate
 		pen.y += line_h
 
@@ -96,12 +130,12 @@ func _draw() -> void:
 ## The speaker's name on a tab over the top-left corner. Narration has no
 ## speaker and so gets no tab — which is how the two read apart.
 func _draw_name_tab(box: Rect2, name: String) -> void:
-	var w := _width(name, NAME_SIZE) + PAD * 1.6
-	var tab := Rect2(box.position + Vector2(PAD, -TAB_HEIGHT), Vector2(w, TAB_HEIGHT))
+	var w := _width(name, _name_size()) + PAD * 1.6
+	var tab := Rect2(box.position + Vector2(PAD, -_tab_h()), Vector2(w, _tab_h()))
 	draw_rect(tab, Color(UiKit.PANEL.r, UiKit.PANEL.g, UiKit.PANEL.b, 0.97 * _open))
 	draw_rect(tab, Color(UiKit.LINE.r, UiKit.LINE.g, UiKit.LINE.b, _open), false, 2.0)
 	var c := Color(UiKit.ACCENT.r, UiKit.ACCENT.g, UiKit.ACCENT.b, _open)
-	_text(tab.position + Vector2(PAD * 0.8, (TAB_HEIGHT - LINE_H) * 0.5), name, NAME_SIZE, c)
+	_text(tab.position + Vector2(PAD * 0.8, (_tab_h() - _line_h()) * 0.5), name, _name_size(), c)
 
 ## The blinking wedge that says the line is read and a press moves it on.
 func _draw_mark(box: Rect2) -> void:
@@ -115,8 +149,8 @@ func _draw_hint(box: Rect2) -> void:
 	# `interact` rather than `ui_accept`: a scene answers either — see
 	# `Cutscene._unhandled_input` — and `interact` is the one every other prompt
 	# in the game names and the one the rebinding screen can move. On the glass
-	# it is a hold on the right of the screen, where a tap only hurries the line,
-	# and that is what is said instead.
+	# it is a hold anywhere on the screen, where a tap only hurries the line, and
+	# that is what is said instead.
 	var hint := Loc.t("hud.cutscene.hint_touch")
 	if not Controls.on_glass():
 		hint = Loc.t("hud.cutscene.hint", [

@@ -36,15 +36,16 @@ extends Control
 ##     not turn a swing into a press. One button fewer under the right thumb,
 ##     and the two are never wanted in the same place: you do not hit what
 ##     you are talking to.
-##   * **In a conversation the screen is two halves, and neither is drawn.**
-##     The left picks an answer: a tap on its top half moves the highlight up
-##     one, on its bottom half down one. The right reads: a tap brings the line
-##     coming in out whole and does nothing else, and a thumb held there goes on
-##     — to the next line, or with the answer picked — once a ring has closed in
-##     round it (`HOLD`). Going on is the one thing that cannot be taken back,
-##     so it is the one thing a tap cannot do: a reader tapping to hurry the
-##     words never passes a line or gives an answer by it. A button to find for
-##     every line is the wrong thing to ask of a thumb that is reading.
+##   * **In a conversation the whole screen is the page, and it is not drawn.**
+##     A tap anywhere brings the line coming in out whole and does nothing else,
+##     and a thumb held there goes on — to the next line, or with the answer
+##     picked — once a ring has closed in round it (`HOLD`). Going on is the one
+##     thing that cannot be taken back, so it is the one thing a tap cannot do:
+##     a reader tapping to hurry the words never passes a line or gives an
+##     answer by it. A button to find for every line is the wrong thing to ask
+##     of a thumb that is reading. The answers are not the console's: the box
+##     puts each on a plate of its own and takes the thumb that lands on one —
+##     touched to pick it, held to give it (`DialogueBox`).
 ##   * **Everything else is a key.** Jump, dash and the three screens
 ##     take no direction, so they are buttons and nothing more.
 ##
@@ -95,15 +96,18 @@ enum Kind { KEY, MOVE, AIM }
 ## not the picture's.
 ##
 ##   PLAY    somebody has the controls: everything.
-##   TALK    a conversation or a scene has them: the two halves of the screen,
-##           the left picking an answer and the right turning the page.
+##   TALK    a conversation or a scene has them: the page, which is the whole
+##           of the screen.
 ##   SCREEN  a screen has them — the map, a station's panel. Only the keys that
 ##           close it again, or a phone would have no way out of a window it
 ##           opened.
 ##   CLEAR   the assembly board has them, and the whole glass with them.
 ##           Nothing: the board is touched itself and has its own CLOSE, right
 ##           where KIT, MAP and MENU would stand over it. The pad stays up, so
-##           what the board calls a control is still its word on the glass.
+##           what the board calls a control is still its word on the glass. A
+##           station's panel in the hideout is the same: a page nearly the
+##           width of the screen, with its own ways out, under where the three
+##           keys would stand.
 enum Face { NONE, PLAY, TALK, SCREEN, CLEAR }
 
 ## Every control: what it presses, where it sits in the 1280x720 design, which
@@ -119,7 +123,7 @@ enum Face { NONE, PLAY, TALK, SCREEN, CLEAR }
 ## on, and looking different is how they say so. A `throw` stick is one whose
 ## release is a cast: it keeps the aim it was let go with until that cast has
 ## gone off. A `hold` is what a key presses besides once a thumb has stayed on
-## it for HOLD, until the thumb lifts; a `quiet` key makes no click of its own.
+## it for HOLD, until the thumb lifts.
 const CONTROLS := [
 	# The stick. It has no place of its own — only a `zone` a thumb may summon
 	# it anywhere inside, which is the whole left of the screen between the
@@ -127,15 +131,6 @@ const CONTROLS := [
 	# where it likes and the stick comes to the hand.
 	{"kind": Kind.MOVE, "radius": 78.0, "knob": 30.0,
 		"zone": Rect2(0, 120, 456, 472), "grow": Vector2(0, 1), "faces": [Face.PLAY]},
-	# The answers, in a conversation: the stick's zone cut across the middle,
-	# invisible. A tap on the top half moves the highlight up an answer and one
-	# on the bottom half down, each half keeping to its own side of the line
-	# however tall the screen. Quiet, because the conversation sounds a move of
-	# the highlight itself, and a tap with no question open moves nothing.
-	{"kind": Kind.KEY, "action": "move_up", "zone": Rect2(0, 120, 456, 236),
-		"grow": Vector2(0, 0.5), "quiet": true, "faces": [Face.TALK]},
-	{"kind": Kind.KEY, "action": "move_down", "zone": Rect2(0, 356, 456, 236),
-		"pin": Vector2(0, 0.5), "grow": Vector2(0, 0.5), "quiet": true, "faces": [Face.TALK]},
 	# The cast stick, above the hand. Press to charge, drag to aim, let go to
 	# cast.
 	{"kind": Kind.AIM, "action": "cast_skill", "throw": true,
@@ -148,11 +143,12 @@ const CONTROLS := [
 		"radius": 68.0, "faces": [Face.PLAY]},
 	{"kind": Kind.AIM, "action": "attack", "alt": "interact", "at": Vector2(976, 504),
 		"pin": Vector2(1, 1), "radius": 84.0, "faces": [Face.PLAY]},
-	# The page, in a conversation: the right of the screen, from the stick's
-	# zone to the edge and down to the HUD's band, invisible. A `zone` on a key
-	# is a tap area, drawn nowhere and never moved. A tap hurries the line out;
-	# held, it is interact — the next line, or the answer picked.
-	{"kind": Kind.KEY, "action": "hurry", "hold": "interact", "zone": Rect2(456, 0, 824, 592),
+	# The page, in a conversation: the whole of the screen, invisible. A `zone`
+	# on a key is a tap area, drawn nowhere and never moved. A tap hurries the
+	# line out; held, it is interact — the next line, or the answer picked. It
+	# lies over the HUD's corner and its band, which no other control may: the
+	# HUD has stepped aside for the conversation (`Hud.talking`).
+	{"kind": Kind.KEY, "action": "hurry", "hold": "interact", "zone": Rect2(0, 0, 1280, 720),
 		"grow": Vector2(1, 1), "faces": [Face.TALK]},
 	{"kind": Kind.KEY, "action": "jump", "at": Vector2(1164, 496), "pin": Vector2(1, 1),
 		"radius": 92.0, "faces": [Face.PLAY]},
@@ -304,6 +300,10 @@ var _holds: Dictionary = {}
 ## otherwise take whatever the new face has under it — JUMP, or the page, where
 ## staying down is a hold that goes on past the first line unread.
 var _spent: Dictionary = {}
+## Every finger on the glass now, on a control or not: what a change of face
+## spends. A thumb resting between the buttons is as down as one on them, and
+## the page a conversation brings up is the whole screen — it would be under it.
+var _touching: Dictionary = {}
 ## Whoever is being played, read once a frame rather than once per control:
 ## the pad asks questions of them while it draws, and walking the tree for
 ## each would be a walk a frame apiece.
@@ -342,6 +342,7 @@ func _process(delta: float) -> void:
 			# the pad cannot see while it is away is not waited for.
 			_let_go()
 			_spent.clear()
+			_touching.clear()
 		# `Touch` puts the mouse away while the pad has the screen and lets go
 		# of every key when it leaves. Told here because this is the only thing
 		# that knows whether the pad is on the screen.
@@ -369,11 +370,9 @@ func _drive() -> void:
 	_lean("move_down", _stick.y, STICK_UPDOWN)
 	_lean("move_up", -_stick.y, STICK_UPDOWN)
 
-## A stick at rest lets go of `action` only where no key is holding it: in a
-## conversation the two halves of the left press up and down themselves.
 func _lean(action: String, amount: float, dead: float) -> void:
 	if amount < dead:
-		_let_go_of(action)
+		Touch.release(action)
 		return
 	Touch.press(action, clampf((amount - dead) / (1.0 - dead), 0.0, 1.0))
 
@@ -460,6 +459,10 @@ func _input(event: InputEvent) -> void:
 		# Coming down or lifting, a touch ends whatever the finger was before
 		# it: a spent thumb is spent until this — see `_spent`.
 		_spent.erase(touch.index)
+		if touch.pressed:
+			_touching[touch.index] = true
+		else:
+			_touching.erase(touch.index)
 		_finger(touch.index, touch.position, touch.pressed)
 		return
 	var drag := event as InputEventScreenDrag
@@ -505,8 +508,8 @@ func _finger(index: int, at: Vector2, pressed: bool) -> void:
 	var was: int = _down.get(index, -1)
 	# A stick keeps the finger that started it, however far out it is dragged —
 	# that is what makes it a stick rather than a button you slid off. So does
-	# a zone, which has no edge anybody can see to slide off: a thumb reading
-	# on the right that strays left has not asked for another answer. A key
+	# a zone, which has no edge anybody can see to slide off: the thumb holding
+	# a line on is the same thumb wherever on the page it has wandered to. A key
 	# lets go the moment the thumb leaves it, and may take the next key along.
 	if pressed and was >= 0 and _keeps(was):
 		if _is_stick(was):
@@ -588,8 +591,7 @@ func _take(i: int, at: Vector2) -> void:
 			_held_throw = {}
 		_:
 			Touch.press(String(c["action"]))
-	if not bool(c.get("quiet", false)):
-		Audio.play("ui")
+	Audio.play("ui")
 
 ## The thumb on `i` has gone. Called after the finger has been taken out of
 ## `_down`, so what is left there is what is still being held.
@@ -675,12 +677,11 @@ func _under(at: Vector2) -> int:
 	return stick
 
 func _let_go() -> void:
-	# The thumbs down now are done with until they lift — see `_spent`. Not
-	# the mouse: what it drags is only ever what it is holding, and once it is
-	# holding nothing its drag is nobody's.
-	for f in _down:
-		if f != MOUSE:
-			_spent[f] = true
+	# The thumbs down now are done with until they lift — see `_spent` — on a
+	# control or not. Not the mouse: what it drags is only ever what it is
+	# holding, and once it is holding nothing its drag is nobody's.
+	for f in _touching:
+		_spent[f] = true
 	_down.clear()
 	_holds.clear()
 	_stick = Vector2.ZERO

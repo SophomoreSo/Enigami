@@ -236,7 +236,11 @@ func _placed_on(s: Vector2) -> void:
 		var name := String(c.get("action", "move"))
 		if not screen_rect.encloses(r):
 			off.append(name)
-		if r.intersects(HUD_BARS) or r.intersects(hud_cards(s)):
+		# Only what is up while the HUD is. The page in a conversation is the
+		# whole screen, and lies over a HUD that has stepped aside for it.
+		var beside_hud: bool = (c["faces"] as Array).has(TouchPad.Face.PLAY) \
+			or (c["faces"] as Array).has(TouchPad.Face.SCREEN)
+		if beside_hud and (r.intersects(HUD_BARS) or r.intersects(hud_cards(s))):
 			on_hud.append(name)
 		# Each axis measured from the side the control is pinned to.
 		var pin := Vector2(c.get("pin", Vector2.ZERO))
@@ -300,10 +304,10 @@ func _the_setting() -> void:
 	check(panel != null, "the controls page carries the settings panel")
 	if panel == null:
 		return
-	var switch := switch_under(panel)
+	var switch := switch_under(title._controls)
 	check(switch != null, "it offers mobile mode as a switch")
 	var named := false
-	for c in controls_under(panel):
+	for c in controls_under(title._controls):
 		if c is Label and (c as Label).text == Loc.t("controls.mobile"):
 			named = true
 	check(named, "under the name the row is given")
@@ -320,19 +324,31 @@ func _the_setting() -> void:
 	await frames(2)
 	title._toggle_controls()
 	await frames(4)
-	check(switch.button_pressed == Touch.wanted(),
-		"and the switch shows what AUTO came to (%s)" % str(switch.button_pressed))
+	# The page is laid out for the mode in force, so it is built again whenever
+	# the mode changes — and the switch on it is a new one each time.
+	switch = switch_under(title._controls)
+	check(switch != null and switch.button_pressed == Touch.wanted(),
+		"and the switch shows what AUTO came to (%s)" % str(Touch.wanted()))
 
 	# Thrown by a click, the way a mouse or a thumb throws it, both ways.
 	Touch.set_mode(Touch.OFF)
-	switch.show_on(false)
+	await frames(3)
+	switch = switch_under(title._controls)
 	await click(switch.get_global_rect().get_center())
-	check(Touch.mode == Touch.ON and Touch.wanted() and switch.button_pressed,
+	await frames(3)
+	switch = switch_under(title._controls)
+	check(Touch.mode == Touch.ON and Touch.wanted() and switch != null and switch.button_pressed,
 		"a click throws it on, and puts the console on (mode %d)" % Touch.mode)
+	check(title._controls.visible and title._controls.thumb,
+		"and the page it is on is laid out again, for a thumb, and still up")
 	await click(switch.get_global_rect().get_center())
-	check(Touch.mode == Touch.OFF and not Touch.wanted() and not switch.button_pressed,
+	await frames(3)
+	switch = switch_under(title._controls)
+	check(Touch.mode == Touch.OFF and not Touch.wanted() and switch != null and not switch.button_pressed,
 		"and another throws it off again (mode %d)" % Touch.mode)
+	check(title._controls.visible and not title._controls.thumb, "and the page is a desk's again")
 	await click(switch.get_global_rect().get_center())
+	await frames(3)
 	check(Touch.mode == Touch.ON, "and on again")
 
 	Touch.mode = Touch.OFF
@@ -668,8 +684,11 @@ func _the_faces() -> void:
 		if pad.shown(c):
 			shown.append(String(c.get("action", "move")))
 	shown.sort()
-	check(shown == ["hurry", "move_down", "move_up"],
-		"which is the screen in halves: up and down on the left, the page on the right (%s)" % str(shown))
+	check(shown == ["hurry"],
+		"which is the page and nothing else (%s)" % str(shown))
+	var page := TouchPad.area(control_of("hurry"), screen())
+	check(page.is_equal_approx(Rect2(Vector2.ZERO, screen())),
+		"and the page is the whole of the screen (%s)" % str(page))
 	var drawn: Array = []
 	for c in TouchPad.CONTROLS:
 		if pad.shown(c) and (not c.has("zone") or TouchPad.label_of(c) != "" or TouchPad.movable(c)):
@@ -699,29 +718,23 @@ func _the_faces() -> void:
 	await frames(2)
 	check(Input.is_action_pressed("interact") and not Input.is_action_pressed("move_up")
 			and not Input.is_action_pressed("move_down"),
-		"still holding it when it strays into the left, which it does not take")
+		"still holding it when it wanders to the left, which is the same page")
 	touch(0, Vector2(300, 300), false)
 	await frames(2)
 	check(not Input.is_action_pressed("interact") and not Input.is_action_pressed("hurry"),
 		"and lifted, it lets go of both")
 
-	# The left: the top half is up, the bottom half down, and each holds its
-	# press for as long as the thumb is on it — the stick, which is not up,
-	# letting go of nothing.
-	touch(0, spot("move_up"), true)
+	# The left is the page too: where the stick grows while there is somebody to
+	# play, a thumb reads. Picking an answer is not the console's — the box puts
+	# each on a plate of its own (`tests/mobile/talk_touch_test`).
+	touch(0, Vector2(200, 400), true)
 	await frames(3)
-	check(Input.is_action_pressed("move_up") and not Input.is_action_pressed("move_down")
-			and not Input.is_action_pressed("hurry"),
-		"a thumb on the top of the left is up")
-	touch(0, spot("move_up"), false)
+	check(Input.is_action_pressed("hurry") and not pad.stick_showing()
+			and not Input.is_action_pressed("move_up") and not Input.is_action_pressed("move_down"),
+		"a thumb on the left hurries the line like any other, and grows no stick")
+	touch(0, Vector2(200, 400), false)
 	await frames(2)
-	touch(0, spot("move_down"), true)
-	await frames(3)
-	check(Input.is_action_pressed("move_down") and not Input.is_action_pressed("move_up"),
-		"and one on the bottom is down")
-	touch(0, spot("move_down"), false)
-	await frames(2)
-	check(not Input.is_action_pressed("move_down"), "until it lifts")
+	check(not Input.is_action_pressed("hurry"), "until it lifts")
 
 	# The faces coming and going under a thumb that stays down: what it was
 	# doing was the face's, and it does nothing on the next until it lifts.

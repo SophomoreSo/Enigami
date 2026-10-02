@@ -25,6 +25,15 @@ extends Control
 ## the board on the grid written out as a code, and a field to build somebody
 ## else's board from theirs. What a pasted code costs is decided here — see
 ## `_build_from_code`.
+##
+## **In mobile mode it is laid out for a thumb** (`UiKit.mobile`), and it is a
+## different screen rather than this one drawn bigger — see "for a thumb" below.
+## A desk's board is worked with a pointer: a wheel to turn a part, a second
+## button to take one off, thirty-six parts in rows 20 high to pick from. A
+## thumb has none of those. So there the board is as big as the screen lets it
+## be, the parts come a category at a time, on tabs, each a plate to press, and
+## what the wheel and the second button did are two plates under them: TURN and
+## REMOVE, which act on the part a thumb last touched on the board.
 
 signal board_changed()
 signal closed()
@@ -61,6 +70,50 @@ const PAL_GROUP_GAP := 4.0
 ## tall, so this leaves 6 above them and 4 under.
 const PAL_TEXT_Y := 16.0
 
+## No cell of the board: nothing hovered, nothing picked.
+const NOWHERE := Vector2i(-1, -1)
+
+## --- for a thumb --------------------------------------------------------------
+## Mobile mode's screen, top to bottom and left to right:
+##
+##   * a header THUMB_HEADER tall — the graph's name on a plate, then CODE and
+##     CLOSE, each THUMB_BTN tall, in the corner the console's own screens stand
+##     in;
+##   * the board, in all the room left of the parts, its cells as big as that
+##     room lets them be: at a desk a cell is 50 across whatever the grid, and
+##     here a first workbench's seven by five stands at 90, a thumb's width;
+##   * down the right, THUMB_PARTS wide, the parts: a tab a category, and beside
+##     them the picked category's parts, a plate each, with the name written at
+##     the size a thumb's page writes at. A block's plates share the column's
+##     height between them, so nothing scrolls — a list that scrolled under a
+##     thumb dragging a part out of it would be asking the same gesture to mean
+##     two things;
+##   * under the parts, TURN and REMOVE.
+##
+## What a thumb does there: a touch on a part's plate takes it in hand, and a
+## touch on an empty cell sets it down, facing the way TURN shows. A touch on a
+## part on the board picks it — its plate lights, and its tab comes up, which is
+## what names it — and TURN turns it where it stands and REMOVE puts it back in
+## the bag. A part dragged is moved, from the plate or across the board, and
+## one dragged back onto the parts is put away, as at a desk.
+const THUMB_EDGE := 16.0
+const THUMB_HEADER := 80.0
+const THUMB_BTN := 64.0
+const THUMB_CLOSE_W := 184.0
+const THUMB_SHARE_W := 136.0
+## The parts' column, the tabs down its left, and the room between things in it.
+const THUMB_PARTS := 560.0
+const THUMB_TAB_W := 132.0
+const THUMB_GAP := 4.0
+## The most a tab or a part's plate stands; a long block's stand shorter, to fit.
+const THUMB_PLATE := 72.0
+## TURN and REMOVE, along the foot of the column.
+const THUMB_ACT := 72.0
+## The most a cell is across: past this a short board would be all cells and no
+## board. And the least, on a screen too small to be fair to anybody.
+const THUMB_CELL_MOST := 98
+const THUMB_CELL_LEAST := 34
+
 var board: SkillBoard = null
 var inventory: Dictionary = {}       ## component id -> count (the live pool)
 var unlimited: bool = false          ## sandbox
@@ -73,6 +126,20 @@ var _hover_cell: Vector2i = Vector2i(-1, -1)
 var _hover_pal: int = -1
 var _hover_close: bool = false
 var _hover_share: bool = false
+## Mobile mode's own things to press: a category's tab, by index, and the two
+## plates under the parts.
+var _hover_tab: int = -1
+var _hover_turn: bool = false
+var _hover_remove: bool = false
+## Which category's parts mobile mode is showing, by index into `_pal_groups`.
+var _tab: int = 0
+## The part on the board a thumb last touched, by the cell it is filed under:
+## what TURN and REMOVE act on. NOWHERE with none.
+var _picked: Vector2i = NOWHERE
+## A thumb down on a placed part that has not yet moved: the cell and where it
+## landed. Lifted, it picks the part; dragged past a thumb's slop, it lifts the
+## part off the board the way a desk's press does at once. Empty with none.
+var _tap: Dictionary = {}
 ## Drag state. `_drag_source` is -1 for a part pulled off the palette and 1 for
 ## one lifted off the board (which remembers where it came from so a bad drop
 ## can put it back instead of destroying it).
@@ -115,11 +182,154 @@ var _pal_blocks: Array = []
 var _pal_height: float = 0.0
 ## The `_inset` the palette was laid out at.
 var _pal_inset := Vector2.ZERO
+## What the palette was laid out for — the mode, the screen, the tab — so it is
+## laid out again when any of them changes. See `_layout_key`.
+var _pal_key: Array = []
+## The same, for the wiring's outline, which is kept in the screen's own
+## coordinates and so goes stale when the board moves or changes size under it.
+var _flow_key: Array = []
+## Mobile mode's layout, and what it was worked out for. See `_thumb_layout`.
+var _thumb_rects: Dictionary = {}
+var _thumb_key: Array = []
 var _ports: Array = []               ## PORT turned to face each direction
 var _arrows: Array = []              ## ARROW likewise, for the drag chip
 ## The share sheet, built the first time it is asked for and kept after that.
 var _share: ShareCodePanel = null
 var _px := PixelDraw.new(self)
+
+## Whether the screen is laid out for a thumb: mobile mode.
+func thumb() -> bool:
+	return UiKit.mobile()
+
+## How big a cell of the board is drawn: CELL at a desk, and for a thumb as big
+## as the room beside the parts allows.
+func cell_size() -> float:
+	return float(_thumb_layout()["cell"]) if thumb() else float(CELL)
+
+## The top-left corner of the board's first cell.
+func board_origin() -> Vector2:
+	return _thumb_layout()["origin"] if thumb() else BOARD_ORIGIN + _inset()
+
+## Everything the layout in force is worked out from: the mode, the screen, the
+## grid and the tab. What is kept in the screen's coordinates — the palette's
+## rows, the wiring's outline — is kept against this and worked out again when
+## it changes.
+func _layout_key() -> Array:
+	var b := current_board()
+	return [thumb(), get_viewport_rect().size, _inset(),
+		Vector2i(b.width, b.height) if b != null else Vector2i.ZERO, _tab]
+
+## Where everything on mobile mode's screen stands, for a screen of this shape
+## and a grid of this size: `title`, `share` and `close` in the header; `column`,
+## the parts' whole column, with its `tabs`, the `plates` room beside them, and
+## `turn` and `remove` along its foot; and the board's `cell`, `origin` and
+## `frame`.
+func _thumb_layout() -> Dictionary:
+	var b := current_board()
+	var grid := Vector2i(b.width, b.height) if b != null else Vector2i(7, 5)
+	var vp := get_viewport_rect().size
+	var groups := _pal_groups().size()
+	var key := [vp, grid, groups]
+	if not _thumb_rects.is_empty() and _thumb_key == key:
+		return _thumb_rects
+	_thumb_key = key
+	var l := {}
+	var top := (THUMB_HEADER - THUMB_BTN) * 0.5
+	l["close"] = Rect2(vp.x - THUMB_EDGE - THUMB_CLOSE_W, top, THUMB_CLOSE_W, THUMB_BTN)
+	l["share"] = Rect2((l["close"] as Rect2).position.x - 8.0 - THUMB_SHARE_W, top, THUMB_SHARE_W, THUMB_BTN)
+	l["title"] = Rect2(THUMB_EDGE, top, (l["share"] as Rect2).position.x - 16.0 - THUMB_EDGE, THUMB_BTN)
+
+	var under := THUMB_HEADER + 12.0
+	var column := Rect2(vp.x - THUMB_EDGE - THUMB_PARTS, under, THUMB_PARTS, vp.y - THUMB_EDGE - under)
+	l["column"] = column
+	var acts := column.end.y - THUMB_ACT
+	var half := floorf((column.size.x - 8.0) * 0.5 / PX) * PX
+	l["turn"] = Rect2(column.position.x, acts, half, THUMB_ACT)
+	l["remove"] = Rect2(column.end.x - half, acts, half, THUMB_ACT)
+	# The tabs share the height over the two plates, as tall as THUMB_PLATE where
+	# there is room and no taller.
+	var room := acts - 8.0 - column.position.y
+	var tab_h := _plate_height(room, groups)
+	var tabs: Array = []
+	for i in groups:
+		tabs.append(Rect2(column.position.x, column.position.y + float(i) * (tab_h + THUMB_GAP),
+			THUMB_TAB_W, tab_h))
+	l["tabs"] = tabs
+	l["plates"] = Rect2(column.position.x + THUMB_TAB_W + 8.0, column.position.y,
+		column.size.x - THUMB_TAB_W - 8.0, room)
+
+	# The board has the rest: as big as fits, a cell an odd number of PIXELs so
+	# an icon still lands in the middle of one (see `_cell_center`).
+	var space := Rect2(THUMB_EDGE, under, column.position.x - 16.0 - THUMB_EDGE, vp.y - THUMB_EDGE - under)
+	var most := mini(int((space.size.x - 20.0) / float(grid.x)), int((space.size.y - 20.0) / float(grid.y)))
+	most = clampi(most, THUMB_CELL_LEAST, THUMB_CELL_MOST)
+	var c := most - posmod(most - PX, PX * 2)
+	var across := Vector2(grid) * float(c)
+	var corner := _px.snap(space.position + (space.size - across - Vector2(20, 20)) * 0.5)
+	l["cell"] = float(c)
+	l["frame"] = Rect2(corner, across + Vector2(20, 20))
+	l["origin"] = corner + Vector2(10, 10)
+	_thumb_rects = l
+	return l
+
+## How tall each of `n` plates stands to share `room` between them, THUMB_GAP
+## apart: THUMB_PLATE where they fit at that, and less where they do not.
+func _plate_height(room: float, n: int) -> float:
+	if n <= 0:
+		return THUMB_PLATE
+	return minf(THUMB_PLATE, floorf(((room + THUMB_GAP) / float(n) - THUMB_GAP) / PX) * PX)
+
+## The part on the board a thumb picked, by its cell — or NOWHERE if there is
+## none, or the board has changed under it and nothing is filed there now.
+func _picked_part() -> Vector2i:
+	var b := current_board()
+	if _picked == NOWHERE or b == null or b.comp_origin_at(_picked).is_empty():
+		_picked = NOWHERE
+	return _picked
+
+## A thumb's touch on the part at `cell`: it is picked, for TURN and REMOVE to
+## act on, and a second touch lets it go. Picking takes it in hand as a lift
+## would — its kind, and the way it faces — and brings its category's tab up,
+## which is where its name is written.
+func _pick(cell: Vector2i) -> void:
+	var b := current_board()
+	if b == null:
+		return
+	var origin = b.origin_at(cell)
+	if origin == null:
+		return
+	if _picked == origin:
+		_picked = NOWHERE
+		Audio.play("ui")
+		return
+	var entry := b.comp_origin_at(origin)
+	_picked = origin
+	selected = String(entry["id"])
+	rotation_step = int(entry["rot"])
+	_show_tab(_tab_of(selected), false)
+	Audio.play("ui")
+
+## Mobile mode's REMOVE: the picked part goes back in the bag.
+func _remove_picked() -> void:
+	if _picked_part() == NOWHERE:
+		Audio.play("deny")
+		return
+	_take_off(_picked)
+
+## Which tab `id`'s category is on.
+func _tab_of(id: String) -> int:
+	var groups := _pal_groups()
+	for i in groups.size():
+		if (groups[i]["ids"] as Array).has(id):
+			return i
+	return _tab
+
+func _show_tab(i: int, sound: bool = true) -> void:
+	if i == _tab:
+		return
+	_tab = i
+	if sound:
+		Audio.play("ui")
 
 func _ready() -> void:
 	UiKit.fill_screen(self)
@@ -138,6 +348,8 @@ func configure(b: SkillBoard, inv: Dictionary, unlim: bool, r: SkillRunner = nul
 	runner = r
 	_sim_dirty = true
 	_trace_cache = {}
+	_picked = NOWHERE
+	_tap = {}
 	# The hosts that keep an editor between openings call this every time they
 	# raise it: a share sheet left up would come back over a different board.
 	_close_share()
@@ -156,6 +368,7 @@ func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		_mouse_pos = event.position
 		_update_hover(event.position)
+		_drag_tap()
 		accept_event()
 	elif event is InputEventMouseButton:
 		_mouse_pos = event.position
@@ -172,6 +385,11 @@ func _gui_input(event: InputEvent) -> void:
 					_rotate(CW)
 		elif event.button_index == MOUSE_BUTTON_LEFT:
 			_release_left()
+			# A thumb is not hovering once it has lifted: the system hands a touch
+			# over as this click, and what it lit goes dark with it rather than
+			# staying lit where the thumb last was.
+			if event.device == InputEvent.DEVICE_ID_EMULATION:
+				_clear_hover()
 		accept_event()
 
 ## Keys are handled here rather than in _gui_input so they work whether or not
@@ -209,6 +427,8 @@ const BTN_GAP := 8.0
 
 ## The room the name has: from where it starts to the buttons.
 func _title_rect() -> Rect2:
+	if thumb():
+		return _thumb_layout()["title"]
 	var origin := TITLE_ORIGIN + _inset()
 	return Rect2(origin, Vector2(_share_rect().position.x - 16.0 - origin.x, TITLE_H))
 
@@ -222,24 +442,47 @@ func _inset() -> Vector2:
 	return Vector2(floorf(spare * 0.5 / PX) * PX, 0.0)
 
 func _close_rect() -> Rect2:
+	if thumb():
+		return _thumb_layout()["close"]
 	return Rect2(get_viewport_rect().size.x - 16.0 - CLOSE_W, 14.0, CLOSE_W, 30.0)
 
 ## Beside CLOSE, because a board is shared from the same place it is left.
 func _share_rect() -> Rect2:
+	if thumb():
+		return _thumb_layout()["share"]
 	return Rect2(_close_rect().position.x - BTN_GAP - SHARE_W, 14.0, SHARE_W, 30.0)
 
-func _update_hover(pos: Vector2) -> void:
+func _clear_hover() -> void:
 	_hover_cell = Vector2i(-1, -1)
 	_hover_pal = -1
+	_hover_close = false
+	_hover_share = false
+	_hover_tab = -1
+	_hover_turn = false
+	_hover_remove = false
+
+func _update_hover(pos: Vector2) -> void:
+	_clear_hover()
 	_hover_share = _share_rect().has_point(pos)
 	_hover_close = _close_rect().has_point(pos)
 	if _hover_close or _hover_share:
 		return
+	if thumb():
+		var l := _thumb_layout()
+		var tabs: Array = l["tabs"]
+		for i in tabs.size():
+			if (tabs[i] as Rect2).has_point(pos):
+				_hover_tab = i
+				return
+		_hover_turn = (l["turn"] as Rect2).has_point(pos)
+		_hover_remove = (l["remove"] as Rect2).has_point(pos)
+		if _hover_turn or _hover_remove:
+			return
 	var b := current_board()
 	if b != null:
-		var rel := pos - BOARD_ORIGIN - _inset()
+		var rel := pos - board_origin()
 		if rel.x >= 0 and rel.y >= 0:
-			var c := Vector2i(int(rel.x / CELL), int(rel.y / CELL))
+			var c := Vector2i(int(rel.x / cell_size()), int(rel.y / cell_size()))
 			if b.in_bounds(c):
 				_hover_cell = c
 	if _pal_panel().has_point(pos):
@@ -277,6 +520,11 @@ func _rotate(dir: int) -> void:
 		if b != null and not b.comp_at(_hover_cell).is_empty():
 			_rotate_placed(b, _hover_cell, dir)
 			return
+	# With nothing under the cursor, the part a thumb picked — which is what
+	# mobile mode's TURN is, there being no cursor to be over anything.
+	if _drag_id == "" and _picked_part() != NOWHERE:
+		_rotate_placed(current_board(), _picked, dir)
+		return
 	rotation_step = (rotation_step + dir + 4) % 4
 	Audio.play("ui")
 
@@ -315,11 +563,21 @@ func _press_left() -> void:
 	if _hover_share:
 		_open_share()
 		return
+	if _hover_tab >= 0:
+		_show_tab(_hover_tab)
+		return
+	if _hover_turn:
+		_rotate(CW)
+		return
+	if _hover_remove:
+		_remove_picked()
+		return
 	if _hover_pal >= 0:
 		selected = String(_palette_ids()[_hover_pal])
 		_drag_id = selected
 		_drag_source = -1
 		_drag_from = Vector2i(-1, -1)
+		_picked = NOWHERE
 		Audio.play("ui")
 		return
 	if _hover_cell.x < 0:
@@ -338,21 +596,53 @@ func _press_left() -> void:
 			_notify(Loc.t("editor.root_fixed", [Components.name_for(String(existing["id"]))]))
 			Audio.play("deny")
 			return
-		_drag_id = String(existing["id"])
-		_drag_source = 1
-		_drag_from = origin
-		_drag_from_rot = int(existing["rot"])
-		rotation_step = _drag_from_rot
-		selected = _drag_id
-		b.erase_at(_hover_cell)
-		_sim_dirty = true
-		Audio.play("erase")
+		# A thumb's press is not a lift yet. It may be a touch — which picks the
+		# part, for TURN and REMOVE to act on — and it is only a lift once the
+		# thumb has moved off where it landed (`_drag_tap`).
+		if thumb():
+			_tap = {"cell": _hover_cell, "at": _mouse_pos}
+			return
+		_lift(b, _hover_cell)
 		return
 
+	_picked = NOWHERE
 	if selected != "":
 		_place_from_palette(_hover_cell)
 
+## Takes the part at `cell` off the board and into the hand.
+func _lift(b: SkillBoard, cell: Vector2i) -> void:
+	var existing := b.comp_at(cell)
+	if existing.is_empty():
+		return
+	_drag_id = String(existing["id"])
+	_drag_source = 1
+	_drag_from = b.origin_at(cell)
+	_drag_from_rot = int(existing["rot"])
+	rotation_step = _drag_from_rot
+	selected = _drag_id
+	_picked = NOWHERE
+	b.erase_at(cell)
+	_sim_dirty = true
+	Audio.play("erase")
+
+## A thumb down on a placed part has moved: past a thumb's slop it is a drag,
+## and the part comes up off the board under it.
+func _drag_tap() -> void:
+	if _tap.is_empty() or _mouse_pos.distance_to(_tap["at"]) <= UiKit.TOUCH_SLOP:
+		return
+	var cell: Vector2i = _tap["cell"]
+	_tap = {}
+	var b := current_board()
+	if b != null:
+		_lift(b, cell)
+
 func _release_left() -> void:
+	# A thumb that came down on a part and lifted where it landed: a touch.
+	if not _tap.is_empty():
+		var cell: Vector2i = _tap["cell"]
+		_tap = {}
+		_pick(cell)
+		return
 	if _drag_id == "":
 		return
 	var id := _drag_id
@@ -412,17 +702,23 @@ func _click_left() -> void:
 func _click_right() -> void:
 	if _hover_cell.x < 0:
 		return
+	_take_off(_hover_cell)
+
+## Takes the part at `cell` off the board and back into the pool: the second
+## button's click, and mobile mode's REMOVE.
+func _take_off(cell: Vector2i) -> void:
 	var b := current_board()
 	if b == null:
 		return
-	var origin = b.origin_at(_hover_cell)
+	var origin = b.origin_at(cell)
 	if origin != null and b.is_root(origin):
-		_notify(Loc.t("editor.root_fixed", [Components.name_for(String(b.comp_at(_hover_cell)["id"]))]))
+		_notify(Loc.t("editor.root_fixed", [Components.name_for(String(b.comp_at(cell)["id"]))]))
 		Audio.play("deny")
 		return
-	var removed := b.erase_at(_hover_cell)
+	var removed := b.erase_at(cell)
 	if removed != "":
 		_give(removed)
+		_picked = NOWHERE
 		_sim_dirty = true
 		Audio.play("erase")
 		board_changed.emit()
@@ -502,6 +798,7 @@ func _build_from_code(entry: String) -> void:
 			Audio.play("deny")
 			return
 	b.adopt(want)
+	_picked = NOWHERE
 	_sim_dirty = true
 	_trace_cache = {}
 	# The sheet now shows this board's own code, which is not always the one that
@@ -570,6 +867,8 @@ const FLOW_TRACK := Color(0.3, 0.5, 0.43)
 const COND_EDGE := Color(0.82, 0.84, 0.88)
 const COND_TRACK := Color(0.36, 0.38, 0.42)
 const FLOW_RATE := 0.8
+## At a desk's cell. A thumb's is bigger, and the dots keep their two to an edge:
+## see `_flow_dot_span`.
 const FLOW_DOT_SPAN := float(CELL) * 0.5
 ## A dot is a length of the edge itself rather than a mark sitting on top of
 ## one: this many PIXELs of it, a PIXEL thick like the edge it replaces, so it
@@ -596,12 +895,40 @@ func _draw() -> void:
 	var vp := get_viewport_rect().size
 	# Only a light veil: the fight behind this panel has to stay readable.
 	draw_rect(Rect2(Vector2.ZERO, vp), Color(0.04, 0.05, 0.07, 0.62))
-	_draw_header(vp)
-	_draw_board()
-	_draw_palette()
-	_draw_message(vp)
+	# The wiring's outline is kept where the board stood when it was worked out.
+	# A screen that has changed shape, or mode, has the board somewhere else.
+	var laid := _layout_key().slice(0, 4)
+	if laid != _flow_key:
+		_flow_key = laid
+		_sim_dirty = true
+	if thumb():
+		_draw_thumb_header(vp)
+		_draw_board()
+		_draw_thumb_parts()
+	else:
+		_draw_header(vp)
+		_draw_board()
+		_draw_palette()
+		_draw_message(vp)
 	_draw_dead_hint(vp)
 	_draw_drag()
+
+## How many PIXELs a pixel of a part's icon is drawn at on the board: ICON_ZOOM
+## at a desk's cell, and more as a thumb's cell has the room.
+func _icon_zoom() -> int:
+	return maxi(ICON_ZOOM, int(cell_size() / 25.0))
+
+## The same for a port's arrow, which at a thumb's cell is a speck at one.
+func _port_zoom() -> int:
+	return 2 if cell_size() >= 80.0 else 1
+
+## How far apart the dots sit along the outline, and how many PIXELs of it a dot
+## is: two dots to a cell's edge and half of each gap lit, whatever the cell.
+func _flow_dot_span() -> float:
+	return cell_size() * 0.5
+
+func _flow_dot() -> int:
+	return maxi(FLOW_DOT, int(cell_size() * 0.25 / float(PX)))
 
 func _draw_header(vp: Vector2) -> void:
 	_px.rect(Rect2(0, 0, vp.x, HEADER_H), Color(0.07, 0.08, 0.11, 0.9))
@@ -639,8 +966,8 @@ func _draw_board() -> void:
 	var b := current_board()
 	if b == null:
 		return
-	var frame := Rect2(BOARD_ORIGIN + _inset() - Vector2(10, 10),
-		Vector2(b.width * CELL + 20, b.height * CELL + 20))
+	var frame := Rect2(board_origin() - Vector2(10, 10),
+		Vector2(b.width * cell_size() + 20, b.height * cell_size() + 20))
 	_px.rect(frame, Color(0.08, 0.09, 0.12, 0.92))
 	_px.frame(frame, Color(0.3, 0.45, 0.6, 0.7))
 
@@ -660,6 +987,13 @@ func _draw_board() -> void:
 	# would be painted over by whichever part is drawn second.
 	_draw_faults()
 	_draw_flow_dots()
+	# The part a thumb picked, ringed: two PIXELs of white round the whole of it,
+	# over the wiring, since it is the one TURN and REMOVE are about.
+	if _picked_part() != NOWHERE:
+		var entry := b.comp_origin_at(_picked)
+		var ring := _part_rect(String(entry["id"]), _picked, int(entry["rot"]))
+		_px.frame(ring, Color.WHITE)
+		_px.frame(ring.grow(-PX), Color.WHITE)
 
 	# Ghost of the part about to be placed. It is suppressed over an occupied
 	# cell unless a part is genuinely in hand, so a placed part's own ports are
@@ -710,12 +1044,15 @@ const DEAD_BOX_GAP := 8.0
 func _draw_dead_hint(vp: Vector2) -> void:
 	# Never with a part in hand or the share sheet up: the first is already
 	# saying something under the cursor, and the second covers the board.
-	if _drag_id != "" or _share_open() or _hover_cell.x < 0:
+	# Under a thumb there is no cursor to be over anything: it is said of the
+	# part the thumb picked.
+	var about := _hover_cell if _hover_cell.x >= 0 else _picked_part()
+	if _drag_id != "" or _share_open() or about == NOWHERE:
 		return
 	var b := current_board()
 	if b == null:
 		return
-	var origin = b.origin_at(_hover_cell)
+	var origin = b.origin_at(about)
 	if origin == null or not _dead_at(origin):
 		return
 	var head := Loc.t("editor.dead.title")
@@ -793,17 +1130,21 @@ func _draw_drag() -> void:
 	_px.icon(Vector2(r.end.x - 18.0, r.position.y + 10.0), _arrows[rotation_step], Color(0.8, 0.9, 1.0))
 
 func _cell_rect(c: Vector2i) -> Rect2:
-	return Rect2(BOARD_ORIGIN + _inset() + Vector2(c.x * CELL, c.y * CELL), Vector2(CELL, CELL))
+	var side := cell_size()
+	return Rect2(board_origin() + Vector2(c.x * side, c.y * side), Vector2(side, side))
 
 ## CELL is an odd number of PIXELs, so the middle of a cell is the middle of a
-## PIXEL, and a bitmap an odd number of PIXELs across centres on it exactly.
+## PIXEL, and a bitmap an odd number of PIXELs across centres on it exactly. A
+## thumb's cell is held to the same (`_thumb_layout`).
 func _cell_center(c: Vector2i) -> Vector2:
-	return BOARD_ORIGIN + _inset() + Vector2(c.x * CELL + CELL * 0.5, c.y * CELL + CELL * 0.5)
+	var side := cell_size()
+	return board_origin() + Vector2(c.x * side + side * 0.5, c.y * side + side * 0.5)
 
-## An arrow out of `cell` across its `dir` edge, the point on the edge itself.
-func _draw_port_arrow(cell: Vector2i, dir: int, col: Color) -> void:
+## An arrow out of `at` across its `dir` edge, the point on the edge itself.
+func _draw_port_arrow(at: Vector2i, dir: int, col: Color) -> void:
 	var v := Vector2(Components.dir_to_vec(dir))
-	_px.icon_centered(_cell_center(cell) + v * (CELL * 0.5 - 3.0), _ports[dir % 4], col)
+	var zoom := _port_zoom()
+	_px.icon_centered(_cell_center(at) + v * (cell_size() * 0.5 - 3.0 * zoom), _ports[dir % 4], col, zoom)
 
 ## The wiring and the order the flow reaches it in are read off the same walk
 ## of the board, and both go stale on the same edit, so they are taken together.
@@ -1108,7 +1449,7 @@ func _flow_tail(b: SkillBoard, origin: Vector2i, terminal: bool) -> Vector2:
 	var side := _port_cut(b, String(entry["id"]), origin, int(entry["rot"]))
 	if side < 0:
 		return _part_center(b, origin)
-	return _cell_center(origin) + Vector2(Components.dir_to_vec(side)) * (float(CELL) * 0.5)
+	return _cell_center(origin) + Vector2(Components.dir_to_vec(side)) * (cell_size() * 0.5)
 
 ## The middle of the seam a part sends its flow across. At either end of a run
 ## that is a tip of the outline: the root hands the flow over on one, and the
@@ -1129,7 +1470,7 @@ func _flow_head(b: SkillBoard, origin: Vector2i) -> Vector2:
 	if outs.is_empty():
 		return _part_center(b, origin)
 	var v := Vector2(Components.dir_to_vec(int(outs[0])))
-	return _cell_center(Components.exit_cell(id, origin, rot)) + v * (float(CELL) * 0.5)
+	return _cell_center(Components.exit_cell(id, origin, rot)) + v * (cell_size() * 0.5)
 
 ## The middle of the part filed under `origin`, which on a two-cell part is the
 ## middle of both its cells rather than of either one.
@@ -1396,7 +1737,8 @@ func _draw_flow_dots() -> void:
 		_draw_track(shape["loop"], shape["owners"])
 	# A cell, not the gap between dots: the rate is cells of outline a second,
 	# so sitting them closer together must not also slow them down.
-	var travel := _flow_time * FLOW_RATE * float(CELL)
+	var travel := _flow_time * FLOW_RATE * cell_size()
+	var apart := _flow_dot_span()
 	for arc in _flow_arcs:
 		var loop: PackedVector2Array = arc["loop"]
 		var total := _loop_length(loop)
@@ -1404,12 +1746,12 @@ func _draw_flow_dots() -> void:
 		var span: float = arc["span"]
 		# Distance from the head cut, so a dot sets off from the start rather
 		# than from wherever the outline happened to be written down first.
-		var at := fmod(travel, FLOW_DOT_SPAN)
+		var at := fmod(travel, apart)
 		while at < span:
 			# `way` places the dot and nothing else: a dot is the same mark
 			# either way round, being drawn out from its middle.
 			_draw_dot(loop, arc["owners"], fposmod(float(arc["from"]) + at * way, total), total)
-			at += FLOW_DOT_SPAN
+			at += apart
 
 ## The whole of one wired shape's outline, lit low: the line the dots run on.
 ## Drawn corner to corner rather than PIXEL by PIXEL — it does not fade — and a
@@ -1443,7 +1785,7 @@ func _draw_track(loop: PackedVector2Array, owners: Array) -> void:
 ## it. That is what the walk below is for: a piece per straight run the dot
 ## covers, which for a dot on a corner is two of them meeting there.
 func _draw_dot(loop: PackedVector2Array, owners: Array, at: float, total: float) -> void:
-	var left := float(FLOW_DOT * PX)
+	var left := float(_flow_dot() * PX)
 	# Started on the PIXEL grid rather than wherever the middle happens to fall:
 	# every corner is on it too, so each piece below is whole PIXELs and none of
 	# them is rounded away. A dot is then the same length wherever it is, which
@@ -1488,7 +1830,7 @@ func _draw_dot_piece(at: Vector2, along: Vector2, span: float, lit: int, cols: A
 	for i in int(span / float(PX)):
 		# Over the length of the whole dot, ends included: a PIXEL of it is
 		# taken at its middle, so neither end comes out at nothing.
-		var k := (float(lit + i) + 0.5) / float(FLOW_DOT)
+		var k := (float(lit + i) + 0.5) / float(_flow_dot())
 		# Out of the track and back into it, rather than out of nothing: the
 		# line is already lit, and a dot is the length of it that is brightest.
 		_draw_band(at + step * float(i), along, float(PX),
@@ -1514,7 +1856,7 @@ func _draw_faults() -> void:
 		if String(leak.get("why", "")) != "empty":
 			continue
 		var v := Vector2(Components.dir_to_vec(int(leak["dir"])))
-		_px.icon_centered(_cell_center(leak["from"]) + v * (CELL * 0.5 + 5.0), DOT, Color(0.9, 0.6, 0.35, 0.75))
+		_px.icon_centered(_cell_center(leak["from"]) + v * (cell_size() * 0.5 + 5.0), DOT, Color(0.9, 0.6, 0.35, 0.75))
 
 ## A two-cell part is one box across both of its cells rather than two boxes
 ## side by side: the seam between them would otherwise read as two parts, and
@@ -1693,7 +2035,7 @@ func _draw_component(b: SkillBoard, origin: Vector2i) -> void:
 	# ICON_ZOOM here — a cell is wide enough for it, and at palette size it was
 	# lost in the middle of one.
 	_px.icon_centered(r.get_center(), Style.component_icon(id), DEAD_INK if dead \
-		else (col.lightened(0.3) if live else Color(col.r, col.g, col.b, 0.4)), ICON_ZOOM)
+		else (col.lightened(0.3) if live else Color(col.r, col.g, col.b, 0.4)), _icon_zoom())
 
 	var ex := Components.exit_cell(id, origin, rot)
 	var arrow_col := DEAD_EDGE if dead \
@@ -1767,12 +2109,37 @@ func _build_palette() -> void:
 		y += rows * PAL_H + PAL_GROUP_GAP
 	_pal_height = y - PAL_GROUP_GAP - origin.y
 
-## Laid out again when the screen has changed width under it, since every rect
-## in it carries the inset it was worked out at.
+## Laid out again when the screen has changed shape under it, since every rect
+## in it carries where it was worked out for — and when the mode has, or mobile
+## mode's tab, which is a different set of rows.
 func _pal_list() -> Array:
-	if _pal_rows.is_empty() or _pal_inset != _inset():
-		_build_palette()
+	var key := _layout_key()
+	if _pal_rows.is_empty() or _pal_key != key:
+		_pal_key = key
+		if thumb():
+			_build_thumb_parts()
+		else:
+			_build_palette()
 	return _pal_rows
+
+## Mobile mode's rows: the parts of the category whose tab is up and no others,
+## a plate each down the column beside the tabs. `_pal_rows` is what the rest of
+## the screen asks — what is under a press, what is in the hand's reach — so the
+## parts on the other tabs are not there to be pressed.
+func _build_thumb_parts() -> void:
+	_pal_rows = []
+	_pal_blocks = []
+	_pal_inset = _inset()
+	var groups := _pal_groups()
+	if groups.is_empty():
+		return
+	_tab = clampi(_tab, 0, groups.size() - 1)
+	var ids: Array = groups[_tab]["ids"]
+	var room: Rect2 = _thumb_layout()["plates"]
+	var tall := _plate_height(room.size.y, ids.size())
+	for i in ids.size():
+		_pal_rows.append({"id": String(ids[i]), "rect": Rect2(
+			room.position.x, room.position.y + float(i) * (tall + THUMB_GAP), room.size.x, tall)})
 
 func _pal_rect(i: int) -> Rect2:
 	return _pal_list()[i]["rect"]
@@ -1780,6 +2147,9 @@ func _pal_rect(i: int) -> Rect2:
 ## The panel the blocks sit on: 10 clear of the rows on every side, the gutter
 ## included. Anything thrown at it is thrown at the palette.
 func _pal_panel() -> Rect2:
+	# For a thumb it is the whole column: tabs, plates, and the two under them.
+	if thumb():
+		return _thumb_layout()["column"]
 	_pal_list()   # for _pal_height and _pal_inset, which the layout works out
 	return Rect2(PAL_ORIGIN + _pal_inset - Vector2(10, 10),
 		Vector2(PAL_GUTTER + PAL_COLS * PAL_W - 4 + 20, _pal_height + 20))
@@ -1838,6 +2208,133 @@ func _draw_count(right: Vector2, id: String) -> void:
 		_px.icon(at + Vector2(0, -5 * PX), INFINITY, col)
 	else:
 		_px.text(at, Loc.t("editor.count", [int(inventory.get(id, 0))]), col)
+
+## --- for a thumb: the drawing -----------------------------------------------------
+
+## The header: the graph's name on its plate — or, for the moment one lasts, a
+## refusal, which at a desk is written along the bottom where a thumb's board
+## now is — and CODE and CLOSE, each a plate THUMB_BTN tall with its word at a
+## thumb's size.
+func _draw_thumb_header(vp: Vector2) -> void:
+	_px.rect(Rect2(0, 0, vp.x, THUMB_HEADER), Color(0.07, 0.08, 0.11, 0.9))
+	_px.rect(Rect2(0, THUMB_HEADER, vp.x, PX), Color(0.3, 0.5, 0.7, 0.6))
+	var big := UiKit.THUMB_TEXT
+	var r := _title_rect()
+	var b := current_board()
+	if _message_time > 0.0:
+		_px.rect(r, Color(0.3, 0.14, 0.12, 0.9))
+		_px.frame(r, Color(1.0, 0.65, 0.55))
+		# At the size everything else here is read at: it is a sentence, and the
+		# plate is one row.
+		_px.text(r.position + Vector2(16, 38), _message, Color(1.0, 0.8, 0.72), r.size.x - 32.0)
+	elif b != null:
+		_px.rect(r, Color(0.18, 0.3, 0.42, 0.9))
+		_px.frame(r, Color(0.45, 0.8, 1.0))
+		var title := b.skill_name
+		if title != Weapons.name_for(weapon_id):
+			title = Loc.t("editor.title_on", [b.skill_name, Weapons.name_for(weapon_id)])
+		_px.text(r.position + Vector2(16, 42), title, Color(0.9, 0.95, 1.0), r.size.x - 32.0,
+			Loc.text_size(title, big))
+	var code_label := Loc.t("editor.code")
+	_draw_thumb_plate(_share_rect(), code_label, Color(0.55, 0.9, 1.0), _hover_share, true)
+	var close_label := Loc.t("editor.close")
+	var cr := _close_rect()
+	_draw_thumb_plate(cr, "", Color(1.0, 0.55, 0.55), _hover_close, true)
+	var size := Loc.text_size(close_label, big)
+	var mark := CROSS[0].length() * PX * 2 + 14.0
+	var ink := Color(1, 0.9, 0.9) if _hover_close else Color(0.86, 0.82, 0.84)
+	var at := _px.snap(cr.position + Vector2(
+		(cr.size.x - mark - PixelDraw.ink_width(close_label, size)) * 0.5, 22.0))
+	_px.icon(at, CROSS, ink, 2)
+	_px.text(at + Vector2(mark, 20.0), close_label, ink, -1.0, size)
+
+## One of mobile mode's plates: its ground and its edge in `accent`, lit under a
+## thumb, drained when it has nothing to act on, and `label` in the middle of it
+## at a thumb's size.
+func _draw_thumb_plate(r: Rect2, label: String, accent: Color, hot: bool, on: bool) -> void:
+	_px.rect(r, Color(accent.r, accent.g, accent.b, 0.3) if (hot and on) else Color(0.11, 0.13, 0.17, 0.92))
+	var edge := accent if on else Color(0.32, 0.34, 0.38)
+	_px.frame(r, edge)
+	_px.frame(r.grow(-PX), edge)
+	if label == "":
+		return
+	var size := Loc.text_size(label, UiKit.THUMB_TEXT)
+	_px.text(Vector2(r.position.x + (r.size.x - PixelDraw.ink_width(label, size)) * 0.5,
+		r.position.y + (r.size.y + 20.0) * 0.5), label,
+		Color(0.95, 0.98, 1.0) if on else Color(0.45, 0.48, 0.52), -1.0, size)
+
+## The parts, for a thumb: a tab a category down the left of the column, the
+## plates of the one that is up beside them, and TURN and REMOVE along the foot.
+func _draw_thumb_parts() -> void:
+	var l := _thumb_layout()
+	var groups := _pal_groups()
+	var tabs: Array = l["tabs"]
+	for i in mini(groups.size(), tabs.size()):
+		var r: Rect2 = tabs[i]
+		var cat := String(groups[i]["cat"])
+		var col := Style.category_color(cat)
+		var up := i == _tab
+		_px.rect(r, Color(col.r, col.g, col.b, 0.34) if up else Color(0.08, 0.09, 0.12, 0.92))
+		_px.frame(r, col if up else Color(col.r, col.g, col.b, 0.45))
+		if up:
+			_px.frame(r.grow(-PX), col)
+		if i == _hover_tab:
+			_px.frame(r, Color(1, 1, 1, 0.5))
+		_px.text_centered(Vector2(r.position.x + 4.0, r.position.y + (r.size.y + 10.0) * 0.5),
+			Style.category_name(cat), Color.WHITE if up else col, r.size.x - 8.0)
+
+	var ids := _palette_ids()
+	var big := UiKit.THUMB_TEXT
+	for i in ids.size():
+		var id: String = ids[i]
+		var r := _pal_rect(i)
+		var have := unlimited or Components.is_structural(id) or int(inventory.get(id, 0)) > 0
+		var c := Style.component_color(id)
+		_px.rect(r, Color(0.08, 0.09, 0.12, 0.92))
+		_px.rect(r, Color(c.r, c.g, c.b, 0.42 if id == selected else (0.18 if have else 0.05)))
+		_px.frame(r, c if have else Color(0.3, 0.32, 0.36))
+		if id == selected:
+			_px.frame(r.grow(-PX), c)
+		var icon := Style.component_icon(id)
+		_px.icon(Vector2(r.position.x + 14.0, r.position.y + (r.size.y - icon.size() * PX * 2) * 0.5), icon, c, 2)
+		# The count on the right, at the plate's own size; the name has the rest.
+		var counted := _draw_thumb_count(Vector2(r.end.x - 14.0, r.position.y + (r.size.y + 20.0) * 0.5), id)
+		var part := Components.name_for(id)
+		_px.text(Vector2(r.position.x + 56.0, r.position.y + (r.size.y + 20.0) * 0.5), part,
+			Color(0.92, 0.95, 1.0) if have else Color(0.45, 0.48, 0.52),
+			r.size.x - 56.0 - 14.0 - counted - 12.0, Loc.text_size(part, big))
+		if i == _hover_pal:
+			_px.frame(r, Color(1, 1, 1, 0.5))
+
+	# TURN shows the way the part in hand faces — the one picked on the board, or
+	# the next one set down — and turns it. REMOVE has something to take off only
+	# while a part on the board is picked.
+	var turn: Rect2 = l["turn"]
+	var turn_label := Loc.t("editor.turn")
+	var turn_size := Loc.text_size(turn_label, big)
+	_draw_thumb_plate(turn, "", UiKit.ACCENT, _hover_turn, true)
+	var arrow := ARROW[0].length() * PX * 3 + 16.0
+	var turn_at := _px.snap(turn.position + Vector2(
+		(turn.size.x - arrow - PixelDraw.ink_width(turn_label, turn_size)) * 0.5, (turn.size.y - 30.0) * 0.5))
+	_px.icon(turn_at, _arrows[rotation_step], Color(0.8, 0.95, 1.0), 3)
+	_px.text(Vector2(turn_at.x + arrow, turn.position.y + (turn.size.y + 20.0) * 0.5), turn_label,
+		Color(0.95, 0.98, 1.0), -1.0, turn_size)
+	_draw_thumb_plate(l["remove"], Loc.t("editor.remove"), Color(1.0, 0.55, 0.55), _hover_remove,
+		_picked_part() != NOWHERE)
+
+## A part's count at a thumb's size, right-aligned on `right`, a baseline: "x2",
+## or the infinity sign. Hands back how wide it came out.
+func _draw_thumb_count(right: Vector2, id: String) -> float:
+	var col := Color(0.6, 0.7, 0.8)
+	if _endless(id):
+		var w := INFINITY[0].length() * PX * 2.0
+		_px.icon(_px.snap(right - Vector2(w, 20.0)), INFINITY, col, 2)
+		return w
+	var label := Loc.t("editor.count", [int(inventory.get(id, 0))])
+	var size := Loc.text_size(label, UiKit.THUMB_TEXT)
+	var w := PixelDraw.ink_width(label, size)
+	_px.text(_px.snap(right - Vector2(w, 0.0)), label, col, -1.0, size)
+	return w
 
 ## A refusal (no room, none left) lasts a moment along the bottom. It is the
 ## only thing written there.

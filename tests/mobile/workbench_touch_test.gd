@@ -184,7 +184,8 @@ func _from_the_floor() -> void:
 	ed.gui_input.connect(func(e: InputEvent) -> void:
 		if e is InputEventMouseButton and e.pressed:
 			reached.append(e))
-	var cell := SkillEditor.BOARD_ORIGIN + Vector2(SkillEditor.CELL, SkillEditor.CELL) * 2.5
+	# Wherever mobile mode's layout has stood the board: an empty cell of it.
+	var cell := ed._cell_center(Vector2i(2, 0))
 	await point(cell)
 	press(cell, true)
 	await frames(2)

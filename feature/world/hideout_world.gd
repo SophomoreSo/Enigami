@@ -229,6 +229,10 @@ func set_weapon(id: String) -> void:
 func reading() -> bool:
 	return open_panel != "" or editing
 
+## A station's panel is up: the rack's, or the counter's. See `World.paneled`.
+func paneled() -> bool:
+	return open_panel != ""
+
 func leave() -> void:
 	title_requested.emit()
 

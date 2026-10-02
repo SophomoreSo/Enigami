@@ -1,5 +1,7 @@
 {
 	"close": "CLOSE",
+	"turn": "TURN",
+	"remove": "REMOVE",
 	"code": "CODE",
 	"count": "x%d",
 	"dead": {
@@ -23,6 +25,7 @@
 		"entry": "BUILD FROM A CODE",
 		"hint": "type either case · ENTER builds · ESC closes",
 		"prompt": "Type a code in, or PASTE one from the clipboard.",
+		"prompt_touch": "PASTE a code in from the clipboard.",
 		"typing": "%d characters so far…",
 		"summary": "%dx%d · %d parts · %s",
 		"utility": "utility",

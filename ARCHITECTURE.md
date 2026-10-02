@@ -81,15 +81,27 @@ the same edit.
 The shell in `app/` is the one place allowed to know all of them: `app/game.gd`
 is the composition root, and builds screens out of `graphics/`, `story/view/`
 and `mobile/view/` to drive `feature/` and `story/rules/`. What it asks a world
-while one is up — whether a board is open over it, whether the player stands by
-something to use — it asks through `World` (`feature/world/world.gd`), so a new
-thing to use is that world's edit and not the shell's.
+while one is up — whether a board is open over it, whether a panel of its own
+is, whether the player stands by something to use — it asks through `World`
+(`feature/world/world.gd`), so a new thing to use is that world's edit and not
+the shell's.
 
 `graphics/` reads `mobile/input/` the way it reads any state — the HUD drops its
-key hints while the console is up, the title lays its menu out as tiles — and
-names one thing in `mobile/view/`: `graphics/ui/controls_panel.gd` opens
-`TouchLayoutEditor` from SET BUTTON POSITIONS, because the control settings are
-where a player looks for it. It opens the screen and takes nothing else.
+key hints while the console is up, and every menu has a second layout for mobile
+mode — and names one thing in `mobile/view/`: `graphics/ui/controls_panel.gd`
+opens `TouchLayoutEditor` from SET BUTTON POSITIONS, because the control
+settings are where a player looks for it. It opens the screen and takes nothing
+else.
+
+**The two layouts.** Which one a menu is in is one question, `UiKit.mobile()`,
+asked through the kit so the telling's pictures can ask it too without naming
+the console. A screen built of Controls gets its thumb's size from the kit — a
+pixel button, a page's frame, a slider, a switch are each built at one size or
+the other — and is built again by whoever holds it when the mode is thrown, the
+way it is for a language. A screen that draws itself (`SkillEditor`,
+`DialogueBox`, `CutsceneBox`, `ShareCodePanel`) asks every frame and keeps both
+layouts, the thumb's under its own "for a thumb" heading; the desk's is the
+path nothing in that section touches.
 
 **The one exception.** `feature/world/sandbox.gd` names `Npc`, to stand someone
 on the bench to talk to. A world that stages a character has to name one, the
@@ -343,6 +355,7 @@ has to hear about it.
 | Retune shake, sparks, hitstop *feel* | `graphics/cue_visuals.gd` — except hitstop and dilation, see below |
 | Something spawned again and again — a spark, a ring, a number that floats off | borrow it from a `Pool` (`feature/core/pool.gd`, after aarthificial's devlog on pooling), lent to the screen it is for, and let it hand itself back once it has played out; a screen that goes takes back whatever it still had out. `graphics/fx.gd`'s sparks, rings and words are drawn that way |
 | HUD layout, editor look — where a thing sits, not what it says | `graphics/ui/` |
+| How a menu is laid out in mobile mode — a row's height, a word's size, a page's width | the kit's: `THUMB`, `THUMB_TEXT` and `THUMB_PAGE` in `graphics/ui/ui_kit.gd`, which every page built of Controls takes them from. What is *on* a page there is that screen's own — the "for a thumb" section of `skill_editor.gd`, `dialogue_box.gd` and the rest, `_build_for_a_thumb` in `controls_panel.gd` |
 | The resolution the world is drawn at | `graphics/pixel_camera.gd` (the size comes from `Sprites.PIXEL_SCALE`) |
 | A new sound | `app/audio/audio_cues.gd` |
 | What a moment says on screen — WINDED, a boss's second form | `hud.fx` in `localization/`, spelled in `graphics/cue_visuals.gd`; the rule sends the id |

@@ -181,6 +181,14 @@ func _ready() -> void:
 	await press("hurry")
 	check(n.node_id == "who" and n.is_choosing() and picks.size() == given,
 		"and a hurry with the answers out gives none of them")
+	# An answer pointed at rather than stepped to — its plate, on the glass —
+	# is picked, and that is all.
+	n.select(1)
+	check(n.selected == 1 and n.node_id == "who" and picks.size() == given,
+		"an answer pointed at is picked, and not given")
+	n.select(7)
+	check(n.selected == 1, "and one that is not there is not")
+	n.select(0)
 	await press("move_down")
 	await press()
 	check(n.node_id == "ask", "'Back to my questions' returns to the first question (%s)" % n.node_id)
