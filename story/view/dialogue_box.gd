@@ -280,8 +280,12 @@ func _draw_line(pen: Vector2, rows: PackedStringArray, line_h: float, mood: Dict
 		i += 1   # the space the wrap swallowed
 		pen.y += line_h
 
-## How to answer, in whatever the player has the keys bound to.
+## How to answer, in whatever the player has the keys bound to. On the glass
+## there are no keys for it to name: the halves of the screen pick and answer,
+## a tap on the left and a hold on the right, and neither is drawn.
 func _choice_hint() -> String:
+	if Controls.on_glass():
+		return Loc.t("hud.dialogue.choose_touch")
 	return Loc.t("hud.dialogue.choose", [Controls.short_label_for("move_up"),
 		Controls.short_label_for("move_down"), Controls.short_label_for("interact")])
 

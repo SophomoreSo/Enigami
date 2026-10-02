@@ -75,6 +75,12 @@ static func set_mouse_aside(aside: bool) -> void:
 static func mouse_aside() -> bool:
 	return _mouse_aside
 
+## Whether the console has the screen, for a prompt that has to say what a thumb
+## does rather than name a key: the mouse is put away for exactly as long as it
+## is up.
+static func on_glass() -> bool:
+	return _mouse_aside
+
 ## Everything bound to `action`, whether or not the pad is holding the mouse.
 ## The bindings a screen shows and a file keeps are the player's, and the pad
 ## borrowing the mouse for a while is not a rebinding.

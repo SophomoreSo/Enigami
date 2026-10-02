@@ -42,10 +42,12 @@
 	},
 	"dialogue": {
 		"choose": "%s/%s 선택  ·  %s 대답",
+		"choose_touch": "왼쪽을 눌러 선택  ·  오른쪽을 길게 눌러 대답",
 		"player": "나"
 	},
 	"cutscene": {
-		"hint": "%s 계속  ·  %s 건너뛰기"
+		"hint": "%s 계속  ·  %s 건너뛰기",
+		"hint_touch": "오른쪽을 길게 눌러 계속"
 	},
 	"sandbox": {
 		"swap_weapon": "무기 교체",

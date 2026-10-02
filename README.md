@@ -63,6 +63,7 @@ godot res://tests/graphics/speech_bubble_test.tscn # the bubble over whoever tal
 godot res://tests/shared/loc_test.tscn      # every language says everything, and can be drawn
 godot res://tests/shared/module_test.tscn   # what each module may name, row by row, and what no rule may
 godot res://tests/mobile/touch_layout_test.tscn # SET BUTTON POSITIONS: drag a button, keep it, play with it there
+godot res://tests/mobile/talk_touch_test.tscn # a conversation on the glass: the left picks, a tap on the right hurries, a hold goes on
 godot res://tests/feature/dragon_test.tscn  # one charged cast clears the whole tower
 godot res://tests/graphics/shots.tscn   # writes a screenshot of each screen to user://shots
 godot res://tests/graphics/dragon_shot.tscn  # ...and frames of the dragon test
@@ -153,9 +154,15 @@ controls turn out to fit:
   exit you are standing in, the weapon's button becomes the interact key; a
   thumb already down keeps what it pressed. One button fewer under the right
   thumb.
-* **In a conversation the right of the screen is the page.** No button is
-  drawn; a tap anywhere on the right turns the page or takes the answer the
-  stick has picked.
+* **In a conversation the screen is two halves, and neither is drawn.** The
+  left picks an answer: a tap on its top half moves the highlight up, one on
+  its bottom half down. The right reads: a tap brings the line coming in out
+  whole and does nothing else, and a thumb held there goes on — to the next
+  line, or with the answer picked — once a ring has closed in round it. Going
+  on is the one thing that cannot be taken back, so it is the one thing a tap
+  cannot do: tapping to hurry the words never passes a line or gives an answer
+  unread. The intro reads the same way, and the hint under a question, or under
+  the intro's box, says so in place of a key.
 * **Everything else is a key.** JUMP, DASH, and KIT / MAP / MENU in the far
   corner take no direction, so they are buttons and nothing more.
 
@@ -200,11 +207,11 @@ never learn what a finger is. What changes while it is up:
   names on them, a line telling you to press one is two rows of a small screen
   spent saying nothing.
 * **What is on the console follows the screen.** Playing shows everything; a
-  conversation or a scene shows the stick that picks an answer and the key that
-  turns the page; a window that has taken the controls — the map, a station's
-  panel — keeps only the keys that close it again, since the map is opened and
-  shut with the same key and on a phone that key is on the console or it is
-  nowhere. The assembly board leaves the glass clear: it covers all of it, it is
+  conversation or a scene shows the two halves of the screen, the left picking
+  an answer and the right turning the page; a window that has taken the
+  controls — the map, a station's panel — keeps only the keys that close it
+  again, since the map is opened and shut with the same key and on a phone that
+  key is on the console or it is nowhere. The assembly board leaves the glass clear: it covers all of it, it is
   itself what the thumb is for, and its own CLOSE is right where KIT, MAP and
   MENU would stand. The pause menu replaces it: those are buttons you tap.
 
@@ -213,7 +220,11 @@ against the HUD's two bands, against every other control, and against its own
 word in both languages — then drives real fingers through a real raid: the stick
 walks and runs, a stick dragged over a button does not press it, the cast button
 charges while it is held, aims where it is thrown and casts what the hold paid
-for.
+for. `tests/mobile/talk_touch_test` talks to the sandbox's SAGE with thumbs
+alone, from the USE that opens the conversation to the hold that ends it: taps
+never move a line on, a hold goes on once however long it stays, and a thumb
+still down as the conversation opens or ends presses nothing on the face that
+comes up under it.
 
 The pointer you aim with is the game's own: a crosshair, drawn at boot from a
 table of characters like every other asset here that is not a sprite or a font,

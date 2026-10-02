@@ -7,9 +7,10 @@ extends CharacterBody2D
 ## step is walked for the player: to where people stand to talk, turned to face
 ## them (`_come_over`). Pushing the other way on that step is changing your
 ## mind, and nothing opens. Once they are there a conversation starts; each
-## further press moves it on. Some lines end in a question — move up and down to
-## pick an answer, interact to give it — and the answer decides what they say
-## next. The player is held still while they listen — no walking, jumping,
+## further press moves it on, and a press of `hurry` only ever brings out the
+## rest of the line coming in. Some lines end in a question — move up and down
+## to pick an answer, interact to give it — and the answer decides what they
+## say next. The player is held still while they listen — no walking, jumping,
 ## dashing or attacking — so a conversation ends by talking it through, or by
 ## something else carrying the player out of range.
 ##
@@ -139,6 +140,8 @@ func _physics_process(delta: float) -> void:
 			move_selection(-1)
 		if Input.is_action_just_pressed("move_down"):
 			move_selection(1)
+	if Input.is_action_just_pressed("hurry"):
+		hurry()
 	if Input.is_action_just_pressed("interact"):
 		if mode == Mode.FREEZE or is_talking():
 			interact()
@@ -215,6 +218,14 @@ func interact() -> void:
 		choose(selected)
 		return
 	_go(String(current_node().get("next", "")))
+
+## One press of `hurry`: the line coming in comes out whole, and that is all it
+## ever does. It never moves on and never gives an answer, so it can be pressed
+## as often as a reader likes without anything being passed over unread; going
+## on is still interact's.
+func hurry() -> void:
+	if is_talking() and not line_finished():
+		revealed = float(current_line().length())
 
 ## Gives answer `index` to the question now open.
 func choose(index: int) -> void:
