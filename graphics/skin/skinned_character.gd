@@ -26,6 +26,7 @@ const SPRITES_DIR := "res://graphics/assets/sprites/"
 const ANIMS := {
 	"idle": {"fps": 5.0, "loop": true},
 	"run": {"fps": 12.0, "loop": true},
+	"crouch": {"fps": 3.0, "loop": true},
 	"hit": {"fps": 8.0, "loop": false},
 	"rise": {"fps": 10.0, "loop": false},
 	"fall": {"fps": 6.0, "loop": true},

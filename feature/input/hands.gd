@@ -13,6 +13,11 @@ extends InputMiddleware
 
 func process(s: InputState) -> InputState:
 	s.move = Input.get_axis("move_left", "move_right")
+	# Down held is a crouch, whatever holds it: a key, or a stick pushed down
+	# past its threshold. A gamepad's is `move_down`'s dead zone in the input
+	# map, and the console's is its own (`TouchPad.STICK_CROUCH`); both are three
+	# quarters of the way out, because a thumb running sideways wanders downward.
+	s.crouch = Input.is_action_pressed("move_down")
 	s.attack = Input.is_action_pressed("attack")
 	s.cast = Input.is_action_pressed("cast_skill")
 	# Edges, as the frame being asked in sees them: the physics frame's when the

@@ -14,8 +14,9 @@ extends Node
 ## corner.
 ##
 ## **What a thumb does.** Against a real raid, with a real player carrying real
-## slots: the stick moves them and moves them *analog*, a half push walking and
-## a full one running; a stick keeps the finger that started it however far it
+## slots: the stick does nothing until it has been dragged most of the way to
+## its ring, then runs them — or, dragged down as far, crouches them — and its
+## ring lights to say so; a stick keeps the finger that started it however far it
 ## is dragged; a skill button arms its slot, charges while it is held, aims
 ## where it is thrown and casts on release; a slot the player is not carrying is
 ## not on the pad at all.
@@ -141,6 +142,29 @@ func drag(index: int, at: Vector2) -> void:
 	e.position = on_glass(at)
 	Input.parse_input_event(e)
 
+## The picture as it is on the screen now, whether or not the window is where
+## anything can see it: a covered window draws nothing unless it is made to.
+func drawn() -> Image:
+	await get_tree().process_frame
+	if DisplayServer.window_can_draw():
+		await RenderingServer.frame_post_draw
+	else:
+		RenderingServer.force_draw(false)
+	return get_viewport().get_texture().get_image()
+
+## Whether the stick's mark toward `degrees` — 0 to the right, 90 straight down
+## — is lit in `img`: read off its ring, to one side of where the knob gets to.
+func lit(img: Image, degrees: float) -> bool:
+	var ring: float = TouchPad.CONTROLS[0]["radius"]
+	var brightest := 0.0
+	for side in [-30.0, 30.0]:
+		for r in [ring - 7.0, ring - 6.0, ring - 5.0]:
+			var at := on_glass(pad._stick_at + Vector2.from_angle(deg_to_rad(degrees + side)) * r)
+			if Rect2(Vector2.ZERO, Vector2(img.get_size())).has_point(at):
+				var c := img.get_pixelv(Vector2i(at))
+				brightest = maxf(brightest, minf(c.r, minf(c.g, c.b)))
+	return brightest > 0.8
+
 func on_glass(at: Vector2) -> Vector2:
 	return get_window().get_final_transform() * at
 
@@ -153,6 +177,7 @@ func _ready() -> void:
 	await _the_setting()
 	await _into_a_raid()
 	await _the_stick()
+	await _the_crouch()
 	await _the_skills()
 	await _the_reach()
 	await _the_faces()
@@ -375,6 +400,77 @@ func _into_a_raid() -> void:
 	await frames(4)
 	check(pad.visible, "and with the console on, the pad is on the screen")
 
+## --- the crouch -------------------------------------------------------------
+
+## Dragged down past its threshold the stick holds down, and down held is a
+## crouch. Sideways past its own it runs, as above; past both, down wins.
+func _the_crouch() -> void:
+	var zone := TouchPad.area(TouchPad.CONTROLS[0], screen())
+	var radius: float = TouchPad.CONTROLS[0]["radius"]
+	var landed := Vector2(zone.position.x + radius + 60.0, zone.position.y + radius + 40.0)
+	var guard := 0
+	while not player.is_on_floor() and guard < 400:
+		await get_tree().physics_frame
+		guard += 1
+	touch(0, landed, true)
+	drag(0, landed + Vector2(0.0, radius * (TouchPad.STICK_CROUCH - 0.1)))
+	for i in 6:
+		await get_tree().physics_frame
+	check(pad.stick_showing() and not Input.is_action_pressed("move_down") and not player.crouched,
+		"a stick dragged down short of its threshold holds nothing, and crouches nobody")
+	var img := await drawn()
+	check(not lit(img, 90.0), "and the mark along the bottom of its ring is not lit")
+	drag(0, landed + Vector2(0.0, radius * (TouchPad.STICK_CROUCH + 0.1)))
+	for i in 6:
+		await get_tree().physics_frame
+	check(Input.is_action_pressed("move_down"), "dragged past it, down is held")
+	check(player.crouched and player.state_name() == "Crouch",
+		"and the player crouches (%s)" % player.state_name())
+	img = await drawn()
+	check(lit(img, 90.0) and not lit(img, 0.0) and not lit(img, 180.0),
+		"with the bottom of the ring lit, and neither side")
+	check(pad.aim().is_equal_approx(Vector2(player.facing, 0.0)),
+		"aiming the way they face, not down the stick at their own feet (%s)" % str(pad.aim()))
+
+	# The two are so far out that no thumb is past both: dragged to the ring on
+	# a diagonal the stick is past neither, and does nothing.
+	drag(0, landed + Vector2(-radius, radius))
+	for i in 20:
+		await get_tree().physics_frame
+	check(not player.crouched and absf(player.velocity.x) < 1.0
+			and not Input.is_action_pressed("move_down") and is_zero_approx(Input.get_axis("move_left", "move_right")),
+		"dragged to the ring down and to the left, it neither crouches nor runs (%s, %.0f)"
+			% [player.state_name(), player.velocity.x])
+	img = await drawn()
+	check(not lit(img, 90.0) and not lit(img, 180.0), "and no mark is lit")
+	# Rolled toward the side, it runs.
+	drag(0, landed + Vector2(-radius, radius * 0.2))
+	for i in 8:
+		await get_tree().physics_frame
+	check(not player.crouched and player.velocity.x < -20.0,
+		"rolled over toward the left it runs (%s, %.0f)" % [player.state_name(), player.velocity.x])
+	drag(0, landed + Vector2(0.0, radius))
+	for i in 6:
+		await get_tree().physics_frame
+	check(player.crouched, "and back down, crouched again")
+	touch(0, landed, false)
+	for i in 6:
+		await get_tree().physics_frame
+	check(not Input.is_action_pressed("move_down") and not player.crouched,
+		"lifting lets go of down, and the player stands")
+
+	# Held in a conversation nothing a thumb does on the left crouches anybody.
+	player.talk_locked = true
+	await frames(3)
+	touch(0, landed, true)
+	drag(0, landed + Vector2(0.0, radius))
+	for i in 6:
+		await get_tree().physics_frame
+	check(not player.crouched, "in a conversation a thumb pushing down on the left crouches nobody")
+	touch(0, landed + Vector2(0.0, radius), false)
+	player.talk_locked = false
+	await frames(3)
+
 ## --- the stick --------------------------------------------------------------
 
 func _the_stick() -> void:
@@ -404,16 +500,30 @@ func _the_stick() -> void:
 	check(absf(Input.get_axis("move_left", "move_right")) < 0.001,
 		"and it asks for nothing until it is pushed past its dead zone")
 
-	# Analog: how far it is pushed is how fast they walk.
+	# A long way, or nothing: short of its threshold the stick asks for nothing
+	# at all, and past it for a whole run. The ring says which it is.
 	drag(0, landed + Vector2(radius * 0.5, 0.0))
 	await frames(2)
 	var half := Input.get_axis("move_left", "move_right")
+	drag(0, landed + Vector2(radius * (TouchPad.STICK_RUN - 0.05), 0.0))
+	await frames(2)
+	var short := Input.get_axis("move_left", "move_right")
+	check(is_zero_approx(half) and is_zero_approx(short),
+		"a half push asks for nothing, and nor does one just short of the threshold (%.2f, %.2f)" % [half, short])
+	var img := await drawn()
+	check(not lit(img, 0.0) and not lit(img, 180.0) and not lit(img, 90.0),
+		"and none of the ring's marks is lit")
+	drag(0, landed + Vector2(radius * (TouchPad.STICK_RUN + 0.05), 0.0))
+	await frames(2)
+	var past := Input.get_axis("move_left", "move_right")
+	check(is_equal_approx(past, 1.0), "dragged just past it, the stick runs — a whole run (%.2f)" % past)
+	img = await drawn()
+	check(lit(img, 0.0) and not lit(img, 180.0) and not lit(img, 90.0),
+		"and the mark on that side of the ring lights, to say it has been reached")
 	drag(0, landed + Vector2(radius * 2.0, 0.0))
 	await frames(2)
 	var full := Input.get_axis("move_left", "move_right")
-	check(half > 0.05 and half < 0.9, "a half push walks (%.2f)" % half)
-	check(is_equal_approx(full, 1.0), "and a full one runs (%.2f)" % full)
-	check(full > half, "which is more than the half push asked for")
+	check(is_equal_approx(full, 1.0), "at the ring it is the same run, no more of one (%.2f)" % full)
 	check(player.velocity.x > 0.0, "the player is really moving (%.0f)" % player.velocity.x)
 
 	# A stick keeps the finger that started it: dragged across the screen and

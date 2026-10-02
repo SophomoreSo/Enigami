@@ -10,7 +10,8 @@ player.skin.png     what the pixels look like — the character, once, in one 20
 player.map.png      a colour of its own for every skin pixel. Made once, then kept.
 player.idle.png     the poses: one strip per animation, frames the skin's size side by
 player.run.png      side, every pixel painted not in a colour but in the map's colour
-player.rise.png     of the skin pixel it stands for
+player.crouch.png   of the skin pixel it stands for
+player.rise.png
 player.fall.png
 player.wall_slide.png
 player.dash.png

@@ -24,6 +24,8 @@ extends InputMiddleware
 
 ## Which way to walk, -1 left to 1 right, and how hard.
 var move: float = 0.0
+## Crouching, for as long as it is set.
+var crouch: bool = false
 ## The attack button, held.
 var attack: bool = false
 ## The cast button, held: what charges. Letting go of it is the release that
@@ -63,6 +65,7 @@ func dash() -> void:
 func process(_said: InputState) -> InputState:
 	var s := InputState.new()
 	s.move = clampf(move, -1.0, 1.0)
+	s.crouch = crouch
 	s.attack = attack
 	s.cast = cast
 	s.jump_pressed = _happened(&"jump_pressed")

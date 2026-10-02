@@ -10,7 +10,7 @@ const ACTIONS := [
 	["move_left", "Move left"],
 	["move_right", "Move right"],
 	["move_up", "Aim up"],
-	["move_down", "Aim down / drop"],
+	["move_down", "Crouch"],
 	["jump", "Jump"],
 	["dash", "Dash"],
 	["attack", "Attack"],

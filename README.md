@@ -38,6 +38,7 @@ godot res://tests/feature/cast_test.tscn    # the two buttons: attack casts the 
 godot res://tests/feature/stamina_test.tscn # the dash budget under the health bar
 godot res://tests/feature/input_test.tscn   # the input line: the hands, a hold, a gate, a walk that gives the body back, and the computer's hands
 godot res://tests/feature/aim_assist_test.tscn # aim assist: the stick-to-weapon curve, and what it bends toward
+godot res://tests/feature/crouch_test.tscn  # the crouch: down lets the body onto its feet, a stick's threshold for it, and what stands it up again
 godot res://tests/feature/pool_test.tscn    # pooling: lent, played out and handed back, and taken back when a screen goes
 godot res://tests/graphics/fx_pool_test.tscn # sparks, rings and floating numbers come out of pools, never out of nothing
 godot res://tests/graphics/menu_fit_test.tscn # menus stay on screen and scroll the rest
@@ -101,6 +102,7 @@ not a thing to reach for once it errors.
 | | |
 |---|---|
 | A / D, ← / → | move |
+| S, ↓ | crouch, on the floor: the body is let down onto its feet — lower, and a smaller thing to hit — and stays where it is; a direction held with it turns it round. A jump or a dash goes out of it, and there is no crouch in the air |
 | SPACE | jump; again in mid-air to double jump; against a wall to kick off |
 | SHIFT | dash — left or right only, never up; brief invulnerability from the press; spends stamina, four dashes to a full bar |
 | LMB | cast the weapon's graph as it is — again and again while held, and it costs nothing |
@@ -112,8 +114,9 @@ not a thing to reach for once it errors.
 | W / S, ↑ / ↓ | when an NPC asks a question, move between answers; F gives the highlighted one |
 | ESC | pause |
 
-Gamepad: left stick moves, A jumps, B dashes, the right trigger attacks and the
-left one charges and casts, select opens assembly, RB interacts. Every keyboard
+Gamepad: left stick moves and, pushed down three quarters of the way, crouches;
+A jumps, B dashes, the right trigger attacks and the left one charges and
+casts, select opens assembly, RB interacts. Every keyboard
 binding is remappable from Settings (title screen) or the pause menu.
 
 ### The screen's shape
@@ -143,9 +146,12 @@ controls turn out to fit:
   lower-left of the screen is empty; a thumb put down anywhere in it and dragged
   grows the stick where it landed, and lifting takes it away again. A thumb that
   only touches grows nothing — so it is never somewhere to reach for, never in
-  the way of the fight, and never flashes up under a tap. It is analog — the
-  game reads movement as the strength of two actions — so a stick half over
-  walks and a stick hard over runs, which four keys could never say.
+  the way of the fight, and never flashes up under a tap. It has to be dragged
+  a long way before it does anything: three quarters of the way to its ring.
+  Sideways past that it runs — a whole run, with no walk short of it — and down
+  past it, it crouches; a diagonal is neither. The ring is marked where each
+  threshold lies, to the left, the right and along the bottom, and the mark
+  lights, with the knob, the moment the thumb has reached it.
 * **The cast button is a stick too.** Press it and the graph begins to charge;
   drag and the charge aims; let go and it casts, where you were pointing,
   carrying everything the hold paid for. The game's own hold-to-charge is
@@ -182,9 +188,10 @@ never learn what a finger is. What changes while it is up:
   finger lands, and where it lands is where it is going. So the console aims the
   way a gamepad does — the cast being thrown if one is, the movement stick if
   it is pushed, and the way the player is facing otherwise, so a tap with no
-  throw in it still goes somewhere they meant. A throw is measured from where
-  the thumb came down, so a tap anywhere on a big button is still a tap. The
-  crosshair and the pointer setting stand down.
+  throw in it still goes somewhere they meant. A stick held down in a crouch is
+  the exception: it aims the way they face, not at their own feet. A throw is
+  measured from where the thumb came down, so a tap anywhere on a big button is
+  still a tap. The crosshair and the pointer setting stand down.
 * **How far is how far the thumb drags.** A cast dragged just past the dead
   zone goes a third of its distance, and one dragged out to the ring goes all
   of it — a bolt's range, a thrown shot's arc, a lunge, a DASH; a burst or a

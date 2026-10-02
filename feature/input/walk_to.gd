@@ -3,10 +3,10 @@ extends InputMiddleware
 
 ## Walks the body to a spot on the floor, then turns it to face the way it was
 ## asked: the devlog's navigation. It writes over which way the hands say to
-## go, and shuts the gates on a jump and a dash, which would carry the body off
-## the walk; the weapon's buttons stay the hands'. For as long as it walks the
-## body is the computer's (`takes_over`), so the crosshair the weapon points
-## with rests where it was and the mouse does not move it.
+## go, stands a crouch up, and shuts the gates on a jump and a dash, which would
+## carry the body off the walk; the weapon's buttons stay the hands'. For as
+## long as it walks the body is the computer's (`takes_over`), so the crosshair
+## the weapon points with rests where it was and the mouse does not move it.
 ##
 ## A push the other way is the player taking the body back. The walk gives up
 ## on the spot, and that push goes through on the same frame. A push already
@@ -72,6 +72,7 @@ func process(s: InputState) -> InputState:
 		return s
 	s.can_jump = false
 	s.can_dash = false
+	s.crouch = false
 	if arrived:
 		s.move = 0.0
 		s.turn = face

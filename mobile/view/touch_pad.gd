@@ -12,10 +12,13 @@ extends Control
 ##     The left of the screen is empty; a thumb put down anywhere in it and
 ##     dragged grows the stick where it landed, and lifting takes it away again.
 ##     A thumb that only touches grows nothing. So it is never somewhere to
-##     reach for and never in the way of the fight. It is analog — the game
-##     reads movement as the strength of two actions, so a stick half over
-##     walks and a stick hard over runs, which a cross of four keys could never
-##     say.
+##     reach for and never in the way of the fight. It has to be dragged a
+##     long way before it does anything — three quarters of the way to its
+##     ring (`STICK_RUN`, `STICK_CROUCH`) — and then it does all of it:
+##     sideways it runs, at a run's full speed, and down it crouches. Nothing in
+##     between, so neither starts under a thumb that only drifted; and the
+##     ring says when each has been reached — the stretch of it past the
+##     threshold is marked, and lights (`_draw_reach`).
 ##   * **The cast button is a stick too.** Press it and the graph begins to
 ##     charge; drag and the charge aims; let go and it casts, where you were
 ##     pointing, with everything the hold paid for. The game's own
@@ -174,11 +177,10 @@ const THROW_HOLD_MAX := 5.0
 const EDGE_W := PixelDraw.PX * 2
 const LABEL_SIZE := PixelDraw.SIZE * 2
 
-## How far the movement stick must be pushed before it says anything. Sideways
-## it is small, since the strength past it is remapped back to a full range and
-## a walk should start as soon as the thumb moves. Up and down it is firm: those
-## two only pick an answer in a conversation, and a thumb running sideways
-## wanders across them.
+## How far the movement stick must be pushed before it points anywhere: past
+## this a weapon nobody is aiming goes the way the stick does (`aim`). Up is
+## firmer, and is only ever an answer picked in a conversation. Neither moves
+## anybody — that is STICK_RUN and STICK_CROUCH, below.
 const STICK_DEAD := 0.22
 const STICK_UPDOWN := 0.5
 
@@ -191,6 +193,16 @@ const STICK_UPDOWN := 0.5
 ## it moves anybody.
 const STICK_OUT := 12.0
 
+## How far the movement stick has to be dragged before it runs, sideways, or
+## crouches, downward: three quarters of the way to its ring. A long way, on
+## purpose. Neither starts under a thumb that has only just come down, or that
+## drifts while it does the other — and with both this far out no thumb can be
+## past the two at once, so a diagonal is neither. Past it the key is simply
+## held: a run is a whole run from the moment it starts, and short of it there
+## is none.
+const STICK_RUN := 0.75
+const STICK_CROUCH := 0.75
+
 ## How far outside its edge a control still answers.
 const SLOP := 4.0
 
@@ -199,6 +211,8 @@ const MOUSE := -1
 
 const FILL := Color(0.05, 0.06, 0.09, 0.55)
 const FILL_HELD := Color(0.16, 0.34, 0.44, 0.82)
+## The stick's knob once it has been dragged far enough to do something.
+const FILL_REACHED := Color(0.3, 0.62, 0.74, 0.92)
 const EDGE := Color(0.45, 0.85, 1.0, 0.38)
 const EDGE_HELD := Color(0.6, 0.95, 1.0, 0.95)
 const INK := Color(0.74, 0.84, 0.95, 0.8)
@@ -310,14 +324,14 @@ func _process(delta: float) -> void:
 
 ## The movement stick, as the four actions the game reads movement through.
 ##
-## Sideways is analog: the strength is how far the stick is over, remapped so it
-## runs the whole way from nothing to everything past the deadzone rather than
-## jumping to a fifth the moment it is felt. Up and down are not — they only
-## pick an answer in a conversation, and an answer is picked or it is not.
+## Sideways is a run or nothing, and down a crouch or nothing: the key is held,
+## all the way, once the stick has been dragged past its threshold (STICK_RUN,
+## STICK_CROUCH), and not at all short of it. Up is the one left as it was —
+## it only picks an answer in a conversation, past its own firm dead zone.
 func _drive() -> void:
-	_lean("move_right", _stick.x, STICK_DEAD)
-	_lean("move_left", -_stick.x, STICK_DEAD)
-	_lean("move_down", _stick.y, STICK_UPDOWN)
+	_lean("move_right", _past(_stick.x, STICK_RUN), STICK_DEAD)
+	_lean("move_left", _past(-_stick.x, STICK_RUN), STICK_DEAD)
+	_lean("move_down", _past(_stick.y, STICK_CROUCH), STICK_UPDOWN)
 	_lean("move_up", -_stick.y, STICK_UPDOWN)
 
 func _lean(action: String, amount: float, dead: float) -> void:
@@ -328,9 +342,10 @@ func _lean(action: String, amount: float, dead: float) -> void:
 
 ## Where the player is pointing, as a stick: the cast being aimed if one is —
 ## or one thrown and let go whose cast has not gone off yet — the movement stick
-## if it is pushed, and the way they are facing otherwise. A throw is pushed as
-## far as the thumb dragged (`throw_reach`), which the game reads as how far the
-## attack goes; everything else asks for all of it.
+## if it is pushed and is not crouching them, and the way they are facing
+## otherwise. A throw is pushed as far as the thumb dragged (`throw_reach`),
+## which the game reads as how far the attack goes; everything else asks for
+## all of it.
 ##
 ## A pointer is the one control a phone cannot offer — there is nothing on the
 ## glass until a finger lands, and where it lands is where it is going. So the
@@ -346,9 +361,15 @@ func aim() -> Vector2:
 		return _aim_off.normalized() * Player.push_for(throw_reach())
 	if not _held_throw.is_empty():
 		return _held_throw["aim"]
-	if _stick.length() >= STICK_DEAD:
+	# Not while it has the player crouched: a stick dragged down on the floor
+	# is a crouch, and a crouch aimed down it would be aimed at its own feet.
+	if _stick.length() >= STICK_DEAD and not (_player != null and _player.crouched):
 		return _stick.normalized()
 	return Vector2(_facing(), 0.0)
+
+## All of a push that has got past `threshold`, and none of one that has not.
+func _past(amount: float, threshold: float) -> float:
+	return 1.0 if amount >= threshold else 0.0
 
 ## How far the thumb on the stick being aimed has dragged, as how far the
 ## attack should go: nothing at the edge of the dead zone, all of it at the ring.
@@ -765,9 +786,30 @@ func _draw_stick(c: Dictionary) -> void:
 	var knob: float = c["knob"]
 	_px.disc(_stick_at, r, FILL)
 	_px.ring(_stick_at, r, PixelDraw.PX, EDGE_HELD)
+	var reached := face == Face.PLAY and _draw_reach(r)
 	var at := _stick_at + _stick * (r - knob)
-	_px.disc(at, knob, FILL_HELD)
-	_px.ring(at, knob, PixelDraw.PX * 2, EDGE_HELD)
+	_px.disc(at, knob, FILL_REACHED if reached else FILL_HELD)
+	_px.ring(at, knob, PixelDraw.PX * 2, INK_HELD if reached else EDGE_HELD)
+
+## The thresholds, marked on the stick's ring, and lit when the thumb has
+## reached them: the stretch of the ring that lies past each one — to the right
+## and the left for a run, along the bottom for a crouch. Quiet until then, so
+## the marks say where to drag as well as when it has been far enough; and the
+## knob lights with them, for a thumb that is covering the ring. Whether any
+## has been reached.
+func _draw_reach(r: float) -> bool:
+	var any := false
+	for mark in [
+			[0.0, _stick.x >= STICK_RUN, STICK_RUN],
+			[PI, -_stick.x >= STICK_RUN, STICK_RUN],
+			[PI * 0.5, _stick.y >= STICK_CROUCH, STICK_CROUCH]]:
+		var lit: bool = mark[1]
+		any = any or lit
+		# Past a threshold `t` of the way out is everything within acos(t) of
+		# dead ahead, at the ring.
+		_px.arc(_stick_at, r - PixelDraw.PX * 2, PixelDraw.PX * (3 if lit else 2),
+			float(mark[0]), acos(float(mark[2])), INK_HELD if lit else EDGE)
+	return any
 
 ## A button, round or plated, with its word in the middle of it, drawn with `px`
 ## on a screen of `screen` — by the pad, and by the screen that arranges it.

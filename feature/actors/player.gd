@@ -17,6 +17,14 @@ signal parry_success()
 ## The silhouette the sprite has to stand on, and the reach of a hit against it.
 const BODY := Vector2(20.0, 30.0)
 const HURT_RADIUS := 13.0
+## The same, crouched: two thirds the height, and the reach shrunk with it. The
+## feet stay where they are and the body is let down onto them, so everything
+## that asks where the player is finds them lower — a bolt, a monster's aim,
+## the weapon's own hand. Whatever the low body fits under the standing one
+## does too: a room is cut in cells of 32, and nothing in one is lower than a
+## cell.
+const CROUCH_BODY := Vector2(20.0, 20.0)
+const CROUCH_HURT_RADIUS := 9.0
 ## How long a blow that gets through leaves the player untouchable. A full
 ## second is room to pick the body up and walk it out of whatever landed the
 ## hit, rather than be chain-hit where they stand. It is also the gate a
@@ -168,6 +176,13 @@ var _held_by_stun := HandsOff.new()
 ## What the line asked of the body this physics frame. The state's actions
 ## read it rather than asking again.
 var _asked := InputState.new()
+## Whether the body is low: crouched, as it stands. Read rather than announced,
+## like `charging` — it is a state that lasts.
+var crouched: bool = false
+## Whether the state the body is in ducked this frame (`_action_duck`). A state
+## that does not stands the body back up, so being low is one more thing a
+## state's steps say and nothing has to remember to undo it.
+var _low: bool = false
 
 ## Movement runs as a state machine. Every frame the senses are read, the state
 ## is re-picked from them, and only then does that state act — so the state an
@@ -219,9 +234,11 @@ func _setup_fsm() -> void:
 		"jump": _action_jump,
 		"dash": _action_dash,
 		"rush": _action_rush,
+		"duck": _action_duck,
 	}, {
 		"dashing": is_dashing,
 		"on_floor": is_on_floor,
+		"crouch": func() -> bool: return _asked.crouch,
 		"wall": func() -> int: return _wall_dir,
 		"dir": func() -> float: return _dir,
 		"velocity": func() -> Vector2: return velocity,
@@ -431,7 +448,9 @@ func _physics_process(delta: float) -> void:
 		var next := current_state.find_next_node()
 		if next != null:
 			_change_state(next)
+		_low = false
 		current_state.perform()
+		_fit_body(_low)
 
 	move_and_slide()
 	# The state that just ran set `velocity` from the controls; a knockback is
@@ -559,6 +578,31 @@ func _action_rush() -> void:
 	_dash_time -= get_physics_process_delta_time()
 	velocity = _dash_dir * DASH_SPEED
 
+## Keeps the body low for the frame. The frame a state stops taking this step,
+## the body stands.
+func _action_duck() -> void:
+	_low = true
+
+## Lets the body down onto its feet, or stands it back up on them: the
+## silhouette, and the reach of a hit against it. The feet do not move — the
+## middle of the body goes by half of what its height changed by — so the floor
+## under them is still the floor.
+func _fit_body(low: bool) -> void:
+	if low == crouched or _collider == null:
+		return
+	crouched = low
+	var size := CROUCH_BODY if low else BODY
+	global_position.y += (body_size.y - size.y) * 0.5
+	body_size = size
+	_collider.size = size
+	hurt_radius = CROUCH_HURT_RADIUS if low else HURT_RADIUS
+
+## Where the middle of the body would be if it stood up: where it is, unless it
+## is crouched. What is kept of a player for later keeps this — a raid parked
+## in a crouch comes back standing, and has to come back on its feet.
+func standing_position() -> Vector2:
+	return global_position - Vector2(0.0, (BODY.y - body_size.y) * 0.5)
+
 ## A guard window opened by ON PARRY swallows the hit and runs the branch flow.
 func apply_damage(amount: float, elements: Array = [], source: Node = null, is_hit: bool = true) -> float:
 	if parry_time > 0.0 and is_hit and amount > 0.0:
@@ -587,7 +631,7 @@ func apply_damage(amount: float, elements: Array = [], source: Node = null, is_h
 func is_dashing() -> bool:
 	return _dash_time > 0.0
 
-## The movement state, by name: Idle, Run, Rise, Fall, WallSlide or Dash.
+## The movement state, by name: Idle, Run, Crouch, Rise, Fall, WallSlide or Dash.
 func state_name() -> String:
 	return _state_label(current_state)
 

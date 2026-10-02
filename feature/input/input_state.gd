@@ -26,6 +26,9 @@ extends RefCounted
 var move: float = 0.0
 ## Which way to turn without walking: -1, 1, or 0 to leave the facing alone.
 var turn: int = 0
+## Crouching, for as long as it is asked: down held — a key, or a stick pushed
+## down past its threshold.
+var crouch: bool = false
 ## The attack button, held: the graph cast as it is, again and again.
 var attack: bool = false
 ## The cast button, held: what charges.

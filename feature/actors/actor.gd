@@ -23,6 +23,9 @@ var hurt_radius: float = 14.0
 var team: int = 1  ## 0 = player, 1 = monsters
 ## Size of the collider, which is also what a sprite has to stand on.
 var body_size: Vector2 = Vector2(20.0, 30.0)
+## The collider `_make_body` made, kept for a body that changes size while it
+## lives: a player crouching.
+var _collider: RectangleShape2D = null
 ## Which way the actor is facing: +1 right, -1 left. A dash with no direction
 ## held goes this way, so it is a rule and not only a flipped sprite.
 var facing: int = 1
@@ -191,7 +194,7 @@ func face(dir: int) -> void:
 func _make_body(w: float, h: float) -> void:
 	body_size = Vector2(w, h)
 	var shape := CollisionShape2D.new()
-	var rect := RectangleShape2D.new()
-	rect.size = body_size
-	shape.shape = rect
+	_collider = RectangleShape2D.new()
+	_collider.size = body_size
+	shape.shape = _collider
 	add_child(shape)

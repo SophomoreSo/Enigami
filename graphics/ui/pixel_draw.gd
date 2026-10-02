@@ -69,6 +69,28 @@ func disc(c: Vector2, radius: float, col: Color) -> void:
 func ring(c: Vector2, radius: float, thick: float, col: Color) -> void:
 	_circle(c, radius, maxf(radius - thick, 0.0), col)
 
+## A stretch of that ring: the blocks of it whose middles lie within `half` of
+## the direction `toward`, both angles as the screen has them — nothing is to
+## the right, a quarter turn is straight down. The same blocks `ring` would
+## draw, so a stretch laid over a ring lands on it exactly.
+func arc(c: Vector2, radius: float, thick: float, toward: float, half: float, col: Color) -> void:
+	var o := snap(c)
+	var inner := maxf(radius - thick, 0.0)
+	var steps := int(radius / PX)
+	for i in range(-steps, steps + 1):
+		var y := float(i) * PX
+		var wide := _half(radius, y)
+		if wide <= 0.0:
+			continue
+		var hole := _half(inner, y)
+		var x := -wide
+		while x < wide:
+			var in_hole := hole > 0.0 and x >= -hole and x < hole
+			var mid := Vector2(x + PX * 0.5, y + PX * 0.5)
+			if not in_hole and absf(angle_difference(mid.angle(), toward)) <= half:
+				_c.draw_rect(Rect2(o.x + x, o.y + y, PX, PX), col)
+			x += PX
+
 ## The rows of a circle of `outer`, minus those of one of `inner`. Symmetric
 ## about the row and column the middle lands on, so a disc and the ring around
 ## it share a centre exactly.

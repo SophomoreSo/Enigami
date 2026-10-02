@@ -63,6 +63,8 @@ func _animate() -> void:
 			play("rise" if rising else "fall")
 		else:
 			play("run", 1.0, 2 if rising else 0)
+	elif player.crouched and has_anim("crouch"):
+		play("crouch")
 	elif absf(player.velocity.x) > 12.0:
 		play("run", clampf(absf(player.velocity.x) / Player.RUN_SPEED, 0.65, 1.6))
 	else:
@@ -133,7 +135,8 @@ func _draw() -> void:
 		draw_arc(Vector2.ZERO, 24.0, 0, TAU, 24, Color(PARRY_COLOR.r, PARRY_COLOR.g, PARRY_COLOR.b, 0.9), 2.5)
 	var recovery := player.dash_recovery()
 	if recovery < 1.0:
-		draw_arc(Vector2(0, 22), 6.0, -PI * 0.5, -PI * 0.5 + TAU * recovery, 16,
+		# Just under the feet, wherever a crouch has put them.
+		draw_arc(Vector2(0, player.body_size.y * 0.5 + 7.0), 6.0, -PI * 0.5, -PI * 0.5 + TAU * recovery, 16,
 			Color(DASH_COLOR.r, DASH_COLOR.g, DASH_COLOR.b, 0.7), 2.0)
 
 ## How much of a charge there is, over the head of whoever is paying for it.

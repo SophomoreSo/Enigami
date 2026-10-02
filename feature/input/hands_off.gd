@@ -2,9 +2,10 @@ class_name HandsOff
 extends InputMiddleware
 
 ## Takes the hands off the body: nothing the player presses walks, turns,
-## jumps, dashes, swings, charges or casts, and the weapon stays where it was
-## last pointed. A screen over the game puts one on the player's line, and so
-## does a conversation in the box (`Player.input_locked`, `Player.talk_locked`).
+## crouches, jumps, dashes, swings, charges or casts, and the weapon stays where
+## it was last pointed. A screen over the game puts one on the player's line,
+## and so does a conversation in the box (`Player.input_locked`,
+## `Player.talk_locked`).
 ##
 ## It stands after the hands and before anything that steers, so the game can
 ## still walk a body its player may not move. The acts it stops, it stops by
@@ -27,6 +28,7 @@ func takes_over() -> bool:
 func process(s: InputState) -> InputState:
 	s.move = 0.0
 	s.turn = 0
+	s.crouch = false
 	s.attack = false
 	s.cast = false
 	s.aiming = false

@@ -309,8 +309,8 @@ INSERT INTO transitions (machine_id, from_id, position, to_id, condition) VALUES
 | `transitions.condition` | Whether this way is open: the `id` of one of the machine's `conditions`. The build refuses one that is not written. |
 | `transitions.probability` | Rows sharing a `from_id` and a `position` are one way out that **splits** between their `to_id`s by this, and add up to 1. One row, and the way is certain. The rows of a split name the same condition; the build refuses ones that do not. |
 
-The player's six states can each reach every other, so `player.sql` is
-thirty ways; close one by deleting its row, and open a split by adding rows
+The player's seven states can each reach every other, so `player.sql` is
+forty-two ways; close one by deleting its row, and open a split by adding rows
 at the same position.
 
 ### The player's words
@@ -328,11 +328,13 @@ and, for an action, the method it calls.
 | `jump` | a press becomes a jump — off the ground, off a wall, or the air jump — and letting go early cuts the rise short |
 | `dash` | a press starts a dash, when the stamina and the cooldown allow |
 | `rush` | a dash under way carries the body until its time runs out |
+| `duck` | keeps the body low for the frame — crouched; the frame no step does, it stands back up |
 
 | Sense | What it says |
 |---|---|
 | `dashing` | whether a dash is under way |
 | `on_floor` | whether the player is standing on something |
+| `crouch` | whether a crouch is asked for: the down key held, or a stick pointing down |
 | `wall` | the wall being hugged: `-1` on the left, `1` on the right, `0` none |
 | `dir` | the direction held, `-1` to `1` |
 | `velocity` | in pixels a second, y down: `velocity.y < 0` is going up |

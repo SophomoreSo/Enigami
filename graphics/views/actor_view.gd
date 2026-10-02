@@ -18,6 +18,8 @@ var flash: float = 0.0
 
 var _mat: ShaderMaterial
 var _started: bool = false
+## The size of the body the sprite was last stood on (`_stand_sprite`).
+var _stood_on: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	actor = get_parent() as Actor
@@ -47,26 +49,34 @@ func _animate() -> void:
 
 func _build_sprite() -> void:
 	var s := Sprites.PIXEL_SCALE
-	var frame := Sprites.frame_size(art)
-	var art_rect := Sprites.art_rect(art)
 	sprite = AnimatedSprite2D.new()
 	sprite.sprite_frames = Sprites.frames_for(art)
 	sprite.animation = "idle"
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	sprite.scale = Vector2(s, s)
-	# The tile is centred on the node, so back the node off by however much
-	# padding sits under the art — usually none, but never assume it.
-	sprite.position = Vector2(0, actor.body_size.y * 0.5 + (frame.y * 0.5 - art_rect.end.y) * s)
+	_stand_sprite()
 	_mat = Sprites.material_for(art)
 	sprite.material = _mat
 	add_child(sprite)
 	sprite.play("idle")
+
+## Puts the art's feet on the body's: the tile is centred on the node, so the
+## node is backed off by half the body and by however much padding sits under
+## the art — usually none, but never assume it. Done again whenever the body
+## changes size, which a crouching player's does.
+func _stand_sprite() -> void:
+	var s := Sprites.PIXEL_SCALE
+	var frame := Sprites.frame_size(art)
+	_stood_on = actor.body_size
+	sprite.position = Vector2(0, _stood_on.y * 0.5 + (frame.y * 0.5 - Sprites.art_rect(art).end.y) * s)
 
 func _process(delta: float) -> void:
 	if not _ensure():
 		return
 	if flash > 0.0:
 		flash = maxf(0.0, flash - delta * 4.0)
+	if actor.body_size != _stood_on:
+		_stand_sprite()
 	sprite.flip_h = actor.facing < 0
 	_animate()
 	_update_status()
