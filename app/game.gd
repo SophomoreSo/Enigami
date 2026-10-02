@@ -73,6 +73,10 @@ func _ready() -> void:
 	# thing a language switch on the title screen cannot reach by itself.
 	Loc.language_changed.connect(_rebuild_pause_menu)
 	goto_title()
+	# The game as launched opens on one of the studio's logos, over the title
+	# built under it in the same frame, which it fades into — see `LogoCard`.
+	if LogoCard.wanted(self):
+		overlay_layer.add_child(LogoCard.new())
 
 func _rebuild_pause_menu(_lang: String) -> void:
 	var was_open: bool = pause_menu != null and pause_menu.visible

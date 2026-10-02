@@ -11,7 +11,9 @@ that names its pixels, so reskinning is one file
 (`graphics/assets/sprites/player/README.md`). Everything else — rooms,
 attacks, effects, the whole UI and the title screen's circuit board — is still
 drawn from primitives, and every sound is synthesised at boot. The only other
-assets are two OFL fonts (`graphics/assets/fonts/CREDITS.md`).
+assets are two OFL fonts (`graphics/assets/fonts/CREDITS.md`) and the studio's
+logos, one of which, picked at random, the game opens on, on white
+(`graphics/assets/logos/`, and `LogoCard`).
 
 The rules and the picture are two separate modules, `feature/` and `graphics/`,
 with a one-way seam between them — see [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -61,6 +63,7 @@ godot res://tests/story/npc_test.tscn       # talking to an NPC, line by line
 godot res://tests/story/free_talk_test.tscn # talking free: the most specific rule, walking off, picking it back up
 godot res://tests/graphics/speech_bubble_test.tscn # the bubble over whoever talks free, on screen and on whole pixels
 godot res://tests/graphics/talk_hud_test.tscn # in the box the HUD steps aside until the talking stops; a bubble leaves it up
+godot res://tests/graphics/logo_card_test.tscn # the game opens on a logo from the pool, on white from the moment it is opened
 godot res://tests/shared/loc_test.tscn      # every language says everything, and can be drawn
 godot res://tests/shared/module_test.tscn   # what each module may name, row by row, and what no rule may
 godot res://tests/mobile/touch_layout_test.tscn # SET BUTTON POSITIONS: drag a button, keep it, play with it there
@@ -603,11 +606,12 @@ mobile/view/       the two-thumb console drawn on the glass, and the screen that
                    moves its buttons (SET BUTTON POSITIONS)
 graphics/          the atlas, screen effects, the pixel camera, the palette, view attachment
 graphics/views/    one view per gameplay node: actors, attacks, rooms, loot
-graphics/ui/       skill editor, HUD, hideout, title, results, bench panel
+graphics/ui/       skill editor, HUD, hideout, title, results, bench panel, logo card
                    ui_kit: one look for screens built of Controls
                    pixel_draw: the same look for screens that draw themselves
 graphics/skin/     characters drawn the map way: the map, the loader, the tool
-graphics/assets/   the sprite atlas, the two actor shaders, two OFL fonts
+graphics/assets/   the sprite atlas, the two actor shaders, two OFL fonts, the logo
+                   pool, and the white the iOS launch screen shows
 graphics/assets/sprites/player/  the player: a skin, its map, poses painted in the map
 tests/circuit/     board tracing, codes, cycle timing, a pulse's life — run headless
 tests/feature/     movement, hits, raids, the bench — rules, run headless
