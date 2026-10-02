@@ -500,9 +500,9 @@ func _the_skills() -> void:
 	# One cast stick, whatever the weapon: there are no slots to carry or not.
 	check(pad.shown(control_of("cast_skill")), "the cast stick is on the pad")
 	var where := spot("cast_skill")
-	# A cast's first OUTPUT goes off the moment it is let go of; whatever the
+	# A cast's first attack goes off the moment it is let go of; whatever the
 	# board does after that plays out in real time. This board's second attack
-	# comes a good eight frames later — by which time a console that did not
+	# comes a good five frames later — by which time a console that did not
 	# hold the aim would be aiming with the other thumb.
 	var later := one_now_one_later()
 	var dry := SkillRunner.new(later).simulate()
@@ -642,28 +642,27 @@ func _the_reach() -> void:
 	touch(1, landed + Vector2(radius * 2.0, 0.0), false)
 	await frames(2)
 
-## A DELAY on the root, a SLASH and a TEE: the main line fires at once, as a
-## cast's first OUTPUT always does, and the branch walks the rest of the board
-## — back and forth through a run of DELAY — to a second OUTPUT twenty-six
-## ticks later.
+## A DELAY on the root, a SLASH and a TEE: the main line leaves the board at
+## once, as a cast's first attack always does, and the branch walks the rest of
+## the board — down, round the bottom, up the left side and along the top — to
+## come back into the DELAY against the way out and leave eighteen ticks later.
 func one_now_one_later() -> SkillBoard:
 	var b := SkillBoard.new(7, 5, "one now, one later")
-	b.set_root("DELAY", Vector2i(0, 0), 0)
-	b.place("SLASH", Vector2i(1, 0), 0)
-	b.place("TEE", Vector2i(2, 0), 0)
-	b.place("OUTPUT", Vector2i(3, 0), 0)
-	var walk: Array = []
-	for x in range(2, 7):
-		walk.append([Vector2i(x, 1), 1 if x == 6 else 0])
-	for x in range(6, -1, -1):
-		walk.append([Vector2i(x, 2), 1 if x == 0 else 2])
-	for x in 7:
-		walk.append([Vector2i(x, 3), 1 if x == 6 else 0])
-	for x in range(6, 0, -1):
+	b.set_root("DELAY", Vector2i(3, 2), 0)
+	b.place("SLASH", Vector2i(4, 2), 0)
+	b.place("TEE", Vector2i(5, 2), 0)
+	b.place("DELAY", Vector2i(6, 2), 0)
+	var walk: Array = [[Vector2i(5, 3), 1], [Vector2i(5, 4), 2]]
+	for x in range(4, 0, -1):
 		walk.append([Vector2i(x, 4), 2])
+	for y in range(4, 0, -1):
+		walk.append([Vector2i(0, y), 3])
+	for x in 6:
+		walk.append([Vector2i(x, 0), 0])
+	walk.append([Vector2i(6, 0), 1])
+	walk.append([Vector2i(6, 1), 1])
 	for step in walk:
 		b.place("DELAY", step[0], step[1])
-	b.place("OUTPUT", Vector2i(0, 4), 0)
 	return b
 
 func _cast_done() -> void:

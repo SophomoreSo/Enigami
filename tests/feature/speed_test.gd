@@ -21,14 +21,15 @@ class Band extends Node:
 	func out_of_bounds(p: Vector2) -> bool:
 		return p.y > bottom + 4000.0
 
+## A bolt through `parts` SPEEDs, on a board exactly as long as the chain, so
+## its last part is against the way out.
 func bolt_board(parts: int) -> SkillBoard:
-	var b := SkillBoard.new(9, 5, "spd")
+	var b := SkillBoard.new(parts + 1, 5, "spd")
 	b.set_root("PROJECTILE")
 	var x := 1
 	for i in parts:
 		b.place("SPEED", Vector2i(x, 2), 0)
 		x += 1
-	b.place("OUTPUT", Vector2i(x, 2), 0)
 	return b
 
 func shot(weapon: String, parts: int) -> Payload:
@@ -67,10 +68,9 @@ func _ready() -> void:
 		"and it lengthens the cycle it rides on")
 
 	# It must not quietly buff something with no bolt in it.
-	var mb := SkillBoard.new(9, 5, "melee")
+	var mb := SkillBoard.new(2, 5, "melee")
 	mb.set_root("SLASH")
 	mb.place("SPEED", Vector2i(1, 2), 0)
-	mb.place("OUTPUT", Vector2i(2, 2), 0)
 	var mr := SkillRunner.new(mb)
 	mr.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
 	var mp: Payload = mr.simulate()["outputs"][0]

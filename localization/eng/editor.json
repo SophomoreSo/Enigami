@@ -11,7 +11,7 @@
 	"no_room_turn": "No room to turn %s there.",
 	"no_room_place": "No room for %s there.",
 	"none_left": "No %s left in the bag.",
-	"root_fixed": "%s is the weapon's own. It stays where it is, facing the way it faces.",
+	"root_fixed": "%s is the weapon's own. Move it and turn it, but it stays on the board.",
 	"title_on": "%s — on the %s",
 	"share": {
 		"heading": "SHARE CODE",

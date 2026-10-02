@@ -13,15 +13,20 @@
 -- keyed by the same id, and a part added here draws in its category's colour
 -- until somebody gives it a look of its own. A part added here needs a number
 -- in `codes`, or no board carrying it can be shared.
+--
+-- Where a flow starts and where it becomes an attack are not parts of their
+-- own. They are the board's: its root, and its way out in the middle of its
+-- right edge (circuit/skill_board.gd).
 
-INSERT INTO categories (id, loot) VALUES
-	('struct', 0), ('form', 1), ('element', 1), ('stat', 1), ('behavior', 1), ('flow', 1), ('trigger', 1);
+INSERT INTO categories (id) VALUES
+	('form'), ('element'), ('stat'), ('behavior'), ('flow'), ('trigger');
 
 -- Every number a part has ever had in a shared code, in order. **Only ever
 -- add to the end.** A code written today has to mean the same board next
--- year, so a number is a part's for good: WIRE and BEND keep theirs though
--- they are gone, and EXPLODE has the number it had when it was called AREA.
--- A code has six bits for it, so the last number there can be is 63.
+-- year, so a number is a part's for good: INPUT, OUTPUT, WIRE and BEND keep
+-- theirs though they are gone, and EXPLODE has the number it had when it was
+-- called AREA. A code has six bits for it, so the last number there can be
+-- is 63.
 INSERT INTO codes (code, id) VALUES
 	(0, 'INPUT'), (1, 'OUTPUT'), (2, 'WIRE'), (3, 'BEND'),
 	(4, 'PROJECTILE'), (5, 'SLASH'), (6, 'EXPLODE'), (7, 'DASHSLASH'), (8, 'DASHSLASH_AUTO'),
@@ -36,20 +41,15 @@ INSERT INTO codes (code, id) VALUES
 
 -- WIRE and BEND carried a flow one cell and did nothing else to it, which
 -- every part already does: any part takes flow on any side and sends it where
--- it points. A board that still has one reads with it taken out, and the run
--- closed up round it. INPUT was where a flow started; a board's root cell is
--- that now, and the weapon's own part stands on it (`SkillBoard.ROOT`). A
--- board that still has an INPUT reads with its cell left empty.
-INSERT INTO retired_parts (id, sends) VALUES ('WIRE', 'E'), ('BEND', 'S'), ('INPUT', 'E');
+-- it points. INPUT was where a flow started; a board's root is that now, the
+-- weapon's own part (`SkillBoard.root`). OUTPUT was where a flow became an
+-- attack; the middle of the board's right edge is that now
+-- (`SkillBoard.way_out`). A board that still has any of them reads with the
+-- part left out and its cell left empty, and one that ended on an OUTPUT is
+-- slid along to where its flow used to end (`SkillBoard.slide_onto_way_out`).
+INSERT INTO retired_parts (id) VALUES ('WIRE'), ('BEND'), ('INPUT'), ('OUTPUT');
 
 INSERT INTO renamed_parts (old_id, new_id) VALUES ('AREA', 'EXPLODE');
-
-
--- ---- structure: where a flow becomes an attack -------------------------------
--- Where it starts is the root, not a part: see the top of the file.
-
-INSERT INTO parts (id, name, category, description) VALUES
-	('OUTPUT', 'OUTPUT', 'struct', 'Converts the assembled flow into a real effect. A flow with no attack form produces no attack.');
 
 
 -- ---- form: what the attack is ------------------------------------------------
@@ -157,7 +157,7 @@ INSERT INTO parts (id, name, category, heat, description) VALUES
 	('TEE', 'TEE', 'flow', 0.5, 'Keeps the main flow and grows one branch sideways. Both carry full damage.'),
 	('DUPLICATE', 'DUPLICATE x3', 'flow', 3.0, 'Produces the same result three times at full damage. Generates a lot of heat.'),
 	('OVERCLOCK', 'OVERCLOCK', 'flow', 0.0, 'Runs the whole board on a faster clock, at the price of a settling delay between cycles. Each one adds less speed than the last while the delay grows faster, so a few pay off and a wall of them does not.'),
-	('DELAY', 'DELAY', 'flow', 0.0, 'One cell of waiting, like every other cell. Stagger a branch against another by giving it further to walk.'),
+	('DELAY', 'DELAY', 'flow', 0.0, 'One cell of waiting and nothing more: it turns a flow and leaves it as it was. Steer a branch round to the way out with it, or stagger one against another by giving it further to walk.'),
 	('TIME_DILATION', 'TIME DILATION', 'flow', 2.0, 'Slows the world and the board alike. Not a speed buff — a change in the pace of the fight.');
 
 -- SPLIT sends north first, then south; TEE east, then south.

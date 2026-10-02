@@ -36,30 +36,29 @@ func _ready() -> void:
 	check(faults.is_empty(), "every row fits what reads it%s" % ("" if faults.is_empty() else " — " + "; ".join(faults)))
 	var ids := Components.ids()
 	check(ids.size() > 20, "the parts are read, %d of them" % ids.size())
-	check(Components.structural() == ["OUTPUT"],
-		"the OUTPUT is always at hand, and nothing else is (%s)" % str(Components.structural()))
-	var pool := Components.loot_pool()
-	check(pool.size() == ids.size() - 1 and not pool.has("OUTPUT"),
-		"every other part drops, in the palette's order (%d)" % pool.size())
+	check(Components.loot_pool() == ids,
+		"every part drops, in the palette's order: none is handed out for nothing (%d)" % ids.size())
 
 	# --- what the code leans on -----------------------------------------------
-	# The runner and the attacks name a few parts for themselves: where a flow
-	# ends, the triggers whose branches a payload carries, the forms the attacks
-	# are spawned by, and the clock. Each has to be in the table, and in the
-	# shape the code takes for granted. Where a flow starts is no part's: it is
-	# the board's root cell, and INPUT, which was that, is retired.
-	check(not Components.exists("INPUT") and Components.is_retired("INPUT")
-			and Components.retired_out("INPUT") == Components.E,
-		"INPUT is retired: it keeps its number, and its cell reads back empty the way WIRE's does")
+	# The runner and the attacks name a few parts for themselves: the triggers
+	# whose branches a payload carries, the forms the attacks are spawned by,
+	# and the clock. Each has to be in the table, and in the shape the code
+	# takes for granted. Where a flow starts and where it becomes an attack are
+	# no part's own: they are the board's root and its way out, and INPUT and
+	# OUTPUT, which were those, are retired.
+	var retired: Array = []
+	for id in ["INPUT", "OUTPUT", "WIRE", "BEND"]:
+		if Components.exists(id) or not Components.is_retired(id) or Components.code_of(id) < 0:
+			retired.append(id)
+	check(retired.is_empty(),
+		"INPUT, OUTPUT, WIRE and BEND are retired: each keeps its number, and is no part (%s)" % str(retired))
 	check(Components.world_inputs("SLASH", 0) == [Components.S, Components.W, Components.N],
 		"no part is a source: every part takes flow on every side but its own outputs, the root's included")
-	check(Components.world_outputs("OUTPUT", 0).is_empty() and Components.world_payload_out("OUTPUT", 0) < 0,
-		"OUTPUT is where a flow ends: it sends nothing on")
 	var nowhere: Array = []
 	for id in ids:
-		if id != "OUTPUT" and Components.world_outputs(id, 0).is_empty():
+		if Components.world_outputs(id, 0).is_empty():
 			nowhere.append(id)
-	check(nowhere.is_empty(), "every other part sends its flow somewhere (%s)" % str(nowhere))
+	check(nowhere.is_empty(), "and none is an end: every part sends its flow somewhere (%s)" % str(nowhere))
 	var unbranched: Array = []
 	for id in ["ON_HIT", "ON_KILL", "ON_PARRY"]:
 		if Components.world_payload_out(id, 0) < 0 or String(Components.get_def(id).get("cat", "")) != Components.CAT_TRIGGER:
@@ -83,12 +82,15 @@ func _ready() -> void:
 	var categories: Array = []
 	for r in Db.rows("SELECT id FROM categories"):
 		categories.append(String(r["id"]))
+	var named_cats := [Components.CAT_FORM, Components.CAT_ELEMENT, Components.CAT_STAT,
+		Components.CAT_BEHAVIOR, Components.CAT_FLOW, Components.CAT_TRIGGER]
 	var unknown_cats: Array = []
-	for cat in [Components.CAT_STRUCT, Components.CAT_FORM, Components.CAT_ELEMENT, Components.CAT_STAT,
-			Components.CAT_BEHAVIOR, Components.CAT_FLOW, Components.CAT_TRIGGER]:
+	for cat in named_cats:
 		if not categories.has(cat):
 			unknown_cats.append(cat)
 	check(unknown_cats.is_empty(), "every category the code names is in the table (%s)" % str(unknown_cats))
+	check(categories.size() == named_cats.size(),
+		"and the table has no category the code does not (%s)" % str(categories))
 
 	# --- each kind of effect does what it says --------------------------------
 	# Read off the part's own rows rather than written out here, so what is

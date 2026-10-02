@@ -1,8 +1,8 @@
 class_name Payload
 extends RefCounted
 
-## The value that travels along a skill flow. Every component mutates it; the
-## OUTPUT turns whatever arrives into a real effect in the world.
+## The value that travels along a skill flow. Every component mutates it, and
+## whatever leaves the board by its way out becomes a real effect in the world.
 
 ## How far a bolt carries before it fades, in pixels. A room is 40 cells of 32
 ## across, so the standard reach is a quarter of one: you fight inside a part of
@@ -75,6 +75,6 @@ func clone() -> Payload:
 func has_element(e: String) -> bool:
 	return elements.has(e)
 
-## Does this payload do anything at all when it reaches an OUTPUT?
+## Does this payload do anything at all when it leaves the board?
 func is_productive() -> bool:
 	return form != "" or dash or blink

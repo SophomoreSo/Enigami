@@ -284,7 +284,7 @@ var _aim_off: Vector2 = Vector2.ZERO
 ## A cast thrown and let go: the aim it was let go with, and how long ago. The
 ## thumb that aims it is the thumb that casts it, so the stick would drop back
 ## to the left thumb's aim in the very moment of the cast — and while a cast's
-## first OUTPUT goes off at once, everything the board does after that plays
+## first attack goes off at once, everything the board does after that plays
 ## out in real time: a second branch, a staggered DELAY. It is held up until
 ## the cast has gone off (`Player.casting`) — see `_keep_throw`.
 var _held_throw: Dictionary = {}

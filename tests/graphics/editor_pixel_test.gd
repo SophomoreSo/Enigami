@@ -2,9 +2,12 @@ extends Node
 ## The assembly screen is drawn in UiKit's pixel look. On the frame, in all three
 ## places it opens — the bench, a raid and the workbench — with every part on a
 ## board, joints and breaks, live pulses, a drag, the hovers and a message on
-## screen, and a pair of rings the flow can never leave with the dead-code
-## notice up over one of them: every PIXEL×PIXEL block of the picture is one
-## colour, so nothing it draws is off the grid. On the layout: the biggest board a Workbench grows and
+## screen, a pair of rings the flow can never leave with the dead-code notice
+## up over one of them, and a board with a flow out, a leak and a break on it:
+## every PIXEL×PIXEL block of the picture is one colour, so nothing it draws is
+## off the grid. On the way out: its arrow stands on the frame in the middle of
+## the right edge, lit by a flow that reaches it, drained by one only a trigger
+## sends, and red with none. On the layout: the biggest board a Workbench grows and
 ## the palette both end above the info panel, the palette is one block a part
 ## category with its name beside it in the gutter, every part's name fits its
 ## palette row, the header's lines fit, and a preview with more to say than rows
@@ -314,11 +317,12 @@ func _ready() -> void:
 	# than as a box a part, and the notice is up over the one under the cursor.
 	for dc in big.cells.keys().duplicate():
 		big.erase_at(dc)
+	big.move_root(SkillBoard.ROOT, 0)           # the gun's own bolt feeding the first
 	big.place("DUPLICATE", Vector2i(1, 2), 3)   # in from the west, out north
 	big.place("FIRE", Vector2i(1, 1), 0)
 	big.place("DAMAGE", Vector2i(2, 1), 1)
 	big.place("FIRE", Vector2i(2, 2), 2)        # closing the ring
-	big.place("OUTPUT", Vector2i(3, 2), 0)      # stranded, and drawn faint
+	big.place("SLASH", Vector2i(3, 2), 0)       # stranded, and drawn faint
 	big.place("DELAY", Vector2i(5, 1), 0)
 	big.place("DELAY", Vector2i(6, 1), 1)
 	big.place("DELAY", Vector2i(6, 2), 2)
@@ -335,6 +339,7 @@ func _ready() -> void:
 	var note := wb._dead_hint_box(get_viewport().get_visible_rect().size, ring,
 		SkillEditor.DEAD_BOX_ROWS)
 	check(not note.intersects(ring), "and the notice sits clear of the ring it names")
+	check(wb._way_out_col == SkillEditor.BREAK, "with the flow caught in a ring, the way out is dark")
 	hidden = isolate(wb)
 	await blocks("dead")
 	restore(hidden)
@@ -347,24 +352,29 @@ func _ready() -> void:
 	# of it drawn as a part edge. Twice over: with the branch ending in a leak,
 	# where the seam is a slot open at the west, and with it feeding back into
 	# the form, where it is a crack with the shape closed round both ends.
+	# Laid against the way out, so the main line leaves the board: everything
+	# here is `o` from where the cells are named.
+	var o := Vector2i(7, 2)
 	for last_rot in [2, 3]:                          # the last part west, then north
 		for bc in big.cells.keys().duplicate():
 			big.erase_at(bc)
-		big.place("DASHSLASH", Vector2i(1, 2), 0)    # two cells, out east, off the root
-		big.place("ON_HIT", Vector2i(3, 2), 0)       # out east, branch south
-		big.place("OUTPUT", Vector2i(4, 2), 0)
-		big.place("OVERCLOCK", Vector2i(3, 3), 2)    # the branch, running west
-		big.place("OVERCLOCK", Vector2i(2, 3), 2)
-		big.place("OVERCLOCK", Vector2i(1, 3), last_rot)
+		big.move_root(Vector2i(0, 2) + o, 0)
+		big.place("DASHSLASH", Vector2i(1, 2) + o, 0)    # two cells, out east, off the root
+		big.place("ON_HIT", Vector2i(3, 2) + o, 0)       # out east to the way out, branch south
+		big.place("OVERCLOCK", Vector2i(3, 3) + o, 2)    # the branch, running west
+		big.place("OVERCLOCK", Vector2i(2, 3) + o, 2)
+		big.place("OVERCLOCK", Vector2i(1, 3) + o, last_rot)
 		wb._sim_dirty = true
 		wb._update_hover(Vector2(-1, -1))
 		await frames(2)
 		var how := "leaking" if last_rot == 2 else "fed back"
+		check(bool(wb._trace_cache["gets_out"]), "%s: the main line leaves by the way out" % how)
 		# Every cell of the seam the flow does not cross, which is every one the
 		# editor has left an edge on rather than fusing away.
 		for sx in [1, 2]:
-			var seam := wb._cell_center(Vector2i(sx, 2)) + Vector2(0, SkillEditor.CELL * 0.5)
-			if wb._fused_seam.has(Vector3i(sx, 2, Components.S)):
+			var under := Vector2i(sx, 2) + o
+			var seam := wb._cell_center(under) + Vector2(0, SkillEditor.CELL * 0.5)
+			if wb._fused_seam.has(Vector3i(under.x, under.y, Components.S)):
 				continue
 			check(_on_track(wb, seam) <= 0.5,
 				"%s: the track runs the seam under cell %d (%.1f off it)"
@@ -389,11 +399,11 @@ func _ready() -> void:
 		# home, and both at once down the seam between them, which is one side of
 		# each. The seam is the pair: the two lips are the same line on screen.
 		var half := SkillEditor.CELL * 0.5
-		check(_runs_one_way(wb, wb._cell_center(Vector2i(2, 2)) - Vector2(0, half), Vector2.RIGHT),
+		check(_runs_one_way(wb, wb._cell_center(Vector2i(2, 2) + o) - Vector2(0, half), Vector2.RIGHT),
 			"%s: the dots run east over the main line" % how)
-		check(_runs_one_way(wb, wb._cell_center(Vector2i(2, 3)) + Vector2(0, half), Vector2.LEFT),
+		check(_runs_one_way(wb, wb._cell_center(Vector2i(2, 3) + o) + Vector2(0, half), Vector2.LEFT),
 			"%s: and west under the branch running home" % how)
-		var seam_ways := _dot_ways(wb, wb._cell_center(Vector2i(2, 2)) + Vector2(0, half))
+		var seam_ways := _dot_ways(wb, wb._cell_center(Vector2i(2, 2) + o) + Vector2(0, half))
 		check(seam_ways.has(Vector2.RIGHT) and seam_ways.has(Vector2.LEFT),
 			"%s: and both ways down the seam between them (%s)" % [how, str(seam_ways)])
 		# The branch only runs when the trigger fires, so it is drawn drained of
@@ -401,16 +411,16 @@ func _ready() -> void:
 		var drained: Array = []
 		var coloured: Array = []
 		for cx in [1, 2, 3]:
-			if wb._conditional.has(Vector2i(cx, 3)):
+			if wb._conditional.has(Vector2i(cx, 3) + o):
 				drained.append(cx)
-			if not wb._conditional.has(Vector2i(cx, 2)):
+			if not wb._conditional.has(Vector2i(cx, 2) + o):
 				coloured.append(cx)
 		check(drained == [1, 2, 3] and coloured == [1, 2, 3],
 			"%s: the branch is drawn conditional and the main line is not (%s, %s)"
 				% [how, str(drained), str(coloured)])
 		if last_rot == 3:
 			# The branch hands the flow back up into the form at the west end.
-			check(_runs_one_way(wb, wb._cell_center(Vector2i(1, 3)) - Vector2(half, 0), Vector2.UP),
+			check(_runs_one_way(wb, wb._cell_center(Vector2i(1, 3) + o) - Vector2(half, 0), Vector2.UP),
 				"%s: and north up the side the branch feeds back on" % how)
 
 	# A line of parts with two ends is not a circle and must not be drawn as one:
@@ -418,17 +428,86 @@ func _ready() -> void:
 	# meet again where the flow leaves it, so both sides of it run with the flow.
 	for lc in big.cells.keys().duplicate():
 		big.erase_at(lc)
-	big.place("FIRE", Vector2i(1, 2), 0)
-	big.place("DAMAGE", Vector2i(2, 2), 0)
-	big.place("SLASH", Vector2i(3, 2), 0)
-	big.place("OUTPUT", Vector2i(4, 2), 0)
+	big.move_root(Vector2i(6, 4), 0)
+	big.place("FIRE", Vector2i(7, 4), 0)
+	big.place("DAMAGE", Vector2i(8, 4), 0)
+	big.place("DELAY", Vector2i(9, 4), 0)
+	big.place("SLASH", Vector2i(10, 4), 0)       # against the way out
 	wb._sim_dirty = true
 	await frames(2)
 	for side in [-1.0, 1.0]:
-		var edge := wb._cell_center(Vector2i(2, 2)) + Vector2(0, side * SkillEditor.CELL * 0.5)
+		var edge := wb._cell_center(Vector2i(8, 4)) + Vector2(0, side * SkillEditor.CELL * 0.5)
 		check(_runs_one_way(wb, edge, Vector2.RIGHT),
 			"a straight run carries its dots east %s it too (%s)"
 				% ["over" if side < 0.0 else "under", str(_dot_ways(wb, edge))])
+
+	# --- the way out ----------------------------------------------------------
+	# The arrow on the frame, in the middle of the right edge: where a flow
+	# leaves the board and becomes an attack — from the cell against it, and no
+	# other. A flow goes from a part into the one beside it and no further, so
+	# nothing reaches it from across an empty cell.
+	var cell := float(SkillEditor.CELL)
+	var arrow := wb._way_out_rect(big)
+	var frame_end := SkillEditor.BOARD_ORIGIN.x + wb._inset().x + big.width * cell + 10.0
+	check(big.way_out() == Vector2i(big.width - 1, SkillBoard.middle(big.height)),
+		"the way out is the middle of the right edge (%s)" % str(big.way_out()))
+	check(arrow.position.x == wb._cell_rect(big.way_out()).end.x and arrow.end.x > frame_end
+			and arrow.get_center().y == wb._cell_center(big.way_out()).y,
+		"its arrow stands on the frame there: its back against the last cell and its tip outside (%s)" % str(arrow))
+	check(arrow.end.x < wb._pal_panel().position.x,
+		"short of the palette, on the biggest board there is (%.0f of %.0f)" % [arrow.end.x, wb._pal_panel().position.x])
+	# The straight run above ends against it, and lights it.
+	check(wb._way_out_col == SkillEditor.FLOW_EDGE, "a flow that reaches it lights it")
+	# A cell short of it, the run leaks there, and the arrow goes dark.
+	big.erase_at(Vector2i(10, 4))
+	wb._sim_dirty = true
+	await frames(2)
+	var short_leaks: Array = wb._trace_cache["leaks"]
+	check(wb._way_out_col == SkillEditor.BREAK and short_leaks.size() == 1
+			and short_leaks[0]["from"] == Vector2i(9, 4),
+		"a run a cell short of it leaks into that cell, and leaves it dark")
+	# A weapon with nothing built on it is its own part against the way out.
+	for wc in big.cells.keys().duplicate():
+		big.erase_at(wc)
+	big.move_root(big.way_out(), 0)
+	wb._sim_dirty = true
+	await frames(2)
+	check(wb._flow_loops.is_empty() and wb._way_out_col == SkillEditor.FLOW_EDGE,
+		"a weapon with nothing built on it lights it with its own part")
+	# Turned away from it, nothing gets out.
+	big.move_root(big.way_out(), 3)
+	wb._sim_dirty = true
+	await frames(2)
+	check(wb._way_out_col == SkillEditor.BREAK and (wb._trace_cache["leaks"] as Array).size() == 1,
+		"turned away from it, the root's flow leaks and the way out is dark")
+	# Reached only by a trigger's branch, it is drained like the branch: there
+	# is a follow-up there and no attack for it to follow.
+	big.move_root(big.way_out() - Vector2i(1, 0), 0)
+	big.place("ON_HIT", big.way_out(), 3)        # its flow north into nothing, its branch east and out
+	wb._sim_dirty = true
+	await frames(2)
+	check(wb._way_out_col == SkillEditor.COND_EDGE,
+		"reached only by a trigger's branch, it is drawn in the branch's colour")
+	# Every mark at once, for the picture: a flow out, a leak into an empty cell
+	# and a flow a part turns back.
+	for mc in big.cells.keys().duplicate():
+		big.erase_at(mc)
+	big.move_root(Vector2i(7, 4), 0)
+	big.place("TEE", Vector2i(8, 4), 0)          # on east, and south into a DELAY facing back
+	big.place("ON_HIT", Vector2i(9, 4), 0)       # on east, and its branch south into nothing
+	big.place("SLASH", Vector2i(10, 4), 0)       # and out
+	big.place("DELAY", Vector2i(8, 5), 3)
+	wb._sim_dirty = true
+	wb._update_hover(Vector2(-1, -1))
+	await frames(2)
+	var seen: Dictionary = wb._trace_cache
+	check(wb._way_out_col == SkillEditor.FLOW_EDGE and (seen["leaks"] as Array).size() == 1
+			and (seen["breaks"] as Array).size() == 1,
+		"a flow out, a leak and a break, each marked (%d leaks, %d breaks)"
+			% [(seen["leaks"] as Array).size(), (seen["breaks"] as Array).size()])
+	hidden = isolate(wb)
+	await blocks("way_out")
+	restore(hidden)
 
 	# --- layout -------------------------------------------------------------
 	var vp := get_viewport().get_visible_rect().size
@@ -449,7 +528,7 @@ func _ready() -> void:
 	var blocks := wb._pal_blocks
 	var cats: Array = []
 	for id in ids:
-		var cat := String(Components.get_def(id).get("cat", Components.CAT_STRUCT))
+		var cat := String(Components.get_def(id).get("cat", ""))
 		if not cats.has(cat):
 			cats.append(cat)
 	check(blocks.size() == cats.size(), "the palette is %d blocks, one a category (%d)"
@@ -458,7 +537,7 @@ func _ready() -> void:
 	for cat in cats:
 		var rows: Array = []
 		for i in ids.size():
-			if String(Components.get_def(ids[i]).get("cat", Components.CAT_STRUCT)) == cat:
+			if String(Components.get_def(ids[i]).get("cat", "")) == cat:
 				rows.append(i)
 		if int(rows[-1]) - int(rows[0]) != rows.size() - 1:
 			split.append(cat)

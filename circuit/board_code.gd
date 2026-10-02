@@ -30,12 +30,12 @@ extends RefCounted
 ## pasted onto a workbench keeps that workbench's grid, and the size written
 ## into the code is there so a refusal can say which board the build was laid
 ## out for (see `SkillBoard.adopt`). Its author's root goes into it like any
-## other part, and is left behind on the way in: the board it lands on has a
-## weapon's own part standing on that cell already.
+## other part, marked as the root, and is left behind on the way in: the board
+## it lands on has a weapon's own part, and that moves to where it stood.
 ##
 ## Pure data, like the board it reads. Nothing here draws.
 
-const VERSION := 1
+const VERSION := 2
 
 ## No `0`, and in this order for good: a character's place in this string is its
 ## value, so reordering it would change every code ever written down.
@@ -50,6 +50,9 @@ const ALPHABET := "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
 ##     width-1   4 bits          1..16 cells across
 ##     height-1  4 bits
 ##     parts     7 bits          up to 127 of them
+##     root      7 bits          which of the parts is the root, counted in
+##                               reading order — as many as there are parts
+##                               when none of them is
 ##     then each part, in reading order:
 ##       cell    as many bits as width x height needs — 6 on a 7x5, 7 on an 11x9
 ##       part    6 bits, its number in the content database's `codes`
@@ -58,6 +61,12 @@ const ALPHABET := "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
 ## Parts go in reading order rather than the order they were placed, so one
 ## board is always one code however it was built up, and two players comparing
 ## codes by eye are comparing boards.
+##
+## Version 1, written while a root could not move, has no root field: its root
+## is whatever stands at `SkillBoard.ROOT`, which is where every root stood
+## then. One from before the OUTPUT was retired is put where its flow used to
+## end, the way a save from then is (`SkillBoard.slide_onto_way_out`). Codes
+## are written in version 2, and both read.
 const VER_BITS := 3
 const SIDE_BITS := 4
 const COUNT_BITS := 7
@@ -82,9 +91,9 @@ const MAX_PARTS := 127
 ## Every part's number in a code is its row in `codes`, in the content
 ## database (`data/db/parts/parts.sql`, via `Components.code_of`). That list is
 ## only ever added to: a code written today has to mean the same board next
-## year, so a part keeps its number for good — a retired one included, as WIRE
-## and BEND have, and a renamed one hands it to its new id, as AREA did to
-## EXPLODE. ID_BITS leaves room for 64; `tests/circuit/code_test.tscn` holds
+## year, so a part keeps its number for good — a retired one included, as WIRE,
+## BEND and OUTPUT have, and a renamed one hands it to its new id, as AREA did
+## to EXPLODE. ID_BITS leaves room for 64; `tests/circuit/code_test.tscn` holds
 ## every number already given out to its part, and fails a part with none.
 
 ## The last character makes the whole code weigh nothing: every character is
@@ -137,8 +146,10 @@ static func encode(board: SkillBoard) -> String:
 	_put(bits, board.width - 1, SIDE_BITS)
 	_put(bits, board.height - 1, SIDE_BITS)
 	_put(bits, board.cells.size(), COUNT_BITS)
+	var order := reading_order(board)
+	_put(bits, order.find(board.root) if board.has_root() else order.size(), COUNT_BITS)
 	var cell_bits := _cell_bits(board.width, board.height)
-	for origin in reading_order(board):
+	for origin in order:
 		var entry: Dictionary = board.cells[origin]
 		var n := Components.code_of(String(entry["id"]))
 		if n < 0:
@@ -201,12 +212,18 @@ static func decode(code: String) -> Dictionary:
 	var count := r.take(COUNT_BITS)
 	if not r.ok:
 		return _fail(TRUNCATED)
-	if ver != VERSION:
+	if ver != VERSION and ver != 1:
 		return _fail(WRONG_VERSION, [ver, VERSION])
+	var root_index := r.take(COUNT_BITS) if ver >= 2 else -1
+	if not r.ok:
+		return _fail(TRUNCATED)
 
 	var board := SkillBoard.new(w, h, name_for(c))
+	# Version 2 says which part its root is, and a board with none has none.
+	if ver >= 2:
+		board.root = Vector2i(-1, -1)
+	var outputs: Array = []
 	var cell_bits := _cell_bits(w, h)
-	var retired: Array = []
 	for i in count:
 		var pos := r.take(cell_bits)
 		var part := r.take(ID_BITS)
@@ -219,11 +236,15 @@ static func decode(code: String) -> Dictionary:
 		if pos >= w * h:
 			return _fail(IMPOSSIBLE)
 		var origin := Vector2i(pos % w, int(pos / w))
-		# A code written before a part was retired still reads; the part is set
-		# aside and the board closed up round it as a save is.
+		# A code written before a part was retired still reads, with the part
+		# left out and its cell left empty, as a save does: see
+		# `SkillBoard.deserialize`.
 		if Components.is_retired(id):
-			retired.append([id, origin, rot])
+			if id == "OUTPUT":
+				outputs.append(origin)
 			continue
+		if i == root_index:
+			board.root = origin
 		# `place` refuses an overlap and a footprint off the edge, so a code
 		# that says either is turned away here. The one thing it allows is a
 		# part dropped on an origin already taken, which is the editor's replace
@@ -237,7 +258,7 @@ static func decode(code: String) -> Dictionary:
 	# zeros — characters stuck on the end show up as something else.
 	if not r.rest_is_padding():
 		return _fail(MISTYPED)
-	board.drop_retired(retired)
+	board.slide_onto_way_out(outputs)
 	return {"board": board, "error": "", "args": []}
 
 ## Whether `code` reads back as a board at all. The board itself is thrown away,
@@ -279,7 +300,7 @@ static func name_for(code: String) -> String:
 ## grid it allows. A field collecting characters stops here, since nothing past
 ## it could be a code.
 static func max_chars() -> int:
-	var bits := VER_BITS + SIDE_BITS * 2 + COUNT_BITS \
+	var bits := VER_BITS + SIDE_BITS * 2 + COUNT_BITS * 2 \
 		+ MAX_PARTS * (_cell_bits(MAX_SIDE, MAX_SIDE) + ID_BITS + ROT_BITS)
 	return int(ceil(float(bits) / float(WORD_BITS))) * WORD_CHARS + 1
 

@@ -202,8 +202,6 @@ func component_count(id: String, pool: Dictionary) -> int:
 	return int(pool.get(id, 0))
 
 func take_component(id: String, pool: Dictionary) -> bool:
-	if Components.is_structural(id):
-		return true
 	if int(pool.get(id, 0)) <= 0:
 		return false
 	pool[id] = int(pool[id]) - 1
@@ -213,8 +211,6 @@ func take_component(id: String, pool: Dictionary) -> bool:
 	return true
 
 func return_component(id: String, pool: Dictionary) -> void:
-	if Components.is_structural(id):
-		return
 	pool[id] = int(pool.get(id, 0)) + 1
 	stash_changed.emit()
 
@@ -289,12 +285,9 @@ const SHOP_PRICES := {
 	Components.CAT_BEHAVIOR: 65,
 	Components.CAT_FLOW: 70,
 	Components.CAT_TRIGGER: 55,
-	Components.CAT_STRUCT: 30,
 }
 
-## What the counter is selling: the lootable parts, in palette order. Structural
-## parts are not among them — the editor hands those out for nothing, so a price
-## on one would be a price on having a board at all.
+## What the counter is selling: every part, in palette order.
 static func shop_stock() -> Array:
 	return Components.loot_pool()
 

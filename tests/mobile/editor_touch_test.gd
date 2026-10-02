@@ -6,16 +6,18 @@ extends Node
 ## them are all on the screen and none on another; everything a thumb presses is
 ## a thumb's size; every part in the pool is on some tab; a first workbench's
 ## grid stands at a thumb's width a cell and the biggest one a workbench grows
-## still fits, its cells no smaller than a desk's; and the frame is on the PIXEL
-## grid like the desk's is.
+## still fits, its cells no smaller than a desk's, with the way out's arrow
+## clear of the parts beside it; and the frame is on the PIXEL grid like the
+## desk's is.
 ##
 ## On the working of it, with a thumb sent the way the system sends one: a tab
 ## brings its category up; a touch on a plate takes the part in hand and a touch
 ## on an empty cell sets it down; a touch on a part on the board picks it — and
 ## moves nothing — for TURN to turn and REMOVE to put back in the bag; a part
 ## dragged is moved, from a plate or across the board, and thrown at the parts
-## it is put away; the weapon's own part is neither picked nor moved. CODE opens
-## the sheet with buttons a thumb's size, and CLOSE closes the board.
+## it is put away; the weapon's own part is picked, turned and moved the same
+## way, and REMOVE leaves it on the board. CODE opens the sheet with buttons a
+## thumb's size, and CLOSE closes the board.
 ##
 ## And at a desk it is the board it was: thrown off under an open board, the
 ## desk's layout comes back, cell for cell.
@@ -179,6 +181,12 @@ func _the_layout() -> void:
 			small.append("tab %d %s" % [i, str(r.size)])
 	check(small.is_empty(), "the buttons and the tabs are a thumb's size (%s)" % str(small))
 	check(tabs.size() == ed._pal_groups().size(), "there is a tab a category (%d)" % tabs.size())
+	# The way out is on the board's frame, its head outside it: on the screen,
+	# and in the room between the board and the parts rather than on them.
+	var arrow := ed._way_out_rect(ed.current_board())
+	check(vp.encloses(arrow) and arrow.intersects(l["frame"]) and arrow.end.x > (l["frame"] as Rect2).end.x
+			and not arrow.intersects(l["column"]),
+		"the way out's arrow stands on the board's right edge, clear of the parts (%s)" % str(arrow))
 	check((l["column"] as Rect2).encloses(l["plates"]) and (l["column"] as Rect2).encloses(l["turn"])
 			and (l["column"] as Rect2).encloses(l["remove"]),
 		"the plates, TURN and REMOVE are one column, which is where a part is thrown away")
@@ -233,22 +241,26 @@ func _the_grid() -> void:
 		var side := float(l["cell"])
 		if side < float(SkillEditor.CELL) or int(side / UiKit.PIXEL) % 2 != 1 \
 				or not Rect2(Vector2.ZERO, screen()).encloses(frame) \
-				or frame.intersects(l["column"]) or frame.position.y < SkillEditor.THUMB_HEADER:
+				or frame.intersects(l["column"]) or frame.position.y < SkillEditor.THUMB_HEADER \
+				or probe._way_out_rect(probe.current_board()).intersects(l["column"]):
 			tight.append("level %d: cell %.0f, board %s" % [level, side, str(frame)])
 	check(tight.is_empty(),
-		"every grid a workbench grows fits beside the parts, at no less than a desk's cell (%s)" % str(tight))
+		"every grid a workbench grows fits beside the parts, way out and all, at no less than a desk's cell (%s)" % str(tight))
 	layer.queue_free()
 	await frames(2)
 
 ## Every PIXEL×PIXEL block of the frame is one colour, with the board dressed:
 ## parts on it, one picked, a tab of plates up and a refusal in the header.
 func _on_the_grid() -> void:
-	var form := part_on(1)
+	var form := part_on(0)
 	await tap(tab_of(form))
 	await tap(plate_of(form))
 	await tap(cell(Vector2i(3, 0)))
+	# The weapon's own part picked, and REMOVE pressed on it: a refusal, in the
+	# header. Then the part just set down picked in its place.
+	await tap(cell(ed.current_board().root))
+	await tap((layout()["remove"] as Rect2).get_center())
 	await tap(cell(Vector2i(3, 0)))
-	await tap(cell(Vector2i(0, 2)))   # the weapon's own: a refusal, in the header
 	var hidden: Array = []
 	var own := ed.get_parent()
 	for n in get_tree().root.find_children("*", "CanvasLayer", true, false):
@@ -301,7 +313,7 @@ func _on_the_grid() -> void:
 ## --- the parts ------------------------------------------------------------------------
 
 func _the_parts() -> void:
-	var form := part_on(1)
+	var form := part_on(0)
 	var flow := part_on(ed._pal_groups().size() - 2)
 	await tap(tab_of(flow))
 	check(ed._tab == ed._tab_of(flow) and ed._palette_ids().has(flow) and not ed._palette_ids().has(form),
@@ -326,7 +338,8 @@ func _a_part_picked() -> void:
 	var id := at(spot)
 	var faced := rot_at(spot)
 	var before := changes
-	ed._tab = 0
+	# Some other category's tab up, so the part's own has to come up for it.
+	ed._tab = ed._pal_groups().size() - 1
 	await tap(cell(spot))
 	check(ed._picked == spot, "a touch on a part on the board picks it")
 	check(at(spot) == id and rot_at(spot) == faced and changes == before,
@@ -354,14 +367,34 @@ func _a_part_picked() -> void:
 	check(at(spot) == "" and ed._picked == SkillEditor.NOWHERE and changes == before + 1,
 		"picked, REMOVE puts it back in the bag")
 
-	# The weapon's own part is where the graph starts: not picked, not turned.
-	var root: Vector2i = ed.current_board().find_root()
+	# The weapon's own part is where the graph starts, and the hand has it like
+	# any other: picked, turned, dragged. REMOVE leaves it on the board.
+	var b := ed.current_board()
+	var root: Vector2i = b.root
+	var root_id := at(root)
 	var root_rot := rot_at(root)
 	await tap(cell(root))
-	check(ed._picked == SkillEditor.NOWHERE and ed._message_time > 0.0,
-		"the weapon's own part is not picked, and the header says why")
+	check(ed._picked == root and ed.selected == root_id,
+		"the weapon's own part is picked like any other")
+	await tap(turn)
+	check(b.root == root and rot_at(root) == (root_rot + 1) % 4,
+		"TURN turns it where it stands (%d to %d)" % [root_rot, rot_at(root)])
+	for i in 3:
+		await tap(turn)
+	check(rot_at(root) == root_rot, "and round again to the way it faced")
+	ed._message_time = 0.0
+	before = changes
 	await tap(remove)
-	check(at(root) != "" and rot_at(root) == root_rot, "and it stays where it is")
+	check(at(root) == root_id and b.root == root and changes == before and ed._message_time > 0.0,
+		"REMOVE leaves it on the board, and the header says why")
+	await tap(cell(root))
+	check(ed._picked == SkillEditor.NOWHERE, "a second touch lets it go")
+	var over := root + Vector2i(-2, 0)
+	await carry(cell(root), cell(over))
+	check(b.root == over and at(over) == root_id and at(root) == "" and changes == before + 1,
+		"dragged, it moves, and the flow starts where it is now (%s)" % str(b.root))
+	await carry(cell(over), cell(root))
+	check(b.root == root and rot_at(root) == root_rot, "and dragged back, it is where it was")
 
 ## --- a part dragged ---------------------------------------------------------------------
 
@@ -372,7 +405,7 @@ func _a_part_dragged() -> void:
 	await carry(cell(from), cell(to))
 	check(at(from) == "" and at(to) == id, "a part dragged across the board is moved (%s)" % at(to))
 	check(ed._picked == SkillEditor.NOWHERE, "and a drag picks nothing")
-	var stat := part_on(3)
+	var stat := part_on(2)
 	await tap(tab_of(stat))
 	await carry(plate_of(stat), cell(Vector2i(6, 4)))
 	check(at(Vector2i(6, 4)) == stat, "one dragged off its plate is set down where the thumb lifts")

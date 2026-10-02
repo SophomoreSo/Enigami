@@ -55,16 +55,19 @@ func cast_at(r: SkillRunner, bonus: int) -> Dictionary:
 			break
 	return {"wipe": wipe, "seconds": secs}
 
-## A straight board: a DELAY on the root, the listed parts in a row, then
-## OUTPUT. Returns how many ticks one whole cycle of it takes.
+## A straight board: a DELAY on the root and the listed parts in a row after
+## it, on a board exactly as long, so the last of them is against the way out.
+## Returns how many ticks one whole cycle of it takes.
 func ticks_of(ids: Array) -> int:
-	var b := SkillBoard.new(12, 5, "chain")
+	var long := 1
+	for id in ids:
+		long += int(Components.get_def(id)["cells"])
+	var b := SkillBoard.new(long, 5, "chain")
 	b.set_root("DELAY")
 	var x := 1
 	for id in ids:
 		b.place(String(id), Vector2i(x, 2), 0)
 		x += int(Components.get_def(id)["cells"])
-	b.place("OUTPUT", Vector2i(x, 2), 0)
 	var r := SkillRunner.new(b)
 	r.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
 	return int(r.simulate()["ticks"])
@@ -133,15 +136,12 @@ func _ready() -> void:
 	# against the cast actually running: a charged cast followed by an uncharged
 	# one had the slot reading four tenths full at the instant it was castable.
 	var ring := SkillBoard.new(7, 5, "ring")
-	ring.set_root("DELAY", Vector2i(0, 1), 0)
-	ring.place("DELAY", Vector2i(1, 1), 3)
-	ring.place("DELAY", Vector2i(1, 0), 0)
-	ring.place("DELAY", Vector2i(2, 0), 0)
-	ring.place("DELAY", Vector2i(3, 0), 1)
-	ring.place("DELAY", Vector2i(3, 1), 2)
-	ring.place("TEE", Vector2i(2, 1), 1)
-	ring.place("SLASH", Vector2i(2, 2), 0)
-	ring.place("OUTPUT", Vector2i(3, 2), 0)
+	ring.set_root("DELAY", Vector2i(3, 2))
+	ring.place("DELAY", Vector2i(4, 2), 0)
+	ring.place("TEE", Vector2i(5, 2), 0)        # on through the SLASH and out, and round
+	ring.place("SLASH", Vector2i(6, 2), 0)
+	ring.place("DELAY", Vector2i(5, 3), 2)
+	ring.place("DELAY", Vector2i(4, 3), 3)      # back into the first DELAY
 	var lr := SkillRunner.new(ring)
 	lr.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
 	var charged := cast_at(lr, SkillRunner.MAX_TTL_BONUS)
@@ -171,6 +171,10 @@ func _ready() -> void:
 	var one := ticks_of(["DELAY"])
 	check(ticks_of(["DELAY", "DELAY"]) - one == 1,
 		"a second DELAY costs one tick (%d)" % (ticks_of(["DELAY", "DELAY"]) - one))
+	# And a board is its parts and the wait every cast has: going out of it
+	# costs nothing.
+	check(one == 2 + SkillRunner.BASE_COOLDOWN_TICKS,
+		"a board of two DELAYs is two ticks and the wait (%d)" % one)
 
 	print("[CD] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)

@@ -257,9 +257,11 @@ is its numbers and what it does to a flow, each effect a change to one field
 of the payload; what an effect *means* — what a form spawns, what a flag does
 to a hit — is code, `SkillRunner._apply` and `feature/attacks/`, and the rows
 name it by field. A board is its parts and the way each faces: which feeds
-which is walked, not stored. Every board is rooted: the part on its root cell
-(`SkillBoard.ROOT`) is where every cycle starts — a weapon's own attack form,
-which is the one part the player never lifts — and there is no INPUT part.
+which is walked, not stored. Every board is rooted: its root, one of its parts
+(`SkillBoard.root`), is where every cycle starts — a weapon's own attack form,
+which the player moves but never takes off — and there is no INPUT part. A flow
+goes from a part into the one beside it and leaves the board by the middle of
+its right edge (`SkillBoard.way_out`), and there is no OUTPUT part either.
 A weapon *is* its graph (`GameState.weapon_boards`): one each, carried into a
 raid as a copy, lost and won back with the weapon. What a part looks like stays
 in `Style`.

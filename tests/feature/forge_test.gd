@@ -58,10 +58,8 @@ func _ready() -> void:
 	check(sword.width == GameState.board_size().x and sword.height == GameState.board_size().y,
 		"on the workbench's own grid (%dx%d)" % [sword.width, sword.height])
 	# Building on it is building on the profile: what the gate carries is a copy.
-	check(sword.erase_at(SkillBoard.ROOT) == "", "the weapon's own part cannot be taken off")
-	sword.erase_at(Vector2i(2, 2))
-	check(sword.place("FIRE", Vector2i(2, 2), 0) and sword.place("OUTPUT", Vector2i(3, 2), 0),
-		"the build goes on after it")
+	check(sword.erase_at(sword.root) == "" and sword.has_root(), "the weapon's own part cannot be taken off")
+	check(sword.place("FIRE", Vector2i(2, 2), 0), "the build goes on after it")
 	check(not GameState.graph_is_bare("SWORD") and sword.used_components() == {"FIRE": 1},
 		"and the graph counts what was built and not the root (%s)" % str(sword.used_components()))
 	GameState.deploy("SWORD")
@@ -81,9 +79,7 @@ func _ready() -> void:
 
 	# --- the rock's graph falls with the kit, the rock does not -----------------
 	GameState.deploy("ROCK")
-	GameState.raid_board.erase_at(Vector2i(1, 2))
 	GameState.raid_board.place("PIERCE", Vector2i(1, 2), 0)
-	GameState.raid_board.place("OUTPUT", Vector2i(2, 2), 0)
 	var lost := GameState.die({"room": [1, 1], "pos": [100.0, 100.0]})
 	check(GameState.owned_weapons.has("ROCK"), "there is always another rock")
 	check(GameState.graph_is_bare("ROCK"), "with nothing on it: what was built went with the kit")

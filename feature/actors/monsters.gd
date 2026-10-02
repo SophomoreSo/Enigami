@@ -100,7 +100,7 @@ static func drop_pool(id: String) -> Array:
 		if board_id == "":
 			continue
 		for cid in Boards.parts_of(board_id):
-			if not Components.is_structural(cid) and not pool.has(cid):
+			if not pool.has(cid):
 				pool.append(cid)
 	return pool
 

@@ -2,14 +2,15 @@ class_name Weapons
 extends RefCounted
 
 ## Weapons are the top-level choice made before a raid. A weapon is a graph:
-## its own attack form stands on the root of a board — the sword's DASHSLASH,
-## the gun's PROJECTILE — and everything the player wires on after it is the
-## skill that weapon casts. There is no skill without a weapon and no weapon
-## without its graph; what a raid carries is the weapon and the graph on it.
+## its own attack form is the root of a board — the sword's DASHSLASH, the
+## gun's PROJECTILE — and everything the player wires on round it is the skill
+## that weapon casts. There is no skill without a weapon and no weapon without
+## its graph; what a raid carries is the weapon and the graph on it.
 ##
 ## The graph a new profile is handed for each weapon is a board in the content
-## database (`data/db/boards/weapons.sql`): the root part and an OUTPUT, and
-## nothing else. `root` names the part that stands on it, so a screen can say
+## database (`data/db/boards/weapons.sql`): the root part and nothing else,
+## standing against the board's way out, which is enough to fire. `root` names
+## that part, so a screen can say
 ## what a weapon is before its board is built; `tests/feature/boards_test`
 ## holds the two to each other.
 ##

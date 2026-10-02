@@ -9,15 +9,17 @@ extends RefCounted
 ##
 ## A board is its grid and the parts placed on it. Which part feeds which is
 ## written down nowhere: the parts' ports and the way each faces already say
-## it, and `SkillBoard.trace` walks it. Where the flow starts is the root cell
-## (`SkillBoard.ROOT`), and every board here has a part standing on it.
+## it, and `SkillBoard.trace` walks it. Where the flow starts is the part each
+## board marks as its root (`root` 1), and every board here has one; where it
+## becomes an attack is the board's way out, the middle of its right edge, and
+## no part stands for that.
 ##
 ## Nothing here falls back. A board that is not in the table comes back with
 ## nothing on it, a part that cannot go where its row puts it — off the grid,
-## over another — is left off, and a board with nothing on its root is a board
-## that never fires; `problems` says which, and `build` says so loudly. A
-## weapon or a monster cannot fight with half a board, and would do it without
-## a word if nobody looked.
+## over another — is left off, and a board with no root is a board that never
+## fires; `problems` says which, and `build` says so loudly. A weapon or a
+## monster cannot fight with half a board, and would do it without a word if
+## nobody looked.
 
 ## Every board in the table, by id.
 static func ids() -> PackedStringArray:
@@ -27,8 +29,8 @@ static func ids() -> PackedStringArray:
 	return out
 
 ## A board as the table has it: the `boards` row, with its `parts` under it in
-## the order they are listed, each {x, y, part, facing}. Empty when there is
-## no such board.
+## the order they are listed, each {x, y, part, facing, root}. Empty when there
+## is no such board.
 static func source(id: String) -> Dictionary:
 	var found := Db.records("boards", "id = ?", [id])
 	if found.is_empty():
@@ -75,21 +77,33 @@ static func problems_in(def: Dictionary) -> Array:
 static func _lay(def: Dictionary, name: String) -> Array:
 	var board := SkillBoard.new(int(def.get("width", 7)), int(def.get("height", 5)),
 		name if name != "" else String(def.get("name", def.get("id", ""))))
+	# No root until a row says which part it is.
+	board.root = Vector2i(-1, -1)
 	var wrong: Array = []
-	for p in def.get("parts", []):
+	# The root first, so everything else is laid round it.
+	var parts: Array = def.get("parts", [])
+	var laid := parts.filter(func(p: Dictionary) -> bool: return int(p.get("root", 0)) == 1) \
+		+ parts.filter(func(p: Dictionary) -> bool: return int(p.get("root", 0)) != 1)
+	for p in laid:
 		var part := String(p.get("part", ""))
 		var at := Vector2i(int(p.get("x", 0)), int(p.get("y", 0)))
 		var facing := String(p.get("facing", "E"))
 		var where := "%s at %d,%d facing %s" % [part, at.x, at.y, facing]
+		var rooted := int(p.get("root", 0)) == 1
 		if not Components.exists(part):
 			wrong.append("%s: there is no such part" % where)
 		elif Components.side(facing) < 0:
 			wrong.append("%s: that is no way to face" % where)
+		elif rooted and board.has_root():
+			wrong.append("%s: the board has a root already" % where)
 		# `place` would take a part dropped on another's cell as the editor's
 		# replace; in a table it is two parts in one cell, so it is refused.
-		elif board.origin_at(at) != null or not board.place(part, at, Components.side(facing)):
+		elif board.origin_at(at) != null or not board.can_place(part, at, Components.side(facing)):
 			wrong.append("%s: it does not fit — off the grid, or over another part" % where)
+		elif rooted:
+			board.set_root(part, at, Components.side(facing))
+		else:
+			board.place(part, at, Components.side(facing))
 	if not board.has_root():
-		wrong.append("nothing stands on the root cell %d,%d, so the flow has nowhere to start"
-			% [board.root.x, board.root.y])
+		wrong.append("no part on it is its root, so the flow has nowhere to start")
 	return [board, wrong]

@@ -1,8 +1,4 @@
 {
-	"OUTPUT": {
-		"name": "OUTPUT",
-		"desc": "Converts the assembled flow into a real effect. A flow with no attack form produces no attack."
-	},
 	"PROJECTILE": {
 		"name": "PROJECTILE",
 		"desc": "Fires a bolt along the aim direction. The standard ranged form."
@@ -105,7 +101,7 @@
 	},
 	"DELAY": {
 		"name": "DELAY",
-		"desc": "One cell of waiting, like every other cell. Stagger a branch against another by giving it further to walk."
+		"desc": "One cell of waiting and nothing more: it turns a flow and leaves it as it was. Steer a branch round to the way out with it, or stagger one against another by giving it further to walk."
 	},
 	"TIME_DILATION": {
 		"name": "TIME DILATION",

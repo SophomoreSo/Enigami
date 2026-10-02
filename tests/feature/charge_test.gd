@@ -138,15 +138,12 @@ func _ready() -> void:
 	# A looping board is what has somewhere to spend it: the sword's own lunge
 	# on the root, and a ring built on after it.
 	var loop := SkillBoard.new(7, 5, "Winding Blade")
-	loop.set_root("DELAY", Vector2i(0, 1), 0)
-	loop.place("DELAY", Vector2i(1, 1), 3)
-	loop.place("DAMAGE", Vector2i(1, 0), 0)
-	loop.place("DAMAGE", Vector2i(2, 0), 0)
-	loop.place("DELAY", Vector2i(3, 0), 1)
-	loop.place("DELAY", Vector2i(3, 1), 2)
-	loop.place("TEE", Vector2i(2, 1), 1)
-	loop.place("SLASH", Vector2i(2, 2), 0)
-	loop.place("OUTPUT", Vector2i(3, 2), 0)
+	loop.set_root("DELAY", Vector2i(3, 2))
+	loop.place("DAMAGE", Vector2i(4, 2), 0)
+	loop.place("TEE", Vector2i(5, 2), 0)        # on through the SLASH and out, and round
+	loop.place("SLASH", Vector2i(6, 2), 0)
+	loop.place("DAMAGE", Vector2i(5, 3), 2)
+	loop.place("DELAY", Vector2i(4, 3), 3)      # back into the first DAMAGE
 	sb.graphs[sb.current_weapon()] = loop
 	sb._apply_weapon()
 	p.runner.fired.connect(func(_x: Payload) -> void: shots += 1)

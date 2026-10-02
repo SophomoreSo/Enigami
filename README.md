@@ -50,7 +50,7 @@ godot res://tests/graphics/hideout_pixel_test.tscn # the hideout's pixel look, a
 godot res://tests/graphics/bench_pixel_test.tscn # the bench panel's pixel look and layout
 godot res://tests/circuit/code_test.tscn    # a board survives being written down as a code
 godot res://tests/circuit/parts_test.tscn   # every part's rows fit, and the runner does what they say
-godot res://tests/feature/boards_test.tscn  # every board the game ships builds whole and reaches an OUTPUT
+godot res://tests/feature/boards_test.tscn  # every board the game ships builds whole and gets all its flow out
 godot res://tests/graphics/menus_test.tscn  # every menu's rows name an act its screen has, in every language
 godot res://tests/graphics/rope_test.tscn   # a cable's line of nodes: hung, pushed, settled, and where a room hangs them
 godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
@@ -260,7 +260,9 @@ has a second layout (`UiKit.mobile`), and at a desk each is exactly as it was:
   takes the part in hand and a touch on an empty cell sets it down; a touch on
   a part on the board picks it, bringing its tab up, for TURN to turn and
   REMOVE to put back in the bag; a part dragged is moved, and one dragged onto
-  the parts is put away. Nothing scrolls, so a drag is never asked to mean two
+  the parts is put away. The weapon's own part is picked, turned and dragged
+  the same way, and REMOVE leaves it on the board. Nothing scrolls, so a drag
+  is never asked to mean two
   things. CODE and CLOSE are plates in the corner, and the share sheet's
   buttons are a thumb's, with a code coming in by PASTE.
 * **The rest** follow: the bench's drawer has buttons and a tab a thumb can
@@ -313,39 +315,53 @@ nobody spends that week again.
 
 ## How a skill works
 
-**A weapon is a graph.** Its own attack form stands on the root of a board —
-the sword's `DASHSLASH`, the gun's and the rock's `PROJECTILE` — on the left of
-the middle row, and everything you build is wired on after it. There are no
-skills apart from weapons and no weapon without its graph: what you carry into
-a raid is the weapon and whatever is on it, the rack picks the weapon and the
-bench opens its graph. The root is the one part you cannot lift, turn or cover;
-the cells after it are yours. `LMB` casts the graph as it is, again and again
+**A weapon is a graph.** Its own attack form is the root of a board — the
+sword's `DASHSLASH`, the gun's and the rock's `PROJECTILE` — and everything you
+build is wired on round it. There are no skills apart from weapons and no
+weapon without its graph: what you carry into a raid is the weapon and
+whatever is on it, the rack picks the weapon and the bench opens its graph.
+The root is moved and turned like any part, but it never leaves the board: it
+is the weapon's, not the bag's. `LMB` casts the graph as it is, again and again
 while it is held, for nothing; `RMB` charges it (below) and casts on release.
 
-A board is a circuit. A pulse leaves the root, spends **one tick in every cell**
-it passes through, and mutates a payload on the way through — a part costs
-exactly the room it takes up, so a two-cell part like `EXPLODE` costs two ticks
-and everything else costs one. The root is entered like any other part, so the
-weapon's own form is the first thing on the payload; a form placed after it
-makes the flow that instead. When the pulse reaches an `OUTPUT`, whatever the
-payload has become is fired into the world. The root only restarts once every
-pulse from the previous cycle has resolved — **the length and shape of the board
-is the cooldown**, which is why a bigger build is not automatically a better
-one, and why a cycle can be counted off the grid rather than looked up part by
-part. What still separates one part from another in time is heat, which is
-added to the cooldown at the end of the cycle. Every cast off the weapon waits
-ten times what its graph alone would, so a bare graph is a swing and not a
-stream; everything built on after it lengthens that wait in proportion.
+A board is a circuit. A pulse leaves the root, spends **one tick in every cell
+of every part** it enters, and mutates a payload on the way through — a part
+costs exactly the room it takes up, so a two-cell part like `EXPLODE` costs two
+ticks and everything else costs one. A flow goes from a part into the part
+beside it and no further: an empty cell carries nothing. The root is entered
+like any other part, so the weapon's own form is the first thing on the
+payload; a form placed after it makes the flow that instead.
+
+Every board has **one way out**: the arrow on its frame in the middle of the
+right edge. A flow that leaves the board there is fired into the world as
+whatever its payload has become; one that runs into an empty cell, off any
+other edge, or into a part that will not take it, is lost. So a build is a
+chain of parts touching, from the root to the cell against the arrow. A new
+weapon's own part starts in that cell, so it fires as it comes; to build onto
+it, move it back and put the parts in between. A Workbench upgrade grows the
+board round what is on it — new columns on the left, new rows above or below
+as the middle moves — so a build stays against the arrow.
+
+The root only restarts once every pulse from the previous cycle has resolved —
+**the parts on the board are the cooldown**, which is why a bigger build is not
+automatically a better one, and why a cycle can be counted off the grid rather
+than looked up part by part. What still separates one part from another in time
+is heat, which is added to the cooldown at the end of the cycle. Every cast off
+the weapon waits ten times what its graph alone would, so a bare graph is a
+swing and not a stream; everything built on after it lengthens that wait in
+proportion.
 
 The board is the *cooldown*, not the cast time: the walk up to the cycle's
-first `OUTPUT` is spent the moment you press, so the attack lands on the press,
-and those ticks are charged back onto the cooldown instead. A long board makes
-you wait for the *next* shot, never for this one. Everything the board does
-after that first `OUTPUT` still plays out in real time, which is what lets
-`DELAY` stagger branches and triggers against each other.
+first attack leaving the board is spent the moment you press, so the attack
+lands on the press, and those ticks are charged back onto the cooldown instead.
+A long board makes you wait for the *next* shot, never for this one. Everything
+the board does after that first attack still plays out in real time, which is
+what lets `DELAY` stagger branches and triggers against each other.
 
 - `SPLIT` halves damage down two branches; `TEE` keeps the main line and grows
-  a full-strength branch sideways.
+  a full-strength branch sideways. A board has one way out, so a branch is only
+  an attack once it has been turned back round to it: one left running off
+  another edge is lost, and the board shows where.
 - Triggers (`ON HIT`, `ON KILL`, `ON PARRY`) grow a second flow out of their
   side port. That branch inherits the numbers but not the attack form, so it
   defines its own payload, and it attaches to the attacks the skill fires.
@@ -360,8 +376,10 @@ after that first `OUTPUT` still plays out in real time, which is what lets
   and a wall of them is far worse than none. The delay is measured in real
   seconds rather than ticks on purpose: a tick-denominated cost would be shrunk
   by the very speed-up it pays for, and the two would cancel.
-- `DELAY` is a cell of waiting like any other; stagger a branch against another
-  by giving it further to walk.
+- `DELAY` is a cell of waiting and nothing more: it turns a flow and leaves it
+  as it was, which makes it the part for steering a branch round to the way
+  out — and, since every part is a tick, for staggering one branch against
+  another by giving it further to walk.
 - A bolt carries a fixed distance and then fades — a quarter of a room as
   standard, and the weapon scales it: a good third of a room off the Gun, a
   quarter off the Rock, a sixth off the Sword. You fight inside a part of a
@@ -396,7 +414,8 @@ lift a placed part and drop it somewhere else. The mouse wheel turns whatever
 the cursor is on — a part already on the board rotates in place, otherwise the
 wheel sets the facing for the next placement, mid-drag included. A bad drop puts
 the part back where it came from; dropping it on the palette discards it into
-the pool. Right-click removes.
+the pool. Right-click removes. The weapon's own part drags and turns the same
+way, but it is never removed or discarded: it stays where it was instead.
 
 Each part draws one triangle, on the edge its flow leaves by, and takes flow on
 any other edge. Rotation therefore decides where a flow *goes*, never where it
@@ -422,7 +441,7 @@ time already being spent. Holding through the wait costs nothing and loses
 nothing — the charge starts building the moment the graph comes free. Charging
 engages on every graph alike — nothing is special-cased on the shape of the
 board — but all it ever buys is life, and life is only ever spent
-going round. A board with no cycle in it walks to its OUTPUT and stops there
+going round. A board with no cycle in it walks to its way out and stops there
 however much it was given, so it fires **once** charged exactly as it fires once
 uncharged. A cycle is what has somewhere to spend the life, and it spends it on
 more laps; on a loop that runs its payload back through its own stat parts that
@@ -440,14 +459,16 @@ while two parts that merely touch stay two boxes with a red cross on the seam
 between them. That outline stays lit the whole time — what is joined to what
 does not change from moment to moment — and the movement is dots running a
 track laid into the edge rather than sitting on top of it. The track goes
-round everything between the root and the part the flow finishes on, leaving
-the side of the start the run departs by and meeting the side of the end it
-arrives on: with a board laid out left to right the dots set off from the
-middle of the root's right edge, go over and under what lies between, and
-arrive at the middle of the OUTPUT's left edge. Nothing goes round in a
-circle. A part the flow cannot reach keeps its own box, drawn faint and with
-no dots on it. When a board produces nothing the preview names the first fault
-rather than only saying nothing came out.
+round every part the flow reaches after the root: with a board laid out left
+to right the dots set off from the middle of the root's right edge, go over
+and under what lies after it, and meet again on the far side of the last part.
+Nothing goes round in a circle. The arrow on the frame is lit while a flow
+reaches it, drained to grey while only a trigger's branch does, and red while
+nothing does — a board that casts nothing. A flow that runs into an empty cell,
+or off the board anywhere but the arrow, ends on an amber dot there. A part the
+flow cannot reach keeps its own box, drawn faint and with no dots on it. When a
+board produces nothing the preview names the first fault rather than only
+saying nothing came out.
 
 A ring the flow can never leave is **dead code**, and is drawn switched off:
 the colour comes out of the parts, the silhouette round the whole ring goes
@@ -472,7 +493,7 @@ components its attack was visibly built from.
 board on the grid out as a short code:
 
 ```
-7kD3K2EZif3jtfN11111d
+CapygL1IE54LHBuM
 ```
 
 Every part, where it sits and which way it faces, in about twenty characters for
@@ -497,11 +518,12 @@ rather than the line it came in: the letters of the words around it are code
 characters too.
 
 What a code does *not* carry is the name — that travels in the message beside it
-— or the grid: a build arrives on your workbench's own board, and one laid out
-on a bigger one is turned away whole rather than in pieces. Nor the weapon: a
-build arrives on the weapon you open it over, with that weapon's own part on
-the root, and whatever the code had standing on that cell — its author's own
-root — stays behind. **A code is a blueprint, not the parts.** Pasting one at
+— or the grid: a build arrives on your workbench's own board with its way out
+on yours, and one laid out on a bigger board that would then hang over the edge
+is turned away whole rather than in pieces. Nor the weapon: a build arrives on
+the weapon you open it over. The code marks which part was its author's root,
+and that one stays behind — your weapon's own part moves to where it stood, so
+the build goes on from it. **A code is a blueprint, not the parts.** Pasting one at
 the workbench spends the stash exactly as building the same board by hand
 would, the build it replaces goes back into the stash as it goes, and one you
 cannot afford changes nothing at all and says what it is short of. At the
@@ -511,13 +533,16 @@ The format is `circuit/board_code.gd`. The alphabet is fixed for good, and
 the table that numbers the parts may only ever be appended to, or every code
 anyone has written down stops meaning what it meant.
 
-A retired part keeps its number. WIRE and BEND are gone — any part already
-carries a flow and turns it — and a code or a save that still has one reads back
-without it. Where one sat against an OUTPUT, the OUTPUT steps into its cell, so
-a WIRE-led build comes back working; anywhere else the cell is left empty and
-the board shows the break. INPUT is gone too: the root is where a flow starts
-now, and a code or a save with an INPUT reads back with that cell empty, which
-on any weapon's board is the cell the weapon's own part already fills.
+A retired part keeps its number. WIRE and BEND are gone — any part carries a
+flow and turns it — and so are INPUT and OUTPUT: the root is where a flow
+starts now, and the way out is where it becomes an attack. A code or a save
+that still has any of them reads back without it, its cell left empty, and one
+whose single OUTPUT took its flow heading east is slid along until that
+OUTPUT's cell is just past the way out — so a graph built while the OUTPUT was
+a part fires as it did. One that ended on an OUTPUT fed any other way, or on
+two, stays where it was and shows where its flow now stops. A code written
+while the root could not move still reads: its root is what stood where every
+root stood then.
 
 A renamed part keeps its number too. EXPLODE was called AREA, and a code or a
 save from then reads back with an EXPLODE wherever it had an AREA.
@@ -552,14 +577,14 @@ whether one cast still clears it.
 
 The PRD left eight questions open. This build answers them as follows.
 
-1. **One graph per weapon.** A weapon is its graph: its own attack form
-   stands on the root and everything you build is wired on after it. There
+1. **One graph per weapon.** A weapon is its graph: its own attack form is
+   the root and everything you build is wired on round it. There
    are no slots and no skills apart from weapons — what you carry is the
    weapon and what is on it, and the rack, the bench and the gate are three
    ways of looking at the same thing.
-2. **A weapon starts bare** — its own part and an `OUTPUT`, so it works the
-   moment it is picked up, and every cell after the root is yours. Identity
-   without locking the build.
+2. **A weapon starts bare** — its own part and nothing else, standing
+   against the way out, so it works the moment it is picked up; move it back
+   and every cell in front of it is yours. Identity without locking the build.
 3. **No compatibility rule.** The weapon's own form starts every flow, and a
    form placed after it makes the flow that instead: a bolt off the sword is a
    bolt off the sword, and is weighed as one (`Weapons.finalize`).

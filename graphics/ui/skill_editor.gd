@@ -5,10 +5,17 @@ extends Control
 ## in a raid the world keeps running behind it, so the panel stays translucent
 ## and compact and every action is a single click.
 ##
-## The root — the weapon's own part, on the left of the middle row — is drawn
-## as a port pointing the way it hands the flow over, and is the one part the
-## hand cannot lift, turn or cover: it is the weapon's, and the build is
-## everything after it.
+## The root — the weapon's own part — is drawn as a port pointing the way it
+## hands the flow over. The hand moves and turns it like any part, but it never
+## leaves the board and nothing is dropped on it: it is the weapon's, not the
+## bag's.
+##
+## In the middle of the board's right edge is the way out: an arrowhead through
+## the frame, where a flow leaves the board and becomes an attack. It is not a
+## part, and nothing is placed there — it is lit while a flow reaches it, and in
+## the faults' red while none does, which is a board that casts nothing. A flow
+## only goes from a part into the one beside it, so what reaches the arrow is a
+## chain of parts touching, from the root to the cell against it.
 ##
 ## Drawn in UiKit's pixel look, like the title and its settings: text is the
 ## pixel face at PIXEL_TEXT, and every fill, border, arrow and icon is whole
@@ -55,7 +62,7 @@ const PAL_W := 244
 ## icon inside it.
 const PAL_H := 24
 ## A category's name is written down the gutter beside its block rather than on
-## a header row above it: there are seven of them, and seven more rows do not
+## a header row above it: there are six of them, and six more rows do not
 ## fit between the header and the info panel. The spine is the rule the name
 ## and the block hang off, PAL_SPINE short of the first column.
 const PAL_GUTTER := 122.0
@@ -140,9 +147,12 @@ var _picked: Vector2i = NOWHERE
 ## landed. Lifted, it picks the part; dragged past a thumb's slop, it lifts the
 ## part off the board the way a desk's press does at once. Empty with none.
 var _tap: Dictionary = {}
-## Drag state. `_drag_source` is -1 for a part pulled off the palette and 1 for
+## Drag state. `_drag_source` is -1 for a part pulled off the palette, 1 for
 ## one lifted off the board (which remembers where it came from so a bad drop
-## can put it back instead of destroying it).
+## can put it back instead of destroying it), and 2 for the root — which is not
+## lifted at all: it stays where it stands until it is set down somewhere it
+## fits (`SkillBoard.move_root`), so no drop, however bad, leaves the weapon
+## without it.
 var _drag_id: String = ""
 var _drag_source: int = 0
 var _drag_from: Vector2i = Vector2i(-1, -1)
@@ -171,6 +181,9 @@ var _flow_loops: Array = []
 ## one of them, which way round it the dots go and where on it they set off.
 ## Each stretch runs the way the part under it sends the flow — see `_cut_loop`.
 var _flow_arcs: Array = []
+## The colour the way out's arrow is drawn in: what, if anything, reaches it.
+## See `_rebuild_way_out`.
+var _way_out_col: Color = BREAK
 var _flow_time: float = 0.0
 var _message: String = ""
 var _message_time: float = 0.0
@@ -499,13 +512,9 @@ func _palette_ids() -> Array:
 		ids.append(String(row["id"]))
 	return ids
 
-## The pool the palette is laid out from: the structural parts, always at hand,
-## then everything that drops.
+## The pool the palette is laid out from: every part there is.
 func _pool_ids() -> Array:
-	var ids: Array = []
-	ids.append_array(Components.structural())
-	ids.append_array(Components.loot_pool())
-	return ids
+	return Components.loot_pool()
 
 ## Rotation steps advance clockwise on screen (east -> south), so scrolling up
 ## turns a part anticlockwise.
@@ -532,14 +541,19 @@ func _rotate_placed(b: SkillBoard, cell: Vector2i, dir: int) -> void:
 	var origin: Vector2i = b.origin_at(cell)
 	var entry := b.comp_origin_at(origin)
 	var id: String = entry["id"]
-	# The root faces the way the weapon hands its flow over, and that is not the
-	# hand's to change: a graph is built out from it, not round it.
-	if b.is_root(origin):
-		_notify(Loc.t("editor.root_fixed", [Components.name_for(id)]))
-		Audio.play("deny")
-		return
 	var old_rot: int = entry["rot"]
 	var new_rot: int = (old_rot + dir + 4) % 4
+	# The root turns where it stands, and never off the board on the way.
+	if b.is_root(origin):
+		if not b.move_root(origin, new_rot):
+			_notify(Loc.t("editor.no_room_turn", [Components.name_for(id)]))
+			Audio.play("deny")
+			return
+		rotation_step = new_rot
+		_sim_dirty = true
+		Audio.play("ui")
+		board_changed.emit()
+		return
 	b.erase_at(origin)
 	if not b.can_place(id, origin, new_rot):
 		# A two-cell part may have nowhere to swing; leave it as it was.
@@ -587,15 +601,10 @@ func _press_left() -> void:
 		return
 
 	# Lifting a placed part: it leaves the board but not the pool, so it can be
-	# dropped back down, returned to its old cell, or thrown at the palette.
+	# dropped back down, returned to its old cell, or thrown at the palette. The
+	# root is taken in hand the same way, and only ever moved (`_lift`).
 	var existing := b.comp_at(_hover_cell)
 	if not existing.is_empty():
-		var origin = b.origin_at(_hover_cell)
-		# The weapon's own part is not lifted: it is where the graph starts.
-		if b.is_root(origin):
-			_notify(Loc.t("editor.root_fixed", [Components.name_for(String(existing["id"]))]))
-			Audio.play("deny")
-			return
 		# A thumb's press is not a lift yet. It may be a touch — which picks the
 		# part, for TURN and REMOVE to act on — and it is only a lift once the
 		# thumb has moved off where it landed (`_drag_tap`).
@@ -609,18 +618,24 @@ func _press_left() -> void:
 	if selected != "":
 		_place_from_palette(_hover_cell)
 
-## Takes the part at `cell` off the board and into the hand.
+## Takes the part at `cell` off the board and into the hand. The root comes into
+## the hand without coming off the board: it stays where it stands, so the
+## weapon is never without it, until it is set down somewhere it fits.
 func _lift(b: SkillBoard, cell: Vector2i) -> void:
 	var existing := b.comp_at(cell)
 	if existing.is_empty():
 		return
 	_drag_id = String(existing["id"])
-	_drag_source = 1
 	_drag_from = b.origin_at(cell)
 	_drag_from_rot = int(existing["rot"])
 	rotation_step = _drag_from_rot
-	selected = _drag_id
 	_picked = NOWHERE
+	if b.is_root(_drag_from):
+		_drag_source = 2
+		Audio.play("ui")
+		return
+	_drag_source = 1
+	selected = _drag_id
 	b.erase_at(cell)
 	_sim_dirty = true
 	Audio.play("erase")
@@ -652,6 +667,12 @@ func _release_left() -> void:
 
 	if _hover_cell.x >= 0 and _drop_on(id, src, _hover_cell):
 		return
+	# The root never left its cell. Thrown at the palette it says why it stays.
+	if src == 2:
+		if _hover_cell.x < 0 and (_hover_pal >= 0 or _pal_panel().has_point(_mouse_pos)):
+			_notify(Loc.t("editor.root_fixed", [Components.name_for(id)]))
+			Audio.play("deny")
+		return
 	if src != 1:
 		return  # a palette drag that went nowhere costs nothing
 
@@ -672,6 +693,8 @@ func _release_left() -> void:
 
 func _drop_on(id: String, src: int, cell: Vector2i) -> bool:
 	var b := current_board()
+	if b != null and src == 2:
+		return _drop_root(b, cell)
 	if b == null or not b.can_place(id, cell, rotation_step):
 		if src == -1:
 			_notify(Loc.t("editor.no_room_place", [Components.name_for(id)]))
@@ -691,6 +714,30 @@ func _drop_on(id: String, src: int, cell: Vector2i) -> bool:
 	board_changed.emit()
 	return true
 
+## The root set down at `cell`, facing the way the hand has turned it. Only
+## where it fits — on the grid, and over nothing but its own cells — and
+## otherwise it stays where it was, and says so.
+func _drop_root(b: SkillBoard, cell: Vector2i) -> bool:
+	if cell == _drag_from and rotation_step == _drag_from_rot:
+		return true
+	var id := String(b.root_entry().get("id", ""))
+	if not b.move_root(cell, rotation_step):
+		_notify(Loc.t("editor.no_room_place", [Components.name_for(id)]))
+		Audio.play("deny")
+		rotation_step = _drag_from_rot
+		return false
+	_sim_dirty = true
+	Audio.play("place")
+	board_changed.emit()
+	return true
+
+## Whether the part in hand would go down at `cell`: where `can_place` says, or
+## for the root where it could move to.
+func _fits_held(b: SkillBoard, cell: Vector2i) -> bool:
+	if _drag_source == 2:
+		return b.can_move_root(cell, rotation_step)
+	return b.can_place(_held_id(), cell, rotation_step)
+
 func _place_from_palette(cell: Vector2i) -> void:
 	_drop_on(selected, -1, cell)
 
@@ -705,7 +752,8 @@ func _click_right() -> void:
 	_take_off(_hover_cell)
 
 ## Takes the part at `cell` off the board and back into the pool: the second
-## button's click, and mobile mode's REMOVE.
+## button's click, and mobile mode's REMOVE. Not the root, which is the
+## weapon's and stays on the board.
 func _take_off(cell: Vector2i) -> void:
 	var b := current_board()
 	if b == null:
@@ -724,12 +772,12 @@ func _take_off(cell: Vector2i) -> void:
 		board_changed.emit()
 
 func _take(id: String) -> bool:
-	if unlimited or Components.is_structural(id):
+	if unlimited:
 		return true
 	return GameState.take_component(id, inventory)
 
 func _give(id: String) -> void:
-	if unlimited or Components.is_structural(id):
+	if unlimited:
 		return
 	GameState.return_component(id, inventory)
 
@@ -881,6 +929,13 @@ const FLOW_DOT_SPAN := float(CELL) * 0.5
 ## rather than as a line with nicks in it.
 const FLOW_DOT := 6
 
+## What is wrong is marked in two colours: amber for a flow that runs out into
+## nothing — an empty cell, or off the board anywhere but the way out — and red
+## for one a part will not take, which is also the way out's colour while no
+## flow reaches it.
+const LEAK := Color(0.9, 0.6, 0.35)
+const BREAK := Color(1.0, 0.4, 0.4)
+
 ## What the pixel face has no glyph for, as bitmaps: one string per row, `#` for
 ## a PIXEL. Arrows point east and are turned to face the others.
 const PORT := ["#..", "##.", "###", "##.", "#.."]
@@ -890,6 +945,15 @@ const DOT := ["###", "###", "###"]
 ## Wide enough to read as two loops rather than as two more digits — it sits in
 ## the same column as counts like "x2", and a tighter one came out as "x00".
 const INFINITY := [".##...##.", "#..#.#..#", "#...#...#", "#..#.#..#", ".##...##."]
+## The way out: an arrowhead through the board's frame, in the middle of its
+## right edge. It is cut the way the root's own point is — a PIXEL in for every
+## PIXEL out from the middle — so the two read as a pair: the board's flow
+## starts at one point and leaves by the other. This many PIXELs from its back,
+## against the last cell, to its tip, which is as far outside the frame as the
+## room there allows: at a desk the biggest board a Workbench grows ends eight
+## short of the palette, and for a thumb the parts stand sixteen from the board.
+const WAY_OUT_DEEP := 8
+const WAY_OUT_DEEP_THUMB := 12
 
 func _draw() -> void:
 	var vp := get_viewport_rect().size
@@ -986,6 +1050,7 @@ func _draw_board() -> void:
 	# meet with nothing between them, so a cross sits on the seam itself and
 	# would be painted over by whichever part is drawn second.
 	_draw_faults()
+	_draw_way_out(b)
 	_draw_flow_dots()
 	# The part a thumb picked, ringed: two PIXELs of white round the whole of it,
 	# over the wiring, since it is the one TURN and REMOVE are about.
@@ -1001,7 +1066,7 @@ func _draw_board() -> void:
 	var held := _held_id()
 	var occupied := _hover_cell.x >= 0 and not b.comp_at(_hover_cell).is_empty()
 	if _hover_cell.x >= 0 and held != "" and (_drag_id != "" or not occupied):
-		var ok := b.can_place(held, _hover_cell, rotation_step)
+		var ok := _fits_held(b, _hover_cell)
 		# One box across the whole footprint, the shape the part would take. A
 		# footprint half off the board shows the half that is on it, which is
 		# why this grows from the hovered cell rather than from the footprint.
@@ -1156,6 +1221,7 @@ func _refresh_trace(b: SkillBoard) -> void:
 	# After the joints, never before: the outline is drawn round whatever they
 	# fused together.
 	_rebuild_outline(b)
+	_rebuild_way_out(b)
 
 ## How many joints each part sits from the root. `SkillBoard.trace` walks the
 ## board breadth-first and emits a link the first time the flow reaches its
@@ -1227,11 +1293,7 @@ func _rebuild_conditional(b: SkillBoard) -> void:
 		var from = b.origin_at(exit_cell)
 		if from == null:
 			continue
-		var entry := b.comp_origin_at(from)
-		if entry.is_empty():
-			continue
-		if Components.world_payload_out(String(entry["id"]), int(entry["rot"])) \
-				== _step_dir(to - exit_cell):
+		if _is_branch(b, exit_cell, _step_dir(to - exit_cell)):
 			continue
 		straight[from] = (straight.get(from, []) as Array) + [to]
 	var sure: Dictionary = {input: true}
@@ -1252,6 +1314,16 @@ func _rebuild_conditional(b: SkillBoard) -> void:
 		for c in Components.footprint(String(entry["id"]), origin, int(entry["rot"])):
 			_conditional[c] = true
 
+## Whether the flow leaving `exit_cell` heading `dir` is a trigger's branch: the
+## flow out of its side port rather than the one it passes on.
+func _is_branch(b: SkillBoard, exit_cell: Vector2i, dir: int) -> bool:
+	var from = b.origin_at(exit_cell)
+	if from == null:
+		return false
+	var entry := b.comp_origin_at(from)
+	return not entry.is_empty() \
+		and dir == Components.world_payload_out(String(entry["id"]), int(entry["rot"]))
+
 ## The two colours a stretch of track is lit in: the flow's own, or the drained
 ## one where what it runs along only carries flow on a trigger's condition.
 func _track_colors(cell: Vector2i) -> Array:
@@ -1265,18 +1337,18 @@ func _track_colors(cell: Vector2i) -> Array:
 ## reaches but can never leave — the flow really does go round it, and a track
 ## running dots round and round is exactly the reading it must not have.
 ##
-## The track is drawn round the parts *between* the two ends, with the start and
-## the end themselves left out of it. That is what puts its two tips on the side
-## of the start the run leaves by and the side of the end it arrives on: with a
-## board running left to right, the track leaves the middle of the start's right
-## edge and meets the middle of the end's left edge, having gone over and under
-## everything in between.
+## The track is drawn round the parts the root feeds, with the root itself left
+## out of it. That is what puts its first tip on the side of the root the run
+## leaves by: with a board running left to right, the track leaves the middle of
+## the root's right edge, goes over and under everything after it, and meets
+## again in the middle of the last part's far side, where the flow leaves it —
+## through the frame, on a board that fires.
 ##
-## It is the boundary of that middle region rather than the lit silhouette, so
-## the sides facing the start and the end count even though they are fused and
-## never drawn — those are the two tips. Each cell contributes one directed edge
+## It is the boundary of that region rather than the lit silhouette, so the
+## side facing the root counts even though it is fused and never drawn — that
+## is the tip the dots set off from. Each cell contributes one directed edge
 ## per open side, walked with the region on its right, and chaining those end to
-## start gives loops that run clockwise on screen. A middle with a hole in it
+## start gives loops that run clockwise on screen. A region with a hole in it
 ## yields the hole as a loop of its own, so the dots run that too.
 ##
 ## A side is only open onto what it is *joined* to, never onto what merely
@@ -1296,16 +1368,11 @@ func _rebuild_outline(b: SkillBoard) -> void:
 	if ends.is_empty():
 		return
 	# The root is always left out: the run starts where it hands the flow over.
-	# The far end is left out only when it is an OUTPUT, which is a terminal in
-	# the same way — a run that simply stops instead ends on a part like any
-	# other, and that part is as wired as the ones behind it, so it is outlined
-	# with them.
-	var terminal := String(b.comp_origin_at(ends[1]).get("id", "")) == "OUTPUT"
+	# The far end is a part like any other, as wired as the ones behind it, so
+	# it is outlined with them.
 	var mid := {}
 	for origin in b.cells.keys():
 		if not _flow_depth.has(origin) or origin == ends[0] or _dead_at(origin):
-			continue
-		if terminal and origin == ends[1]:
 			continue
 		var entry: Dictionary = b.cells[origin]
 		var cells := Components.footprint(String(entry["id"]), origin, int(entry["rot"]))
@@ -1377,8 +1444,7 @@ func _rebuild_outline(b: SkillBoard) -> void:
 			# the whole point. Anything shorter is not a shape at all.
 			if loop.size() >= 2:
 				_flow_loops.append({"loop": loop, "owners": owners})
-				_cut_loop(loop, owners, flow,
-					_flow_head(b, ends[0]), _flow_tail(b, ends[1], terminal))
+				_cut_loop(loop, owners, flow, _flow_head(b, ends[0]), _flow_head(b, ends[1]))
 
 ## Which of the edges starting here to take next, as an index into `here`:
 ## whichever turns furthest right from the way the walk arrived. Right first,
@@ -1402,9 +1468,10 @@ func _rightmost(here: Array, heading: Vector2) -> int:
 	return best
 
 ## Where the dots set off from and where they are heading: the root, and the
-## part the flow finishes on — an OUTPUT if the board has one, whatever it
-## reaches last if it does not. Empty when there is nothing to run between, as
-## on a board that is only its root, and then nothing is drawn at all.
+## part the flow finishes on, which is the furthest one it reaches. Empty when
+## there is nothing to run between, as on a board that is only its root, and
+## then no shape is outlined at all — the root's flow is the line to the way out
+## and nothing else.
 func _flow_ends(b: SkillBoard) -> Array:
 	var input = b.find_root()
 	if input == null:
@@ -1417,39 +1484,13 @@ func _flow_ends(b: SkillBoard) -> Array:
 		# end on the last part that still leads somewhere.
 		if entry.is_empty() or _dead_at(origin):
 			continue
-		# An OUTPUT is the end whatever its depth, since that is where the
-		# board is actually going; failing that, the furthest part reached.
 		var rank := int(_flow_depth[origin])
-		if String(entry["id"]) == "OUTPUT":
-			rank += 1 << 16
 		if rank > best_rank:
 			best_rank = rank
 			best = origin
 	if best == null or best == input:
 		return []
 	return [input, best]
-
-## Where the far end of a run draws the dots to. A terminal OUTPUT is outside
-## the outline, so its own middle serves: the nearest the track comes to it is
-## the edge facing it, and that is the tip the dots arrive on.
-##
-## A last part that is *inside* the outline cannot be found that way — its
-## middle is as near one of its sides as another, and the tip would land on
-## whichever the arithmetic settled on. The anchor is put a cell beyond the edge
-## the flow leaves by instead, so the dots come in on the side the run was
-## heading and meet where it stops.
-func _flow_tail(b: SkillBoard, origin: Vector2i, terminal: bool) -> Vector2:
-	if not terminal:
-		return _flow_head(b, origin)
-	# An OUTPUT has no side of its own, so the seam is the one the wiring feeds
-	# it through — the same side it is drawn coming to a point on.
-	var entry := b.comp_origin_at(origin)
-	if entry.is_empty():
-		return _part_center(b, origin)
-	var side := _port_cut(b, String(entry["id"]), origin, int(entry["rot"]))
-	if side < 0:
-		return _part_center(b, origin)
-	return _cell_center(origin) + Vector2(Components.dir_to_vec(side)) * (cell_size() * 0.5)
 
 ## The middle of the seam a part sends its flow across. At either end of a run
 ## that is a tip of the outline: the root hands the flow over on one, and the
@@ -1485,7 +1526,8 @@ func _part_center(b: SkillBoard, origin: Vector2i) -> Vector2:
 ## is entered and left the same way and comes out pointing hard along it, and a
 ## part the flow turns on comes out pointing into the corner. Both ends of a
 ## step count, so a cell fed from outside the region — the one the root hands
-## over to — still knows which way the flow arrived.
+## over to — still knows which way the flow arrived. Leaving by the way out is a
+## step too, so the last part of a run knows which way it lets go.
 ##
 ## The two cells of a two-cell part are a step of their own: nothing is wired
 ## between them, but the flow crosses from the one to the other all the same.
@@ -1494,6 +1536,9 @@ func _flow_through(b: SkillBoard, mid: Dictionary) -> Dictionary:
 	var steps: Array = []
 	for link in _trace_cache.get("links", []):
 		steps.append([link[0], link[1]])
+	for out in _trace_cache.get("outs", []):
+		var from: Vector2i = out["from"]
+		steps.append([from, from + Components.dir_to_vec(int(out["dir"]))])
 	for origin in b.cells.keys():
 		var entry: Dictionary = b.cells[origin]
 		var ex := Components.exit_cell(String(entry["id"]), origin, int(entry["rot"]))
@@ -1515,11 +1560,11 @@ func _flow_through(b: SkillBoard, mid: Dictionary) -> Dictionary:
 ## going the way the part it runs along sends the flow. That is the whole of the
 ## rule, and both readings fall out of it:
 ##
-##   * A run with two ends — a line of parts from the root to an OUTPUT — has
-##     its two long sides pointing the same way and its two end caps pointing
-##     across. The caps are where the runs meet, so the dots leave the middle of
-##     the cap the root feeds, go both ways round, and arrive at the middle of
-##     the one the flow leaves by. Nothing circles, exactly as before.
+##   * A run with two ends — a line of parts from the root towards the way out
+##     — has its two long sides pointing the same way and its two end caps
+##     pointing across. The caps are where the runs meet, so the dots leave the
+##     middle of the cap the root feeds, go both ways round, and arrive at the
+##     middle of the one the flow leaves by. Nothing circles, exactly as before.
 ##   * A branch that comes back round — a ring, or a trigger's branch running
 ##     home along the row below — has every side pointing the same way round the
 ##     shape. There is no cap to meet at, so the dots go round with the flow
@@ -1637,8 +1682,8 @@ func _cut_at_ends(loop: PackedVector2Array, owners: Array, head: Vector2, tail: 
 ## How far round `loop` the outline comes closest to `to`. Measured against the
 ## segments rather than only the corners: a part's middle is nearer the middle
 ## of its own edge than any corner of it, and going by corners put both cuts on
-## the same one whenever the two parts met there — a board whose root and
-## OUTPUT sit corner to corner then came out with no runs at all.
+## the same one whenever the two parts met there — a board whose two ends
+## sit corner to corner then came out with no runs at all.
 func _cut_at(loop: PackedVector2Array, to: Vector2) -> float:
 	var best := 0.0
 	var best_d := INF
@@ -1845,18 +1890,51 @@ func _draw_band(at: Vector2, along: Vector2, span: float, col: Color) -> void:
 	_px.rect(Rect2(Vector2(minf(at.x, z.x), minf(at.y, z.y)), (z - at).abs()), col)
 
 ## Only what is *wrong* is marked here: a cross where two parts touch but the
-## receiving port faces away, and a dot where the flow runs out into empty
-## space. What carries flow is not marked at all — the parts meet edge to edge,
-## so the highlight running the chain is what shows a joint is live.
+## receiving one will not take the flow, and a dot where the flow runs out into
+## nothing — an empty cell, or off the board anywhere but the way out. What
+## carries flow is not marked at all — the parts meet edge to edge, so the
+## highlight running the chain is what shows a joint is live.
 func _draw_faults() -> void:
 	for br in _trace_cache.get("breaks", []):
 		_px.icon_centered((_cell_center(br["from"]) + _cell_center(br["to"])) * 0.5, CROSS,
-			Color(1.0, 0.4, 0.4, 0.95))
+			Color(BREAK.r, BREAK.g, BREAK.b, 0.95))
 	for leak in _trace_cache.get("leaks", []):
-		if String(leak.get("why", "")) != "empty":
-			continue
 		var v := Vector2(Components.dir_to_vec(int(leak["dir"])))
-		_px.icon_centered(_cell_center(leak["from"]) + v * (cell_size() * 0.5 + 5.0), DOT, Color(0.9, 0.6, 0.35, 0.75))
+		_px.icon_centered(_cell_center(leak["from"]) + v * (cell_size() * 0.5 + 5.0), DOT,
+			Color(LEAK.r, LEAK.g, LEAK.b, 0.75))
+
+## What the way out's arrow is drawn in: the flow's colour while a flow every
+## cast sends gets there, the drained one while only a trigger's branch does,
+## and the faults' red while nothing does — a board that casts nothing.
+func _rebuild_way_out(b: SkillBoard) -> void:
+	var sure := false
+	var only_branch := false
+	for out in _trace_cache.get("outs", []):
+		var from: Vector2i = out["from"]
+		if _conditional.has(from) or _is_branch(b, from, int(out["dir"])):
+			only_branch = true
+		else:
+			sure = true
+	_way_out_col = FLOW_EDGE if sure else (COND_EDGE if only_branch else BREAK)
+
+## The way out, drawn on the frame in the middle of the right edge: an arrowhead
+## with its back against the last cell and its tip outside the board, in the
+## colour of what reaches it (`_rebuild_way_out`). A column of it at a time,
+## each a PIXEL shorter at either end than the one before, centred on the row.
+func _draw_way_out(b: SkillBoard) -> void:
+	var r := _way_out_rect(b)
+	var deep := int(r.size.x / float(PX))
+	for i in deep:
+		var half := float(deep - 1 - i) * float(PX)
+		_px.rect(Rect2(r.position.x + float(i * PX), r.get_center().y - float(PX) * 0.5 - half,
+			float(PX), half * 2.0 + float(PX)), _way_out_col)
+
+## Where the arrowhead stands: its back on the east side of the cell the way out
+## is, centred on its row.
+func _way_out_rect(b: SkillBoard) -> Rect2:
+	var deep := WAY_OUT_DEEP_THUMB if cell_size() >= 80.0 else WAY_OUT_DEEP
+	var size := Vector2(deep, deep * 2 - 1) * float(PX)
+	return Rect2(_cell_center(b.way_out()) + Vector2(cell_size() * 0.5, -size.y * 0.5), size)
 
 ## A two-cell part is one box across both of its cells rather than two boxes
 ## side by side: the seam between them would otherwise read as two parts, and
@@ -1910,27 +1988,14 @@ func _edge_rect(cells: Array, cell: Vector2i, dir: int) -> Rect2:
 	var bot := r.end.y - (0.0 if _fused(cells, cell, 1) else float(PX))
 	return Rect2(r.end.x - PX if dir % 4 == 0 else r.position.x, top, PX, bot - top)
 
-## Which side a part comes to a point on, or -1 for everything that is a box.
-## The root points the way it hands the flow over: it is the weapon's own part,
-## and the point is what says so. The OUTPUT has no direction of its own — a
-## part takes flow on any side that is not one of its outputs — so what points
-## it is the wiring: the side it is actually fed from. One that nothing reaches
-## stays a box, nothing having said yet where its port is.
+## Which side a part comes to a point on, or -1 for everything that is a box,
+## which is every part but the root. The root points the way it hands the flow
+## over: it is the weapon's own part, and the point is what says so.
 func _port_cut(b: SkillBoard, id: String, origin: Vector2i, rot: int) -> int:
-	if b.is_root(origin):
-		var outs := Components.world_outputs(id, rot)
-		return int(outs[0]) if not outs.is_empty() else -1
-	if id != "OUTPUT":
+	if not b.is_root(origin):
 		return -1
-	var cells := Components.footprint(id, origin, rot)
-	for link in _trace_cache.get("links", []):
-		var to: Vector2i = link[1]
-		if not cells.has(to):
-			continue
-		var d := _step_dir(to - (link[0] as Vector2i))
-		if d >= 0:
-			return Components.opposite(d)
-	return -1
+	var outs := Components.world_outputs(id, rot)
+	return int(outs[0]) if not outs.is_empty() else -1
 
 ## How far back a port is cut: the staircase runs at forty-five degrees from the
 ## middle of the side it points out of, so it reaches in as far as that side is
@@ -2073,7 +2138,7 @@ func _pal_groups() -> Array:
 	var groups: Array = []
 	var at := {}
 	for id in _pool_ids():
-		var cat := String(Components.get_def(id).get("cat", Components.CAT_STRUCT))
+		var cat := String(Components.get_def(id).get("cat", ""))
 		if not at.has(cat):
 			at[cat] = groups.size()
 			groups.append({"cat": cat, "ids": []})
@@ -2170,7 +2235,7 @@ func _draw_palette() -> void:
 	for i in ids.size():
 		var id: String = ids[i]
 		var r := _pal_rect(i)
-		var have := unlimited or Components.is_structural(id) or int(inventory.get(id, 0)) > 0
+		var have := unlimited or int(inventory.get(id, 0)) > 0
 		var c := Style.component_color(id)
 		var bg := Color(c.r, c.g, c.b, 0.18 if have else 0.05)
 		if id == selected:
@@ -2189,14 +2254,14 @@ func _draw_palette() -> void:
 func _pal_name_width(i: int) -> float:
 	return _pal_rect(i).size.x - 46.0 - _count_width(String(_pal_list()[i]["id"]))
 
-## A part there is no end of shows an infinity sign instead of a count, drawn
-## because the pixel face has none. On its own, without the "x" a count has: the
-## two together read as one more number.
-func _endless(id: String) -> bool:
-	return unlimited or Components.is_structural(id)
+## Where there is no end of parts — the bench — a part shows an infinity sign
+## instead of a count, drawn because the pixel face has none. On its own,
+## without the "x" a count has: the two together read as one more number.
+func _endless() -> bool:
+	return unlimited
 
 func _count_width(id: String) -> float:
-	if _endless(id):
+	if _endless():
 		return INFINITY[0].length() * PX
 	return PixelDraw.ink_width("x%d" % int(inventory.get(id, 0)))
 
@@ -2204,7 +2269,7 @@ func _count_width(id: String) -> float:
 func _draw_count(right: Vector2, id: String) -> void:
 	var col := Color(0.6, 0.7, 0.8)
 	var at := _px.snap(right - Vector2(_count_width(id), 0))
-	if _endless(id):
+	if _endless():
 		_px.icon(at + Vector2(0, -5 * PX), INFINITY, col)
 	else:
 		_px.text(at, Loc.t("editor.count", [int(inventory.get(id, 0))]), col)
@@ -2288,7 +2353,7 @@ func _draw_thumb_parts() -> void:
 	for i in ids.size():
 		var id: String = ids[i]
 		var r := _pal_rect(i)
-		var have := unlimited or Components.is_structural(id) or int(inventory.get(id, 0)) > 0
+		var have := unlimited or int(inventory.get(id, 0)) > 0
 		var c := Style.component_color(id)
 		_px.rect(r, Color(0.08, 0.09, 0.12, 0.92))
 		_px.rect(r, Color(c.r, c.g, c.b, 0.42 if id == selected else (0.18 if have else 0.05)))
@@ -2308,7 +2373,7 @@ func _draw_thumb_parts() -> void:
 
 	# TURN shows the way the part in hand faces — the one picked on the board, or
 	# the next one set down — and turns it. REMOVE has something to take off only
-	# while a part on the board is picked.
+	# while a part on the board is picked, and not the root, which stays.
 	var turn: Rect2 = l["turn"]
 	var turn_label := Loc.t("editor.turn")
 	var turn_size := Loc.text_size(turn_label, big)
@@ -2319,14 +2384,15 @@ func _draw_thumb_parts() -> void:
 	_px.icon(turn_at, _arrows[rotation_step], Color(0.8, 0.95, 1.0), 3)
 	_px.text(Vector2(turn_at.x + arrow, turn.position.y + (turn.size.y + 20.0) * 0.5), turn_label,
 		Color(0.95, 0.98, 1.0), -1.0, turn_size)
+	var b := current_board()
 	_draw_thumb_plate(l["remove"], Loc.t("editor.remove"), Color(1.0, 0.55, 0.55), _hover_remove,
-		_picked_part() != NOWHERE)
+		_picked_part() != NOWHERE and b != null and not b.is_root(_picked))
 
 ## A part's count at a thumb's size, right-aligned on `right`, a baseline: "x2",
 ## or the infinity sign. Hands back how wide it came out.
 func _draw_thumb_count(right: Vector2, id: String) -> float:
 	var col := Color(0.6, 0.7, 0.8)
-	if _endless(id):
+	if _endless():
 		var w := INFINITY[0].length() * PX * 2.0
 		_px.icon(_px.snap(right - Vector2(w, 20.0)), INFINITY, col, 2)
 		return w
