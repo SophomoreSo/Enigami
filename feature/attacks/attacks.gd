@@ -452,11 +452,23 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 	# combination rather than a flat damage part.
 	var chilled := target.chill_time > 0.0
 	var damage := p.damage * SHATTER_MUL if (p.shatter and chilled) else p.damage
-	var dealt := target.apply_damage(damage, p.elements, atk)
+	# A hit that cleanses lands bare, and what it carries goes on once the
+	# cleanse has been through (below): the other way round, the cleanse would
+	# take what its own hit brought along with what was there before it.
+	var dealt := target.apply_damage(damage, [] if p.cleanse else p.elements, atk)
 	if dealt <= 0.0:
 		return
 	if p.shatter and chilled:
 		Cues.at(&"shatter", pos, {"payload": p, "damage": dealt})
+	# A cleanse — what an INVERT makes of FIRE, ICE or STUN — ends what the enemy
+	# struck was carrying when the hit reached it: every burn, chill and stun.
+	# What this hit brings is some other part's doing and not the cleanse's to
+	# end, so it goes on after, the stun further down included: FIRE, FIRE,
+	# INVERT turns round the second FIRE alone, and still burns from the first.
+	if p.cleanse and not target.dead:
+		if target.cleanse():
+			Cues.at(&"cleanse", target.global_position, {"target_team": target.team})
+		target.afflict(dealt, p.elements)
 	# GRAVITY drags instead of shoving: rather than being knocked away, the
 	# struck enemy becomes the point every other enemy nearby is pulled onto.
 	if p.pull:
@@ -477,22 +489,18 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 		target.knockback(-dir, KNOCKBACK_FORCE)
 	# And of GRAVITY: everything round the impact is driven off it.
 	if p.repel:
-		_repel(p, pos, team)
+		_repel(p, target, pos, team)
 	if p.stun > 0.0 and target.stun(p.stun):
 		Cues.at(&"stun", target.global_position, {"seconds": p.stun, "target_team": target.team})
 	if p.mana_drain and atk != null and atk.has_method("gain_mana"):
 		atk.gain_mana(MANA_PER_HIT)
 		Cues.at(&"mana_drain", pos, {"amount": MANA_PER_HIT})
-	# What an INVERT turned to help lands on the enemy struck, after the harm
-	# and only while it still stands: health given back, and every burn, chill
-	# and stun it carries ended — the ones this same hit brought included.
-	if not target.dead:
-		if p.heal > 0.0:
-			var healed := target.heal(p.heal)
-			if healed > 0.0:
-				Cues.at(&"heal", target.global_position, {"amount": healed, "target_team": target.team})
-		if p.cleanse and target.cleanse():
-			Cues.at(&"cleanse", target.global_position, {"target_team": target.team})
+	# What an INVERT made of DAMAGE: health given back to the enemy struck, after
+	# the harm and only while it still stands, so a blow that kills stays a kill.
+	if p.heal > 0.0 and not target.dead:
+		var healed := target.heal(p.heal)
+		if healed > 0.0:
+			Cues.at(&"heal", target.global_position, {"amount": healed, "target_team": target.team})
 	# A connection stops the clock for a frame. That is a rule — everything in
 	# the fight feels it — so it is applied here and not left to the screen.
 	TimeCtl.hitstop(CHAIN_HITSTOP if p.follow_up else HITSTOP)
@@ -533,10 +541,15 @@ static func _pull(p: Payload, pos: Vector2, team: int) -> void:
 
 ## Everything `team` may hurt, driven off `pos`: GRAVITY's drag turned round,
 ## over the same reach and as hard, but the nearer harder, the way a blast
-## throws. The enemy struck on `pos` itself has the hit's own shove instead.
-static func _repel(p: Payload, pos: Vector2, team: int) -> void:
+## throws. The enemy `struck` has the hit's own shove instead, wherever on it
+## the hit landed. A bolt resolves where the bolt is, a little short of what it
+## strikes, and that is the hard end of this: counted among the driven, the one
+## a bolt struck would be thrown several times as far as one a swing did.
+static func _repel(p: Payload, struck: Actor, pos: Vector2, team: int) -> void:
 	var radius := PULL_RADIUS * p.size
 	for a in targets(team):
+		if a == struck:
+			continue
 		var away: Vector2 = a.global_position - pos
 		var d := away.length()
 		if d > radius:

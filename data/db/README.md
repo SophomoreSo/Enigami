@@ -440,7 +440,7 @@ its effects, but only the five ops that change a field:
 ```sql
 INSERT INTO inversions (part_id, position, field, op, value) VALUES
 	('DAMAGE', 0, 'heal', 'add', 8),          -- what it added heals the enemy struck instead
-	('ICE', 0, 'cleanse', 'set', 'true'),     -- no chill: every burn, chill and stun on it ends
+	('ICE', 0, 'cleanse', 'set', 'true'),     -- no chill: every burn, chill and stun it was carrying ends
 	('SIZE', 0, 'size', 'multiply', 0.625);   -- as much smaller as SIZE makes it bigger
 ```
 
@@ -448,8 +448,11 @@ Only that one part is turned round: FIRE, FIRE, INVERT still burns, from the
 first FIRE. A part with no rows here has no opposite, and an INVERT after it —
 or after a form, a trigger, SPLIT, TEE or another INVERT — does nothing.
 What an opposite gives lands on the enemy the hit strikes, once the hit has
-landed (`Attacks.resolve_hit`). Each number is its effect's turned round, and
-`tests/circuit/invert_test.tscn` holds every multiply to one over its effect's.
+landed (`Attacks.resolve_hit`). A cleanse ends what that enemy was carrying
+when the hit reached it, and whatever the same hit brings goes on after — which
+is what keeps that first FIRE burning. Each number is its effect's turned
+round, and `tests/circuit/invert_test.tscn` holds every multiply to one over
+its effect's.
 
 ## A board
 

@@ -154,9 +154,13 @@ func _stun_stars(delta: float) -> void:
 	var over := Vector2(cos(_star_turn) * actor.body_size.x * 0.45, -actor.body_size.y * 0.5 - 8.0)
 	Fx.burst(actor.global_position + over, Style.STUN_COLOR, 1, 18.0)
 
-## Health given back reads beside the damage numbers, green and signed.
+## Health given back reads with the damage numbers, green and signed, and a
+## line above where they start: what an INVERT gives back lands in the same
+## instant as the blow it rides on, and two numbers thrown from one spot are
+## one smudge.
 func _on_healed(a: Actor, amount: float) -> void:
-	Fx.text(a.global_position + Vector2(0, -a.hurt_radius - 6), "+%d" % int(round(amount)), Style.HEAL_COLOR)
+	var line := float(PixelCamera.TEXT_SIZE * PixelCamera.SCALE)
+	Fx.text(a.global_position + Vector2(0, -a.hurt_radius - 6 - line), "+%d" % int(round(amount)), Style.HEAL_COLOR)
 
 func _on_damaged(a: Actor, amount: float) -> void:
 	# Damage over time never reaches here: it is not a connection, so it neither

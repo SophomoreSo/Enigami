@@ -331,11 +331,14 @@ after that first `OUTPUT` still plays out in real time, which is what lets
   off the next one for a second and a half, so no board can hold one for good.
 - `INVERT` turns round the part straight before it. `DAMAGE` heals the enemy
   struck instead; `FIRE`, `ICE` and `STUN` cleanse it of every burn, chill and
-  stun; `GRAVITY` drives the room away from the impact instead of gathering
-  it; `KNOCKBACK` hauls the struck enemy back the way the attack came; and
-  `SIZE`, `SPEED` and `RANGE` make the attack as much less as they would have
-  made it more. Only the one part before it is turned round, and after a part
-  with no opposite — a form, a trigger, `SPLIT`, `TEE` — it does nothing.
+  stun it was carrying; `GRAVITY` drives the room away from the impact instead
+  of gathering it; `KNOCKBACK` hauls the struck enemy back the way the attack
+  came; and `SIZE`, `SPEED` and `RANGE` make the attack as much less as they
+  would have made it more. Only the one part before it is turned round: `FIRE`,
+  `FIRE`, `INVERT` puts out whatever the enemy came burning with and sets it
+  alight again from the first `FIRE`, since a cleanse ends what was there
+  before the hit and never what the hit itself brings. After a part with no
+  opposite — a form, a trigger, `SPLIT`, `TEE` — it does nothing.
 - `TIME DILATION` slows the world *and* the board together — it changes the
   pace of a fight rather than buffing attack speed.
 

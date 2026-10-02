@@ -1,13 +1,14 @@
 extends Node
 ## What STUN, and what INVERT makes of the part before it, do once a hit lands:
-## the enemy struck is healed, cleansed of every burn, chill and stun, stood
-## still where it is; the room round the impact is driven off it; the one
-## struck is hauled back the way the attack came.
+## the enemy struck is healed, cleansed of every burn, chill and stun it was
+## carrying, stood still where it is; the room round the impact is driven off
+## it; the one struck is hauled back the way the attack came.
 ##
 ## Driven through `Attacks.resolve_hit`, which is the one door every attack form
 ## goes through, against dummies and real monsters, the way impact_test is —
 ## and a real player, for a stun that lands on them. What INVERT puts on the
-## payload in the first place is invert_test's.
+## payload in the first place is invert_test's; the two are held together by
+## boards whose casts are landed on a body.
 
 var fails := 0
 
@@ -72,6 +73,21 @@ func hit(damage: float = 1.0) -> Payload:
 	p.damage = damage
 	return p
 
+## What a cast of a board with `ids` in a line fires — the first on the root,
+## the way a weapon's own part is — as the sword's owner would land it.
+func cast_of(ids: Array) -> Payload:
+	var b := SkillBoard.new(11, 5, "test")
+	b.set_root(String(ids[0]))
+	var x := 1
+	for id in ids.slice(1):
+		b.place(String(id), Vector2i(x, 2), 0)
+		x += 1
+	b.place("OUTPUT", Vector2i(x, 2), 0)
+	var sim := SkillRunner.new(b)
+	sim.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
+	var outs: Array = sim.simulate()["outputs"]
+	return Weapons.finalize("SWORD", outs[0]) if outs.size() > 0 else null
+
 ## Rooms for the live-monster checks, kept well apart so one test's push
 ## cannot reach the next test's monster.
 var _plot := 0
@@ -85,6 +101,7 @@ func _ready() -> void:
 	await _stun_rule()
 	await _stunned_monster()
 	await _blocked()
+	await _from_the_board()
 	await _repel()
 	await _hook()
 	await _stunned_player()
@@ -138,11 +155,50 @@ func _cleanse() -> void:
 		"a cleansing hit ends every burn, chill and stun on the enemy struck")
 	check(is_equal_approx(a.stun_guard, Actor.STUN_GUARD),
 		"and a stun it ends is over like any other, so the guard after one starts (%.1f)" % a.stun_guard)
-	a.stun_guard = 0.0
-	p.elements.append("FIRE")
-	Attacks.resolve_hit(p, a, a.global_position, Vector2.ZERO, null, null, 0)
-	check(a.burn_time <= 0.0, "the burn this same hit brought goes with the rest (%.1f)" % a.burn_time)
 	a.queue_free()
+
+	# What the hit itself brings is not the cleanse's to end. It goes on once
+	# the cleanse has been through: the old burn is over and this one is the
+	# hit's own, as hard as the hit and no harder.
+	var b := dummy(Vector2(700, -2000))
+	await frames(1)
+	b.burn_time = 1.0
+	b.burn_dps = 50.0
+	b.chill_time = 2.0
+	var lit := hit(10.0)
+	lit.cleanse = true
+	lit.elements.append("FIRE")
+	var washed: Array = []
+	var seen := func(name: StringName, _d: Dictionary) -> void:
+		if name == &"cleanse":
+			washed.append(name)
+	Cues.fired.connect(seen)
+	Attacks.resolve_hit(lit, b, b.global_position, Vector2.ZERO, null, null, 0)
+	check(b.chill_time <= 0.0, "a cleansing hit that burns still ends the chill the enemy was carrying")
+	check(is_equal_approx(b.burn_time, 2.5) and is_equal_approx(b.burn_dps, 10.0 * 0.22),
+		"and the burn it brings itself stays on, the hit's own (%.1fs at %.1f)" % [b.burn_time, b.burn_dps])
+	check(washed.size() == 1, "saying so once, for what it ended (%d)" % washed.size())
+	b.queue_free()
+
+	# With nothing on the enemy to end, a cleanse says nothing — and what the
+	# hit brings stays all the same.
+	var c := dummy(Vector2(800, -2000))
+	await frames(1)
+	washed.clear()
+	lit.elements.append("ICE")
+	lit.stun = 0.5
+	Attacks.resolve_hit(lit, c, c.global_position, Vector2.ZERO, null, null, 0)
+	check(c.burn_time > 0.0 and c.chill_time > 0.0 and c.stunned(),
+		"on an enemy carrying nothing, the burn, chill and stun the hit brings all stay")
+	check(washed.is_empty(), "and nothing is said of a cleanse that ended nothing (%d)" % washed.size())
+	# Struck again while it stands stunned: that stun is one it was carrying,
+	# so it ends, and the guard after it keeps this hit's own from taking.
+	Attacks.resolve_hit(lit, c, c.global_position, Vector2.ZERO, null, null, 0)
+	check(not c.stunned() and is_equal_approx(c.stun_guard, Actor.STUN_GUARD),
+		"struck again, the stun it was carrying ends, and the guard keeps the next from taking")
+	check(c.burn_time > 0.0 and c.chill_time > 0.0, "while the burn and the chill are this hit's again")
+	Cues.fired.disconnect(seen)
+	c.queue_free()
 
 ## --- stun -------------------------------------------------------------------
 
@@ -215,6 +271,53 @@ func _blocked() -> void:
 		"a hit that does not land brings nothing with it: no heal, no cleanse, no stun")
 	a.queue_free()
 
+## --- from the board to the body --------------------------------------------------
+
+## What invert_test finds on a cast and what the checks above do with a payload,
+## held together: real boards, cast and landed on an enemy already burning,
+## chilled or stunned. Only the part straight before INVERT is turned round, so
+## whatever else the board carries still lands and stays.
+func _from_the_board() -> void:
+	var twice := cast_of(["SLASH", "FIRE", "FIRE", "INVERT"])
+	var a := dummy(Vector2(1500, -2000))
+	await frames(1)
+	a.chill_time = 2.0
+	Attacks.resolve_hit(twice, a, a.global_position, Vector2.ZERO, null, null, 0)
+	check(a.chill_time <= 0.0 and a.burn_time > 0.0,
+		"FIRE, FIRE, INVERT landed: the chill it was carrying ends, and it burns from the first FIRE (%.1fs)" % a.burn_time)
+	a.queue_free()
+
+	var mixed := cast_of(["SLASH", "STUN", "ICE", "INVERT"])
+	var b := dummy(Vector2(1600, -2000))
+	await frames(1)
+	b.burn_time = 2.0
+	b.burn_dps = 3.0
+	Attacks.resolve_hit(mixed, b, b.global_position, Vector2.ZERO, null, null, 0)
+	check(b.burn_time <= 0.0 and b.chill_time <= 0.0 and b.stunned(),
+		"STUN, ICE, INVERT landed: its burn ends, no chill comes, and it stands stunned by the STUN")
+	b.queue_free()
+
+	var calm := cast_of(["SLASH", "STUN", "INVERT"])
+	var c := dummy(Vector2(1700, -2000))
+	await frames(1)
+	c.stun_time = 0.6
+	c.burn_time = 2.0
+	c.burn_dps = 3.0
+	Attacks.resolve_hit(calm, c, c.global_position, Vector2.ZERO, null, null, 0)
+	check(not c.stunned() and c.burn_time <= 0.0,
+		"STUN, INVERT landed: a stunned, burning enemy comes round and is put out")
+	c.queue_free()
+
+	var mend := cast_of(["SLASH", "DAMAGE", "INVERT"])
+	var bare := cast_of(["SLASH"])
+	var d := dummy(Vector2(1800, -2000))
+	await frames(1)
+	d.health = 400.0
+	Attacks.resolve_hit(mend, d, d.global_position, Vector2.ZERO, null, null, 0)
+	check(is_equal_approx(mend.damage, bare.damage) and is_equal_approx(d.health, 400.0 - bare.damage + mend.heal),
+		"DAMAGE, INVERT landed: the blow a bare board lands, and DAMAGE's share given back (%.1f of 400)" % d.health)
+	d.queue_free()
+
 ## --- repel and hook ------------------------------------------------------------
 
 ## How far a `kind` travels in x over half a second while `p` lands 60px to
@@ -235,8 +338,9 @@ func push_travel(kind: String, p: Payload) -> float:
 	return moved
 
 ## How far a `kind` travels in x over half a second after `p` strikes it, the
-## attack going right.
-func knock_travel(kind: String, p: Payload) -> float:
+## attack going right — resolved `short` of the middle of it, the way a bolt's
+## hit is: where the bolt is, not where the body is.
+func knock_travel(kind: String, p: Payload, short: float = 0.0) -> float:
 	_plot += 1
 	var at := Vector2(0, float(_plot) * 4000.0)
 	var m := monster(kind, at)
@@ -245,7 +349,7 @@ func knock_travel(kind: String, p: Payload) -> float:
 	m.max_health = 9999.0
 	m.health = 9999.0
 	var x0: float = m.global_position.x
-	Attacks.resolve_hit(p, m, m.global_position, Vector2.RIGHT, null, null, 0)
+	Attacks.resolve_hit(p, m, m.global_position - Vector2(short, 0.0), Vector2.RIGHT, null, null, 0)
 	await phys(30)
 	var moved: float = m.global_position.x - x0
 	m.queue_free()
@@ -258,6 +362,14 @@ func _repel() -> void:
 	for kind in ["DUMMY", "CRAWLER", "LOBBER", "DRIFTER"]:
 		var driven: float = await push_travel(kind, push) - await push_travel(kind, plain)
 		check(driven > 20.0, "a %s 60px from a hit that repels is driven %.0fpx away from it" % [kind, driven])
+	# The one struck has the hit's own shove and nothing on top of it, wherever
+	# on it the hit landed. A bolt's lands a little short of the middle, which
+	# is the hard end of the push: counted among the driven, the enemy a bolt
+	# strikes would be thrown several times as far as one a swing does.
+	for kind in ["DUMMY", "CRAWLER"]:
+		var bolt: float = await knock_travel(kind, push, 12.0) - await knock_travel(kind, plain, 12.0)
+		check(absf(bolt) < 2.0,
+			"a %s struck by a bolt that repels goes no further than a plain bolt sends it (%.0fpx)" % [kind, bolt])
 
 func _hook() -> void:
 	var plain := hit()

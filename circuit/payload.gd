@@ -37,9 +37,10 @@ var mana_drain: bool = false       ## every connection pays the caster back
 var stun: float = 0.0              ## seconds the struck enemy stands stunned
 ## What an INVERT makes of the part before it (the `inversions` rows), each
 ## landing on the struck enemy once the hit has: health given back, every burn,
-## chill and stun ended, the enemies round the impact driven off rather than
-## gathered (GRAVITY's opposite), the struck one hauled back the way the attack
-## came rather than thrown on (KNOCKBACK's).
+## chill and stun it was carrying ended — though not what this same hit brings
+## it — the enemies round the impact driven off rather than gathered (GRAVITY's
+## opposite), the struck one hauled back the way the attack came rather than
+## thrown on (KNOCKBACK's).
 var heal: float = 0.0
 var cleanse: bool = false
 var repel: bool = false

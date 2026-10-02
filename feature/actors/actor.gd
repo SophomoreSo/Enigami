@@ -72,15 +72,23 @@ func apply_damage(amount: float, elements: Array = [], _source: Node = null, is_
 	health -= amount
 	if is_hit:
 		damaged.emit(self, amount)
+	afflict(amount, elements)
+	if health <= 0.0:
+		_kill()
+	return amount
+
+## What a blow of `amount` carrying `elements` leaves on this actor: a burn for
+## FIRE, as hard as the blow was, and a chill for ICE. Neither is cut short by a
+## lesser one landing on it. `apply_damage` does this for the blow it lands; a
+## hit that cleanses does it itself, once the cleanse has been through
+## (`Attacks.resolve_hit`).
+func afflict(amount: float, elements: Array) -> void:
 	for e in elements:
 		if e == "FIRE":
 			burn_time = maxf(burn_time, 2.5)
 			burn_dps = maxf(burn_dps, amount * 0.22)
 		elif e == "ICE":
 			chill_time = maxf(chill_time, 2.0)
-	if health <= 0.0:
-		_kill()
-	return amount
 
 ## Gives back up to `amount` health, never past the most this actor has, and
 ## says so (`healed`). Returns what it really gave back: nothing to the dead,
