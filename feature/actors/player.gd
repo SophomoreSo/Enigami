@@ -33,6 +33,10 @@ const CROUCH_HURT_RADIUS := 9.0
 const HURT_INVULN := 1.0
 
 const RUN_SPEED := 250.0
+## A sprint is the same run half as fast again, for as long as it is asked for.
+## It costs nothing and changes nothing else: the body turns, jumps and stops
+## as it does at a run, and carries the speed into the air while it is held.
+const SPRINT_SPEED := 375.0
 const AIR_ACCEL := 1800.0
 const GROUND_ACCEL := 2600.0
 const FRICTION := 2400.0
@@ -491,6 +495,11 @@ func _sense(delta: float) -> void:
 ## one thing the body does on a frame; which a state takes, and in what order,
 ## is the table's.
 
+## How fast the body goes flat out this frame: a run, or a sprint while one is
+## asked for, and either slowed by a chill.
+func _pace() -> float:
+	return (SPRINT_SPEED if _asked.sprint else RUN_SPEED) * speed_scale()
+
 ## Slows to a stop along the ground.
 func _action_brake() -> void:
 	velocity.x = move_toward(velocity.x, 0.0, FRICTION * get_physics_process_delta_time())
@@ -498,13 +507,13 @@ func _action_brake() -> void:
 ## Speeds up toward the direction held, along the ground.
 func _action_run() -> void:
 	var delta := get_physics_process_delta_time()
-	velocity.x = move_toward(velocity.x, _dir * RUN_SPEED * speed_scale(), GROUND_ACCEL * delta)
+	velocity.x = move_toward(velocity.x, _dir * _pace(), GROUND_ACCEL * delta)
 
 ## The same in the air, and easing off when nothing is held.
 func _action_steer() -> void:
 	var delta := get_physics_process_delta_time()
 	if _dir != 0.0:
-		velocity.x = move_toward(velocity.x, _dir * RUN_SPEED * speed_scale(), AIR_ACCEL * delta)
+		velocity.x = move_toward(velocity.x, _dir * _pace(), AIR_ACCEL * delta)
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, FRICTION * delta)
 

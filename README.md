@@ -39,6 +39,7 @@ godot res://tests/feature/stamina_test.tscn # the dash budget under the health b
 godot res://tests/feature/input_test.tscn   # the input line: the hands, a hold, a gate, a walk that gives the body back, and the computer's hands
 godot res://tests/feature/aim_assist_test.tscn # aim assist: the stick-to-weapon curve, and what it bends toward
 godot res://tests/feature/crouch_test.tscn  # the crouch: down lets the body onto its feet, a stick's threshold for it, and what stands it up again
+godot res://tests/feature/sprint_test.tscn  # the sprint: a run half as fast again while it is held, and what stops it
 godot res://tests/feature/pool_test.tscn    # pooling: lent, played out and handed back, and taken back when a screen goes
 godot res://tests/graphics/fx_pool_test.tscn # sparks, rings and floating numbers come out of pools, never out of nothing
 godot res://tests/graphics/menu_fit_test.tscn # menus stay on screen and scroll the rest
@@ -105,6 +106,7 @@ not a thing to reach for once it errors.
 | S, ↓ | crouch, on the floor: the body is let down onto its feet — lower, and a smaller thing to hit — and stays where it is; a direction held with it turns it round. A jump or a dash goes out of it, and there is no crouch in the air |
 | SPACE | jump; again in mid-air to double jump; against a wall to kick off |
 | SHIFT | dash — left or right only, never up; brief invulnerability from the press; spends stamina, four dashes to a full bar |
+| CTRL | sprint — held with a direction, the same run half as fast again. It costs nothing, turns and jumps as a run does and carries into the air while it is held; a crouch stops it |
 | LMB | cast the weapon's graph as it is — again and again while held, and it costs nothing |
 | RMB | hold to charge the weapon's graph, release to cast it with what the hold paid for — a tap is a charge of nothing, and a graph still recovering cannot be charged |
 | mouse / right stick | aim, and where a lunge lands. A stick's aim is bent toward a monster it is near — never snapped, and never the mouse's; how much is AIM ASSIST in the control settings |
@@ -115,9 +117,9 @@ not a thing to reach for once it errors.
 | ESC | pause |
 
 Gamepad: left stick moves and, pushed down three quarters of the way, crouches;
-A jumps, B dashes, the right trigger attacks and the left one charges and
-casts, select opens assembly, RB interacts. Every keyboard
-binding is remappable from Settings (title screen) or the pause menu.
+clicked in and held, it sprints. A jumps, B dashes, the right trigger attacks
+and the left one charges and casts, select opens assembly, RB interacts. Every
+keyboard binding is remappable from Settings (title screen) or the pause menu.
 
 ### The screen's shape
 
@@ -147,11 +149,19 @@ controls turn out to fit:
   grows the stick where it landed, and lifting takes it away again. A thumb that
   only touches grows nothing — so it is never somewhere to reach for, never in
   the way of the fight, and never flashes up under a tap. It has to be dragged
-  a long way before it does anything: three quarters of the way to its ring.
-  Sideways past that it runs — a whole run, with no walk short of it — and down
-  past it, it crouches; a diagonal is neither. The ring is marked where each
-  threshold lies, to the left, the right and along the bottom, and the mark
-  lights, with the knob, the moment the thumb has reached it.
+  a long way before it does anything, and its ring is the line between two
+  steps. Inside the ring, three quarters of the way out sideways, it walks —
+  the ordinary run, whole from the moment it starts. Dragged far out of the
+  ring — as far past it again as the ring is from its middle, the knob
+  following the thumb out and standing clear of the ring by then — it means
+  it: out to a side it sprints, and out below it crouches. Anything nearer is
+  still a walk, down does nothing until then, and a diagonal is a walk at
+  most. A thumb put down too near the edge of the glass for that much drag is
+  asked for as much as there is, a little short of the edge, and never less
+  than the ring. The ring is marked to the left and the right, and lights when
+  the stick is walking that way; a short line out past it to either side and
+  one below show how far a sprint and a crouch are, and go white when the knob
+  reaches them.
 * **The cast button is a stick too.** Press it and the graph begins to charge;
   drag and the charge aims; let go and it casts, where you were pointing,
   carrying everything the hold paid for. The game's own hold-to-charge is

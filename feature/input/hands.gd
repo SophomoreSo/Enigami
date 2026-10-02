@@ -15,9 +15,12 @@ func process(s: InputState) -> InputState:
 	s.move = Input.get_axis("move_left", "move_right")
 	# Down held is a crouch, whatever holds it: a key, or a stick pushed down
 	# past its threshold. A gamepad's is `move_down`'s dead zone in the input
-	# map, and the console's is its own (`TouchPad.STICK_CROUCH`); both are three
-	# quarters of the way out, because a thumb running sideways wanders downward.
+	# map, three quarters of the way down, because a thumb running sideways
+	# wanders downward; the console's has to be dragged far out below its ring
+	# (`TouchPad.STICK_CROUCH`). The sprint is a key of its own, which the
+	# console's stick holds when it is dragged as far out to a side.
 	s.crouch = Input.is_action_pressed("move_down")
+	s.sprint = Input.is_action_pressed("sprint")
 	s.attack = Input.is_action_pressed("attack")
 	s.cast = Input.is_action_pressed("cast_skill")
 	# Edges, as the frame being asked in sees them: the physics frame's when the

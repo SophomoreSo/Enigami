@@ -38,6 +38,7 @@
 		"move_down": "웅크리기",
 		"jump": "점프",
 		"dash": "대시",
+		"sprint": "질주",
 		"attack": "공격",
 		"cast_skill": "충전 시전",
 		"open_editor": "스킬 조립",

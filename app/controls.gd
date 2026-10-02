@@ -13,6 +13,7 @@ const ACTIONS := [
 	["move_down", "Crouch"],
 	["jump", "Jump"],
 	["dash", "Dash"],
+	["sprint", "Sprint"],
 	["attack", "Attack"],
 	["cast_skill", "Charged cast"],
 	["open_editor", "Skill assembly"],

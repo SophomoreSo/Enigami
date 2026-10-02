@@ -13,12 +13,16 @@ extends Control
 ##     dragged grows the stick where it landed, and lifting takes it away again.
 ##     A thumb that only touches grows nothing. So it is never somewhere to
 ##     reach for and never in the way of the fight. It has to be dragged a
-##     long way before it does anything — three quarters of the way to its
-##     ring (`STICK_RUN`, `STICK_CROUCH`) — and then it does all of it:
-##     sideways it runs, at a run's full speed, and down it crouches. Nothing in
-##     between, so neither starts under a thumb that only drifted; and the
-##     ring says when each has been reached — the stretch of it past the
-##     threshold is marked, and lights (`_draw_reach`).
+##     long way before it does anything, and its ring is the line between the
+##     two things it can then do. Inside the ring, three quarters of the way
+##     out sideways (`STICK_RUN`), it walks. Dragged far out of the ring it
+##     means it: out to a side it sprints, and out below it crouches
+##     (`STICK_SPRINT`, `STICK_CROUCH`) — as far past the ring again as the ring
+##     is from its middle, the knob following the thumb out and standing clear
+##     of the ring by then, so neither is anything a thumb does by leaning. Each
+##     step is all or nothing, so none starts under a thumb that only drifted;
+##     and each is marked where it is — the walk on the ring, the other two on
+##     the lines the knob has to get out to — and lights (`_draw_reach`).
 ##   * **The cast button is a stick too.** Press it and the graph begins to
 ##     charge; drag and the charge aims; let go and it casts, where you were
 ##     pointing, with everything the hold paid for. The game's own
@@ -180,7 +184,7 @@ const LABEL_SIZE := PixelDraw.SIZE * 2
 ## How far the movement stick must be pushed before it points anywhere: past
 ## this a weapon nobody is aiming goes the way the stick does (`aim`). Up is
 ## firmer, and is only ever an answer picked in a conversation. Neither moves
-## anybody — that is STICK_RUN and STICK_CROUCH, below.
+## anybody — that is STICK_RUN, STICK_SPRINT and STICK_CROUCH, below.
 const STICK_DEAD := 0.22
 const STICK_UPDOWN := 0.5
 
@@ -193,15 +197,42 @@ const STICK_UPDOWN := 0.5
 ## it moves anybody.
 const STICK_OUT := 12.0
 
-## How far the movement stick has to be dragged before it runs, sideways, or
-## crouches, downward: three quarters of the way to its ring. A long way, on
-## purpose. Neither starts under a thumb that has only just come down, or that
-## drifts while it does the other — and with both this far out no thumb can be
-## past the two at once, so a diagonal is neither. Past it the key is simply
-## held: a run is a whole run from the moment it starts, and short of it there
-## is none.
+## How far the movement stick has to be dragged before it does anything, as a
+## share of the way to its ring — and the ring is the line between the two
+## things it can do.
+##
+## Inside the ring, three quarters of the way out sideways, it walks: the
+## player's ordinary run, whole from the moment it starts, and nothing short of
+## it, so it never starts under a thumb that has only just come down. Dragged
+## far out of the ring — as far past it again as the ring is from its middle,
+## by when the whole knob is outside it and clear of it — it means it: out to a
+## side it sprints, and out below it crouches. Nothing nearer is either: down
+## does nothing all the way out to there, and a walk leant on a little harder
+## is still a walk. The two are so far out that no thumb is past both at once:
+## a diagonal is a walk at most.
+##
+## That is where the glass has the room. Where it has not, the two are as far
+## out as a thumb can get — see `gate`.
 const STICK_RUN := 0.75
-const STICK_CROUCH := 0.75
+const STICK_SPRINT := 2.0
+const STICK_CROUCH := 2.0
+## As far as the stick follows a thumb: half a radius past those two. The thumb
+## may go on further, and the stick is still its; the knob stops here.
+const STICK_FAR := 2.5
+## How near the edge of the glass a sprint or a crouch is ever asked for. A
+## thumb cannot be asked for the last of the glass, so the line it has to reach
+## is never nearer the edge than this.
+const STICK_EDGE := 24.0
+## How much nearer than a threshold a thumb may come back before what it
+## reached there is let go of, so one resting on the line does not flicker
+## between a walk and a sprint, or bob up and down out of a crouch.
+const STICK_SLACK := 0.06
+## How much of the ring each of its marks covers, either side of dead ahead —
+## and how much of a turn each line out past it covers, which out there is a
+## little wider than the knob, so a line still shows round a knob that has
+## reached it.
+const STICK_MARK := deg_to_rad(40.0)
+const STICK_LINE := deg_to_rad(15.0)
 
 ## How far outside its edge a control still answers.
 const SLOP := 4.0
@@ -245,8 +276,9 @@ var face: int = Face.NONE:
 ## Finger (or MOUSE) -> the index into CONTROLS it is resting on.
 var _down: Dictionary = {}
 ## Where the thumb that summoned the movement stick landed, where the ring is
-## drawn, and how far it is pushed, -1 to 1. All meaningless while no thumb is
-## on it: see `stick_showing`.
+## drawn, and how far it is pushed: a unit long at the ring, and as much as
+## STICK_FAR out of it. All meaningless while no thumb is on it: see
+## `stick_showing`.
 ##
 ## The two places are usually the same one and are not always: a thumb landing
 ## within a radius of the edge of the zone would draw a ring half off the screen
@@ -324,15 +356,40 @@ func _process(delta: float) -> void:
 
 ## The movement stick, as the four actions the game reads movement through.
 ##
-## Sideways is a run or nothing, and down a crouch or nothing: the key is held,
-## all the way, once the stick has been dragged past its threshold (STICK_RUN,
-## STICK_CROUCH), and not at all short of it. Up is the one left as it was —
-## it only picks an answer in a conversation, past its own firm dead zone.
+## Each is all or nothing: the key is held, all the way, once the stick has
+## been dragged past its threshold, and not at all short of it. Sideways it
+## walks inside the ring (STICK_RUN) and sprints far out of it (STICK_SPRINT),
+## which is one more key held with the walk's; down it crouches, as far out
+## (STICK_CROUCH) — each of those two as far as `gate` says, which is nearer
+## where the glass ends first. Up is the one left as it was — it only picks an
+## answer in a conversation, past its own firm dead zone, and where the stick
+## is up for that, down is the same.
 func _drive() -> void:
-	_lean("move_right", _past(_stick.x, STICK_RUN), STICK_DEAD)
-	_lean("move_left", _past(-_stick.x, STICK_RUN), STICK_DEAD)
-	_lean("move_down", _past(_stick.y, STICK_CROUCH), STICK_UPDOWN)
+	_lean("move_right", _past("move_right", _stick.x, STICK_RUN), STICK_DEAD)
+	_lean("move_left", _past("move_left", -_stick.x, STICK_RUN), STICK_DEAD)
+	_lean("sprint", _past("sprint", absf(_stick.x), gate(Vector2.LEFT if _stick.x < 0.0 else Vector2.RIGHT)), STICK_DEAD)
+	_lean("move_down", _past("move_down", _stick.y, gate(Vector2.DOWN) if face == Face.PLAY else STICK_UPDOWN), STICK_UPDOWN)
 	_lean("move_up", -_stick.y, STICK_UPDOWN)
+
+## How far the stick has to be dragged toward `way` — a side, or straight down
+## — before it sprints or crouches, as a share of the way to its ring.
+##
+## STICK_SPRINT or STICK_CROUCH, wherever the glass has that much room past
+## where the thumb landed. It does not always: a thumb put down near the left
+## edge has nowhere to drag left to, and one low on the screen has little
+## below it. Asked for the whole distance there, it could never sprint that way
+## or crouch at all. So there the line is as far out as a thumb can still get —
+## STICK_EDGE short of the edge of the glass — and never nearer than the ring
+## itself, so a sprint is always further out than a walk. A thumb nearer the
+## edge than that has not the room for one that way, and has to land again.
+func gate(way: Vector2) -> float:
+	var screen := _screen()
+	var sideways := absf(way.x) > absf(way.y)
+	var room := screen.y - _stick_from.y
+	if sideways:
+		room = screen.x - _stick_from.x if way.x > 0.0 else _stick_from.x
+	return clampf((room - STICK_EDGE) / float(CONTROLS[0]["radius"]), 1.0,
+		STICK_SPRINT if sideways else STICK_CROUCH)
 
 func _lean(action: String, amount: float, dead: float) -> void:
 	if amount < dead:
@@ -368,8 +425,11 @@ func aim() -> Vector2:
 	return Vector2(_facing(), 0.0)
 
 ## All of a push that has got past `threshold`, and none of one that has not.
-func _past(amount: float, threshold: float) -> float:
-	return 1.0 if amount >= threshold else 0.0
+## One already holding `action` goes on holding it a little short of that
+## (STICK_SLACK).
+func _past(action: String, amount: float, threshold: float) -> float:
+	var need := threshold - (STICK_SLACK if Touch.holding(action) else 0.0)
+	return 1.0 if amount >= need else 0.0
 
 ## How far the thumb on the stick being aimed has dragged, as how far the
 ## attack should go: nothing at the edge of the dead zone, all of it at the ring.
@@ -550,8 +610,9 @@ func _drag(i: int, at: Vector2) -> void:
 		# so the stick is on the screen before it moves anybody.
 		_stick_out = _stick_out or off.length() >= STICK_OUT
 		if _stick_out:
-			var v := off / float(c["radius"])
-			_stick = v if v.length() <= 1.0 else v.normalized()
+			# A unit long at the ring, and on out of it as far as STICK_FAR:
+			# going far out of the ring is what a sprint and a crouch are.
+			_stick = (off / float(c["radius"])).limit_length(STICK_FAR)
 	elif not _alt_held.has(i):
 		_aim_from = i
 		_aim_off = at - _aim_start
@@ -787,28 +848,55 @@ func _draw_stick(c: Dictionary) -> void:
 	_px.disc(_stick_at, r, FILL)
 	_px.ring(_stick_at, r, PixelDraw.PX, EDGE_HELD)
 	var reached := face == Face.PLAY and _draw_reach(r)
-	var at := _stick_at + _stick * (r - knob)
+	var at := knob_at(r, knob)
 	_px.disc(at, knob, FILL_REACHED if reached else FILL_HELD)
 	_px.ring(at, knob, PixelDraw.PX * 2, INK_HELD if reached else EDGE_HELD)
 
-## The thresholds, marked on the stick's ring, and lit when the thumb has
-## reached them: the stretch of the ring that lies past each one — to the right
-## and the left for a run, along the bottom for a crouch. Quiet until then, so
-## the marks say where to drag as well as when it has been far enough; and the
-## knob lights with them, for a thumb that is covering the ring. Whether any
-## has been reached.
+## Where the knob is, for a ring of `r` and a knob of `knob`. Inside the ring it
+## is scaled, so that its edge comes to the ring just as the thumb does; from
+## there it goes out with the thumb, a pixel for a pixel, its leading edge as
+## far out as the thumb has got — so it comes up to a line out there
+## (`_draw_reach`) just as the thumb gets as far as the line asks.
+func knob_at(r: float, knob: float) -> Vector2:
+	var far := _stick.length()
+	if far <= 1.0:
+		return _stick_at + _stick * (r - knob)
+	return _stick_at + _stick / far * ((r - knob) + (far - 1.0) * r)
+
+## What the stick can do, marked where it does it, and lit as the thumb gets
+## there. Quiet until then, so the marks say where to drag.
+##
+## The walk is on the ring: a stretch of it to the right and one to the left,
+## which lights once the stick is walking that way. The sprint and the crouch
+## are far out past it: a short line to either side and one below, each where
+## the knob has to get out to (`gate`), on a dark ground of its own so it shows
+## against whatever the fight is doing behind it. A line goes white once the
+## knob has reached it. The knob lights with any of them. Read off what the
+## stick is holding rather than worked out again, so the marks never say more
+## than the game was told. Whether anything has been reached.
 func _draw_reach(r: float) -> bool:
+	var sprints := Touch.holding("sprint")
 	var any := false
 	for mark in [
-			[0.0, _stick.x >= STICK_RUN, STICK_RUN],
-			[PI, -_stick.x >= STICK_RUN, STICK_RUN],
-			[PI * 0.5, _stick.y >= STICK_CROUCH, STICK_CROUCH]]:
-		var lit: bool = mark[1]
-		any = any or lit
-		# Past a threshold `t` of the way out is everything within acos(t) of
-		# dead ahead, at the ring.
-		_px.arc(_stick_at, r - PixelDraw.PX * 2, PixelDraw.PX * (3 if lit else 2),
-			float(mark[0]), acos(float(mark[2])), INK_HELD if lit else EDGE)
+			[Vector2.RIGHT, Touch.holding("move_right"), sprints and _stick.x > 0.0],
+			[Vector2.LEFT, Touch.holding("move_left"), sprints and _stick.x < 0.0],
+			[Vector2.DOWN, false, Touch.holding("move_down")]]:
+		var way: Vector2 = mark[0]
+		var reached: bool = mark[1]
+		var out: bool = mark[2]
+		any = any or reached or out
+		if way.x != 0.0:
+			_px.arc(_stick_at, r - PixelDraw.PX * 2, PixelDraw.PX * 2, way.angle(), STICK_MARK,
+				EDGE_HELD if reached else EDGE)
+		# The line's inner edge is where the knob's leading edge has to get to.
+		# Its ground is a block wider all round, except over the ring, which a
+		# line brought in to the ring by the edge of the glass sits on.
+		var line := r * gate(way)
+		var thick := PixelDraw.PX * (3.0 if out else 2.0)
+		var ground := maxf(line - PixelDraw.PX, r)
+		_px.arc(_stick_at, line + thick + PixelDraw.PX, line + thick + PixelDraw.PX - ground, way.angle(),
+			STICK_LINE, FILL)
+		_px.arc(_stick_at, line + thick, thick, way.angle(), STICK_LINE, INK_HELD if out else EDGE)
 	return any
 
 ## A button, round or plated, with its word in the middle of it, drawn with `px`
