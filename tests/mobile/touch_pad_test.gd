@@ -59,6 +59,26 @@ func frames(n: int) -> void:
 	for i in n:
 		await get_tree().process_frame
 
+## Long enough for a drag to have reached the body, whatever the machine. The
+## pad reads a drag in one frame and presses in the next, and the body takes
+## the press in the steps after that; a slow machine — CI's virtual display —
+## fits several steps in a frame, so a count of steps alone can all go by
+## before the press is in. Before saying a drag did nothing to the body.
+func reach_body() -> void:
+	await frames(3)
+	for i in 6:
+		await get_tree().physics_frame
+
+## Steps until `done` holds, or `most` of them: for what the body does with a
+## press, which comes later on a slow machine. Whether it held.
+func settle(done: Callable, most: int = 90) -> bool:
+	await frames(3)
+	for i in most:
+		if done.call():
+			return true
+		await get_tree().physics_frame
+	return done.call()
+
 func controls_under(root: Node) -> Array:
 	var out: Array = []
 	var stack: Array = [root]
@@ -449,25 +469,21 @@ func _the_crouch() -> void:
 		guard += 1
 	touch(0, landed, true)
 	drag(0, landed + Vector2(0.0, radius))
-	for i in 6:
-		await get_tree().physics_frame
+	await reach_body()
 	check(pad.stick_showing() and not Input.is_action_pressed("move_down") and not player.crouched,
 		"a stick dragged down to its ring holds nothing, and crouches nobody")
 	drag(0, landed + Vector2(0.0, radius * (1.0 + TouchPad.STICK_CROUCH) * 0.5))
-	for i in 6:
-		await get_tree().physics_frame
+	await reach_body()
 	check(pad._stick.length() > 1.0 and not Input.is_action_pressed("move_down") and not player.crouched,
 		"nor does one dragged out of the ring, half way to the line below it")
 	drag(0, landed + Vector2(0.0, radius * (TouchPad.STICK_CROUCH - 0.1)))
-	for i in 6:
-		await get_tree().physics_frame
+	await reach_body()
 	check(not Input.is_action_pressed("move_down") and not player.crouched,
 		"nor one far out, just short of it")
 	var img := await drawn()
 	check(not lit(img, 90.0), "and the line below the ring is not lit")
 	drag(0, landed + Vector2(0.0, radius * (TouchPad.STICK_CROUCH + 0.1)))
-	for i in 6:
-		await get_tree().physics_frame
+	await settle(func() -> bool: return player.crouched)
 	check(Input.is_action_pressed("move_down"), "dragged out to it, down is held")
 	check(player.crouched and player.state_name() == "Crouch",
 		"and the player crouches (%s)" % player.state_name())
@@ -481,8 +497,7 @@ func _the_crouch() -> void:
 	# as far as the stick goes on a diagonal it neither sprints nor crouches,
 	# and is a walk at most.
 	drag(0, landed + Vector2(-radius * 3.0, radius * 3.0))
-	for i in 30:
-		await get_tree().physics_frame
+	await settle(func() -> bool: return is_equal_approx(player.velocity.x, -Player.RUN_SPEED))
 	check(not player.crouched and not Input.is_action_pressed("move_down") and not Input.is_action_pressed("sprint"),
 		"dragged right out down and to the left, it neither crouches nor sprints (%s)" % player.state_name())
 	check(is_equal_approx(player.velocity.x, -Player.RUN_SPEED),
@@ -492,17 +507,14 @@ func _the_crouch() -> void:
 		"with the left of the ring lit for the walk, and no line gone white (%d)" % mark(img, 180.0))
 	# Rolled toward the side, as far out, it sprints.
 	drag(0, landed + Vector2(-radius * (TouchPad.STICK_SPRINT + 0.2), radius * 0.2))
-	for i in 30:
-		await get_tree().physics_frame
+	await settle(func() -> bool: return is_equal_approx(player.velocity.x, -Player.SPRINT_SPEED))
 	check(not player.crouched and is_equal_approx(player.velocity.x, -Player.SPRINT_SPEED),
 		"rolled over toward the left, as far out, it sprints (%s, %.0f)" % [player.state_name(), player.velocity.x])
 	drag(0, landed + Vector2(0.0, radius * (TouchPad.STICK_CROUCH + 0.2)))
-	for i in 6:
-		await get_tree().physics_frame
+	await settle(func() -> bool: return player.crouched)
 	check(player.crouched, "and back down and out, crouched again")
 	touch(0, landed, false)
-	for i in 6:
-		await get_tree().physics_frame
+	await settle(func() -> bool: return not player.crouched)
 	check(not Input.is_action_pressed("move_down") and not player.crouched,
 		"lifting lets go of down, and the player stands")
 
@@ -511,8 +523,7 @@ func _the_crouch() -> void:
 	await frames(3)
 	touch(0, landed, true)
 	drag(0, landed + Vector2(0.0, radius))
-	for i in 6:
-		await get_tree().physics_frame
+	await reach_body()
 	check(not player.crouched, "in a conversation a thumb pushing down on the left crouches nobody")
 	touch(0, landed + Vector2(0.0, radius), false)
 	player.talk_locked = false
@@ -582,17 +593,14 @@ func _the_edge() -> void:
 	check(down > 1.0 and down < TouchPad.STICK_CROUCH,
 		"a thumb down low in the zone is asked for less of a drag downward (%.2f)" % down)
 	drag(0, low + Vector2(0.0, radius * (down - 0.05)))
-	for i in 6:
-		await get_tree().physics_frame
+	await reach_body()
 	check(not player.crouched, "short of that line nobody crouches")
 	drag(0, low + Vector2(0.0, radius * (down + 0.05)))
-	for i in 6:
-		await get_tree().physics_frame
+	await settle(func() -> bool: return player.crouched)
 	check(low.y + radius * (down + 0.05) < screen().y and player.crouched,
 		"and at it, with the thumb still on the glass, the player crouches (%s)" % player.state_name())
 	touch(0, low, false)
-	for i in 6:
-		await get_tree().physics_frame
+	await settle(func() -> bool: return not player.crouched)
 	check(not player.crouched, "and stands again when it lifts")
 
 ## --- the stick --------------------------------------------------------------
@@ -648,8 +656,7 @@ func _the_stick() -> void:
 	check(mark(img, 0.0) == REACHED and mark(img, 180.0) == QUIET and not lit(img, 0.0),
 		"and the mark on that side of the ring lights, to say it has been reached (%d)" % mark(img, 0.0))
 	drag(0, landed + Vector2(radius, 0.0))
-	for i in 30:
-		await get_tree().physics_frame
+	await settle(func() -> bool: return is_equal_approx(player.velocity.x, Player.RUN_SPEED))
 	var knob: float = TouchPad.CONTROLS[0]["knob"]
 	var at_ring := pad.knob_at(radius, knob) - pad._stick_at
 	check(is_equal_approx(pad._stick.length(), 1.0) and not Input.is_action_pressed("sprint")
@@ -675,8 +682,7 @@ func _the_stick() -> void:
 	check(not Input.is_action_pressed("sprint") and not lit(img, 0.0),
 		"as it is just short of the line, which is not lit")
 	drag(0, landed + Vector2(radius * (TouchPad.STICK_SPRINT + 0.05), 0.0))
-	for i in 40:
-		await get_tree().physics_frame
+	await settle(func() -> bool: return is_equal_approx(player.velocity.x, Player.SPRINT_SPEED))
 	check(Input.is_action_pressed("sprint") and is_equal_approx(Input.get_axis("move_left", "move_right"), 1.0),
 		"dragged out to it, it sprints: the walk's key held, and sprint with it")
 	var clear := (pad.knob_at(radius, knob) - pad._stick_at).length() - knob - radius
