@@ -21,6 +21,9 @@ func _ready() -> void:
 	var bg := ColorRect.new()
 	bg.color = UiKit.BG
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# Behind what this screen draws, not over it: a child is drawn after its
+	# parent, and the ground was being laid over every line of the page.
+	bg.show_behind_parent = true
 	add_child(bg)
 	_back = UiKit.button(Loc.t("menu.results.back"), UiKit.ACCENT)
 	_back.custom_minimum_size = Vector2(280, 44)
