@@ -60,6 +60,7 @@ godot res://tests/feature/charge_test.tscn  # holding the cast button buys life 
 godot res://tests/story/npc_test.tscn       # talking to an NPC, line by line
 godot res://tests/story/free_talk_test.tscn # talking free: the most specific rule, walking off, picking it back up
 godot res://tests/graphics/speech_bubble_test.tscn # the bubble over whoever talks free, on screen and on whole pixels
+godot res://tests/graphics/talk_hud_test.tscn # in the box the HUD steps aside until the talking stops; a bubble leaves it up
 godot res://tests/shared/loc_test.tscn      # every language says everything, and can be drawn
 godot res://tests/shared/module_test.tscn   # what each module may name, row by row, and what no rule may
 godot res://tests/mobile/touch_layout_test.tscn # SET BUTTON POSITIONS: drag a button, keep it, play with it there

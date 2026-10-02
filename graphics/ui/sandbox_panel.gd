@@ -16,6 +16,11 @@ extends Control
 ## otherwise be aiming with, and on the console a thumb there would otherwise be
 ## the movement stick, whose zone is the whole left of the screen.
 ##
+## It steps aside with the HUD while somebody talks to the player (`Hud.talking`):
+## the damage line and the tab are the HUD's kind of thing, and a tab that
+## answered then would pull the drawer out over the conversation, which nothing
+## would move on until the drawer went back in.
+##
 ## The tab is hit-tested here in `_input` rather than being a Button, because it
 ## has to answer while the drawer is in and the player is aiming: the game points
 ## with the crosshair then, and a Button hears only the hidden system pointer,
@@ -53,6 +58,9 @@ var _grid: GridContainer = null
 var _out: bool = false
 var _slide: float = 0.0
 var _tab_hover: bool = false
+## How much of it is on the screen: 1, or 0 once it has stepped aside for a
+## conversation, in the HUD's time (`Hud.STEP_ASIDE`).
+var shown: float = 1.0
 
 func _ready() -> void:
 	UiKit.fill_screen(self)
@@ -129,10 +137,17 @@ func _process(delta: float) -> void:
 	# `Pointer.point` is wherever the pointing is being done from: the crosshair
 	# while the game is pointing, the system pointer otherwise.
 	_tab_hover = tab_rect().has_point(Pointer.point)
+	shown = move_toward(shown, 0.0 if talking() else 1.0, delta / Hud.STEP_ASIDE)
+	modulate.a = shown
 	queue_redraw()
 
+## Whether somebody is talking to the bench's player in the box — see `Hud.talking`.
+func talking() -> bool:
+	return sandbox != null and is_instance_valid(sandbox) and sandbox.player != null \
+		and is_instance_valid(sandbox.player) and sandbox.player.talk_locked
+
 func _input(event: InputEvent) -> void:
-	if not is_visible_in_tree():
+	if not is_visible_in_tree() or talking():
 		return
 	var at := Vector2.INF
 	var press := false
@@ -163,7 +178,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _draw() -> void:
-	if sandbox == null or not is_instance_valid(sandbox):
+	if sandbox == null or not is_instance_valid(sandbox) or shown <= 0.0:
 		return
 	_px.text(DPS_AT, Loc.t("hud.sandbox.dps", [sandbox.dps()]), UiKit.GOOD)
 	var d := drawer_rect()
