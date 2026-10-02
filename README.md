@@ -281,7 +281,7 @@ nobody spends that week again.
 ## How a skill works
 
 **A weapon is a graph.** Its own attack form stands on the root of a board —
-the sword's `DASHSLASH`, the gun's and the rock's `PROJECTILE` — on the left of
+the sword's `SWIFT STRIKE`, the gun's and the rock's `PROJECTILE` — on the left of
 the middle row, and everything you build is wired on after it. There are no
 skills apart from weapons and no weapon without its graph: what you carry into
 a raid is the weapon and whatever is on it, the rack picks the weapon and the
@@ -510,7 +510,7 @@ across it, after the room in Katana ZERO where the Dragon tries out his dash:
 one cut kills a guard, and the whole building is inside one cast of the board
 the screen hands you.
 
-That board is `DASHSLASH+` on the root with an `ON HIT` whose branch runs
+That board is `SWIFT STRIKE+` on the root with an `ON HIT` whose branch runs
 three `OVERCLOCK`s back round into it, so **every lap the cast has life for is
 one more lunge at the nearest guard still standing**. A tap is one lunge and one
 body; hold the cast button and the chain grows a link at a time — the read-out

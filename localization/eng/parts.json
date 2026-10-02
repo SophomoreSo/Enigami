@@ -16,11 +16,11 @@
 		"desc": "Damages everything inside a burst radius. Uses two board cells."
 	},
 	"DASHSLASH": {
-		"name": "DASHSLASH",
+		"name": "SWIFT STRIKE",
 		"desc": "Lunges along the aim direction, cutting everything on the path. Uses two cells."
 	},
 	"DASHSLASH_AUTO": {
-		"name": "DASHSLASH+",
+		"name": "SWIFT STRIKE+",
 		"desc": "Seeks the nearest visible enemy and blinks through it, cutting the path. Uses two cells."
 	},
 	"ZAP": {
