@@ -5,7 +5,8 @@ extends InputMiddleware
 ## console on the glass and the pointer, read through `Input` and `Pointer` the
 ## way the player always read them. It is the only thing on the line that knows
 ## a person is holding anything. Put something else at the head of a line and
-## the same body walks for that instead.
+## the same body walks for that instead — `ComputerHands` is that, for a demo or
+## a test that plays the character.
 ##
 ## The console needs nothing here: a thumb on it presses the same actions a key
 ## does, and leans on the right stick to aim (`Touch`).

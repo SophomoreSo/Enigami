@@ -4,6 +4,11 @@ extends Node2D
 ## drops, the rank that keeps a hold before whatever steers — and a walk that
 ## takes the body somewhere, gives it back to a push the other way, walks over a
 ## push held from before, and walks a body nobody may move.
+##
+## And whose the body is while all that goes on: the player's, or the
+## computer's — the game holding it or walking it, or `ComputerHands` playing it
+## in the player's place, which drop what the player's hands say, are stopped by
+## the same holds, and point with the game's own pointer.
 
 var fails := 0
 
@@ -226,6 +231,111 @@ func _ready() -> void:
 	check(w.to_x - p.global_position.x > 150.0,
 		"short of the spot (%.0f short)" % (w.to_x - p.global_position.x))
 	await settle(p)
+
+	# --- whose the body is ------------------------------------------------------------------------
+	# The player's, or the computer's: the game holding it or walking it, or
+	# something playing it in the player's place. A screen that has the keys is
+	# neither — the player put the body aside for that themselves.
+	check(not p.taken_over(), "with the player's own hands on it, the body is not taken over")
+	p.talk_locked = true
+	check(p.taken_over(), "held in a conversation, it is the computer's")
+	p.input_locked = true
+	check(not p.taken_over(), "but not under a screen that has the keys, which is the player's own doing")
+	p.talk_locked = false
+	check(not p.taken_over(), "nor under a screen alone")
+	p.input_locked = false
+	check(p.stun(0.2), "(a stun takes)")
+	await phys(3)
+	check(p.taken_over(), "stunned, it is the computer's")
+	await until(func() -> bool: return not p.stunned())
+	await phys(3)
+	check(not p.taken_over(), "and the player's again the moment it comes round")
+	w = WalkTo.new(p.global_position.x - 100.0)
+	p.input.add(w)
+	check(p.taken_over(), "walked somewhere, it is the computer's for the walk")
+	await until(func() -> bool: return w.done)
+	await phys(2)
+	check(not p.taken_over(), "and given back on getting there")
+	await settle(p)
+
+	# --- the computer's hands ---------------------------------------------------------------------
+	var bot := ComputerHands.new()
+	p.input.add(bot)
+	check(p.taken_over() and not p.controls_locked(),
+		"the computer's hands on the line take the body over, and hold nothing")
+	from = p.global_position.x
+	Input.action_press("move_right")
+	Input.action_press("attack")
+	Input.action_press("jump")
+	await phys(12)
+	var said := p.input.state()
+	check(absf(p.global_position.x - from) < 1.0 and p.is_on_floor() and not said.attack,
+		"what the player's hands say is dropped: walking, jumping and attacking do nothing (moved %.1f)"
+			% (p.global_position.x - from))
+	Input.action_release("attack")
+	bot.move = -1.0
+	bot.attack = true
+	await phys(12)
+	said = p.input.state()
+	check(p.global_position.x < from - 20.0 and said.attack,
+		"and the body does what the computer says, the other way and attacking (%.0f)" % (p.global_position.x - from))
+	bot.move = 0.0
+	bot.attack = false
+	await settle(p)
+
+	# What happens, as against what lasts: raised once, and read once by each
+	# kind of frame.
+	bot.jump()
+	await phys(3)
+	check(not p.is_on_floor() and p.velocity.y < 0.0, "told to jump, the body jumps (%.0f)" % p.velocity.y)
+	await settle(p)
+	await phys(6)
+	check(p.is_on_floor(), "once: the press is not carried into the frames after it")
+	bot.cast = true
+	await phys(3)
+	check(p.input.state().cast, "the cast button held is held")
+	bot.cast = false
+	var releases := 0
+	for i in 5:
+		await get_tree().process_frame
+		if p.input.state().cast_released:
+			releases += 1
+	check(releases == 1, "and letting go of it is one release, in the frame it happens (%d)" % releases)
+
+	# The computer plays by the player's rules: a hold stops its hands too.
+	p.talk_locked = true
+	bot.move = 1.0
+	bot.jump()
+	from = p.global_position.x
+	await phys(12)
+	check(absf(p.global_position.x - from) < 1.0 and p.is_on_floor(),
+		"a hold further down the line stops the computer's hands as it stops the player's (moved %.1f)"
+			% (p.global_position.x - from))
+	p.talk_locked = false
+	bot.move = 0.0
+	await settle(p)
+
+	# It points with the game's own pointer, which it leads, and the body aims
+	# where that is. Nothing here draws the world through a camera, so a place in
+	# the world and a place on the screen are the same numbers.
+	var target := p.global_position + Vector2(200.0, -120.0)
+	bot.point_at(target)
+	await phys(3)
+	check(Pointer.computer_is_pointing(), "while it plays, the computer is the one pointing")
+	check(Pointer.point.is_equal_approx(target),
+		"with the game's own pointer, led to where it points (%s, asked %s)" % [str(Pointer.point), str(target)])
+	check(p.aim.is_equal_approx((target - p.global_position).normalized()),
+		"which the body aims at (%s)" % str(p.aim))
+	var off_screen := Vector2(5000.0, p.global_position.y)
+	bot.point_at(off_screen)
+	await phys(3)
+	var edge := get_viewport().get_visible_rect().size.x - 1.0
+	check(is_equal_approx(Pointer.point.x, edge) and is_equal_approx(p.aim_point.x, edge),
+		"a place off the screen is pointed at from the screen's edge, as a hand would have to (%s)" % str(Pointer.point))
+	p.input.remove(bot)
+	await phys(3)
+	check(not p.taken_over() and not Pointer.computer_is_pointing(),
+		"taken off the line, the body and the pointer are the player's again")
 
 	print("[INPUT] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)

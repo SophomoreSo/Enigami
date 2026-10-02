@@ -126,9 +126,10 @@ func _process(delta: float) -> void:
 	UiKit.sync_screen(self)
 	_slide = move_toward(_slide, 1.0 if _out else 0.0, delta / SLIDE)
 	_place()
-	# `Pointer.point` is wherever the pointing is being done from: the crosshair
-	# while the game is pointing, the system pointer otherwise.
-	_tab_hover = tab_rect().has_point(Pointer.point)
+	# The tab is the person's to press, so it lights under their pointer: the
+	# crosshair while their hand is moving it, the system pointer otherwise —
+	# a window, or the computer having the crosshair (`Pointer.hand_point`).
+	_tab_hover = tab_rect().has_point(Pointer.hand_point())
 	queue_redraw()
 
 func _input(event: InputEvent) -> void:

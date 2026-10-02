@@ -11,8 +11,18 @@ extends InputMiddleware
 ## shutting their gates, so one raised further down the line — a jump something
 ## presses for the body — is stopped as well.
 
-func _init() -> void:
+## Whether it is a screen's. A window over the game is the player's own doing:
+## they put the body aside for it, and their pointer is for its buttons. Any
+## other hold is the game holding the body for itself — a conversation, a stun
+## — which is the computer taking it over (`takes_over`).
+var for_screen: bool = false
+
+func _init(screen: bool = false) -> void:
 	rank = HOLD
+	for_screen = screen
+
+func takes_over() -> bool:
+	return not for_screen
 
 func process(s: InputState) -> InputState:
 	s.move = 0.0

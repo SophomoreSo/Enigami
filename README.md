@@ -23,7 +23,7 @@ godot                      # opens the project
 godot res://tests/shared/smoke.tscn   # drives every screen and asserts the core rules
 godot res://tests/feature/jump_test.tscn    # ground jump, wall kick and the air jump
 godot res://tests/graphics/focus_test.tscn   # in-game buttons never steal the keyboard
-godot res://tests/graphics/pointer_test.tscn # the drawn cursor, and how far it moves
+godot res://tests/graphics/pointer_test.tscn # the drawn cursor, how far it moves, and whose it is: the hand's, the computer's or the system's
 godot res://tests/graphics/player_skin_test.tscn # the player's poses name skin pixels, and the skin swaps under them
 godot res://tests/feature/trigger_test.tscn # a trigger chain lands as separate attacks
 godot res://tests/circuit/cooldown_test.tscn # the numbers behind the graph's cooldown wipe
@@ -36,7 +36,7 @@ godot res://tests/feature/lost_kit_test.tscn # dying drops the kit, and the next
 godot res://tests/feature/climb_test.tscn   # going up a room and staying there
 godot res://tests/feature/cast_test.tscn    # the two buttons: attack casts the graph, cast charges it
 godot res://tests/feature/stamina_test.tscn # the dash budget under the health bar
-godot res://tests/feature/input_test.tscn   # the input line: the hands, a hold, a gate, and a walk that gives the body back
+godot res://tests/feature/input_test.tscn   # the input line: the hands, a hold, a gate, a walk that gives the body back, and the computer's hands
 godot res://tests/feature/aim_assist_test.tscn # aim assist: the stick-to-weapon curve, and what it bends toward
 godot res://tests/feature/pool_test.tscn    # pooling: lent, played out and handed back, and taken back when a screen goes
 godot res://tests/graphics/fx_pool_test.tscn # sparks, rings and floating numbers come out of pools, never out of nothing
@@ -233,12 +233,25 @@ than per save — a property of the desk, like the language and the bindings.
 It moves the game crosshair, not the system pointer, which is the whole of the
 design. While the player has the controls the game hides the system arrow — the
 crosshair takes its place, and that is what the setting drives. Let go of the
-controls for a menu, a map or a conversation and the system pointer comes back
+controls for a menu or a map and the system pointer comes back
 into sight for the buttons, wherever the hand has taken it and at whatever speed
 the desk runs it at: the game never moves it. At 1.0 that is exactly where the
 crosshair was; at any other speed the two have gone their own ways. Setting it is
 therefore something you see in the game rather than on the settings page, the
 way a shooter'''s sensitivity slider never moves its own menu cursor.
+
+When it is the computer that has the controls, both pointers are on the screen,
+and they are two things. That is any time your own hands are not what is
+driving the character: someone talking to you holds you still, a stun stands
+you where you are, the game walks you over to whoever you asked to talk to — or
+something plays the character in your place, a demo or a test
+(`ComputerHands`). The crosshair stays, and it is the computer's: it rests
+where it was or goes where the computer points it, the character aims by it,
+and the mouse does not move it. The system arrow is shown beside it, yours, free
+to go anywhere on the desk and moving nothing in the game. Open the pause menu
+and the arrow is the only pointer, as it is in every menu; put it away, and the
+crosshair is back where the computer had it — or back under your hand, if the
+controls are yours again by then.
 
 It was built the other way first — the game moving the system pointer — which
 works on a bench and not on a desk. The macOS call that moves a pointer unhooks

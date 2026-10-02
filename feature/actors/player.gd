@@ -159,7 +159,7 @@ var talk_locked: bool = false:
 	set(on):
 		talk_locked = on
 		input.put(_held_by_talk, on)
-var _held_by_screen := HandsOff.new()
+var _held_by_screen := HandsOff.new(true)
 var _held_by_talk := HandsOff.new()
 ## On the line for as long as the player stands stunned (`Actor.stun`): the
 ## hands come off the body the way they do for a conversation, and go back on
@@ -351,6 +351,15 @@ func on_dashed() -> void:
 ## talking to them, or anything else has taken the hands off on their line.
 func controls_locked() -> bool:
 	return input.held()
+
+## Whether the computer has the body rather than the player: the game is holding
+## it — a conversation, a stun — or walking it somewhere, or something other
+## than the player's hands is playing it (`ComputerHands`). Not while a screen
+## has the keys: the player put the body aside for that themselves, and nothing
+## is driving it. `Pointer` asks: taken over, the crosshair is the computer's
+## and the system pointer is shown beside it.
+func taken_over() -> bool:
+	return not input_locked and input.taken_over()
 
 func _process(delta: float) -> void:
 	_process_status(delta)

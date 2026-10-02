@@ -11,7 +11,9 @@ extends Node2D
 ##
 ## What is checked here: the picture, the speed, that the system pointer stays
 ## wherever the hand left it, and that nothing has crept back in that moves or
-## holds it.
+## holds it — and who is doing the pointing: the system for a window, the
+## player's hand in play, and the computer while it has the player, when the
+## crosshair is the computer's and the system pointer is shown beside it.
 ##
 ## A window is needed: an Image would build anywhere, but a cursor is only a
 ## cursor once something is showing it.
@@ -42,6 +44,7 @@ func _ready() -> void:
 	_on_grid()
 	await _in_play()
 	await _left_where_it_is()
+	await _taken_over()
 	_hands_off()
 	Pointer.set_sensitivity(was)
 	print("[PTR] ---- %d failures ----" % fails)
@@ -241,6 +244,116 @@ func _left_where_it_is() -> void:
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE and back == before,
 		"and letting go shows it there again, not under the crosshair or in the middle (%s, was %s)"
 			% [str(back), str(before)])
+
+## The computer with the controls: the game holding the player — a conversation,
+## a stun — or something playing them in their place. Both pointers are on the
+## screen then. The crosshair stays and is the computer's, so the mouse does not
+## move it, and the system pointer is shown beside it as its own arrow. A window
+## over that is the system's alone, and with it put away the crosshair is back
+## where the computer had it.
+func _taken_over() -> void:
+	Pointer.set_sensitivity(1.0)
+	var screen := get_viewport().get_visible_rect().size
+	var held := Player.new()
+	add_child(held)
+	await frames(2)
+	check(Pointer.who() == Pointer.Who.HAND, "(the player has the controls, and the pointing)")
+	Pointer.point = Vector2(400, 300)
+	held.talk_locked = true
+	await frames(2)
+	check(Pointer.who() == Pointer.Who.COMPUTER and Pointer.computer_is_pointing() and Pointer.game_is_pointing(),
+		"held in a conversation, the computer has the pointing")
+	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE,
+		"so the system pointer is in sight (mode %d)" % Input.mouse_mode)
+	check(Pointer._worn == null, "as the system's own arrow, not a second crosshair")
+	check(Pointer._crosshair.visible and Pointer.point.is_equal_approx(Vector2(400, 300)),
+		"beside the game's crosshair, which stays where it was (%s)" % str(Pointer.point))
+
+	var e := InputEventMouseMotion.new()
+	e.relative = Vector2(30, -10)
+	e.position = Vector2(700, 500)
+	Pointer._input(e)
+	await frames(2)
+	check(Pointer.point.is_equal_approx(Vector2(400, 300)),
+		"the mouse moves the system pointer and not the crosshair (%s)" % str(Pointer.point))
+	Pointer.lead(Vector2(900, 200))
+	await frames(2)
+	check(Pointer.point.is_equal_approx(Vector2(900, 200))
+			and Pointer._crosshair.position.is_equal_approx(Pointer.on_grid(Pointer.point - Pointer.hotspot())),
+		"the computer leads it, and the crosshair is drawn where it was led (%s)" % str(Pointer.point))
+	check(Pointer.lead(Vector2(-50, 9000)).is_equal_approx(Vector2(0, screen.y - 1)),
+		"kept on the screen, as the hand's is")
+	Pointer.lead(Vector2(900, 200))
+
+	# The pause menu over it, and any other window: the system's alone.
+	get_tree().paused = true
+	await frames(3)
+	check(Pointer.who() == Pointer.Who.SYSTEM and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE
+			and Pointer._worn == null and not Pointer._crosshair.visible,
+		"paused, the system pointer is the only pointer")
+	get_tree().paused = false
+	await frames(3)
+	check(Pointer.computer_is_pointing() and Pointer._crosshair.visible
+			and Pointer.point.is_equal_approx(Vector2(900, 200)),
+		"and resumed, the crosshair is back where the computer had it (%s)" % str(Pointer.point))
+	held.input_locked = true
+	await frames(2)
+	check(Pointer.who() == Pointer.Who.SYSTEM and not Pointer._crosshair.visible,
+		"a screen that takes the keys is the system's too, though the conversation goes on under it")
+	held.input_locked = false
+	await frames(2)
+	check(Pointer.computer_is_pointing() and Pointer.point.is_equal_approx(Vector2(900, 200)),
+		"and put away, the computer has the pointer back where it was (%s)" % str(Pointer.point))
+
+	# Handed back. The hand takes the pointer up where the hand is, the way it
+	# does coming out of a menu — checked only if nobody at the desk moved the
+	# mouse in the meantime, which no test can promise.
+	var before := get_viewport().get_mouse_position()
+	held.talk_locked = false
+	await frames(2)
+	var after := get_viewport().get_mouse_position()
+	check(Pointer.who() == Pointer.Who.HAND and Input.mouse_mode == Input.MOUSE_MODE_HIDDEN
+			and Pointer._crosshair.visible and Pointer._worn == Pointer._tex,
+		"the conversation over, the player has the pointing and the system pointer is hidden again")
+	if before.is_equal_approx(after):
+		check(Pointer.point.is_equal_approx(Pointer.on_screen(after, screen)),
+			"taken up where the hand is, not where the computer left it (%s)" % str(Pointer.point))
+
+	# A stun is the game holding the player just the same.
+	check(held.stun(0.25), "(a stun takes)")
+	await frames(3)
+	check(Pointer.computer_is_pointing() and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE and Pointer._crosshair.visible,
+		"stunned, the crosshair stays and the system pointer is shown beside it")
+	var guard := 0
+	while held.stunned() and guard < 600:
+		await get_tree().process_frame
+		guard += 1
+	await frames(3)
+	check(Pointer.who() == Pointer.Who.HAND, "and come round, the pointing is the player's")
+
+	# And something playing the player in their place points with the crosshair.
+	var bot := ComputerHands.new()
+	held.input.add(bot)
+	await frames(2)
+	check(Pointer.computer_is_pointing() and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE
+			and Pointer._worn == null and Pointer._crosshair.visible,
+		"with the computer's hands on the player, both pointers are on the screen")
+	bot.point_at(Vector2(640, 100))
+	await frames(3)
+	check(Pointer.point.is_equal_approx(Vector2(640, 100)),
+		"and the crosshair goes where the computer points (%s)" % str(Pointer.point))
+	Pointer._input(e)
+	await frames(2)
+	check(Pointer.point.is_equal_approx(Vector2(640, 100)), "whatever the mouse does meanwhile")
+	held.input.remove(bot)
+	await frames(2)
+	check(Pointer.who() == Pointer.Who.HAND, "taken off, the pointing is the player's again")
+
+	held.queue_free()
+	await frames(3)
+	check(Pointer.who() == Pointer.Who.SYSTEM and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE
+			and not Pointer._crosshair.visible,
+		"and with nobody on the screen at all, the system's")
 
 ## The rule the week cost: the system pointer is the system's. Nothing in the
 ## game moves it, holds it, or argues with it — and taking the mouse would move

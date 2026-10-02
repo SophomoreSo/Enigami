@@ -14,6 +14,11 @@ extends Node
 ## Checked with the console off, where the game hides the system pointer on
 ## those two screens and draws the crosshair itself, and with it on, where the
 ## game never hides it and the window's own pointer wears the crosshair instead.
+##
+## And a third case: the computer with the controls — somebody talking holds the
+## player — where the crosshair stays, the computer's, and the system's arrow is
+## shown beside it. The pause menu over that is a window like any other, and
+## back out of it both are on the screen again.
 
 const GameScript := preload("res://app/game.gd")
 
@@ -65,6 +70,15 @@ func arrow(where: String) -> void:
 	check(not wearing_crosshair() and not Pointer._crosshair.visible,
 		"%s: and it is the system's own arrow, with no crosshair anywhere" % where)
 
+## The computer has the controls: the crosshair is its, and the system's arrow is
+## in sight beside it.
+func both(where: String) -> void:
+	check(Pointer.computer_is_pointing() and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE,
+		"%s: the computer has the pointing, and the system pointer is in sight (mode %d)"
+			% [where, Input.mouse_mode])
+	check(not wearing_crosshair() and Pointer._crosshair.visible,
+		"%s: as the system's own arrow, beside the game's crosshair" % where)
+
 func _ready() -> void:
 	var was_mode := Touch.mode
 	Touch.set_mode(Touch.OFF)
@@ -77,6 +91,7 @@ func _ready() -> void:
 	await _the_hideout()
 	await _the_battleground()
 	await _with_the_console()
+	await _a_conversation()
 	Touch.set_mode(was_mode)
 	await frames(2)
 	print("[CURSOR] ---- %d failures ----" % fails)
@@ -169,3 +184,50 @@ func _with_the_console() -> void:
 	raid.set_editing(false)
 	await frames(3)
 	aiming("the raid again, with the console up")
+	# Held by the game on the console: the system pointer was never hidden, and
+	# a phone has no crosshair to leave standing — it aims with its sticks.
+	raid.player.talk_locked = true
+	await frames(3)
+	check(Pointer.computer_is_pointing() and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE
+			and not wearing_crosshair() and not Pointer._crosshair.visible,
+		"the player held, with the console up: the system's arrow, and no crosshair drawn")
+	raid.player.talk_locked = false
+	await frames(3)
+	aiming("the raid once more, with the console up")
+
+## Talking to the SAGE at the bench, with the console off: the game holds the
+## player, so the computer has the pointing.
+func _a_conversation() -> void:
+	Touch.set_mode(Touch.OFF)
+	game.goto_sandbox()
+	await frames(12)
+	var bench := game.current as Sandbox
+	var guard := 0
+	while not (bench.npc.is_on_floor() and bench.player.is_on_floor()) and guard < 600:
+		await get_tree().physics_frame
+		guard += 1
+	aiming("the bench")
+	bench.player.global_position = bench.npc.global_position + Vector2(-Npc.TALK_SPOT, 0.0)
+	bench.player.velocity = Vector2.ZERO
+	guard = 0
+	while not bench.npc.in_range and guard < 120:
+		await get_tree().physics_frame
+		guard += 1
+	Input.action_press("interact")
+	guard = 0
+	while not bench.npc.is_talking() and guard < 240:
+		await get_tree().physics_frame
+		guard += 1
+	Input.action_release("interact")
+	await frames(3)
+	check(bench.npc.is_talking() and bench.player.talk_locked, "the SAGE is talking, and holds the player")
+	both("a conversation")
+	await key(KEY_ESCAPE)
+	check(get_tree().paused, "ESC in a conversation pauses")
+	arrow("the pause menu, over a conversation")
+	await key(KEY_ESCAPE)
+	check(not get_tree().paused and bench.npc.is_talking(), "ESC puts it away, with the conversation still going")
+	both("the conversation again, unpaused")
+	bench.npc.end_conversation()
+	await frames(3)
+	aiming("the bench, the conversation over")
