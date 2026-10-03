@@ -161,11 +161,9 @@ func _ready() -> void:
 	var vp := get_viewport().get_visible_rect().size
 	check(sb.player.runner != null and sb.player.runner.board == sb.board(),
 		"the bench carries the weapon's graph")
-	var slots_right := Hud.BAR_AT.x + Hud.SLOT.x
-	check(slots_right <= vp.x, "the HUD's square fits the screen (%.0f)" % slots_right)
 
 	# Capitals stand 10 above their baseline and nothing descends.
-	var hud_last := Hud.SLOT_TOP + Hud.SLOT.y + 18.0 + PixelDraw.LINE
+	var hud_last := Hud.WEAPON_LINE
 	var dps_top := SandboxPanel.DPS_AT.y - 10.0
 	check(dps_top > hud_last,
 		"the damage readout sits under the HUD's corner, reason line and all (%.0f under %.0f)"
@@ -178,10 +176,7 @@ func _ready() -> void:
 	var drawer := panel.drawer_rect()
 	check(drawer.position == Vector2(0.0, SandboxPanel.TOP),
 		"out, the drawer stands against the left edge (%s)" % str(drawer))
-	# The two lines of keys along the bottom: the top of the upper one.
-	var lines_top := vp.y - 14.0 - PixelDraw.LINE - 10.0
-	check(drawer.end.y <= lines_top,
-		"and ends above the lines along the bottom (%.0f of %.0f)" % [drawer.end.y, lines_top])
+	check(drawer.end.y <= vp.y, "and ends on the screen (%.0f of %.0f)" % [drawer.end.y, vp.y])
 	var grid := panel._grid.get_global_rect()
 	check(drawer.encloses(grid), "every button is inside it (%s in %s)" % [str(grid), str(drawer)])
 	var tab := panel.tab_rect()

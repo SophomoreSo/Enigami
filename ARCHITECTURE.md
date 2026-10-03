@@ -86,9 +86,8 @@ is, whether the player stands by something to use — it asks through `World`
 (`feature/world/world.gd`), so a new thing to use is that world's edit and not
 the shell's.
 
-`graphics/` reads `mobile/input/` the way it reads any state — the HUD drops its
-key hints while the console is up, and every menu has a second layout for mobile
-mode — and names one thing in `mobile/view/`: `graphics/ui/controls_panel.gd`
+`graphics/` reads `mobile/input/` the way it reads any state — every menu has a
+second layout for mobile mode — and names one thing in `mobile/view/`: `graphics/ui/controls_panel.gd`
 opens `TouchLayoutEditor` from SET BUTTON POSITIONS, because the control
 settings are where a player looks for it. It opens the screen and takes nothing
 else.

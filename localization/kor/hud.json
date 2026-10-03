@@ -8,9 +8,6 @@
 		"parry": "막아냄",
 		"boss_phase": "%s: 제2형태"
 	},
-	"slot": {
-		"hint": "%s 시전 · %s 길게 눌러 충전, 떼면 시전"
-	},
 	"map": {
 		"title": "지도",
 		"clock": "%02d:%02d  •  %s",
@@ -33,8 +30,6 @@
 		"close": "%s 또는 ESC로 닫기"
 	},
 	"extracting": "탈출 중",
-	"footer": "%s 조립   %s 지도   %s 상호작용   %s 대시",
-	"footer_lobby": "TAB 조립   F 상호작용   SHIFT 대시",
 	"extract": {
 		"hold": "%s를 길게 눌러 탈출",
 		"no_exit": "출구 없음",

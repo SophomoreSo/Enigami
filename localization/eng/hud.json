@@ -8,9 +8,6 @@
 		"parry": "PARRY",
 		"boss_phase": "%s: SECOND FORM"
 	},
-	"slot": {
-		"hint": "%s casts · hold %s to charge, release to cast"
-	},
 	"map": {
 		"title": "MAP",
 		"clock": "%02d:%02d  •  %s",
@@ -33,8 +30,6 @@
 		"close": "%s OR ESC TO CLOSE"
 	},
 	"extracting": "EXTRACTING",
-	"footer": "%s assemble   %s map   %s interact   %s dash",
-	"footer_lobby": "TAB assemble   F interact   SHIFT dash",
 	"extract": {
 		"hold": "hold %s to extract",
 		"no_exit": "no exit",

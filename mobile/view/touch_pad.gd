@@ -133,8 +133,8 @@ enum Face { NONE, PLAY, TALK, SCREEN, CLEAR }
 ## it for HOLD, until the thumb lifts.
 const CONTROLS := [
 	# The stick. It has no place of its own — only a `zone` a thumb may summon
-	# it anywhere inside, which is the whole left of the screen between the
-	# health bars and the graph's square. That is the point of it: the hand goes
+	# it anywhere inside, which is the whole left of the screen under the
+	# health bars. That is the point of it: the hand goes
 	# where it likes and the stick comes to the hand.
 	{"kind": Kind.MOVE, "radius": 78.0, "knob": 30.0,
 		"zone": Rect2(0, 120, 456, 472), "grow": Vector2(0, 1), "faces": [Face.PLAY]},
@@ -311,7 +311,7 @@ var _down: Dictionary = {}
 ##
 ## The two places are usually the same one and are not always: a thumb landing
 ## within a radius of the edge of the zone would draw a ring half off the screen
-## or over the graph's square, so the ring slides in to fit. **The push is measured
+## or over the health bars, so the ring slides in to fit. **The push is measured
 ## from where the thumb landed either way**, or a stick summoned in the corner
 ## would read as shoved the moment it appeared, and the player would walk off
 ## without having asked to.

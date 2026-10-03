@@ -6,14 +6,11 @@ extends Node
 ## this one.
 ##
 ## Checked with everything it can show on it at once: a wounded player, a dash
-## spent, a charge half drained, one slot armed, one mid-cooldown with the flash
-## still on it, one the weapon refuses, a prompt, a toast and an extraction
-## under way — so nothing that only shows sometimes goes unchecked.
+## spent, a charge half drained, a prompt, a toast and an extraction under way —
+## so nothing that only shows sometimes goes unchecked.
 ##
-## And the numbers the layout stands on, which the pixel face is what decides:
-## a row of squares as wide as the bars over it at the most slots a weapon has,
-## a square wide enough for the bindings the game ships with, and a health bar
-## that holds the longest reading it can show.
+## And the number the layout stands on, which the pixel face is what decides: a
+## health bar that holds the longest reading it can show.
 ##
 ## Needs a real renderer: the block check reads the frame back.
 
@@ -114,11 +111,6 @@ func _ready() -> void:
 	raid.player.health = raid.player.max_health * 0.7
 	raid.player.stamina = Player.MAX_STAMINA * 0.55
 	raid.player.mana = Player.MAX_MANA * 0.4
-	var r: SkillRunner = raid.player.runner
-	r.cooldown = 10
-	r.cycle_seconds = 2.0
-	r._elapsed = 0.6
-	r.ready_flash = 0.6
 	# The view copies these onto the HUD every frame, so they are set where it
 	# reads them rather than on the HUD itself.
 	raid.prompt = Loc.t("hud.extract.hold")
@@ -131,26 +123,6 @@ func _ready() -> void:
 	restore(hidden)
 
 	# --- what the pixel face costs the layout --------------------------------
-	var vp := get_viewport().get_visible_rect().size
-	# The graph is a square under the bars, so what the layout stands on is the
-	# column's own width rather than any card's: the square has to sit inside
-	# the width of the bars over it or the corner stops reading as one column.
-	check(Hud.SLOT.x <= Hud.BAR_W + 0.5,
-		"the graph's square is no wider than the bars over it (%.0f of %.0f)" % [Hud.SLOT.x, Hud.BAR_W])
-	# The only text in the square is the binding, centred and cut short if it
-	# has to be — but the binding the game ships with has to fit whole, or the
-	# square starts life with an ellipsis in it.
-	var pad := 16.0
-	var label := Controls.short_label_for("attack")
-	check(PixelDraw.text_width(label) <= Hud.SLOT.x - pad,
-		"the square holds its binding whole, '%s' (%.0f of %.0f)"
-			% [label, PixelDraw.text_width(label), Hud.SLOT.x - pad])
-	# And the whole corner — bars, weapon, square and the name under it — stays
-	# clear of the two lines of keys along the bottom.
-	var column := Hud.SLOT_TOP + Hud.SLOT.y + 18.0 + PixelDraw.LINE
-	check(column <= vp.y - 34.0,
-		"the corner stops clear of the key hints under it (%.0f of %.0f)"
-			% [column, vp.y - 34.0])
 	var reading := Loc.t("hud.health", [999, 999])
 	check(PixelDraw.text_width(reading) <= Hud.BAR_W - 16.0,
 		"the health bar holds its longest reading, '%s' (%.0f of %.0f)"
