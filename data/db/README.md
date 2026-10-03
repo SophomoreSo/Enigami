@@ -16,7 +16,8 @@ data/
     ├── boards/       the boards the game ships with, a file for each who uses them
     │   ├── weapons.sql      each weapon's graph, as a new profile gets it
     │   ├── monsters.sql     every monster's
-    │   └── dragon_test.sql  the dragon test's tower's
+    │   ├── dragon_test.sql  the dragon test's tower's
+    │   └── jean_grey_test.sql  the Jean Grey test's rock's
     ├── dialogue/     the conversations, one file per character, named after their id in lower case
     │   ├── sage.sql         in the box
     │   └── apprentice.sql   free
@@ -465,8 +466,9 @@ its effect's.
 ## A board
 
 The boards the game ships with — each weapon's graph as a new profile gets
-it, every monster's, the dragon test's — are rows in `boards/`. What a player
-builds onto a weapon's graph is theirs, and lives in the save.
+it, every monster's, the dragon test's, the Jean Grey test's — are rows in
+`boards/`. What a player builds onto a weapon's graph is theirs, and lives in
+the save.
 
 ```sql
 INSERT INTO boards (id) VALUES ('arbiter_phase2');

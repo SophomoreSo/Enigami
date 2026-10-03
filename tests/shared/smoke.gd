@@ -312,6 +312,27 @@ func _run() -> void:
 	if game.state != 3:
 		fail("leaving the dragon test did not return to the bench")
 
+	# The Jean Grey test, off the bench the same way: the screen drawn, the
+	# editor opened over it, the ground set again, and back. What it comes to
+	# in play is tests/feature/jean_grey_test.tscn.
+	var bench: Sandbox = game.current
+	bench.open_jean_grey_test()
+	await frames(12)
+	var jean = game.current
+	if not (jean is JeanGreyTest):
+		fail("the bench did not open the Jean Grey test")
+	else:
+		jean.set_editing(true)
+		await frames(6)
+		jean.set_editing(false)
+		jean.reset_floor()
+		await frames(6)
+		say("jean grey test ok, %d guards, diamond at %s" % [jean.total_guards, jean.diamond.global_position])
+		jean.leave()
+		await frames(12)
+		if game.state != 3:
+			fail("leaving the Jean Grey test did not return to the bench")
+
 	# Death path: the weapon and the graph on it go down together.
 	game._deploy("GUN")
 	await frames(6)

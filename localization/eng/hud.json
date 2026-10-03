@@ -52,6 +52,7 @@
 	"sandbox": {
 		"swap_weapon": "SWAP WEAPON",
 		"dragon_test": "DRAGON TEST >",
+		"jean_grey_test": "JEAN GREY TEST >",
 		"spawn": "spawn %s",
 		"spawn_dummy": "spawn dummy",
 		"clear": "clear",
@@ -71,6 +72,24 @@
 		"one_cast": "ALL %d IN ONE CAST",
 		"clear": "FLOOR CLEAR   BEST CAST %d OF %d",
 		"board": "Dragon Dash"
+	},
+	"jean": {
+		"title": "JEAN GREY TEST",
+		"subtitle": "STEAL THE DIAMOND WITHOUT GOING IN YOURSELF",
+		"body": "BODY %d / %d",
+		"take": "TAKE THE DIAMOND",
+		"down": "PICK THE DIAMOND BACK UP",
+		"carry": "BRING IT TO YOUR BODY",
+		"home": "BACK TO THE PIT WITH IT",
+		"unseen": "UNSEEN",
+		"seen": "SEEN BY %d",
+		"best": "%s  BEST %s",
+		"stolen": "DIAMOND STOLEN  %s",
+		"fell": "YOUR BODY FELL",
+		"again": "AGAIN",
+		"rock_out": "ROCK ON THE FLOOR",
+		"keys": "R RESET  TAB EDIT  %s LEAVE MONSTER  ESC BACK",
+		"board": "Psychic Throw"
 	},
 	"pickup": "Recovered %s — assemble it with TAB",
 	"exit": {

@@ -58,6 +58,8 @@ func view_script_for(n: Node) -> GDScript:
 		return LostKitView
 	if n is LooseRock:
 		return LooseRockView
+	if n is Diamond:
+		return DiamondView
 	if n is TreasureBox:
 		return TreasureBoxView
 	if n is DragonTower:
@@ -72,5 +74,7 @@ func view_script_for(n: Node) -> GDScript:
 		return HideoutWorldView
 	if n is DragonTest:
 		return DragonTestView
+	if n is JeanGreyTest:
+		return JeanGreyTestView
 	# Story keeps its own table, in `story/view/story_views.gd`.
 	return StoryViews.view_script_for(n)

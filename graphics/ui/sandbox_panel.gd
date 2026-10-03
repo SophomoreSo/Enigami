@@ -94,6 +94,7 @@ func _build_buttons() -> void:
 	add_child(_grid)
 	_add(Loc.t("hud.sandbox.swap_weapon"), UiKit.ACCENT, func() -> void: sandbox.cycle_weapon())
 	_add(Loc.t("hud.sandbox.dragon_test"), UiKit.ACCENT, func() -> void: sandbox.open_dragon_test())
+	_add(Loc.t("hud.sandbox.jean_grey_test"), UiKit.ACCENT, func() -> void: sandbox.open_jean_grey_test())
 	for kind in Sandbox.MONSTER_BUTTONS:
 		_add(Loc.t("hud.sandbox.spawn", [Monsters.name_for(kind)]), UiKit.WARN,
 			func() -> void: sandbox.spawn_monster(kind))
