@@ -109,6 +109,7 @@ func _standing_row(x: int) -> int:
 	for y in range(Room.H - 1, 0, -1):
 		if not room.is_solid(x, y) and not room.is_solid(x, y - 1):
 			return y
+	@warning_ignore("integer_division")
 	return int(Room.H / 2)
 
 ## Dropped in above the floor and left to land, like everything else here. On no

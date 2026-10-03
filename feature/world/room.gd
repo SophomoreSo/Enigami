@@ -5,7 +5,6 @@ extends Node2D
 ## neighbours, whatever monsters and loot the map says are still here, and
 ## sometimes an extraction point.
 
-signal door_entered(dir: int)
 signal enemy_killed(kind: String, pos: Vector2)
 signal pickup_collected(pickup: Pickup)
 ## The drop a death left in this room, picked back up.
@@ -235,6 +234,7 @@ func _generate() -> void:
 
 	# An exit must always be reachable: clear a pocket around it and floor it.
 	if not extraction.is_empty():
+		@warning_ignore("integer_division")
 		var ex: int = int(extraction.get("x", int(W / 2)))
 		var ey: int = int(extraction.get("y", H - 4))
 		for x in range(ex - 3, ex + 4):
@@ -335,6 +335,7 @@ func _random_open_point() -> Vector2:
 		var y := rng.randi_range(3, H - 4)
 		if not is_solid(x, y) and not is_solid(x, y - 1) and is_solid(x, y + 1):
 			return cell_center(x, y)
+	@warning_ignore("integer_division")
 	return cell_center(int(W / 2), 5)
 
 func _spawn_enemy(e: Dictionary) -> void:
@@ -480,6 +481,7 @@ static func arrival_point(from_dir: int) -> Vector2:
 		Components.E: return centre_of(W - 3, DOOR_ROWS[1])
 		Components.N: return centre_of(DOOR_COLS[1], 2)
 		Components.S: return centre_of(DOOR_COLS[1], H - 4)
+	@warning_ignore("integer_division")
 	return centre_of(int(W / 2), int(H / 2))
 
 ## Where a player arriving through `from_dir` should be put down: the door's own
@@ -497,6 +499,7 @@ func entry_point(from_dir: int) -> Vector2:
 	return standing_near(arrival_point(from_dir))
 
 func spawn_point() -> Vector2:
+	@warning_ignore("integer_division")
 	return standing_near(cell_center(int(W / 2), DOOR_ROWS[1]))
 
 ## `at`, or the nearest place to it a body can stand.
@@ -545,6 +548,7 @@ func _standable(c: Vector2i) -> bool:
 func extraction_rect() -> Rect2:
 	if extraction.is_empty():
 		return Rect2()
+	@warning_ignore("integer_division")
 	var c: Vector2 = cell_center(int(extraction.get("x", W / 2)), int(extraction.get("y", H - 4)))
 	return Rect2(c - Vector2(48, 56), Vector2(96, 96))
 

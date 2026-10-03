@@ -366,12 +366,12 @@ func charge_cap() -> float:
 ## Charging runs only while the cast button is held on a graph that could be
 ## cast right now, and only while there is mana to pay for it. Released, it
 ## bleeds off quickly: the depth is bought for this burst, not banked.
-func _update_charge(delta: float, casting: bool) -> void:
+func _update_charge(delta: float, holding: bool) -> void:
 	# While the button is down the charge only ever holds or grows. Letting the
 	# decay branch run once it reached the cap made the two fight each other
 	# frame by frame — charge sat just under the cap while mana drained away
 	# into the gap being refilled.
-	if casting and can_charge():
+	if holding and can_charge():
 		charging = true
 		var cap := charge_cap()
 		if charge < cap and mana > 0.0:

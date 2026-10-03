@@ -138,8 +138,8 @@ func _section_column() -> Control:
 ## --- the kit, in the pixel look ---------------------------------------------
 ## A station's panel in mobile mode writes its words at a thumb's size; the
 ## whole screen never does, having three columns of them to fit.
-func _label(text: String, color: Color = UiKit.TEXT, size: int = UiKit.PIXEL_TEXT) -> Label:
-	return UiKit.label(text, UiKit.text(size) if section != "" else size, color, true)
+func _label(text: String, color: Color = UiKit.TEXT, font_size: int = UiKit.PIXEL_TEXT) -> Label:
+	return UiKit.label(text, UiKit.text(font_size) if section != "" else font_size, color, true)
 
 ## A line that is allowed to run on: it wraps inside its column instead of
 ## pushing the column wider.

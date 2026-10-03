@@ -254,11 +254,11 @@ static func load_saved() -> void:
 		for entry in parsed[a]:
 			if String(entry.get("t", "")) == "key":
 				var k := InputEventKey.new()
-				k.physical_keycode = int(entry["k"])
+				k.physical_keycode = int(entry["k"]) as Key
 				InputMap.action_add_event(a, k)
 			elif String(entry.get("t", "")) == "mouse":
 				var m := InputEventMouseButton.new()
-				m.button_index = int(entry["b"])
+				m.button_index = int(entry["b"]) as MouseButton
 				InputMap.action_add_event(a, m)
 	if _mouse_aside:
 		_take_mouse()

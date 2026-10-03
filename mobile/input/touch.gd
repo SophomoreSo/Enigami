@@ -98,12 +98,12 @@ static func set_mode(m: int) -> void:
 ## carries why — and when it goes, everything it was holding is let go of.
 ## Called by the pad itself, so the one thing that knows whether it is on screen
 ## is the thing that is.
-static func set_up(up: bool) -> void:
-	if up == _up:
+static func set_up(showing: bool) -> void:
+	if showing == _up:
 		return
-	_up = up
-	Controls.set_mouse_aside(up)
-	if not up:
+	_up = showing
+	Controls.set_mouse_aside(showing)
+	if not showing:
 		release_all()
 
 static func up() -> bool:

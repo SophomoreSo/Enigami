@@ -51,36 +51,36 @@ static func ids() -> PackedStringArray:
 ## carrying its `steps` — the names of its actions, in order — `conditions` by
 ## id, each its expression, and `transitions` as a list in the order they are
 ## tried. Empty when there is no such machine.
-static func source(id: String) -> Dictionary:
-	var found := Db.records("machines", "id = ?", [id])
+static func source(machine_id: String) -> Dictionary:
+	var found := Db.records("machines", "id = ?", [machine_id])
 	if found.is_empty():
 		return {}
 	var def: Dictionary = found[0]
-	var states: Dictionary = {}
-	for s in Db.records("states", "machine_id = ?", [id], "rowid"):
+	var state_rows: Dictionary = {}
+	for s in Db.records("states", "machine_id = ?", [machine_id], "rowid"):
 		s["steps"] = []
-		states[String(s["id"])] = s
-	for step in Db.records("steps", "machine_id = ?", [id], "state_id, position"):
-		var state = states.get(String(step["state_id"]))
+		state_rows[String(s["id"])] = s
+	for step in Db.records("steps", "machine_id = ?", [machine_id], "state_id, position"):
+		var state = state_rows.get(String(step["state_id"]))
 		if state != null:
 			(state["steps"] as Array).append(String(step["action"]))
-	def["states"] = states
-	var conditions: Dictionary = {}
-	for c in Db.records("conditions", "machine_id = ?", [id], "rowid"):
-		conditions[String(c["id"])] = String(c["expression"])
-	def["conditions"] = conditions
-	def["transitions"] = Db.records("transitions", "machine_id = ?", [id], "from_id, position, rowid")
+	def["states"] = state_rows
+	var condition_rows: Dictionary = {}
+	for c in Db.records("conditions", "machine_id = ?", [machine_id], "rowid"):
+		condition_rows[String(c["id"])] = String(c["expression"])
+	def["conditions"] = condition_rows
+	def["transitions"] = Db.records("transitions", "machine_id = ?", [machine_id], "from_id, position, rowid")
 	return def
 
 ## Builds `id` over its owner's `actions` — name to Callable, one thing the
 ## body does — and `senses` — name to Callable, answering what a condition
 ## reads by that name.
-static func build(id: String, actions: Dictionary, senses: Dictionary) -> Machine:
+static func build(machine_id: String, actions: Dictionary, senses: Dictionary) -> Machine:
 	var m := Machine.new()
-	m.id = id
-	var def := source(id)
+	m.id = machine_id
+	var def := source(machine_id)
 	if def.is_empty():
-		m.faults.append("no machine called '%s' in %s" % [id, Db.PATH])
+		m.faults.append("no machine called '%s' in %s" % [machine_id, Db.PATH])
 		return m
 	m.faults = problems_in(def)
 	var rows: Dictionary = def["states"]
@@ -147,10 +147,10 @@ static func build(id: String, actions: Dictionary, senses: Dictionary) -> Machin
 ## Mistakes in a machine that would otherwise show as a state nobody leaves,
 ## a way out nobody takes, or a split that does not add up. Phrased the way
 ## `Dialogue.problems` phrases them, and checked by `tests/feature/machine_test`.
-static func problems(id: String) -> Array:
-	var def := source(id)
+static func problems(machine_id: String) -> Array:
+	var def := source(machine_id)
 	if def.is_empty():
-		return ["no machine called '%s' in %s" % [id, Db.PATH]]
+		return ["no machine called '%s' in %s" % [machine_id, Db.PATH]]
 	return problems_in(def)
 
 ## The same check against a machine already in hand, in the shape `source`
@@ -159,24 +159,24 @@ static func problems(id: String) -> Array:
 ## owner: whether a name is one the owner has is `build`'s to find out.
 static func problems_in(def: Dictionary) -> Array:
 	var found: Array = []
-	var states = def.get("states", {})
-	if not states is Dictionary or states.is_empty():
+	var state_rows = def.get("states", {})
+	if not state_rows is Dictionary or state_rows.is_empty():
 		return ["no states"]
-	if not states.has(String(def.get("start", ""))):
+	if not state_rows.has(String(def.get("start", ""))):
 		found.append("start -> %s" % def.get("start", ""))
-	for sid in states:
-		var steps = states[sid].get("steps", []) if states[sid] is Dictionary else []
+	for sid in state_rows:
+		var steps = state_rows[sid].get("steps", []) if state_rows[sid] is Dictionary else []
 		if not steps is Array or steps.is_empty():
 			found.append("%s does nothing" % sid)
 			continue
 		for action in steps:
 			if String(action) == "":
 				found.append("a step of %s names no action" % sid)
-	var conditions = def.get("conditions", {})
-	if not conditions is Dictionary:
-		conditions = {}
-	for cid in conditions:
-		var parsed = _parse(String(conditions[cid]), PackedStringArray())
+	var condition_rows = def.get("conditions", {})
+	if not condition_rows is Dictionary:
+		condition_rows = {}
+	for cid in condition_rows:
+		var parsed = _parse(String(condition_rows[cid]), PackedStringArray())
 		if not parsed is Expression:
 			found.append("condition %s %s" % [cid, parsed])
 	var transitions = def.get("transitions", [])
@@ -191,14 +191,14 @@ static func problems_in(def: Dictionary) -> Array:
 		var from_id := String(t.get("from_id", ""))
 		var to_id := String(t.get("to_id", ""))
 		var where := "%s -> %s" % [from_id, to_id]
-		if not states.has(from_id):
+		if not state_rows.has(from_id):
 			found.append("%s leaves a state that does not exist" % where)
-		if not states.has(to_id):
+		if not state_rows.has(to_id):
 			found.append("%s leads to a state that does not exist" % where)
 		var condition := String(t.get("condition", ""))
 		if condition == "":
 			found.append("%s has no condition" % where)
-		elif not conditions.has(condition):
+		elif not condition_rows.has(condition):
 			found.append("%s asks %s, which is not a condition" % [where, condition])
 		var p := float(t.get("probability", 1.0))
 		if p <= 0.0 or p > 1.0:

@@ -19,11 +19,11 @@ extends Node
 
 signal fired(name: StringName, data: Dictionary)
 
-func emit_cue(name: StringName, data: Dictionary = {}) -> void:
-	fired.emit(name, data)
+func emit_cue(cue: StringName, data: Dictionary = {}) -> void:
+	fired.emit(cue, data)
 
 ## Sugar for the common case of "this happened over there".
-func at(name: StringName, pos: Vector2, extra: Dictionary = {}) -> void:
+func at(cue: StringName, pos: Vector2, extra: Dictionary = {}) -> void:
 	var d := extra.duplicate()
 	d["pos"] = pos
-	fired.emit(name, d)
+	fired.emit(cue, d)

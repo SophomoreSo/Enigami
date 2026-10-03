@@ -9,8 +9,8 @@ extends Node
 func _ready() -> void:
 	Cues.fired.connect(_on_cue)
 
-func _on_cue(name: StringName, d: Dictionary) -> void:
-	match name:
+func _on_cue(cue: StringName, d: Dictionary) -> void:
+	match cue:
 		&"music_start":
 			Audio.play_music()
 		&"attack":

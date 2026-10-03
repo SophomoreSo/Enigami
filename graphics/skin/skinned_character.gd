@@ -109,6 +109,7 @@ func _load_strip(anim: String) -> void:
 		push_error("SkinnedCharacter: '%s.%s' is %s, not a row of %s frames"
 			% [base, anim, strip.get_size(), frame_size])
 		return
+	@warning_ignore("integer_division")
 	var count := strip.get_width() / frame_size.x
 	var looks: Array = []
 	var dropped := 0
@@ -155,7 +156,7 @@ func resolved() -> SpriteFrames:
 ## the old one's size, since the frames name its pixels by position.
 func reskin(image: Image) -> bool:
 	if image == null or image.get_size() != skin_image.get_size():
-		push_error("SkinnedCharacter: a skin for '%s' is %s, not %s" % [base, image.get_size() if image else "nothing", skin_image.get_size()])
+		push_error("SkinnedCharacter: a skin for '%s' is %s, not %s" % [base, str(image.get_size()) if image else "nothing", skin_image.get_size()])
 		return false
 	skin_image = image.duplicate()
 	skin_image.convert(Image.FORMAT_RGBA8)

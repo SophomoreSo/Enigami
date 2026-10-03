@@ -127,8 +127,8 @@ func _draw_health() -> void:
 ## What a weapon is called on the kit's line: its name, and in a kit of more
 ## than one the number of its slot before it — the key that draws it.
 static func kit_label(weapon_id: String, slot: int, carried: int) -> String:
-	var name := Weapons.name_for(weapon_id).to_upper()
-	return name if carried < 2 else "%d %s" % [slot + 1, name]
+	var named := Weapons.name_for(weapon_id).to_upper()
+	return named if carried < 2 else "%d %s" % [slot + 1, named]
 
 ## The weapons carried, left to right in their slots, starting at `at`: the one
 ## in hand in its own colour and the rest dimmed. With one weapon carried it is

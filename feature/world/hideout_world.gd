@@ -33,7 +33,9 @@ signal station_used(id: String)
 signal edit_requested()
 ## Something the room wants to say, for the HUD to toast. The raid says things
 ## the same way (`Raid.noticed`), and this is the same kind of thing: an answer
-## to a press that would otherwise be silence.
+## to a press that would otherwise be silence. Nothing in the room says anything
+## yet, but the view listens for it, so it stays.
+@warning_ignore("unused_signal")
 signal noticed(text: String)
 ## The panel over the room opened or closed. The room keeps standing either way.
 signal panel_changed(id: String)
@@ -141,6 +143,7 @@ func _floor_at(x: int) -> int:
 	for y in range(Room.H - 1, 0, -1):
 		if not room.is_solid(x, y) and not room.is_solid(x, y - 1):
 			return y
+	@warning_ignore("integer_division")
 	return int(Room.H / 2)
 
 ## The gate is shut until there is a weapon to carry through it — one the

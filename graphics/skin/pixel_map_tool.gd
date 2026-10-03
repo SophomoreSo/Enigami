@@ -91,6 +91,7 @@ func _check(folder: String) -> int:
 			printerr("%s: %s is not a row of %s frames" % [file, strip.get_size(), map.size])
 			bad += 1
 			continue
+		@warning_ignore("integer_division")
 		var count := strip.get_width() / map.size.x
 		var strays := 0
 		for i in count:

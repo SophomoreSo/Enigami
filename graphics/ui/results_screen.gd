@@ -68,8 +68,8 @@ func _origin() -> Vector2:
 
 ## As on the HUD: the default face at a small size, and a language with a face
 ## of its own drawn at the size that face was made for. See `Hud._line`.
-func _line(at: Vector2, s: String, align: int, width: float, size: int, col: Color) -> void:
-	draw_string(_font, at, s, align, width, Loc.text_size(s, size), col)
+func _line(at: Vector2, s: String, align: int, width: float, font_size: int, col: Color) -> void:
+	draw_string(_font, at, s, align, width, Loc.text_size(s, font_size), col)
 
 func _draw() -> void:
 	draw_set_transform(_origin())
@@ -175,8 +175,8 @@ func _draw_for_a_thumb() -> void:
 
 ## A line that may run on, wrapped to `width` at `size` from `at`, which is its
 ## first baseline. Hands back the baseline of its last row.
-func _paragraph(at: Vector2, s: String, width: float, size: int, col: Color) -> float:
-	var px := Loc.text_size(s, size)
+func _paragraph(at: Vector2, s: String, width: float, font_size: int, col: Color) -> float:
+	var px := Loc.text_size(s, font_size)
 	draw_multiline_string(_font, at, s, HORIZONTAL_ALIGNMENT_LEFT, width, px, -1, col)
 	var tall := _font.get_multiline_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, width, px).y
 	return at.y + maxf(tall - _font.get_height(px), 0.0)

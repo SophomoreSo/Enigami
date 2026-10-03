@@ -123,8 +123,8 @@ func json_columns(table: String) -> PackedStringArray:
 			out.append(String(c["name"]))
 	return out
 
-func has_table(name: String) -> bool:
-	return int(value("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = ?", [name], 0)) > 0
+func has_table(table: String) -> bool:
+	return int(value("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = ?", [table], 0)) > 0
 
 ## What `meta` says under `key` — `schema_version`, `source_hash` — or
 ## `fallback` when it says nothing.

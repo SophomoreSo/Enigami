@@ -744,6 +744,7 @@ func _slot_row(n: int) -> Dictionary:
 func _slot_stamp(n: int) -> String:
 	if _armed_slot == n:
 		return Loc.t("menu.save_slots.slot_delete")
+	@warning_ignore("static_called_on_instance")
 	var at := int(GameState.slot_info(n).get("saved_at", 0))
 	if at <= 0:
 		return Loc.t("menu.save_slots.slot_empty")
@@ -1060,9 +1061,9 @@ func _draw() -> void:
 func _paint_copper(cv: CanvasItem) -> void:
 	cv.draw_set_transform(_origin)
 	var shown := Rect2(-_origin, size).grow(32.0)
-	for tr in _traces:
-		if (tr["box"] as Rect2).intersects(shown):
-			cv.draw_polyline(tr["pts"], tr["col"], tr["w"])
+	for trace in _traces:
+		if (trace["box"] as Rect2).intersects(shown):
+			cv.draw_polyline(trace["pts"], trace["col"], trace["w"])
 	for pt in _parts:
 		if shown.has_point(pt["p"]):
 			_paint_part(cv, pt)
@@ -1125,17 +1126,17 @@ func _draw_settle() -> void:
 
 func _draw_pulses() -> void:
 	for pu in _pulses:
-		var tr: Dictionary = _traces[int(pu["i"])]
-		var head: float = float(pu["t"]) * float(tr["len"])
+		var trace: Dictionary = _traces[int(pu["i"])]
+		var head: float = float(pu["t"]) * float(trace["len"])
 		var tail: float = float(pu["len"])
 		for k in 3:
 			var a := head - tail * (1.0 - float(k) / 3.0)
 			var b := head - tail * (1.0 - float(k + 1) / 3.0)
-			var seg := _arc_slice(tr["pts"], a, b)
+			var seg := _arc_slice(trace["pts"], a, b)
 			if seg.size() >= 2:
 				var f := float(k + 1) / 3.0
 				draw_polyline(seg, Color(SPARK.r, SPARK.g, SPARK.b, 0.16 + 0.64 * f * f),
-					float(tr["w"]) + 0.5)
+					float(trace["w"]) + 0.5)
 
 ## Drawn into `_seal_view` at SEAL_SCALE and blitted back at 1/SEAL_SCALE with
 ## nearest filtering, so every curve here lands on the same coarse grid the
@@ -1355,10 +1356,10 @@ func _draw_save_slot_prompt() -> void:
 	if _save_slot_root == null or not _save_slot_root.visible or _mobile:
 		return
 	var line := _slot_prompt
-	var size := Loc.text_size(line, 16)
-	var w := _menu_font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	var font_size := Loc.text_size(line, 16)
+	var w := _menu_font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
 	draw_string(_menu_font, Vector2(SEAL.x - w * 0.5, SAVE_SLOT_TOP - 12.0), line,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(CREAM.r, CREAM.g, CREAM.b, 0.7))
+		HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(CREAM.r, CREAM.g, CREAM.b, 0.7))
 
 ## The trashcan at the end of each slot row. Drawn rather than dropped in as an
 ## image, like everything else here, on a 2-pixel unit so it lands on the same

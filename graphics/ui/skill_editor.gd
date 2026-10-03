@@ -1214,15 +1214,15 @@ func _hint_rows(id: String, dead: bool) -> Array:
 ## thing it names. Below it and to the right, flipped back over it when either
 ## would run off the screen.
 func _hint_box(vp: Vector2, on: Rect2, rows: int) -> Rect2:
-	var size := Vector2(HINT_W, 28.0 + float(maxi(rows - 1, 0)) * LINE)
+	var extent := Vector2(HINT_W, 28.0 + float(maxi(rows - 1, 0)) * LINE)
 	var at := on.end + Vector2(HINT_GAP, HINT_GAP)
-	if at.x + size.x > vp.x - HINT_PAD:
-		at.x = on.position.x - HINT_GAP - size.x
-	if at.y + size.y > vp.y - HINT_PAD:
-		at.y = on.position.y - HINT_GAP - size.y
+	if at.x + extent.x > vp.x - HINT_PAD:
+		at.x = on.position.x - HINT_GAP - extent.x
+	if at.y + extent.y > vp.y - HINT_PAD:
+		at.y = on.position.y - HINT_GAP - extent.y
 	return Rect2(_px.snap(Vector2(
-		clampf(at.x, HINT_PAD, vp.x - size.x - HINT_PAD),
-		clampf(at.y, HINT_PAD, vp.y - size.y - HINT_PAD))), size)
+		clampf(at.x, HINT_PAD, vp.x - extent.x - HINT_PAD),
+		clampf(at.y, HINT_PAD, vp.y - extent.y - HINT_PAD))), extent)
 
 ## The box round the whole ring the part at `origin` is caught in. The seams
 ## that came back with the loop are what holds it together: a part is in this
@@ -1824,14 +1824,13 @@ func _loop_sample(loop: PackedVector2Array, s: float) -> Array:
 ## side it is.
 func _outline_edge(cell: Vector2i, dir: int) -> Array:
 	var r := _cell_rect(cell)
-	var tr := Vector2(r.end.x, r.position.y)
+	var top_right := Vector2(r.end.x, r.position.y)
 	var bl := Vector2(r.position.x, r.end.y)
 	match dir % 4:
-		0: return [tr, r.end, cell]
+		0: return [top_right, r.end, cell]
 		1: return [r.end, bl, cell]
 		2: return [bl, r.position, cell]
-		_: return [r.position, tr, cell]
-	return []
+		_: return [r.position, top_right, cell]
 
 ## A corner as whole PIXELs, so two edges that meet there chain by an exact
 ## match rather than by comparing floats that were arrived at two ways.
@@ -1945,9 +1944,9 @@ func _draw_dot(loop: PackedVector2Array, owners: Array, at: float, total: float)
 		var run := minf(left, float(hit[2]))
 		if run <= 0.0:
 			break
-		var owner: Vector2i = owners[int(hit[3])] if int(hit[3]) < owners.size() \
+		var owner_cell: Vector2i = owners[int(hit[3])] if int(hit[3]) < owners.size() \
 			else Vector2i(-1, -1)
-		_draw_dot_piece(hit[0], along, run, lit, _track_colors(owner))
+		_draw_dot_piece(hit[0], along, run, lit, _track_colors(owner_cell))
 		lit += int(run / float(PX))
 		s = fposmod(s + run, total)
 		left -= run
@@ -2023,8 +2022,8 @@ func _draw_way_out(b: SkillBoard) -> void:
 ## is, centred on its row.
 func _way_out_rect(b: SkillBoard) -> Rect2:
 	var deep := WAY_OUT_DEEP_THUMB if cell_size() >= 80.0 else WAY_OUT_DEEP
-	var size := Vector2(deep, deep * 2 - 1) * float(PX)
-	return Rect2(_cell_center(b.way_out()) + Vector2(cell_size() * 0.5, -size.y * 0.5), size)
+	var extent := Vector2(deep, deep * 2 - 1) * float(PX)
+	return Rect2(_cell_center(b.way_out()) + Vector2(cell_size() * 0.5, -extent.y * 0.5), extent)
 
 ## A two-cell part is one box across both of its cells rather than two boxes
 ## side by side: the seam between them would otherwise read as two parts, and
@@ -2093,6 +2092,7 @@ func _port_cut(b: SkillBoard, id: String, origin: Vector2i, rot: int) -> int:
 func _point_depth(r: Rect2, dir: int) -> float:
 	var v := Vector2(Components.dir_to_vec(dir))
 	var across := absf(r.size.x * -v.y + r.size.y * v.x)
+	@warning_ignore("integer_division")
 	return float((int(across / float(PX)) - 1) / 2 * PX)
 
 ## A port as strips a PIXEL thick, running the way it points: each one is a
@@ -2110,6 +2110,7 @@ func _port_strips(r: Rect2, dir: int) -> Array:
 	var n := int(absf(r.size.x * w.x + r.size.y * w.y) / float(PX))
 	var out := []
 	for i in n:
+		@warning_ignore("integer_division")
 		var lead := deep - float(absi(i - (n - 1) / 2) * PX)
 		var a := base + w * (float(i) * float(PX))
 		var z := a + w * float(PX) + v * lead
@@ -2263,6 +2264,7 @@ func _build_palette() -> void:
 			"spine": Rect2(x - PAL_SPINE, y, PX, rows * PAL_H - 4.0),
 		})
 		for i in ids.size():
+			@warning_ignore("integer_division")
 			_pal_rows.append({"id": String(ids[i]), "rect": Rect2(
 				Vector2(x + (i % PAL_COLS) * PAL_W, y + int(i / PAL_COLS) * PAL_H),
 				Vector2(PAL_W - 4, PAL_H - 4))})
@@ -2400,13 +2402,13 @@ func _draw_thumb_header(vp: Vector2) -> void:
 	var close_label := Loc.t("editor.close")
 	var cr := _close_rect()
 	_draw_thumb_plate(cr, "", Color(1.0, 0.55, 0.55), _hover_close, true)
-	var size := Loc.text_size(close_label, big)
+	var font_size := Loc.text_size(close_label, big)
 	var mark := CROSS[0].length() * PX * 2 + 14.0
 	var ink := Color(1, 0.9, 0.9) if _hover_close else Color(0.86, 0.82, 0.84)
 	var at := _px.snap(cr.position + Vector2(
-		(cr.size.x - mark - PixelDraw.ink_width(close_label, size)) * 0.5, 22.0))
+		(cr.size.x - mark - PixelDraw.ink_width(close_label, font_size)) * 0.5, 22.0))
 	_px.icon(at, CROSS, ink, 2)
-	_px.text(at + Vector2(mark, 20.0), close_label, ink, -1.0, size)
+	_px.text(at + Vector2(mark, 20.0), close_label, ink, -1.0, font_size)
 
 ## One of mobile mode's plates: its ground and its edge in `accent`, lit under a
 ## thumb, drained when it has nothing to act on, and `label` in the middle of it
@@ -2418,10 +2420,10 @@ func _draw_thumb_plate(r: Rect2, label: String, accent: Color, hot: bool, on: bo
 	_px.frame(r.grow(-PX), edge)
 	if label == "":
 		return
-	var size := Loc.text_size(label, UiKit.THUMB_TEXT)
-	_px.text(Vector2(r.position.x + (r.size.x - PixelDraw.ink_width(label, size)) * 0.5,
+	var font_size := Loc.text_size(label, UiKit.THUMB_TEXT)
+	_px.text(Vector2(r.position.x + (r.size.x - PixelDraw.ink_width(label, font_size)) * 0.5,
 		r.position.y + (r.size.y + 20.0) * 0.5), label,
-		Color(0.95, 0.98, 1.0) if on else Color(0.45, 0.48, 0.52), -1.0, size)
+		Color(0.95, 0.98, 1.0) if on else Color(0.45, 0.48, 0.52), -1.0, font_size)
 
 ## The parts, for a thumb: a tab a category down the left of the column, the
 ## plates of the one that is up beside them, and TURN and REMOVE along the foot.
@@ -2488,13 +2490,13 @@ func _draw_thumb_parts() -> void:
 func _draw_thumb_count(right: Vector2, id: String) -> float:
 	var col := Color(0.6, 0.7, 0.8)
 	if _endless():
-		var w := INFINITY[0].length() * PX * 2.0
-		_px.icon(_px.snap(right - Vector2(w, 20.0)), INFINITY, col, 2)
-		return w
+		var wide := INFINITY[0].length() * PX * 2.0
+		_px.icon(_px.snap(right - Vector2(wide, 20.0)), INFINITY, col, 2)
+		return wide
 	var label := Loc.t("editor.count", [int(inventory.get(id, 0))])
-	var size := Loc.text_size(label, UiKit.THUMB_TEXT)
-	var w := PixelDraw.ink_width(label, size)
-	_px.text(_px.snap(right - Vector2(w, 0.0)), label, col, -1.0, size)
+	var font_size := Loc.text_size(label, UiKit.THUMB_TEXT)
+	var w := PixelDraw.ink_width(label, font_size)
+	_px.text(_px.snap(right - Vector2(w, 0.0)), label, col, -1.0, font_size)
 	return w
 
 ## A refusal (no room, none left) lasts a moment along the bottom. It is the

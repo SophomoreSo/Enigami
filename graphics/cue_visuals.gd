@@ -16,9 +16,9 @@ extends Node
 func _ready() -> void:
 	Cues.fired.connect(_on_cue)
 
-func _on_cue(name: StringName, d: Dictionary) -> void:
+func _on_cue(cue: StringName, d: Dictionary) -> void:
 	var pos: Vector2 = d.get("pos", Vector2.ZERO)
-	match name:
+	match cue:
 		&"hit":
 			Fx.burst(pos, Style.element_color(d.get("payload")), 6, 150.0)
 			Fx.shake(3.0)

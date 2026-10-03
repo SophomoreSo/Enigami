@@ -50,6 +50,7 @@ const PIXEL_TEXT := 16
 static func pixel_grid() -> int:
 	if Loc.borrows_glyphs():
 		return 0
+	@warning_ignore("integer_division")
 	return maxi(1, PIXEL_TEXT / Loc.face_size())
 
 ## --- mobile mode --------------------------------------------------------------
@@ -119,9 +120,9 @@ static func style(bg: Color, border: Color, width: int = 1, radius: int = 3,
 	s.content_margin_bottom = 6
 	return s
 
-static func button(text: String, accent: Color = ACCENT, pixel: bool = false) -> Button:
+static func button(words: String, accent: Color = ACCENT, pixel: bool = false) -> Button:
 	var b := Button.new()
-	b.text = text
+	b.text = words
 	b.focus_mode = Control.FOCUS_ALL
 	b.add_theme_stylebox_override("normal", style(PANEL, Color(accent.r, accent.g, accent.b, 0.5), 1, 3, pixel))
 	b.add_theme_stylebox_override("hover", style(Color(accent.r, accent.g, accent.b, 0.22), accent, 1, 3, pixel))
@@ -133,28 +134,28 @@ static func button(text: String, accent: Color = ACCENT, pixel: bool = false) ->
 	b.add_theme_color_override("font_disabled_color", Color(0.4, 0.42, 0.46))
 	if pixel:
 		b.add_theme_font_override("font", PIXEL_FONT)
-	b.add_theme_font_size_override("font_size", Loc.text_size(text, PIXEL_TEXT) if pixel else 13)
+	b.add_theme_font_size_override("font_size", Loc.text_size(words, PIXEL_TEXT) if pixel else 13)
 	if pixel and mobile():
-		_thumb_sized(b, text)
+		_thumb_sized(b, words)
 	return b
 
 ## A pixel button at a thumb's size: THUMB tall, its word at THUMB_TEXT. And it
 ## passes a press on to whatever holds it, which is what lets a list of these be
 ## dragged up and down by a thumb that lands on one — a button that kept the
 ## press would be a list that only scrolls from its gaps.
-static func _thumb_sized(b: BaseButton, text: String = "") -> void:
+static func _thumb_sized(b: BaseButton, words: String = "") -> void:
 	b.custom_minimum_size = Vector2(0, THUMB)
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
-	if text != "":
-		b.add_theme_font_size_override("font_size", Loc.text_size(text, THUMB_TEXT))
+	if words != "":
+		b.add_theme_font_size_override("font_size", Loc.text_size(words, THUMB_TEXT))
 
 ## A button layered over a running game. It never takes keyboard focus, so the
 ## keys the player is playing with keep reaching the game after they click one:
 ## a focusable button swallows SPACE as "press me again" and TAB as "move to
 ## the next button", which costs the player a jump or the assembly screen.
 ## Menus use `button` — there, keyboard and gamepad navigation is the point.
-static func overlay_button(text: String, accent: Color = ACCENT, pixel: bool = false) -> Button:
-	var b := button(text, accent, pixel)
+static func overlay_button(words: String, accent: Color = ACCENT, pixel: bool = false) -> Button:
+	var b := button(words, accent, pixel)
 	b.focus_mode = Control.FOCUS_NONE
 	return b
 
@@ -180,15 +181,15 @@ static func draw_cooldown(c: CanvasItem, rect: Rect2, progress: float, flash: fl
 	var f := clampf(flash, 0.0, 1.0)
 	c.draw_rect(rect, border.lerp(Color(1, 1, 1), f * 0.85), false, 1.5 + 2.5 * f)
 
-static func label(text: String, size: int = 13, color: Color = TEXT, pixel: bool = false) -> Label:
+static func label(words: String, size: int = 13, color: Color = TEXT, pixel: bool = false) -> Label:
 	var l := Label.new()
-	l.text = text
+	l.text = words
 	l.add_theme_color_override("font_color", color)
 	if pixel:
 		# Silkscreen only draws clean at multiples of its native 8px, and a
 		# language writing in a face of its own only at multiples of that.
 		l.add_theme_font_override("font", PIXEL_FONT)
-		size = Loc.text_size(text, maxi(PIXEL_TEXT, snappedi(size, 8)))
+		size = Loc.text_size(words, maxi(PIXEL_TEXT, snappedi(size, 8)))
 	l.add_theme_font_size_override("font_size", size)
 	return l
 
@@ -208,8 +209,8 @@ static func panel(color: Color = PANEL, border: Color = Color(0.22, 0.3, 0.38),
 static func pass_presses(c: Control) -> void:
 	c.mouse_filter = Control.MOUSE_FILTER_PASS
 
-static func title(text: String, size: int = 22, pixel: bool = false) -> Label:
-	return label(text, size, Color(0.9, 0.95, 1.0), pixel)
+static func title(words: String, size: int = 22, pixel: bool = false) -> Label:
+	return label(words, size, Color(0.9, 0.95, 1.0), pixel)
 
 ## A Control parented to a CanvasLayer does not inherit the viewport rect, so
 ## full-screen screens have to be sized explicitly (and kept in sync on resize).
@@ -371,8 +372,8 @@ class ChoiceRow extends HBoxContainer:
 	var _options: PackedStringArray = PackedStringArray()
 	var _picked := 0
 
-	func setup(name: String, options: PackedStringArray, picked: int, cb: Callable) -> void:
-		_name = name
+	func setup(caption: String, options: PackedStringArray, picked: int, cb: Callable) -> void:
+		_name = caption
 		_options = options
 		_picked = picked
 		on_pick = cb

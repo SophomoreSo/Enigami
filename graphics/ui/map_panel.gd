@@ -111,12 +111,12 @@ func _input(event: InputEvent) -> void:
 
 ## The window, centred on whatever size the screen happens to be.
 func window_rect() -> Rect2:
-	var size := Vector2(
+	var extent := Vector2(
 		RaidMap.MW * CELL + (RaidMap.MW - 1) * GAP + PAD * 2.0,
 		HEADER_H + RaidMap.MH * CELL + (RaidMap.MH - 1) * GAP
 			+ LEGEND_TOP_GAP + LEGEND_ROW * float(_legend_rows()) + FOOT_H)
 	var screen := get_viewport_rect().size
-	return Rect2(_px.snap((screen - size) * 0.5), size)
+	return Rect2(_px.snap((screen - extent) * 0.5), extent)
 
 func _draw() -> void:
 	if map == null:
@@ -268,6 +268,7 @@ func _draw_legend(at: Vector2, width: float) -> void:
 	var col_w := floorf(width / float(LEGEND_COLS) / PX) * PX
 	for i in items.size():
 		var item: Array = items[i]
+		@warning_ignore("integer_division")
 		var cell := at + Vector2((i % LEGEND_COLS) * col_w, (i / LEGEND_COLS) * LEGEND_ROW)
 		var swatch := Rect2(cell + Vector2(0, TEXT_DROP - SWATCH), Vector2(SWATCH, SWATCH))
 		# Each looks the way it does on the map: the room you are standing in is

@@ -319,7 +319,7 @@ const SHOP_PRICES := {
 }
 
 ## What the counter is selling: every part, in palette order.
-static func shop_stock() -> Array:
+func shop_stock() -> Array:
 	return Components.loot_pool()
 
 func shop_price(id: String) -> int:
@@ -902,12 +902,12 @@ func _read_raid(parsed: Dictionary) -> void:
 	for w in raid_weapons:
 		if not raid_graphs.has(w):
 			raid_graphs[w] = Weapons.make_board(w)
-	var carried = parsed.get("raid_carried_boards", {})
-	if carried is Dictionary:
-		for w in carried:
-			raid_carried_boards[String(w)] = SkillBoard.deserialize(carried[w])
-	elif carried is Array:
-		for b in carried:
+	var cargo = parsed.get("raid_carried_boards", {})
+	if cargo is Dictionary:
+		for w in cargo:
+			raid_carried_boards[String(w)] = SkillBoard.deserialize(cargo[w])
+	elif cargo is Array:
+		for b in cargo:
 			_bag_parts(SkillBoard.deserialize(b), raid_bag)
 	for w in parsed.get("raid_carried_weapons", []):
 		raid_carried_weapons.append(String(w))

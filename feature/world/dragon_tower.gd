@@ -80,5 +80,5 @@ func guard_records() -> Array:
 	return out
 
 func spawn_point() -> Vector2:
-	var doors := cells_marked("P")
-	return stand_point(doors[0] if not doors.is_empty() else Vector2i(2, H - 3), Player.BODY.y * 0.5)
+	var door_cells := cells_marked("P")
+	return stand_point(door_cells[0] if not door_cells.is_empty() else Vector2i(2, H - 3), Player.BODY.y * 0.5)

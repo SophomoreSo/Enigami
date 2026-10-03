@@ -235,6 +235,7 @@ static func decode(code: String) -> Dictionary:
 			return _fail(UNKNOWN_PART)
 		if pos >= w * h:
 			return _fail(IMPOSSIBLE)
+		@warning_ignore("integer_division")
 		var origin := Vector2i(pos % w, int(pos / w))
 		# A code written before a part was retired still reads, with the part
 		# left out and its cell left empty, as a save does: see

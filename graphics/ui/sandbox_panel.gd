@@ -136,9 +136,9 @@ func is_out() -> bool:
 ## when it is in, none of it when it is out, and on the grid in between.
 func drawer_rect() -> Rect2:
 	var px := PixelDraw.PX
-	var size := ((_grid.get_combined_minimum_size() + Vector2.ONE * PAD * 2.0) / px).ceil() * px
-	var shift := floorf(-size.x * (1.0 - smoothstep(0.0, 1.0, _slide)) / px) * px
-	return Rect2(Vector2(shift, TOP), size)
+	var extent := ((_grid.get_combined_minimum_size() + Vector2.ONE * PAD * 2.0) / px).ceil() * px
+	var shift := floorf(-extent.x * (1.0 - smoothstep(0.0, 1.0, _slide)) / px) * px
+	return Rect2(Vector2(shift, TOP), extent)
 
 ## On the drawer's right edge, sharing its border, so it comes and goes with it
 ## and is all that is left on the screen once the drawer is in.
