@@ -6,14 +6,18 @@ extends Node
 ## A kind of line is made with its row's numbers, and a kind that is not
 ## there is said and hangs as a cable. Bresenham's line comes out whole and
 ## 8-connected however it lies. A cable hung from a point settles straight
-## under its anchor, hardly longer than it was made; a push bends what hangs
-## below it and nothing above, and dies away; a fixed node never moves; a
-## stiff wire sags less than a loose one, and not at all without gravity; a
-## branch keeps its angle; a rider follows its node; a body moving through
-## the line hands it speed, and one standing still or elsewhere hands it
-## none. A room hangs what the `hangings` rows say, as many and as long,
-## from rock with open air under them, the same ones every time it is built.
-## And what the schema promises to refuse is tried against a scratch copy.
+## under its anchor, hardly longer than it was made; a push swings what hangs
+## below it and draws what is above after it, up to the anchor, and dies
+## away; a fixed node never moves; a line pulls on what it hangs from and
+## cannot push it, and a bend is felt by the node before it; a line comes to
+## rest whatever numbers it is given; a stiff wire sags less than a loose
+## one, and not at all without gravity; a branch keeps its angle; a rider
+## follows its node; a body moving through the line hands it speed, and one
+## standing still or elsewhere hands it none — and a body through the end of
+## a cable swings all of it, from the anchor down. A room hangs what the
+## `hangings` rows say, as many and as long, from rock with open air under
+## them, the same ones every time it is built. And what the schema promises
+## to refuse is tried against a scratch copy.
 ##
 ## No renderer needed: the simulation is stepped by hand, and the pixels are
 ## asked for rather than drawn. The refusals print an `SQL error` line each
@@ -41,6 +45,8 @@ func _ready() -> void:
 	_bresenham()
 	_hanging()
 	_pushed()
+	_handed_up()
+	_at_rest()
 	_stiff()
 	_branch_and_rider()
 	_movers()
@@ -147,8 +153,8 @@ func _pushed() -> void:
 	run(rope, 6)
 	check(rope.point_of(3).x > 108.0, "a push moves the node pushed (%s)" % str(rope.point_of(3)))
 	check(rope.point_of(4).x > 101.0, "and what hangs under it swings after it (%s)" % str(rope.point_of(4)))
-	check(absf(rope.point_of(1).x - 100.0) < 0.01 and absf(rope.point_of(2).x - 100.0) < 0.01,
-		"and nothing above it feels it: the anchor holds the line taut over the push (%s, %s)"
+	check(rope.point_of(1).x > 100.5 and rope.point_of(2).x > rope.point_of(1).x,
+		"and what is above it is drawn after it, the less the nearer the anchor (%s, %s)"
 			% [str(rope.point_of(1)), str(rope.point_of(2))])
 	var swung := 0.0
 	for i in 120:
@@ -189,6 +195,95 @@ func _pushed() -> void:
 		"a long cable shoved hard swings, never rises over its anchor or stretches, and settles (swung %.0f, stretched %.3f, ends at %s)"
 			% [swung_far, stretched, str(long.point_of(20))])
 	long.free()
+
+## What holds a node to its parent, the parent is handed the other half of.
+## A corner with nothing to move it — no weight, no shape to keep — so
+## anything that moves was moved by the line.
+func _corner() -> Rope:
+	var rope := Rope.new()
+	rope.gravity = 0.0
+	rope.stiffness = 0.0
+	var top := rope.root(Vector2.ZERO, PI * 0.5)
+	var knee := rope.add_node(top, 0.0, 16.0)
+	rope.add_node(knee, -PI * 0.5, 16.0)
+	return rope
+
+func _handed_up() -> void:
+	var slack := _corner()
+	run(slack, 10)
+	check(slack.point_of(1).is_equal_approx(Vector2(0, 16)) and slack.point_of(2).is_equal_approx(Vector2(16, 16)),
+		"a corner with nothing pulling on it lies as it was made (%s, %s)" % [str(slack.point_of(1)), str(slack.point_of(2))])
+	slack.nudge(2, Vector2(-200, 0))
+	var knee_moved := 0.0
+	for i in 10:
+		slack.step(DT)
+		knee_moved = maxf(knee_moved, slack.point_of(1).distance_to(Vector2(0, 16)))
+	check(knee_moved < 0.001 and slack.point_of(2).is_equal_approx(Vector2(16, 16)),
+		"a node shoved at its parent is put back at its length, and the parent never feels it: a line cannot push (%.4f)"
+			% knee_moved)
+	var taut := _corner()
+	taut.nudge(2, Vector2(200, 0))
+	run(taut, 4)
+	check(taut.point_of(1).x > 0.5,
+		"a node pulled away from its parent draws the parent after it (%s)" % str(taut.point_of(1)))
+	check(absf(taut.point_of(1).length() - 16.0) < 0.01 and absf(taut.point_of(2).distance_to(taut.point_of(1)) - 16.0) < 0.01,
+		"each still exactly as far from its parent as it was made")
+	slack.free()
+	taut.free()
+	# The shape's pull has two ends as well: a bend at the end of a weightless
+	# wire draws the node before it toward the bend, and then all of it is
+	# back where it was made.
+	var bent := _wire(30.0, 0.0)
+	bent.nudge(5, Vector2(0, 200))
+	run(bent, 3)
+	check(bent.point_of(4).y > 0.05 and bent.point_of(5).y > bent.point_of(4).y,
+		"a bend at the end of a wire is felt by the node before it (%s, %s)"
+			% [str(bent.point_of(4)), str(bent.point_of(5))])
+	run(bent, 600)
+	var out_of_line := 0.0
+	for i in range(1, 6):
+		out_of_line = maxf(out_of_line, bent.point_of(i).distance_to(Vector2(16.0 * i, 0)))
+	check(out_of_line < 0.01, "and the wire is back as it was made (%.4f)" % out_of_line)
+	bent.free()
+	# The weight of what hangs from a node reaches it too: the top of a cable
+	# is pulled on by all of it, the end by nothing.
+	var hung := Rope.new()
+	hung.hang(Vector2.ZERO, 96.0, 16.0)
+	run(hung, 60)
+	var weight := Vector2(0.0, hung.gravity * DT)
+	check(((hung.nodes[1]["pull"] as Vector2) / weight.y).is_equal_approx(Vector2(0, 5) * exp(-hung.damping * DT))
+			and (hung.nodes[6]["pull"] as Vector2) == Vector2.ZERO,
+		"a hanging node is pulled on by the weight of everything under it, and the end by nothing (%s, %s)"
+			% [str(hung.nodes[1]["pull"]), str(hung.nodes[6]["pull"])])
+	check(hung.point_of(6).is_equal_approx(Vector2(0, 96)),
+		"and hangs where it was hung all the same (%s)" % str(hung.point_of(6)))
+	hung.free()
+
+## Numbers a line used to thrash at for good, each node swinging harder than
+## the one above it: knocked hard, it is still inside half a minute.
+func _at_rest() -> void:
+	for numbers in [[8.0, 1.0, 0.3, 200.0], [12.0, 3.0, 0.3, 0.0], [4.0, 8.0, 0.8, 200.0]]:
+		for wire in [false, true]:
+			var rope := Rope.new()
+			rope.segment = numbers[0]
+			rope.stiffness = numbers[1]
+			rope.damping = numbers[2]
+			rope.gravity = numbers[3]
+			if wire:
+				var last := rope.root(Vector2.ZERO, 0.0)
+				for i in int(120.0 / rope.segment):
+					last = rope.add_node(last, 0.0, rope.segment)
+			else:
+				rope.hang(Vector2.ZERO, 120.0)
+			for i in range(1, rope.nodes.size()):
+				rope.nudge(i, Vector2(160.0 * sin(i * 0.7), 60.0 * cos(i * 0.4)))
+			run(rope, 1800)
+			var fastest := 0.0
+			for i in range(1, rope.nodes.size()):
+				fastest = maxf(fastest, (rope.nodes[i]["vel"] as Vector2).length())
+			check(fastest < 0.5, "a %s knocked hard comes to rest: segment %.0f, stiffness %.0f, damping %.1f, gravity %.0f (%.2f a second)"
+				% ["wire" if wire else "cable", numbers[0], numbers[1], numbers[2], numbers[3], fastest])
+			rope.free()
 
 ## A wire out from a wall: what stiffness and gravity do to it.
 func _wire(stiffness: float, gravity: float) -> Rope:
@@ -264,6 +359,43 @@ func _movers() -> void:
 	check((rope.nodes[3]["vel"] as Vector2).x > 50.0 and absf((rope.nodes[1]["vel"] as Vector2).x) < 0.01,
 		"a body walking through the line hands the node it covers some of its speed, and none to one it does not (%s, %s)"
 			% [str(rope.nodes[3]["vel"]), str(rope.nodes[1]["vel"])])
+	for i in 4:
+		rope.step(DT)
+	check((rope.nodes[1]["vel"] as Vector2).x > 5.0,
+		"the line hands it on from there: a few frames later the node under the anchor is moving too (%s)"
+			% str(rope.nodes[1]["vel"]))
+	# The whole of a walk through the end of a cable: the body covers the last
+	# two nodes and nothing else, and every node above them swings out after
+	# it, each further than the one over it — the anchor alone stays put.
+	var swung := _hung_here(Vector2(300, 100))
+	var reach: Array = []
+	for i in swung.nodes.size():
+		reach.append(0.0)
+	walker.velocity = Vector2(250, 0)
+	walker.global_position = swung.point_of(6) + Vector2(-60, -12)
+	var touched := {}
+	for k in 90:
+		if k < 30:
+			walker.global_position += walker.velocity * DT
+			var body := Rect2(walker.global_position - walker.body_size * 0.5, walker.body_size).grow(Rope.PUSH_REACH)
+			for i in swung.nodes.size():
+				if body.has_point(swung.point_of(i)):
+					touched[i] = true
+		else:
+			walker.global_position = Vector2(900, 900)
+		swung.step(DT)
+		for i in swung.nodes.size():
+			reach[i] = maxf(reach[i], absf(swung.point_of(i).x - 300.0))
+	var rising := true
+	for i in range(1, swung.nodes.size()):
+		if reach[i] <= reach[i - 1]:
+			rising = false
+	check(not touched.has(1) and not touched.has(2) and not touched.has(3) and touched.has(6),
+		"a body walking through the end of a cable touches the end of it and not the top (%s)" % str(touched.keys()))
+	check(reach[0] == 0.0 and reach[1] > 2.0 and rising,
+		"and the whole cable swings out after it, from the node under the anchor down, each further than the one over it (%s)"
+			% str(reach.map(func(r: float) -> String: return "%.1f" % r)))
+	swung.free()
 	var idle := _hung_here(Vector2(300, 100))
 	walker.global_position = idle.point_of(3)
 	walker.velocity = Vector2(10, 0)
