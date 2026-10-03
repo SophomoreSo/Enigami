@@ -55,6 +55,29 @@ const YOU := Color(1, 1, 1)
 ## the player can go back for it, and a marker they have to find first would be
 ## no help at all.
 const KIT_MARK := Color(1.0, 0.86, 0.62)
+## Where in that room the player fell: a skull, set on the room's square where
+## the spot is in the room, so the map says which corner to look in as well as
+## which room. Holes for eyes, a row of teeth; each `#` a PIXEL.
+const SKULL := [
+	".#####.",
+	"#######",
+	"#..#..#",
+	"#######",
+	".##.##.",
+	".#####.",
+	".#.#.#.",
+]
+## The same skull with nothing cut out of it, laid round it in the room's edge
+## colour so it reads on a pale room as well as a dark one.
+const SKULL_SOLID := [
+	".#####.",
+	"#######",
+	"#######",
+	"#######",
+	".#####.",
+	".#####.",
+	".#####.",
+]
 
 ## What a room is worth walking into, by the kind the rules gave it. Anything
 ## not named here is an ordinary room.
@@ -178,28 +201,46 @@ func _draw_rooms(grid: Vector2) -> void:
 		# everything else, because between the two of them they are the whole
 		# route this map is being opened to plan.
 		if rec.has("lost_kit"):
-			_px.diamond(r.get_center(), 6, KIT_MARK)
 			_px.frame(r.grow(-PX), KIT_MARK)
+			_draw_skull(_fell_at(r, rec["lost_kit"]))
 		# Where the player is standing, drawn last and two PIXELs thick: it has
 		# to be findable in one glance at a window full of rooms.
 		if room != null and c == room.coord:
 			_px.frame(r, YOU)
 			_px.frame(r.grow(-PX), YOU)
 
+## Where on the room's square `r` the spot the kit lies on falls, the room's
+## width and height each squeezed into the square inside its gold frame. A drop
+## with no spot of its own is put in the middle.
+func _fell_at(r: Rect2, kit: Dictionary) -> Vector2:
+	var inner := r.grow(-PX * 2 - SKULL.size() * PX * 0.5)
+	var p: Array = kit.get("pos", [])
+	if p.size() != 2:
+		return inner.get_center()
+	var f := Vector2(float(p[0]) / (Room.W * Room.CELL), float(p[1]) / (Room.H * Room.CELL))
+	f = f.clamp(Vector2.ZERO, Vector2.ONE)
+	return inner.position + inner.size * f
+
+## The skull, centred on `c`, with a one-PIXEL rim round it.
+func _draw_skull(c: Vector2) -> void:
+	for d in [Vector2(-PX, 0), Vector2(PX, 0), Vector2(0, -PX), Vector2(0, PX)]:
+		_px.icon_centered(c + d, SKULL_SOLID, ROOM_EDGE)
+	_px.icon_centered(c, SKULL, KIT_MARK)
+
 ## What is worth explaining on this map. The drop is in the list only while
 ## there is one to find, so an ordinary raid's legend is the two rows it has
 ## always been.
 func _legend_items() -> Array:
 	var items := [
-		["you", YOU, true],
-		["entry", KIND_COLORS["entry"], false],
-		["boss", KIND_COLORS["boss"], false],
-		["treasure", KIND_COLORS["treasure"], false],
-		["exit", EXIT_MARK, false],
-		["unseen", UNSEEN, false],
+		["you", YOU, "frame"],
+		["entry", KIND_COLORS["entry"], "fill"],
+		["boss", KIND_COLORS["boss"], "fill"],
+		["treasure", KIND_COLORS["treasure"], "fill"],
+		["exit", EXIT_MARK, "fill"],
+		["unseen", UNSEEN, "fill"],
 	]
 	if _has_kit():
-		items.append(["kit", KIT_MARK, false])
+		items.append(["kit", KIT_MARK, "skull"])
 	return items
 
 func _legend_rows() -> int:
@@ -229,12 +270,15 @@ func _draw_legend(at: Vector2, width: float) -> void:
 		var item: Array = items[i]
 		var cell := at + Vector2((i % LEGEND_COLS) * col_w, (i / LEGEND_COLS) * LEGEND_ROW)
 		var swatch := Rect2(cell + Vector2(0, TEXT_DROP - SWATCH), Vector2(SWATCH, SWATCH))
-		# The room you are standing in is an outline on the map, so it is an
-		# outline here too rather than a block of white nothing else is.
-		if bool(item[2]):
-			_px.frame(swatch, item[1])
-		else:
-			_px.rect(swatch, item[1])
+		# Each looks the way it does on the map: the room you are standing in is
+		# an outline, not a block of white nothing else is, and the kit a skull.
+		match String(item[2]):
+			"frame":
+				_px.frame(swatch, item[1])
+			"skull":
+				_draw_skull(swatch.get_center())
+			_:
+				_px.rect(swatch, item[1])
 		_px.text(cell + Vector2(SWATCH + 8.0, TEXT_DROP),
 			Loc.t("hud.map.legend.%s" % String(item[0])), UiKit.DIM,
 			col_w - SWATCH - 16.0)
