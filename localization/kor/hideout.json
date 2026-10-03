@@ -46,11 +46,8 @@
 	},
 	"station": {
 		"weapons": "무기 거치대",
-		"weapons_prompt": "F를 눌러 들고 갈 무기를 고르세요",
 		"shop": "상점",
-		"shop_prompt": "F를 눌러 골드를 쓰세요",
 		"gate": "관문",
-		"gate_prompt": "F를 눌러 출격하세요",
 		"back": "방으로 돌아가기",
 		"arrow": "<"
 	},

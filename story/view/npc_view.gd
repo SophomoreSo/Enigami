@@ -7,21 +7,8 @@ extends Node2D
 ## (see `DialogueBox`) and the camera each line of their dialogue file asks for.
 ## What they say free goes in a bubble over whoever says it (`SpeechBubble`).
 
-## The prompt is a keycap with the interact key on it, pressed now and then so
-## it reads as "press this" rather than as a label. It is pixel art on the same
-## grid as the NPC under it, so every size here is in PixelDraw.PX blocks.
-##
-## The cap's face, at its narrowest: room for one capital with a margin.
-const KEY_W := 11
-const KEY_H := 9
-## How far the face stands above its base, and so how far a press sinks it.
-const KEY_DEPTH := 2
-## One press every PRESS_EVERY seconds: down over PRESS_DOWN, held, then back up
-## over PRESS_UP.
-const PRESS_EVERY := 1.1
-const PRESS_DOWN := 0.07
-const PRESS_HOLD := 0.12
-const PRESS_UP := 0.12
+## The prompt is a keycap with the interact key on it, pressing itself, so it
+## reads as "press this" rather than as a label (`PixelDraw.key_cap`).
 ## Space between the top of the head and the bottom of the prompt.
 const PROMPT_GAP := 6.0
 ## A focus on someone frames their face rather than their feet.
@@ -151,37 +138,4 @@ func _draw_prompt() -> void:
 			or npc.approaching():
 		return
 	var tip_y := _head_y - PROMPT_GAP
-	var text := Controls.short_label_for("interact")
-	var px := PixelDraw.PX
-	# Square for a single key, wider for a word like "LMB".
-	var size := Vector2(maxf(PixelDraw.ink_width(text) + 6 * px, KEY_W * px), KEY_H * px)
-	var sink := roundi(KEY_DEPTH * _pressed(fmod(_t, PRESS_EVERY))) * px
-	# The base stays put; the face rides KEY_DEPTH above it and sinks onto it.
-	var base := Rect2(_px.snap(Vector2(-size.x * 0.5, tip_y - size.y)), size)
-	var face := Rect2(base.position - Vector2(0.0, KEY_DEPTH * px - sink), size)
-	# A dark rim round the whole cap, so it reads on a pale wall as well as a dark one.
-	_cap(face.merge(base).grow(px), 2, Style.KEY_CAP_RIM)
-	_cap(base, 1, Style.KEY_CAP_SIDE)
-	_cap(face, 1, Style.KEY_CAP_FACE)
-	# `text` takes a baseline, and capitals stand 5 blocks: 2 clear above them.
-	_px.text_centered(face.position + Vector2(0.0, 7 * px), text, Style.KEY_CAP_TEXT, size.x)
-
-## `r` filled with its corners cut `cut` blocks deep in steps, the pixel art way
-## of rounding one.
-func _cap(r: Rect2, cut: int, col: Color) -> void:
-	var px := PixelDraw.PX
-	for i in cut + 1:
-		var k := cut - i
-		_px.rect(Rect2(r.position + Vector2(k, i) * px, r.size - Vector2(k, i) * 2 * px), col)
-
-## How far down the cap is, 0 up to 1 all the way, `t` seconds into a press.
-static func _pressed(t: float) -> float:
-	if t < PRESS_DOWN:
-		return ease(t / PRESS_DOWN, 0.5)
-	t -= PRESS_DOWN
-	if t < PRESS_HOLD:
-		return 1.0
-	t -= PRESS_HOLD
-	if t < PRESS_UP:
-		return 1.0 - ease(t / PRESS_UP, 2.0)
-	return 0.0
+	_px.key_cap(Vector2(0.0, tip_y), Controls.short_label_for("interact"), _t)

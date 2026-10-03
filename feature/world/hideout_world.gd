@@ -111,7 +111,6 @@ func _build_station(id: String) -> void:
 	s.id = id
 	s.player = player
 	s.label = Loc.t("hideout.station.%s" % id)
-	s.prompt = Loc.t("hideout.station.%s_prompt" % id)
 	s.position = room.cell_center(x, _floor_at(x))
 	s.used.connect(_on_station_used)
 	add_child(s)
@@ -122,7 +121,6 @@ func _relabel(_lang: String) -> void:
 	for id in stations:
 		var s: Station = stations[id]
 		s.label = Loc.t("hideout.station.%s" % id)
-		s.prompt = Loc.t("hideout.station.%s_prompt" % id)
 	_refresh_gate()
 
 ## The lowest cell in column `x` with a body's worth of room above it. The floor

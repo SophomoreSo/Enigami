@@ -17,7 +17,8 @@ extends RefCounted
 ##
 ## Screens using it: `SkillEditor`, `SandboxPanel`, `Hud`, and the hideout's
 ## station signs — which draw it over the world rather than on a screen, and say
-## in `HideoutWorldView` why the words cannot go into the world itself.
+## in `HideoutWorldView` why the words cannot go into the world itself — and an
+## NPC's talk prompt, which is the same `key_cap` the signs show.
 
 const PX := UiKit.PIXEL
 const FONT := UiKit.PIXEL_FONT
@@ -25,6 +26,19 @@ const SIZE := UiKit.PIXEL_TEXT
 ## Baseline to baseline. Capitals stand 10px tall at PIXEL_TEXT and nothing in
 ## the face descends, so this leaves 10px clear between rows.
 const LINE := 20.0
+
+## A keycap, for a prompt that asks for a key: its face at its narrowest, room
+## for one capital with a margin, in PXs.
+const KEY_W := 11
+const KEY_H := 9
+## How far the face stands above its base, and so how far a press sinks it.
+const KEY_DEPTH := 2
+## One press every PRESS_EVERY seconds: down over PRESS_DOWN, held, then back up
+## over PRESS_UP.
+const PRESS_EVERY := 1.1
+const PRESS_DOWN := 0.07
+const PRESS_HOLD := 0.12
+const PRESS_UP := 0.12
 
 var _c: CanvasItem
 
@@ -143,6 +157,45 @@ func lap(r: Rect2, k: float, col: Color) -> void:
 		var lo := Vector2(minf(start.x, end.x), minf(start.y, end.y))
 		_c.draw_rect(Rect2(lo, (start - end).abs() + Vector2.ONE * PX), col)
 		lit -= n
+
+## A keyboard key with `label` on it, standing on `foot` — the middle of the
+## line under it — and pressing itself every PRESS_EVERY seconds of `t`: a pale
+## face over a darker side, a dark rim round both, corners cut in steps. It is
+## how a prompt says "press this" rather than spelling it out, and it says
+## whichever key is bound, a word like "LMB" widening it.
+func key_cap(foot: Vector2, label: String, t: float) -> void:
+	# Square for a single key, wider for a word.
+	var size := Vector2(maxf(ink_width(label) + 6 * PX, KEY_W * PX), KEY_H * PX)
+	var sink := roundi(KEY_DEPTH * pressed(fmod(t, PRESS_EVERY))) * PX
+	# The base stays put; the face rides KEY_DEPTH above it and sinks onto it.
+	var base := Rect2(snap(Vector2(foot.x - size.x * 0.5, foot.y - PX - size.y)), size)
+	var face := Rect2(base.position - Vector2(0.0, KEY_DEPTH * PX - sink), size)
+	# The rim is opaque: it goes down as overlapping blocks, which would double
+	# up a translucent colour.
+	_stepped(face.merge(base).grow(PX), 2, Style.KEY_CAP_RIM)
+	_stepped(base, 1, Style.KEY_CAP_SIDE)
+	_stepped(face, 1, Style.KEY_CAP_FACE)
+	# `text` takes a baseline, and capitals stand 5 blocks: 2 clear above them.
+	text_centered(face.position + Vector2(0.0, 7 * PX), label, Style.KEY_CAP_TEXT, size.x)
+
+## How far down a key_cap is, 0 up to 1 all the way, `t` seconds into a press.
+static func pressed(t: float) -> float:
+	if t < PRESS_DOWN:
+		return ease(t / PRESS_DOWN, 0.5)
+	t -= PRESS_DOWN
+	if t < PRESS_HOLD:
+		return 1.0
+	t -= PRESS_HOLD
+	if t < PRESS_UP:
+		return 1.0 - ease(t / PRESS_UP, 2.0)
+	return 0.0
+
+## `r` filled with its corners cut `cut` blocks deep in steps, the pixel art way
+## of rounding one.
+func _stepped(r: Rect2, cut: int, col: Color) -> void:
+	for i in cut + 1:
+		var k := cut - i
+		rect(Rect2(r.position + Vector2(k, i) * PX, r.size - Vector2(k, i) * 2 * PX), col)
 
 ## A meter: `ratio` of `r` filled, on its own ground, inside a one-PIXEL edge.
 func bar(r: Rect2, ratio: float, fill: Color, ground: Color, edge: Color) -> void:

@@ -46,11 +46,8 @@
 	},
 	"station": {
 		"weapons": "WEAPON RACK",
-		"weapons_prompt": "press F to pick what you carry",
 		"shop": "COUNTER",
-		"shop_prompt": "press F to spend gold",
 		"gate": "THE GATE",
-		"gate_prompt": "press F to deploy",
 		"back": "BACK TO THE ROOM",
 		"arrow": "<"
 	},

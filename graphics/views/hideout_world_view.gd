@@ -23,6 +23,8 @@ const SIGN_LIFT := 78.0
 ## What the line under the plate is allowed to run to. It is a sentence, not a
 ## name, and held to the plate's own width it lost its last two words.
 const SIGN_BAND := SIGN_W * 2.4
+## Space between the plate and the key over it.
+const KEY_GAP := 8.0
 
 var world: HideoutWorld
 ## The pixel grid, bound to this node: the signs are drawn, not built, so they
@@ -47,6 +49,9 @@ var _px := PixelDraw.new(self)
 ## pixel camera copies.
 var _words: Node2D
 var _words_px: PixelDraw
+## How long the room has been up, which is what the keys under the signs press
+## themselves to.
+var _t := 0.0
 var camera: Camera2D
 var pixels: PixelCamera
 var layer: CanvasLayer
@@ -95,7 +100,7 @@ func _ready() -> void:
 	world.noticed.connect(func(text: String) -> void: hud.show_toast(text))
 	set_process(true)
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if hud != null and is_instance_valid(hud):
 		hud.player = world.player if world != null and is_instance_valid(world) else null
 	if panel != null and is_instance_valid(panel) and _panel_thumb != UiKit.mobile() \
@@ -110,6 +115,7 @@ func _process(_delta: float) -> void:
 		# where the room is every frame.
 		_words.position = global_position
 		_words.queue_redraw()
+	_t += delta
 
 ## --- the room ---------------------------------------------------------------
 func _draw() -> void:
@@ -161,7 +167,12 @@ func _draw_station_words(s: Station) -> void:
 	if not s.open and s.closed_reason != "":
 		_words_px.text_centered(under, s.closed_reason, Style.HIDEOUT_SIGN_SHUT, SIGN_BAND)
 	elif s.near and s.open:
-		_words_px.text_centered(under, s.prompt, Style.HIDEOUT_SIGN_LIT, SIGN_BAND)
+		# The plate says what the station is; the key over it, pressing
+		# itself, says how to use it — the way an NPC's prompt does over their
+		# head. Over the plate, not under it, where the post and the player
+		# standing at it are.
+		_words_px.key_cap(Vector2(at.x, plate.position.y - KEY_GAP),
+			Controls.short_label_for("interact"), _t)
 
 ## The plate's rect, in this view's own coordinates. Both halves of a sign ask
 ## for it: the one drawn into the picture and the words drawn over it.
