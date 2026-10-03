@@ -4,9 +4,10 @@ extends Node2D
 ## The hideout's screen: the camera over the room, what the room is dressed
 ## in, a sign hung over each station, and the panel a station opens.
 ##
-## How the room looks — the city through its glass, and what stands at each
-## station — is `HideoutScenery`, which this stands in the room. What is here
-## is what answers: the signs light when a press would count.
+## How the room looks — what is out past its wall, and what stands at each
+## station — is a `HideoutScenery`, which this stands in the room: the look
+## `HideoutThemes` has picked, and another the moment that changes. What is
+## here is what answers: the signs light when a press would count.
 ##
 ## The panels are `graphics/ui/hideout.gd` built one column at a time — the same
 ## weapon list and the same counter the screen used to show at once. Nothing
@@ -77,8 +78,9 @@ var _panel_thumb: bool = false
 ## at while you are still deciding, and the player standing here is carrying it
 ## already — `HideoutWorld.refresh_kit` is what keeps that true.
 var hud: Hud
-## What the room is dressed in: the city through its glass, and the room's own
-## fittings. Stood in the room once there is a room to stand it in.
+## What the room is dressed in: what is out past its wall, and the room's own
+## fittings, in the look that has been picked. Stood in the room once there is
+## a room to stand it in.
 var scenery: HideoutScenery
 
 func _ready() -> void:
@@ -109,6 +111,7 @@ func _ready() -> void:
 
 	world.panel_changed.connect(_on_panel_changed)
 	world.noticed.connect(func(text: String) -> void: hud.show_toast(text))
+	HideoutThemes.watch(_on_look_picked)
 	set_process(true)
 
 func _process(delta: float) -> void:
@@ -137,9 +140,22 @@ func _dress() -> void:
 	var room_view := Views.of(world.room) as RoomView
 	if room_view == null:
 		return
-	scenery = HideoutScenery.new()
+	scenery = HideoutThemes.make(HideoutThemes.picked())
 	scenery.world = world
 	room_view.dress(scenery)
+
+## Another look was picked: the room is dressed again, there and then. The
+## page that picks one stops the game, so this is told rather than left to
+## notice, and asks for its own signs again — they hang in the look's colours.
+func _on_look_picked(_id: String) -> void:
+	if scenery != null and is_instance_valid(scenery):
+		scenery.get_parent().remove_child(scenery)
+		scenery.queue_free()
+	scenery = null
+	_dress()
+	queue_redraw()
+	if _words != null and is_instance_valid(_words):
+		_words.queue_redraw()
 
 ## --- the room ---------------------------------------------------------------
 func _draw() -> void:
@@ -159,7 +175,7 @@ func _draw_station(s: Station) -> void:
 	var plate := _plate(s)
 	for x in [plate.position.x + 14.0, plate.end.x - 16.0]:
 		_px.rect(Rect2(x, plate.position.y - 12.0, 2.0, 12.0), ink)
-	_px.rect(plate, Style.HIDEOUT_PLATE)
+	_px.rect(plate, scenery.plate if _dressed() else Style.HIDEOUT_PLATE)
 	draw_rect(plate, ink, false, 2.0)
 
 ## --- what the signs say -----------------------------------------------------
@@ -187,7 +203,7 @@ func _draw_station_words(s: Station) -> void:
 	# it lost its last two words.
 	if not s.open and s.closed_reason != "":
 		_words_px.text_centered(Vector2(at.x - SIGN_BAND * 0.5, plate.position.y - REASON_GAP),
-			s.closed_reason, Style.HIDEOUT_SIGN_SHUT, SIGN_BAND)
+			s.closed_reason, scenery.ink_shut if _dressed() else Style.HIDEOUT_SIGN_SHUT, SIGN_BAND)
 	elif s.near and s.open:
 		# The plate says what the station is; the key over it, pressing
 		# itself, says how to use it — the way an NPC's prompt does over their
@@ -202,8 +218,16 @@ func _plate(s: Station) -> Rect2:
 	return Rect2(at + Vector2(-SIGN_W * 0.5, -SIGN_LIFT), Vector2(SIGN_W, SIGN_H))
 
 ## A station in reach and open for business is lit; everything else is not.
+## In the colours of the look the room is wearing, which hangs its own signs.
 func _sign_ink(s: Station) -> Color:
+	if _dressed():
+		return scenery.ink_lit if s.near and s.open else scenery.ink
 	return Style.HIDEOUT_SIGN_LIT if s.near and s.open else Style.HIDEOUT_SIGN
+
+## Whether the room has been dressed yet. For a frame after the room goes up
+## it has not, and the signs hang in the colours they always had.
+func _dressed() -> bool:
+	return scenery != null and is_instance_valid(scenery)
 
 ## --- the panels -------------------------------------------------------------
 func _on_panel_changed(id: String) -> void:

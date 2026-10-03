@@ -530,7 +530,7 @@ const HIDEOUT_SIGN_LIT := Color(0.55, 0.88, 1.0)
 const HIDEOUT_SIGN_SHUT := Color(0.86, 0.46, 0.44)
 
 ## --- the hideout's scenery --------------------------------------------------
-## The city through the hideout's glass (`HideoutScenery`): its sky in bands,
+## The city through the hideout's glass (`HideoutCity`): its sky in bands,
 ## from overhead down to the haze over the streets; its towers by how far off
 ## they stand, the furthest the palest; the colours their windows are lit in;
 ## and its rain.

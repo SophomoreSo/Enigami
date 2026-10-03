@@ -48,6 +48,15 @@ var pause_park: Button = null
 ## menu id: each a shade and a small frame over PAUSED, which stays where it is
 ## underneath. At most one is up; see `_pause_ask`.
 var pause_asks: Dictionary = {}
+## HIDEOUT THEME: the door to it on PAUSED and the page behind that, there
+## while the hideout's look is being chosen (`HideoutThemes`), and offered only
+## in the hideout. Neither is a row of the `pause` menu: a row is content, and
+## this is a question that goes away once it has been answered.
+var pause_looks_door: Button = null
+var pause_looks: Control = null
+## The shade under the pause menu's pages. It is cleared for the looks page,
+## which hangs in a corner so the room can be watched being dressed behind it.
+var pause_shade: ColorRect = null
 ## Whether the pause menu was built for a thumb (`UiKit.mobile`). It is built
 ## once and kept, so it is built again when the mode it was built for is no
 ## longer the one in force — see `_pause_remode`.
@@ -111,16 +120,19 @@ func _rebuild_pause_menu(_lang: String) -> void:
 	# the player out of the page they were standing in to press it.
 	var was_general: bool = pause_general != null and pause_general.visible
 	var was_controls: bool = pause_controls != null and pause_controls.visible
+	var was_looks: bool = pause_looks != null and pause_looks.visible
 	if pause_menu != null and is_instance_valid(pause_menu):
 		overlay_layer.remove_child(pause_menu)
 		pause_menu.queue_free()
 	_build_pause_menu()
 	UiKit.fill_screen(pause_menu)
 	pause_menu.visible = was_open
-	if was_open and (was_general or was_controls):
-		pause_main.visible = false
-		pause_general.visible = was_general
-		pause_controls.visible = was_controls
+	if was_open and was_general:
+		_pause_put(pause_general)
+	elif was_open and was_controls:
+		_pause_put(pause_controls)
+	elif was_open and was_looks:
+		_pause_put(pause_looks)
 	_pause_exits()
 
 ## --- the console on the glass ------------------------------------------------
@@ -392,6 +404,8 @@ class PauseMenu extends Control:
 				game._pause_general(false)
 			elif game.pause_controls != null and game.pause_controls.visible:
 				game._pause_controls(false)
+			elif game.pause_looks != null and game.pause_looks.visible:
+				game._pause_looks(false)
 			else:
 				game._unpause()
 		get_viewport().set_input_as_handled()
@@ -419,7 +433,8 @@ func _build_pause_menu() -> void:
 	pause_menu.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	pause_menu.visible = false
 	pause_menu.process_mode = Node.PROCESS_MODE_ALWAYS
-	pause_menu.add_child(UiKit.shade())
+	pause_shade = UiKit.shade()
+	pause_menu.add_child(pause_shade)
 	# The pixel face runs up to twice as wide as the one this menu was laid out
 	# for, and the rebinding list is two columns of it: 600 holds them, as it
 	# does on the title, and the frame adds its bar.
@@ -448,6 +463,7 @@ func _build_pause_menu() -> void:
 			push_error("Game: PAUSED has no '%s' — see data/db/menus/menus.sql" % id)
 	_build_pause_general()
 	_build_pause_controls()
+	_build_pause_looks(frame)
 	for menu in ["park", "abandon"]:
 		pause_asks[menu] = _build_pause_ask(menu)
 	overlay_layer.add_child(pause_menu)
@@ -618,19 +634,61 @@ func _build_pause_controls() -> void:
 	frame.rows.add_child(cp)
 	_pause_items(frame, "controls")
 
+## HIDEOUT THEME, while the hideout's look is being chosen: a door under
+## PAUSED's own two, and behind it the looks, one a row (`ThemePicker`), on a
+## page that hangs in the corner of the screen the readout has — the room is
+## dressed behind it as a look is pressed, and a page in the middle of the
+## screen would be standing in front of what it was changing. The way back is
+## the one the settings pages have, and says what theirs does.
+const LOOKS_WIDE := 380.0
+
+func _build_pause_looks(paused: UiKit.ScreenFrame) -> void:
+	var heading := Loc.t("hideout.theme.heading")
+	pause_looks_door = UiKit.button(heading, UiKit.ACCENT, true)
+	pause_looks_door.custom_minimum_size = Vector2(280, maxf(36, UiKit.thumb()))
+	pause_looks_door.pressed.connect(func() -> void: _pause_looks(true))
+	paused.rows.add_child(pause_looks_door)
+	var frame := UiKit.screen_frame(LOOKS_WIDE, 24.0, 28.0, true)
+	frame.corner = true
+	frame.visible = false
+	pause_looks = frame
+	pause_menu.add_child(frame)
+	frame.head.add_child(_pause_heading(heading, func() -> void: _pause_looks(false)))
+	frame.head.add_child(UiKit.hline(true))
+	var note := UiKit.label(Loc.t("hideout.theme.note"), UiKit.text(16), UiKit.DIM, true)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	frame.rows.add_child(note)
+	frame.rows.add_child(ThemePicker.new())
+	frame.foot.add_child(UiKit.spacer(8))
+	var back := UiKit.button(Menus.text_for("general", "back"), UiKit.ACCENT, true)
+	back.custom_minimum_size = Vector2(0, maxf(36, UiKit.thumb()))
+	back.pressed.connect(func() -> void: _pause_looks(false))
+	frame.foot.add_child(back)
+
 ## Which of the pause menu's pages is on screen. Only one ever is: `page` is
 ## the one to show, or null for PAUSED itself.
 func _pause_page(page: Control) -> void:
+	_pause_put(page)
+	Audio.play("ui")
+
+## The same, without a sound: for the menu coming up, and being built again.
+## The shade is cleared under the looks page and nowhere else — at a desk; a
+## thumb's page takes the whole screen, and there is nothing to see past it.
+func _pause_put(page: Control) -> void:
 	pause_main.visible = page == null
 	pause_general.visible = page == pause_general
 	pause_controls.visible = page == pause_controls
-	Audio.play("ui")
+	pause_looks.visible = page == pause_looks
+	pause_shade.color = Color(0, 0, 0, 0) if page == pause_looks and not pause_thumb else UiKit.SHADE
 
 func _pause_general(on: bool) -> void:
 	_pause_page(pause_general if on else null)
 
 func _pause_controls(on: bool) -> void:
 	_pause_page(pause_controls if on else null)
+
+func _pause_looks(on: bool) -> void:
+	_pause_page(pause_looks if on else null)
 
 ## A page's heading, with the way back out of it on its left: one press of the
 ## arrow is one level up, which on PAUSED itself is back into the game. Every
@@ -666,9 +724,7 @@ func _pause() -> void:
 	_pause_remode()
 	_pause_exits()
 	# Always on PAUSED, however it was left last time.
-	pause_main.visible = true
-	pause_general.visible = false
-	pause_controls.visible = false
+	_pause_put(null)
 	_pause_ask("", false)
 	get_tree().paused = true
 	pause_menu.visible = true
@@ -685,6 +741,8 @@ func _pause_exits() -> void:
 	pause_abandon.visible = state == State.RAID
 	pause_title.visible = state != State.RAID
 	pause_park.visible = state == State.RAID
+	# The hideout's look is picked where it can be seen.
+	pause_looks_door.visible = state == State.HIDEOUT
 
 func _unpause() -> void:
 	get_tree().paused = false

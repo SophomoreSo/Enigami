@@ -66,7 +66,8 @@ func _on_built() -> void:
 
 ## Scenery of somebody else's making, stood in the room: in front of the tiles
 ## and behind everything that hangs, grows or moves. The hideout dresses its
-## room this way (`HideoutScenery`); the room knows nothing of what it is given.
+## room this way, in whichever of its looks is on (`HideoutScenery`); the room
+## knows nothing of what it is given.
 func dress(scenery: Node2D) -> void:
 	scenery.z_index = -1
 	add_child(scenery)
