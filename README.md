@@ -37,6 +37,7 @@ godot res://tests/feature/hurt_test.tscn    # the second of grace a blow that la
 godot res://tests/feature/lost_kit_test.tscn # dying drops the kit, and the next run goes back for it
 godot res://tests/feature/possess_test.tscn # POSSESS: into a monster and out again, the body left behind, passing for one of them, the weapon, talking
 godot res://tests/feature/kit_test.tscn     # up to three weapons carried, one in hand: the rack, the keys and the wheel, and what walking out and dying do to the lot
+godot res://tests/feature/rock_test.tscn    # the rock: one stone, thrown with its graph in it, lying where it lands until it is picked back up — by the body, or a monster the player is in
 godot res://tests/feature/climb_test.tscn   # going up a room and staying there
 godot res://tests/feature/cast_test.tscn    # the two buttons: attack casts the graph, cast charges it
 godot res://tests/feature/stamina_test.tscn # the dash budget under the health bar
@@ -63,6 +64,7 @@ godot res://tests/graphics/rope_test.tscn   # a cable's line of nodes: hung, pus
 godot res://tests/graphics/foliage_test.tscn # the grass, flowers and bushes a patch grows, its mask, and where a room grows them
 godot res://tests/graphics/velocity_test.tscn # the velocity buffer: what moving things push, how it springs back, and the foliage leaning for it
 godot res://tests/graphics/bolt_view_test.tscn # a bolt's trail: the gaps between its beads drawn in, and a laser's beam from the muzzle
+godot res://tests/graphics/rock_view_test.tscn # the rock, drawn: a stone of the game's own and not the pack's morning star, held upright, turning over in the air, and marked where it lies
 godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
 godot res://tests/feature/stack_test.tscn   # parts stack: what each one more is worth, where a part stops, laser speed, and HOMING round a wall
 godot res://tests/feature/invert_hit_test.tscn # a stun, a heal, a cleanse, a push away and a haul back, as they land
@@ -388,6 +390,19 @@ Changing weapon is instant and costs only what was being charged. The price of
 carrying more is at the end: walking out takes the whole kit home, and dying
 drops the whole kit where you fell — every weapon but the rock, and the graph
 on every one.
+
+**The rock is thrown, and there is one of it.** Its graph is not cast out of
+it: it is cast into it. A bolt off the rock is the rock itself, carrying
+whatever was built into the graph, and it leaves your hand empty — until you
+walk over it where it came down and pick it back up, the rock casts nothing,
+charges nothing, and says NO ROCK when you reach for it. A copy of it that the
+same cast sends — the rest of a `DUPLICATE` volley, a lap that comes round
+after it has gone — strikes as it does and is gone when it lands. A rock left
+in a room stays in that room, and is there when you come back for it. Your
+hands in a monster (`POSSESS`) pick it up and throw it as your own do;
+stepping out, the monster lets it fall where it stands. A monster with its own
+mind never touches it. The pack has no stone, so the rock is drawn in code, a
+letter a pixel (`Style.DRAWN_TILES`).
 
 A board is a circuit. A pulse leaves the root, spends **one tick in every cell
 of every part** it enters, and mutates a payload on the way through — a part
@@ -797,6 +812,7 @@ feature/actors/    actor base, player, monster catalogue, monster AI
 feature/attacks/   projectile, melee arc, area burst, dash slash, spawner
 feature/world/     room generation, raid map graph, raid loop, sandbox, pickups
                    lost kit: what a death leaves on the floor for the next run
+                   loose rock: the rock, lying where it came down until it is picked up
                    dragon test: the hand-laid tower and its rules
 story/rules/       conversations and directed scenes: what is said, and what follows
                    free talk: rules, the facts they are written against, and the ear

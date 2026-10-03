@@ -62,8 +62,19 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 			# refusal comes with its own line, saying which skill it would not
 			# carry.
 			var kind := String(d.get("kind", ""))
-			var text := Loc.t("hud.fx.winded") if kind == "stamina" else String(d.get("text", ""))
+			var text := String(d.get("text", ""))
+			if kind == "stamina":
+				text = Loc.t("hud.fx.winded")
+			elif kind == "thrown":
+				# The rock is not in the hand: NO ROCK, over whoever reached for it.
+				text = Loc.t("hud.fx.no_weapon", [Weapons.name_for(String(d.get("weapon", ""))).to_upper()])
 			Fx.text(pos + Vector2(0, -44), text, Style.refuse_color(kind))
+		&"rock_down":
+			# Dust off the floor, for a rock coming down hard enough to raise it.
+			if float(d.get("speed", 0.0)) > 260.0:
+				Fx.burst(pos, Style.WALL_DUST, 3, 60.0)
+		&"rock_back":
+			Fx.burst(pos, Style.weapon_color(String(d.get("weapon", ""))), 6, 90.0)
 		&"possess":
 			# Into the monster: a ring closing on it, the colour of the part.
 			Fx.ring(pos, Style.POSSESS_COLOR, 70.0)

@@ -290,6 +290,12 @@ func _spawn_contents() -> void:
 	# because the player died standing in it.
 	if data.has("lost_kit"):
 		_spawn_lost_kit(data["lost_kit"])
+	# The rock, thrown in here and walked out on. Lying here again it is the
+	# room's to write down, when it is left — so it is out of the record until
+	# then, and a rock picked up here is not found lying here next time.
+	for r in data.get("rocks", []):
+		_spawn_rock(r)
+	data.erase("rocks")
 
 func _roll_enemies() -> Array:
 	var out: Array = []
@@ -356,13 +362,29 @@ func _spawn_enemy(e: Dictionary) -> void:
 ## Writes what the live monsters have become back into the map's record of this
 ## room, so a room walked out of and back into is the room that was left —
 ## wounded monsters still wounded and standing where they were last seen —
-## rather than the same dice rolled again.
+## rather than the same dice rolled again. And the rock, if it was left here:
+## lying, or still on its way down.
 func save_state() -> void:
+	var rocks: Array = []
 	for c in get_children():
 		if c is Enemy and not c.dead and c.has_meta("record"):
 			var rec: Dictionary = c.get_meta("record")
 			rec["pos"] = [c.global_position.x, c.global_position.y]
 			rec["hp"] = c.health
+		elif c is LooseRock and not c.is_queued_for_deletion():
+			rocks.append((c as LooseRock).record())
+	# A rock still in the air when the room is left is in it too: it comes down
+	# where it was last in the open, the moment the room is walked back into.
+	var w := Attacks.container()
+	if w != null and is_instance_valid(w):
+		for c in w.get_children():
+			if c is Projectile and (c as Projectile).is_rock() and c.room == self and not c.is_queued_for_deletion():
+				var at := (c as Projectile).resting_place()
+				rocks.append({"weapon": (c as Projectile).thrown, "pos": [at.x, at.y]})
+	if rocks.is_empty():
+		data.erase("rocks")
+	else:
+		data["rocks"] = rocks
 
 ## The room's loot goes into one box rather than onto the floor. Where it
 ## stands is written into the record the first time the room is filled — on the
@@ -412,6 +434,18 @@ func _spawn_lost_kit(rec: Dictionary) -> void:
 	k.room = self
 	k.collected.connect(_on_lost_kit_collected)
 	add_child(k)
+
+## The rock, where it was left lying — or, should that be inside the room's
+## rock, where the room puts a player who walks in. Left in the air, it comes
+## down from there.
+func _spawn_rock(rec: Dictionary) -> void:
+	var at := spawn_point()
+	var p: Array = rec.get("pos", [])
+	if p.size() == 2:
+		var want := Vector2(float(p[0]), float(p[1]))
+		if not is_solid_at(want) and not out_of_bounds(want):
+			at = want
+	LooseRock.drop(String(rec.get("weapon", "ROCK")), at, Vector2.ZERO, self, player)
 
 func _on_lost_kit_collected(k: LostKit) -> void:
 	# Out of the record as well as off the floor: walking back into this room

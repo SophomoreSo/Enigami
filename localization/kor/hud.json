@@ -4,10 +4,12 @@
 	"chilled": "냉각",
 	"stunned": "기절",
 	"possessing": "%s 빙의 %d초",
+	"thrown": "%s (던짐)",
 	"fx": {
 		"winded": "탈진",
 		"parry": "막아냄",
-		"boss_phase": "%s: 제2형태"
+		"boss_phase": "%s: 제2형태",
+		"no_weapon": "%s 없음"
 	},
 	"map": {
 		"title": "지도",

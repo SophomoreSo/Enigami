@@ -402,11 +402,15 @@ static func element_color(p: Payload) -> Color:
 	return NEUTRAL_ATTACK
 
 ## --- weapons ----------------------------------------------------------------
-## `art` names the weapon tile in the atlas. Every weapon tile points up.
+## `art` names the weapon tile: one of the atlas's, which all point up, or one
+## of `DRAWN_TILES`. `grip` is how much of the tile hangs past the hand, where
+## the hand is not where `PlayerView` holds a blade; and a weapon that is
+## `upright` is held rather than pointed — the rock, which has no point to it,
+## is carried the right way up whichever way it is aimed.
 const WEAPON := {
 	"SWORD": {"color": Color(0.85, 0.9, 1.0), "art": "weapon_regular_sword"},
 	"GUN": {"color": Color(0.6, 0.95, 0.85), "art": "weapon_bow_2"},
-	"ROCK": {"color": Color(0.95, 0.82, 0.55), "art": "weapon_mace"},
+	"ROCK": {"color": Color(0.95, 0.82, 0.55), "art": "rock", "grip": 0.5, "upright": true},
 }
 
 static func weapon_color(id: String) -> Color:
@@ -414,6 +418,42 @@ static func weapon_color(id: String) -> Color:
 
 static func weapon_art(id: String) -> String:
 	return String(WEAPON.get(id, {}).get("art", "weapon_regular_sword"))
+
+static func weapon_grip(id: String, otherwise: float) -> float:
+	return float(WEAPON.get(id, {}).get("grip", otherwise))
+
+static func weapon_upright(id: String) -> bool:
+	return bool(WEAPON.get(id, {}).get("upright", false))
+
+## Tiles the atlas has none of, drawn here a letter a pixel: the rock, which the
+## pack has a mace and a morning star for and no stone. `Sprites.texture` makes
+## each a tile like any of the atlas's, so whatever draws one does not know the
+## difference. Each is its rows, top to bottom, and the colour every letter
+## stands for; anything else is clear.
+##
+## The rock is cut in planes, lit from the top left like everything in the
+## pack: a top it is lit across, a face under that, and the side turned away.
+const DRAWN_TILES := {
+	"rock": {
+		"rows": [
+			"...ooo....",
+			".oohhlooo.",
+			"ohhhllllmo",
+			"ohlllllmdo",
+			"ollmmmmmdo",
+			"olmmmmmddo",
+			".ommmmdddo",
+			"..ooooooo.",
+		],
+		"inks": {
+			"o": Color(0.13, 0.118, 0.125),
+			"d": Color(0.306, 0.282, 0.282),
+			"m": Color(0.447, 0.424, 0.404),
+			"l": Color(0.588, 0.565, 0.525),
+			"h": Color(0.769, 0.745, 0.682),
+		},
+	},
+}
 
 ## --- the player -------------------------------------------------------------
 ## The game's own character, drawn the map way in `graphics/assets/sprites/player/`
