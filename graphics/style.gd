@@ -498,9 +498,13 @@ static func portrait_art(art: String, emotion_id: String) -> String:
 static func has_character(base: String) -> bool:
 	return Sprites.has_character(base)
 
-## The talk prompt over an NPC's head.
-const SPEECH_PROMPT_FILL := Color(0.05, 0.06, 0.08, 0.8)
-const SPEECH_PROMPT_TEXT := Color(0.86, 0.9, 0.96)
+## The talk prompt over an NPC's head is a keycap: a pale face over a darker side,
+## dark lettering, and a dark rim round it all. The rim is opaque: it goes down as
+## overlapping blocks, which would double up a translucent colour.
+const KEY_CAP_FACE := Color(0.86, 0.9, 0.96)
+const KEY_CAP_SIDE := Color(0.42, 0.47, 0.56)
+const KEY_CAP_TEXT := Color(0.08, 0.09, 0.12)
+const KEY_CAP_RIM := Color(0.05, 0.06, 0.08)
 ## The dialogue box, after Celeste: near-black with a pale edge, so it reads as a
 ## voice over the scene rather than as another of the HUD's blue-grey panels.
 const DIALOGUE_FILL := Color(0.03, 0.03, 0.05, 0.94)

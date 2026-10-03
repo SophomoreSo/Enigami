@@ -7,8 +7,21 @@ extends Node2D
 ## (see `DialogueBox`) and the camera each line of their dialogue file asks for.
 ## What they say free goes in a bubble over whoever says it (`SpeechBubble`).
 
-const NAME_SIZE := 9
-const CORNER := 5
+## The prompt is a keycap with the interact key on it, pressed now and then so
+## it reads as "press this" rather than as a label. It is pixel art on the same
+## grid as the NPC under it, so every size here is in PixelDraw.PX blocks.
+##
+## The cap's face, at its narrowest: room for one capital with a margin.
+const KEY_W := 11
+const KEY_H := 9
+## How far the face stands above its base, and so how far a press sinks it.
+const KEY_DEPTH := 2
+## One press every PRESS_EVERY seconds: down over PRESS_DOWN, held, then back up
+## over PRESS_UP.
+const PRESS_EVERY := 1.1
+const PRESS_DOWN := 0.07
+const PRESS_HOLD := 0.12
+const PRESS_UP := 0.12
 ## Space between the top of the head and the bottom of the prompt.
 const PROMPT_GAP := 6.0
 ## A focus on someone frames their face rather than their feet.
@@ -17,16 +30,16 @@ const FACE_LIFT := Vector2(0, -18)
 var npc: Npc
 var sprite: AnimatedSprite2D
 ## The prompt sits on its own layer so the player walking in front of the NPC
-## never covers it — and so it is reading text, drawn at the screen's
-## resolution: a canvas layer is not part of the world the pixel camera copies.
-## It follows the camera, just over the pixel picture.
+## never covers it — and so its key is sharp, drawn at the screen's resolution
+## in PixelDraw's blocks, the way the hideout's signs are (`HideoutWorldView`):
+## a canvas layer is not part of the world the pixel camera copies. It follows
+## the camera, just over the pixel picture.
 var prompt_layer: CanvasLayer
 var prompt: Node2D
 var dialogue: DialogueBox
 ## On the prompt's layer, for the prompt's reasons: free talk is reading text.
 var bubble: SpeechBubble
-var _font: Font
-var _prompt_box: StyleBoxFlat
+var _px: PixelDraw
 ## Where the top of the head is, relative to the NPC.
 var _head_y: float = 0.0
 var _t: float = 0.0
@@ -37,10 +50,6 @@ var _directed: String = ""
 func _ready() -> void:
 	npc = get_parent() as Npc
 	z_index = 45
-	_font = ThemeDB.fallback_font
-	_prompt_box = StyleBoxFlat.new()
-	_prompt_box.bg_color = Style.SPEECH_PROMPT_FILL
-	_prompt_box.set_corner_radius_all(CORNER)
 	prompt_layer = CanvasLayer.new()
 	prompt_layer.layer = PixelCamera.LAYER + 1
 	prompt_layer.follow_viewport_enabled = true
@@ -48,6 +57,7 @@ func _ready() -> void:
 	prompt = Node2D.new()
 	prompt.draw.connect(_draw_prompt)
 	prompt_layer.add_child(prompt)
+	_px = PixelDraw.new(prompt)
 	bubble = SpeechBubble.new()
 	bubble.npc = npc
 	prompt_layer.add_child(bubble)
@@ -85,7 +95,9 @@ func _process(delta: float) -> void:
 		_build_sprite()
 	_t += delta
 	sprite.flip_h = npc.facing < 0
-	prompt.position = global_position
+	# On whole world pixels, the grid the NPC is drawn on, so the cap's blocks
+	# line up with theirs.
+	prompt.position = (global_position / PixelCamera.SCALE).round() * PixelCamera.SCALE
 	prompt.queue_redraw()
 	_direct_camera()
 
@@ -139,10 +151,37 @@ func _draw_prompt() -> void:
 			or npc.approaching():
 		return
 	var tip_y := _head_y - PROMPT_GAP
-	var text := "%s  Talk" % Controls.short_label_for("interact")
-	var w := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE).x
-	var bob := sin(_t * 4.0) * 1.5
-	var body := Rect2(Vector2(-w * 0.5 - 5.0, tip_y - 16.0 + bob), Vector2(w + 10.0, 15.0))
-	prompt.draw_style_box(_prompt_box, body)
-	prompt.draw_string(_font, body.position + Vector2(5.0, 3.0 + _font.get_ascent(NAME_SIZE)), text,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, Style.SPEECH_PROMPT_TEXT)
+	var text := Controls.short_label_for("interact")
+	var px := PixelDraw.PX
+	# Square for a single key, wider for a word like "LMB".
+	var size := Vector2(maxf(PixelDraw.ink_width(text) + 6 * px, KEY_W * px), KEY_H * px)
+	var sink := roundi(KEY_DEPTH * _pressed(fmod(_t, PRESS_EVERY))) * px
+	# The base stays put; the face rides KEY_DEPTH above it and sinks onto it.
+	var base := Rect2(_px.snap(Vector2(-size.x * 0.5, tip_y - size.y)), size)
+	var face := Rect2(base.position - Vector2(0.0, KEY_DEPTH * px - sink), size)
+	# A dark rim round the whole cap, so it reads on a pale wall as well as a dark one.
+	_cap(face.merge(base).grow(px), 2, Style.KEY_CAP_RIM)
+	_cap(base, 1, Style.KEY_CAP_SIDE)
+	_cap(face, 1, Style.KEY_CAP_FACE)
+	# `text` takes a baseline, and capitals stand 5 blocks: 2 clear above them.
+	_px.text_centered(face.position + Vector2(0.0, 7 * px), text, Style.KEY_CAP_TEXT, size.x)
+
+## `r` filled with its corners cut `cut` blocks deep in steps, the pixel art way
+## of rounding one.
+func _cap(r: Rect2, cut: int, col: Color) -> void:
+	var px := PixelDraw.PX
+	for i in cut + 1:
+		var k := cut - i
+		_px.rect(Rect2(r.position + Vector2(k, i) * px, r.size - Vector2(k, i) * 2 * px), col)
+
+## How far down the cap is, 0 up to 1 all the way, `t` seconds into a press.
+static func _pressed(t: float) -> float:
+	if t < PRESS_DOWN:
+		return ease(t / PRESS_DOWN, 0.5)
+	t -= PRESS_DOWN
+	if t < PRESS_HOLD:
+		return 1.0
+	t -= PRESS_HOLD
+	if t < PRESS_UP:
+		return 1.0 - ease(t / PRESS_UP, 2.0)
+	return 0.0
