@@ -9,9 +9,9 @@ extends Node2D
 ## about what is in them is decided here; this only decides when they are on
 ## screen.
 ##
-## The assembly board is not here either: the bench asks for the weapon's graph
-## through the world as `edit_requested`, and `app/game.gd` opens the workbench
-## editor it has always opened, over the top of all of this.
+## The assembly board is not here either: TAB and the rack's BUILD ask for the
+## weapon's graph through the world as `edit_requested`, and `app/game.gd` opens
+## the editor over the top of all of this.
 
 ## The sign over a station: a post, a plate, and the name on it. Drawn rather
 ## than built out of Controls so it stands in the room at the station's feet and
@@ -103,7 +103,7 @@ func _process(_delta: float) -> void:
 		_on_panel_changed(world.open_panel)
 	# The signs say what a press would do, and that changes as the player walks
 	# and as the kit fills up: `queue_redraw` every frame is what the raid's own
-	# prompts do, and the whole screen is four plates.
+	# prompts do, and the whole screen is three plates.
 	queue_redraw()
 	if _words != null and is_instance_valid(_words):
 		# The words hang over the picture rather than in it, so they are told
@@ -187,7 +187,7 @@ func _column(section: String) -> Hideout:
 	var h := Hideout.new()
 	h.section = section
 	h.weapon_id = world.weapon_id
-	# The rack's BUILD button is the bench without the walk.
+	# The rack's BUILD button opens the weapon's graph, as TAB does.
 	h.edit_requested.connect(func() -> void: world.edit_requested.emit())
 	# The rack is the one column that writes: what it picks is what the gate
 	# carries, so the room has to hear about it.
@@ -267,7 +267,7 @@ func _clear_panel() -> void:
 ## the one thing in the hideout a gamepad could not.
 ##
 ## The editor puts itself over this and takes its own keys first, so a press
-## that closes a board does not also walk out of the bench behind it.
+## that closes a board does not also close a panel behind it.
 func _unhandled_input(event: InputEvent) -> void:
 	if world == null or not is_instance_valid(world):
 		return

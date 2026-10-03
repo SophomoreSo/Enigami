@@ -24,6 +24,19 @@ func shots_at(r: SkillRunner, bonus: int) -> int:
 	r.ttl_bonus = saved
 	return n
 
+## How many follow-ups a cast at `bonus` hangs off its ON HIT: one a lap of
+## the branch round its ring.
+func follow_ups_at(r: SkillRunner, bonus: int) -> int:
+	var saved := r.ttl_bonus
+	r.ttl_bonus = bonus
+	var n := 0
+	var link = (r.simulate()["triggers"] as Dictionary).get("ON_HIT", null)
+	while link != null:
+		n += 1
+		link = link.on_hit
+	r.ttl_bonus = saved
+	return n
+
 func frames(n: int) -> void:
 	for i in n:
 		await get_tree().process_frame
@@ -135,12 +148,12 @@ func _ready() -> void:
 		"but on this board it buys no extra casts (%d)" % shots_at(p.runner, 0))
 	await frames(2)
 
-	# A looping board is what has somewhere to spend it: the sword's own lunge
-	# on the root, and a ring built on after it.
+	# A looping board is what has somewhere to spend it: an ON HIT whose branch
+	# goes round a ring, a follow-up a lap.
 	var loop := SkillBoard.new(7, 5, "Winding Blade")
 	loop.set_root("DELAY", Vector2i(3, 2))
 	loop.place("DAMAGE", Vector2i(4, 2), 0)
-	loop.place("TEE", Vector2i(5, 2), 0)        # on through the SLASH and out, and round
+	loop.place("ON_HIT", Vector2i(5, 2), 0)     # on through the SLASH and out, and its branch round
 	loop.place("SLASH", Vector2i(6, 2), 0)
 	loop.place("DAMAGE", Vector2i(5, 3), 2)
 	loop.place("DELAY", Vector2i(4, 3), 3)      # back into the first DAMAGE
@@ -148,9 +161,9 @@ func _ready() -> void:
 	sb._apply_weapon()
 	p.runner.fired.connect(func(_x: Payload) -> void: shots += 1)
 	await frames(6)
-	check(shots_at(p.runner, SkillRunner.MAX_TTL_BONUS) > shots_at(p.runner, 0),
-		"charging a loop does buy more (%d -> %d)"
-			% [shots_at(p.runner, 0), shots_at(p.runner, SkillRunner.MAX_TTL_BONUS)])
+	check(follow_ups_at(p.runner, SkillRunner.MAX_TTL_BONUS) > follow_ups_at(p.runner, 0),
+		"charging a loop does buy more (%d -> %d follow-ups)"
+			% [follow_ups_at(p.runner, 0), follow_ups_at(p.runner, SkillRunner.MAX_TTL_BONUS)])
 	p.mana = Player.MAX_MANA
 	p.charge = 0.0
 	await frames(6)

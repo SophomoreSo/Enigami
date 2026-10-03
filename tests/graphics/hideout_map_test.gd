@@ -1,7 +1,8 @@
 extends Node
-## The hideout is a room you walk around, not a screen. Four stations stand on
-## its floor — the weapon rack, the workbench, the counter and the gate — and
-## each answers to the interact key when the player is standing at it.
+## The hideout is a room you walk around, not a screen. Three stations stand on
+## its floor — the weapon rack, the counter and the gate — and each answers to
+## the interact key when the player is standing at it. The weapon's graph is not
+## one of them: TAB opens it from wherever the player stands.
 ##
 ## What this holds to: a station only answers from close enough, opening one
 ## puts its panel up and holds the player still, the panel is the old screen's
@@ -153,7 +154,8 @@ func _ready() -> void:
 	check(world != null and game.state == GameScript.State.HIDEOUT,
 		"the hideout is a world, not a screen (%s)" % ("null" if world == null else world.get_class()))
 	check(world.room != null and world.player != null, "with a room and somebody standing in it")
-	check(world.stations.size() == 4, "and four stations on its floor (%d)" % world.stations.size())
+	check(world.stations.size() == 3, "and three stations on its floor (%d)" % world.stations.size())
+	check(not world.stations.has("bench"), "with no workbench among them: TAB is the way onto the board")
 
 	# --- a station only answers from close enough ----------------------------
 	var rack: Station = world.stations["weapons"]
@@ -336,15 +338,12 @@ func _ready() -> void:
 	check(not world.player.controls_locked() and walked > 5.0,
 		"giving the keys back (%.0f px)" % walked)
 
-	# The bench opens the same graph, with no panel between, and holds the
-	# player under it the way a panel would; shutting it hands back to the room.
-	await stand_at("bench")
-	(world.stations["bench"] as Station).interact()
-	await frames(8)
+	# Opened by key from the far end of the room, by the gate, with no panel
+	# between; ESC shuts it as well as TAB, and hands back to the room.
+	await stand_at("gate")
+	await tap_key(KEY_TAB)
 	check(game.editor != null and is_instance_valid(game.editor) and world.open_panel == "",
-		"the bench opens the weapon's graph itself, with no panel between")
-	if game.editor != null and is_instance_valid(game.editor):
-		check(game.editor.current_board() == world.armed_board(), "the same graph the key opens")
+		"TAB opens the weapon's graph by the gate too, with no panel between")
 	walked = await walk("move_right")
 	check(walked < 1.0, "and holds the player under it (%.0f px)" % walked)
 	await tap_key(KEY_ESCAPE)

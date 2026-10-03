@@ -33,7 +33,7 @@ func _ready() -> void:
 	game._edit_weapon_graph()
 	await frames(4)
 	var ed: SkillEditor = game.editor
-	ed.selected = "SPLIT"
+	ed.selected = "ON_HIT"
 	ed._update_hover(Vector2(300, 250))
 	await frames(4)
 	await shot("03_workbench")

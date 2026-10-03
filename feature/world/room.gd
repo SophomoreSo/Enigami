@@ -222,6 +222,10 @@ func _spawn_contents() -> void:
 	for e in data["enemies"]:
 		_spawn_enemy(e)
 	for l in data["loot"]:
+		# A raid parked while a part was still in the game can have it lying
+		# here; it stays on the record and is never put down.
+		if not l.has("scrap") and Components.is_retired(String(l.get("id", ""))):
+			continue
 		_spawn_pickup(l)
 	# Put down before the room was built, by `Raid`, out of what a death left
 	# behind. It is not rolled and it is not loot: this room holds one only

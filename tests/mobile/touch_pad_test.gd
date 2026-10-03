@@ -790,14 +790,14 @@ func _the_skills() -> void:
 	# One cast stick, whatever the weapon: there are no slots to carry or not.
 	check(pad.shown(control_of("cast_skill")), "the cast stick is on the pad")
 	var where := spot("cast_skill")
-	# A cast's first attack goes off the moment it is let go of; whatever the
-	# board does after that plays out in real time. This board's second attack
-	# comes a good five frames later — by which time a console that did not
-	# hold the aim would be aiming with the other thumb.
-	var later := one_now_one_later()
+	# A cast is let go of at once, and what the board does then plays out in
+	# real time. This board's attack comes a good five frames later — by which
+	# time a console that did not hold the aim would be aiming with the other
+	# thumb.
+	var later := one_later()
 	var dry := SkillRunner.new(later).simulate()
-	check(String(dry["error"]) == "" and (dry["outputs"] as Array).size() == 2,
-		"the board runs clean, to two attacks (%s)" % dry["error"])
+	check(String(dry["error"]) == "" and (dry["outputs"] as Array).size() == 1,
+		"the board runs clean, to one attack (%s)" % dry["error"])
 	player.setup(player.weapon_id, later)
 	await frames(2)
 
@@ -834,9 +834,9 @@ func _the_skills() -> void:
 	# between, so what the cast carries is at least that and no more than the
 	# ceiling.
 	#
-	# The thumb that aimed it is gone the moment it casts, and a board fires
+	# The thumb that aimed it is gone the moment it casts, and the board fires
 	# ticks later — so the left thumb runs right as the right one lets go, and
-	# every attack the cast fires is watched for where it went.
+	# the attack the cast fires is watched for where it went.
 	var went: Array = []
 	var watch := func() -> void: went.append(player.aim)
 	player.cast_fired.connect(watch)
@@ -857,8 +857,8 @@ func _the_skills() -> void:
 		waited += 1
 	await frames(3)
 	player.cast_fired.disconnect(watch)
-	check(went.size() == 2 and went.all(func(a: Vector2) -> bool: return a.y < -0.9),
-		"both attacks the cast fires go up, where it was thrown — the later one too, though the left thumb is running right (%s)"
+	check(went.size() == 1 and went.all(func(a: Vector2) -> bool: return a.y < -0.9),
+		"the attack the cast fires goes up, where it was thrown, though it came after the left thumb started running right (%s)"
 			% str(went))
 	check(pad.aim().is_equal_approx(Vector2.RIGHT),
 		"and once it has gone off the aim is the left stick's again (%s)" % str(pad.aim()))
@@ -932,17 +932,14 @@ func _the_reach() -> void:
 	touch(1, landed + Vector2(radius * 2.0, 0.0), false)
 	await frames(2)
 
-## A DELAY on the root, a SLASH and a TEE: the main line leaves the board at
-## once, as a cast's first attack always does, and the branch walks the rest of
-## the board — down, round the bottom, up the left side and along the top — to
-## come back into the DELAY against the way out and leave eighteen ticks later.
-func one_now_one_later() -> SkillBoard:
-	var b := SkillBoard.new(7, 5, "one now, one later")
-	b.set_root("DELAY", Vector2i(3, 2), 0)
-	b.place("SLASH", Vector2i(4, 2), 0)
-	b.place("TEE", Vector2i(5, 2), 0)
-	b.place("DELAY", Vector2i(6, 2), 0)
-	var walk: Array = [[Vector2i(5, 3), 1], [Vector2i(5, 4), 2]]
+## A DELAY on the root in the bottom corner, and the flow walks the rest of the
+## board — round the bottom, up the left side and along the top — down into a
+## SLASH against the way out, and leaves eighteen ticks after the cast.
+func one_later() -> SkillBoard:
+	var b := SkillBoard.new(7, 5, "one later")
+	b.set_root("DELAY", Vector2i(5, 4), 2)
+	b.place("SLASH", Vector2i(6, 2), 0)
+	var walk: Array = []
 	for x in range(4, 0, -1):
 		walk.append([Vector2i(x, 4), 2])
 	for y in range(4, 0, -1):

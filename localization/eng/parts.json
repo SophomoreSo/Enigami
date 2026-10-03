@@ -55,10 +55,6 @@
 		"name": "PIERCE",
 		"desc": "The attack continues through targets instead of stopping on the first."
 	},
-	"DASH": {
-		"name": "DASH",
-		"desc": "Lunges a short distance along the aim. Chains with melee forms into a moving arc."
-	},
 	"BLINK": {
 		"name": "BLINK",
 		"desc": "Teleports behind the nearest visible enemy. Works alone; if nothing is in sight the flow simply continues."
@@ -66,10 +62,6 @@
 	"HOMING": {
 		"name": "HOMING",
 		"desc": "Tracks the nearest enemy. Bolts curve; melee forms re-aim themselves."
-	},
-	"REVERSE": {
-		"name": "REVERSE",
-		"desc": "Flips travel direction. Bolts return to you; other forms invert in their own way."
 	},
 	"GRAVITY": {
 		"name": "GRAVITY",
@@ -87,14 +79,6 @@
 		"name": "STUN",
 		"desc": "Struck enemies are stunned: for a moment they stand where they are and cannot attack. Once it wears off, an enemy shrugs off the next stun for a while."
 	},
-	"SPLIT": {
-		"name": "SPLIT",
-		"desc": "Divides one flow into two. Each branch carries half the damage."
-	},
-	"TEE": {
-		"name": "TEE",
-		"desc": "Keeps the main flow and grows one branch sideways. Both carry full damage."
-	},
 	"DUPLICATE": {
 		"name": "DUPLICATE x3",
 		"desc": "Produces the same result three times at full damage. Generates a lot of heat."
@@ -105,7 +89,7 @@
 	},
 	"DELAY": {
 		"name": "DELAY",
-		"desc": "One cell of waiting and nothing more: it turns a flow and leaves it as it was. Steer a branch round to the way out with it, or stagger one against another by giving it further to walk."
+		"desc": "One cell of waiting and nothing more: it turns a flow and leaves it as it was. Steer a flow round to the way out with it, or walk a trigger's branch round a ring and back."
 	},
 	"TIME_DILATION": {
 		"name": "TIME DILATION",

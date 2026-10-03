@@ -17,19 +17,6 @@ func runner(b: SkillBoard, bonus: int = 0) -> SkillRunner:
 	r.ttl_bonus = bonus
 	return r
 
-## A ring that tees out to an attack on every lap: the TEE sends one flow on
-## through the SLASH and out of the board, and the other round two DELAYs and
-## back in.
-func ring() -> SkillBoard:
-	var b := SkillBoard.new(7, 5, "ring")
-	b.set_root("DELAY", Vector2i(3, 2))
-	b.place("DELAY", Vector2i(4, 2), 0)
-	b.place("TEE", Vector2i(5, 2), 0)
-	b.place("SLASH", Vector2i(6, 2), 0)
-	b.place("DELAY", Vector2i(5, 3), 2)
-	b.place("DELAY", Vector2i(4, 3), 3)
-	return b
-
 ## A straight run of `n` DELAYs into an attack, off a DELAY on the root, on a
 ## board exactly as long, so the SLASH is against the way out: no cycle, just
 ## length.
@@ -83,7 +70,7 @@ func live_links(r: SkillRunner, bonus: int) -> int:
 func _ready() -> void:
 	# A cycle has to end in the live runner, not just on paper — and still end
 	# when it has been charged as far as charge goes.
-	var live := runner(ring(), SkillRunner.MAX_TTL_BONUS)
+	var live := runner(trigger_ring(), SkillRunner.MAX_TTL_BONUS)
 	live.set_active(true)
 	var ran := false
 	var ended := false
@@ -97,15 +84,17 @@ func _ready() -> void:
 	check(ran, "a fully charged ring runs")
 	check(ended, "and comes to a stop rather than circling forever")
 
-	# More life, more laps, monotonically.
-	var last := 0
+	# More life, more laps, monotonically: each lap of the branch is one more
+	# follow-up on the one attack the cast fires.
+	var last := -1
 	var rising := true
 	for bonus in [0, 12, 24, 48]:
-		var n := shots(runner(ring(), bonus))
+		var n := links(runner(trigger_ring(), bonus).simulate()["triggers"].get("ON_HIT", null))
 		if n <= last:
 			rising = false
 		last = n
-	check(rising, "more life buys strictly more laps (up to %d shots)" % last)
+	check(rising, "more life buys strictly more laps (up to %d follow-ups)" % last)
+	check(shots(runner(trigger_ring(), 48)) == 1, "and the cast is still one attack, carrying them")
 
 	# Length alone must never cost a board its shot: a cast's life starts at
 	# exactly one pass of whatever board it is, short or long. A pass is the

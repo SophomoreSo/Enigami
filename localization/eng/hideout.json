@@ -47,8 +47,6 @@
 	"station": {
 		"weapons": "WEAPON RACK",
 		"weapons_prompt": "press F to pick what you carry",
-		"bench": "WORKBENCH",
-		"bench_prompt": "press F to build on your weapon's graph",
 		"shop": "COUNTER",
 		"shop_prompt": "press F to spend gold",
 		"gate": "THE GATE",

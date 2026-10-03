@@ -47,8 +47,6 @@
 	"station": {
 		"weapons": "무기 거치대",
 		"weapons_prompt": "F를 눌러 들고 갈 무기를 고르세요",
-		"bench": "작업대",
-		"bench_prompt": "F를 눌러 무기의 그래프를 짜세요",
 		"shop": "상점",
 		"shop_prompt": "F를 눌러 골드를 쓰세요",
 		"gate": "관문",

@@ -254,10 +254,11 @@ func _intro_finished() -> void:
 	GameState.mark_intro_seen()
 	goto_hideout()
 
-## Between raids, as a room you stand in: the weapon rack, the workbench, the
-## counter and the gate are places you walk to. The panels behind them are the
-## columns the old screen showed all at once — `graphics/ui/hideout.gd` still
-## owns what is in them — and the view opens them.
+## Between raids, as a room you stand in: the weapon rack, the counter and the
+## gate are places you walk to, and TAB opens the weapon's graph anywhere on
+## the floor. The panels behind them are the columns the old screen showed all
+## at once — `graphics/ui/hideout.gd` still owns what is in them — and the view
+## opens them.
 ##
 ## It is a world node rather than a Control, like the bench and the raid, so it
 ## is added to the tree rather than to `ui_layer` and gets its view from `Views`.
@@ -315,10 +316,10 @@ func _raid_finished(result: String, payload: Dictionary) -> void:
 	current = rs
 
 ## --- hideout skill editing --------------------------------------------------
-## The graph on the weapon the rack was left on, opened at the bench, off the
-## rack's BUILD button, or with the key a raid opens assembly with — the same
-## board however it is reached, and the profile's own, so what is built is
-## what the gate carries.
+## The graph on the weapon the rack was left on, opened off the rack's BUILD
+## button or with the key a raid opens assembly with — the same board however
+## it is reached, and the profile's own, so what is built is what the gate
+## carries.
 func _edit_weapon_graph() -> void:
 	if hideout_ref == null or not is_instance_valid(hideout_ref):
 		return
@@ -346,7 +347,7 @@ func _close_editor() -> void:
 		if hideout_ref != null and is_instance_valid(hideout_ref):
 			hideout_ref.set_editing(false)
 		# The board that came back may have a different name and different tags
-		# on it, and the bench's panel is showing the old ones.
+		# on it, and the rack's panel is showing the old ones.
 		if state == State.HIDEOUT and hideout_ref != null and is_instance_valid(hideout_ref):
 			# And the player in the room is carrying it, so the HUD is showing
 			# the board as it was before it went in.

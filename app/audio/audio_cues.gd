@@ -20,7 +20,7 @@ func _on_cue(name: StringName, d: Dictionary) -> void:
 				"ZAP": Audio.play("zap")
 		&"area_blast":
 			Audio.play("explode")
-		&"lunge_cut", &"lunge", &"dash":
+		&"lunge_cut", &"dash":
 			Audio.play("dash")
 		&"blink":
 			Audio.play("dash", 1.3)

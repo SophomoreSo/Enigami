@@ -33,8 +33,6 @@ var life: float = LIFE
 var hits_left: int = 1
 var gravity: float = 0.0
 var homing_strength: float = 0.0
-var reverse_at: float = -1.0
-var _reversed: bool = false
 var _hit: Array = []
 ## How far this bolt has flown, against `range_px`.
 var _travelled: float = 0.0
@@ -50,19 +48,12 @@ func setup(p: Payload, pos: Vector2, dir: Vector2, t: int, atk: Actor, rm) -> vo
 	velocity = dir.normalized() * 420.0 * p.speed
 	hits_left = 1 + p.pierce
 	homing_strength = 5.0 if p.homing else 0.0
-	if p.reverse:
-		reverse_at = 0.35
 
 func _process(delta: float) -> void:
 	life -= delta
 	if life <= 0.0:
 		_expire()
 		return
-	if reverse_at > 0.0:
-		reverse_at -= delta
-		if reverse_at <= 0.0 and not _reversed:
-			_reversed = true
-			velocity = -velocity
 	if homing_strength > 0.0:
 		var t := Attacks.nearest_target(global_position, team, 520.0)
 		if t != null:

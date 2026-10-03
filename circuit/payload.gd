@@ -24,8 +24,6 @@ var form: String = ""              ## "", PROJECTILE, SLASH, EXPLODE, DASHSLASH,
 var elements: Array[String] = []   ## FIRE / ICE
 var pierce: int = 0                ## extra targets an attack passes through
 var homing: bool = false
-var reverse: bool = false
-var dash: bool = false             ## lunge along aim before the attack lands
 var blink: bool = false            ## teleport behind nearest enemy
 ## Drags nearby enemies into the impact instead of knocking the struck one back.
 ## Not to be confused with a thrown weapon's `gravity_shots`, which arcs the
@@ -67,8 +65,6 @@ func clone() -> Payload:
 	p.elements = elements.duplicate()
 	p.pierce = pierce
 	p.homing = homing
-	p.reverse = reverse
-	p.dash = dash
 	p.blink = blink
 	p.pull = pull
 	p.knockback = knockback
@@ -93,4 +89,4 @@ func has_element(e: String) -> bool:
 
 ## Does this payload do anything at all when it leaves the board?
 func is_productive() -> bool:
-	return form != "" or dash or blink
+	return form != "" or blink
