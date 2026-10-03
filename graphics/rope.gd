@@ -54,7 +54,7 @@ extends Node2D
 ## each pixel a square on the grid the pixel camera draws the world at, so it
 ## is one buffer pixel wide however it lies. The video builds that mesh in a
 ## geometry shader and runs the simulation in a compute shader, for
-## thousands of nodes; a room here hangs a handful of cables of a dozen nodes
+## thousands of nodes; a room here hangs a handful of cables of a few nodes
 ## each, so both are plain GDScript — and Godot's 2D has no geometry shader
 ## to put the mesh in anyway.
 ##
@@ -100,7 +100,7 @@ const BODY_GUESS := Vector2(20.0, 30.0)
 
 ## --- what the whole line shares ---------------------------------------------
 ## The numbers a kind of line is, as its row of `ropes` has them; made by
-## hand, a line has a cable's.
+## hand, a line has the ones given here.
 ## Which kind of line this is: the id of its row.
 var kind: String = "cable"
 ## How far apart a hung line's nodes are, in world pixels: at 12, six buffer
