@@ -58,6 +58,7 @@ godot res://tests/graphics/menus_test.tscn  # every menu's rows name an act its 
 godot res://tests/graphics/rope_test.tscn   # a cable's line of nodes: hung, pushed, settled, and where a room hangs them
 godot res://tests/graphics/foliage_test.tscn # the grass, flowers and bushes a patch grows, its mask, and where a room grows them
 godot res://tests/graphics/velocity_test.tscn # the velocity buffer: what moving things push, how it springs back, and the foliage leaning for it
+godot res://tests/graphics/bolt_view_test.tscn # a bolt's trail: the gaps between its beads drawn in, and a laser's beam from the muzzle
 godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
 godot res://tests/feature/stack_test.tscn   # parts stack: what each one more is worth, where a part stops, laser speed, and HOMING round a wall
 godot res://tests/feature/invert_hit_test.tscn # a stun, a heal, a cleanse, a push away and a haul back, as they land
@@ -404,7 +405,8 @@ what lets `DELAY` hold a trigger's branch back behind the attack it follows.
   (`stack_limit`, with its other numbers in `data/db/parts/parts.sql`), and past
   it the part costs its heat and does nothing: `SIZE` stops at three, `RANGE` at
   three, `BLINK` at one, and `SPEED` at four — where a bolt stops getting half
-  as quick again and flies at laser speed, across a room in a tenth of a second.
+  as quick again and flies at laser speed, across a room in a tenth of a second,
+  drawn as a beam from the muzzle to the bolt.
 - `PIERCE` carries an attack through one enemy and on to the next: one enemy
   for every `PIERCE` stacked, and it stops in the one after.
 - `HOMING` turns a bolt towards the nearest enemy, and round the walls to it:
