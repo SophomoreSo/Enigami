@@ -207,7 +207,9 @@ var _flow_key: Array = []
 var _thumb_rects: Dictionary = {}
 var _thumb_key: Array = []
 var _ports: Array = []               ## PORT turned to face each direction
-var _arrows: Array = []              ## ARROW likewise, for the drag chip
+var _arrows: Array = []              ## ARROW likewise, for mobile mode's TURN
+## The board drawn while the root is in hand. See `_shown_board`.
+var _lifted: SkillBoard = null
 ## The share sheet, built the first time it is asked for and kept after that.
 var _share: ShareCodePanel = null
 var _px := PixelDraw.new(self)
@@ -495,7 +497,9 @@ func _update_hover(pos: Vector2) -> void:
 			return
 	var b := current_board()
 	if b != null:
-		var rel := pos - board_origin()
+		# A part in hand is held by its middle, so the cell it would be set down
+		# by is the one under where that cell is drawn, not under the pointer.
+		var rel := pos - _held_offset() - board_origin()
 		if rel.x >= 0 and rel.y >= 0:
 			var c := Vector2i(int(rel.x / cell_size()), int(rel.y / cell_size()))
 			if b.in_bounds(c):
@@ -505,6 +509,15 @@ func _update_hover(pos: Vector2) -> void:
 			if _pal_rect(i).has_point(pos):
 				_hover_pal = i
 				return
+
+## How far the middle of the part in hand stands from the middle of the cell
+## it is set down by — none for a one-cell part, half a cell for a two-cell
+## one, the way it is turned — and nothing when the hand is empty.
+func _held_offset() -> Vector2:
+	if _drag_id == "":
+		return Vector2.ZERO
+	return _part_rect(_drag_id, Vector2i.ZERO, rotation_step).get_center() \
+		- _cell_center(Vector2i.ZERO)
 
 ## Every part the palette offers, in the order its rows come — the pool's own
 ## order, gathered into category blocks.
@@ -537,6 +550,10 @@ func _rotate(dir: int) -> void:
 		_rotate_placed(current_board(), _picked, dir)
 		return
 	rotation_step = (rotation_step + dir + 4) % 4
+	# Turned in hand, a two-cell part swings round its middle, which the
+	# cursor holds: the cell it would land by moves with it.
+	if _drag_id != "":
+		_update_hover(_mouse_pos)
 	Audio.play("ui")
 
 func _rotate_placed(b: SkillBoard, cell: Vector2i, dir: int) -> void:
@@ -594,6 +611,7 @@ func _press_left() -> void:
 		_drag_source = -1
 		_drag_from = Vector2i(-1, -1)
 		_picked = NOWHERE
+		_update_hover(_mouse_pos)
 		Audio.play("ui")
 		return
 	if _hover_cell.x < 0:
@@ -632,6 +650,8 @@ func _lift(b: SkillBoard, cell: Vector2i) -> void:
 	_drag_from_rot = int(existing["rot"])
 	rotation_step = _drag_from_rot
 	_picked = NOWHERE
+	# Held by its middle from here on, wherever on it the press came down.
+	_update_hover(_mouse_pos)
 	if b.is_root(_drag_from):
 		_drag_source = 2
 		Audio.play("ui")
@@ -1028,8 +1048,25 @@ func _draw_header(vp: Vector2) -> void:
 	_px.icon(at, CROSS, ink)
 	_px.text(at + Vector2(mark, 10), close_label, ink)
 
-func _draw_board() -> void:
+## The board as it is drawn: the board itself, except while the root is in
+## hand. The weapon keeps the root where it stands until it is set down
+## somewhere it fits (`_lift`), but the hand has it — it is drawn under the
+## cursor (`_draw_drag`), so the board is drawn from a copy with it taken off,
+## wiring and all, the way a lifted part leaves the board it came off.
+func _shown_board() -> SkillBoard:
 	var b := current_board()
+	if b == null or _drag_id == "" or _drag_source != 2:
+		if _lifted != null:
+			_lifted = null
+			_sim_dirty = true
+		return b
+	if _lifted == null:
+		_lifted = b.without_root()
+		_sim_dirty = true
+	return _lifted
+
+func _draw_board() -> void:
+	var b := _shown_board()
 	if b == null:
 		return
 	var frame := Rect2(board_origin() - Vector2(10, 10),
@@ -1068,7 +1105,8 @@ func _draw_board() -> void:
 	var held := _held_id()
 	var occupied := _hover_cell.x >= 0 and not b.comp_at(_hover_cell).is_empty()
 	if _hover_cell.x >= 0 and held != "" and (_drag_id != "" or not occupied):
-		var ok := _fits_held(b, _hover_cell)
+		# Asked of the board itself: the drawn one has no root to move.
+		var ok := _fits_held(current_board(), _hover_cell)
 		# One box across the whole footprint, the shape the part would take. A
 		# footprint half off the board shows the half that is on it, which is
 		# why this grows from the hovered cell rather than from the footprint.
@@ -1145,9 +1183,8 @@ func _draw_hint(vp: Vector2) -> void:
 	var rows := _hint_rows(id, dead)
 	var box := _hint_box(vp, on, rows.size())
 	var edge := DEAD_EDGE if dead else Style.component_color(id)
-	# Opaque, like the drag chip and for the same reason: it lands over the
-	# board and the panel alike, and two rows of pixel text through each other
-	# are unreadable.
+	# Opaque: it lands over the board and the panel alike, and two rows of
+	# pixel text through each other are unreadable.
 	_px.rect(box, Color(0.07, 0.08, 0.11))
 	_px.rect(box, Color(edge.r, edge.g, edge.b, 0.12))
 	_px.frame(box, edge)
@@ -1213,23 +1250,39 @@ func _dead_group_rect(b: SkillBoard, origin: Vector2i) -> Rect2:
 		r = box if r.size == Vector2.ZERO else r.merge(box)
 	return r
 
-## A chip under the cursor, so a dragged part is visible away from the grid.
+## How solid the part in hand is drawn over the board: enough to read, and
+## little enough that the ghost of where it would land shows through it.
+const HELD_OVER_BOARD := 0.6
+
+## The part in hand, drawn the way the board draws it and carried by the cursor:
+## its middle under the pointer, turned the way the wheel has it. Over the board it is see-through, so the ghost under it still says
+## whether it fits; anywhere else it is solid, since it is dragged over the
+## palette and two rows of pixel text through each other are unreadable.
 func _draw_drag() -> void:
 	if _drag_id == "":
 		return
-	var col := Style.component_color(_drag_id)
-	var part_name := Components.name_for(_drag_id)
-	# Icon, name, then a rotation readout, since the wheel turns the part while it
-	# is in hand.
-	var r := Rect2(_px.snap(_mouse_pos + Vector2(14, -16)), Vector2(60.0 + PixelDraw.ink_width(part_name), 30.0))
-	# Opaque, unlike the rest of the panel: it is dragged over the palette, and
-	# two rows of pixel text through each other are unreadable.
-	_px.rect(r, Color(0.07, 0.08, 0.11))
-	_px.rect(r, Color(col.r, col.g, col.b, 0.32))
-	_px.frame(r, col)
-	_px.icon(r.position + Vector2(8, 8), Style.component_icon(_drag_id), col)
-	_px.text(r.position + Vector2(30, 20), part_name, Color(0.95, 0.97, 1.0))
-	_px.icon(Vector2(r.end.x - 18.0, r.position.y + 10.0), _arrows[rotation_step], Color(0.8, 0.9, 1.0))
+	var id := _drag_id
+	var rot := rotation_step
+	var col := Style.component_color(id)
+	var fade := HELD_OVER_BOARD if _hover_cell.x >= 0 else 1.0
+	# Drawn at the board's top-left cell and carried to the cursor whole, by
+	# whole PIXELs, so it comes out the shape the board gives it.
+	var middle := _part_rect(id, Vector2i.ZERO, rot).get_center()
+	draw_set_transform(((_mouse_pos - middle) / PX).round() * PX)
+	# The root comes to its point in hand as it does on the board.
+	var cut := -1
+	if _drag_source == 2:
+		var outs := Components.world_outputs(id, rot)
+		cut = int(outs[0]) if not outs.is_empty() else -1
+	_draw_part(id, Vector2i.ZERO, rot, cut, [
+		_faded(Color(col.r, col.g, col.b, 0.28), fade), _faded(col.lightened(0.45), fade),
+		_faded(col.lightened(0.3), fade), _faded(col.lightened(0.4), fade),
+		_faded(Color(1.0, 0.55, 0.8), fade)], fade)
+	draw_set_transform(Vector2.ZERO)
+
+## `col` with its alpha scaled by `fade`.
+func _faded(col: Color, fade: float) -> Color:
+	return Color(col.r, col.g, col.b, col.a * fade)
 
 func _cell_rect(c: Vector2i) -> Rect2:
 	var side := cell_size()
@@ -2119,35 +2172,40 @@ func _draw_component(b: SkillBoard, origin: Vector2i) -> void:
 	# A part the flow cannot reach is drawn faint: it is on the board but dead.
 	var live: bool = not dead and (not bool(_trace_cache.get("has_root", false)) \
 		or _trace_cache.get("reachable", {}).has(origin))
-	var r := _part_rect(id, origin, rot)
-	var cut := _port_cut(b, id, origin, rot)
-	# The part's own ground under its tint, so the grid it covers does not show
-	# through the tint and draw a seam across a two-cell part.
-	_draw_part_body(r, cut, CELL_FILL)
-	_draw_part_body(r, cut, Color(DEAD_FILL.r, DEAD_FILL.g, DEAD_FILL.b, 0.2) if dead \
-		else Color(col.r, col.g, col.b, 0.28 if live else 0.08))
-	# The edge is what carries the wiring now that the parts touch, so it is
-	# drawn brighter than the part it bounds, and the run lights it on its way
-	# past. A part the flow never reaches never lights: the same reading the
-	# bridges gave, moved onto the part itself.
-	_draw_part_edges(id, origin, rot, DEAD_EDGE if dead \
-		else (col.lightened(0.45) if live else Color(col.r, col.g, col.b, 0.35)), cut)
-	# No name under the icon: none fits a cell in the pixel face. Hovering the
-	# part names it in the panel along the bottom instead. The icon is drawn at
-	# ICON_ZOOM here — a cell is wide enough for it, and at palette size it was
-	# lost in the middle of one.
-	_px.icon_centered(r.get_center(), Style.component_icon(id), DEAD_INK if dead \
-		else (col.lightened(0.3) if live else Color(col.r, col.g, col.b, 0.4)), _icon_zoom())
+	_draw_part(id, origin, rot, _port_cut(b, id, origin, rot), [
+		Color(DEAD_FILL.r, DEAD_FILL.g, DEAD_FILL.b, 0.2) if dead \
+			else Color(col.r, col.g, col.b, 0.28 if live else 0.08),
+		# The edge is what carries the wiring now that the parts touch, so it is
+		# drawn brighter than the part it bounds, and the run lights it on its
+		# way past. A part the flow never reaches never lights: the same reading
+		# the bridges gave, moved onto the part itself.
+		DEAD_EDGE if dead else (col.lightened(0.45) if live else Color(col.r, col.g, col.b, 0.35)),
+		DEAD_INK if dead else (col.lightened(0.3) if live else Color(col.r, col.g, col.b, 0.4)),
+		DEAD_EDGE if dead else (col.lightened(0.4) if live else Color(col.r, col.g, col.b, 0.35)),
+		DEAD_EDGE if dead else (Color(1.0, 0.55, 0.8) if live else Color(1.0, 0.55, 0.8, 0.35))])
 
+## A part filed under `origin`, pointed on its `cut` side if it is the root, in
+## `look`'s colours: its tint, its edge, its icon, the arrows its flow leaves by
+## and the one its payload does. Its own ground goes under the tint, `ground`
+## solid, so the grid it covers does not show through and draw a seam across a
+## two-cell part.
+func _draw_part(id: String, origin: Vector2i, rot: int, cut: int, look: Array,
+		ground: float = 1.0) -> void:
+	var r := _part_rect(id, origin, rot)
+	_draw_part_body(r, cut, _faded(CELL_FILL, ground))
+	_draw_part_body(r, cut, look[0])
+	_draw_part_edges(id, origin, rot, look[1], cut)
+	# No name under the icon: none fits a cell in the pixel face. Hovering the
+	# part names it on a card instead. The icon is drawn at ICON_ZOOM here — a
+	# cell is wide enough for it, and at palette size it was lost in the middle
+	# of one.
+	_px.icon_centered(r.get_center(), Style.component_icon(id), look[2], _icon_zoom())
 	var ex := Components.exit_cell(id, origin, rot)
-	var arrow_col := DEAD_EDGE if dead \
-		else (col.lightened(0.4) if live else Color(col.r, col.g, col.b, 0.35))
 	for d in Components.world_outputs(id, rot):
-		_draw_port_arrow(ex, d, arrow_col)
+		_draw_port_arrow(ex, d, look[3])
 	var pd := Components.world_payload_out(id, rot)
 	if pd >= 0:
-		_draw_port_arrow(ex, pd, DEAD_EDGE if dead \
-			else (Color(1.0, 0.55, 0.8) if live else Color(1.0, 0.55, 0.8, 0.35)))
+		_draw_port_arrow(ex, pd, look[4])
 
 ## Live pulses from the running circuit, so the board shows its own timing: a
 ## diamond that swells as the pulse crosses a part, and the part's border lit
