@@ -15,6 +15,10 @@ extends HideoutScenery
 ## world is drawn into, drawn once or drawn again as it moves, and reads the
 ## room without changing it.
 
+# A picture drawn in whole pixels halves and thirds whole numbers on purpose,
+# all the way down.
+@warning_ignore_start("integer_division")
+
 ## --- where things are, in buffer pixels of the room -------------------------
 ## The rail lashed across the ruin, by its underside: what the stations' signs
 ## hang from.

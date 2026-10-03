@@ -36,9 +36,10 @@ func _animate() -> void:
 		play("idle")
 	_update_held()
 
-## The player's weapon, while the player in this monster has taken it.
+## The player's weapon, while the player in this monster has taken it — or the
+## rock, once it has picked it up.
 func _update_held() -> void:
-	var armed := enemy.piloted() and enemy.pilot.vessel_armed
+	var armed := enemy.piloted() and enemy.pilot.weapon_hands() == enemy
 	if not armed:
 		if _held != null:
 			_held.visible = false
@@ -50,17 +51,19 @@ func _update_held() -> void:
 		_held.scale = Vector2.ONE * Sprites.PIXEL_SCALE
 		_held.z_index = 1
 		add_child(_held)
-	var art_id := Style.weapon_art(enemy.pilot.weapon_id)
+	var weapon := enemy.pilot.weapon_id
+	var art_id := Style.weapon_art(weapon)
 	if _held_art != art_id:
 		_held_art = art_id
 		var tex := Sprites.texture(art_id)
 		_held.texture = tex
 		if tex != null:
-			_held.offset = Vector2(-tex.region.size.x * 0.5, -tex.region.size.y * PlayerView.WEAPON_GRIP)
+			var grip := Style.weapon_grip(weapon, PlayerView.WEAPON_GRIP)
+			_held.offset = Vector2(-tex.region.size.x * 0.5, -tex.region.size.y * grip)
 	var aim: Vector2 = enemy.pilot.aim
 	_held.visible = true
 	_held.position = aim * (enemy.size * 0.6 + PlayerView.WEAPON_HAND * 0.5)
-	_held.rotation = aim.angle() + PI * 0.5
+	_held.rotation = 0.0 if Style.weapon_upright(weapon) else aim.angle() + PI * 0.5
 
 ## The wind-up before a leap has to read before the leap lands.
 func status_flash() -> float:

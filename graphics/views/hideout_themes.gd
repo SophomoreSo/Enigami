@@ -23,7 +23,7 @@ extends RefCounted
 const PATH := "user://enigami_hideout_theme.json"
 ## The looks, in the order the page lists them. Their names are
 ## `hideout.theme.look.<id>` in `localization/`.
-const LOOKS := ["city", "keep", "grove", "orbit"]
+const LOOKS := ["city", "keep", "grove", "orbit", "brass"]
 ## The one a room wears until somebody picks another.
 const DEFAULT := "city"
 
@@ -76,6 +76,8 @@ static func make(id: String) -> HideoutScenery:
 			scenery = HideoutGrove.new()
 		"orbit":
 			scenery = HideoutOrbit.new()
+		"brass":
+			scenery = HideoutBrass.new()
 		_:
 			id = DEFAULT
 			scenery = HideoutCity.new()

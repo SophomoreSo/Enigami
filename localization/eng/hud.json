@@ -4,10 +4,12 @@
 	"chilled": "CHILLED",
 	"stunned": "STUNNED",
 	"possessing": "IN THE %s %ds",
+	"thrown": "%s (THROWN)",
 	"fx": {
 		"winded": "WINDED",
 		"parry": "PARRY",
-		"boss_phase": "%s: SECOND FORM"
+		"boss_phase": "%s: SECOND FORM",
+		"no_weapon": "NO %s"
 	},
 	"map": {
 		"title": "MAP",

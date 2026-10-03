@@ -18,15 +18,22 @@ extends Actor
 ## A weapon put away goes on with what it was doing: a cast already out lands,
 ## and its wait runs down, so it is ready again by the time it is drawn.
 ##
+## A thrown weapon (`Weapons.is_thrown`) — the rock — is the one thing here that
+## is somewhere: in a hand, in the air, or on the floor. The flow its graph
+## sends throws it, and until it is picked back up (`LooseRock`) the weapon
+## casts nothing; see `holders`.
+##
 ## A hit carrying POSSESS puts the player's hands into the monster it strikes
 ## (`possess`). The body stays where it was, standing still, and the monsters
 ## go on hunting it — it dies, and the raid is lost. The input line drives the
 ## monster instead: it walks, jumps, talks to whoever is in reach and attacks
 ## with its own attack, or with the player's weapon once it has taken it out of
-## the body's hands (`take_weapon`). The other monsters take it for one of them
+## the body's hands (`take_weapon`) — and it picks the rock up off the floor the
+## way the body does, and throws it. The other monsters take it for one of them
 ## until it attacks. It ends when the time runs out, when the player steps out,
 ## or when the monster dies; the monster is left stunned, and the weapon goes
-## back to the body.
+## back to the body. The rock does not: it is in the monster's hand, and the
+## monster lets go of it where it stands.
 
 signal cast_fired()
 signal parry_success()
@@ -165,6 +172,17 @@ var possessing: Enemy = null
 ## there were to begin with.
 var possess_left: float = 0.0
 var possess_for: float = 0.0
+## Where the monster the player is in last stood, for a rock in its hand to be
+## let go of there should the monster be gone by the time they step out.
+var _vessel_at: Vector2 = Vector2.ZERO
+## The thrown weapons carried (`Weapons.is_thrown`) — the rock — by whose hands
+## each is in: the body, or the monster the player is in. One out of hand has
+## no entry: it is in the air, or lying where it came down (`LooseRock`). A
+## thrown weapon is cast only from the hands holding it.
+var holders: Dictionary = {}
+## Whether the attack button was down a frame ago, so a press on a rock that
+## is not in the hand is answered once rather than every frame it is held.
+var _was_attacking: bool = false
 ## Whether the monster has taken the weapon out of the body's hands. While it
 ## has, the weapon's graph is cast from the monster, and the body holds nothing.
 var vessel_armed: bool = false
@@ -309,12 +327,25 @@ func setup(weapon: String, board: SkillBoard) -> void:
 ## Hands the player a kit: up to MAX_WEAPONS weapons, in slot order, the graph
 ## on each, and which slot is in hand. The runners are rebuilt wholesale; the
 ## old ones go away with their signals, and so does whatever was being charged.
+##
+## A thrown weapon comes in the body's hand — unless the kit before this one
+## had it out of hand: the hideout and the bench hand the kit out again
+## whenever a graph changes, and a rock lying on the floor is not also in the
+## hand for it.
 func setup_kit(ids: Array, boards: Array, in_hand: int = 0) -> void:
+	var out: Array = []
+	for w in weapons:
+		if Weapons.is_thrown(w) and not holds(w):
+			out.append(w)
 	weapons.clear()
 	runners.clear()
+	holders.clear()
 	for i in mini(mini(ids.size(), boards.size()), MAX_WEAPONS):
-		weapons.append(String(ids[i]))
-		runners.append(_make_runner(String(ids[i]), boards[i]))
+		var id := String(ids[i])
+		weapons.append(id)
+		runners.append(_make_runner(id, boards[i]))
+		if Weapons.is_thrown(id) and not out.has(id):
+			holders[id] = self
 	charge = 0.0
 	cast_charge = 0.0
 	_cast_buffer = 0.0
@@ -363,6 +394,43 @@ func switch_to(slot: int) -> bool:
 	Cues.at(&"weapon_switch", global_position, {"weapon": weapon_id, "slot": hand})
 	return true
 
+## --- the rock ---------------------------------------------------------------
+
+## Whether the thrown weapon `id` is in a hand the player has: the body's, or
+## the monster's they are in.
+func holds(id: String) -> bool:
+	var h = holders.get(id, null)
+	return h != null and is_instance_valid(h)
+
+## Whether the weapon in hand can go off from the hands the player is in: a
+## thrown weapon only from the hands holding it; any other from the body, and
+## from a monster once it has taken it.
+func can_cast() -> bool:
+	if Weapons.is_thrown(weapon_id):
+		return holds(weapon_id) and holders[weapon_id] == vessel()
+	return possessing == null or vessel_armed
+
+## The hands the weapon in hand is in, for whatever draws it there: the body,
+## the monster the player is in once it holds it, or null — a thrown weapon out
+## of hand.
+func weapon_hands() -> Actor:
+	if Weapons.is_thrown(weapon_id):
+		return holders[weapon_id] if holds(weapon_id) else null
+	if possessing != null and vessel_armed and is_instance_valid(possessing):
+		return possessing
+	return self
+
+## The thrown weapon `id`, back in hand: picked up off the floor by `hands` —
+## the body, or the monster the player is in (`LooseRock`).
+func take_back(id: String, hands: Actor) -> void:
+	holders[id] = hands
+
+## The thrown weapon `id`, out of hand: lying somewhere the player has not been
+## back to — a raid walked back into after it was put down with the rock on
+## the floor.
+func let_go(id: String) -> void:
+	holders.erase(id)
+
 ## --- possession -------------------------------------------------------------
 
 ## The body the player's hands are in: the monster they possess, or their own.
@@ -408,7 +476,8 @@ func possess(e: Enemy, seconds: float) -> bool:
 
 ## Back into the player's own body, wherever it was left, with the weapon back
 ## in its hands. The monster is left stunned for `RELEASE_STUN`, and is one of
-## them again.
+## them again. A rock in its hand is let go of where it stands: it is not the
+## monster's, and it is not the body's either until the body walks over to it.
 func release() -> void:
 	if possessing == null:
 		return
@@ -417,6 +486,11 @@ func release() -> void:
 	possess_left = 0.0
 	vessel_armed = false
 	input.drive(self)
+	var at := e.global_position if is_instance_valid(e) else _vessel_at
+	for id in holders.keys():
+		if holders[id] != self:
+			holders.erase(id)
+			LooseRock.drop(id, at, Vector2(0.0, -120.0), room, self)
 	var left = null
 	if is_instance_valid(e):
 		left = e
@@ -432,11 +506,15 @@ func can_take_weapon() -> bool:
 		and not vessel_armed and possessing.global_position.distance_to(global_position) <= TAKE_REACH
 
 ## The weapon, out of the body's hands and into the monster's: from now on the
-## buttons cast its graph from there. Whether it was taken.
+## buttons cast its graph from there. A rock in the body's hand goes with it.
+## Whether it was taken.
 func take_weapon() -> bool:
 	if not can_take_weapon():
 		return false
 	vessel_armed = true
+	for id in holders.keys():
+		if holders[id] == self:
+			holders[id] = possessing
 	possessing.attacking = false
 	Cues.at(&"weapon_taken", possessing.global_position, {"weapon": weapon_id})
 	return true
@@ -447,6 +525,7 @@ func _mind_possession(delta: float, s: InputState) -> void:
 	if not is_instance_valid(possessing) or possessing.dead:
 		release()
 		return
+	_vessel_at = possessing.global_position
 	possess_left -= delta
 	if possess_left <= 0.0 or s.step_out_pressed:
 		release()
@@ -524,8 +603,11 @@ func can_dash() -> bool:
 ## free, and the hold would stop being a decision made against the cooldown.
 ## Holding through the wait is not punished: the charge simply starts building
 ## the moment the graph comes free.
+##
+## Nor can a rock that is not in the hand: there is nothing to throw at the end
+## of the hold.
 func can_charge() -> bool:
-	return runner != null and runner.is_ready()
+	return runner != null and runner.is_ready() and can_cast()
 
 ## A graph was edited under its runner: every weapon carried walks its own
 ## again. Assembly only ever opens the one in hand, and the rest cost nothing
@@ -550,6 +632,13 @@ func _on_cycle_started() -> void:
 ##
 ## It goes off from whichever body holds the weapon: the monster's, once it has
 ## taken it, and then the monster has shown itself to the rest.
+##
+## Off a thrown weapon, a bolt is the weapon itself. The flow that finds the rock
+## in the hand it goes off from throws it, with everything the graph built into
+## it, and leaves the hand empty; any other flow the same cast sends — a lap
+## that comes round once the rock has gone — throws copies of it, which are gone
+## when they come down. A flow off the rock that is not a bolt does not throw
+## it: it is struck with, or cast from, and stays in the hand.
 func _on_fired(payload: Payload, weapon: String = "") -> void:
 	if weapon == "":
 		weapon = weapon_id
@@ -557,11 +646,19 @@ func _on_fired(payload: Payload, weapon: String = "") -> void:
 	if from != self:
 		(from as Enemy).revealed = true
 	var p := Weapons.finalize(weapon, payload)
-	Attacks.spawn(p, {
+	var ctx := {
 		"attacker": from, "room": room, "team": team,
 		"aim": aim, "reach": aim_reach, "origin": from.global_position,
 		"gravity": Weapons.uses_gravity_shots(weapon),
-	})
+	}
+	if Weapons.is_thrown(weapon) and p.form == "PROJECTILE":
+		ctx["thrown"] = weapon
+		ctx["thrower"] = self
+		if holds(weapon) and holders[weapon] == from:
+			holders.erase(weapon)
+		else:
+			ctx["ghost"] = true
+	Attacks.spawn(p, ctx)
 	cast_fired.emit()
 
 ## How far the right stick asks an attack to reach, from how hard it is pushed:
@@ -607,6 +704,8 @@ func _process(delta: float) -> void:
 	if parry_time > 0.0:
 		parry_time -= delta
 	var s := input.state()
+	var pressed := s.attack and not _was_attacking
+	_was_attacking = s.attack
 	if possessing != null:
 		_mind_possession(delta, s)
 	# Another weapon in hand, by its slot's key or by a step along. Before the
@@ -616,16 +715,23 @@ func _process(delta: float) -> void:
 		switch_to(s.weapon_slot)
 	elif s.weapon_step != 0:
 		switch_by(s.weapon_step)
-	if possessing != null and not vessel_armed:
+	# The hands the player is in cannot cast the weapon in hand: a monster's own
+	# attack, then, until it holds the weapon.
+	var castable := can_cast()
+	if possessing != null and not castable:
 		_attack_as_monster(delta, s)
 		return
+	# The body's hand is empty — the rock is out — and nothing goes off. Said
+	# once a press, so it does not read as a dropped input.
+	if not castable and (pressed or s.cast_released):
+		Cues.at(&"refused", global_position, {"kind": "thrown", "weapon": weapon_id})
 	# Holding the cast button charges; letting go is what fires it. A tap is
 	# simply a charge of nothing, so a quick press still casts as it always did.
 	var holding := s.cast
 	# Taken before the charge is touched: on the frame of the release the button
 	# already reads as up, and letting the bleed-off run first shaved a fifth
 	# off what the player had actually paid for.
-	if s.cast_released:
+	if s.cast_released and castable:
 		cast_charge = charge
 		charge = 0.0
 		# Held over a few frames, so a release landing on the tail of the last
@@ -636,13 +742,13 @@ func _process(delta: float) -> void:
 	# The attack button runs the graph as it is, for as long as it is held and
 	# as often as the graph comes round — and never while a charge is being
 	# built, which would spend the cast the hold is paying for on nothing.
-	var attacking := not holding and s.attack
+	var attacking := not holding and s.attack and castable
 	if runner != null:
 		# Whatever a release paid for rides on the cast it bought, and on no
 		# other: the life is read once, as a cycle starts, so it is offered only
 		# while the release is still waiting for one.
 		runner.ttl_bonus = int(cast_charge) if _cast_buffer > 0.0 else 0
-		runner.set_active(_cast_buffer > 0.0 or attacking)
+		runner.set_active(castable and (_cast_buffer > 0.0 or attacking))
 		runner.update(delta)
 	# The weapons put away are not cast, but they go on: a cast already out
 	# plays through, and each one's wait runs down in its slot.

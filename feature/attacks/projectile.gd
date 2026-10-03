@@ -4,6 +4,12 @@ extends Node2D
 ## A travelling bolt. Collision is resolved analytically against actor radii and
 ## the room's solid grid, so attacks need no physics bodies of their own.
 ## `graphics/views/projectile_view.gd` draws it and keeps its own trail.
+##
+## Off a thrown weapon (`Weapons.is_thrown`) the bolt is the weapon itself — the
+## rock — and it does not fade when it is done: it comes down off whatever it
+## struck, or out of the end of its throw, and lies where it lands for whoever
+## threw it to pick back up (`LooseRock`). The rest of a volley it went out in
+## are copies of it, and those go the way any bolt does.
 
 ## Longest hop a bolt may take before its collision is sampled again. Walls are
 ## a 32px grid and a target only a few pixels across, so a fast bolt has to be
@@ -77,6 +83,17 @@ var _pace: float = 0.0
 var _hit: Array = []
 ## How far this bolt has flown, against `range_px`.
 var _travelled: float = 0.0
+## The thrown weapon this bolt is, or "": the rock, which comes down where it
+## ends rather than fading. `thrower` is whose it is. A `ghost` is a copy of it
+## that the same cast sent — the rest of a DUPLICATE's volley, a lap that came
+## round with the rock already gone — which strikes as it does and is gone once
+## it comes down: there is only the one rock.
+var thrown: String = ""
+var thrower: Player = null
+var ghost: bool = false
+## The last place the bolt stood that was open, for a rock that ends in a wall
+## to come down from.
+var _last_open: Vector2 = Vector2.ZERO
 
 func setup(p: Payload, pos: Vector2, dir: Vector2, t: int, atk: Actor, rm) -> void:
 	payload = p
@@ -92,6 +109,7 @@ func setup(p: Payload, pos: Vector2, dir: Vector2, t: int, atk: Actor, rm) -> vo
 	life = maxf(LIFE, range_px / maxf(velocity.length(), 1.0) * 1.25)
 	hits_left = 1 + p.pierce
 	homing_strength = HOMING_TURN * float(p.homing)
+	_last_open = pos
 
 func _process(delta: float) -> void:
 	life -= delta
@@ -118,10 +136,15 @@ func _process(delta: float) -> void:
 		position += hop
 		if _sample():
 			return
+		_last_open = global_position
 	# Out of range: the shot is spent, and says so. A bolt that simply blinked
 	# out would read as the game dropping it rather than as a rule the player
-	# can shoot around.
+	# can shoot around. The rock is out of throw, not spent: it falls from
+	# where it has got to.
 	if spent:
+		if is_rock():
+			_come_down(velocity * 0.5)
+			return
 		Cues.at(&"impact", global_position, {"payload": payload, "kind": "fade"})
 		_expire()
 
@@ -209,9 +232,15 @@ func _sample() -> bool:
 		room = null
 	if room != null and room.has_method("is_solid_at") and room.is_solid_at(global_position):
 		Cues.at(&"impact", global_position, {"payload": payload, "kind": "wall"})
+		if is_rock():
+			_come_down(_off_the_wall(), true)
+			return true
 		queue_free()
 		return true
 	if room != null and room.has_method("out_of_bounds") and room.out_of_bounds(global_position):
+		if is_rock():
+			_come_down(Vector2.ZERO, true)
+			return true
 		queue_free()
 		return true
 
@@ -224,9 +253,44 @@ func _sample() -> bool:
 			hits_left -= 1
 			if hits_left <= 0:
 				Cues.at(&"impact", global_position, {"payload": payload, "kind": "spent"})
+				if is_rock():
+					# Off whatever it struck: back the way it came a little, and
+					# up, before it drops at their feet.
+					_come_down(Vector2(-velocity.x * 0.25, -180.0))
+					return true
 				queue_free()
 				return true
 	return false
 
 func _expire() -> void:
+	if is_rock():
+		_come_down(velocity * 0.5)
+		return
 	queue_free()
+
+## Whether this bolt is the rock itself, and not a copy of it.
+func is_rock() -> bool:
+	return thrown != "" and not ghost
+
+## The rock, done flying: it comes down where it is — or, off a wall, where it
+## last stood in the open — moving at `moving`, and lies there for whoever
+## threw it.
+func _come_down(moving: Vector2, from_open: bool = false) -> void:
+	LooseRock.drop(thrown, _last_open if from_open else global_position, moving, room, thrower)
+	queue_free()
+
+## How a rock comes back off the wall it has flown into: what it was crossing
+## carries on, slower, and what ran into the wall turns round. Which way it ran
+## in is told by whether the open place it came from is open straight across
+## from where it stands — then it came down or up into the wall, onto a floor or
+## a ceiling — or not, and it came at the wall side on.
+func _off_the_wall() -> Vector2:
+	var level := Vector2(global_position.x, _last_open.y)
+	if room != null and room.has_method("is_solid_at") and not room.is_solid_at(level):
+		return Vector2(velocity.x * 0.5, -velocity.y * 0.3)
+	return Vector2(-velocity.x * 0.3, velocity.y * 0.3)
+
+## Where the rock would come down if it were brought down now: for a room
+## being walked out of with the rock still in the air.
+func resting_place() -> Vector2:
+	return _last_open

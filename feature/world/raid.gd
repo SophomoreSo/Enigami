@@ -62,6 +62,10 @@ func _ready() -> void:
 	for w in GameState.raid_weapons:
 		graphs.append(GameState.raid_graphs[w])
 	player.setup_kit(GameState.raid_weapons, graphs, GameState.raid_hand)
+	# A run put down with the rock lying in one of its rooms is walked back into
+	# without it: it is still lying there.
+	for w in _rocks_left_lying():
+		player.let_go(w)
 	# The profile is told which weapon is in hand as it changes: assembly opens
 	# that one's graph, and a raid put down is picked back up holding it.
 	player.weapon_switched.connect(func(_weapon: String) -> void: GameState.raid_hand = player.hand)
@@ -104,6 +108,15 @@ func _place_lost_kit() -> bool:
 		return false
 	(map.get_record(coord) as Dictionary)["lost_kit"] = kit.duplicate(true)
 	return true
+
+## The thrown weapons lying in this map's rooms, by the records the rooms keep:
+## the rock, if a run put down left it on a floor somewhere.
+func _rocks_left_lying() -> Array:
+	var out: Array = []
+	for c in map.rooms:
+		for r in (map.rooms[c] as Dictionary).get("rocks", []):
+			out.append(String((r as Dictionary).get("weapon", "")))
+	return out
 
 func _parked_coord(parked: Dictionary) -> Vector2i:
 	var c: Array = parked.get("room", [])

@@ -15,9 +15,21 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 			Audio.play_music()
 		&"attack":
 			match String(d.get("form", "")):
-				"PROJECTILE": Audio.play("shoot")
+				"PROJECTILE":
+					# A thrown weapon is not shot: it goes out of the hand with
+					# a rush of air rather than a crack.
+					if String(d.get("thrown", "")) != "":
+						Audio.play("dash", 0.7)
+					else:
+						Audio.play("shoot")
 				"SLASH": Audio.play("slash")
 				"ZAP": Audio.play("zap")
+		&"rock_down":
+			# A thud, for a rock coming down hard enough to be heard.
+			if float(d.get("speed", 0.0)) > 260.0:
+				Audio.play("hit", 0.5)
+		&"rock_back":
+			Audio.play("pickup", 1.25)
 		&"area_blast":
 			Audio.play("explode")
 		&"lunge_cut", &"dash":

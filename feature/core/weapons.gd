@@ -14,6 +14,13 @@ extends RefCounted
 ## what a weapon is before its board is built; `tests/feature/boards_test`
 ## holds the two to each other.
 ##
+## A weapon can be `thrown`: the rock is not something that casts its graph
+## but the thing its graph is cast into. There is one of it. The flow that
+## sends it sends the rock itself, carrying everything built into the graph,
+## and it lies where it comes down until it is picked back up; until then the
+## weapon casts nothing. See `Player.holding`, and `LooseRock` for the rock on
+## the floor.
+##
 ## Numbers only: the colour a weapon is named in, and the tile it is drawn
 ## with, are in `graphics/style.gd`.
 
@@ -46,7 +53,7 @@ const DEFS := {
 	},
 	"ROCK": {
 		"name": "Rock",
-		"desc": "A thrown stone takes anything. Heavy, arcing, and fussy about nothing.",
+		"desc": "One stone, thrown with everything built into it. It lands where it lands, and does nothing more until you pick it up.",
 		"root": "PROJECTILE",
 		"board": "rock",
 		"base_damage": 15.0,
@@ -56,6 +63,7 @@ const DEFS := {
 		"reach_mul": 1.0,
 		"size_mul": 1.25,
 		"gravity_shots": true,
+		"thrown": true,
 	},
 }
 
@@ -112,6 +120,12 @@ static func finalize(weapon_id: String, p: Payload) -> Payload:
 
 static func uses_gravity_shots(weapon_id: String) -> bool:
 	return bool(get_def(weapon_id)["gravity_shots"])
+
+## Whether the weapon is itself what it throws: the rock. One flow of a cast
+## sends it out of the hand, and the weapon casts nothing again until it has
+## been picked back up.
+static func is_thrown(weapon_id: String) -> bool:
+	return bool(get_def(weapon_id).get("thrown", false))
 
 ## The weapon's graph as a new profile gets it: its `board` in the content
 ## database (`data/db/boards/weapons.sql`), named after the weapon. What a

@@ -5,7 +5,8 @@ extends ActorView
 ## leaves behind, the charge bar over their head, and the rings that report
 ## guard and dash recovery. With the player's hands in a monster the body is
 ## left standing, dimmed, with a thread out to where they are — and empty-
-## handed, once the monster has taken the weapon.
+## handed, once the monster has taken the weapon. Empty-handed too with the
+## rock in hand and the rock thrown (`Player.weapon_hands`).
 
 ## The weapon is a separate tile so it can swing to the aim direction while the
 ## body keeps running. Every weapon tile in the atlas points up.
@@ -83,7 +84,8 @@ func _update_weapon() -> void:
 		weapon_sprite.texture = tex
 		if tex != null:
 			# Pivot at the grip, so aiming rotates the blade around the hand.
-			weapon_sprite.offset = Vector2(-tex.region.size.x * 0.5, -tex.region.size.y * WEAPON_GRIP)
+			var grip := WEAPON_GRIP if _dragon else Style.weapon_grip(player.weapon_id, WEAPON_GRIP)
+			weapon_sprite.offset = Vector2(-tex.region.size.x * 0.5, -tex.region.size.y * grip)
 	# I-frames blink the whole rig, weapon included. A body nobody is in is
 	# dimmed — through the sprite's shader, which draws it in the skin's own
 	# colours and so takes no modulate — and holds nothing once the monster
@@ -91,9 +93,10 @@ func _update_weapon() -> void:
 	var lit := player.invuln <= 0.0 or int(player.invuln * 24.0) % 2 == 0
 	tint = Style.POSSESS_BODY if player.vessel() != player else Color.WHITE
 	sprite.self_modulate.a = 1.0 if lit else 0.35
-	weapon_sprite.self_modulate.a = 0.0 if player.vessel_armed else sprite.self_modulate.a
+	weapon_sprite.self_modulate.a = 0.0 if player.weapon_hands() != player else sprite.self_modulate.a
 	weapon_sprite.position = player.aim * WEAPON_HAND
-	weapon_sprite.rotation = player.aim.angle() + PI * 0.5
+	weapon_sprite.rotation = 0.0 if not _dragon and Style.weapon_upright(player.weapon_id) \
+		else player.aim.angle() + PI * 0.5
 
 func _process(delta: float) -> void:
 	super._process(delta)

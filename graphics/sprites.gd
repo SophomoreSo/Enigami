@@ -18,6 +18,9 @@ extends Node
 ## Callers never need to know which kind a name is: `has_character`,
 ## `frames_for`, `frame_size`, `art_rect` and `material_for` answer for both.
 ## See `graphics/assets/sprites/CREDITS.md`.
+##
+## And a tile the pack has none of is drawn in code (`Style.DRAWN_TILES`) —
+## the rock is one — and handed out by `texture` like any of the atlas's.
 
 const ATLAS_PATH := "res://graphics/assets/sprites/dungeon_atlas.png"
 const SHADER_PATH := "res://graphics/assets/shaders/actor_sprite.gdshader"
@@ -79,11 +82,38 @@ func texture(tile: String) -> AtlasTexture:
 	if _textures.has(tile):
 		return _textures[tile]
 	if not _rects.has(tile):
-		return null
+		return _drawn(tile)
 	var t := AtlasTexture.new()
 	t.atlas = _atlas
 	t.region = _rects[tile]
 	# Without this a scaled AtlasTexture bleeds in its neighbours on the sheet.
+	t.filter_clip = true
+	_textures[tile] = t
+	return t
+
+## A tile drawn in code (`Style.DRAWN_TILES`), made the first time it is asked
+## for: its letters turned into pixels, and the picture held the way an atlas
+## tile is, as a window onto a texture — here one the size of the window.
+## Null for a name that is neither.
+func _drawn(tile: String) -> AtlasTexture:
+	var def: Dictionary = Style.DRAWN_TILES.get(tile, {})
+	if def.is_empty():
+		return null
+	var rows: Array = def["rows"]
+	var inks: Dictionary = def["inks"]
+	var w := 0
+	for r in rows:
+		w = maxi(w, String(r).length())
+	var img := Image.create(w, rows.size(), false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	for y in rows.size():
+		var row := String(rows[y])
+		for x in row.length():
+			if inks.has(row[x]):
+				img.set_pixel(x, y, inks[row[x]])
+	var t := AtlasTexture.new()
+	t.atlas = ImageTexture.create_from_image(img)
+	t.region = Rect2(0, 0, w, rows.size())
 	t.filter_clip = true
 	_textures[tile] = t
 	return t

@@ -225,7 +225,10 @@ static func _schedule_spawn(seconds: float, p: Payload, ctx: Dictionary) -> void
 
 ## ctx keys: attacker (Actor), room (Node), aim (Vector2), team (int),
 ##           origin (Vector2), gravity (bool), reach (float, 0 to 1 — how far
-##           the aim asks the attack to go; all of it when it is not said)
+##           the aim asks the attack to go; all of it when it is not said),
+##           and for a thrown weapon's bolts thrown (the weapon id), thrower
+##           (the Player whose it is) and ghost (bool — every one of them a
+##           copy, the weapon itself having gone already)
 static func spawn(payload: Payload, ctx: Dictionary) -> void:
 	var w := container()
 	if w == null or not is_instance_valid(w):
@@ -252,15 +255,23 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 				Cues.emit_cue(&"blink", {"from": was, "to": behind})
 
 	var count: int = clampi(payload.duplicates, 1, 9)
+	# A thrown weapon throws itself (`Weapons.is_thrown`): the first of the
+	# volley is the weapon, unless the flow says it is a copy, and the rest are
+	# copies of it.
+	var thrown := String(ctx.get("thrown", ""))
 	# One announcement per cast, whatever the duplicate count: the form is what
 	# the moment sounds like, and three bolts are one volley.
-	Cues.at(&"attack", origin, {"form": payload.form, "payload": payload, "aim": aim})
+	Cues.at(&"attack", origin, {"form": payload.form, "payload": payload, "aim": aim, "thrown": thrown})
 	match payload.form:
 		"PROJECTILE":
 			for i in count:
 				var spread := 0.0 if count == 1 else deg_to_rad(lerpf(-16.0, 16.0, float(i) / float(count - 1)))
-				_projectile(payload, origin, aim.rotated(spread), team, attacker, room,
+				var n := _projectile(payload, origin, aim.rotated(spread), team, attacker, room,
 					bool(ctx.get("gravity", false)), far)
+				if thrown != "":
+					n.thrown = thrown
+					n.thrower = ctx.get("thrower", null)
+					n.ghost = i > 0 or bool(ctx.get("ghost", false))
 		"SLASH":
 			for i in count:
 				var delay := float(i) * 0.07
@@ -294,7 +305,7 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 			pass
 
 static func _projectile(p: Payload, pos: Vector2, dir: Vector2, team: int, atk: Actor, room,
-		gravity: bool, far: float = 1.0) -> void:
+		gravity: bool, far: float = 1.0) -> Projectile:
 	var n := Projectile.new()
 	n.setup(p, pos, dir, team, atk, room)
 	if gravity:
@@ -306,6 +317,7 @@ static func _projectile(p: Payload, pos: Vector2, dir: Vector2, team: int, atk: 
 	else:
 		n.range_px *= far
 	container().add_child(n)
+	return n
 
 static func _melee(p: Payload, dir: Vector2, team: int, atk: Actor, room) -> void:
 	if atk == null or not is_instance_valid(atk):
