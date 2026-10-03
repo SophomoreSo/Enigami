@@ -1,7 +1,7 @@
 class_name Player
 extends Actor
 
-## Platforming plus one live skill circuit: the weapon's graph.
+## Platforming plus a live skill circuit: the graph of the weapon in hand.
 ##
 ## One board, the weapon's own — its attack form on the root, and whatever the
 ## player has built on after it — and two ways to fire it. The attack button
@@ -10,9 +10,42 @@ extends Actor
 ## cast life, which a graph with a cycle in it spends on laps, and letting go
 ## casts it with whatever the hold paid for. The graph's own length decides
 ## the cadence either way.
+##
+## Up to three weapons are carried (`MAX_WEAPONS`), each with its own graph and
+## its own wait between casts, and one of them is in hand: the one the two
+## buttons fire. A slot's key, or a step along with the wheel, puts another in
+## hand at once (`switch_to`) — so three weapons are three skills, a key apart.
+## A weapon put away goes on with what it was doing: a cast already out lands,
+## and its wait runs down, so it is ready again by the time it is drawn.
+##
+## A hit carrying POSSESS puts the player's hands into the monster it strikes
+## (`possess`). The body stays where it was, standing still, and the monsters
+## go on hunting it — it dies, and the raid is lost. The input line drives the
+## monster instead: it walks, jumps, talks to whoever is in reach and attacks
+## with its own attack, or with the player's weapon once it has taken it out of
+## the body's hands (`take_weapon`). The other monsters take it for one of them
+## until it attacks. It ends when the time runs out, when the player steps out,
+## or when the monster dies; the monster is left stunned, and the weapon goes
+## back to the body.
 
 signal cast_fired()
 signal parry_success()
+## Another weapon was put in hand.
+signal weapon_switched(weapon: String)
+## The player's hands went into a monster, or came back out of one. `monster`
+## is null when it was freed on the way out.
+signal possessed(monster: Enemy)
+signal released(monster)
+
+## The most weapons carried at once. `GameState.MAX_CARRIED` is the same number
+## from the profile's side: what a raid can be walked into with.
+const MAX_WEAPONS := 3
+## How long a monster stands stunned once the player has stepped out of it,
+## which is the head start they have on it.
+const RELEASE_STUN := 1.2
+## How near the monster has to stand to the body, centre to centre, for a press
+## of interact to take the weapon out of its hands.
+const TAKE_REACH := 56.0
 
 ## The silhouette the sprite has to stand on, and the reach of a hit against it.
 const BODY := Vector2(20.0, 30.0)
@@ -115,9 +148,26 @@ const MAX_CHARGE_TTL := float(SkillRunner.MAX_TTL_BONUS)
 const CHARGE_DECAY := 150.0       ## how fast an unspent charge bleeds off
 const CAST_BUFFER := 0.18         ## grace for a release landing on a cooldown
 
+## The weapons carried, in slot order, and the graph of each, run live. A
+## weapon is its skill, so this is every skill the player has to hand.
+var weapons: Array[String] = []
+var runners: Array[SkillRunner] = []
+## Which slot is in hand, and so which of them the buttons fire.
+var hand: int = 0
+## The weapon in hand and its runner: `weapons[hand]` and `runners[hand]`, kept
+## beside them because nearly everything that asks about the player's weapon
+## means this one.
 var weapon_id: String = "SWORD"
-## The weapon's graph, run live. There is one: the weapon is the skill.
 var runner: SkillRunner = null
+## The monster the player's hands are in, or null — see `possess`.
+var possessing: Enemy = null
+## Seconds left before the player is put back in their own body, and how many
+## there were to begin with.
+var possess_left: float = 0.0
+var possess_for: float = 0.0
+## Whether the monster has taken the weapon out of the body's hands. While it
+## has, the weapon's graph is cast from the monster, and the body holds nothing.
+var vessel_armed: bool = false
 var room = null
 var aim: Vector2 = Vector2.RIGHT
 ## Where the player is pointing, in world space, as opposed to `aim` which is
@@ -252,17 +302,169 @@ func _setup_fsm() -> void:
 	if machine.start == null:
 		push_error("Player: no state to start in, so the player will not move — is data/enigami.db built and shipped?")
 
-## Hands the player a weapon and the graph on it. The runner is rebuilt
-## wholesale; the old one goes away with its signals.
+## Hands the player one weapon and the graph on it: a kit of one.
 func setup(weapon: String, board: SkillBoard) -> void:
-	weapon_id = weapon
-	runner = SkillRunner.new(board)
-	runner.cooldown_mul = CAST_COOLDOWN_MUL
-	runner.base_payload_provider = func() -> Payload: return Weapons.base_payload(weapon_id)
-	runner.fired.connect(_on_fired)
-	runner.cycle_started.connect(_on_cycle_started)
-	runner.dilation_requested.connect(func(sec: float) -> void: TimeCtl.dilate(sec, 0.42))
-	runner.parry_opened.connect(_on_parry_opened)
+	setup_kit([weapon], [board])
+
+## Hands the player a kit: up to MAX_WEAPONS weapons, in slot order, the graph
+## on each, and which slot is in hand. The runners are rebuilt wholesale; the
+## old ones go away with their signals, and so does whatever was being charged.
+func setup_kit(ids: Array, boards: Array, in_hand: int = 0) -> void:
+	weapons.clear()
+	runners.clear()
+	for i in mini(mini(ids.size(), boards.size()), MAX_WEAPONS):
+		weapons.append(String(ids[i]))
+		runners.append(_make_runner(String(ids[i]), boards[i]))
+	charge = 0.0
+	cast_charge = 0.0
+	_cast_buffer = 0.0
+	charging = false
+	if weapons.is_empty():
+		runner = null
+		hand = 0
+		return
+	hand = clampi(in_hand, 0, weapons.size() - 1)
+	weapon_id = weapons[hand]
+	runner = runners[hand]
+
+## One weapon's graph, run live. What it fires is finalized as that weapon's,
+## whichever weapon is in hand by the time it lands.
+func _make_runner(weapon: String, board: SkillBoard) -> SkillRunner:
+	var r := SkillRunner.new(board)
+	r.cooldown_mul = CAST_COOLDOWN_MUL
+	r.base_payload_provider = func() -> Payload: return Weapons.base_payload(weapon)
+	r.fired.connect(_on_fired.bind(weapon))
+	r.cycle_started.connect(_on_cycle_started)
+	r.dilation_requested.connect(func(sec: float) -> void: TimeCtl.dilate(sec, 0.42))
+	r.parry_opened.connect(_on_parry_opened)
+	return r
+
+## Puts the weapon in `slot` in hand, 0 for the first carried. Whether it did:
+## not for a slot nothing is carried in, nor for the one already in hand.
+##
+## It is instant, and it costs whatever was being charged: the hold was buying
+## life for the weapon being put away, and does not follow the hand to the next
+## one. That weapon keeps the wait it was in, and anything it had already cast
+## still lands.
+func switch_to(slot: int) -> bool:
+	if slot < 0 or slot >= weapons.size() or slot == hand:
+		return false
+	charge = 0.0
+	cast_charge = 0.0
+	_cast_buffer = 0.0
+	charging = false
+	if runner != null:
+		runner.ttl_bonus = 0
+		runner.set_active(false)
+	hand = slot
+	weapon_id = weapons[hand]
+	runner = runners[hand]
+	weapon_switched.emit(weapon_id)
+	Cues.at(&"weapon_switch", global_position, {"weapon": weapon_id, "slot": hand})
+	return true
+
+## --- possession -------------------------------------------------------------
+
+## The body the player's hands are in: the monster they possess, or their own.
+## Whatever stands in for the player — someone talking to them, the line's aim,
+## the walk over to talk — measures from this.
+func vessel() -> Actor:
+	if possessing != null and is_instance_valid(possessing) and not possessing.dead:
+		return possessing
+	return self
+
+## Whether a hit could put the player's hands into `e`: a monster still
+## standing, nobody else's, and not a boss — its room is its own.
+static func can_possess(e) -> bool:
+	return e is Enemy and is_instance_valid(e) and not (e as Enemy).dead \
+		and (e as Enemy).pilot == null and not bool((e as Enemy).def.get("boss", false))
+
+## Puts the player's hands into `e` for `seconds`. From inside one monster this
+## is a hop to the next: the first is let go of as if stepped out of. Whatever
+## was being charged is let go of, and the weapon stays in the body's hands
+## until the monster takes it. Whether it took.
+func possess(e: Enemy, seconds: float) -> bool:
+	if seconds <= 0.0 or not can_possess(e):
+		return false
+	if possessing != null:
+		release()
+	possessing = e
+	possess_left = seconds
+	possess_for = seconds
+	vessel_armed = false
+	charge = 0.0
+	cast_charge = 0.0
+	_cast_buffer = 0.0
+	charging = false
+	for r in runners:
+		r.ttl_bonus = 0
+		r.set_active(false)
+	velocity.x = 0.0
+	e.take_pilot(self)
+	input.drive(e)
+	possessed.emit(e)
+	Cues.at(&"possess", e.global_position, {"kind": e.kind, "seconds": seconds})
+	return true
+
+## Back into the player's own body, wherever it was left, with the weapon back
+## in its hands. The monster is left stunned for `RELEASE_STUN`, and is one of
+## them again.
+func release() -> void:
+	if possessing == null:
+		return
+	var e := possessing
+	possessing = null
+	possess_left = 0.0
+	vessel_armed = false
+	input.drive(self)
+	var left = null
+	if is_instance_valid(e):
+		left = e
+		if not e.dead:
+			e.release_pilot(RELEASE_STUN)
+			Cues.at(&"possess_end", e.global_position, {"kind": e.kind})
+	released.emit(left)
+
+## Whether a press of interact would take the weapon: the monster the player is
+## in, standing at the body, with nothing in its hands yet.
+func can_take_weapon() -> bool:
+	return possessing != null and is_instance_valid(possessing) and not possessing.dead \
+		and not vessel_armed and possessing.global_position.distance_to(global_position) <= TAKE_REACH
+
+## The weapon, out of the body's hands and into the monster's: from now on the
+## buttons cast its graph from there. Whether it was taken.
+func take_weapon() -> bool:
+	if not can_take_weapon():
+		return false
+	vessel_armed = true
+	possessing.attacking = false
+	Cues.at(&"weapon_taken", possessing.global_position, {"weapon": weapon_id})
+	return true
+
+## A frame of being inside a monster: the time running down, the key that steps
+## out, the monster gone, and the press that takes the weapon.
+func _mind_possession(delta: float, s: InputState) -> void:
+	if not is_instance_valid(possessing) or possessing.dead:
+		release()
+		return
+	possess_left -= delta
+	if possess_left <= 0.0 or s.step_out_pressed:
+		release()
+		return
+	if s.use_pressed:
+		take_weapon()
+
+## The body dies with the player's hands elsewhere: they come back to it.
+func _kill() -> void:
+	release()
+	super._kill()
+
+## Puts the weapon `step` slots along in hand: 1 for the next, -1 for the one
+## before, round from the last to the first.
+func switch_by(step: int) -> bool:
+	if weapons.size() < 2 or step == 0:
+		return false
+	return switch_to(posmod(hand + step, weapons.size()))
 
 func stamina_ratio() -> float:
 	return clampf(stamina / MAX_STAMINA, 0.0, 1.0)
@@ -289,12 +491,12 @@ func charge_cap() -> float:
 ## Charging runs only while the cast button is held on a graph that could be
 ## cast right now, and only while there is mana to pay for it. Released, it
 ## bleeds off quickly: the depth is bought for this burst, not banked.
-func _update_charge(delta: float, casting: bool) -> void:
+func _update_charge(delta: float, holding: bool) -> void:
 	# While the button is down the charge only ever holds or grows. Letting the
 	# decay branch run once it reached the cap made the two fight each other
 	# frame by frame — charge sat just under the cap while mana drained away
 	# into the gap being refilled.
-	if casting and can_charge():
+	if holding and can_charge():
 		charging = true
 		var cap := charge_cap()
 		if charge < cap and mana > 0.0:
@@ -325,25 +527,40 @@ func can_dash() -> bool:
 func can_charge() -> bool:
 	return runner != null and runner.is_ready()
 
-## The graph was edited under the runner: it walks it again.
+## A graph was edited under its runner: every weapon carried walks its own
+## again. Assembly only ever opens the one in hand, and the rest cost nothing
+## to be sure of.
 func rebuild_runner() -> void:
-	if runner != null:
-		runner.refresh()
+	for r in runners:
+		r.refresh()
 
 func _on_parry_opened(seconds: float) -> void:
 	parry_time = maxf(parry_time, seconds)
 
 ## A cycle started. If a release was waiting for one, this is the cast it
 ## bought: the life it paid for went in with the cycle, and the wait is over.
+## Only the weapon in hand ever starts one — a weapon put away is not cast — so
+## there is no asking whose it was.
 func _on_cycle_started() -> void:
 	_cast_buffer = 0.0
 
-func _on_fired(payload: Payload) -> void:
-	var p := Weapons.finalize(weapon_id, payload)
+## A graph's flow left its board: the attack. `weapon` is whose graph it was —
+## the weapon in hand, unless it says — since a cast still in flight when the
+## weapon was put away lands as that weapon's, not as the one drawn since.
+##
+## It goes off from whichever body holds the weapon: the monster's, once it has
+## taken it, and then the monster has shown itself to the rest.
+func _on_fired(payload: Payload, weapon: String = "") -> void:
+	if weapon == "":
+		weapon = weapon_id
+	var from := vessel()
+	if from != self:
+		(from as Enemy).revealed = true
+	var p := Weapons.finalize(weapon, payload)
 	Attacks.spawn(p, {
-		"attacker": self, "room": room, "team": team,
-		"aim": aim, "reach": aim_reach, "origin": global_position,
-		"gravity": Weapons.uses_gravity_shots(weapon_id),
+		"attacker": from, "room": room, "team": team,
+		"aim": aim, "reach": aim_reach, "origin": from.global_position,
+		"gravity": Weapons.uses_gravity_shots(weapon),
 	})
 	cast_fired.emit()
 
@@ -384,10 +601,24 @@ func taken_over() -> bool:
 
 func _process(delta: float) -> void:
 	_process_status(delta)
-	input.put(_held_by_stun, stunned())
+	# The body's stun holds the body. With the hands in a monster it is the
+	# monster's own stun that holds them.
+	input.put(_held_by_stun, stunned() and possessing == null)
 	if parry_time > 0.0:
 		parry_time -= delta
 	var s := input.state()
+	if possessing != null:
+		_mind_possession(delta, s)
+	# Another weapon in hand, by its slot's key or by a step along. Before the
+	# buttons are read, so the press that draws a weapon and a button already
+	# held are answered by the weapon drawn.
+	if s.weapon_slot >= 0:
+		switch_to(s.weapon_slot)
+	elif s.weapon_step != 0:
+		switch_by(s.weapon_step)
+	if possessing != null and not vessel_armed:
+		_attack_as_monster(delta, s)
+		return
 	# Holding the cast button charges; letting go is what fires it. A tap is
 	# simply a charge of nothing, so a quick press still casts as it always did.
 	var holding := s.cast
@@ -413,9 +644,31 @@ func _process(delta: float) -> void:
 		runner.ttl_bonus = int(cast_charge) if _cast_buffer > 0.0 else 0
 		runner.set_active(_cast_buffer > 0.0 or attacking)
 		runner.update(delta)
+	# The weapons put away are not cast, but they go on: a cast already out
+	# plays through, and each one's wait runs down in its slot.
+	for r in runners:
+		if r != runner:
+			r.ttl_bonus = 0
+			r.set_active(false)
+			r.update(delta)
 	# Aiming is the player's hand as much as walking is: while a screen has the
 	# controls, the weapon stays where it was pointing instead of following the
 	# pointer round a menu.
+	_update_aim(s)
+
+## Inside a monster with the weapon still in the body's hands: either button is
+## the monster's own attack, for as long as it is held, and nothing charges —
+## a hold buys life for the weapon's graph, and that is back at the body. The
+## weapons go on recovering in their slots meanwhile.
+func _attack_as_monster(delta: float, s: InputState) -> void:
+	possessing.attacking = s.attack or s.cast
+	_update_charge(delta, false)
+	_cast_buffer = 0.0
+	cast_charge = 0.0
+	for r in runners:
+		r.ttl_bonus = 0
+		r.set_active(false)
+		r.update(delta)
 	_update_aim(s)
 
 ## Points the weapon where the line says the hand points — the stick or the
@@ -434,7 +687,9 @@ func _update_aim(s: InputState = null) -> void:
 func _physics_process(delta: float) -> void:
 	if dead:
 		return
-	_asked = input.state()
+	# With the hands in a monster the body is asked for nothing, and stands
+	# where it was left: the monster reads the line for itself.
+	_asked = input.state() if possessing == null else InputState.new()
 	_dir = _asked.move
 	if _dir != 0.0:
 		face(int(signf(_dir)))

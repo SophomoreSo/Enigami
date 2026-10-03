@@ -3,7 +3,9 @@ extends ActorView
 
 ## The player: the character, the weapon they are pointing, the ghost a dash
 ## leaves behind, the charge bar over their head, and the rings that report
-## guard and dash recovery.
+## guard and dash recovery. With the player's hands in a monster the body is
+## left standing, dimmed, with a thread out to where they are — and empty-
+## handed, once the monster has taken the weapon.
 
 ## The weapon is a separate tile so it can swing to the aim direction while the
 ## body keeps running. Every weapon tile in the atlas points up.
@@ -82,10 +84,14 @@ func _update_weapon() -> void:
 		if tex != null:
 			# Pivot at the grip, so aiming rotates the blade around the hand.
 			weapon_sprite.offset = Vector2(-tex.region.size.x * 0.5, -tex.region.size.y * WEAPON_GRIP)
-	# I-frames blink the whole rig, weapon included.
+	# I-frames blink the whole rig, weapon included. A body nobody is in is
+	# dimmed — through the sprite's shader, which draws it in the skin's own
+	# colours and so takes no modulate — and holds nothing once the monster
+	# has the weapon.
 	var lit := player.invuln <= 0.0 or int(player.invuln * 24.0) % 2 == 0
+	tint = Style.POSSESS_BODY if player.vessel() != player else Color.WHITE
 	sprite.self_modulate.a = 1.0 if lit else 0.35
-	weapon_sprite.self_modulate.a = sprite.self_modulate.a
+	weapon_sprite.self_modulate.a = 0.0 if player.vessel_armed else sprite.self_modulate.a
 	weapon_sprite.position = player.aim * WEAPON_HAND
 	weapon_sprite.rotation = player.aim.angle() + PI * 0.5
 
@@ -133,6 +139,11 @@ func _draw() -> void:
 		_draw_charge_bar(ct)
 	if player.parry_time > 0.0:
 		draw_arc(Vector2.ZERO, 24.0, 0, TAU, 24, Color(PARRY_COLOR.r, PARRY_COLOR.g, PARRY_COLOR.b, 0.9), 2.5)
+	var held := player.vessel()
+	if held != player:
+		# The thread out to the monster the player is in, so the body left
+		# behind and the one being played are plainly the same player.
+		draw_line(Vector2.ZERO, to_local(held.global_position), Color(Style.POSSESS_COLOR, 0.35), 2.0)
 	var recovery := player.dash_recovery()
 	if recovery < 1.0:
 		# Just under the feet, wherever a crouch has put them.

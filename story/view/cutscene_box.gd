@@ -129,13 +129,13 @@ func _draw() -> void:
 
 ## The speaker's name on a tab over the top-left corner. Narration has no
 ## speaker and so gets no tab — which is how the two read apart.
-func _draw_name_tab(box: Rect2, name: String) -> void:
-	var w := _width(name, _name_size()) + PAD * 1.6
+func _draw_name_tab(box: Rect2, speaker: String) -> void:
+	var w := _width(speaker, _name_size()) + PAD * 1.6
 	var tab := Rect2(box.position + Vector2(PAD, -_tab_h()), Vector2(w, _tab_h()))
 	draw_rect(tab, Color(UiKit.PANEL.r, UiKit.PANEL.g, UiKit.PANEL.b, 0.97 * _open))
 	draw_rect(tab, Color(UiKit.LINE.r, UiKit.LINE.g, UiKit.LINE.b, _open), false, 2.0)
 	var c := Color(UiKit.ACCENT.r, UiKit.ACCENT.g, UiKit.ACCENT.b, _open)
-	_text(tab.position + Vector2(PAD * 0.8, (_tab_h() - _line_h()) * 0.5), name, _name_size(), c)
+	_text(tab.position + Vector2(PAD * 0.8, (_tab_h() - _line_h()) * 0.5), speaker, _name_size(), c)
 
 ## The blinking wedge that says the line is read and a press moves it on.
 func _draw_mark(box: Rect2) -> void:

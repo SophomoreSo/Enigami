@@ -3,6 +3,7 @@
 	"burning": "화상",
 	"chilled": "냉각",
 	"stunned": "기절",
+	"possessing": "%s 빙의 %d초",
 	"fx": {
 		"winded": "탈진",
 		"parry": "막아냄",

@@ -1,8 +1,9 @@
 class_name Hideout
 extends Control
 
-## Between raids. Pick the one weapon you will carry, build on its graph,
-## spend loot on the facilities, and deploy.
+## Between raids. Pick the weapons you will carry — up to three, and the one
+## the rack is left on is the one in hand — build on their graphs, spend loot
+## on the facilities, and deploy.
 ##
 ## Built in UiKit's pixel look, like the title and the assembly screen: every
 ## piece of text is Silkscreen at a multiple of its native 8px and every box is
@@ -26,7 +27,8 @@ signal deploy_requested(weapon: String)
 signal title_requested()
 ## The graph on the weapon the rack is on was asked for.
 signal edit_requested()
-## The rack was left on a different weapon. On the whole screen nobody needs to
+## The rack was left on a different weapon: picked, or the hand moved on to it
+## because the one it was on was put back. On the whole screen nobody needs to
 ## know — the columns beside it are rebuilt with it — but as a station's panel
 ## the room outside it is what carries the choice to the gate.
 signal weapon_changed(weapon: String)
@@ -136,8 +138,8 @@ func _section_column() -> Control:
 ## --- the kit, in the pixel look ---------------------------------------------
 ## A station's panel in mobile mode writes its words at a thumb's size; the
 ## whole screen never does, having three columns of them to fit.
-func _label(text: String, color: Color = UiKit.TEXT, size: int = UiKit.PIXEL_TEXT) -> Label:
-	return UiKit.label(text, UiKit.text(size) if section != "" else size, color, true)
+func _label(text: String, color: Color = UiKit.TEXT, font_size: int = UiKit.PIXEL_TEXT) -> Label:
+	return UiKit.label(text, UiKit.text(font_size) if section != "" else font_size, color, true)
 
 ## A line that is allowed to run on: it wraps inside its column instead of
 ## pushing the column wider.
@@ -200,7 +202,7 @@ func _weapons_column() -> Control:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
 	p.add_child(v)
-	v.add_child(_label(Loc.t("hideout.weapons.heading"), UiKit.ACCENT))
+	v.add_child(_label(Loc.t("hideout.weapons.heading", [GameState.MAX_CARRIED]), UiKit.ACCENT))
 	v.add_child(UiKit.hline(true))
 	# One under another at a desk. For a thumb they stand side by side, as many
 	# to a row as fit: a plate THUMB tall for each, stacked, left no room on a
@@ -211,14 +213,20 @@ func _weapons_column() -> Control:
 		rack.add_theme_constant_override("h_separation", 8)
 		rack.add_theme_constant_override("v_separation", 8)
 		v.add_child(rack)
+	# The kit, as the gate would carry it: a weapon in it wears the number of
+	# its slot, which is the key that draws it in a raid.
+	var kit := GameState.carried()
 	for id in Weapons.ids():
 		var owned: bool = GameState.owned_weapons.has(id)
 		var selected: bool = id == weapon_id
 		var wc := Style.weapon_color(id)
-		# Two characters either way, so the name does not shift as the mark moves.
-		var b := _button(Loc.t("hideout.weapons.row", ["> " if selected else "  ",
+		var slot := kit.find(id)
+		# Two characters either way, for the mark and for the slot, so the name
+		# does not shift as either moves.
+		var b := _button(Loc.t("hideout.weapons.row", [
+			("> " if selected else "  ") + ("%d " % (slot + 1) if slot >= 0 else "  "),
 			Weapons.name_for(id), "" if owned else Loc.t("hideout.weapons.lost")]),
-			wc if selected else UiKit.DIM)
+			wc if selected or slot >= 0 else UiKit.DIM)
 		b.disabled = not owned
 		b.custom_minimum_size = Vector2(0, maxf(40 if selected else 34, UiKit.thumb()))
 		if rack != v:
@@ -228,8 +236,12 @@ func _weapons_column() -> Control:
 			b.add_theme_color_override("font_color", wc)
 			b.add_theme_stylebox_override("normal", UiKit.style(
 				Color(wc.r, wc.g, wc.b, 0.2), wc, 2, 3, true))
+		# Picking a weapon takes it in hand, and into the kit with it: a free
+		# slot, or the slot of the weapon the rack was on when there is none.
 		b.pressed.connect(func() -> void:
+			var was := weapon_id
 			weapon_id = id
+			GameState.carry(id, was)
 			weapon_changed.emit(id)
 			rebuild())
 		rack.add_child(b)
@@ -252,6 +264,16 @@ func _weapons_column() -> Control:
 	line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	line.clip_text = true
 	graph.add_child(line)
+	# Back on the rack: out of the kit, and the hand goes to a weapon that is
+	# still in it. Not the last one carried, which is what the gate needs.
+	var leave := _button(Loc.t("hideout.weapons.leave"), UiKit.WARN)
+	leave.disabled = not kit.has(weapon_id) or kit.size() < 2
+	leave.pressed.connect(func() -> void:
+		if GameState.leave_behind(weapon_id):
+			weapon_id = GameState.carried()[0]
+			weapon_changed.emit(weapon_id)
+		rebuild())
+	graph.add_child(leave)
 	var build := _button(Loc.t("hideout.weapons.build"), UiKit.GOOD)
 	build.disabled = not GameState.owned_weapons.has(weapon_id)
 	build.pressed.connect(func() -> void: edit_requested.emit())

@@ -64,6 +64,7 @@ func _shuffle(a: Array) -> void:
 		a[j] = t
 
 func _record(c: Vector2i, kind: String, dist: int) -> Dictionary:
+	@warning_ignore("integer_division")
 	return {
 		"kind": kind,
 		"danger": clampi(1 + int(dist / 2), 1, 5),

@@ -35,6 +35,8 @@ godot res://tests/feature/dash_test.tscn    # where a lunge lands, aimed and aut
 godot res://tests/feature/dash_move_test.tscn # the dash key: flat, a step long, briefly untouchable
 godot res://tests/feature/hurt_test.tscn    # the second of grace a blow that lands buys
 godot res://tests/feature/lost_kit_test.tscn # dying drops the kit, and the next run goes back for it
+godot res://tests/feature/possess_test.tscn # POSSESS: into a monster and out again, the body left behind, passing for one of them, the weapon, talking
+godot res://tests/feature/kit_test.tscn     # up to three weapons carried, one in hand: the rack, the keys and the wheel, and what walking out and dying do to the lot
 godot res://tests/feature/climb_test.tscn   # going up a room and staying there
 godot res://tests/feature/cast_test.tscn    # the two buttons: attack casts the graph, cast charges it
 godot res://tests/feature/stamina_test.tscn # the dash budget under the health bar
@@ -65,7 +67,7 @@ godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MA
 godot res://tests/feature/stack_test.tscn   # parts stack: what each one more is worth, where a part stops, laser speed, and HOMING round a wall
 godot res://tests/feature/invert_hit_test.tscn # a stun, a heal, a cleanse, a push away and a haul back, as they land
 godot res://tests/feature/reach_test.tscn   # how far an attack goes when the stick says how far
-godot res://tests/feature/forge_test.tscn   # the forge's price, and a weapon is its graph: the profile's rules
+godot res://tests/feature/forge_test.tscn   # the forge's price, a weapon is its graph, and a profile started over starts from nothing: the profile's rules
 godot res://tests/graphics/share_code_test.tscn # sharing a board, and what a pasted code costs
 godot res://tests/circuit/ttl_test.tscn     # a pulse's life, and what bounds a loop
 godot res://tests/feature/charge_test.tscn  # holding the cast button buys life for mana
@@ -120,6 +122,9 @@ not a thing to reach for once it errors.
 | CTRL | sprint — held with a direction, the same run half as fast again. It costs nothing, turns and jumps as a run does and carries into the air while it is held; a crouch stops it |
 | LMB | cast the weapon's graph as it is — again and again while held, and it costs nothing |
 | RMB | hold to charge the weapon's graph, release to cast it with what the hold paid for — a tap is a charge of nothing, and a graph still recovering cannot be charged |
+| 1 / 2 / 3 | put the weapon carried in that slot in hand — at once, and whatever was being charged is let go of |
+| mouse wheel | the next weapon in hand, a notch down, or the one before, a notch up; round from the last to the first |
+| Q | leave the monster you are possessing, back into your own body |
 | mouse / right stick | aim, and where a lunge lands. A stick's aim is bent toward a monster it is near — never snapped, and never the mouse's; how much is AIM ASSIST in the control settings |
 | TAB | open assembly — **the raid keeps running**; TAB, ESC or the CLOSE button leaves it |
 | C | in assembly: the board as a share code — copy it out, or build someone else's board from theirs |
@@ -129,8 +134,10 @@ not a thing to reach for once it errors.
 
 Gamepad: left stick moves and, pushed down three quarters of the way, crouches;
 clicked in and held, it sprints. A jumps, B dashes, the right trigger attacks
-and the left one charges and casts, select opens assembly, RB interacts. Every
-keyboard binding is remappable from Settings (title screen) or the pause menu.
+and the left one charges and casts, Y puts the next weapon in hand and X the
+one before, LB leaves a possessed monster, select opens assembly, RB interacts. Every keyboard binding is
+remappable from Settings (title screen) or the pause menu — the wheel is a
+binding like any other, and can be given to something else.
 
 While the hideout's look is being chosen it has several, and the pause menu
 has **HIDEOUT THEME** on it for as long as you are standing there: the looks
@@ -202,7 +209,9 @@ controls turn out to fit:
   way, and the hint under a question, beside the arrow on a line, or under the
   intro's box, says so in place of a key.
 * **Everything else is a key.** JUMP, DASH, and KIT / MAP / MENU in the far
-  corner take no direction, so they are buttons and nothing more.
+  corner take no direction, so they are buttons and nothing more. With more
+  than one weapon carried SWAP stands beside those three: the next weapon in
+  hand; inside a possessed monster OUT stands under it, and steps out.
 
 The buttons are twice the size they were first drawn at, words and all: on a
 phone's glass the cast button was smaller than the thumb pressing it. The
@@ -360,11 +369,25 @@ nobody spends that week again.
 **A weapon is a graph.** Its own attack form is the root of a board — the
 sword's `SWIFT STRIKE`, the gun's and the rock's `PROJECTILE` — and everything you
 build is wired on round it. There are no skills apart from weapons and no
-weapon without its graph: what you carry into a raid is the weapon and
-whatever is on it, the rack picks the weapon and `TAB` opens its graph.
+weapon without its graph: what you carry into a raid is up to three weapons
+and whatever is on each, the rack picks them, and `TAB` opens the graph of the
+one in hand.
 The root is moved and turned like any part, but it never leaves the board: it
 is the weapon's, not the bag's. `LMB` casts the graph as it is, again and again
 while it is held, for nothing; `RMB` charges it (below) and casts on release.
+
+**Three weapons are three skills, a key apart.** The rack carries up to three:
+picking a weapon takes it in hand and into the kit, in the next free slot, and
+PUT BACK takes the one in hand out again — never the last, since nobody goes in
+empty-handed. In a raid `1`, `2` and `3` put the weapon in that slot in hand,
+and the wheel the next or the one before; the HUD names them all, the one in
+hand lit. Each has its own graph and its own wait between casts, so a weapon
+put away goes on recovering in its slot, ready again by the time it is drawn,
+and a cast it had already loosed still lands as its own.
+Changing weapon is instant and costs only what was being charged. The price of
+carrying more is at the end: walking out takes the whole kit home, and dying
+drops the whole kit where you fell — every weapon but the rock, and the graph
+on every one.
 
 A board is a circuit. A pulse leaves the root, spends **one tick in every cell
 of every part** it enters, and mutates a payload on the way through — a part
@@ -478,6 +501,17 @@ what lets `DELAY` hold a trigger's branch back behind the attack it follows.
 - `MANA DRAIN` takes mana back off every enemy an attack connects with, as
   much again for every one stacked. A board that lands often pays for its own
   charging.
+- `POSSESS` puts your hands into the monster it strikes, for five seconds and
+  five more for every one stacked (never a boss). Your body stays where it
+  was, standing still, and the monsters go on hunting it: if it dies, the raid
+  is lost. The monster walks and jumps under your keys at its own pace, talks
+  to whoever is in reach, and fights with its own attack — or, walked over to
+  your body and F pressed there, with your weapon, which it takes out of your
+  hands. The others take it for one of them until it attacks; after that they
+  hunt it as they hunt you, and their attacks hurt it. It ends when the time
+  runs out, when you press Q, or when the monster dies, and the monster is left
+  stunned for a moment and is one of them again; the weapon goes back to your
+  hands. A POSSESS hit from inside one monster hops to the next.
 - `STUN` stands the enemy it strikes still for a moment: it stops where it is,
   and neither attacks nor hurts by touch until it comes round. Every one
   stacked holds it that much longer. A stun cannot be stretched by another
@@ -666,10 +700,10 @@ whether one cast still clears it.
 The PRD left eight questions open. This build answers them as follows.
 
 1. **One graph per weapon.** A weapon is its graph: its own attack form is
-   the root and everything you build is wired on round it. There
-   are no slots and no skills apart from weapons — what you carry is the
-   weapon and what is on it, and the rack, the graph `TAB` opens and the
-   gate are three ways of looking at the same thing.
+   the root and everything you build is wired on round it. There are no
+   skills apart from weapons — what you carry is up to three weapons and what
+   is on each, a slot's key apart, and the rack, the graph `TAB` opens and
+   the gate are three ways of looking at the same kit.
 2. **A weapon starts bare** — its own part and nothing else, standing
    against the way out, so it works the moment it is picked up; move it back
    and every cell in front of it is yours. Identity without locking the build.

@@ -140,8 +140,8 @@ func _paint_sky(c: CanvasItem, rng: RandomNumberGenerator) -> void:
 					wx += 10.0
 				wy += 14.0
 			if layer == 1 and rng.randf() < 0.3:
-				var sign: Color = PINK if rng.randf() < 0.5 else CYAN
-				c.draw_rect(Rect2(x + 10.0, top + 18.0, bw - 20.0, 12.0), Color(sign.r, sign.g, sign.b, 0.55))
+				var neon: Color = PINK if rng.randf() < 0.5 else CYAN
+				c.draw_rect(Rect2(x + 10.0, top + 18.0, bw - 20.0, 12.0), Color(neon.r, neon.g, neon.b, 0.55))
 			x += bw + rng.randf_range(4.0, 30.0)
 
 ## One storey: back wall with tall windows, a lamp every few cells, and the
@@ -306,16 +306,16 @@ func _paint_door(c: CanvasItem) -> void:
 		var at := Vector2((float(d.x) + 0.5) * C, foot)
 		c.draw_rect(Rect2(at + Vector2(-22, -76), Vector2(44, 76)), Color(0.02, 0.015, 0.04))
 		c.draw_rect(Rect2(at + Vector2(-22, -76), Vector2(44, 76)), FRAME, false, 4.0)
-		var sign := Loc.t("hud.exit.sign")
+		var exit_word := Loc.t("hud.exit.sign")
 		# The lit plate behind the sign grows with the face the language is
 		# written in — 36x14 for Silkscreen's 8px, which is the plate this sign
 		# was drawn with and what `k` comes out at for every language Silkscreen
 		# can spell.
-		var k := float(Loc.text_size(sign, PixelCamera.TEXT_SIZE)) / float(PixelCamera.TEXT_SIZE)
+		var k := float(Loc.text_size(exit_word, PixelCamera.TEXT_SIZE)) / float(PixelCamera.TEXT_SIZE)
 		var plate := Vector2(36.0, 14.0) * k
 		c.draw_rect(Rect2(at + Vector2(-plate.x * 0.5, -82.0 - plate.y), plate),
 			Color(0.04, 0.1, 0.06))
-		PixelCamera.draw_text(c, at + Vector2(0, -85), sign, EXIT)
+		PixelCamera.draw_text(c, at + Vector2(0, -85), exit_word, EXIT)
 
 ## --- the live half ----------------------------------------------------------
 func _draw() -> void:

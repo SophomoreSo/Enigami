@@ -16,9 +16,9 @@ extends Node
 func _ready() -> void:
 	Cues.fired.connect(_on_cue)
 
-func _on_cue(name: StringName, d: Dictionary) -> void:
+func _on_cue(cue: StringName, d: Dictionary) -> void:
 	var pos: Vector2 = d.get("pos", Vector2.ZERO)
-	match name:
+	match cue:
 		&"hit":
 			Fx.burst(pos, Style.element_color(d.get("payload")), 6, 150.0)
 			Fx.shake(3.0)
@@ -64,6 +64,20 @@ func _on_cue(name: StringName, d: Dictionary) -> void:
 			var kind := String(d.get("kind", ""))
 			var text := Loc.t("hud.fx.winded") if kind == "stamina" else String(d.get("text", ""))
 			Fx.text(pos + Vector2(0, -44), text, Style.refuse_color(kind))
+		&"possess":
+			# Into the monster: a ring closing on it, the colour of the part.
+			Fx.ring(pos, Style.POSSESS_COLOR, 70.0)
+			Fx.burst(pos, Style.POSSESS_COLOR, 12, 160.0)
+		&"possess_end":
+			Fx.burst(pos, Style.POSSESS_COLOR, 10, 120.0)
+		&"weapon_taken":
+			Fx.burst(pos, Style.POSSESS_COLOR, 6, 90.0)
+		&"weapon_switch":
+			# The weapon drawn, by name over whoever drew it, in its own colour:
+			# the HUD's line says the same in the corner, and this says it where
+			# the eye is in a fight.
+			var drawn := String(d.get("weapon", ""))
+			Fx.text(pos + Vector2(0, -44), Weapons.name_for(drawn).to_upper(), Style.weapon_color(drawn))
 		&"shatter":
 			# Frost coming apart reads as shards, not as a bigger hit.
 			Fx.burst(pos, Style.SHATTER_SPARK, 10, 210.0)

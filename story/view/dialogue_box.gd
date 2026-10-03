@@ -474,11 +474,11 @@ func _draw_portrait(frame: Rect2, art: String, mood: Dictionary, flip: bool) -> 
 	var count := frames.get_frame_count("idle")
 	var tex := frames.get_frame_texture("idle", int(_t * (10.0 if speaking else 4.0)) % count)
 	var src := Sprites.art_rect(art)
-	var scale := floorf(minf((frame.size.x - 16.0) / src.size.x, (frame.size.y - 16.0) / src.size.y))
-	var dst_size := src.size * scale
+	var factor := floorf(minf((frame.size.x - 16.0) / src.size.x, (frame.size.y - 16.0) / src.size.y))
+	var dst_size := src.size * factor
 	var hop := 0.0
 	if speaking and fmod(_t, 0.24) < 0.12:
-		hop = float(mood.get("hop", 1.0)) * scale
+		hop = float(mood.get("hop", 1.0)) * factor
 	# Deterministic noise rather than randf, so a portrait never draws from the
 	# random numbers the fight is using.
 	var shake := float(mood.get("shake", 0.0))

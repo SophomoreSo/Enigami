@@ -1,7 +1,9 @@
 class_name Hud
 extends Control
 
-## Raid HUD: health, the bars a fight spends, and the weapon in hand.
+## Raid HUD: health, the bars a fight spends, and the weapons carried — the
+## one in hand lit, the others beside it under the number of the key that
+## draws each.
 ##
 ## Drawn rather than built, in UiKit's pixel look: Silkscreen at its own size,
 ## boxes square and unsmoothed with a PIXEL of edge, everything on the PIXEL
@@ -32,10 +34,13 @@ const BAR_W := 264.0
 const BAR_AT := Vector2(24, 24)
 const HEALTH_H := 24.0
 const THIN_H := 12.0
-## The baseline of the line under the bars, naming the weapon and what is
-## burning, freezing or stunning whoever carries it: the last thing in the
+## The baseline of the line under the bars, naming the weapons and what is
+## burning, freezing or stunning whoever carries them: the last thing in the
 ## corner.
 const WEAPON_LINE := 108.0
+## How much of its colour a weapon that is carried but not in hand is written
+## in: there to be read, and plainly not the one the buttons fire.
+const AWAY := 0.4
 ## How far the prompt stands off the bottom, no longer pushed up by a row of
 ## cards.
 const PROMPT_LIFT := 92.0
@@ -103,13 +108,16 @@ func _draw_health() -> void:
 	_draw_stamina()
 	_draw_mana()
 
-	# The weapon, and what is burning, freezing or stunning whoever carries it,
-	# on one line: each stands where the one before it ended, so a long name in
-	# any language pushes them along rather than being written over.
+	# The weapons, and what is burning, freezing or stunning whoever carries
+	# them, on one line: each stands where the one before it ended, so a long
+	# name in any language pushes them along rather than being written over.
 	var at := Vector2(BAR_AT.x, WEAPON_LINE)
-	var weapon := Weapons.name_for(player.weapon_id).to_upper()
-	_px.text(at, weapon, Style.weapon_color(player.weapon_id))
-	at.x += PixelDraw.text_width(weapon) + 16.0
+	at.x = _draw_kit(at)
+	if player.vessel() != player:
+		var inside := Loc.t("hud.possessing", [Monsters.name_for(player.possessing.kind).to_upper(),
+			ceili(player.possess_left)])
+		_px.text(at, inside, Style.POSSESS_COLOR)
+		at.x += PixelDraw.text_width(inside) + 16.0
 	if player.burn_time > 0.0:
 		var burning := Loc.t("hud.burning")
 		_px.text(at, burning, Color(1, 0.5, 0.2))
@@ -120,6 +128,27 @@ func _draw_health() -> void:
 		at.x += PixelDraw.text_width(chilled) + 16.0
 	if player.stunned():
 		_px.text(at, Loc.t("hud.stunned"), Style.STUN_COLOR)
+
+## What a weapon is called on the kit's line: its name, and in a kit of more
+## than one the number of its slot before it — the key that draws it.
+static func kit_label(weapon_id: String, slot: int, carried: int) -> String:
+	var named := Weapons.name_for(weapon_id).to_upper()
+	return named if carried < 2 else "%d %s" % [slot + 1, named]
+
+## The weapons carried, left to right in their slots, starting at `at`: the one
+## in hand in its own colour and the rest dimmed. With one weapon carried it is
+## that weapon's name, as it always was. Returns where the line goes on from.
+func _draw_kit(at: Vector2) -> float:
+	var kit: Array = player.weapons if not player.weapons.is_empty() else [player.weapon_id]
+	for slot in kit.size():
+		var id := String(kit[slot])
+		var label := kit_label(id, slot, kit.size())
+		var ink := Style.weapon_color(id)
+		if id != player.weapon_id:
+			ink.a *= AWAY
+		_px.text(at, label, ink)
+		at.x += PixelDraw.text_width(label) + 16.0
+	return at.x
 
 ## Slimmer and quieter than health: this is a budget, not a life. It is divided
 ## into one segment per dash, so the question it answers at a glance is "how

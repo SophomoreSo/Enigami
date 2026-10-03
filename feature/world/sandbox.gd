@@ -3,7 +3,9 @@ extends World
 
 ## A room where nothing is at stake. Parts are unlimited, each weapon's graph
 ## is a copy of the profile's, and the weapons can be swapped back to back so
-## the differences between them are something you see rather than read.
+## the differences between them are something you see rather than read: every
+## weapon is carried here, while there are no more of them than a kit holds,
+## and the keys that change weapon in a raid change it at the bench.
 ##
 ## The bench's own buttons are `graphics/ui/sandbox_panel.gd`, in a drawer built
 ## by the view that attaches itself to this node, beside the raid's own HUD.
@@ -57,16 +59,29 @@ func _ready() -> void:
 	add_child(player)
 	player.room = room
 	player.global_position = room.spawn_point()
+	# Drawn with a key rather than the bench's own button, the weapon in hand is
+	# still the one the bench is on.
+	player.weapon_switched.connect(func(weapon: String) -> void:
+		weapon_index = maxi(Weapons.ids().find(weapon), 0))
 	_apply_weapon()
 
 	spawn_dummy()
 	spawn_npc()
 	spawn_apprentice()
 
+## Puts the bench's weapons on the player, with the one the bench is on in
+## hand: all of them, as a kit, while a kit can hold them all — and otherwise
+## the one, as a kit of one.
 func _apply_weapon() -> void:
 	var ids := Weapons.ids()
 	weapon_index = weapon_index % ids.size()
-	player.setup(String(ids[weapon_index]), board())
+	if ids.size() <= Player.MAX_WEAPONS:
+		var boards: Array = []
+		for w in ids:
+			boards.append(graphs[String(w)])
+		player.setup_kit(ids, boards, weapon_index)
+	else:
+		player.setup(String(ids[weapon_index]), board())
 	player.max_health = 9999.0
 	player.health = 9999.0
 
@@ -94,6 +109,7 @@ func _standing_row(x: int) -> int:
 	for y in range(Room.H - 1, 0, -1):
 		if not room.is_solid(x, y) and not room.is_solid(x, y - 1):
 			return y
+	@warning_ignore("integer_division")
 	return int(Room.H / 2)
 
 ## Dropped in above the floor and left to land, like everything else here. On no

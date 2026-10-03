@@ -279,8 +279,8 @@ func _box_width() -> float:
 	return ceilf((w + BOX_PAD * 2.0) / PX) * PX
 
 func _button_width(label: String) -> float:
-	var size := _btn_size(label)
-	return ceilf((PixelDraw.ink_width(label, size) + (48.0 if thumb() else 28.0)) / PX) * PX
+	var extent := _btn_size(label)
+	return ceilf((PixelDraw.ink_width(label, extent) + (48.0 if thumb() else 28.0)) / PX) * PX
 
 ## --- drawing ----------------------------------------------------------------
 func _draw() -> void:
@@ -362,16 +362,16 @@ func _draw_button(r: Rect2, label: String, accent: Color, hot: bool, on: bool) -
 	if thumb():
 		_px.frame(r.grow(-PX), Color(1, 1, 1, 0.75) if (hot and on) else edge)
 	var ink := Color(0.95, 0.98, 1.0) if on else Color(0.45, 0.48, 0.52)
-	var size := _btn_size(label)
-	_px.text(r.position + Vector2((r.size.x - PixelDraw.ink_width(label, size)) * 0.5, _btn_text_y()),
-		label, ink, -1.0, size)
+	var extent := _btn_size(label)
+	_px.text(r.position + Vector2((r.size.x - PixelDraw.ink_width(label, extent)) * 0.5, _btn_text_y()),
+		label, ink, -1.0, extent)
 
 ## A code broken into lines of CHARS_PER_LINE. One too long for its box keeps
 ## the end when a caret is sitting in it and the start when one is not, and the
 ## side that was cut is marked, so neither box can quietly show half a code as
 ## if it were the whole one.
-static func _lines(code: String, most: int, tail: bool) -> PackedStringArray:
-	var c := BoardCode.clean(code)
+static func _lines(written: String, most: int, tail: bool) -> PackedStringArray:
+	var c := BoardCode.clean(written)
 	var total := maxi(1, int(ceil(float(c.length()) / float(CHARS_PER_LINE))))
 	var first := 0
 	var cut := false

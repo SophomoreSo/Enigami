@@ -11,6 +11,9 @@ extends InputMiddleware
 ## The console needs nothing here: a thumb on it presses the same actions a key
 ## does, and leans on the right stick to aim (`Touch`).
 
+## The key of each slot a weapon is carried in, first to last.
+const SLOT_ACTIONS: Array[StringName] = [&"weapon_1", &"weapon_2", &"weapon_3"]
+
 func process(s: InputState) -> InputState:
 	s.move = Input.get_axis("move_left", "move_right")
 	# Down held is a crouch, whatever holds it: a key, or a stick pushed down
@@ -29,6 +32,16 @@ func process(s: InputState) -> InputState:
 	s.jump_released = Input.is_action_just_released("jump")
 	s.dash_pressed = Input.is_action_just_pressed("dash")
 	s.cast_released = Input.is_action_just_released("cast_skill")
+	# Another weapon in hand: a slot's own key, or one step along — the wheel,
+	# which is a button that is down and up again inside one frame, a pad's
+	# button, the console's key.
+	for slot in SLOT_ACTIONS.size():
+		if Input.is_action_just_pressed(SLOT_ACTIONS[slot]):
+			s.weapon_slot = slot
+	s.weapon_step = int(Input.is_action_just_pressed("weapon_next")) \
+		- int(Input.is_action_just_pressed("weapon_prev"))
+	s.use_pressed = Input.is_action_just_pressed("interact")
+	s.step_out_pressed = Input.is_action_just_pressed("step_out")
 	if body != null:
 		_aim(s)
 	return s

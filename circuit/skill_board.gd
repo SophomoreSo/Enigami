@@ -76,7 +76,9 @@ func has_root() -> bool:
 
 ## The root's cell, or null while nothing sits there.
 func find_root() -> Variant:
-	return root if cells.has(root) else null
+	if cells.has(root):
+		return root
+	return null
 
 ## The part at the root: {id, rot}, or {} while nothing sits there.
 func root_entry() -> Dictionary:
@@ -140,6 +142,7 @@ func move_root(at: Vector2i, rot: int) -> bool:
 ## The row the way out is on: the middle one — of an even number of rows, the
 ## upper of the two in the middle.
 static func middle(rows: int) -> int:
+	@warning_ignore("integer_division")
 	return (rows - 1) / 2
 
 ## The cell a flow leaves the board from, heading east: the middle of the right

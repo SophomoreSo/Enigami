@@ -122,6 +122,23 @@ func _ready() -> void:
 	await blocks()
 	restore(hidden)
 
+	# --- a kit of three -------------------------------------------------------
+	# One weapon carried is its name and nothing else, as the line always was;
+	# in a kit each is named under the number of the key that puts it in hand.
+	check(Hud.kit_label("SWORD", 0, 1) == Weapons.name_for("SWORD").to_upper(),
+		"one weapon carried is named on the line, and not numbered (%s)" % Hud.kit_label("SWORD", 0, 1))
+	check(Hud.kit_label("GUN", 1, 3) == "2 " + Weapons.name_for("GUN").to_upper(),
+		"in a kit each is named under its slot's number (%s)" % Hud.kit_label("GUN", 1, 3))
+	var carrier := raid.player
+	carrier.setup_kit(["SWORD", "GUN", "ROCK"],
+		[carrier.runner.board, Weapons.make_board("GUN"), Weapons.make_board("ROCK")], 1)
+	await frames(4)
+	check(hud.player == carrier and carrier.weapons.size() == 3 and carrier.weapon_id == "GUN",
+		"(the HUD is reading a player carrying three, the second in hand)")
+	hidden = isolate()
+	await blocks()
+	restore(hidden)
+
 	# --- what the pixel face costs the layout --------------------------------
 	var reading := Loc.t("hud.health", [999, 999])
 	check(PixelDraw.text_width(reading) <= Hud.BAR_W - 16.0,

@@ -16,6 +16,12 @@ const ACTIONS := [
 	["sprint", "Sprint"],
 	["attack", "Attack"],
 	["cast_skill", "Charged cast"],
+	["weapon_1", "Weapon 1"],
+	["weapon_2", "Weapon 2"],
+	["weapon_3", "Weapon 3"],
+	["weapon_next", "Next weapon"],
+	["weapon_prev", "Previous weapon"],
+	["step_out", "Leave monster"],
 	["open_editor", "Skill assembly"],
 	["open_map", "Map"],
 	["interact", "Interact / extract"],
@@ -123,8 +129,7 @@ static func label_for(action: String) -> String:
 		if e is InputEventKey:
 			names.append(OS.get_keycode_string((e as InputEventKey).physical_keycode))
 		elif e is InputEventMouseButton:
-			var idx := (e as InputEventMouseButton).button_index
-			names.append({1: "LMB", 2: "RMB", 3: "MMB"}.get(idx, Loc.t("controls.mouse", [idx])))
+			names.append(mouse_name((e as InputEventMouseButton).button_index))
 		elif e is InputEventJoypadButton:
 			names.append(Loc.t("controls.pad_button", [(e as InputEventJoypadButton).button_index]))
 		elif e is InputEventJoypadMotion:
@@ -159,9 +164,26 @@ static func short_label_for(action: String) -> String:
 			var code := key.physical_keycode if key.physical_keycode != 0 else key.keycode
 			return OS.get_keycode_string(code)
 		if e is InputEventMouseButton:
-			var idx := (e as InputEventMouseButton).button_index
-			return {1: "LMB", 2: "RMB", 3: "MMB"}.get(idx, Loc.t("controls.mouse", [idx]))
+			return mouse_name((e as InputEventMouseButton).button_index)
 	return Loc.t("controls.none")
+
+## What a mouse button is called. The three under the fingers have their short
+## names; the wheel is a button too, as far as a binding goes — one press a
+## notch, up or down — and is called by what the hand does to it; anything
+## else on the mouse goes by its number.
+static func mouse_name(index: int) -> String:
+	match index:
+		MOUSE_BUTTON_LEFT:
+			return "LMB"
+		MOUSE_BUTTON_RIGHT:
+			return "RMB"
+		MOUSE_BUTTON_MIDDLE:
+			return "MMB"
+		MOUSE_BUTTON_WHEEL_UP:
+			return Loc.t("controls.wheel_up")
+		MOUSE_BUTTON_WHEEL_DOWN:
+			return Loc.t("controls.wheel_down")
+	return Loc.t("controls.mouse", [index])
 
 ## Replaces the keyboard/mouse binding of `action`, leaving the gamepad one.
 static func rebind(action: String, event: InputEvent) -> bool:
@@ -233,11 +255,11 @@ static func load_saved() -> void:
 		for entry in parsed[a]:
 			if String(entry.get("t", "")) == "key":
 				var k := InputEventKey.new()
-				k.physical_keycode = int(entry["k"])
+				k.physical_keycode = int(entry["k"]) as Key
 				InputMap.action_add_event(a, k)
 			elif String(entry.get("t", "")) == "mouse":
 				var m := InputEventMouseButton.new()
-				m.button_index = int(entry["b"])
+				m.button_index = int(entry["b"]) as MouseButton
 				InputMap.action_add_event(a, m)
 	if _mouse_aside:
 		_take_mouse()

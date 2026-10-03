@@ -92,8 +92,8 @@ func _on_floor_reset() -> void:
 
 ## A guard's blood sprays away from the cut: the player has not been carried
 ## through yet when the death lands, so the lunge runs from them to the guard.
-func _on_cue(name: StringName, d: Dictionary) -> void:
-	if name != &"death" or screen == null or not is_instance_valid(screen):
+func _on_cue(cue: StringName, d: Dictionary) -> void:
+	if cue != &"death" or screen == null or not is_instance_valid(screen):
 		return
 	if not (d.get("actor") is Enemy):
 		return

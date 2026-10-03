@@ -28,6 +28,9 @@ var slot: int = 1
 ## There is always another rock. It cannot be lost, so a run of bad raids never
 ## leaves the player with nothing to deploy.
 const FREE_WEAPON := "ROCK"
+## The most weapons a raid is walked into with. One is in hand at a time, and
+## the others are a key away (`Player.switch_to`).
+const MAX_CARRIED := 3
 
 ## --- hideout property -------------------------------------------------------
 var stash: Dictionary = {}              ## component id -> count, safe at home
@@ -37,19 +40,41 @@ var owned_weapons: Array[String] = []
 ## skill without a weapon and no weapon without a graph, so a weapon lost on
 ## a raid takes its graph down with it, and one won back brings it home.
 var weapon_boards: Dictionary = {}
+## The weapons picked on the rack to carry, in the order they are slotted: at
+## most MAX_CARRIED. It may still name a weapon the vault no longer has — one
+## lost on a raid and not walked back out yet — and `carried` leaves those out.
+var loadout: Array[String] = []
 var scrap: int = 0
+## The level every facility is at in a profile that has built nothing.
+const FACILITY_START := 1
 var facilities: Dictionary = {
-	"workbench": 1,  ## skill board size
-	"vault": 1,      ## stash capacity per component
-	"forge": 1,      ## craft components from scrap
-	"scrapper": 1,   ## scrap value when breaking things down
-	"medbay": 1,     ## max health and between-raid healing
+	"workbench": FACILITY_START,  ## skill board size
+	"vault": FACILITY_START,      ## stash capacity per component
+	"forge": FACILITY_START,      ## craft components from scrap
+	"scrapper": FACILITY_START,   ## scrap value when breaking things down
+	"medbay": FACILITY_START,     ## max health and between-raid healing
 }
 
 ## --- raid state -------------------------------------------------------------
 var in_raid: bool = false
-var raid_weapon: String = ""
-var raid_board: SkillBoard = null         ## the live copy of the weapon's graph, carried into the raid
+## The kit a raid was walked into with: the weapons, in slot order, and the live
+## copy of the graph on each. A raid writes on its copies — an edit made in the
+## field, a part spent out of the bag — and walking out is what takes them home.
+var raid_weapons: Array[String] = []
+var raid_graphs: Dictionary = {}          ## weapon id -> SkillBoard
+## Which of them is in hand: the one that is cast, and the one assembly opens.
+## The player says so as they switch (`Raid`), so a raid put down and picked
+## back up is holding what it was holding.
+var raid_hand: int = 0
+## The weapon in hand, and the live copy of its graph. When a raid carried one
+## weapon these were the whole kit, and everything that asks about "the raid's
+## weapon" still means this one.
+var raid_weapon: String:
+	get:
+		return raid_weapons[raid_hand] if raid_hand >= 0 and raid_hand < raid_weapons.size() else ""
+var raid_board: SkillBoard:
+	get:
+		return raid_graphs.get(raid_weapon, null)
 var raid_bag: Dictionary = {}             ## loose components found this raid
 var raid_scrap: int = 0
 var raid_seed: int = 0
@@ -147,10 +172,16 @@ func _new_profile() -> void:
 	stash.clear()
 	_forget_raid()
 	lost_kit = {}
+	# The hideout as a new game finds it. Left alone, the facilities were
+	# whatever the profile open before this one had made of them, so a new game
+	# started with somebody else's workbench.
+	for key in facilities:
+		facilities[key] = FACILITY_START
 	records = {"raids": 0, "escapes": 0, "deaths": 0, "kills": 0, "best_haul": 0}
 	intro_seen = false
 	memory = {}
 	owned_weapons = ["ROCK", "SWORD", "GUN"]
+	loadout = []
 	weapon_boards.clear()
 	scrap = 40
 	# A handful of parts to build a first graph with: something for every
@@ -288,7 +319,7 @@ const SHOP_PRICES := {
 }
 
 ## What the counter is selling: every part, in palette order.
-static func shop_stock() -> Array:
+func shop_stock() -> Array:
 	return Components.loot_pool()
 
 func shop_price(id: String) -> int:
@@ -345,13 +376,78 @@ func _shelve_parts(board: SkillBoard) -> void:
 	for id in used:
 		add_component(String(id), int(used[id]))
 
+## --- the kit the gate carries -----------------------------------------------
+
+## The weapons a deployment would carry, in slot order: the ones picked on the
+## rack that the vault still has. Never none while the vault has any — with
+## nothing picked it is the first weapon on the rack, which is what the rack
+## was always left on.
+func carried() -> Array[String]:
+	var out: Array[String] = []
+	for w in loadout:
+		if owned_weapons.has(w) and not out.has(w) and out.size() < MAX_CARRIED:
+			out.append(w)
+	if out.is_empty() and not owned_weapons.is_empty():
+		out.append(owned_weapons[0])
+	return out
+
+func is_carried(weapon_id: String) -> bool:
+	return carried().has(weapon_id)
+
+## Puts `weapon_id` in the kit, if the vault has it. With a slot free it takes
+## the next one. With none, it takes the slot of `instead_of` — the weapon the
+## rack was on — or the last. Whether it is carried now.
+func carry(weapon_id: String, instead_of: String = "") -> bool:
+	if not owned_weapons.has(weapon_id):
+		return false
+	var kit := carried()
+	if kit.has(weapon_id):
+		return true
+	if kit.size() < MAX_CARRIED:
+		kit.append(weapon_id)
+	else:
+		var at := kit.find(instead_of)
+		kit[at if at >= 0 else kit.size() - 1] = weapon_id
+	loadout = kit
+	kit_changed.emit()
+	save_game()
+	return true
+
+## Takes `weapon_id` out of the kit. The last one stays: a raid is not walked
+## into empty-handed. Whether it was left.
+func leave_behind(weapon_id: String) -> bool:
+	var kit := carried()
+	if kit.size() <= 1 or not kit.has(weapon_id):
+		return false
+	kit.erase(weapon_id)
+	loadout = kit
+	kit_changed.emit()
+	save_game()
+	return true
+
 ## --- raid lifecycle ---------------------------------------------------------
-## Deploying binds the weapon and the graph on it into a kit that is lost on
-## death. Everything left at home stays safe.
-func deploy(weapon_id: String) -> void:
+## Deploying binds the kit — every weapon carried, and the graph on each — into
+## something that is lost on death. Everything left at home stays safe.
+##
+## `kit` is the weapons to carry, in slot order, or one weapon's id for a kit
+## of one; with neither it is what the rack was left on (`carried`). `in_hand`
+## is the one walked in holding: the first, unless it says.
+func deploy(kit: Variant = null, in_hand: String = "") -> void:
+	var ids: Array[String] = []
+	if kit is String:
+		ids.append(String(kit))
+	elif kit is Array:
+		for w in kit:
+			if not ids.has(String(w)) and ids.size() < MAX_CARRIED:
+				ids.append(String(w))
+	if ids.is_empty():
+		ids = carried()
 	in_raid = true
-	raid_weapon = weapon_id
-	raid_board = weapon_board(weapon_id).duplicate_board()
+	raid_weapons = ids
+	raid_graphs.clear()
+	for w in ids:
+		raid_graphs[w] = weapon_board(w).duplicate_board()
+	raid_hand = maxi(ids.find(in_hand), 0)
 	raid_bag.clear()
 	raid_scrap = 0
 	raid_carried_boards.clear()
@@ -366,8 +462,9 @@ func deploy(weapon_id: String) -> void:
 	# A fresh deployment, not the one that was put down: nothing of the last
 	# raid's progress belongs to this one.
 	raid_progress = {}
-	if weapon_id != FREE_WEAPON:
-		owned_weapons.erase(weapon_id)
+	for w in ids:
+		if w != FREE_WEAPON:
+			owned_weapons.erase(w)
 	records["raids"] = int(records["raids"]) + 1
 	records_changed.emit()
 	save_game()
@@ -375,8 +472,9 @@ func deploy(weapon_id: String) -> void:
 func extract() -> Dictionary:
 	# Edits made mid-raid come home with the kit: the parts spent on them left
 	# the bag when they were placed, so nothing is counted twice.
-	if raid_board != null:
-		weapon_boards[raid_weapon] = raid_board
+	for w in raid_weapons:
+		if raid_graphs.has(w):
+			weapon_boards[w] = raid_graphs[w]
 	# Whatever was recovered from an earlier death comes home as its own: the
 	# weapon back on the rack, its graph back on it. A weapon that was never
 	# lost — the rock — may have been built on again since its graph fell, and
@@ -396,35 +494,42 @@ func extract() -> Dictionary:
 	for id in haul:
 		add_component(id, int(haul[id]))
 	scrap += raid_scrap
-	if not owned_weapons.has(raid_weapon):
-		owned_weapons.append(raid_weapon)
+	for w in raid_weapons:
+		if not owned_weapons.has(w):
+			owned_weapons.append(w)
 	records["escapes"] = int(records["escapes"]) + 1
 	records["best_haul"] = max(int(records["best_haul"]), _haul_size(haul))
 	var result := {"haul": haul, "scrap": raid_scrap, "weapon": raid_weapon,
-		"recovered": recovered}
+		"weapons": raid_weapons.duplicate(), "recovered": recovered}
 	_end_raid()
 	return result
 
-## The whole kit leaves with the run: the weapon, the graph on it (and every
-## part built into it), and everything found on the way. None of it is
-## destroyed — it is put down where the player fell, and `where` is that spot,
-## as `{"room": [x, y], "pos": [x, y]}` from the raid. The free weapon is not
-## lost, but its graph is: it comes back to the rack bare.
+## The whole kit leaves with the run: every weapon carried, the graph on each
+## (and every part built into it), and everything found on the way. None of it
+## is destroyed — it is put down where the player fell, and `where` is that
+## spot, as `{"room": [x, y], "pos": [x, y]}` from the raid. The free weapon is
+## not lost, but its graph is: it comes back to the rack bare.
 ##
 ## Called with nowhere to leave it, the kit is simply gone, which is what it has
 ## always been and what ABANDON RAID still means: forfeiting is a decision, and
 ## a decision does not leave a trail to follow back.
 func die(where: Dictionary = {}) -> Dictionary:
-	var parts: Dictionary = raid_board.used_components() if raid_board != null else {}
+	# What was built onto the weapons that fell, all of them together.
+	var parts: Dictionary = {}
+	for w in raid_weapons:
+		if raid_graphs.has(w):
+			_bag_parts(raid_graphs[w], parts)
 	var lost := {
-		"weapon": raid_weapon, "haul": raid_bag.duplicate(), "scrap": raid_scrap,
+		"weapon": raid_weapon, "weapons": raid_weapons.duplicate(),
+		"haul": raid_bag.duplicate(), "scrap": raid_scrap,
 		"parts": parts, "dropped": false,
 	}
 	if _can_drop(where):
 		lost_kit = _drop_at(where)
 		lost["dropped"] = true
-	# The graph went down with the weapon, whichever weapon it was.
-	weapon_boards.erase(raid_weapon)
+	# The graphs went down with the weapons, whichever weapons they were.
+	for w in raid_weapons:
+		weapon_boards.erase(w)
 	records["deaths"] = int(records["deaths"]) + 1
 	_end_raid()
 	return lost
@@ -441,18 +546,20 @@ func _can_drop(where: Dictionary) -> bool:
 
 ## Everything this run was carrying, written down as one drop.
 ##
-## What is dropped is the raid's own copy of the graph, edits and all, the same
-## one extracting would have written home — under the weapon it is on, and the
-## free weapon's graph as much as any, since that is what was built and lost.
+## What is dropped is the raid's own copy of each graph, edits and all, the same
+## ones extracting would have written home — under the weapon each is on, and
+## the free weapon's graph as much as any, since that is what was built and lost.
 func _drop_at(where: Dictionary) -> Dictionary:
 	var boards: Dictionary = {}
-	if raid_board != null:
-		boards[raid_weapon] = raid_board.serialize()
+	for w in raid_weapons:
+		if raid_graphs.has(w):
+			boards[w] = (raid_graphs[w] as SkillBoard).serialize()
 	for w in raid_carried_boards:
 		boards[w] = (raid_carried_boards[w] as SkillBoard).serialize()
 	var weapons: Array = []
-	if raid_weapon != "" and raid_weapon != FREE_WEAPON:
-		weapons.append(raid_weapon)
+	for w in raid_weapons:
+		if w != FREE_WEAPON and not weapons.has(w):
+			weapons.append(w)
 	for w in raid_carried_weapons:
 		if not weapons.has(w):
 			weapons.append(w)
@@ -522,8 +629,9 @@ func _end_raid() -> void:
 ## new profile call it, each having already settled what became of the kit.
 func _forget_raid() -> void:
 	in_raid = false
-	raid_weapon = ""
-	raid_board = null
+	raid_weapons = []
+	raid_graphs.clear()
+	raid_hand = 0
 	raid_bag.clear()
 	raid_scrap = 0
 	raid_carried_boards.clear()
@@ -533,8 +641,8 @@ func _forget_raid() -> void:
 ## Puts the raid down where it stands, and writes it out. `where` is what the
 ## raid knows about itself; the kit it was carrying is already here.
 ##
-## The run is not over: `in_raid` stays true, the weapon stays checked out of
-## the vault, and nothing is counted. Picking the slot back up resumes it.
+## The run is not over: `in_raid` stays true, the kit stays checked out of the
+## vault, and nothing is counted. Picking the slot back up resumes it.
 func park_raid(where: Dictionary) -> void:
 	if not in_raid:
 		return
@@ -666,6 +774,7 @@ func save_game() -> void:
 		"saved_at": int(Time.get_unix_time_from_system()),
 		"stash": stash,
 		"weapons": owned_weapons,
+		"loadout": loadout,
 		"weapon_boards": _boards_out(weapon_boards),
 		"scrap": scrap,
 		"facilities": facilities,
@@ -676,8 +785,9 @@ func save_game() -> void:
 		# profile saved mid-raid came back with the weapon gone from the vault
 		# and no raid to account for it.
 		"in_raid": in_raid,
-		"raid_weapon": raid_weapon,
-		"raid_board": raid_board.serialize() if raid_board != null else {},
+		"raid_weapons": raid_weapons,
+		"raid_graphs": _boards_out(raid_graphs),
+		"raid_hand": raid_hand,
 		"raid_bag": raid_bag,
 		"raid_scrap": raid_scrap,
 		"raid_seed": raid_seed,
@@ -718,16 +828,23 @@ func _read_save(path: String) -> bool:
 	owned_weapons.clear()
 	for w in parsed.get("weapons", ["SWORD"]):
 		owned_weapons.append(String(w))
+	# A profile saved before there was a kit to pick has none, which reads as
+	# the rack left where it always was: on its first weapon.
+	loadout = []
+	for w in parsed.get("loadout", []):
+		if not loadout.has(String(w)):
+			loadout.append(String(w))
 	weapon_boards.clear()
 	var graphs = parsed.get("weapon_boards", {})
 	if graphs is Dictionary:
 		for w in graphs:
 			weapon_boards[String(w)] = SkillBoard.deserialize(graphs[w])
 	scrap = int(parsed.get("scrap", 0))
+	# Every facility as the save has it, and one the save says nothing of at
+	# its first level — not at whatever the profile open before this one had.
 	var fac: Dictionary = parsed.get("facilities", {})
 	for k in facilities:
-		if fac.has(k):
-			facilities[k] = int(fac[k])
+		facilities[k] = int(fac[k]) if fac.has(k) else FACILITY_START
 	# A profile saved before there was an opening scene has already played the
 	# game, so it is not shown one now.
 	intro_seen = bool(parsed.get("intro_seen", true))
@@ -737,10 +854,10 @@ func _read_save(path: String) -> bool:
 	if kept is Dictionary:
 		for k in kept:
 			memory[String(k)] = int(kept[k])
+	# The same for the records: one the save does not mention is nought.
 	var rec: Dictionary = parsed.get("records", {})
 	for k in records:
-		if rec.has(k):
-			records[k] = int(rec[k])
+		records[k] = int(rec.get(k, 0))
 	lost_kit = _kit_read(parsed.get("lost_kit", {}))
 	_read_raid(parsed)
 	_read_library(parsed)
@@ -754,10 +871,25 @@ func _read_raid(parsed: Dictionary) -> void:
 	if not bool(parsed.get("in_raid", false)):
 		return
 	in_raid = true
-	raid_weapon = String(parsed.get("raid_weapon", ""))
-	var board = parsed.get("raid_board", {})
-	if board is Dictionary and not (board as Dictionary).is_empty():
-		raid_board = SkillBoard.deserialize(board)
+	var kit = parsed.get("raid_weapons", [])
+	if kit is Array and not (kit as Array).is_empty():
+		var graphs = parsed.get("raid_graphs", {})
+		for w in kit:
+			var id := String(w)
+			if raid_weapons.has(id) or raid_weapons.size() >= MAX_CARRIED:
+				continue
+			raid_weapons.append(id)
+			if graphs is Dictionary and (graphs as Dictionary).has(id):
+				raid_graphs[id] = SkillBoard.deserialize(graphs[id])
+		raid_hand = clampi(int(parsed.get("raid_hand", 0)), 0, raid_weapons.size() - 1)
+	else:
+		# A raid written when one weapon was all a raid carried: a kit of one.
+		var one := String(parsed.get("raid_weapon", ""))
+		if one != "":
+			raid_weapons.append(one)
+			var board = parsed.get("raid_board", {})
+			if board is Dictionary and not (board as Dictionary).is_empty():
+				raid_graphs[one] = SkillBoard.deserialize(board)
 	for k in parsed.get("raid_bag", {}):
 		if Components.is_retired(String(k)):
 			continue
@@ -767,14 +899,15 @@ func _read_raid(parsed: Dictionary) -> void:
 	# stands in for the one it never had.
 	for b in parsed.get("raid_boards", []):
 		_bag_parts(SkillBoard.deserialize(b), raid_bag)
-	if raid_board == null and raid_weapon != "":
-		raid_board = Weapons.make_board(raid_weapon)
-	var carried = parsed.get("raid_carried_boards", {})
-	if carried is Dictionary:
-		for w in carried:
-			raid_carried_boards[String(w)] = SkillBoard.deserialize(carried[w])
-	elif carried is Array:
-		for b in carried:
+	for w in raid_weapons:
+		if not raid_graphs.has(w):
+			raid_graphs[w] = Weapons.make_board(w)
+	var cargo = parsed.get("raid_carried_boards", {})
+	if cargo is Dictionary:
+		for w in cargo:
+			raid_carried_boards[String(w)] = SkillBoard.deserialize(cargo[w])
+	elif cargo is Array:
+		for b in cargo:
 			_bag_parts(SkillBoard.deserialize(b), raid_bag)
 	for w in parsed.get("raid_carried_weapons", []):
 		raid_carried_weapons.append(String(w))

@@ -61,6 +61,7 @@
 		"lost_sub": "The kit stayed behind. What you never took is still in the vault.",
 		"default_exit": "the gate",
 		"weapon": "weapon %s",
+		"weapons": "weapons %s",
 		"scrap": "gold %d",
 		"build_lost": "built onto it and lost: %s",
 		"kit_waits": "It is all lying where you fell. Deploy again and the floor is the one you know.",

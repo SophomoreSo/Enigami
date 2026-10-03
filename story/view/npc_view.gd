@@ -120,6 +120,8 @@ func _focus_point(focus: String) -> Vector2:
 	var player := get_tree().get_first_node_in_group("player") as Node2D
 	if player == null:
 		return me
+	if player is Player:
+		player = (player as Player).vessel()
 	var them := player.global_position + FACE_LIFT
 	match focus:
 		"npc":

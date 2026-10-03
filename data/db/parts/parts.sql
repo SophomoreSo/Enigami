@@ -38,7 +38,8 @@ INSERT INTO codes (code, id) VALUES
 	(31, 'RANGE'),
 	(32, 'KNOCKBACK'),
 	(33, 'ZAP'),
-	(34, 'INVERT'), (35, 'STUN');
+	(34, 'INVERT'), (35, 'STUN'),
+	(36, 'POSSESS');
 
 -- WIRE and BEND carried a flow one cell and did nothing else to it, which
 -- every part already does: any part takes flow on any side and sends it where
@@ -161,12 +162,13 @@ INSERT INTO parts (id, name, category, heat, tag, stack_limit, description) VALU
 	('GRAVITY', 'GRAVITY', 'behavior', 0.7, NULL, NULL, 'The enemy struck is not knocked back but pinned, and every other enemy nearby is dragged onto it. Gathers a room into one place for whatever comes next. Each one stacked drags harder.'),
 	('KNOCKBACK', 'KNOCKBACK', 'behavior', 0.5, NULL, NULL, 'Hits throw the enemy back the way the attack was going. Buys room, but can put it out of reach. Each one stacked throws harder.'),
 	('MANA_DRAIN', 'MANA DRAIN', 'behavior', 0.5, NULL, NULL, 'Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting. Each one stacked drains more.'),
-	('STUN', 'STUN', 'behavior', 0.6, NULL, NULL, 'Struck enemies are stunned: for a moment they stand where they are and cannot attack. Each one stacked holds them longer. Once it wears off, an enemy shrugs off the next stun for a while.');
+	('STUN', 'STUN', 'behavior', 0.6, NULL, NULL, 'Struck enemies are stunned: for a moment they stand where they are and cannot attack. Each one stacked holds them longer. Once it wears off, an enemy shrugs off the next stun for a while.'),
+	('POSSESS', 'POSSESS', 'behavior', 0.9, NULL, NULL, 'Takes over the monster struck for 5 seconds, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, which stays behind, still hunted. Bosses resist it.');
 
 INSERT INTO ports (part_id, side) VALUES
 	('PIERCE', 'E'), ('BLINK', 'E'), ('HOMING', 'E'),
 	('GRAVITY', 'E'), ('KNOCKBACK', 'E'), ('MANA_DRAIN', 'E'),
-	('STUN', 'E');
+	('STUN', 'E'), ('POSSESS', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('PIERCE', 0, 'pierce', 'add', 1),
@@ -175,7 +177,8 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('GRAVITY', 0, 'pull', 'add', 1),
 	('KNOCKBACK', 0, 'knockback', 'add', 1),
 	('MANA_DRAIN', 0, 'mana_drain', 'add', 1),
-	('STUN', 0, 'stun', 'add', 0.8);
+	('STUN', 0, 'stun', 'add', 0.8),
+	('POSSESS', 0, 'possess', 'add', 5);
 
 
 -- ---- flow ---------------------------------------------------------------------

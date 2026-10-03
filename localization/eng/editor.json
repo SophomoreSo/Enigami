@@ -64,6 +64,7 @@
 		"shatter": "x%.1f on chilled",
 		"mana_drain": "+%.0f mana a hit",
 		"stun": "stuns %.1fs",
+		"possess": "possesses %.0fs",
 		"heal": "heals %.0f",
 		"cleanse": "cleanses",
 		"repel": "pushes away",

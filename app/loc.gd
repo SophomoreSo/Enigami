@@ -225,7 +225,7 @@ func pixel_size(want: int) -> int:
 	if font_path() == "":
 		return want
 	var n := face_size()
-	return maxi(n, (want / n) * n)
+	return maxi(n, want - want % n)
 
 ## The size to draw this particular line at, which depends on the face that
 ## will end up drawing it rather than on the language being played.
@@ -243,7 +243,7 @@ func text_size(text: String, want: int) -> int:
 	var n := face_for(text)
 	if n <= 0 or want % n == 0:
 		return want
-	return maxi(n, (want / n) * n)
+	return maxi(n, want - want % n)
 
 ## The size the face that will draw `text` was drawn at, or 0 when the bundled
 ## Latin faces spell all of it and nothing needs to move.

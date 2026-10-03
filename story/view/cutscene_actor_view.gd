@@ -53,8 +53,8 @@ func _wanted() -> String:
 		return who.forced_anim
 	return "run" if absf(who.velocity.x) > WALK_THRESHOLD else "idle"
 
-func _play(name: String) -> void:
-	if sprite.sprite_frames == null or not sprite.sprite_frames.has_animation(name):
-		name = "idle"
-	if sprite.animation != name or not sprite.is_playing():
-		sprite.play(name)
+func _play(anim: String) -> void:
+	if sprite.sprite_frames == null or not sprite.sprite_frames.has_animation(anim):
+		anim = "idle"
+	if sprite.animation != anim or not sprite.is_playing():
+		sprite.play(anim)

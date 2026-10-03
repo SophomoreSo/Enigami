@@ -178,6 +178,7 @@ func _grow_foliage() -> void:
 				taken[start + Vector2i(k, 0)] = true
 			count += 1
 			var patch := Foliage.of(kind)
+			@warning_ignore("integer_division")
 			patch.grow(long * Room.CELL / Foliage.S, rng.randi())
 			patch.position = Vector2(start.x * Room.CELL, start.y * Room.CELL)
 			patch.z_index = -1

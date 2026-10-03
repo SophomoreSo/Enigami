@@ -36,6 +36,8 @@ var knockback: int = 0             ## the struck enemy is thrown on along the at
 var shatter: int = 0               ## breaks the frost on a slowed enemy, for far more damage
 var mana_drain: int = 0            ## every connection pays the caster back
 var stun: float = 0.0              ## seconds the struck enemy stands stunned
+## Seconds the player's hands go into the monster struck (`Player.possess`).
+var possess: float = 0.0
 ## What an INVERT makes of the part before it (the `inversions` rows), each
 ## landing on the struck enemy once the hit has: health given back, every burn,
 ## chill and stun it was carrying ended — though not what this same hit brings
@@ -79,6 +81,7 @@ func clone() -> Payload:
 	p.shatter = shatter
 	p.mana_drain = mana_drain
 	p.stun = stun
+	p.possess = possess
 	p.heal = heal
 	p.cleanse = cleanse
 	p.repel = repel

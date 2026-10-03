@@ -88,11 +88,11 @@ func _process(delta: float) -> void:
 	_curtain.color = Color(0, 0, 0, clampf(fade, 0.0, 1.0))
 	queue_redraw()
 
-func _on_cue(name: StringName, data: Dictionary) -> void:
-	if name == &"scene_staged":
+func _on_cue(cue: StringName, data: Dictionary) -> void:
+	if cue == &"scene_staged":
 		_settle()
 		return
-	if name != &"scene_direction":
+	if cue != &"scene_direction":
 		return
 	var d = data.get("direction", {})
 	if d is Dictionary:

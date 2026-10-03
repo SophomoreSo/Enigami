@@ -87,34 +87,34 @@ func _process(delta: float) -> void:
 ## Whether this actor's art has an animation of that name. The atlas characters
 ## have idle, run and hit; the game's own may have more — see
 ## `SkinnedCharacter.ANIMS`.
-func has_anim(name: String) -> bool:
-	return sprite != null and sprite.sprite_frames != null and sprite.sprite_frames.has_animation(name)
+func has_anim(anim: String) -> bool:
+	return sprite != null and sprite.sprite_frames != null and sprite.sprite_frames.has_animation(anim)
 
 ## Plays `name`, or freezes on `frame` of it when `frame` is not negative — how
 ## an airborne pose is held out of a run cycle for art that has no jump. An
 ## animation that does not loop stays on its last frame once it has run, until
 ## something else is asked for.
-func play(name: String, speed: float = 1.0, frame: int = -1) -> void:
+func play(anim: String, speed: float = 1.0, frame: int = -1) -> void:
 	if sprite == null or sprite.sprite_frames == null:
 		return
-	if not sprite.sprite_frames.has_animation(name):
-		name = "idle"
+	if not sprite.sprite_frames.has_animation(anim):
+		anim = "idle"
 	if frame >= 0:
-		sprite.animation = name
-		sprite.frame = mini(frame, sprite.sprite_frames.get_frame_count(name) - 1)
+		sprite.animation = anim
+		sprite.frame = mini(frame, sprite.sprite_frames.get_frame_count(anim) - 1)
 		sprite.pause()
 		return
 	sprite.speed_scale = speed
-	if sprite.animation != name:
-		sprite.play(name)
+	if sprite.animation != anim:
+		sprite.play(anim)
 		return
 	if sprite.is_playing():
 		return
 	# Stopped on this animation: paused on a held frame, or a one-shot that has
 	# run out. Only the first is started again.
-	var last := sprite.sprite_frames.get_frame_count(name) - 1
-	if sprite.sprite_frames.get_animation_loop(name) or sprite.frame < last:
-		sprite.play(name)
+	var last := sprite.sprite_frames.get_frame_count(anim) - 1
+	if sprite.sprite_frames.get_animation_loop(anim) or sprite.frame < last:
+		sprite.play(anim)
 
 ## Chill and burn read as a multiply; a hit needs to blow the whole silhouette
 ## out to white, which a modulate cannot do, so the shader blends instead.

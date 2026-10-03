@@ -200,6 +200,7 @@ func _blades(rng: RandomNumberGenerator) -> void:
 ## A smooth roll from 0 to 1 and back along the patch, a knot every SWELL pixels.
 func _swell(rng: RandomNumberGenerator) -> PackedFloat32Array:
 	var knots := PackedFloat32Array()
+	@warning_ignore("integer_division")
 	for i in span / SWELL + 2:
 		knots.append(rng.randf())
 	var out := PackedFloat32Array()
@@ -250,6 +251,7 @@ func _bush(rng: RandomNumberGenerator) -> void:
 	_top = rng.randi_range(shortest, tallest)
 	_middle = float(span - 1) * 0.5
 	var crown := {}
+	@warning_ignore("integer_division")
 	var n := rng.randi_range(3, 4) + span / 12
 	for i in n:
 		var along := (float(i) + 0.5) / float(n)

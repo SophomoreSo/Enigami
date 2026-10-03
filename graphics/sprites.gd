@@ -128,14 +128,14 @@ func _collect(prefix: String) -> Array:
 		out.append(t)
 	return out
 
-func _add_anim(sf: SpriteFrames, name: String, textures: Array, fps: float, loop: bool) -> void:
+func _add_anim(sf: SpriteFrames, anim: String, textures: Array, fps: float, loop: bool) -> void:
 	if textures.is_empty():
 		return
-	sf.add_animation(name)
-	sf.set_animation_speed(name, fps)
-	sf.set_animation_loop(name, loop)
+	sf.add_animation(anim)
+	sf.set_animation_speed(anim, fps)
+	sf.set_animation_loop(anim, loop)
 	for t in textures:
-		sf.add_frame(name, t)
+		sf.add_frame(anim, t)
 
 ## Every atlas character resolves to the same three animation names, so callers
 ## never have to know which of the pack's two naming schemes a monster uses. A

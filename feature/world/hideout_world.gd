@@ -2,9 +2,13 @@ class_name HideoutWorld
 extends World
 
 ## Between raids, as a place rather than a screen. The player stands in a room
-## and walks to what they want: the rack to pick the weapon they will carry, the
-## counter to spend scrap, the gate to go. Each is a `Station` — walk up, press
-## interact, and that station's panel opens over the room.
+## and walks to what they want: the rack to pick the weapons they will carry,
+## the counter to spend scrap, the gate to go. Each is a `Station` — walk up,
+## press interact, and that station's panel opens over the room.
+##
+## The kit is up to three weapons (`GameState.carried`), and the player in the
+## room is holding it: the keys that change weapon in a raid change it here,
+## and the one in hand is the one whose graph TAB opens.
 ##
 ## The weapon's graph is not a station. TAB opens it from anywhere on the floor,
 ## the key that opens assembly in a raid, and the rack's BUILD opens it too. A
@@ -29,7 +33,9 @@ signal station_used(id: String)
 signal edit_requested()
 ## Something the room wants to say, for the HUD to toast. The raid says things
 ## the same way (`Raid.noticed`), and this is the same kind of thing: an answer
-## to a press that would otherwise be silence.
+## to a press that would otherwise be silence. Nothing in the room says anything
+## yet, but the view listens for it, so it stays.
+@warning_ignore("unused_signal")
 signal noticed(text: String)
 ## The panel over the room opened or closed. The room keeps standing either way.
 signal panel_changed(id: String)
@@ -57,8 +63,9 @@ var open_panel: String = ""
 ## the player is held under it just as under a panel. Opened by key from the
 ## floor it used to hold nobody, so the player walked the room behind it and
 ## the game kept the mouse for their aim.
-## The weapon the kit is being built around. The rack writes it, the editor
-## reads it, and the gate carries it.
+## The weapon in hand: the one the rack was left on, or the player has switched
+## to since. The editor opens its graph, and the gate walks out holding it — with
+## the rest of the kit beside it.
 var weapon_id: String = ""
 
 func _ready() -> void:
@@ -77,7 +84,8 @@ func _ready() -> void:
 	}, {}, 20260920)
 
 	if weapon_id == "" or not GameState.owned_weapons.has(weapon_id):
-		weapon_id = GameState.owned_weapons[0] if GameState.owned_weapons.size() > 0 else "SWORD"
+		var kit := GameState.carried()
+		weapon_id = kit[0] if not kit.is_empty() else "SWORD"
 
 	player = Player.new()
 	player.collision_layer = 2
@@ -85,6 +93,11 @@ func _ready() -> void:
 	add_child(player)
 	player.room = room
 	refresh_kit()
+	# Switched on the floor, with the keys a raid switches with: the weapon in
+	# hand is what the rack is on now.
+	player.weapon_switched.connect(func(weapon: String) -> void:
+		weapon_id = weapon
+		_refresh_gate())
 	# Nothing here can hurt anybody, and a player who walked in wounded should
 	# not be reading their health bar while they shop. The medbay is what heals
 	# between raids; this is only the hideout refusing to be a fight.
@@ -130,6 +143,7 @@ func _floor_at(x: int) -> int:
 	for y in range(Room.H - 1, 0, -1):
 		if not room.is_solid(x, y) and not room.is_solid(x, y - 1):
 			return y
+	@warning_ignore("integer_division")
 	return int(Room.H / 2)
 
 ## The gate is shut until there is a weapon to carry through it — one the
@@ -151,14 +165,30 @@ func _refresh_gate() -> void:
 func armed_board() -> SkillBoard:
 	return GameState.weapon_board(weapon_id)
 
-## Puts the kit back on the player in the room: the weapon the rack was left on
-## and the graph on it. Nothing in here fights, but the HUD over the room reads
-## the player rather than the profile, so anything that changes the kit — the
-## rack, a graph coming back from the editor — comes through here afterwards.
+## Puts the kit back on the player in the room: every weapon the gate would
+## carry and the graph on each, with the one the rack was left on in hand.
+## Nothing in here fights, but the HUD over the room reads the player rather
+## than the profile, so anything that changes the kit — the rack, a graph coming
+## back from the editor — comes through here afterwards.
+##
+## The graphs are the profile's own, not copies: see `armed_board`.
 func refresh_kit() -> void:
 	if player == null or not is_instance_valid(player):
 		return
-	player.setup(weapon_id, armed_board())
+	var kit := GameState.carried()
+	# A weapon left out of the kit is not in hand any more: the hand goes to one
+	# that is still carried.
+	if not kit.has(weapon_id) and GameState.owned_weapons.has(weapon_id) and not kit.is_empty():
+		weapon_id = kit[0]
+	# The rack can be on a weapon the vault has lost, which is what shuts the
+	# gate, and then that is all there is to show the player holding.
+	if not kit.has(weapon_id):
+		player.setup(weapon_id, armed_board())
+		return
+	var graphs: Array = []
+	for w in kit:
+		graphs.append(GameState.weapon_board(w))
+	player.setup_kit(kit, graphs, kit.find(weapon_id))
 
 func _on_station_used(s: Station) -> void:
 	if open_panel != "":
@@ -210,12 +240,26 @@ func _hold() -> void:
 		player.velocity.x = 0.0
 	player.input_locked = held
 
-## The weapon the rack was last left on. Changing it re-reads the gate, since a
-## weapon the vault no longer has is a raid nobody can be let into.
+## Takes `id` in hand: the rack is left on it, and it is carried — in a free
+## slot, or in the slot of the weapon that was in hand when the kit is full. A
+## weapon the vault has lost can still be what the rack is on, but it is not
+## carried, and it shuts the gate: that is a raid nobody can be let into.
 func set_weapon(id: String) -> void:
+	var was := weapon_id
 	weapon_id = id
+	GameState.carry(id, was)
 	refresh_kit()
 	_refresh_gate()
+
+## Leaves `id` on the rack: out of the kit, with the hand on a weapon still
+## carried. Not the last one — a raid is not walked into empty-handed. Whether
+## it was left.
+func leave_weapon(id: String) -> bool:
+	if not GameState.leave_behind(id):
+		return false
+	refresh_kit()
+	_refresh_gate()
+	return true
 
 ## Whether the player is being held still by something on screen. The view asks
 ## before it lets a key through, the same way the sandbox does while assembling.

@@ -57,10 +57,10 @@ func _draw() -> void:
 	_draw_skill(vp)
 	_draw_banners(vp)
 
-func _text(at: Vector2, s: String, col: Color, size: int = SIZE,
+func _text(at: Vector2, s: String, col: Color, font_size: int = SIZE,
 		align: HorizontalAlignment = HORIZONTAL_ALIGNMENT_LEFT, width: float = -1.0) -> void:
-	draw_string(FONT, at + Vector2(2, 2), s, align, width, size, Color(SHADOW, SHADOW.a * col.a))
-	draw_string(FONT, at, s, align, width, size, col)
+	draw_string(FONT, at + Vector2(2, 2), s, align, width, font_size, Color(SHADOW, SHADOW.a * col.a))
+	draw_string(FONT, at, s, align, width, font_size, col)
 
 ## The corner of a tape being played back: a recording light and the counter.
 func _draw_tape() -> void:
@@ -71,6 +71,7 @@ func _draw_tape() -> void:
 	draw_colored_polygon(PackedVector2Array([tip + Vector2(-10, -7), tip + Vector2(0, 0),
 		tip + Vector2(-10, 7)]), INK)
 	var t := int(screen.elapsed)
+	@warning_ignore("integer_division")
 	_text(Vector2(130, 30), "%02d:%02d:%02d" % [t / 3600, (t / 60) % 60, t % 60], DIM)
 
 ## One figure per guard, struck through once they are down.
@@ -155,7 +156,7 @@ func _draw_banners(vp: Vector2) -> void:
 			_text(at + Vector2(44, 12), Loc.t("hud.dragon.rewind"), INK, BIG)
 
 ## Neon: the colour laid over a pink ghost of itself, a little off register.
-func _neon(at: Vector2, s: String, col: Color, size: int) -> void:
+func _neon(at: Vector2, s: String, col: Color, font_size: int) -> void:
 	var w := get_viewport_rect().size.x
-	draw_string(FONT, at + Vector2(3, 3), s, HORIZONTAL_ALIGNMENT_CENTER, w, size, Color(PINK, col.a * 0.8))
-	draw_string(FONT, at, s, HORIZONTAL_ALIGNMENT_CENTER, w, size, col)
+	draw_string(FONT, at + Vector2(3, 3), s, HORIZONTAL_ALIGNMENT_CENTER, w, font_size, Color(PINK, col.a * 0.8))
+	draw_string(FONT, at, s, HORIZONTAL_ALIGNMENT_CENTER, w, font_size, col)

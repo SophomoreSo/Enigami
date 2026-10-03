@@ -79,6 +79,10 @@
 		"name": "STUN",
 		"desc": "Struck enemies are stunned: for a moment they stand where they are and cannot attack. Each one stacked holds them longer. Once it wears off, an enemy shrugs off the next stun for a while."
 	},
+	"POSSESS": {
+		"name": "POSSESS",
+		"desc": "Takes over the monster struck for 5 seconds, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, which stays behind, still hunted. Bosses resist it."
+	},
 	"DUPLICATE": {
 		"name": "DUPLICATE x3",
 		"desc": "Produces the same result three times at full damage. Generates a lot of heat."

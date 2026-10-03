@@ -233,6 +233,7 @@ func _ready() -> void:
 	await _the_reach()
 	await _the_faces()
 	await _hit_is_use()
+	await _the_weapon_key()
 	await _another_window()
 	await _the_drawer()
 	Touch.set_mode(was_mode)
@@ -264,11 +265,15 @@ func _layout() -> void:
 				unknown.append(a)
 	check(unknown.is_empty(), "every control presses an action the game has (%s)" % str(unknown))
 	# Movement is the stick's, and it presses all four itself — and the sprint,
-	# which is the same stick dragged far out of its ring.
+	# which is the same stick dragged far out of its ring. Changing weapon is one
+	# key on the glass, the next one round: a slot's own key and the one for the
+	# weapon before are a desk's, where there are keys to spare.
 	var missing: Array = []
 	for entry in Controls.ACTIONS:
 		var a := String(entry[0])
 		if a.begins_with("move_") or a == "sprint":
+			continue
+		if a.begins_with("weapon_") and a != "weapon_next":
 			continue
 		if control_of(a).is_empty():
 			missing.append(a)
@@ -1109,6 +1114,77 @@ func _hit_is_use() -> void:
 	touch(0, spot("attack"), false)
 	await frames(3)
 	check(not Input.is_action_pressed("interact") and not pad.use_near, "until it lifts, and then it is HIT again")
+
+## --- the weapon key ---------------------------------------------------------
+
+## One key on the glass changes weapon: the next one round. It is there only
+## while there is a next one — with a kit of one it would be a key that did
+## nothing — and it stands with the screens, clear of the hand.
+func _the_weapon_key() -> void:
+	var key := control_of("weapon_next")
+	check(not key.is_empty() and int(key["kind"]) == TouchPad.Kind.KEY and key.has("rect"),
+		"the console has a key for the next weapon, a plate like the screens'")
+	if key.is_empty():
+		return
+	player.global_position = raid.room.spawn_point()
+	await frames(4)
+	check(pad.face == TouchPad.Face.PLAY and player.weapons.size() == 1 and pad.kit == 1 and not pad.shown(key),
+		"with one weapon carried it is not on the glass (%d carried)" % pad.kit)
+	touch(0, spot("weapon_next"), true)
+	await frames(2)
+	check(not Input.is_action_pressed("weapon_next"), "and a thumb where it would stand presses nothing")
+	touch(0, spot("weapon_next"), false)
+	await frames(2)
+
+	# A kit of three, as a raid walked into with one would have it.
+	var own: SkillBoard = player.runner.board
+	var kit := ["SWORD", "GUN", "ROCK"]
+	player.setup_kit(kit, [own, Weapons.make_board("GUN"), Weapons.make_board("ROCK")], 0)
+	await frames(3)
+	check(pad.kit == 3 and pad.shown(key), "with a kit, it is")
+	check(Controls.word_for("weapon_next") != "" and TouchPad.label_of(key) == Controls.word_for("weapon_next"),
+		"and says what it does (%s)" % TouchPad.label_of(key))
+	for want: String in ["GUN", "ROCK", "SWORD"]:
+		touch(0, spot("weapon_next"), true)
+		await frames(2)
+		touch(0, spot("weapon_next"), false)
+		await frames(3)
+		check(player.weapon_id == want, "a tap on it puts the next weapon in hand (%s)" % player.weapon_id)
+	# Not on the map's face, or a conversation's: only where the weapon is used.
+	raid.set_reading_map(true)
+	await frames(3)
+	check(pad.face == TouchPad.Face.SCREEN and not pad.shown(key), "it is not among the keys a screen keeps")
+	raid.set_reading_map(false)
+	await frames(3)
+	# The one weapon back, for everything after this.
+	player.setup("SWORD", own)
+	await frames(3)
+
+	# The key out of a monster: on the glass only while the player is in one,
+	# beside the weapon key, and a tap on it steps out.
+	var out := control_of("step_out")
+	check(not out.is_empty() and out.has("rect") and not pad.shown(out),
+		"the key out of a monster is not on the glass while the player is in none")
+	var prey := Enemy.new()
+	prey.setup("CRAWLER", 1, "")
+	prey.room = raid.room
+	prey.collision_layer = 4
+	prey.collision_mask = 1
+	raid.room.add_child(prey)
+	prey.global_position = player.global_position + Vector2(160, 0)
+	prey.max_health = 99999.0
+	prey.health = 99999.0
+	await frames(2)
+	player.possess(prey, 30.0)
+	await frames(3)
+	check(pad.possessing and pad.shown(out), "inside a monster, it is (%s)" % TouchPad.label_of(out))
+	touch(0, spot("step_out"), true)
+	await frames(2)
+	touch(0, spot("step_out"), false)
+	await frames(3)
+	check(player.possessing == null and not pad.shown(out), "and a tap on it steps out")
+	prey.queue_free()
+	await frames(2)
 
 ## --- the window is not the screen -------------------------------------------
 

@@ -387,7 +387,10 @@ static func _effect(row: Dictionary, shape: Payload) -> Variant:
 				or not typeof(now) in [TYPE_FLOAT, TYPE_INT] or (whole and float(per) != floorf(float(per))):
 			return "%s %s by %s more per stack, which only an add or a multiply to a number can grow by" \
 				% [op, field, str(per)]
-		made["per_stack"] = int(per) if whole else float(per)
+		if whole:
+			made["per_stack"] = int(per)
+		else:
+			made["per_stack"] = float(per)
 	return made
 
 ## What can be done to a field holding what `now` holds, for a fault to say.

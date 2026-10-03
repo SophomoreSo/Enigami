@@ -271,9 +271,9 @@ func _draw() -> void:
 	_px.text_centered(HUD_CORNER.position + Vector2(0, HUD_CORNER.size.y * 0.5 + 5.0),
 		Loc.t("controls.arrange.hud"), CORNER_INK, HUD_CORNER.size.x)
 	for i in TouchPad.CONTROLS.size():
-		var c: Dictionary = TouchPad.CONTROLS[i]
-		if TouchPad.movable(c) and i != _dragging:
-			TouchPad.paint_button(_px, TouchPad.placed(c, _working), s, false, true)
+		var each: Dictionary = TouchPad.CONTROLS[i]
+		if TouchPad.movable(each) and i != _dragging:
+			TouchPad.paint_button(_px, TouchPad.placed(each, _working), s, false, true)
 	if _dragging < 0:
 		return
 	# The one being carried, lit, and red with a red edge round it wherever it
