@@ -45,12 +45,14 @@ var weapon_boards: Dictionary = {}
 ## lost on a raid and not walked back out yet — and `carried` leaves those out.
 var loadout: Array[String] = []
 var scrap: int = 0
+## The level every facility is at in a profile that has built nothing.
+const FACILITY_START := 1
 var facilities: Dictionary = {
-	"workbench": 1,  ## skill board size
-	"vault": 1,      ## stash capacity per component
-	"forge": 1,      ## craft components from scrap
-	"scrapper": 1,   ## scrap value when breaking things down
-	"medbay": 1,     ## max health and between-raid healing
+	"workbench": FACILITY_START,  ## skill board size
+	"vault": FACILITY_START,      ## stash capacity per component
+	"forge": FACILITY_START,      ## craft components from scrap
+	"scrapper": FACILITY_START,   ## scrap value when breaking things down
+	"medbay": FACILITY_START,     ## max health and between-raid healing
 }
 
 ## --- raid state -------------------------------------------------------------
@@ -170,6 +172,11 @@ func _new_profile() -> void:
 	stash.clear()
 	_forget_raid()
 	lost_kit = {}
+	# The hideout as a new game finds it. Left alone, the facilities were
+	# whatever the profile open before this one had made of them, so a new game
+	# started with somebody else's workbench.
+	for key in facilities:
+		facilities[key] = FACILITY_START
 	records = {"raids": 0, "escapes": 0, "deaths": 0, "kills": 0, "best_haul": 0}
 	intro_seen = false
 	memory = {}
@@ -833,10 +840,11 @@ func _read_save(path: String) -> bool:
 		for w in graphs:
 			weapon_boards[String(w)] = SkillBoard.deserialize(graphs[w])
 	scrap = int(parsed.get("scrap", 0))
+	# Every facility as the save has it, and one the save says nothing of at
+	# its first level — not at whatever the profile open before this one had.
 	var fac: Dictionary = parsed.get("facilities", {})
 	for k in facilities:
-		if fac.has(k):
-			facilities[k] = int(fac[k])
+		facilities[k] = int(fac[k]) if fac.has(k) else FACILITY_START
 	# A profile saved before there was an opening scene has already played the
 	# game, so it is not shown one now.
 	intro_seen = bool(parsed.get("intro_seen", true))
@@ -846,10 +854,10 @@ func _read_save(path: String) -> bool:
 	if kept is Dictionary:
 		for k in kept:
 			memory[String(k)] = int(kept[k])
+	# The same for the records: one the save does not mention is nought.
 	var rec: Dictionary = parsed.get("records", {})
 	for k in records:
-		if rec.has(k):
-			records[k] = int(rec[k])
+		records[k] = int(rec.get(k, 0))
 	lost_kit = _kit_read(parsed.get("lost_kit", {}))
 	_read_raid(parsed)
 	_read_library(parsed)

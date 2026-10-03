@@ -4,6 +4,10 @@ extends Node2D
 ## after it, one graph per weapon and none without one. Both are the profile's
 ## now, so they hold for every caller and not only for a panel's buttons — and
 ## this is what says so, with no renderer.
+##
+## And one the profile had not been keeping: a profile started over starts from
+## nothing. What the last one made of the hideout — a workbench grown, a vault
+## deepened — is not handed on to the next.
 
 var fails := 0
 
@@ -89,5 +93,71 @@ func _ready() -> void:
 			and not (GameState.lost_kit.get("weapons", []) as Array).has("ROCK"),
 		"the drop holds the rock's graph and not the rock (%s)" % str(GameState.lost_kit.get("weapons", [])))
 
+	_started_over()
+
 	print("[FORGE] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)
+
+## --- a profile started over starts from nothing --------------------------------
+
+## Every facility at its highest level, as a profile that has built everything.
+func built_up() -> void:
+	for key in GameState.facilities:
+		GameState.facilities[key] = int(GameState.FACILITY_INFO[key]["max"])
+
+## The facilities that are not at the level a new profile has them at.
+func built() -> Array:
+	var out: Array = []
+	for key in GameState.facilities:
+		if int(GameState.facilities[key]) != GameState.FACILITY_START:
+			out.append(String(key))
+	return out
+
+## However a profile is started — wiped, its slot emptied, an empty slot opened
+## after another — the hideout is as a new game finds it, and a save brings back
+## its own. The facilities used to be left as whatever profile was open before
+## had them, so a new game began with that one's workbench.
+func _started_over() -> void:
+	GameState.reset_profile()
+	var kept := GameState.slot
+	var other := kept % GameState.SAVE_SLOTS + 1
+	GameState.delete_slot(other)
+	check(built().is_empty() and GameState.board_size() == Vector2i(GameState.weapon_board("SWORD").width,
+			GameState.weapon_board("SWORD").height),
+		"(a new profile's facilities are at their first level, and its boards on that workbench's grid)")
+
+	built_up()
+	GameState.reset_profile()
+	check(built().is_empty(), "wiping a profile puts every facility back to its first level (still built: %s)" % str(built()))
+
+	# A built-up profile in one slot, and an empty slot opened after it.
+	built_up()
+	GameState.save_game()
+	GameState.load_slot(other)
+	check(built().is_empty(), "an empty slot opened after a built-up profile starts from nothing (still built: %s)" % str(built()))
+	check(GameState.board_size() == Vector2i(GameState.weapon_board("SWORD").width, GameState.weapon_board("SWORD").height),
+		"with its boards on the grid its own workbench has (%s)" % str(GameState.board_size()))
+	GameState.load_slot(kept)
+	check(built().size() == GameState.facilities.size(),
+		"and the built-up profile's save brings its own levels back (%s)" % str(GameState.facilities))
+
+	# A save that says nothing of a facility — one written before the facility
+	# was — has it at its first level, not at the last profile's.
+	var path := GameState.slot_path(kept)
+	var saved: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(path))
+	(saved["facilities"] as Dictionary).erase("medbay")
+	(saved["records"] as Dictionary).erase("kills")
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string(JSON.stringify(saved))
+	f.close()
+	GameState.records["kills"] = 99
+	GameState.load_slot(kept)
+	check(int(GameState.facilities["medbay"]) == GameState.FACILITY_START
+			and int(GameState.facilities["workbench"]) == int(GameState.FACILITY_INFO["workbench"]["max"]),
+		"a facility a save does not mention is at its first level, and the ones it does are as saved (%s)" % str(GameState.facilities))
+	check(int(GameState.records["kills"]) == 0, "nor is a record it does not mention the last profile's (%d)" % int(GameState.records["kills"]))
+
+	# Emptying the slot being played leaves a new profile in its place.
+	GameState.delete_slot(kept)
+	check(built().is_empty(), "emptying the slot being played leaves a profile that has built nothing (still built: %s)" % str(built()))
+	GameState.delete_slot(other)

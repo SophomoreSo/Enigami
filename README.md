@@ -64,7 +64,7 @@ godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MA
 godot res://tests/feature/stack_test.tscn   # parts stack: what each one more is worth, where a part stops, laser speed, and HOMING round a wall
 godot res://tests/feature/invert_hit_test.tscn # a stun, a heal, a cleanse, a push away and a haul back, as they land
 godot res://tests/feature/reach_test.tscn   # how far an attack goes when the stick says how far
-godot res://tests/feature/forge_test.tscn   # the forge's price, and a weapon is its graph: the profile's rules
+godot res://tests/feature/forge_test.tscn   # the forge's price, a weapon is its graph, and a profile started over starts from nothing: the profile's rules
 godot res://tests/graphics/share_code_test.tscn # sharing a board, and what a pasted code costs
 godot res://tests/circuit/ttl_test.tscn     # a pulse's life, and what bounds a loop
 godot res://tests/feature/charge_test.tscn  # holding the cast button buys life for mana
