@@ -4,6 +4,12 @@ extends Actor
 ## One monster. Movement comes from its AI kind and its attacks come from a
 ## SkillBoard run through the same SkillRunner the player uses. What it looks
 ## like is `graphics/views/enemy_view.gd`, which reads the state below.
+##
+## A monster can be possessed (`Player.possess`): while it is, its `pilot` is
+## the player, it is on their side, and it does what their input line says
+## rather than what its own mind would — walks and jumps at its own pace, and
+## attacks with its own attack when they press. The rest of the monsters take
+## it for one of them until it has attacked (`revealed`), and hunt it after.
 
 const GRAVITY := 1700.0
 
@@ -60,6 +66,29 @@ var _bob: float = 0.0
 var _gravity_shots: bool = false
 var _danger: int = 1
 
+## A possessed monster, under the player's keys. The least pace it walks at,
+## so a monster that never walks of its own accord — a Sentry — still can,
+## what a jump lifts it by, and for anything that flies, the beat of a flap and
+## the slow fall between them.
+const PILOTED_PACE := 110.0
+const PILOTED_JUMP := -560.0
+const PILOTED_FLAP := -360.0
+const PILOTED_FALL := 700.0
+## A monster after one thing turns on another it can see in front of it only
+## when that one is this much nearer: nearer by a little is not worth a turn,
+## and two things the same distance off would have it swinging between them.
+const SWITCH_NEARER := 0.6
+
+## The player whose hands are in this monster, or null while it runs its own
+## mind — see `Player.possess`.
+var pilot: Player = null
+## Whether a possessed monster has shown itself: until it attacks it passes for
+## one of them, and none of them hunts it.
+var revealed: bool = false
+## Whether its pilot is attacking with its own attack, this frame. The pilot
+## says so (`Player._attack_as_monster`).
+var attacking: bool = false
+
 ## Rolled onto a monster to make it more than its kind. The effects are applied
 ## below; what each one looks like is the graphics module's business.
 const MODIFIERS := ["swift", "armored", "volatile", "glacial"]
@@ -113,9 +142,16 @@ func _make_runner() -> void:
 	runner.fired.connect(_on_fired)
 
 func _on_fired(p: Payload) -> void:
-	if target == null or not is_instance_valid(target):
-		return
-	var aim: Vector2 = (target.global_position - global_position).normalized()
+	var aim: Vector2
+	if piloted():
+		# Where the pilot is pointing — and an attack is the end of passing for
+		# one of them.
+		aim = pilot.aim
+		revealed = true
+	else:
+		if target == null or not is_instance_valid(target):
+			return
+		aim = (target.global_position - global_position).normalized()
 	if modifier == "glacial" and not p.elements.has("ICE"):
 		p.elements.append("ICE")
 	Attacks.spawn(p, {
@@ -128,6 +164,13 @@ func _process(delta: float) -> void:
 	_bob += delta
 	if telegraph > 0.0:
 		telegraph -= delta
+	if piloted():
+		# The pilot's hands, not its own mind: it attacks when they say, with
+		# its own attack, and a stun holds it as it holds any monster.
+		runner.set_active(attacking and not stunned())
+		if not stunned():
+			runner.update(delta)
+		return
 	_acquire()
 	var want_attack := aggro and target != null and _in_range()
 	if def.get("boss", false):
@@ -160,29 +203,139 @@ func _face_target() -> void:
 ## Whether the target is on the side this monster is looking at. A boss is
 ## never crept up on: its room is its own, and it knows who is in it.
 func _in_front() -> bool:
+	return _faces(target.global_position)
+
+## Whether `at` is on the side this monster is looking at — or right on its
+## back, which is being stood on rather than crept up on.
+func _faces(at: Vector2) -> bool:
 	if def.get("boss", false):
 		return true
-	return (target.global_position.x - global_position.x) * float(facing) >= -BLIND_MARGIN
+	return (at.x - global_position.x) * float(facing) >= -BLIND_MARGIN
 
 ## Which movement script this monster runs. A view reads it to decide what an
 ## airborne pose or a hover should look like.
 func ai() -> String:
 	return String(def["ai"])
 
+## --- possessed -------------------------------------------------------------
+
+## Whether the player's hands are in this monster.
+func piloted() -> bool:
+	return pilot != null and is_instance_valid(pilot)
+
+## The player's hands go in: it is on their side, sees nobody and hunts nobody,
+## and a stun it was standing in is over, so it answers them at once.
+func take_pilot(p: Player) -> void:
+	pilot = p
+	team = 0
+	revealed = false
+	attacking = false
+	aggro = false
+	target = null
+	telegraph = 0.0
+	runner.ttl_bonus = 0
+	runner.set_active(false)
+	if stunned():
+		stun_time = 0.0
+
+## The player's hands come out: it is one of them again, and stands stunned for
+## `stun_for` — however recently it came round from the last stun.
+func release_pilot(stun_for: float) -> void:
+	pilot = null
+	team = 1
+	revealed = false
+	attacking = false
+	aggro = false
+	target = null
+	runner.set_active(false)
+	velocity.x = 0.0
+	stun_guard = 0.0
+	stun(stun_for)
+
+## Mana a MANA DRAIN hit gives back: a possessed monster's goes to its pilot.
+func gain_mana(amount: float) -> void:
+	if piloted():
+		pilot.gain_mana(amount)
+
+## Walks and jumps as the pilot's line says, at its own pace — or, for one that
+## flies, flaps.
+func _ai_piloted(delta: float, spd: float) -> void:
+	var s := pilot.input.state()
+	var pace := maxf(spd, PILOTED_PACE * speed_scale())
+	if s.sprint:
+		pace *= Player.SPRINT_SPEED / Player.RUN_SPEED
+	if s.move != 0.0:
+		face(int(signf(s.move)))
+	face(s.turn)
+	if ai() == "flyer":
+		velocity.x = move_toward(velocity.x, s.move * pace, 1400.0 * delta)
+		velocity.y = minf(velocity.y + PILOTED_FALL * delta, 300.0)
+		if s.jump_pressed:
+			velocity.y = PILOTED_FLAP
+		return
+	_fall(delta)
+	velocity.x = move_toward(velocity.x, s.move * pace, 1800.0 * delta)
+	if s.jump_pressed and is_on_floor():
+		velocity.y = PILOTED_JUMP
+	if s.jump_released and velocity.y < 0.0:
+		velocity.y *= 0.45
+
+## --- hunting ----------------------------------------------------------------
+
+## Whether `a` is something a monster hunts: whatever stands for the player —
+## their own body — or a monster the player is in that has shown itself.
+func _hunts(a) -> bool:
+	if a == null or not is_instance_valid(a) or a == self or (a as Actor).dead:
+		return false
+	if (a as Node).is_in_group("player"):
+		return true
+	return a is Enemy and (a as Enemy).piloted() and (a as Enemy).revealed
+
+## The nearest thing there is to hunt, or null. With `noticed`, only what it
+## would notice where it stands: in reach, in sight, and in front of it.
+func _nearest_quarry(noticed: bool = false) -> Actor:
+	var best: Actor = null
+	var best_d := INF
+	for group in ["player", "enemies"]:
+		for a in get_tree().get_nodes_in_group(group):
+			if not _hunts(a):
+				continue
+			var at := (a as Actor).global_position
+			var d := global_position.distance_to(at)
+			if d >= best_d:
+				continue
+			if noticed and (d > float(def["aggro"]) or not _sees(at) or not _faces(at)):
+				continue
+			best_d = d
+			best = a
+	return best
+
+## What it is after. Having noticed something it keeps after it — unless
+## something else it can see in front of it is much nearer, a monster the player
+## is in giving itself away beside it, say. Until then it looks for the nearest
+## thing to hunt: the player's body, or a monster the player is in that has
+## given itself away.
 func _acquire() -> void:
-	if target == null or not is_instance_valid(target) or target.dead:
-		var ps := get_tree().get_nodes_in_group("player")
-		target = ps[0] if ps.size() > 0 else null
+	if aggro and _hunts(target):
+		var other := _nearest_quarry(true)
+		if other != null and other != target and global_position.distance_to(other.global_position) \
+				< global_position.distance_to(target.global_position) * SWITCH_NEARER:
+			target = other
+	else:
+		target = _nearest_quarry()
 	if target == null:
 		aggro = false
 		return
 	var d := global_position.distance_to(target.global_position)
-	var sees := true
-	if room != null and room.has_method("has_line_of_sight"):
-		sees = room.has_line_of_sight(global_position, target.global_position)
 	# Noticing takes the target in front; having noticed, it only has to keep
 	# them in reach and in sight, since it turns to follow them.
-	aggro = d <= float(def["aggro"]) and sees and (aggro or _in_front())
+	aggro = d <= float(def["aggro"]) and _sees(target.global_position) and (aggro or _in_front())
+
+## Whether nothing solid stands between it and `at`.
+func _sees(at: Vector2) -> bool:
+	if room != null and room.has_method("has_line_of_sight"):
+		return room.has_line_of_sight(global_position, at)
+	return true
 
 func _in_range() -> bool:
 	return global_position.distance_to(target.global_position) <= float(def["attack_range"])
@@ -195,6 +348,8 @@ func _physics_process(delta: float) -> void:
 		spd *= 1.5
 	if stunned():
 		_stand_stunned(delta)
+	elif piloted():
+		_ai_piloted(delta, spd)
 	else:
 		match String(def["ai"]):
 			"runner": _ai_runner(delta, spd)
@@ -207,8 +362,9 @@ func _physics_process(delta: float) -> void:
 	# The AI above has just written `velocity` outright, so anything the world
 	# is pushing this monster with is carried separately and applied here.
 	apply_shove(delta)
-	# Standing stunned is doing nothing, and that includes hurting by touch.
-	if not stunned():
+	# Standing stunned is doing nothing, and that includes hurting by touch; so
+	# is being somebody else's hands.
+	if not stunned() and not piloted():
 		_contact_damage(delta)
 
 ## A stunned monster does nothing of its own: it stops where it is, mid-stride,

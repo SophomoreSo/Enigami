@@ -142,6 +142,7 @@ func _process(_delta: float) -> void:
 		touch_pad.face = _touch_face()
 		touch_pad.use_near = _use_nearby()
 		touch_pad.kit = _kit_size()
+		touch_pad.possessing = _possessing()
 
 ## Which keys the pad shows. The shell answers because the shell is the one
 ## thing that knows both what screen is up and who has the controls.
@@ -189,6 +190,13 @@ func _kit_size() -> int:
 	for p in get_tree().get_nodes_in_group("player"):
 		return (p as Player).weapons.size()
 	return 0
+
+## Whether the player on screen has their hands in a monster: the console keeps
+## a key for stepping out of it only while they do.
+func _possessing() -> bool:
+	for p in get_tree().get_nodes_in_group("player"):
+		return (p as Player).possessing != null
+	return false
 
 ## Whether the world has a panel of its own up over it — see `World.paneled`.
 func _paneled() -> bool:

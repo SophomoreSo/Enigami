@@ -44,6 +44,15 @@ func state() -> InputState:
 			_line.remove_at(i)
 	return s
 
+## Has the line drive `driving` from now on: everything on it — the hands'
+## aim, a walk over to someone, aim assist — measures from that body instead.
+## The player's line drives a monster for as long as they are inside one
+## (`Player.possess`), and their own body again once they step out.
+func drive(driving: Node2D) -> void:
+	body = driving
+	for m in _line:
+		m.body = driving
+
 ## Puts `m` on the line, at the back of its rank. It stays until it is taken off
 ## or it is done.
 func add(m: InputMiddleware) -> void:

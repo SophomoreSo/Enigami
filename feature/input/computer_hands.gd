@@ -78,6 +78,15 @@ func step_weapon(step: int = 1) -> void:
 	_step = signi(step)
 	_raise(&"weapon_step")
 
+## A press of interact, as the body's own line reads it: inside a monster, the
+## press that takes the weapon from the player's hands.
+func use() -> void:
+	_raise(&"use_pressed")
+
+## Out of the monster the player is in.
+func step_out() -> void:
+	_raise(&"step_out_pressed")
+
 func process(_said: InputState) -> InputState:
 	var s := InputState.new()
 	s.move = clampf(move, -1.0, 1.0)
@@ -91,6 +100,8 @@ func process(_said: InputState) -> InputState:
 	s.cast_released = _happened(&"cast_released")
 	s.weapon_slot = _slot if _happened(&"weapon_slot") else -1
 	s.weapon_step = _step if _happened(&"weapon_step") else 0
+	s.use_pressed = _happened(&"use_pressed")
+	s.step_out_pressed = _happened(&"step_out_pressed")
 	if body != null:
 		_aim(s)
 	return s

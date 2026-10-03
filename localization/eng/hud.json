@@ -3,6 +3,7 @@
 	"burning": "BURNING",
 	"chilled": "CHILLED",
 	"stunned": "STUNNED",
+	"possessing": "IN THE %s %ds",
 	"fx": {
 		"winded": "WINDED",
 		"parry": "PARRY",

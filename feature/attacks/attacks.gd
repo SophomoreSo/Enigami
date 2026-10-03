@@ -422,6 +422,8 @@ static func summary(p: Payload) -> String:
 		parts.append(Loc.t("editor.payload.mana_drain", [MANA_PER_HIT * float(p.mana_drain)]))
 	if p.stun > 0.0:
 		parts.append(Loc.t("editor.payload.stun", [p.stun]))
+	if p.possess > 0.0:
+		parts.append(Loc.t("editor.payload.possess", [p.possess]))
 	if p.heal > 0.0:
 		parts.append(Loc.t("editor.payload.heal", [p.heal]))
 	if p.cleanse:
@@ -506,6 +508,15 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 		var drained := MANA_PER_HIT * float(p.mana_drain)
 		atk.gain_mana(drained)
 		Cues.at(&"mana_drain", pos, {"amount": drained})
+	# POSSESS: the player's hands go into the monster struck, if it is still
+	# standing — whether the hit came from their own body or from a monster
+	# they are already in, which is a hop from one to the next.
+	if p.possess > 0.0 and not target.dead and target is Enemy:
+		var pilot: Player = atk as Player
+		if pilot == null and atk is Enemy and (atk as Enemy).piloted():
+			pilot = (atk as Enemy).pilot
+		if pilot != null:
+			pilot.possess(target as Enemy, p.possess)
 	# What an INVERT made of DAMAGE: health given back to the enemy struck, after
 	# the harm and only while it still stands, so a blow that kills stays a kill.
 	if p.heal > 0.0 and not target.dead:

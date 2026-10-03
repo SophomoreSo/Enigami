@@ -116,12 +116,13 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 	var player := _player()
-	var away := INF if player == null else global_position.distance_to(player.global_position)
+	# Wherever the player's hands are: their own body, or a monster they are in.
+	var away := INF if player == null else global_position.distance_to(player.vessel().global_position)
 	var was_in_earshot := in_earshot
 	in_range = away <= TALK_RANGE
 	in_earshot = away <= EARSHOT
 	if in_range or (free_talk.is_talking() and in_earshot):
-		face(int(signf(player.global_position.x - global_position.x)))
+		face(int(signf(player.vessel().global_position.x - global_position.x)))
 	if is_talking():
 		# Walking off mid-sentence is how a player says they are done listening.
 		if not in_range:
@@ -186,7 +187,7 @@ func free_speaker() -> Node2D:
 	if free_talk.speaker() == "player":
 		var player := _player()
 		if player != null:
-			return player
+			return player.vessel()
 	return self
 
 ## A free line starting. The cue carries the whole rule, the way the box's
@@ -197,10 +198,11 @@ func _on_free_line(rule_id: String) -> void:
 
 ## Two NPCs in reach of the player: the nearer one hears the press.
 func _nearest(player: Player) -> bool:
-	var mine := global_position.distance_to(player.global_position)
+	var at := player.vessel().global_position
+	var mine := global_position.distance_to(at)
 	for n in get_tree().get_nodes_in_group("npcs"):
 		if n != self and n is Npc and (n as Npc).in_range \
-				and (n as Npc).global_position.distance_to(player.global_position) < mine:
+				and (n as Npc).global_position.distance_to(at) < mine:
 			return false
 	return true
 
@@ -263,12 +265,15 @@ func _come_over() -> void:
 	var player := _player()
 	if player == null or _approach != null:
 		return
-	var side := signf(player.global_position.x - global_position.x)
+	# The walk goes on the player's line, which drives whichever body their
+	# hands are in, so it is that body that is walked over.
+	var body := player.vessel()
+	var side := signf(body.global_position.x - global_position.x)
 	if side == 0.0:
 		# Standing right on them: back off the way they are not facing.
-		side = -float(player.facing)
+		side = -float(body.facing)
 	var spot := global_position.x + side * TALK_SPOT
-	if absf(player.global_position.x - spot) <= WalkTo.THERE:
+	if absf(body.global_position.x - spot) <= WalkTo.THERE:
 		_go(start)
 		return
 	_approach = WalkTo.new(spot, -int(side))
@@ -315,8 +320,10 @@ func _go(to: String) -> void:
 		_listener = _player()
 		if _listener != null:
 			_listener.talk_locked = true
-			# Face to face, whichever way they were standing.
-			_listener.face(int(signf(global_position.x - _listener.global_position.x)))
+			# Face to face, whichever way they were standing — and in whichever
+			# body.
+			var body := _listener.vessel()
+			body.face(int(signf(global_position.x - body.global_position.x)))
 	Cues.at(&"talk", global_position, {"npc": npc_id, "node": to, "line": current_node()})
 	line_started.emit(self, node_id)
 

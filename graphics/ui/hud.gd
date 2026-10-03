@@ -113,6 +113,11 @@ func _draw_health() -> void:
 	# name in any language pushes them along rather than being written over.
 	var at := Vector2(BAR_AT.x, WEAPON_LINE)
 	at.x = _draw_kit(at)
+	if player.vessel() != player:
+		var inside := Loc.t("hud.possessing", [Monsters.name_for(player.possessing.kind).to_upper(),
+			ceili(player.possess_left)])
+		_px.text(at, inside, Style.POSSESS_COLOR)
+		at.x += PixelDraw.text_width(inside) + 16.0
 	if player.burn_time > 0.0:
 		var burning := Loc.t("hud.burning")
 		_px.text(at, burning, Color(1, 0.5, 0.2))

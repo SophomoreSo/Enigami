@@ -64,6 +64,7 @@
 		"shatter": "냉각 대상에 x%.1f",
 		"mana_drain": "적중당 마나 +%.0f",
 		"stun": "기절 %.1f초",
+		"possess": "%.0f초 빙의",
 		"heal": "회복 %.0f",
 		"cleanse": "정화",
 		"repel": "밀어냄",

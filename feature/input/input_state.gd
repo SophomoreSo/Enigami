@@ -64,6 +64,12 @@ var weapon_slot: int = -1
 ## A weapon asked for by its place next to the one in hand: 1 for the next, -1
 ## for the one before, 0 for neither. A wheel, a button, the console's key.
 var weapon_step: int = 0
+## Interact, pressed: what takes the weapon out of the player's own hands
+## while they are inside a monster (`Player.take_weapon`). Everything else that
+## answers interact — someone to talk to, an exit, a box — reads it for itself.
+var use_pressed: bool = false
+## Out of the monster the player is in, and back into their own body.
+var step_out_pressed: bool = false
 
 ## --- what may happen ----------------------------------------------------------
 ## A jump, pressed or let go of.
@@ -73,6 +79,9 @@ var can_dash: bool = true
 var can_cast: bool = true
 ## Putting another weapon in hand, by its slot or by a step.
 var can_switch: bool = true
+## The press that takes the weapon, and the one that steps out of a monster.
+var can_use: bool = true
+var can_step_out: bool = true
 
 ## Drops every act whose gate is shut. The provider calls it once the whole line
 ## has had its say.
@@ -87,3 +96,7 @@ func apply_gates() -> void:
 	if not can_switch:
 		weapon_slot = -1
 		weapon_step = 0
+	if not can_use:
+		use_pressed = false
+	if not can_step_out:
+		step_out_pressed = false

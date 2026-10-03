@@ -21,6 +21,7 @@ const ACTIONS := [
 	["weapon_3", "Weapon 3"],
 	["weapon_next", "Next weapon"],
 	["weapon_prev", "Previous weapon"],
+	["step_out", "Leave monster"],
 	["open_editor", "Skill assembly"],
 	["open_map", "Map"],
 	["interact", "Interact / extract"],

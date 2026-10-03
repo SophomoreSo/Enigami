@@ -56,7 +56,8 @@ extends Control
 ##   * **Everything else is a key.** Jump, dash and the three screens
 ##     take no direction, so they are buttons and nothing more — and so is the
 ##     key that puts the next weapon in hand, which stands beside the screens
-##     for as long as more than one weapon is carried.
+##     for as long as more than one weapon is carried, and the one that steps
+##     out of a monster, beside that, for as long as the player is in one.
 ##
 ## Drawn rather than built, in UiKit's pixel look — `PixelDraw`, Silkscreen at
 ## its own size, whole blocks — so a phone is playing the same game a desk is.
@@ -161,6 +162,12 @@ const CONTROLS := [
 		"grow": Vector2(1, 1), "faces": [Face.TALK]},
 	{"kind": Kind.KEY, "action": "jump", "at": Vector2(1164, 496), "pin": Vector2(1, 1),
 		"radius": 92.0, "faces": [Face.PLAY]},
+	# Out of the monster the player is in, under the weapon key: a plate as
+	# well, and only there while the player is in one (`possess`). Not beside
+	# the screens: the strip between them and the HUD is left for a player to
+	# put buttons in.
+	{"kind": Kind.KEY, "action": "step_out", "rect": Rect2(696, 128, 128, 88),
+		"pin": Vector2(1, 0), "faces": [Face.PLAY], "possess": true},
 	# The next weapon in hand, beside the screens: a plate like theirs, since it
 	# takes no direction and is not a thing a thumb rests on, and only there
 	# while more than one weapon is carried (`kit`).
@@ -303,6 +310,9 @@ var use_near: bool = false
 ## `face`: the key that puts the next one in hand is on the glass only while
 ## there is a next one.
 var kit: int = 1
+## Whether the player's hands are in a monster. Set by the shell every frame:
+## the key that steps out of it is on the glass only while they are.
+var possessing: bool = false
 ## The controls whose `alt` a thumb is holding down, by index: what a thumb
 ## pressed is what it lets go of, whatever the ground under it does meanwhile.
 var _alt_held: Dictionary = {}
@@ -802,9 +812,12 @@ func stick_showing() -> bool:
 	return false
 
 ## Whether `c` is on the screen: on the face that is up — and, for the key
-## that changes weapon, with another weapon to change to.
+## that changes weapon, with another weapon to change to, and for the one that
+## steps out of a monster, with the player in one.
 func shown(c: Dictionary) -> bool:
 	if bool(c.get("kit", false)) and kit < 2:
+		return false
+	if bool(c.get("possess", false)) and not possessing:
 		return false
 	return (c["faces"] as Array).has(face)
 

@@ -40,6 +40,8 @@ func process(s: InputState) -> InputState:
 			s.weapon_slot = slot
 	s.weapon_step = int(Input.is_action_just_pressed("weapon_next")) \
 		- int(Input.is_action_just_pressed("weapon_prev"))
+	s.use_pressed = Input.is_action_just_pressed("interact")
+	s.step_out_pressed = Input.is_action_just_pressed("step_out")
 	if body != null:
 		_aim(s)
 	return s

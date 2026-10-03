@@ -200,7 +200,7 @@ func _carry_followers(target: Vector2i, dir: int) -> int:
 ## off could open that gate from anywhere on the map. Something that does not
 ## walk does not wander either.
 func _can_wander(e: Enemy) -> bool:
-	return not bool(e.def.get("boss", false)) and e.ai() != "turret"
+	return not bool(e.def.get("boss", false)) and e.ai() != "turret" and not e.piloted()
 
 ## Hands one monster over to the room at `target`, standing at `at`. Its record
 ## goes with it, so it is the same monster when that room is next opened, and
@@ -229,7 +229,8 @@ func _update_prompt() -> void:
 	if room == null:
 		return
 	var txt := ""
-	if not room.extraction.is_empty() and room.extraction_rect().has_point(player.global_position):
+	if not room.extraction.is_empty() and room.extraction_rect().has_point(player.global_position) \
+			and player.vessel() == player:
 		# Only what is in the way. The line for an exit that is open used to be
 		# written here too, and it names the key that extracts — which changed
 		# its words with the console, a thing no rule should know. The HUD
@@ -400,7 +401,10 @@ func set_reading_map(on: bool) -> void:
 func on_board_changed() -> void:
 	player.rebuild_runner()
 
-## An exit the player is standing in, with nothing sealing it, or a shut
-## treasure box within reach.
+## An exit the player is standing in, with nothing sealing it, a shut treasure
+## box within reach, or — from inside a monster — the body, with the weapon in
+## its hands to take.
 func use_nearby() -> bool:
+	if player != null and player.can_take_weapon():
+		return true
 	return room != null and is_instance_valid(room) and (room.extract_offered or room.box_offered())

@@ -42,9 +42,10 @@ func _process(_delta: float) -> void:
 			and not player.input_locked and not player.controls_locked():
 		open()
 
-## Whether a press of interact would open it: shut, and the player in reach.
+## Whether a press of interact would open it: shut, and the player in reach —
+## with their hands in their own body, not in a monster somewhere else.
 func offered() -> bool:
-	return near and not is_open
+	return near and not is_open and player.vessel() == player
 
 ## Opens it, if it is shut and the player is in reach. The range is checked
 ## here rather than by whoever calls, so a box opened by any other route

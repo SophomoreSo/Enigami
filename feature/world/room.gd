@@ -571,7 +571,10 @@ func _process(delta: float) -> void:
 func _update_extraction(delta: float) -> void:
 	if extraction.is_empty() or player == null or not is_instance_valid(player):
 		return
-	var inside := extraction_rect().has_point(player.global_position)
+	# The body walks out, and only with the player's hands in it: from inside a
+	# monster, F is for the monster's business, not for an exit the body happens
+	# to be standing in.
+	var inside := extraction_rect().has_point(player.global_position) and player.vessel() == player
 	var reason := extraction_blocked_reason()
 	extract_offered = inside and reason == ""
 	if inside and reason == "" and Input.is_action_pressed("interact") and not player.controls_locked():

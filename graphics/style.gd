@@ -59,6 +59,7 @@ const COMPONENT := {
 	"KNOCKBACK": {"glyph": "↦"},
 	"MANA_DRAIN": {"glyph": "⊚"},
 	"STUN": {"glyph": "@"},
+	"POSSESS": {"glyph": "◑"},
 
 	"DUPLICATE": {"glyph": "⋯"},
 	"OVERCLOCK": {"glyph": "⚡"},
@@ -269,6 +270,16 @@ const COMPONENT_ICON := {
 		".#####.",
 		"..###..",
 	],
+	# A ghost: what goes out of the body and into the monster.
+	"POSSESS": [
+		"..###..",
+		".#####.",
+		"##.#.##",
+		"#######",
+		"#######",
+		"#######",
+		"#.#.#.#",
+	],
 	# Round and round, the way a head goes when it has been struck too hard.
 	"STUN": [
 		"#######",
@@ -470,6 +481,10 @@ const MANA_SPARK := Color(0.45, 0.62, 1.0)
 ## health given back, green beside damage's white; a cleanse washing what was on
 ## it off; a field thrown open rather than closed.
 const STUN_COLOR := Color(1.0, 0.9, 0.45)
+## POSSESS: the ring round a monster the player is in, the time left on it, the
+## word on the HUD, and the body left behind, dimmed while nobody is in it.
+const POSSESS_COLOR := Color(0.78, 0.55, 1.0)
+const POSSESS_BODY := Color(0.62, 0.6, 0.75, 0.55)
 const HEAL_COLOR := Color(0.45, 0.95, 0.55)
 const CLEANSE_COLOR := Color(0.85, 0.97, 1.0)
 const REPEL_RING := Color(1.0, 0.78, 0.55, 0.8)

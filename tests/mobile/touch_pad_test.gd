@@ -1160,6 +1160,32 @@ func _the_weapon_key() -> void:
 	player.setup("SWORD", own)
 	await frames(3)
 
+	# The key out of a monster: on the glass only while the player is in one,
+	# beside the weapon key, and a tap on it steps out.
+	var out := control_of("step_out")
+	check(not out.is_empty() and out.has("rect") and not pad.shown(out),
+		"the key out of a monster is not on the glass while the player is in none")
+	var prey := Enemy.new()
+	prey.setup("CRAWLER", 1, "")
+	prey.room = raid.room
+	prey.collision_layer = 4
+	prey.collision_mask = 1
+	raid.room.add_child(prey)
+	prey.global_position = player.global_position + Vector2(160, 0)
+	prey.max_health = 99999.0
+	prey.health = 99999.0
+	await frames(2)
+	player.possess(prey, 30.0)
+	await frames(3)
+	check(pad.possessing and pad.shown(out), "inside a monster, it is (%s)" % TouchPad.label_of(out))
+	touch(0, spot("step_out"), true)
+	await frames(2)
+	touch(0, spot("step_out"), false)
+	await frames(3)
+	check(player.possessing == null and not pad.shown(out), "and a tap on it steps out")
+	prey.queue_free()
+	await frames(2)
+
 ## --- the window is not the screen -------------------------------------------
 
 func _another_window() -> void:

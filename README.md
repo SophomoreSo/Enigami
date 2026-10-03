@@ -35,6 +35,7 @@ godot res://tests/feature/dash_test.tscn    # where a lunge lands, aimed and aut
 godot res://tests/feature/dash_move_test.tscn # the dash key: flat, a step long, briefly untouchable
 godot res://tests/feature/hurt_test.tscn    # the second of grace a blow that lands buys
 godot res://tests/feature/lost_kit_test.tscn # dying drops the kit, and the next run goes back for it
+godot res://tests/feature/possess_test.tscn # POSSESS: into a monster and out again, the body left behind, passing for one of them, the weapon, talking
 godot res://tests/feature/kit_test.tscn     # up to three weapons carried, one in hand: the rack, the keys and the wheel, and what walking out and dying do to the lot
 godot res://tests/feature/climb_test.tscn   # going up a room and staying there
 godot res://tests/feature/cast_test.tscn    # the two buttons: attack casts the graph, cast charges it
@@ -121,6 +122,7 @@ not a thing to reach for once it errors.
 | RMB | hold to charge the weapon's graph, release to cast it with what the hold paid for — a tap is a charge of nothing, and a graph still recovering cannot be charged |
 | 1 / 2 / 3 | put the weapon carried in that slot in hand — at once, and whatever was being charged is let go of |
 | mouse wheel | the next weapon in hand, a notch down, or the one before, a notch up; round from the last to the first |
+| Q | leave the monster you are possessing, back into your own body |
 | mouse / right stick | aim, and where a lunge lands. A stick's aim is bent toward a monster it is near — never snapped, and never the mouse's; how much is AIM ASSIST in the control settings |
 | TAB | open assembly — **the raid keeps running**; TAB, ESC or the CLOSE button leaves it |
 | C | in assembly: the board as a share code — copy it out, or build someone else's board from theirs |
@@ -131,7 +133,7 @@ not a thing to reach for once it errors.
 Gamepad: left stick moves and, pushed down three quarters of the way, crouches;
 clicked in and held, it sprints. A jumps, B dashes, the right trigger attacks
 and the left one charges and casts, Y puts the next weapon in hand and X the
-one before, select opens assembly, RB interacts. Every keyboard binding is
+one before, LB leaves a possessed monster, select opens assembly, RB interacts. Every keyboard binding is
 remappable from Settings (title screen) or the pause menu — the wheel is a
 binding like any other, and can be given to something else.
 
@@ -201,7 +203,7 @@ controls turn out to fit:
 * **Everything else is a key.** JUMP, DASH, and KIT / MAP / MENU in the far
   corner take no direction, so they are buttons and nothing more. With more
   than one weapon carried SWAP stands beside those three: the next weapon in
-  hand.
+  hand; inside a possessed monster OUT stands under it, and steps out.
 
 The buttons are twice the size they were first drawn at, words and all: on a
 phone's glass the cast button was smaller than the thumb pressing it. The
@@ -491,6 +493,17 @@ what lets `DELAY` hold a trigger's branch back behind the attack it follows.
 - `MANA DRAIN` takes mana back off every enemy an attack connects with, as
   much again for every one stacked. A board that lands often pays for its own
   charging.
+- `POSSESS` puts your hands into the monster it strikes, for five seconds and
+  five more for every one stacked (never a boss). Your body stays where it
+  was, standing still, and the monsters go on hunting it: if it dies, the raid
+  is lost. The monster walks and jumps under your keys at its own pace, talks
+  to whoever is in reach, and fights with its own attack — or, walked over to
+  your body and F pressed there, with your weapon, which it takes out of your
+  hands. The others take it for one of them until it attacks; after that they
+  hunt it as they hunt you, and their attacks hurt it. It ends when the time
+  runs out, when you press Q, or when the monster dies, and the monster is left
+  stunned for a moment and is one of them again; the weapon goes back to your
+  hands. A POSSESS hit from inside one monster hops to the next.
 - `STUN` stands the enemy it strikes still for a moment: it stops where it is,
   and neither attacks nor hurts by touch until it comes round. Every one
   stacked holds it that much longer. A stun cannot be stretched by another
