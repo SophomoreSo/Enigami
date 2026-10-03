@@ -31,9 +31,6 @@ var label: String = ""
 var open: bool = true
 ## Why it is shut, in the player's language, or "". Shown under the sign.
 var closed_reason: String = ""
-## How wide the thing is, for the view to draw and for the sign to sit over.
-var extent: Vector2 = Vector2(48.0, 56.0)
-
 var player: Player = null
 ## Whether the player is close enough right now, recomputed every frame so the
 ## view can light the sign without asking twice.

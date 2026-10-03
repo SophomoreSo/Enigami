@@ -249,6 +249,11 @@ class ScreenFrame extends PanelContainer:
 	## built at one size or the other, and a page is built again when the mode
 	## changes rather than stretched.
 	var thumb := false
+	## Whether the frame hangs in the screen's top-left corner rather than in its
+	## middle, `top_margin` in from both edges: a page the screen behind it is to
+	## be watched past. A thumb's page takes the screen, and has no corner to
+	## hang in.
+	var corner := false
 	## The three boxes a page is made of, ready to fill the moment the frame is
 	## made. `head` and `foot` are pinned; `rows` is what scrolls between them.
 	var head: VBoxContainer
@@ -301,6 +306,8 @@ class ScreenFrame extends PanelContainer:
 		# Whole pixels, or the pixel face lands between two of them.
 		position = Vector2(floorf((vp.x - size.x) * 0.5),
 			maxf(floorf((vp.y - size.y) * 0.5), top))
+		if corner and not thumb:
+			position = Vector2(top, top)
 
 	## How tall the frame would be with nothing scrolled, so a page the screen
 	## has room for is shown whole and only a longer one grows a bar. A

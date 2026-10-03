@@ -520,15 +520,62 @@ const DIALOGUE_MARK := Color(0.72, 0.6, 0.98)
 const DIALOGUE_HINT := Color(0.5, 0.5, 0.56)
 
 ## --- the hideout's stations -------------------------------------------------
-## The furniture you walk up to, and the sign over it. Lit when the player is
-## close enough for a press to count, so the room says what it will answer to
-## before the key is pressed.
-const HIDEOUT_STATION := Color(0.10, 0.13, 0.18)
+## The sign over each thing you walk up to. Lit when the player is close enough
+## for a press to count, so the room says what it will answer to before the key
+## is pressed. The things themselves are the scenery's, below.
 const HIDEOUT_PLATE := Color(0.06, 0.08, 0.11)
 const HIDEOUT_SIGN := Color(0.38, 0.52, 0.66)
 const HIDEOUT_SIGN_LIT := Color(0.55, 0.88, 1.0)
 ## A station that is standing there shut, and why.
 const HIDEOUT_SIGN_SHUT := Color(0.86, 0.46, 0.44)
+
+## --- the hideout's scenery --------------------------------------------------
+## The city through the hideout's glass (`HideoutCity`): its sky in bands,
+## from overhead down to the haze over the streets; its towers by how far off
+## they stand, the furthest the palest; the colours their windows are lit in;
+## and its rain.
+const CITY_SKY := [
+	Color(0.024, 0.024, 0.078),
+	Color(0.035, 0.031, 0.106),
+	Color(0.055, 0.043, 0.149),
+	Color(0.086, 0.055, 0.208),
+	Color(0.129, 0.067, 0.275),
+	Color(0.188, 0.082, 0.341),
+	Color(0.271, 0.102, 0.404),
+	Color(0.376, 0.129, 0.447),
+]
+## The moon, what the haze leaves of it.
+const CITY_MOON := Color(0.50, 0.26, 0.56)
+const CITY_FAR := Color(0.180, 0.110, 0.345)
+const CITY_MID := Color(0.106, 0.078, 0.255)
+const CITY_NEAR := Color(0.047, 0.039, 0.118)
+const CITY_LIGHTS := [
+	Color(0.30, 0.92, 1.0),
+	Color(1.0, 0.25, 0.62),
+	Color(1.0, 0.78, 0.36),
+	Color(0.86, 0.92, 1.0),
+]
+const CITY_RAIN := Color(0.62, 0.74, 1.0, 0.28)
+## Light that comes in tubes and bent glass: the signs out in the city, and
+## everything in the room that is lit to be looked at.
+const NEON_CYAN := Color(0.25, 0.95, 1.0)
+const NEON_PINK := Color(1.0, 0.22, 0.60)
+const NEON_AMBER := Color(1.0, 0.76, 0.28)
+const NEON_GREEN := Color(0.30, 1.0, 0.62)
+const NEON_VIOLET := Color(0.64, 0.38, 1.0)
+const NEON_RED := Color(1.0, 0.24, 0.26)
+## The room the glass is a wall of: its ceiling, the wall under the sill, the
+## steel that frames the glass and the edge of it the light catches, the
+## pillars, and the dark under a ledge.
+const HIDEOUT_CEILING := Color(0.055, 0.065, 0.10)
+const HIDEOUT_WALL := Color(0.075, 0.09, 0.14)
+const HIDEOUT_STEEL := Color(0.14, 0.17, 0.25)
+const HIDEOUT_STEEL_LIT := Color(0.24, 0.29, 0.41)
+const HIDEOUT_PILLAR := Color(0.10, 0.12, 0.18)
+const HIDEOUT_SHADOW := Color(0.03, 0.035, 0.06)
+## The pipe somebody painted, and the light of a tube on the ceiling.
+const HIDEOUT_PIPE := Color(0.24, 0.14, 0.30)
+const HIDEOUT_TUBE := Color(0.80, 0.95, 1.0)
 
 ## How each `emotion` a dialogue line names shows, on the portrait and in the
 ## letters. An emotion missing here is neutral, so a writer's typo is a calm face

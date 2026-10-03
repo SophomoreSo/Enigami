@@ -49,6 +49,8 @@ godot res://tests/graphics/title_mobile_test.tscn # mobile mode's title: a row o
 godot res://tests/graphics/screen_fit_test.tscn # a phone- or tablet-shaped screen is filled to its edges
 godot res://tests/graphics/editor_pixel_test.tscn # every pixel of the assembly screen is on the grid
 godot res://tests/graphics/hideout_pixel_test.tscn # the hideout's pixel look, and everything on it fits
+godot res://tests/graphics/hideout_scenery_test.tscn # the hideout's scenery, in every look it has: where each stands, what lights it, that it stays in the room, and what a frame of it costs
+godot res://tests/graphics/hideout_theme_test.tscn # HIDEOUT THEME, on the hideout's pause menu: the looks listed, the room dressed as one is pressed, and the pick kept
 godot res://tests/graphics/bench_pixel_test.tscn # the bench panel's pixel look and layout
 godot res://tests/circuit/code_test.tscn    # a board survives being written down as a code
 godot res://tests/circuit/parts_test.tscn   # every part's rows fit, and the runner does what they say
@@ -129,6 +131,12 @@ Gamepad: left stick moves and, pushed down three quarters of the way, crouches;
 clicked in and held, it sprints. A jumps, B dashes, the right trigger attacks
 and the left one charges and casts, select opens assembly, RB interacts. Every
 keyboard binding is remappable from Settings (title screen) or the pause menu.
+
+While the hideout's look is being chosen it has several, and the pause menu
+has **HIDEOUT THEME** on it for as long as you are standing there: the looks
+are listed in a corner of the screen, and the room is dressed in whichever is
+pressed, behind the list, there and then. The pick is remembered in
+`user://enigami_hideout_theme.json`, beside the language and the bindings.
 
 ### The screen's shape
 
@@ -764,6 +772,9 @@ mobile/view/       the two-thumb console drawn on the glass, and the screen that
                    moves its buttons (SET BUTTON POSITIONS)
 graphics/          the atlas, screen effects, the pixel camera, the palette, view attachment
 graphics/views/    one view per gameplay node: actors, attacks, rooms, loot
+                   hideout_scenery: what the hideout's room is dressed in, drawn in
+                   code — the ground its looks stand on; hideout_city, _keep, _grove
+                   and _orbit are the looks, and hideout_themes which one is on
 graphics/ui/       skill editor, HUD, hideout, title, results, bench panel, logo card
                    ui_kit: one look for screens built of Controls
                    pixel_draw: the same look for screens that draw themselves

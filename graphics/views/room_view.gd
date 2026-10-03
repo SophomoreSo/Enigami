@@ -64,6 +64,15 @@ func _on_built() -> void:
 	_hang_lines()
 	_grow_foliage()
 
+## Scenery of somebody else's making, stood in the room: in front of the tiles
+## and behind everything that hangs, grows or moves. The hideout dresses its
+## room this way, in whichever of its looks is on (`HideoutScenery`); the room
+## knows nothing of what it is given.
+func dress(scenery: Node2D) -> void:
+	scenery.z_index = -1
+	add_child(scenery)
+	move_child(scenery, _tiles.get_index() + 1)
+
 ## What hangs from the room's rock is the `hangings` rows of the content
 ## database: of each kind of line, how many and how long. Where each hangs is
 ## decided here: from a solid cell with open air under it for its length and

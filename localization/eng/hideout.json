@@ -57,5 +57,15 @@
 	"shop": {
 		"heading": "FOR SALE",
 		"price": "%d"
+	},
+	"theme": {
+		"heading": "HIDEOUT THEME",
+		"note": "A test menu: try each look, and keep the one you like.",
+		"look": {
+			"city": "NEON CITY",
+			"keep": "CASTLE KEEP",
+			"grove": "MOONLIT GROVE",
+			"orbit": "ORBITAL STATION"
+		}
 	}
 }
