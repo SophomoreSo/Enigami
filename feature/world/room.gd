@@ -10,6 +10,8 @@ signal enemy_killed(kind: String, pos: Vector2)
 signal pickup_collected(pickup: Pickup)
 ## The drop a death left in this room, picked back up.
 signal lost_kit_collected(kit: LostKit)
+## The room's treasure box, opened. `items` are the loot records that came out.
+signal box_opened(box: TreasureBox, items: Array)
 signal extraction_progress(ratio: float, info: Dictionary)
 signal extraction_done(info: Dictionary)
 ## Raised once the grid, the collision and the contents are all in place. A
@@ -39,6 +41,8 @@ var extract_hold: float = 0.0
 ## loud so the console can offer USE there.
 var extract_offered: bool = false
 var _extract_active: bool = false
+## The box this room's loot is kept in, or null when it was found with none.
+var box: TreasureBox = null
 
 func build(room_coord: Vector2i, record: Dictionary, doorset: Dictionary, seed_base: int) -> void:
 	coord = room_coord
@@ -221,12 +225,7 @@ func _spawn_contents() -> void:
 	data["arrivals"] = []
 	for e in data["enemies"]:
 		_spawn_enemy(e)
-	for l in data["loot"]:
-		# A raid parked while a part was still in the game can have it lying
-		# here; it stays on the record and is never put down.
-		if not l.has("scrap") and Components.is_retired(String(l.get("id", ""))):
-			continue
-		_spawn_pickup(l)
+	_spawn_box()
 	# Put down before the room was built, by `Raid`, out of what a death left
 	# behind. It is not rolled and it is not loot: this room holds one only
 	# because the player died standing in it.
@@ -305,18 +304,36 @@ func save_state() -> void:
 			rec["pos"] = [c.global_position.x, c.global_position.y]
 			rec["hp"] = c.health
 
-func _spawn_pickup(l: Dictionary) -> void:
-	var p := Pickup.new()
-	if l.has("scrap"):
-		p.setup_scrap(int(l["scrap"]), Vector2(float(l["pos"][0]), float(l["pos"][1])))
-	else:
-		# The record can be out of a raid parked before one of its parts was renamed.
-		p.setup_component(Components.current_id(String(l["id"])), Vector2(float(l["pos"][0]), float(l["pos"][1])))
-	p.room = self
-	p.velocity = Vector2.ZERO
-	p.set_meta("record", l)
-	p.collected.connect(_on_pickup_collected)
-	add_child(p)
+## The room's loot goes into one box rather than onto the floor. Where it
+## stands is written into the record the first time the room is filled — on the
+## spot the first piece was rolled for, which is open floor with something solid
+## under it — so the box is in the same place every time the room is walked
+## into, and is still there, open, once it has been emptied. A room found with
+## nothing in it gets no box.
+func _spawn_box() -> void:
+	if not data.has("box"):
+		var loot: Array = data["loot"]
+		if TreasureBox.takeable(loot).is_empty():
+			return
+		data["box"] = {"pos": loot[0]["pos"], "opened": false}
+	var rec: Dictionary = data["box"]
+	var p: Array = rec.get("pos", [])
+	var at := spawn_point()
+	if p.size() == 2:
+		at = Vector2(float(p[0]), float(p[1]))
+	box = TreasureBox.new()
+	box.setup(data["loot"], at, bool(rec.get("opened", false)))
+	box.player = player
+	box.opened.connect(_on_box_opened)
+	add_child(box)
+
+func _on_box_opened(b: TreasureBox, items: Array) -> void:
+	data["box"]["opened"] = true
+	box_opened.emit(b, items)
+
+## Whether a press of interact would open this room's box.
+func box_offered() -> bool:
+	return box != null and is_instance_valid(box) and box.offered()
 
 ## The kit a death left here, on the spot it fell on. That spot was somewhere
 ## the player was standing, so it is open floor — but a drop carried across a
@@ -343,9 +360,6 @@ func _on_lost_kit_collected(k: LostKit) -> void:
 	lost_kit_collected.emit(k)
 
 func _on_pickup_collected(p: Pickup) -> void:
-	# Drops created by a kill carry no record; only pre-placed loot does.
-	if p.has_meta("record"):
-		data["loot"].erase(p.get_meta("record"))
 	pickup_collected.emit(p)
 
 func on_enemy_died(e: Enemy) -> void:

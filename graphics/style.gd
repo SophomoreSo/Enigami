@@ -613,6 +613,14 @@ const SCRAP := Color(0.95, 0.85, 0.45)
 ## and it has to read that way from across a room full of scrap.
 const LOST_KIT := Color(1.0, 0.86, 0.62)
 
+## The box a room's loot is kept in: dark wood, a gold band, and a warm glow
+## while there is still something inside.
+const TREASURE_WOOD := Color(0.45, 0.28, 0.15)
+const TREASURE_EDGE := Color(0.12, 0.07, 0.04)
+const TREASURE_BAND := Color(0.95, 0.78, 0.35)
+const TREASURE_INSIDE := Color(0.06, 0.04, 0.03)
+const TREASURE_GLOW := Color(1.0, 0.85, 0.4)
+
 static func loot_color(component_id: String, scrap: int) -> Color:
 	if scrap > 0:
 		return SCRAP

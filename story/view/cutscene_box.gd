@@ -104,9 +104,9 @@ func _draw() -> void:
 	draw_rect(box, fill)
 	draw_rect(box, Color(UiKit.LINE.r, UiKit.LINE.g, UiKit.LINE.b, _open), false, 2.0)
 
-	var name := cut.speaker_name()
-	if name != "":
-		_draw_name_tab(box, name)
+	var speaker := cut.speaker_name()
+	if speaker != "":
+		_draw_name_tab(box, speaker)
 
 	# Wrapped from the whole line rather than the part typed so far, so a word
 	# never jumps down a row halfway through arriving.

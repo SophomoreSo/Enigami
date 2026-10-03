@@ -1,8 +1,9 @@
 class_name Pickup
 extends Node2D
 
-## A component or scrap lying on the floor. Loot dropped in a room stays there
-## for the rest of the raid, so leaving something behind is a real choice.
+## A component or scrap knocked loose by a kill. It leaps out of the monster and
+## is drawn to whoever walks past. The loot a room is found with is not one of
+## these: that is kept in the room's `TreasureBox`.
 ## `graphics/views/pickup_view.gd` draws it.
 
 signal collected(pickup: Pickup)
