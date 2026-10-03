@@ -12,6 +12,12 @@ INSERT INTO menus (id, name) VALUES
 	('controls',   'CONTROL SETTINGS'),    -- the pointer, mobile mode, the bindings; the same
 	('pause',      'PAUSED');
 
+-- The questions PAUSED asks before a way out of a raid: each says what the
+-- answer costs, under its heading.
+INSERT INTO menus (id, name, note) VALUES
+	('park',    'MAIN MENU?',    'The raid is kept where you left it.'),
+	('abandon', 'ABANDON RAID?', 'You will forfeit the kit.');
+
 -- The title: a column of lines, or in mobile mode a row of tiles. SETTINGS
 -- says the settings' own name; START keeps its word, and leads to the slots.
 INSERT INTO menu_items (menu_id, id, position, text, opens) VALUES
@@ -43,11 +49,19 @@ INSERT INTO menu_items (menu_id, id, position, text, exit) VALUES
 -- order of what they cost — back into the game, out to the title, and last
 -- the one that forfeits a raid. Which of the three ways to the title is
 -- shown is the shell's: MAIN MENU everywhere but a raid, where leaving parks
--- the run and says so, and ABANDON RAID beside it.
+-- the run, and ABANDON RAID beside it. Those two ask first, and the question
+-- is what says what each costs.
 INSERT INTO menu_items (menu_id, id, position, text, opens, exit) VALUES
 	('pause', 'general',  0, NULL,                                            'general',  0),
 	('pause', 'controls', 1, NULL,                                            'controls', 0),
 	('pause', 'resume',   2, 'BACK TO GAME',                                  NULL,       1),
 	('pause', 'title',    3, 'MAIN MENU',                                     NULL,       1),
-	('pause', 'park',     4, 'MAIN MENU — the raid is kept where you left it', NULL,       1),
-	('pause', 'abandon',  5, 'ABANDON RAID — forfeits the kit',               NULL,       1);
+	('pause', 'park',     4, 'MAIN MENU',                                     NULL,       1),
+	('pause', 'abandon',  5, 'ABANDON RAID',                                  NULL,       1);
+
+-- The two questions: the way back to PAUSED first, then the answer that goes.
+INSERT INTO menu_items (menu_id, id, position, text, exit) VALUES
+	('park',    'back',    0, 'CANCEL',       1),
+	('park',    'confirm', 1, 'MAIN MENU',    1),
+	('abandon', 'back',    0, 'CANCEL',       1),
+	('abandon', 'confirm', 1, 'ABANDON RAID', 1);

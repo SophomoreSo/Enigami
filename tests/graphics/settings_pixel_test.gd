@@ -374,9 +374,9 @@ func _ready() -> void:
 	# BACK TO GAME sits directly above MAIN MENU, and every page carries an
 	# arrow in its top-left corner that means one level up.
 	var back_to_game := button_named(game.pause_main, Loc.t("menu.pause.resume"))
-	var to_menu := button_named(game.pause_main, Loc.t("menu.pause.park")) \
-		if game.state == GameScript.State.RAID \
-		else button_named(game.pause_main, Loc.t("menu.pause.title"))
+	# By which one the shell shows rather than by what it says: in a raid and out
+	# of one, the way to the menu is MAIN MENU alike.
+	var to_menu: Button = game.pause_park if game.state == GameScript.State.RAID else game.pause_title
 	check(back_to_game != null and to_menu != null,
 		"PAUSED offers '%s' and the way to the menu" % Loc.t("menu.pause.resume"))
 	if back_to_game != null and to_menu != null:

@@ -7,8 +7,8 @@ extends Node2D
 ## (see `DialogueBox`) and the camera each line of their dialogue file asks for.
 ## What they say free goes in a bubble over whoever says it (`SpeechBubble`).
 
-const NAME_SIZE := 9
-const CORNER := 5
+## The prompt is a keycap with the interact key on it, pressing itself, so it
+## reads as "press this" rather than as a label (`PixelDraw.key_cap`).
 ## Space between the top of the head and the bottom of the prompt.
 const PROMPT_GAP := 6.0
 ## A focus on someone frames their face rather than their feet.
@@ -17,16 +17,16 @@ const FACE_LIFT := Vector2(0, -18)
 var npc: Npc
 var sprite: AnimatedSprite2D
 ## The prompt sits on its own layer so the player walking in front of the NPC
-## never covers it — and so it is reading text, drawn at the screen's
-## resolution: a canvas layer is not part of the world the pixel camera copies.
-## It follows the camera, just over the pixel picture.
+## never covers it — and so its key is sharp, drawn at the screen's resolution
+## in PixelDraw's blocks, the way the hideout's signs are (`HideoutWorldView`):
+## a canvas layer is not part of the world the pixel camera copies. It follows
+## the camera, just over the pixel picture.
 var prompt_layer: CanvasLayer
 var prompt: Node2D
 var dialogue: DialogueBox
 ## On the prompt's layer, for the prompt's reasons: free talk is reading text.
 var bubble: SpeechBubble
-var _font: Font
-var _prompt_box: StyleBoxFlat
+var _px: PixelDraw
 ## Where the top of the head is, relative to the NPC.
 var _head_y: float = 0.0
 var _t: float = 0.0
@@ -37,10 +37,6 @@ var _directed: String = ""
 func _ready() -> void:
 	npc = get_parent() as Npc
 	z_index = 45
-	_font = ThemeDB.fallback_font
-	_prompt_box = StyleBoxFlat.new()
-	_prompt_box.bg_color = Style.SPEECH_PROMPT_FILL
-	_prompt_box.set_corner_radius_all(CORNER)
 	prompt_layer = CanvasLayer.new()
 	prompt_layer.layer = PixelCamera.LAYER + 1
 	prompt_layer.follow_viewport_enabled = true
@@ -48,6 +44,7 @@ func _ready() -> void:
 	prompt = Node2D.new()
 	prompt.draw.connect(_draw_prompt)
 	prompt_layer.add_child(prompt)
+	_px = PixelDraw.new(prompt)
 	bubble = SpeechBubble.new()
 	bubble.npc = npc
 	prompt_layer.add_child(bubble)
@@ -85,7 +82,9 @@ func _process(delta: float) -> void:
 		_build_sprite()
 	_t += delta
 	sprite.flip_h = npc.facing < 0
-	prompt.position = global_position
+	# On whole world pixels, the grid the NPC is drawn on, so the cap's blocks
+	# line up with theirs.
+	prompt.position = (global_position / PixelCamera.SCALE).round() * PixelCamera.SCALE
 	prompt.queue_redraw()
 	_direct_camera()
 
@@ -139,10 +138,4 @@ func _draw_prompt() -> void:
 			or npc.approaching():
 		return
 	var tip_y := _head_y - PROMPT_GAP
-	var text := "%s  Talk" % Controls.short_label_for("interact")
-	var w := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE).x
-	var bob := sin(_t * 4.0) * 1.5
-	var body := Rect2(Vector2(-w * 0.5 - 5.0, tip_y - 16.0 + bob), Vector2(w + 10.0, 15.0))
-	prompt.draw_style_box(_prompt_box, body)
-	prompt.draw_string(_font, body.position + Vector2(5.0, 3.0 + _font.get_ascent(NAME_SIZE)), text,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, Style.SPEECH_PROMPT_TEXT)
+	_px.key_cap(Vector2(0.0, tip_y), Controls.short_label_for("interact"), _t)

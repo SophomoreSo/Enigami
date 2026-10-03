@@ -69,9 +69,25 @@ func _ready() -> void:
 	check(game.pause_park != null and game.pause_park.visible,
 		"a raid's pause menu offers '%s'" % Loc.t("menu.pause.park"))
 	check(not game.pause_title.visible, "and not the one that does not save")
+	# Both ways out of a raid ask first, and the question is what says what the
+	# answer costs. CANCEL is back to PAUSED with nothing done.
+	game.pause_abandon.emit_signal("pressed")
+	await frames(6)
+	check(game.pause_asking() == "abandon" and game.get_tree().paused
+			and game.state == GameScript.State.RAID,
+		"ABANDON RAID asks before it forfeits anything ('%s')" % Menus.note_for("abandon"))
+	ask_answer("abandon", "back")
+	await frames(6)
+	check(game.pause_asking() == "" and game.pause_main.visible and game.state == GameScript.State.RAID,
+		"and CANCEL is back to PAUSED, the raid as it was")
 	game.pause_park.emit_signal("pressed")
+	await frames(6)
+	check(game.pause_asking() == "park" and game.state == GameScript.State.RAID
+			and not GameState.has_parked_raid(),
+		"MAIN MENU asks too, before anything is written ('%s')" % Menus.note_for("park"))
+	ask_answer("park", "confirm")
 	await frames(10)
-	check(game.state == GameScript.State.TITLE, "pressing it hands back to the title")
+	check(game.state == GameScript.State.TITLE, "answering it hands back to the title")
 	check(GameState.has_parked_raid(), "with the raid parked in the slot")
 	check(GameState.in_raid and GameState.raid_weapon == "SWORD",
 		"the kit is still checked out to it")
@@ -121,3 +137,12 @@ func _ready() -> void:
 
 	print("[PARK] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)
+
+## Presses the answer `item` on the question `menu` that PAUSED has up.
+func ask_answer(menu: String, item: String) -> void:
+	var text := Menus.text_for(menu, item)
+	for b in (game.pause_asks[menu] as Control).find_children("*", "Button", true, false):
+		if (b as Button).text == text:
+			(b as Button).emit_signal("pressed")
+			return
+	check(false, "the %s question has a '%s' to press" % [menu, text])

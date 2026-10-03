@@ -25,8 +25,6 @@ const RANGE := 84.0
 var id: String = ""
 ## What the sign over it says.
 var label: String = ""
-## What the prompt says a press would do, or "" to say nothing.
-var prompt: String = ""
 ## A station that cannot be used right now still stands there and still says
 ## what it is — it just does not answer. The gate is shut like this until the
 ## kit is worth carrying.

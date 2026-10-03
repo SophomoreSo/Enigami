@@ -152,6 +152,8 @@ func _check_fallbacks() -> void:
 		var menu := Menus.source(id)
 		if menu.has("name"):
 			checked += _same(eng, "menu.%s.heading" % id, String(menu["name"]))
+		if menu.has("note"):
+			checked += _same(eng, "menu.%s.note" % id, String(menu["note"]))
 		for item in menu.get("items", []):
 			if item.has("text"):
 				checked += _same(eng, "menu.%s.%s" % [id, String(item["id"])], String(item["text"]))
