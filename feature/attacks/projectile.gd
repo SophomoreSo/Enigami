@@ -31,7 +31,10 @@ const LASER_SPEED := 12000.0
 ## HOMING. How hard one HOMING turns a bolt towards what it is after, as the
 ## share of the turn it makes in a second. Every one stacked turns as hard
 ## again, which is the difference between flying wide of a corner and taking it.
-const HOMING_TURN := 5.0
+## It went from five to ten when bolts were given half the range they had: at
+## the same pace, a turn twice as hard draws the same curve at half the size, so
+## one HOMING still comes round onto something beside it before it is spent.
+const HOMING_TURN := 10.0
 ## How far a homing bolt looks for something to go after.
 const HOMING_SIGHT := 520.0
 ## A homing bolt loses pace in a turn — the harder the turn, the more — and

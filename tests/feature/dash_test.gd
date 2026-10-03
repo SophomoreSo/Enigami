@@ -40,7 +40,7 @@ func _ready() -> void:
 	var reach := Attacks.DASH_SLASH_REACH
 
 	# Inside the skill's reach, the lunge lands on the cursor.
-	for d: float in [60.0, 120.0, reach]:
+	for d: float in [30.0, 60.0, reach]:
 		p.global_position = Vector2(400, 300)
 		p.aim = Vector2.RIGHT
 		p.aim_point = p.global_position + Vector2(d, 0)

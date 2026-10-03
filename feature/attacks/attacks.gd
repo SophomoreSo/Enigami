@@ -79,7 +79,7 @@ const CHAIN_HITSTOP := 0.010
 
 ## How far a lunge travels at size 1. For DASHSLASH this is the cap on aiming
 ## it: the cursor decides where inside that range it lands.
-const DASH_SLASH_REACH := 170.0
+const DASH_SLASH_REACH := 85.0
 
 ## A cursor closer than this to where a beam starts is not aiming it anywhere:
 ## the beam goes down the aim instead, its whole reach, rather than being a

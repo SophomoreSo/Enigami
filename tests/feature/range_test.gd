@@ -81,7 +81,7 @@ func _ready() -> void:
 			% [gun, Room.W * Room.CELL])
 	# A swing reaches 54px before SIZE touches it, so the shortest bolt in the
 	# game still has to be worth firing from further off than a blade.
-	check(sword > 54.0 * 3.0,
+	check(sword > 54.0 * 2.0,
 		"while the shortest is still a ranged attack — %.0f px, against a swing's 54"
 			% sword)
 

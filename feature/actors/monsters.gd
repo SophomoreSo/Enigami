@@ -23,7 +23,7 @@ const DEFS := {
 	"SENTRY": {
 		"name": "Sentry", "hp": 46.0, "speed": 0.0, "ai": "turret",
 		"size": 16.0,
-		"aggro": 560.0, "attack_range": 560.0, "contact": 0.0, "scrap": 4,
+		"aggro": 560.0, "attack_range": 280.0, "contact": 0.0, "scrap": 4,
 		"board": "sentry",
 	},
 	"LOBBER": {
@@ -42,13 +42,13 @@ const DEFS := {
 	"DRIFTER": {
 		"name": "Drifter", "hp": 30.0, "speed": 95.0, "ai": "flyer",
 		"size": 13.0,
-		"aggro": 520.0, "attack_range": 400.0, "contact": 5.0, "scrap": 4,
+		"aggro": 520.0, "attack_range": 200.0, "contact": 5.0, "scrap": 4,
 		"board": "drifter",
 	},
 	"WARDEN": {
 		"name": "Warden", "hp": 105.0, "speed": 105.0, "ai": "runner",
 		"size": 20.0,
-		"aggro": 560.0, "attack_range": 460.0, "contact": 9.0, "scrap": 10,
+		"aggro": 560.0, "attack_range": 230.0, "contact": 9.0, "scrap": 10,
 		"elite": true,
 		"board": "warden",
 	},
@@ -67,7 +67,7 @@ const DEFS := {
 	"ARBITER": {
 		"name": "Arbiter", "hp": 460.0, "speed": 120.0, "ai": "boss",
 		"size": 34.0,
-		"aggro": 900.0, "attack_range": 700.0, "contact": 14.0, "scrap": 60,
+		"aggro": 900.0, "attack_range": 350.0, "contact": 14.0, "scrap": 60,
 		"boss": true,
 		"board": "arbiter",
 		"board_phase2": "arbiter_phase2",
