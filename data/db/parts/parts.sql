@@ -108,12 +108,18 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 
 -- ---- stat ---------------------------------------------------------------------
 
-INSERT INTO parts (id, name, category, heat, description) VALUES
-	('DAMAGE', 'DAMAGE +', 'stat', 0.3, 'Raises damage. Stable and simple, but interacts with little else.'),
-	('SIZE', 'SIZE x', 'stat', 0.4, 'Scales the attack by 1.6. Melee arcs widen and reach further.'),
-	('SPEED', 'SPEED x', 'stat', 0.35, 'Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. A beam reaches a little further too. Does nothing to a flow with neither.'),
-	('RANGE', 'RANGE x', 'stat', 0.35, 'Bolts carry 1.75x as far before they fade, and a beam reaches 1.75x as far. Does nothing to a flow with neither.'),
-	('SHATTER', 'SHATTER', 'stat', 0.45, 'Hits an enemy already slowed by frost far harder. Worth nothing on its own — pair it with ICE, or with a board that lands twice.');
+-- `stack_limit` is how many of a part one flow can stack; a part without one
+-- stacks for as long as the board has room. SIZE stops at three, which is an
+-- attack four times the size. SPEED stops at four, and the fourth is the one
+-- that matters: a bolt whose SPEED is at its limit flies at laser speed
+-- (`Projectile.LASER_SPEED`). RANGE stops at three, which is further than a
+-- room is wide — the most range there is to have.
+INSERT INTO parts (id, name, category, heat, stack_limit, description) VALUES
+	('DAMAGE', 'DAMAGE +', 'stat', 0.3, NULL, 'Raises damage, and each one stacked raises it by more than the last. Stable and simple, but interacts with little else.'),
+	('SIZE', 'SIZE x', 'stat', 0.4, 3, 'Scales the attack by 1.6. Melee arcs widen and reach further. Stacks up to 3.'),
+	('SPEED', 'SPEED x', 'stat', 0.35, 4, 'Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. A beam reaches a little further too. Does nothing to a flow with neither. Stacks up to 4, and at 4 a bolt flies at laser speed.'),
+	('RANGE', 'RANGE x', 'stat', 0.35, 3, 'Bolts carry 1.75x as far before they fade, and a beam reaches 1.75x as far. Does nothing to a flow with neither. Stacks up to 3, which is the most range there is.'),
+	('SHATTER', 'SHATTER', 'stat', 0.45, NULL, 'Breaks the frost on an enemy slowed by it: the hit lands far harder, and the enemy thaws. Each one stacked breaks harder still. Worth nothing on its own — pair it with ICE, or with a board that lands twice.');
 
 INSERT INTO ports (part_id, side) VALUES
 	('DAMAGE', 'E'), ('SIZE', 'E'), ('SPEED', 'E'), ('RANGE', 'E'), ('SHATTER', 'E');
@@ -126,25 +132,36 @@ INSERT INTO ports (part_id, side) VALUES
 -- nothing to how hard or how fast a bolt arrives, so it has to be the answer
 -- when the thing you cannot do is reach. Their descriptions say 1.5x, 1.6
 -- and 1.75x; change one, change the other.
+--
+-- DAMAGE grows with the stack (`per_stack`): one adds 8, as it always has, and
+-- every one after it adds 4 more than the one before — 8, 12, 16 — so three are
+-- worth 36 where three used to be worth 24. It grows by adding, not by
+-- multiplying, on purpose: a charged ring walks a flow through the same part
+-- lap after lap, and a multiply there doubles every few laps.
+INSERT INTO effects (part_id, position, field, op, value, per_stack) VALUES
+	('DAMAGE', 0, 'damage', 'add', 8, 4);
+
 INSERT INTO effects (part_id, position, field, op, value) VALUES
-	('DAMAGE', 0, 'damage', 'add', 8),
 	('SIZE', 0, 'size', 'multiply', 1.6),
 	('SPEED', 0, 'speed', 'multiply', 1.5),
 	('SPEED', 1, 'range_px', 'multiply', 1.2),
 	('RANGE', 0, 'range_px', 'multiply', 1.75),
-	('SHATTER', 0, 'shatter', 'set', 'true');
+	('SHATTER', 0, 'shatter', 'add', 1);
 
 
 -- ---- behavior -------------------------------------------------------------------
 
-INSERT INTO parts (id, name, category, heat, tag, description) VALUES
-	('PIERCE', 'PIERCE', 'behavior', 0.5, NULL, 'The attack continues through targets instead of stopping on the first.'),
-	('BLINK', 'BLINK', 'behavior', 0.7, 'mobility', 'Teleports behind the nearest visible enemy. Works alone; if nothing is in sight the flow simply continues.'),
-	('HOMING', 'HOMING', 'behavior', 0.6, NULL, 'Tracks the nearest enemy. Bolts curve; melee forms re-aim themselves.'),
-	('GRAVITY', 'GRAVITY', 'behavior', 0.7, NULL, 'The enemy struck is not knocked back but pinned, and every other enemy nearby is dragged onto it. Gathers a room into one place for whatever comes next.'),
-	('KNOCKBACK', 'KNOCKBACK', 'behavior', 0.5, NULL, 'Hits throw the enemy back the way the attack was going. Buys room, but can put it out of reach.'),
-	('MANA_DRAIN', 'MANA DRAIN', 'behavior', 0.5, NULL, 'Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting.'),
-	('STUN', 'STUN', 'behavior', 0.6, NULL, 'Struck enemies are stunned: for a moment they stand where they are and cannot attack. Once it wears off, an enemy shrugs off the next stun for a while.');
+-- Every one of these stacks: each is a count on the payload, and what reads it
+-- (feature/attacks/) does more for a higher one. BLINK is the exception — one
+-- teleport is all a cast has in it — so its limit is 1.
+INSERT INTO parts (id, name, category, heat, tag, stack_limit, description) VALUES
+	('PIERCE', 'PIERCE', 'behavior', 0.5, NULL, NULL, 'The attack passes through one enemy and carries on to the next. Each one stacked is one more enemy it passes through.'),
+	('BLINK', 'BLINK', 'behavior', 0.7, 'mobility', 1, 'Teleports behind the nearest visible enemy. Works alone; if nothing is in sight the flow simply continues. A cast blinks once: more than one does nothing more.'),
+	('HOMING', 'HOMING', 'behavior', 0.6, NULL, NULL, 'Tracks the nearest enemy. Bolts curve and find their way round walls; melee forms re-aim themselves. Each one stacked turns a bolt tighter, so it holds a winding path it would otherwise fly wide of.'),
+	('GRAVITY', 'GRAVITY', 'behavior', 0.7, NULL, NULL, 'The enemy struck is not knocked back but pinned, and every other enemy nearby is dragged onto it. Gathers a room into one place for whatever comes next. Each one stacked drags harder.'),
+	('KNOCKBACK', 'KNOCKBACK', 'behavior', 0.5, NULL, NULL, 'Hits throw the enemy back the way the attack was going. Buys room, but can put it out of reach. Each one stacked throws harder.'),
+	('MANA_DRAIN', 'MANA DRAIN', 'behavior', 0.5, NULL, NULL, 'Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting. Each one stacked drains more.'),
+	('STUN', 'STUN', 'behavior', 0.6, NULL, NULL, 'Struck enemies are stunned: for a moment they stand where they are and cannot attack. Each one stacked holds them longer. Once it wears off, an enemy shrugs off the next stun for a while.');
 
 INSERT INTO ports (part_id, side) VALUES
 	('PIERCE', 'E'), ('BLINK', 'E'), ('HOMING', 'E'),
@@ -152,13 +169,13 @@ INSERT INTO ports (part_id, side) VALUES
 	('STUN', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
-	('PIERCE', 0, 'pierce', 'add', 2),
+	('PIERCE', 0, 'pierce', 'add', 1),
 	('BLINK', 0, 'blink', 'set', 'true'),
-	('HOMING', 0, 'homing', 'set', 'true'),
-	('GRAVITY', 0, 'pull', 'set', 'true'),
-	('KNOCKBACK', 0, 'knockback', 'set', 'true'),
-	('MANA_DRAIN', 0, 'mana_drain', 'set', 'true'),
-	('STUN', 0, 'stun', 'set', 0.8);
+	('HOMING', 0, 'homing', 'add', 1),
+	('GRAVITY', 0, 'pull', 'add', 1),
+	('KNOCKBACK', 0, 'knockback', 'add', 1),
+	('MANA_DRAIN', 0, 'mana_drain', 'add', 1),
+	('STUN', 0, 'stun', 'add', 0.8);
 
 
 -- ---- flow ---------------------------------------------------------------------
@@ -223,8 +240,8 @@ INSERT INTO inversions (part_id, position, field, op, value) VALUES
 	('FIRE', 0, 'cleanse', 'set', 'true'),
 	('ICE', 0, 'cleanse', 'set', 'true'),
 	('STUN', 0, 'cleanse', 'set', 'true'),
-	('GRAVITY', 0, 'repel', 'set', 'true'),
-	('KNOCKBACK', 0, 'hook', 'set', 'true'),
+	('GRAVITY', 0, 'repel', 'add', 1),
+	('KNOCKBACK', 0, 'hook', 'add', 1),
 	('SIZE', 0, 'size', 'multiply', 0.625),
 	('SPEED', 0, 'speed', 'multiply', 0.6667),
 	('SPEED', 1, 'range_px', 'multiply', 0.8333),

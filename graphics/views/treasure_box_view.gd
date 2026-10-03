@@ -5,28 +5,11 @@ extends Node2D
 ## while there is something in it, and standing open and dark once it is empty.
 ## Over it, while the player is in reach of a shut one, the key that opens it.
 ##
-## That prompt is the same keycap an NPC's talk prompt is — the interact key on
-## a key that presses itself, and no word — so walking up to a box and walking
-## up to someone ask for the same press the same way. It is drawn here because
-## the shared `PixelDraw.key_cap` is still on the graphics branch; once it lands,
-## `_draw_prompt` is that one call and the KEY_ constants here go.
+## That prompt is `PixelDraw.key_cap`, the keycap an NPC's talk prompt and the
+## hideout's stations show — the interact key on a key that presses itself, and
+## no word — so walking up to a box and walking up to someone ask for the same
+## press the same way.
 
-## The keycap, in PixelDraw.PX blocks, as the talk prompt has it: the face at
-## its narrowest, how far it stands over its base, and one press every
-## PRESS_EVERY seconds — down, held, back up.
-const KEY_W := 11
-const KEY_H := 9
-const KEY_DEPTH := 2
-const PRESS_EVERY := 1.1
-const PRESS_DOWN := 0.07
-const PRESS_HOLD := 0.12
-const PRESS_UP := 0.12
-## And its colours: a pale face over a darker side, dark lettering, and an
-## opaque dark rim, since the rim goes down as overlapping blocks.
-const KEY_FACE := Color(0.86, 0.9, 0.96)
-const KEY_SIDE := Color(0.42, 0.47, 0.56)
-const KEY_TEXT := Color(0.08, 0.09, 0.12)
-const KEY_RIM := Color(0.05, 0.06, 0.08)
 ## Space between the top of the lid and the bottom of the key.
 const PROMPT_GAP := 6.0
 
@@ -92,39 +75,7 @@ func _draw() -> void:
 func _draw_prompt() -> void:
 	if box == null or not is_instance_valid(box) or not box.offered():
 		return
-	var label := Controls.short_label_for("interact")
-	var px := PixelDraw.PX
-	var foot := Vector2(0.0, FLOOR - H - LID_H - PROMPT_GAP)
-	# Square for a single key, wider for a word like "LMB".
-	var size := Vector2(maxf(PixelDraw.ink_width(label) + 6 * px, KEY_W * px), KEY_H * px)
-	var sink := roundi(KEY_DEPTH * _pressed(fmod(_t, PRESS_EVERY))) * px
-	# The base stays put; the face rides KEY_DEPTH above it and sinks onto it.
-	var base := Rect2(_px.snap(Vector2(foot.x - size.x * 0.5, foot.y - px - size.y)), size)
-	var face := Rect2(base.position - Vector2(0.0, KEY_DEPTH * px - sink), size)
-	_stepped(face.merge(base).grow(px), 2, KEY_RIM)
-	_stepped(base, 1, KEY_SIDE)
-	_stepped(face, 1, KEY_FACE)
-	# `text` takes a baseline, and capitals stand 5 blocks: 2 clear above them.
-	_px.text_centered(face.position + Vector2(0.0, 7 * px), label, KEY_TEXT, size.x)
-
-## `r` filled with its corners cut `cut` blocks deep in steps, the pixel art way
-## of rounding one.
-func _stepped(r: Rect2, cut: int, col: Color) -> void:
-	for i in cut + 1:
-		var k := cut - i
-		_px.rect(Rect2(r.position + Vector2(k, i) * PixelDraw.PX, r.size - Vector2(k, i) * 2 * PixelDraw.PX), col)
-
-## How far down the key is, 0 up to 1 all the way, `t` seconds into a press.
-static func _pressed(t: float) -> float:
-	if t < PRESS_DOWN:
-		return ease(t / PRESS_DOWN, 0.5)
-	t -= PRESS_DOWN
-	if t < PRESS_HOLD:
-		return 1.0
-	t -= PRESS_HOLD
-	if t < PRESS_UP:
-		return 1.0 - ease(t / PRESS_UP, 2.0)
-	return 0.0
+	_px.key_cap(Vector2(0.0, FLOOR - H - LID_H - PROMPT_GAP), Controls.short_label_for("interact"), _t)
 
 ## Shut, the lid is a slab on top of the box. Open, it has swung back and up:
 ## what shows is its dark inner face standing over the box, narrowing as it

@@ -130,7 +130,8 @@ func _ready() -> void:
 	# And nothing else: a part changes the fields its rows name, and its heat.
 	var strays: Array = []
 	for id in ids:
-		var named := {&"heat": true}
+		# `stacks` is the runner's count of the part itself, like its heat.
+		var named := {&"heat": true, &"stacks": true}
 		for e in Components.effects_of(id):
 			named[e["field"]] = true
 		var after := _entered(id)["payload"] as Payload
@@ -152,14 +153,14 @@ func _ready() -> void:
 	check(flag is Dictionary and flag["value"] is bool and flag["value"], "and a 1 set on a flag as true")
 	# No part toggles anything since REVERSE went, but the op is still one a
 	# part may have: it flips a flag, and a second flips it back.
-	var flip = Components._effect({"op": "toggle", "field": "homing", "value": null}, shape)
+	var flip = Components._effect({"op": "toggle", "field": "blink", "value": null}, shape)
 	var flipped := Payload.new()
 	if flip is Dictionary:
 		SkillRunner._do(flipped, flip)
-	var once := flipped.homing
+	var once := flipped.blink
 	if flip is Dictionary:
 		SkillRunner._do(flipped, flip)
-	check(flip is Dictionary and once and not flipped.homing,
+	check(flip is Dictionary and once and not flipped.blink,
 		"toggle: a flag flips, and a second toggle flips it back (%s)" % str(flip))
 	var turn = Components._effect({"op": "invert", "field": null, "value": null}, shape)
 	check(turn is Dictionary and turn["op"] == "invert" and turn["field"] == &"" and turn["value"] == null,

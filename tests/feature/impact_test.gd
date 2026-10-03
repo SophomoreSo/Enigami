@@ -122,7 +122,7 @@ func _ready() -> void:
 	# asked for rather than spelled out here.
 	var says := Attacks.summary(loaded)
 	check(says.contains(Loc.t("editor.payload.pull"))
-		and says.contains(Loc.t("editor.payload.shatter", [Attacks.SHATTER_MUL]))
+		and says.contains(Loc.t("editor.payload.shatter", [Attacks.shatter_mul(1)]))
 		and says.contains(Loc.t("editor.payload.mana_drain", [Attacks.MANA_PER_HIT])),
 		"and the workbench preview says so (%s)" % says)
 
@@ -137,10 +137,13 @@ func _ready() -> void:
 	Attacks.resolve_hit(shatter, warm, warm.global_position, Vector2.RIGHT, null, null, 0)
 	var on_chilled := before_cold - cold.health
 	var on_warm := before_warm - warm.health
-	check(is_equal_approx(on_chilled, on_warm * Attacks.SHATTER_MUL),
+	check(is_equal_approx(on_chilled, on_warm * Attacks.shatter_mul(1)),
 		"SHATTER hits a chilled enemy x%.1f as hard (%.1f against %.1f)"
-			% [Attacks.SHATTER_MUL, on_chilled, on_warm])
-	check(cold.chill_time > 0.0, "and leaves the chill running, so the next hit shatters too")
+			% [Attacks.shatter_mul(1), on_chilled, on_warm])
+	check(cold.chill_time <= 0.0, "and breaks the frost: the enemy thaws")
+	var before_thawed := cold.health
+	Attacks.resolve_hit(shatter, cold, cold.global_position, Vector2.RIGHT, null, null, 0)
+	check(is_equal_approx(before_thawed - cold.health, on_warm), "so the next hit has nothing to shatter")
 	# Without the part, being chilled changes nothing.
 	var chilled_again := dummy(Vector2(1200, 0))
 	chilled_again.chill_time = 2.0
@@ -161,8 +164,9 @@ func _ready() -> void:
 		"which the same hit does not then shatter (%.1f)" % first)
 	var before_second := fresh.health
 	Attacks.resolve_hit(iced, fresh, fresh.global_position, Vector2.RIGHT, null, null, 0)
-	check(is_equal_approx(before_second - fresh.health, iced.damage * Attacks.SHATTER_MUL),
+	check(is_equal_approx(before_second - fresh.health, iced.damage * Attacks.shatter_mul(1)),
 		"but the second hit lands on a chilled enemy and does")
+	check(fresh.chill_time <= 0.0, "and thaws it, the chill that hit brought included")
 
 	# --- GRAVITY ------------------------------------------------------------
 	# Three enemies around one point: struck, near and far. All of them should
@@ -271,7 +275,7 @@ func _ready() -> void:
 	caster.mana = 0.0
 	var before_all := all_cold.health
 	Attacks.resolve_hit(loaded, all_cold, all_cold.global_position, Vector2.RIGHT, caster, null, 0)
-	check(is_equal_approx(before_all - all_cold.health, loaded.damage * Attacks.SHATTER_MUL),
+	check(is_equal_approx(before_all - all_cold.health, loaded.damage * Attacks.shatter_mul(1)),
 		"one hit can shatter, pull and drain at once — damage")
 	check(bystander.shove.x < 0.0 and all_cold.shove.is_zero_approx(), "— pull")
 	check(is_equal_approx(caster.mana, Attacks.MANA_PER_HIT), "— and drain")
