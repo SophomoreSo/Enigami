@@ -24,25 +24,16 @@ INSERT INTO board_parts (board_id, x, y, part, facing, root) VALUES
 
 	('drifter', 5, 2, 'PROJECTILE', 'E', 1), ('drifter', 6, 2, 'HOMING', 'E', 0),
 
-	-- A frost bolt split two ways. A board has one way out, so each half is
-	-- walked back to it — one round over and one round under, on DELAYs, which
-	-- turn a flow and do nothing else to it — and the same distance each, so
-	-- the two bolts still leave together.
-	('warden', 3, 2, 'PROJECTILE', 'E', 1), ('warden', 4, 2, 'ICE', 'E', 0),
-	('warden', 5, 2, 'SPLIT', 'E', 0),
-	('warden', 5, 1, 'DELAY', 'E', 0), ('warden', 6, 1, 'DELAY', 'S', 0),
-	('warden', 5, 3, 'DELAY', 'E', 0), ('warden', 6, 3, 'DELAY', 'N', 0),
-	('warden', 6, 2, 'DELAY', 'E', 0),
+	-- A frost bolt, three times over.
+	('warden', 4, 2, 'PROJECTILE', 'E', 1), ('warden', 5, 2, 'ICE', 'E', 0),
+	('warden', 6, 2, 'DUPLICATE', 'E', 0),
 
 	('arbiter', 4, 2, 'PROJECTILE', 'E', 1), ('arbiter', 5, 2, 'FIRE', 'E', 0),
 	('arbiter', 6, 2, 'DUPLICATE', 'E', 0),
 
-	-- An explosion whose every hit sends a bolt, split into two. The ON HIT's
-	-- branch drops to the row below, and both halves of the bolt come back up
-	-- into the explosion's line to leave the way it does: one straight up out
-	-- of the SPLIT, the other round the corner under it.
+	-- An explosion whose every hit sends a bolt, three times over. The ON HIT's
+	-- branch drops to the row below, and the DUPLICATE turns it back up into
+	-- the explosion's line to leave the way it does.
 	('arbiter_phase2', 2, 2, 'EXPLODE', 'E', 1), ('arbiter_phase2', 4, 2, 'ON_HIT', 'E', 0),
 	('arbiter_phase2', 5, 2, 'DELAY', 'E', 0), ('arbiter_phase2', 6, 2, 'DELAY', 'E', 0),
-	('arbiter_phase2', 4, 3, 'PROJECTILE', 'E', 0), ('arbiter_phase2', 5, 3, 'SPLIT', 'E', 0),
-	('arbiter_phase2', 5, 4, 'DELAY', 'E', 0), ('arbiter_phase2', 6, 4, 'DELAY', 'N', 0),
-	('arbiter_phase2', 6, 3, 'DELAY', 'N', 0);
+	('arbiter_phase2', 4, 3, 'PROJECTILE', 'E', 0), ('arbiter_phase2', 5, 3, 'DUPLICATE', 'N', 0);

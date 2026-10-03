@@ -391,15 +391,17 @@ first attack leaving the board is spent the moment you press, so the attack
 lands on the press, and those ticks are charged back onto the cooldown instead.
 A long board makes you wait for the *next* shot, never for this one. Everything
 the board does after that first attack still plays out in real time, which is
-what lets `DELAY` stagger branches and triggers against each other.
+what lets `DELAY` hold a trigger's branch back behind the attack it follows.
 
-- `SPLIT` halves damage down two branches; `TEE` keeps the main line and grows
-  a full-strength branch sideways. A board has one way out, so a branch is only
-  an attack once it has been turned back round to it: one left running off
-  another edge is lost, and the board shows where.
+- Nothing forks a flow, so a cast is one attack; `DUPLICATE x3` is how it
+  becomes three. `SPLIT` and `TEE` used to fork it, and are retired.
 - Triggers (`ON HIT`, `ON KILL`, `ON PARRY`) grow a second flow out of their
   side port. That branch inherits the numbers but not the attack form, so it
-  defines its own payload, and it attaches to the attacks the skill fires.
+  defines its own payload, and it attaches to the attacks the skill fires. A
+  board has one way out, so a branch is only a follow-up once it has been
+  turned back round to it: one left running off another edge is lost, and the
+  board shows where. Walked round a ring and back into its trigger, it adds a
+  follow-up every lap.
   A branch that loops resolves once per lap and each lap is its own follow-up:
   they land in sequence, so a ring back through an attack form gives you that
   attack again and again rather than one strike carrying every lap's stats.
@@ -454,7 +456,7 @@ what lets `DELAY` stagger branches and triggers against each other.
   `FIRE`, `INVERT` puts out whatever the enemy came burning with and sets it
   alight again from the first `FIRE`, since a cleanse ends what was there
   before the hit and never what the hit itself brings. After a part with no
-  opposite — a form, a trigger, `SPLIT`, `TEE` — it does nothing.
+  opposite — a form, a trigger — it does nothing.
 - `TIME DILATION` slows the world *and* the board together — it changes the
   pace of a fight rather than buffing attack speed.
 
@@ -477,9 +479,10 @@ Because a flow can enter from any side, rings are easy to build. Every pulse
 therefore carries a **time to live** — how many more parts it may enter — and
 dies when it runs out, which is what stops a cycle running forever. It is per
 pulse rather than shared across the cast on purpose: with one pool between them,
-two branches out of a `TEE` race for the last of it and which one starves comes
-down to the order they happen to be stepped in. A pulse starts with one full
-pass of its own board, so length alone never costs a board its shot.
+a trigger's branch and the flow it leaves race for the last of it, and which
+one starves comes down to the order they happen to be stepped in. A pulse
+starts with one full pass of its own board, so length alone never costs a board
+its shot.
 
 Holding the cast button **charges** the weapon's graph, spending mana the whole
 time it is held; **letting go is what casts it**, with whatever the hold paid
@@ -525,8 +528,8 @@ red, and the cursor anywhere on it brings up a box saying why — whatever gets
 in goes round until its life runs out, and nothing comes of it. It counts
 whether or not the root feeds it, and being fed is exactly what makes it dead
 code rather than a part waiting to be wired up. A ring with a branch out of it
-is not one of these and is drawn as it always was: laps through the stat parts
-and out through a TEE is the pattern charging a skill exists to buy. Nor is one
+is not one of these and is drawn as it always was: a trigger's branch lapping
+the stat parts, a follow-up a lap, is the pattern charging a skill exists to buy. Nor is one
 with TIME DILATION or ON PARRY in it, which do their work on the way in and go
 on doing it once a lap however trapped the flow is.
 

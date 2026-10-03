@@ -493,7 +493,7 @@ func _ready() -> void:
 	for mc in big.cells.keys().duplicate():
 		big.erase_at(mc)
 	big.move_root(Vector2i(7, 4), 0)
-	big.place("TEE", Vector2i(8, 4), 0)          # on east, and south into a DELAY facing back
+	big.place("ON_HIT", Vector2i(8, 4), 0)       # on east, and its branch south into a DELAY facing back
 	big.place("ON_HIT", Vector2i(9, 4), 0)       # on east, and its branch south into nothing
 	big.place("SLASH", Vector2i(10, 4), 0)       # and out
 	big.place("DELAY", Vector2i(8, 5), 3)

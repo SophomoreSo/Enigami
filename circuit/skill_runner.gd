@@ -48,8 +48,9 @@ const MAX_TICKS_PER_UPDATE := 64
 ## Every pulse carries a time to live, counted in parts it may still enter, and
 ## dies when it runs out. That is what keeps a cycle in the board from running
 ## forever. It is per pulse rather than shared across the cast on purpose: with
-## one pool between them, two branches leaving a TEE race for the last of it and
-## which one starves depends on the order they happen to be stepped in.
+## one pool between them, a trigger's branch and the flow it leaves race for the
+## last of it and which one starves depends on the order they happen to be
+## stepped in.
 ##
 ## A pulse starts with one full pass of this board, so an uncharged cast does
 ## what it always did — one pass, and never truncated for being long.
@@ -485,7 +486,7 @@ static func _do(p: Payload, e: Dictionary) -> void:
 ## effects name goes back to what it held before the part (`came["before"]`),
 ## so only that part is turned round: FIRE after FIRE keeps the first one's.
 ## A part with no opposite is left as it was, so an INVERT after a form, a
-## trigger, SPLIT, TEE or another INVERT does nothing.
+## trigger or another INVERT does nothing.
 func _invert(p: Payload, came: Dictionary) -> void:
 	var opposite := Components.inversions_of(String(came.get("id", "")))
 	if opposite.is_empty():

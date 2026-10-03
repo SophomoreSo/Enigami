@@ -138,7 +138,7 @@ func _ready() -> void:
 	var ring := SkillBoard.new(7, 5, "ring")
 	ring.set_root("DELAY", Vector2i(3, 2))
 	ring.place("DELAY", Vector2i(4, 2), 0)
-	ring.place("TEE", Vector2i(5, 2), 0)        # on through the SLASH and out, and round
+	ring.place("ON_HIT", Vector2i(5, 2), 0)     # on through the SLASH and out, and its branch round
 	ring.place("SLASH", Vector2i(6, 2), 0)
 	ring.place("DELAY", Vector2i(5, 3), 2)
 	ring.place("DELAY", Vector2i(4, 3), 3)      # back into the first DELAY

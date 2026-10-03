@@ -197,31 +197,17 @@ func _nothing_to_flip() -> void:
 	check(differ(first, plain).is_empty(),
 		"INVERT straight after the root does nothing: a form has no opposite (%s)" % str(differ(first, plain)))
 	var hurt := payload_of(["SLASH", "DAMAGE"])
-	var tee := payload_of(["SLASH", "DAMAGE", "TEE", "INVERT"])
-	check(differ(tee, hurt).is_empty(),
-		"nor after TEE, though a DAMAGE stands before that: only the part straight before counts (%s)"
-			% str(differ(tee, hurt)))
+	var hit := payload_of(["SLASH", "DAMAGE", "ON_HIT", "INVERT"])
+	check(differ(hit, hurt).is_empty(),
+		"nor after ON HIT, though a DAMAGE stands before that: only the part straight before counts (%s)"
+			% str(differ(hit, hurt)))
 	var once := payload_of(["SLASH", "DAMAGE", "INVERT"])
 	var again := payload_of(["SLASH", "DAMAGE", "INVERT", "INVERT"])
 	check(differ(again, once).is_empty(), "nor after another INVERT, which has no opposite (%s)" % str(differ(again, once)))
-	for id in ["PIERCE", "BLINK", "HOMING", "REVERSE", "SHATTER", "MANA_DRAIN", "DUPLICATE"]:
+	for id in ["PIERCE", "BLINK", "HOMING", "SHATTER", "MANA_DRAIN", "DUPLICATE"]:
 		var with := payload_of(["SLASH", id])
 		var turned := payload_of(["SLASH", id, "INVERT"])
 		check(differ(turned, with).is_empty(), "nor after %s, which has none (%s)" % [id, str(differ(turned, with))])
-	# SPLIT sends its halves north and south; an INVERT on the north one gets
-	# the half SPLIT took, and SPLIT has no opposite to give back the rest. Two
-	# DELAYs bring that half round to the way out; the south one is lost.
-	var b := SkillBoard.new(4, 5, "test")
-	b.set_root("SLASH")
-	b.place("DAMAGE", Vector2i(1, 2), 0)
-	b.place("SPLIT", Vector2i(2, 2), 0)
-	b.place("INVERT", Vector2i(2, 1), 0)
-	b.place("DELAY", Vector2i(3, 1), 1)
-	b.place("DELAY", Vector2i(3, 2), 0)
-	var half := _fired(b)
-	check(half != null and is_equal_approx(half.damage, hurt.damage * 0.5) and half.heal == 0.0,
-		"nor after SPLIT, though a DAMAGE stands before that (%s)"
-			% ("nothing fired" if half == null else "%.1f damage, %.1f heal" % [half.damage, half.heal]))
 
 ## --- on a trigger's branch ---------------------------------------------------------
 

@@ -52,7 +52,16 @@ INSERT INTO codes (code, id) VALUES
 -- DASH lunged the caster along the aim as the attack went off. The player has
 -- a dash of their own on a key now, and SWIFT STRIKE is the lunge a board
 -- makes, so it was a third way to do one thing.
-INSERT INTO retired_parts (id) VALUES ('WIRE'), ('BEND'), ('INPUT'), ('OUTPUT'), ('DASH');
+--
+-- SPLIT and TEE forked a flow in two. A board has one way out, so what a fork
+-- made was walked round to it, and a ring with a TEE in it sent an attack out
+-- on every lap. A trigger does that job: its branch goes round the ring and
+-- each lap is one more follow-up. With no fork, a cast is one attack.
+--
+-- REVERSE turned a bolt round to come back at the caster a moment after it
+-- left, and did nothing to any other form.
+INSERT INTO retired_parts (id) VALUES ('WIRE'), ('BEND'), ('INPUT'), ('OUTPUT'), ('DASH'),
+	('SPLIT'), ('TEE'), ('REVERSE');
 
 INSERT INTO renamed_parts (old_id, new_id) VALUES ('AREA', 'EXPLODE');
 
@@ -132,7 +141,6 @@ INSERT INTO parts (id, name, category, heat, tag, description) VALUES
 	('PIERCE', 'PIERCE', 'behavior', 0.5, NULL, 'The attack continues through targets instead of stopping on the first.'),
 	('BLINK', 'BLINK', 'behavior', 0.7, 'mobility', 'Teleports behind the nearest visible enemy. Works alone; if nothing is in sight the flow simply continues.'),
 	('HOMING', 'HOMING', 'behavior', 0.6, NULL, 'Tracks the nearest enemy. Bolts curve; melee forms re-aim themselves.'),
-	('REVERSE', 'REVERSE', 'behavior', 0.4, NULL, 'Flips travel direction. Bolts return to you; other forms invert in their own way.'),
 	('GRAVITY', 'GRAVITY', 'behavior', 0.7, NULL, 'The enemy struck is not knocked back but pinned, and every other enemy nearby is dragged onto it. Gathers a room into one place for whatever comes next.'),
 	('KNOCKBACK', 'KNOCKBACK', 'behavior', 0.5, NULL, 'Hits throw the enemy back the way the attack was going. Buys room, but can put it out of reach.'),
 	('MANA_DRAIN', 'MANA DRAIN', 'behavior', 0.5, NULL, 'Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting.'),
@@ -140,14 +148,13 @@ INSERT INTO parts (id, name, category, heat, tag, description) VALUES
 
 INSERT INTO ports (part_id, side) VALUES
 	('PIERCE', 'E'), ('BLINK', 'E'), ('HOMING', 'E'),
-	('REVERSE', 'E'), ('GRAVITY', 'E'), ('KNOCKBACK', 'E'), ('MANA_DRAIN', 'E'),
+	('GRAVITY', 'E'), ('KNOCKBACK', 'E'), ('MANA_DRAIN', 'E'),
 	('STUN', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('PIERCE', 0, 'pierce', 'add', 2),
 	('BLINK', 0, 'blink', 'set', 'true'),
 	('HOMING', 0, 'homing', 'set', 'true'),
-	('REVERSE', 0, 'reverse', 'toggle', NULL),
 	('GRAVITY', 0, 'pull', 'set', 'true'),
 	('KNOCKBACK', 0, 'knockback', 'set', 'true'),
 	('MANA_DRAIN', 0, 'mana_drain', 'set', 'true'),
@@ -159,26 +166,19 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 -- which `SkillBoard.analyze` counts off the grid.
 
 INSERT INTO parts (id, name, category, heat, description) VALUES
-	('SPLIT', 'SPLIT', 'flow', 0.4, 'Divides one flow into two. Each branch carries half the damage.'),
-	('TEE', 'TEE', 'flow', 0.5, 'Keeps the main flow and grows one branch sideways. Both carry full damage.'),
 	('DUPLICATE', 'DUPLICATE x3', 'flow', 3.0, 'Produces the same result three times at full damage. Generates a lot of heat.'),
 	('OVERCLOCK', 'OVERCLOCK', 'flow', 0.0, 'Runs the whole board on a faster clock, at the price of a settling delay between cycles. Each one adds less speed than the last while the delay grows faster, so a few pay off and a wall of them does not.'),
-	('DELAY', 'DELAY', 'flow', 0.0, 'One cell of waiting and nothing more: it turns a flow and leaves it as it was. Steer a branch round to the way out with it, or stagger one against another by giving it further to walk.'),
+	('DELAY', 'DELAY', 'flow', 0.0, 'One cell of waiting and nothing more: it turns a flow and leaves it as it was. Steer a flow round to the way out with it, or walk a trigger''s branch round a ring and back.'),
 	('TIME_DILATION', 'TIME DILATION', 'flow', 2.0, 'Slows the world and the board alike. Not a speed buff — a change in the pace of the fight.'),
 	('INVERT', 'INVERT', 'flow', 0.4, 'Turns the part right before it inside out: DAMAGE heals what it strikes, FIRE, ICE and STUN cleanse it, GRAVITY pushes away, KNOCKBACK pulls in, and SIZE, SPEED and RANGE shrink. After anything else it does nothing.');
 
--- SPLIT sends north first, then south; TEE east, then south.
 INSERT INTO ports (part_id, side) VALUES
-	('SPLIT', 'N'), ('SPLIT', 'S'),
-	('TEE', 'E'), ('TEE', 'S'),
 	('DUPLICATE', 'E'), ('OVERCLOCK', 'E'), ('DELAY', 'E'), ('TIME_DILATION', 'E'),
 	('INVERT', 'E');
 
--- SPLIT halves a flow as it enters, so each of the two it sends carries half.
 -- INVERT does whatever the part before it has rows of `inversions` for: see
 -- the foot of the file.
 INSERT INTO effects (part_id, position, field, op, value) VALUES
-	('SPLIT', 0, 'damage', 'multiply', 0.5),
 	('DUPLICATE', 0, 'duplicates', 'multiply', 3),
 	('TIME_DILATION', 0, NULL, 'dilate', 1.4),
 	('INVERT', 0, NULL, 'invert', NULL);
@@ -212,7 +212,7 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 -- helps it — DAMAGE's eight to a heal of eight, a burn, a chill or a stun to a
 -- cleanse of all three — and what pulls pushes, what pushes pulls, and what
 -- makes an attack more makes it less. A part with no rows here has no
--- opposite: an INVERT after a form, a trigger, SPLIT or TEE does nothing.
+-- opposite: an INVERT after a form or a trigger does nothing.
 --
 -- Each number is its effect's turned round: the heal is DAMAGE's add, and every
 -- multiply here is one over the one above (1/1.6, 1/1.5, 1/1.2, 1/1.75).

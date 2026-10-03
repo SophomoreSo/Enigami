@@ -394,8 +394,6 @@ static func summary(p: Payload) -> String:
 		parts.append(Loc.t("editor.payload.pierce", [p.pierce]))
 	if p.homing:
 		parts.append(Loc.t("editor.payload.homing"))
-	if p.reverse:
-		parts.append(Loc.t("editor.payload.reverse"))
 	if p.blink:
 		parts.append(Loc.t("editor.payload.blink"))
 	if p.pull:

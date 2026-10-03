@@ -46,13 +46,14 @@ func _ready() -> void:
 	# takes for granted. Where a flow starts and where it becomes an attack are
 	# no part's own: they are the board's root and its way out, and INPUT and
 	# OUTPUT, which were those, are retired. So is DASH, which the player's own
-	# dash key and SWIFT STRIKE left with nothing to do.
+	# dash key and SWIFT STRIKE left with nothing to do, SPLIT and TEE, whose
+	# forks a trigger's branch does instead, and REVERSE.
 	var retired: Array = []
-	for id in ["INPUT", "OUTPUT", "WIRE", "BEND", "DASH"]:
+	for id in ["INPUT", "OUTPUT", "WIRE", "BEND", "DASH", "SPLIT", "TEE", "REVERSE"]:
 		if Components.exists(id) or not Components.is_retired(id) or Components.code_of(id) < 0:
 			retired.append(id)
 	check(retired.is_empty(),
-		"INPUT, OUTPUT, WIRE, BEND and DASH are retired: each keeps its number, and is no part (%s)" % str(retired))
+		"INPUT, OUTPUT, WIRE, BEND, DASH, SPLIT, TEE and REVERSE are retired: each keeps its number, and is no part (%s)" % str(retired))
 	check(Components.world_inputs("SLASH", 0) == [Components.S, Components.W, Components.N],
 		"no part is a source: every part takes flow on every side but its own outputs, the root's included")
 	var nowhere: Array = []
@@ -110,14 +111,8 @@ func _ready() -> void:
 	check(dup.duplicates == p0.duplicates * int(_value("DUPLICATE", "multiply", &"duplicates")),
 		"and DUPLICATE multiplies the count (%d)" % dup.duplicates)
 	check((_entered("BLINK")["payload"] as Payload).blink, "set: BLINK sets its flag")
-	var back := _entered("REVERSE", 1)["payload"] as Payload
-	var forth := _entered("REVERSE", 2)["payload"] as Payload
-	check(back.reverse and not forth.reverse, "toggle: one REVERSE flips a flow, and a second flips it back")
 	var fire := _entered("FIRE", 2)["payload"] as Payload
 	check(Array(fire.elements) == ["FIRE"], "include: FIRE joins the elements, once however often (%s)" % str(fire.elements))
-	var split := _entered("SPLIT")["payload"] as Payload
-	check(is_equal_approx(split.damage, p0.damage * _value("SPLIT", "multiply", &"damage")),
-		"SPLIT takes its share off a flow as it enters (%.1f)" % split.damage)
 	var dilated: Array = _entered("TIME_DILATION")["events"]
 	check(dilated.size() == 1 and dilated[0] == ["dilate", _value("TIME_DILATION", "dilate", &"")],
 		"dilate: TIME DILATION asks for the seconds its row gives (%s)" % str(dilated))
@@ -155,6 +150,17 @@ func _ready() -> void:
 	check(whole is Dictionary and typeof(whole["value"]) == TYPE_INT, "a whole one to a whole number, as a whole number")
 	var flag = Components._effect({"op": "set", "field": "blink", "value": 1}, shape)
 	check(flag is Dictionary and flag["value"] is bool and flag["value"], "and a 1 set on a flag as true")
+	# No part toggles anything since REVERSE went, but the op is still one a
+	# part may have: it flips a flag, and a second flips it back.
+	var flip = Components._effect({"op": "toggle", "field": "homing", "value": null}, shape)
+	var flipped := Payload.new()
+	if flip is Dictionary:
+		SkillRunner._do(flipped, flip)
+	var once := flipped.homing
+	if flip is Dictionary:
+		SkillRunner._do(flipped, flip)
+	check(flip is Dictionary and once and not flipped.homing,
+		"toggle: a flag flips, and a second toggle flips it back (%s)" % str(flip))
 	var turn = Components._effect({"op": "invert", "field": null, "value": null}, shape)
 	check(turn is Dictionary and turn["op"] == "invert" and turn["field"] == &"" and turn["value"] == null,
 		"an invert, which names nothing of its own, is read as one (%s)" % str(turn))
@@ -198,7 +204,7 @@ func _ready() -> void:
 			"a part with two branches is refused")
 		check(not _accepted(db, [cat, code, part, effect.replace("'form', 'set', 'BOLT'", "'damage', 'dilate', 1")]),
 			"a dilation that names a field is refused")
-		check(not _accepted(db, [cat, code, part, effect.replace("'form', 'set', 'BOLT'", "'reverse', 'toggle', 1")]),
+		check(not _accepted(db, [cat, code, part, effect.replace("'form', 'set', 'BOLT'", "'homing', 'toggle', 1")]),
 			"a toggle with a value is refused")
 		check(not _accepted(db, [cat, code, part, effect.replace("'set'", "'divide'")]), "an effect nobody can do is refused")
 		db.close_db()

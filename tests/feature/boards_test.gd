@@ -123,29 +123,21 @@ func _ready() -> void:
 	check(drops == on_boards and drops.has("ON_HIT") and drops.has("PROJECTILE"),
 		"a monster drops what it was seen using, its root and second form included (%s)" % str(drops))
 
-	# --- the two that branch ---------------------------------------------------
-	# A board has one way out, so a monster whose attack is more than one flow
-	# has every one of them walked round to it. The Warden's bolt is split, and
-	# both halves have to leave — and leave together, or it is two shots a beat
-	# apart instead of one volley.
-	var warden := SkillRunner.new(Monsters.build_board("WARDEN"))
-	warden.dry_run = true
-	var volley: Array = []
-	warden.fired.connect(func(p: Payload) -> void: volley.append([warden._cycle_ticks, p]))
-	warden.active = true
-	warden._start_cycle()
-	while not warden.pulses.is_empty():
-		warden._advance()
+	# --- the two that fire three ---------------------------------------------
+	# A board has one way out and nothing forks a flow, so a monster that throws
+	# more than one of something does it with a DUPLICATE. The Warden's frost
+	# bolt leaves the board once, as three, each at full damage.
+	var warden := SkillRunner.new(Monsters.build_board("WARDEN")).simulate()
+	var volley: Array = warden["outputs"]
 	var whole := Payload.new().damage
-	var halves := volley.size() == 2
-	for shot in volley:
-		var p: Payload = shot[1]
-		halves = halves and p.form == "PROJECTILE" and p.has_element("ICE") and is_equal_approx(p.damage, whole * 0.5)
-	check(halves, "the Warden's frost bolt leaves the board as two, half the damage each (%d)" % volley.size())
-	check(volley.size() == 2 and int(volley[0][0]) == int(volley[1][0]),
-		"on the same tick: each half walks the same distance round to the way out")
-	# The Arbiter's second form is an explosion whose every hit sends a split
-	# bolt: one attack out of the board, and two follow-ups hung off its ON HIT.
+	var frost := volley.size() == 1
+	for p: Payload in volley:
+		frost = frost and p.form == "PROJECTILE" and p.has_element("ICE") \
+			and p.duplicates == 3 and is_equal_approx(p.damage, whole)
+	check(frost, "the Warden's frost bolt leaves the board once, three times over at full damage (%d)" % volley.size())
+	# The Arbiter's second form is an explosion whose every hit sends a bolt
+	# three times over: one attack out of the board, and one follow-up hung off
+	# its ON HIT.
 	var rage_run := SkillRunner.new(rage).simulate()
 	var blasts: Array = rage_run["outputs"]
 	var after: Array = []
@@ -153,11 +145,11 @@ func _ready() -> void:
 	while link != null:
 		after.append(link)
 		link = link.on_hit
-	var bolts := after.size() == 2
-	for bolt in after:
-		bolts = bolts and (bolt as Payload).form == "PROJECTILE" and is_equal_approx((bolt as Payload).damage, whole * 0.5)
+	var bolts := after.size() == 1
+	for bolt: Payload in after:
+		bolts = bolts and bolt.form == "PROJECTILE" and bolt.duplicates == 3 and is_equal_approx(bolt.damage, whole)
 	check(blasts.size() == 1 and (blasts[0] as Payload).form == "EXPLODE" and bolts,
-		"the Arbiter's second form explodes, and each hit of it sends two half bolts (%d and %d)"
+		"the Arbiter's second form explodes, and each hit of it sends a bolt three times over (%d and %d)"
 			% [blasts.size(), after.size()])
 
 	# --- the checker catches what it is for -----------------------------------

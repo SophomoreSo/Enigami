@@ -419,9 +419,8 @@ it:
 | `invert` | takes back what the part the flow came from did, and does its `inversions` instead; no field, no `value` | — |
 
 The fields are the payload's: `damage` `size` `speed` `range_px` `stun`
-`heal` (numbers), `pierce` `duplicates` (whole numbers), `homing` `reverse`
-`dash` `blink` `pull` `knockback` `shatter` `mana_drain` `cleanse` `repel`
-`hook` (flags), `form` (a word) and `elements` (a list). `value` is read as
+`heal` (numbers), `pierce` `duplicates` (whole numbers), `homing` `blink`
+`pull` `knockback` `shatter` `mana_drain` `cleanse` `repel` `hook` (flags), `form` (a word) and `elements` (a list). `value` is read as
 JSON — `8`, `1.6`, `'true'` — and a word may go without its quotes: `'FIRE'`.
 A row asking for a field there is not, or for something its field cannot
 take, is a fault the game reports as it reads the parts, and
@@ -449,7 +448,7 @@ INSERT INTO inversions (part_id, position, field, op, value) VALUES
 
 Only that one part is turned round: FIRE, FIRE, INVERT still burns, from the
 first FIRE. A part with no rows here has no opposite, and an INVERT after it —
-or after a form, a trigger, SPLIT, TEE or another INVERT — does nothing.
+or after a form, a trigger or another INVERT — does nothing.
 What an opposite gives lands on the enemy the hit strikes, once the hit has
 landed (`Attacks.resolve_hit`). A cleanse ends what that enemy was carrying
 when the hit reached it, and whatever the same hit brings goes on after — which
@@ -464,14 +463,12 @@ it, every monster's, the dragon test's — are rows in `boards/`. What a player
 builds onto a weapon's graph is theirs, and lives in the save.
 
 ```sql
-INSERT INTO boards (id) VALUES ('warden');
+INSERT INTO boards (id) VALUES ('arbiter_phase2');
 
 INSERT INTO board_parts (board_id, x, y, part, facing, root) VALUES
-	('warden', 3, 2, 'PROJECTILE', 'E', 1), ('warden', 4, 2, 'ICE', 'E', 0),
-	('warden', 5, 2, 'SPLIT', 'E', 0),
-	('warden', 5, 1, 'DELAY', 'E', 0), ('warden', 6, 1, 'DELAY', 'S', 0),
-	('warden', 5, 3, 'DELAY', 'E', 0), ('warden', 6, 3, 'DELAY', 'N', 0),
-	('warden', 6, 2, 'DELAY', 'E', 0);
+	('arbiter_phase2', 2, 2, 'EXPLODE', 'E', 1), ('arbiter_phase2', 4, 2, 'ON_HIT', 'E', 0),
+	('arbiter_phase2', 5, 2, 'DELAY', 'E', 0), ('arbiter_phase2', 6, 2, 'DELAY', 'E', 0),
+	('arbiter_phase2', 4, 3, 'PROJECTILE', 'E', 0), ('arbiter_phase2', 5, 3, 'DUPLICATE', 'N', 0);
 ```
 
 The part with `root` 1 is the root: the flow starts in it, and a board with
@@ -481,8 +478,8 @@ monster's. A flow goes from a part into the part beside it, and leaves the
 board by the middle of its right edge — past `(6, 2)`, heading east, on a 7×5
 — and only what leaves there is an attack. So a board is a chain of parts
 touching from its root to that cell, and every branch on it is walked back
-round to it: above, the SPLIT's two halves go up and down and are turned home
-on DELAYs.
+round to it: above, the ON HIT's branch drops a row, and the DUPLICATE facing
+north turns it home into the DELAYs the explosion leaves by.
 
 | Column | Meaning |
 |---|---|

@@ -334,8 +334,8 @@ func _ready() -> void:
 	check(same_parts(below, _board([["SLASH", 0, 2, 0], ["DELAY", 1, 2, 1]])) and below_leaks.size() == 1
 			and below_leaks[0]["from"] == Vector2i(1, 2) and int(below_leaks[0]["dir"]) == Components.S,
 		"one fed from above stays put, and leaks where its OUTPUT stood")
-	var forked := _saved([["SLASH", 0, 2, 0], ["SPLIT", 1, 2, 0], ["OUTPUT", 1, 1, 0], ["OUTPUT", 1, 3, 0]])
-	check(same_parts(forked, _board([["SLASH", 0, 2, 0], ["SPLIT", 1, 2, 0]])),
+	var forked := _saved([["SLASH", 0, 2, 0], ["ON_HIT", 1, 2, 0], ["OUTPUT", 2, 2, 0], ["OUTPUT", 1, 3, 0]])
+	check(same_parts(forked, _board([["SLASH", 0, 2, 0], ["ON_HIT", 1, 2, 0]])),
 		"one with two OUTPUTs stays put")
 	var crowded := _saved([["SLASH", 0, 2, 0], ["OUTPUT", 1, 2, 0], ["FIRE", 6, 0, 0]])
 	check(same_parts(crowded, _board([["SLASH", 0, 2, 0], ["FIRE", 6, 0, 0]])),
@@ -345,10 +345,12 @@ func _ready() -> void:
 	var starter := _saved([["INPUT", 0, 2, 0], ["SLASH", 1, 2, 0], ["WIRE", 2, 2, 0], ["OUTPUT", 3, 2, 0]])
 	check(same_parts(starter, _board([["SLASH", 1, 2, 0]])) and not starter.has_root(),
 		"a starter board saved with its INPUT, WIRE and OUTPUT reads back as its SLASH")
-	# And from before DASH was: the same, a cell left empty where it stood.
-	check(same_parts(_saved([["SLASH", 0, 2, 0], ["DASH", 1, 2, 0], ["FIRE", 2, 2, 0]]),
-			_board([["SLASH", 0, 2, 0], ["FIRE", 2, 2, 0]])),
-		"a board saved with a DASH on it reads back with the DASH left out")
+	# And from before DASH, SPLIT, TEE and REVERSE were: the same, a cell left
+	# empty where each stood.
+	check(same_parts(_saved([["SLASH", 0, 2, 0], ["DASH", 1, 2, 0], ["FIRE", 2, 2, 0],
+			["SPLIT", 3, 2, 0], ["TEE", 4, 2, 0], ["REVERSE", 5, 2, 0], ["DAMAGE", 6, 2, 0]]),
+			_board([["SLASH", 0, 2, 0], ["FIRE", 2, 2, 0], ["DAMAGE", 6, 2, 0]])),
+		"a board saved with a DASH, a SPLIT, a TEE and a REVERSE on it reads back with them left out")
 
 	# --- a board from before AREA was renamed EXPLODE -----------------------
 	# The part kept its number, so a code shared under the old name builds the
@@ -428,15 +430,15 @@ func _ready() -> void:
 	want.set_root("DELAY")
 	want.place("FIRE", Vector2i(1, 2), 0)
 	want.place("PROJECTILE", Vector2i(2, 2), 0)
-	want.place("SPLIT", Vector2i(3, 2), 0)
+	want.place("ON_HIT", Vector2i(3, 2), 0)
 	var missing := GameState.trade_board(have, have.adoption_cost(want), pool)
-	check(int(missing.get("SPLIT", 0)) == 1, "a board you cannot afford says what is short")
+	check(int(missing.get("ON_HIT", 0)) == 1, "a board you cannot afford says what is short")
 	check(int(pool.get("FIRE", 0)) == 1 and not pool.has("DAMAGE"),
 		"and nothing moved — the old board's parts are still in it")
-	pool["SPLIT"] = 1
+	pool["ON_HIT"] = 1
 	check(GameState.trade_board(have, have.adoption_cost(want), pool).is_empty(),
 		"with the last part, the trade goes through")
-	check(not pool.has("FIRE") and not pool.has("PROJECTILE") and not pool.has("SPLIT"),
+	check(not pool.has("FIRE") and not pool.has("PROJECTILE") and not pool.has("ON_HIT"),
 		"the new board's parts came out of the pool")
 	check(int(pool.get("DAMAGE", 0)) == 1, "and the old board's went back into it")
 	check(GameState.trade_board(null, {}, pool).is_empty(),

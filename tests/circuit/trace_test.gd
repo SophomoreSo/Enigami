@@ -153,14 +153,14 @@ func _ready() -> void:
 
 	# The budget counts re-entries into a part, and it is the same budget the
 	# workbench previews with. A looping board therefore has to run at the cycle
-	# time and shot count the preview promised: when the runner counted total
+	# time and follow-ups the preview promised: when the runner counted total
 	# distance travelled instead, a ring held the cycle open for dozens of ticks
 	# with the root stuck behind it, and the board fired once where the preview
 	# said four.
 	var lp := SkillBoard.new(7, 5, "loop")
 	lp.set_root("DELAY", Vector2i(3, 2))
 	lp.place("DELAY", Vector2i(4, 2), 0)
-	lp.place("TEE", Vector2i(5, 2), 0)      # on to the attack, and round the ring
+	lp.place("ON_HIT", Vector2i(5, 2), 0)   # on to the attack, and its branch round the ring
 	lp.place("SLASH", Vector2i(6, 2), 0)    # east, and out
 	lp.place("DELAY", Vector2i(5, 3), 2)
 	lp.place("DELAY", Vector2i(4, 3), 3)    # north, back into the first DELAY
@@ -172,14 +172,28 @@ func _ready() -> void:
 	var pred := lr.simulate()
 	var predicted := float(pred["cycle_seconds"])
 	var want_shots: int = (pred["outputs"] as Array).size()
-	check(want_shots > 1, "the ring previews more than one shot per cycle (%d)" % want_shots)
+	var want_after := 0
+	var promised = (pred["triggers"] as Dictionary).get("ON_HIT", null)
+	while promised != null:
+		want_after += 1
+		promised = promised.on_hit
+	check(want_shots == 1 and want_after > 1,
+		"the ring previews one attack a cycle with a follow-up a lap (%d, %d)" % [want_shots, want_after])
 	var cycles := [0]
 	var shots := [0]
 	var whole := [0]   # shots banked at the last cycle boundary, so no partial cycle
+	var carried: Array = []
 	lr.cycle_started.connect(func() -> void:
 		cycles[0] += 1
 		whole[0] = shots[0])
-	lr.fired.connect(func(_p: Payload) -> void: shots[0] += 1)
+	lr.fired.connect(func(fp: Payload) -> void:
+		shots[0] += 1
+		var n := 0
+		var q = fp.on_hit
+		while q != null:
+			n += 1
+			q = q.on_hit
+		carried.append(n))
 	lr.set_active(true)
 	var step := 1.0 / 240.0
 	var elapsed := 0.0
@@ -192,6 +206,8 @@ func _ready() -> void:
 	var per_cycle := float(whole[0]) / float(maxi(cycles[0] - 1, 1))
 	check(absf(per_cycle - float(want_shots)) < 0.5,
 		"and fires as many shots as it promised (%.1f vs %d)" % [per_cycle, want_shots])
+	check(not carried.is_empty() and carried.all(func(n: int) -> bool: return n == want_after),
+		"each carrying the follow-ups it promised (%s, want %d)" % [str(carried), want_after])
 
 	# --- loops the flow can never leave ----------------------------------------
 	# The board from the report: a trigger feeding a four-part ring that never
@@ -231,31 +247,31 @@ func _ready() -> void:
 		"a ring with nothing feeding it is dead code all the same")
 	check((tr["dead"] as Dictionary).size() == 4, "and so is the one the root feeds")
 
-	# The ring that pays for itself is left alone. Laps through the stat parts
-	# and out through a TEE is the pattern charging a skill exists to buy, and
-	# calling it dead code would be calling the game dead code.
+	# The ring that pays for itself is left alone. A trigger's branch lapping the
+	# stat parts, a follow-up a lap, is the pattern charging a skill exists to
+	# buy, and calling it dead code would be calling the game dead code.
 	check((lp.trace()["dead"] as Dictionary).is_empty(),
-		"a ring with a branch out of it is not dead code")
+		"a ring with a way out of it is not dead code")
 	check((b.trace()["dead"] as Dictionary).is_empty(), "and neither is a plain chain")
 	# Nor is a ring one of whose own parts sends its flow out of the board, with
 	# no part between: every part of it leads to every other, and it is still the
 	# way out. The dragon test's board is this shape.
 	var lo := SkillBoard.new(7, 5, "leaves")
 	lo.set_root("SLASH", Vector2i(5, 2))
-	lo.place("TEE", Vector2i(6, 2), 0)           # east and out, and south round the ring
+	lo.place("ON_HIT", Vector2i(6, 2), 0)        # east and out, and its branch south round the ring
 	lo.place("DELAY", Vector2i(6, 3), 2)
 	lo.place("DELAY", Vector2i(5, 3), 3)         # north, back into the root
 	var tlo := lo.trace()
 	check((tlo["dead"] as Dictionary).is_empty() and bool(tlo["gets_out"]),
 		"a ring that lets its flow out of the board itself is not dead code either")
-	# The same ring a cell further in, its TEE sending into a part that will
+	# The same ring a cell further in, its ON HIT sending into a part that will
 	# not take it, is.
 	var shut := SkillBoard.new(7, 5, "shut")
 	shut.set_root("SLASH", Vector2i(4, 2))
-	shut.place("TEE", Vector2i(5, 2), 0)
+	shut.place("ON_HIT", Vector2i(5, 2), 0)
 	shut.place("DELAY", Vector2i(5, 3), 2)
 	shut.place("DELAY", Vector2i(4, 3), 3)
-	shut.place("DELAY", Vector2i(6, 2), 2)       # facing back at the TEE
+	shut.place("DELAY", Vector2i(6, 2), 2)       # facing back at the ON HIT
 	check((shut.trace()["dead"] as Dictionary).size() == 4,
 		"but one with its way out shut is")
 

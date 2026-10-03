@@ -55,14 +55,11 @@ const COMPONENT := {
 	"PIERCE": {"glyph": "⇢"},
 	"BLINK": {"glyph": "✦"},
 	"HOMING": {"glyph": "◈"},
-	"REVERSE": {"glyph": "↺"},
 	"GRAVITY": {"glyph": "⤓"},
 	"KNOCKBACK": {"glyph": "↦"},
 	"MANA_DRAIN": {"glyph": "⊚"},
 	"STUN": {"glyph": "@"},
 
-	"SPLIT": {"glyph": "Y"},
-	"TEE": {"glyph": "┬"},
 	"DUPLICATE": {"glyph": "⋯"},
 	"OVERCLOCK": {"glyph": "⚡"},
 	"DELAY": {"glyph": "⏳"},
@@ -272,15 +269,6 @@ const COMPONENT_ICON := {
 		".#####.",
 		"..###..",
 	],
-	"REVERSE": [
-		"#####..",
-		".....#.",
-		"......#",
-		"......#",
-		".#...#.",
-		"#####..",
-		".#.....",
-	],
 	# Round and round, the way a head goes when it has been struck too hard.
 	"STUN": [
 		"#######",
@@ -292,24 +280,6 @@ const COMPONENT_ICON := {
 		".######",
 	],
 
-	"SPLIT": [
-		"#.....#",
-		".#...#.",
-		"..#.#..",
-		"...#...",
-		"...#...",
-		"...#...",
-		"...#...",
-	],
-	"TEE": [
-		".......",
-		".......",
-		".......",
-		"#######",
-		"...#...",
-		"...#...",
-		"...#...",
-	],
 	"DUPLICATE": [
 		".......",
 		".......",

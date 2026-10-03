@@ -155,7 +155,7 @@ func _new_profile() -> void:
 	scrap = 40
 	# A handful of parts to build a first graph with: something for every
 	# weapon's root, a step out of trouble, and a beam to try the gun's range.
-	for id in ["PROJECTILE", "SLASH", "DAMAGE", "FIRE", "SPLIT", "PIERCE", "ZAP"]:
+	for id in ["PROJECTILE", "SLASH", "DAMAGE", "FIRE", "PIERCE", "ZAP"]:
 		stash[id] = 2
 	stash["BLINK"] = 1
 	for w in owned_weapons:
