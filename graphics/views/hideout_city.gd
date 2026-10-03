@@ -96,7 +96,9 @@ func _build() -> void:
 	_near_towers = _stand_near(rng)
 	for i in 14:
 		var t: Dictionary = _mid_towers[rng.randi() % _mid_towers.size()]
+		@warning_ignore("integer_division")
 		var cols := maxi(1, (int(t["w"]) - 3) / 3)
+		@warning_ignore("integer_division")
 		var rows := maxi(1, (SILL - int(t["top"]) - 6) / 4)
 		_winks.append({"x": int(t["x"]) + 2 + (rng.randi() % cols) * 3,
 			"y": int(t["top"]) + 3 + (rng.randi() % rows) * 4,
@@ -182,6 +184,7 @@ func _paint_beams(c: CanvasItem) -> void:
 		for k in 30:
 			var up := k * 5
 			var bx := int(b[0]) + int(tan(lean) * float(up))
+			@warning_ignore("integer_division")
 			_out_there(c, bx - 1 - k / 6, SILL - 30 - up, 3 + k / 3, 5,
 				Color(0.72, 0.62, 1.0, 0.055 * (1.0 - k / 30.0)))
 
@@ -216,12 +219,14 @@ func _paint_towers(c: CanvasItem, towers: Array, body: Color, across: int, down:
 		box(c, x, top, 1, SILL - top, body.lightened(0.06))
 		if t["step"]:
 			# A narrower storey or two on top of it.
+			@warning_ignore("integer_division")
 			var inset := maxi(2, w / 5)
 			box(c, x + inset, top - 6, w - inset * 2, 6, body)
 		elif w > 12 and rng.randf() < 0.6:
 			# Or what collects on a roof: a tank, a plant room.
 			box(c, x + rng.randi_range(2, w - 8), top - 3, rng.randi_range(3, 6), 3, body)
 		if t["mast"]:
+			@warning_ignore("integer_division")
 			box(c, x + w / 2, top - 14, 1, 14, body)
 		var tone: Color = Style.CITY_LIGHTS[t["tone"]]
 		var y := top + 3
@@ -242,6 +247,7 @@ func _paint_towers(c: CanvasItem, towers: Array, body: Color, across: int, down:
 func _paint_traffic(c: CanvasItem) -> void:
 	for t in _mid_towers:
 		if t["mast"] and fmod(_t + float(int(t["seed"]) % 7) * 0.3, 1.7) < 0.25:
+			@warning_ignore("integer_division")
 			box(c, int(t["x"]) + int(t["w"]) / 2, int(t["top"]) - 15, 1, 1, Style.NEON_RED)
 	for w in _winks:
 		var up := fmod(_t + float(w["from"]), float(w["every"])) < float(w["every"]) * 0.5
@@ -287,6 +293,7 @@ func _paint_signs(c: CanvasItem) -> void:
 		_sign_board(c, at.x, at.y, size.x, size.y)
 		if not board["down"]:
 			halo(c, at.x + 2, at.y + 2, size.x - 4, size.y - 4, light, 3, 0.09)
+			@warning_ignore("integer_division")
 			words(c, at.x + size.x / 2, at.y + 2, says, light, 8)
 			# The legs it stands on the roof by.
 			box(c, at.x + 8, at.y + size.y, 1, 2, Style.CITY_NEAR.lightened(0.14))
@@ -298,6 +305,7 @@ func _paint_signs(c: CanvasItem) -> void:
 				var on := stutter(_t, float(board["every"]), 3 + i * 4)
 				lit = faded(light, (0.3 if on < 1.0 else 1.0) if board["gone"] else on)
 			halo(c, at.x + 2, at.y + 3 + k * 18, 16, 16, lit, 3, 0.10 * lit.a)
+			@warning_ignore("integer_division")
 			words(c, at.x + size.x / 2, at.y + 3 + k * 18, says[k], lit, 16)
 	# The bars.
 	var bars: Vector2i = SCREENS[0]["at"]
@@ -378,6 +386,7 @@ func _pillar(c: CanvasItem, x: int, w: int) -> void:
 	box(c, x, GLASS_TOP, 1, FLOOR - GLASS_TOP, Style.HIDEOUT_STEEL_LIT.darkened(0.25))
 	box(c, x + w - 1, GLASS_TOP, 1, FLOOR - GLASS_TOP, Style.HIDEOUT_SHADOW)
 	for y in range(GLASS_TOP + 6, FLOOR - 4, 12):
+		@warning_ignore("integer_division")
 		box(c, x + w / 2, y, 1, 1, Style.HIDEOUT_STEEL_LIT.darkened(0.2))
 
 ## Overhead: the duct, the pipes under it, a cable somebody slung from light

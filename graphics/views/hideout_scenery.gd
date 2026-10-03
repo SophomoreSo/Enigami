@@ -304,14 +304,16 @@ static func wet(c: CanvasItem, x: int, w: int, col: Color, strength: float) -> v
 ## their top. `size` is the face's own or a multiple of it.
 static func words(c: CanvasItem, x: int, y: int, text: String, col: Color, size: int = 8) -> void:
 	var tall := Loc.text_size(text, size)
+	@warning_ignore("integer_division")
 	PixelCamera.draw_text(c, Vector2(x * S, (y + tall * 7 / 8) * S), text, col, Color(0, 0, 0, 0), size)
 
-## A light that stutters: on, but for a burst of flicker every so often.
-static func stutter(t: float, every: float, seed: int) -> float:
-	var into := fmod(t + float(seed) * 1.7, every)
+## A light that stutters: on, but for a burst of flicker every so often,
+## out of step with the others by its `salt`.
+static func stutter(t: float, every: float, salt: int) -> float:
+	var into := fmod(t + float(salt) * 1.7, every)
 	if into > 0.45:
 		return 1.0
-	return 0.25 if (int(t * 24.0) * 7 + seed) % 5 < 2 else 1.0
+	return 0.25 if (int(t * 24.0) * 7 + salt) % 5 < 2 else 1.0
 
 ## A flame's light: never still, never out — two slow swells and a quick one,
 ## each of a look's fires out of step with the rest by its `salt`.

@@ -189,6 +189,7 @@ static func _half(row: int) -> int:
 	if row >= FOOT or row < SPRING - RISE:
 		return 0
 	if row >= SPRING:
+		@warning_ignore("integer_division")
 		return WIDE / 2
 	var up := float(SPRING - row)
 	return maxi(int(floor(sqrt(float(WIDE * WIDE) - up * up) - WIDE * 0.5 + 0.5)), 0)
@@ -270,6 +271,7 @@ func _paint_peaks(c: CanvasItem) -> void:
 		var top := _height(PEAKS, x) + (x * 7 + (x * x) % 5) % 3 - 1
 		box(c, x, top, 1, FOOT - top, PEAK)
 		# Snow on whatever of it stands high enough, ragged at its foot.
+		@warning_ignore("integer_division")
 		var snow := clampi((168 - top) * 6 / 10 + (2 if x % 5 < 2 else 0) - (x * 3) % 2, 0, 20)
 		box(c, x, top, 1, snow, SNOW_FAR)
 		box(c, x, top, 1, mini(snow, 2), SNOW_FAR.lightened(0.25))
@@ -334,6 +336,7 @@ func _paint_near(c: CanvasItem) -> void:
 	for x in range(VIEW_LEFT, VIEW_RIGHT - 6, 12):
 		box(c, x, 190, 7, 6, OUTWALL)
 		box(c, x, 189, 7, 1, SNOW)
+		@warning_ignore("integer_division")
 		box(c, x + 1, 188, 4 + (x / 12) % 2, 1, SNOW)
 		box(c, x + 7, 195, 5, 1, SNOW)
 	# The turret.
@@ -342,9 +345,12 @@ func _paint_near(c: CanvasItem) -> void:
 	box(c, 74, 144, 20, 6, OUTWALL)
 	box(c, 74, 143, 20, 1, SNOW)
 	for k in 27:
+		@warning_ignore("integer_division")
 		var w := 2 + k * 20 / 26
+		@warning_ignore("integer_division")
 		box(c, 84 - w / 2, 117 + k, w, 1, OUTWALL.lightened(0.04))
 		if k < 22:
+			@warning_ignore("integer_division")
 			box(c, 84 - w / 2, 117 + k, 1 + k / 8, 1, SNOW)
 	box(c, 84, 104, 1, 13, OUTWALL.lightened(0.32))
 	box(c, 83, 160, 2, 6, FLAME_MID)
@@ -360,6 +366,7 @@ func _paint_out(c: CanvasItem) -> void:
 	var hills := _off(_hills)
 	for k in 9:
 		var wave := int(round(sin(_t * 5.0 - k * 0.9) * (0.3 + k * 0.16)))
+		@warning_ignore("integer_division")
 		box(c, 85 + near + k, 105 + wave, 1, 4 - k / 3, CRIMSON.lightened(0.12))
 	var f := flicker(_t, 11)
 	box(c, 364 + near, 171, 5, 2, FLAME_OUT)
@@ -374,6 +381,7 @@ func _paint_out(c: CanvasItem) -> void:
 		var cx: int = WINDOWS[flake["pane"]]
 		var y := VIEW_TOP + int(float(flake["y"]) + float(flake["speed"]) * _t) % tall
 		var x := posmod(int(flake["x"]) + int(round(sin(_t * 0.8 + float(flake["sway"])) * 3.0 - _t * 3.0)), WIDE)
+		@warning_ignore("integer_division")
 		box(c, cx - WIDE / 2 + x, y, 1, 1, faded(SNOW, 0.5 + 0.4 * float(int(flake["x"]) % 3) / 2.0))
 
 ## --- the hall ---------------------------------------------------------------
@@ -438,21 +446,28 @@ func _paint_windows(c: CanvasItem) -> void:
 				first = false
 			box(c, cx - half - 2, row, 2, 1, PIER_LIT)
 			box(c, cx + half, row, 2, 1, PIER)
+		@warning_ignore("integer_division")
 		box(c, cx - WIDE / 2 - 2, SPRING, 2, FOOT - SPRING, PIER_LIT)
+		@warning_ignore("integer_division")
 		box(c, cx + WIDE / 2, SPRING, 2, FOOT - SPRING, PIER)
 		# The glass: a sheen down each light of it, and frost in its corners.
 		for k in 12:
 			box(c, cx - 21 + k, SPRING + 10 + k * 4, 6, 4, Color(0.80, 0.90, 1.0, 0.035))
 			box(c, cx + 5 + k, SPRING + 4 + k * 4, 4, 4, Color(0.80, 0.90, 1.0, 0.035))
+		@warning_ignore("integer_division")
 		box(c, cx - WIDE / 2, FOOT - 3, WIDE, 3, SNOW.darkened(0.08))
 		box(c, cx - 21, FOOT - 4, 11, 1, SNOW)
 		box(c, cx + 5, FOOT - 4, 15, 1, SNOW)
+		@warning_ignore("integer_division")
 		box(c, cx - WIDE / 2, FOOT - 6, 3, 3, faded(SNOW, 0.5))
+		@warning_ignore("integer_division")
 		box(c, cx + WIDE / 2 - 3, FOOT - 6, 3, 3, faded(SNOW, 0.5))
 		# The stone bars: one up the middle, one across where the arch springs.
 		box(c, cx - 1, SPRING - RISE + 6, 2, FOOT - SPRING + RISE - 6, PIER_DARK)
+		@warning_ignore("integer_division")
 		box(c, cx - WIDE / 2, SPRING, WIDE, 2, PIER_DARK)
 		for y in [146, 175]:
+			@warning_ignore("integer_division")
 			box(c, cx - WIDE / 2, y, WIDE, 1, Color(0.03, 0.04, 0.07, 0.6))
 		# The sill.
 		box(c, cx - 31, FOOT, 62, 4, PIER)
@@ -495,6 +510,7 @@ func _paint_banners(c: CanvasItem) -> void:
 		box(c, x + 17, 53, 1, 4, IRON_LIT)
 		box(c, x, 56, 14, 60, field)
 		for k in 10:
+			@warning_ignore("integer_division")
 			var w := 7 - k * 7 / 10
 			box(c, x, 116 + k, w, 1, field)
 			box(c, x + 14 - w, 116 + k, w, 1, field)
@@ -709,10 +725,12 @@ func _paint_shafts(c: CanvasItem) -> void:
 	for cx: int in WINDOWS:
 		for k in 19:
 			var y := FOOT + 6 + k * 6
+			@warning_ignore("integer_division")
 			var x := cx - WIDE / 2 + int(float(y - SPRING) * LEAN)
 			var thin := 1.0 - float(k) / 30.0
 			box(c, x, y, WIDE, mini(6, FLOOR - y), faded(MOONLIGHT, 0.055 * thin))
 			box(c, x + 12, y, WIDE - 24, mini(6, FLOOR - y), faded(MOONLIGHT, 0.04 * thin))
+		@warning_ignore("integer_division")
 		var lands := cx - WIDE / 2 + int(float(FLOOR - SPRING) * LEAN)
 		box(c, lands, FLOOR, WIDE, 1, PIER_LIT.lerp(MOONLIGHT, 0.45))
 		for k in 5:
@@ -836,6 +854,7 @@ func _paint_stall(c: CanvasItem, at: Vector2i) -> void:
 			if not (shelf > 0 and gx > x + 19 and gx < x + 43):
 				box(c, gx, sy - gh, gw, gh, brew.darkened(0.3))
 				box(c, gx, sy - gh, 1, gh, brew.darkened(0.05))
+				@warning_ignore("integer_division")
 				box(c, gx + gw / 2, sy - gh - 2, 1, 2, CREAM.darkened(0.3))
 			gx += gw + rng.randi_range(1, 3)
 	# The awning, on its poles.
@@ -964,11 +983,14 @@ func _paint_gate(c: CanvasItem, g: Vector2i) -> void:
 func _flame(c: CanvasItem, x: int, y: int, tall: int, f: float, salt: int) -> void:
 	var h := maxi(int(round(float(tall) * (0.5 + 0.5 * f))), 2)
 	var lean := int(round(sin(_t * 6.0 + float(salt)) * 0.8))
+	@warning_ignore("integer_division")
 	var body := h * 6 / 10
 	box(c, x - 2, y - body, 5, body, FLAME_OUT)
 	box(c, x - 1 + lean, y - h, 3, h - body, FLAME_OUT)
+	@warning_ignore("integer_division")
 	box(c, x - 1, y - h * 7 / 10, 3, h * 7 / 10, FLAME_MID)
 	box(c, x + lean, y - h + 1, 1, 2, FLAME_MID)
+	@warning_ignore("integer_division")
 	box(c, x, y - h * 4 / 10, 1, h * 4 / 10, FLAME_CORE)
 
 ## A spark or two, going up from (x, y) and out.
@@ -1007,6 +1029,7 @@ func _paint_wall_life(c: CanvasItem) -> void:
 		var cx: int = WINDOWS[m["pane"]]
 		var along := fmod(float(m["along"]) + _t * float(m["speed"]), 1.0)
 		var y := FOOT + 8 + int(along * float(FLOOR - FOOT - 12))
+		@warning_ignore("integer_division")
 		var x := cx - WIDE / 2 + int(float(y - SPRING) * LEAN) + 4 + int(float(m["across"]) * float(WIDE - 8))
 		box(c, x, y, 1, 1, faded(MOONLIGHT.lightened(0.5), 0.22 + 0.2 * sin(_t * 1.3 + float(m["phase"]))))
 	# The way through the map, a room at a time, when there is a way.
@@ -1115,7 +1138,9 @@ func _life_stall(c: CanvasItem, at: Vector2i, lit: float) -> void:
 	var cat := x - 20
 	var green := Color(0.55, 0.95, 0.45)
 	if fmod(_t + 1.7, 5.1) < 4.9:
+		@warning_ignore("integer_division")
 		box(c, cat + 1 + maxi(eyes, 0) / 2, y - 25, 2, 1, green)
+		@warning_ignore("integer_division")
 		box(c, cat + 4 + maxi(eyes, 0) / 2, y - 25, 2, 1, green)
 	var swish := int(round(sin(_t * 1.7) * 1.4))
 	var fur := Color(0.045, 0.045, 0.06)
