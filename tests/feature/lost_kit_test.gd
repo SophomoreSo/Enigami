@@ -105,28 +105,38 @@ func _rules() -> void:
 	check(GameState.raid_seed == seed_used,
 		"deploying again goes back to the same floor (%d)" % GameState.raid_seed)
 
-	# Picking it up puts it back into the run, not into the vault.
+	# Picking it up puts it back into the run, not into the vault — and every
+	# part into the bag, the one built onto the sword as much as the loose two,
+	# so the bench can build with them before the way out.
 	var got := GameState.recover_lost_kit()
 	check(not got.is_empty() and not GameState.has_lost_kit(), "recovering it clears the drop")
-	check(int(GameState.raid_bag.get("FIRE", 0)) == 2 and GameState.raid_scrap == 17,
-		"the bag and the scrap are being carried again")
-	check(GameState.raid_carried_boards.has("SWORD") and GameState.raid_carried_weapons == ["SWORD"],
-		"the weapon and its graph ride along as cargo")
+	check(int(GameState.raid_bag.get("FIRE", 0)) == 3 and GameState.raid_scrap == 17,
+		"the bag, the part off the sword's graph and the scrap are being carried again (%s)"
+			% str(GameState.raid_bag))
+	check(GameState.raid_carried_weapons == ["SWORD"], "the weapon rides along as cargo")
 	check(not GameState.weapon_boards.has("SWORD") and not GameState.owned_weapons.has("SWORD"),
-		"and are not home yet — the rack is untouched")
+		"and is not home yet — the rack is untouched")
+
+	# Built onto the weapon in hand out there, a part from the drop is spent
+	# from the bag like any other.
+	check(GameState.raid_board.place("FIRE", Vector2i(2, 2), 0)
+			and GameState.take_component("FIRE", GameState.raid_bag),
+		"a recovered part can go onto the graph in hand")
 
 	var stash_before := int(GameState.stash.get("FIRE", 0))
 	var result := GameState.extract()
 	check(GameState.owned_weapons.has("SWORD"), "walking out puts the weapon back on the rack")
-	check(GameState.weapon_board("SWORD").used_components() == {"FIRE": 1},
-		"with the graph that fell with it, FIRE and all (%s)" % str(GameState.weapon_board("SWORD").used_components()))
-	check(int(GameState.stash.get("FIRE", 0)) == stash_before + 2, "the bag goes to the stash")
+	check(GameState.graph_is_bare("SWORD"),
+		"bare: what was built on it came home in the bag (%s)" % str(GameState.weapon_board("SWORD").used_components()))
+	check(int(GameState.stash.get("FIRE", 0)) == stash_before + 2, "what was left in the bag goes to the stash")
+	check(int(GameState.weapon_board("ROCK").used_components().get("FIRE", 0)) == 1,
+		"and the part built on in the field comes home on the rock's graph")
 	check((result.get("recovered", []) as Array).size() == 1,
 		"and the results sheet is told what came back out")
 
-	# A graph that comes back to a weapon built on since goes to the shelves
-	# instead: the rock is never lost, and what fell with it is not allowed to
-	# wipe what was built onto it meanwhile.
+	# The rock is never lost, but its graph is: what was built onto it comes
+	# back in the bag too, and leaves alone whatever was built onto the rock
+	# meanwhile.
 	GameState.deploy("ROCK")
 	GameState.raid_board.place("PIERCE", Vector2i(1, 2), 0)
 	GameState.die({"room": [2, 3], "pos": [640.0, 320.0]})
@@ -134,11 +144,23 @@ func _rules() -> void:
 	rock.place("DAMAGE", Vector2i(1, 2), 0)
 	GameState.deploy("SWORD")
 	GameState.recover_lost_kit()
+	check(int(GameState.raid_bag.get("PIERCE", 0)) == 1 and int(GameState.raid_bag.get("FIRE", 0)) == 1,
+		"the rock's lost graph comes back as parts in the bag (%s)" % str(GameState.raid_bag))
 	var pierce_before := int(GameState.stash.get("PIERCE", 0))
 	GameState.extract()
 	check(GameState.weapon_board("ROCK").used_components() == {"DAMAGE": 1}
 			and int(GameState.stash.get("PIERCE", 0)) == pierce_before + 1,
-		"a graph won back for a weapon built on since goes to the shelves, part by part")
+		"and walked out, they go to the shelves, not over the rock's new graph")
+
+	# A raid parked back when a recovered weapon rode with the graph it fell
+	# with: opened now, what was built on that graph is in the bag instead.
+	var old_cargo := Weapons.make_board("SWORD")
+	old_cargo.place("FIRE", Vector2i(2, 2), 0)
+	GameState._read_raid({"in_raid": true, "raid_weapons": ["ROCK"],
+		"raid_carried_boards": {"SWORD": old_cargo.serialize()}, "raid_carried_weapons": ["SWORD"]})
+	check(int(GameState.raid_bag.get("FIRE", 0)) == 1 and GameState.raid_carried_weapons == ["SWORD"],
+		"a raid parked with a graph as cargo opens with its parts in the bag (%s)" % str(GameState.raid_bag))
+	GameState._forget_raid()
 
 ## --- what the next raid puts back on the floor ------------------------------
 ## Somewhere in this room a body could be standing: open floor, with something
@@ -165,6 +187,8 @@ func start_raid() -> Raid:
 	return r
 
 func _floor() -> void:
+	# A part on the sword, so there is something on its graph to come back.
+	GameState.weapon_board("SWORD").place("PIERCE", Vector2i(2, 2), 0)
 	GameState.deploy("SWORD")
 	var raid := await start_raid()
 	var died_in: Vector2i = raid.room.coord
@@ -205,6 +229,8 @@ func _floor() -> void:
 	await frames(3)
 	check(not GameState.has_lost_kit(), "touching it picks it up")
 	check(GameState.raid_carried_weapons.has("SWORD"), "the weapon is being carried again")
+	check(int(GameState.raid_bag.get("PIERCE", 0)) == 1,
+		"and the part off its graph is in the bag the bench builds from (%s)" % str(GameState.raid_bag))
 	check(not (back.map.get_record(died_in) as Dictionary).has("lost_kit"),
 		"and the room is not holding it any more")
 	back.queue_free()

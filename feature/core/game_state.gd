@@ -78,11 +78,11 @@ var raid_board: SkillBoard:
 var raid_bag: Dictionary = {}             ## loose components found this raid
 var raid_scrap: int = 0
 var raid_seed: int = 0
-## Weapons picked back up off a previous death, riding along, each with the
-## graph it fell with. They are cargo rather than kit: a recovered weapon
-## cannot be drawn mid-raid, so it only becomes the player's again by being
-## walked out of the raid — and is dropped again by dying with it.
-var raid_carried_boards: Dictionary = {}  ## weapon id -> SkillBoard
+## Weapons picked back up off a previous death, riding along. They are cargo
+## rather than kit: a recovered weapon cannot be drawn mid-raid, so it only
+## becomes the player's again by being walked out of the raid — and is dropped
+## again by dying with it. It rides bare: what was built onto it went into the
+## bag when it was picked up (`recover_lost_kit`).
 var raid_carried_weapons: Array[String] = []
 ## A raid put down mid-run, or {}. MAIN MENU inside a raid writes the run here
 ## instead of ending it, and opening the slot again walks back into it.
@@ -450,7 +450,6 @@ func deploy(kit: Variant = null, in_hand: String = "") -> void:
 	raid_hand = maxi(ids.find(in_hand), 0)
 	raid_bag.clear()
 	raid_scrap = 0
-	raid_carried_boards.clear()
 	raid_carried_weapons.clear()
 	# A kit still lying where a death left it decides which map this is. The
 	# same seed builds the same floor, so the room it was dropped in is in the
@@ -476,20 +475,13 @@ func extract() -> Dictionary:
 		if raid_graphs.has(w):
 			weapon_boards[w] = raid_graphs[w]
 	# Whatever was recovered from an earlier death comes home as its own: the
-	# weapon back on the rack, its graph back on it. A weapon that was never
-	# lost — the rock — may have been built on again since its graph fell, and
-	# then what came back goes onto the shelves rather than over that work.
+	# weapon back on the rack, bare. What was built onto it was in the bag, so
+	# it comes home with the haul, or on whichever graph it was built onto since.
 	var recovered: Array[String] = []
 	for w in raid_carried_weapons:
 		if not owned_weapons.has(w):
 			owned_weapons.append(w)
 		recovered.append(Weapons.name_for(w))
-	for w in raid_carried_boards:
-		var b: SkillBoard = raid_carried_boards[w]
-		if graph_is_bare(String(w)):
-			weapon_boards[w] = b
-		else:
-			_shelve_parts(b)
 	var haul := raid_bag.duplicate()
 	for id in haul:
 		add_component(id, int(haul[id]))
@@ -554,8 +546,6 @@ func _drop_at(where: Dictionary) -> Dictionary:
 	for w in raid_weapons:
 		if raid_graphs.has(w):
 			boards[w] = (raid_graphs[w] as SkillBoard).serialize()
-	for w in raid_carried_boards:
-		boards[w] = (raid_carried_boards[w] as SkillBoard).serialize()
 	var weapons: Array = []
 	for w in raid_weapons:
 		if w != FREE_WEAPON and not weapons.has(w):
@@ -577,6 +567,10 @@ func _drop_at(where: Dictionary) -> Dictionary:
 ## recovered is being carried, and it has to be walked out of the raid like
 ## everything else found down here. Dying with it drops the lot again.
 ##
+## Every part in it goes into the bag — the ones built onto the graphs that
+## fell as much as the loose ones — so the bench can build them onto what is
+## in hand there and then. The weapons ride along as cargo, bare.
+##
 ## Returns what was in it, for whoever is announcing it, or {} when there was
 ## nothing to pick up.
 func recover_lost_kit() -> Dictionary:
@@ -590,9 +584,12 @@ func recover_lost_kit() -> Dictionary:
 	raid_scrap += int(kit.get("scrap", 0))
 	var boards: Dictionary = kit.get("boards", {})
 	for w in boards:
-		raid_carried_boards[String(w)] = SkillBoard.deserialize(boards[w])
+		var used := SkillBoard.deserialize(boards[w]).used_components()
+		for id in used:
+			add_component(String(id), int(used[id]), raid_bag)
 	for w in kit.get("weapons", []):
-		raid_carried_weapons.append(String(w))
+		if not raid_carried_weapons.has(String(w)):
+			raid_carried_weapons.append(String(w))
 	lost_kit = {}
 	save_game()
 	return kit
@@ -634,7 +631,6 @@ func _forget_raid() -> void:
 	raid_hand = 0
 	raid_bag.clear()
 	raid_scrap = 0
-	raid_carried_boards.clear()
 	raid_carried_weapons.clear()
 	raid_progress = {}
 
@@ -792,7 +788,6 @@ func save_game() -> void:
 		"raid_scrap": raid_scrap,
 		"raid_seed": raid_seed,
 		"raid_progress": raid_progress,
-		"raid_carried_boards": _boards_out(raid_carried_boards),
 		"raid_carried_weapons": raid_carried_weapons,
 		# Not raid state: a drop is what is left of a raid that is over, and it
 		# has to still be there when the next one is deployed.
@@ -902,10 +897,13 @@ func _read_raid(parsed: Dictionary) -> void:
 	for w in raid_weapons:
 		if not raid_graphs.has(w):
 			raid_graphs[w] = Weapons.make_board(w)
+	# Recovered weapons used to ride with the graphs they fell with, as a list
+	# of boards and then by weapon. What was built on those rides on in the
+	# bag now, the way a drop picked up today does.
 	var cargo = parsed.get("raid_carried_boards", {})
 	if cargo is Dictionary:
 		for w in cargo:
-			raid_carried_boards[String(w)] = SkillBoard.deserialize(cargo[w])
+			_bag_parts(SkillBoard.deserialize(cargo[w]), raid_bag)
 	elif cargo is Array:
 		for b in cargo:
 			_bag_parts(SkillBoard.deserialize(b), raid_bag)
