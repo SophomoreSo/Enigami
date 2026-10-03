@@ -92,36 +92,46 @@ func walk(dir: String) -> float:
 
 ## How the ink on the plates meets their ground. A glyph drawn at the buffer's
 ## own resolution puts down the ink colour and nothing else; one shrunk into the
-## buffer leaves a fringe of everything in between. So this counts both, over
-## the rows that run through a plate — the ones with the plate's own colour at
-## each end and a name between them.
+## buffer leaves a fringe of everything in between. So this counts both, inside
+## each plate — and only there: the wall the plates hang on has colours of its
+## own, and some of them lie between a plate's ground and its ink.
 func sign_ink() -> void:
-	await RenderingServer.frame_post_draw
+	# A frame drawn from here on. A covered window on macOS draws nothing, and
+	# a frame waited for there never comes, so it is made to draw.
+	var drawn := [false]
+	RenderingServer.frame_post_draw.connect(func() -> void: drawn[0] = true, CONNECT_ONE_SHOT)
+	var waited := 0.0
+	while not drawn[0] and waited < 2.0:
+		await get_tree().process_frame
+		if not DisplayServer.window_can_draw():
+			RenderingServer.force_draw(false)
+		waited += get_process_delta_time()
 	var im := get_viewport().get_texture().get_image()
+	var view := Views.of(world) as HideoutWorldView
+	var onto := get_viewport().get_final_transform() * get_viewport().get_canvas_transform() \
+		* view.global_transform
 	var ground := Style.HIDEOUT_PLATE
 	var inked := 0
 	var blended := 0
-	for y in im.get_height():
-		var first := -1
-		var last := -1
-		for x in im.get_width():
-			# Near, not equal: the frame comes back as 8-bit colour, and a
-			# ground of 0.06 is 15/255 by the time it is read.
-			if mix_of(im.get_pixel(x, y), ground, Style.HIDEOUT_SIGN) == 0.0 \
-					and _near(im.get_pixel(x, y), ground):
-				if first < 0:
-					first = x
-				last = x
-		if first < 0 or last - first < 100:
-			continue
-		for x in range(first, last):
-			var c := im.get_pixel(x, y)
-			for ink in [Style.HIDEOUT_SIGN, Style.HIDEOUT_SIGN_LIT]:
-				var t := mix_of(c, ground, ink)
-				if t > 0.9:
-					inked += 1
-				elif t > 0.15:
-					blended += 1
+	var grounded := 0
+	for id in world.stations:
+		# In from the frame, which is drawn in the ink's own colour.
+		var plate: Rect2 = (onto * view._plate(world.stations[id] as Station)).grow(-6.0)
+		for y in range(int(plate.position.y), int(plate.end.y)):
+			for x in range(int(plate.position.x), int(plate.end.x)):
+				var c := im.get_pixel(x, y)
+				# Near, not equal: the frame comes back as 8-bit colour, and a
+				# ground of 0.06 is 15/255 by the time it is read.
+				if _near(c, ground):
+					grounded += 1
+					continue
+				for ink in [Style.HIDEOUT_SIGN, Style.HIDEOUT_SIGN_LIT]:
+					var t := mix_of(c, ground, ink)
+					if t > 0.9:
+						inked += 1
+					elif t > 0.15:
+						blended += 1
+	check(grounded > 2000, "the plates are where the view says they are (%d pixels of their ground)" % grounded)
 	check(inked > 200, "the plates carry names at all (%d pixels of ink)" % inked)
 	check(blended * 20 < inked,
 		"and every one of them is ink or ground, never the wash in between (%d blended of %d)"

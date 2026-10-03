@@ -49,6 +49,7 @@ godot res://tests/graphics/title_mobile_test.tscn # mobile mode's title: a row o
 godot res://tests/graphics/screen_fit_test.tscn # a phone- or tablet-shaped screen is filled to its edges
 godot res://tests/graphics/editor_pixel_test.tscn # every pixel of the assembly screen is on the grid
 godot res://tests/graphics/hideout_pixel_test.tscn # the hideout's pixel look, and everything on it fits
+godot res://tests/graphics/hideout_scenery_test.tscn # the hideout's scenery: the city through the glass and the room's fittings, where they stand, what lights them, and what a frame of them costs
 godot res://tests/graphics/bench_pixel_test.tscn # the bench panel's pixel look and layout
 godot res://tests/circuit/code_test.tscn    # a board survives being written down as a code
 godot res://tests/circuit/parts_test.tscn   # every part's rows fit, and the runner does what they say
@@ -764,6 +765,8 @@ mobile/view/       the two-thumb console drawn on the glass, and the screen that
                    moves its buttons (SET BUTTON POSITIONS)
 graphics/          the atlas, screen effects, the pixel camera, the palette, view attachment
 graphics/views/    one view per gameplay node: actors, attacks, rooms, loot
+                   hideout_scenery: the city through the hideout's glass, and the
+                   room's fittings, drawn in code
 graphics/ui/       skill editor, HUD, hideout, title, results, bench panel, logo card
                    ui_kit: one look for screens built of Controls
                    pixel_draw: the same look for screens that draw themselves

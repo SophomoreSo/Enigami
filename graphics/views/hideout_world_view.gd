@@ -1,8 +1,12 @@
 class_name HideoutWorldView
 extends Node2D
 
-## The hideout's screen: the camera over the room, a sign standing at each
-## station, and the panel a station opens.
+## The hideout's screen: the camera over the room, what the room is dressed
+## in, a sign hung over each station, and the panel a station opens.
+##
+## How the room looks — the city through its glass, and what stands at each
+## station — is `HideoutScenery`, which this stands in the room. What is here
+## is what answers: the signs light when a press would count.
 ##
 ## The panels are `graphics/ui/hideout.gd` built one column at a time — the same
 ## weapon list and the same counter the screen used to show at once. Nothing
@@ -13,18 +17,22 @@ extends Node2D
 ## weapon's graph through the world as `edit_requested`, and `app/game.gd` opens
 ## the editor over the top of all of this.
 
-## The sign over a station: a post, a plate, and the name on it. Drawn rather
-## than built out of Controls so it stands in the room at the station's feet and
-## moves with the camera, the way a door's name does in a raid.
+## The sign over a station: a plate hung by its corners, and the name on it.
+## Drawn rather than built out of Controls so it hangs in the room over the
+## station and moves with the camera, the way a door's name does in a raid.
 const SIGN_W := 150.0
 const SIGN_H := 26.0
-## How far above the station's feet the plate hangs.
-const SIGN_LIFT := 78.0
-## What the line under the plate is allowed to run to. It is a sentence, not a
+## How far above the station's feet the plate hangs: over what stands there,
+## up under the sill.
+const SIGN_LIFT := 164.0
+## What the line over the plate is allowed to run to. It is a sentence, not a
 ## name, and held to the plate's own width it lost its last two words.
 const SIGN_BAND := SIGN_W * 2.4
 ## Space between the plate and the key over it.
 const KEY_GAP := 8.0
+## And between the plate and the line that says why it is shut: over the
+## hangers, which stand that far out of the plate themselves.
+const REASON_GAP := 18.0
 
 var world: HideoutWorld
 ## The pixel grid, bound to this node: the signs are drawn, not built, so they
@@ -69,6 +77,9 @@ var _panel_thumb: bool = false
 ## at while you are still deciding, and the player standing here is carrying it
 ## already — `HideoutWorld.refresh_kit` is what keeps that true.
 var hud: Hud
+## What the room is dressed in: the city through its glass, and the room's own
+## fittings. Stood in the room once there is a room to stand it in.
+var scenery: HideoutScenery
 
 func _ready() -> void:
 	world = get_parent() as HideoutWorld
@@ -103,6 +114,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if hud != null and is_instance_valid(hud):
 		hud.player = world.player if world != null and is_instance_valid(world) else null
+	_dress()
 	if panel != null and is_instance_valid(panel) and _panel_thumb != UiKit.mobile() \
 			and world != null and is_instance_valid(world):
 		_on_panel_changed(world.open_panel)
@@ -117,6 +129,18 @@ func _process(delta: float) -> void:
 		_words.queue_redraw()
 	_t += delta
 
+## The view is up before the world has built its room, so the room is dressed
+## on the first frame there is one.
+func _dress() -> void:
+	if scenery != null or world == null or not is_instance_valid(world):
+		return
+	var room_view := Views.of(world.room) as RoomView
+	if room_view == null:
+		return
+	scenery = HideoutScenery.new()
+	scenery.world = world
+	room_view.dress(scenery)
+
 ## --- the room ---------------------------------------------------------------
 func _draw() -> void:
 	if world == null or not is_instance_valid(world):
@@ -127,18 +151,14 @@ func _draw() -> void:
 func _draw_station(s: Station) -> void:
 	if s == null or not is_instance_valid(s):
 		return
-	var at := s.global_position - global_position
 	var ink := _sign_ink(s)
 
-	# The thing itself: a block on the floor with a lit edge, so a station reads
-	# as furniture before it reads as a sign.
-	var body := Rect2(at - Vector2(s.extent.x * 0.5, s.extent.y), s.extent)
-	draw_rect(body, Style.HIDEOUT_STATION)
-	draw_rect(body, ink, false, 2.0)
-
-	# The plate over it, on its post. What it says is `_draw_words`' half.
+	# The plate over it, hung from the sill by its corners. The thing itself is
+	# the scenery's (`HideoutScenery`); what the plate says is `_draw_words`'
+	# half.
 	var plate := _plate(s)
-	draw_line(Vector2(at.x, at.y - s.extent.y), Vector2(at.x, plate.end.y), ink, 2.0)
+	for x in [plate.position.x + 14.0, plate.end.x - 16.0]:
+		_px.rect(Rect2(x, plate.position.y - 12.0, 2.0, 12.0), ink)
 	_px.rect(plate, Style.HIDEOUT_PLATE)
 	draw_rect(plate, ink, false, 2.0)
 
@@ -161,16 +181,17 @@ func _draw_station_words(s: Station) -> void:
 	_words_px.text_centered(Vector2(plate.position.x, plate.position.y + 18.0),
 		s.label, _sign_ink(s), SIGN_W)
 
-	# The line under the plate runs wider than the plate: it is a sentence, not a
-	# name, and clipped to the plate's own width it lost its last two words.
-	var under := Vector2(at.x - SIGN_BAND * 0.5, plate.end.y + 18.0)
+	# Over the plate, clear of what stands under it, is where a station says
+	# anything else. Shut, it says why: a line that runs wider than the plate,
+	# since it is a sentence, not a name, and clipped to the plate's own width
+	# it lost its last two words.
 	if not s.open and s.closed_reason != "":
-		_words_px.text_centered(under, s.closed_reason, Style.HIDEOUT_SIGN_SHUT, SIGN_BAND)
+		_words_px.text_centered(Vector2(at.x - SIGN_BAND * 0.5, plate.position.y - REASON_GAP),
+			s.closed_reason, Style.HIDEOUT_SIGN_SHUT, SIGN_BAND)
 	elif s.near and s.open:
 		# The plate says what the station is; the key over it, pressing
 		# itself, says how to use it — the way an NPC's prompt does over their
-		# head. Over the plate, not under it, where the post and the player
-		# standing at it are.
+		# head.
 		_words_px.key_cap(Vector2(at.x, plate.position.y - KEY_GAP),
 			Controls.short_label_for("interact"), _t)
 
