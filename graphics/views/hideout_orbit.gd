@@ -291,12 +291,14 @@ func _paint_near(c: CanvasItem) -> void:
 	# The dish, on top.
 	_out_there(c, 66, ARM - 12, 1, 9, TRUSS)
 	for k in 7:
+		@warning_ignore("integer_division")
 		_out_there(c, 59 + k, ARM - 20 + absi(k - 3) * 2 / 3 + k, 14 - k * 2, 1, TRUSS.lightened(0.2 - 0.05 * k))
 	_out_there(c, 66, ARM - 24, 1, 5, TRUSS.lightened(0.2))
 	# The module: a drum of hull with its ports lit, and the band round it.
 	var mx := GLASS_RIGHT - 44
 	for dy in range(-12, 13):
 		var half := int(floor(sqrt(float(144 - dy * dy) + 0.5)))
+		@warning_ignore("integer_division")
 		_out_there(c, mx - half / 2, 96 + dy, GLASS_RIGHT + SLIDE - mx + half / 2, 1,
 			HULL.lerp(HULL_DARK, clampf((float(dy) + 4.0) / 16.0, 0.0, 0.8)))
 	_out_there(c, mx + 4, 84, GLASS_RIGHT + SLIDE - mx - 4, 1, HULL_LIT)
@@ -398,8 +400,10 @@ func _paint_glazing(c: CanvasItem) -> void:
 		var lean := LEAN if i % 2 == 0 else -LEAN
 		var row := GLASS_TOP
 		while row < SILL:
+			@warning_ignore("integer_division")
 			var x: int = int(RIBS[i]) + lean - (2 * lean * (row - GLASS_TOP)) / tall
 			var run := 1
+			@warning_ignore("integer_division")
 			while row + run < SILL and int(RIBS[i]) + lean - (2 * lean * (row + run - GLASS_TOP)) / tall == x:
 				run += 1
 			box(c, x, row, 4, run, HULL)
@@ -435,6 +439,7 @@ func _paint_ceiling(c: CanvasItem) -> void:
 	box(c, LEFT, TOP, RIGHT - LEFT, 6, HULL_DARK)
 	for x in range(LEFT + 20, RIGHT - 5, 9):
 		box(c, x, TOP + 1, 5, 1, HULL_SHADE.darkened(0.25))
+		@warning_ignore("integer_division")
 		box(c, x, TOP + 3, 5, 1, ACCENT.darkened(0.45) if (x / 9) % 4 == 0 else HULL_SHADE.darkened(0.25))
 	for x in range(LEFT + 50, RIGHT, 76):
 		box(c, x, TOP + 6, 1, GLASS_TOP - 14 - TOP, HULL_DARK)
@@ -596,6 +601,7 @@ func _paint_crates(c: CanvasItem) -> void:
 		box(c, x, y, w, h, body)
 		box(c, x, y, w, 1, body.lightened(0.2))
 		box(c, x + w - 1, y, 1, h, body.darkened(0.3))
+		@warning_ignore("integer_division")
 		box(c, x + 2, y + h / 2 - 1, w - 4, 2, HULL_LIT if int(crate[3]) != 1 else ACCENT)
 		box(c, x + 2, y + 2, 3, 2, HULL_DARK)
 
@@ -638,6 +644,7 @@ func _paint_cabinet(c: CanvasItem, at: Vector2i) -> void:
 	box(c, x + 56, y + 16, 7, 12, HULL_SHADE)
 	box(c, x + 57, y + 17, 5, 5, Color(0.03, 0.06, 0.11))
 	for k in 4:
+		@warning_ignore("integer_division")
 		box(c, x + 57 + (k % 2) * 3, y + 23 + (k / 2) * 2, 2, 1, HULL_LIT)
 	# The plinth.
 	var px := at.x + 44
@@ -747,10 +754,12 @@ func _paint_wall_life(c: CanvasItem) -> void:
 	var run := int(_t * 22.0)
 	for k in 30:
 		var bx := LEFT + 6 + k * 20
+		@warning_ignore("integer_division")
 		var lit := posmod(k - run / 4, 30) < 3
 		box(c, bx, GLASS_TOP - 5, 3, 2, HOLO if lit else HOLO.darkened(0.72))
 	for k in 30:
 		var sx := LEFT + 10 + k * 20
+		@warning_ignore("integer_division")
 		box(c, sx, SILL + 5, 2, 1, ACCENT if posmod(k + run / 9, 6) == 0 else ACCENT.darkened(0.65))
 	_life_chart(c, _at["gate"])
 
@@ -816,6 +825,7 @@ func _life_cabinet(c: CanvasItem, at: Vector2i, lit: float) -> void:
 	var px := at.x + 44
 	var top := at.y - 44
 	for k in 9:
+		@warning_ignore("integer_division")
 		box(c, px - 5 - k / 2, at.y - 9 - k * 3, 10 + k, 3, faded(HOLO, 0.035 * (1.0 - k / 11.0) * (0.7 + 0.3 * lit)))
 	var nodes: Array = []
 	for i in 4:

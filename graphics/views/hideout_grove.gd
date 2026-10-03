@@ -330,7 +330,9 @@ func _paint_rays(c: CanvasItem) -> void:
 			var y := MOON_AT.y + 26 + k * 10
 			var cx := MOON_AT.x + int(tan(float(ray[0])) * float(y - MOON_AT.y))
 			var w := 12 + k * 2
+			@warning_ignore("integer_division")
 			var from := maxi(cx - w / 2, LEFT)
+			@warning_ignore("integer_division")
 			box(c, from, y, mini(cx + w / 2, RIGHT) - from, 10, faded(MOONLIGHT, float(ray[1]) * (1.0 - k / 17.0)))
 
 ## The undergrowth along the back of the place: dark, to the height of a
@@ -381,7 +383,9 @@ func _column(c: CanvasItem, cx: int, top: int, whole: bool) -> void:
 	# Ivy, up the dark side of it.
 	for k in range(0, FLOOR - top - 30, 5):
 		var iy := FLOOR - 10 - k
+		@warning_ignore("integer_division")
 		box(c, cx + 5 + (k / 5) % 2, iy, 1, 5, LEAF)
+		@warning_ignore("integer_division")
 		box(c, cx + 4 + (k / 5) % 3, iy + 1, 2, 2, MOSS if (k / 5) % 3 == 0 else LEAF.lightened(0.10))
 
 func _paint_columns(c: CanvasItem) -> void:
@@ -403,7 +407,9 @@ func _paint_columns(c: CanvasItem) -> void:
 			box(c, x, 51 - _odd(x, 36) % 2, 3 + _odd(x, 37) % 3, 2, MOSS if _odd(x, 38) % 3 > 0 else MOSS_LIT.darkened(0.2))
 	for vine in [[from + 20, 16], [from + 64, 26], [to - 30, 12], [to - 8, 22]]:
 		for k in range(0, int(vine[1]), 3):
+			@warning_ignore("integer_division")
 			box(c, int(vine[0]) + (k / 3) % 2, 66 + k, 1, 3, LEAF.lightened(0.04))
+			@warning_ignore("integer_division")
 			if (k / 3) % 2 == 0:
 				box(c, int(vine[0]) - 1, 67 + k, 2, 1, MOSS)
 
@@ -419,6 +425,7 @@ func _paint_trees(c: CanvasItem) -> void:
 		glow(c, TREE + 2 - _odd(y, 42) % 3, y, 6, BARK)
 	# Roots.
 	for k in 22:
+		@warning_ignore("integer_division")
 		box(c, TREE - 22 + k, FLOOR - k * 8 / 10, 30 - k, 1, BARK)
 	for k in 12:
 		box(c, LEFT + 18, FLOOR - 12 + k, 6 + k, 1, BARK)
@@ -490,9 +497,12 @@ func _paint_canopy(c: CanvasItem) -> void:
 	for vine in [[70, 58], [132, 84], [262, 48], [388, 40], [456, 64], [540, 46], [610, 70]]:
 		var x: int = vine[0]
 		for k in range(0, int(vine[1]), 3):
+			@warning_ignore("integer_division")
 			var sway := (k / 6) % 2
 			box(c, x + sway, 30 + k, 1, 3, LEAF.lightened(0.03))
+			@warning_ignore("integer_division")
 			if (k / 3) % 3 == 0:
+				@warning_ignore("integer_division")
 				box(c, x + sway - 1 + 2 * ((k / 9) % 2), 31 + k, 2, 1, MOSS.darkened(0.15))
 
 ## The standing stone, with the way through cut into it. What the cuts are lit
@@ -656,10 +666,12 @@ func _paint_tent(c: CanvasItem, at: Vector2i) -> void:
 	box(c, x + 1, y - 46, 62, 26, Color(0.03, 0.045, 0.04))
 	# The canvas, stripe by stripe, down from the ridge.
 	for k in 22:
+		@warning_ignore("integer_division")
 		var half := 4 + k * 16 / 10
 		var row := y - 66 + k
 		var from := at.x - half
 		while from < at.x + half:
+			@warning_ignore("integer_division")
 			var stripe := posmod(from - x, 16) / 8
 			var to := mini(from + 8 - posmod(from - x, 8), at.x + half)
 			box(c, from, row, to - from, 1, (CANVAS if stripe == 0 else CANVAS_STRIPE).darkened(0.04 * (k % 3)))
@@ -785,11 +797,14 @@ func _paint_gate(c: CanvasItem, g: Vector2i) -> void:
 func _flame(c: CanvasItem, x: int, y: int, tall: int, f: float, salt: int) -> void:
 	var h := maxi(int(round(float(tall) * (0.5 + 0.5 * f))), 2)
 	var lean := int(round(sin(_t * 6.0 + float(salt)) * 0.8))
+	@warning_ignore("integer_division")
 	var body := h * 6 / 10
 	box(c, x - 2, y - body, 5, body, FLAME_OUT)
 	box(c, x - 1 + lean, y - h, 3, h - body, FLAME_OUT)
+	@warning_ignore("integer_division")
 	box(c, x - 1, y - h * 7 / 10, 3, h * 7 / 10, FLAME_MID)
 	box(c, x + lean, y - h + 1, 1, 2, FLAME_MID)
+	@warning_ignore("integer_division")
 	box(c, x, y - h * 4 / 10, 1, h * 4 / 10, FLAME_CORE)
 
 ## A lantern, hung at (x, y) by its top: paper round a flame, swinging a

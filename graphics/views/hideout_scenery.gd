@@ -308,7 +308,8 @@ static func words(c: CanvasItem, x: int, y: int, text: String, col: Color, size:
 	var line_at := y + tall * 7 / 8
 	PixelCamera.draw_text(c, Vector2(x * S, line_at * S), text, col, Color(0, 0, 0, 0), size)
 
-## A light that stutters: on, but for a burst of flicker every so often.
+## A light that stutters: on, but for a burst of flicker every so often,
+## out of step with the others by its `salt`.
 static func stutter(t: float, every: float, salt: int) -> float:
 	var into := fmod(t + float(salt) * 1.7, every)
 	if into > 0.45:

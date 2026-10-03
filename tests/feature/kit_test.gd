@@ -389,9 +389,14 @@ func _dying() -> void:
 	GameState.deploy()
 	check(GameState.raid_weapons == [GameState.FREE_WEAPON], "going back is with what is left")
 	GameState.recover_lost_kit()
+	check(int(GameState.raid_bag.get("FIRE", 0)) == 1 and int(GameState.raid_bag.get("PIERCE", 0)) == 1
+			and int(GameState.raid_bag.get("DAMAGE", 0)) == 1,
+		"picked up, what was built onto all three is in the bag (%s)" % str(GameState.raid_bag))
+	var shelved := {"FIRE": int(GameState.stash.get("FIRE", 0)), "PIERCE": int(GameState.stash.get("PIERCE", 0))}
 	GameState.extract()
 	check(GameState.owned_weapons.has("SWORD") and GameState.owned_weapons.has("GUN"), "walked out, the weapons are back on the rack")
-	check(GameState.weapon_board("SWORD").used_components() == {"FIRE": 1}
-			and GameState.weapon_board("GUN").used_components() == {"PIERCE": 1},
-		"with their graphs")
+	check(GameState.graph_is_bare("SWORD") and GameState.graph_is_bare("GUN")
+			and int(GameState.stash.get("FIRE", 0)) == shelved["FIRE"] + 1
+			and int(GameState.stash.get("PIERCE", 0)) == shelved["PIERCE"] + 1,
+		"bare, with what was on them on the shelves")
 	check(GameState.carried() == kit, "and carried again, as the rack was left (%s)" % str(GameState.carried()))

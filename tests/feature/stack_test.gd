@@ -115,8 +115,9 @@ func _limits() -> void:
 	check(is_equal_approx(stacked("PROJECTILE", "RANGE", range_cap + 3).range_px,
 			stacked("PROJECTILE", "RANGE", range_cap).range_px),
 		"RANGE stops at the most range there is")
-	check(stacked("PROJECTILE", "RANGE", range_cap).range_px > float(Room.W * Room.CELL),
-		"which is further than a room is wide")
+	var longest := Weapons.finalize("GUN", stacked_on("GUN", "RANGE", range_cap)).range_px
+	check(longest > float(Room.W * Room.CELL),
+		"which carries the gun's bolt further than a room is wide (%.0f px)" % longest)
 	var blinks := stacked("SLASH", "BLINK", 3)
 	check(blinks.blink and blinks.stack("BLINK") == 1, "BLINK stays what it was, once")
 	# An INVERT after a part past its limit has nothing to turn round.
@@ -335,8 +336,8 @@ func _homing() -> void:
 	# pace back once it is flying straight. A quick bolt with one HOMING is the
 	# hard case — the one that circles if it keeps its pace, and that stalled
 	# with its target behind it when it never got any back.
-	check(await open_run(288.0, 90.0, Vector2(0, 30000)), "a quick bolt with one HOMING turns onto a target square to its side")
-	check(await open_run(144.0, 150.0, Vector2(0, 32000)), "and comes right round for one behind it")
+	check(await open_run(144.0, 90.0, Vector2(0, 30000)), "a quick bolt with one HOMING turns onto a target square to its side")
+	check(await open_run(72.0, 150.0, Vector2(0, 32000)), "and comes right round for one behind it")
 
 	# With PIERCE it goes on to the next enemy: the one it has just been
 	# through is the nearest thing to it, and not what it is after any more.

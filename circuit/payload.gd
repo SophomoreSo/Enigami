@@ -5,16 +5,16 @@ extends RefCounted
 ## whatever leaves the board by its way out becomes a real effect in the world.
 
 ## How far a bolt carries before it fades, in pixels. A room is 40 cells of 32
-## across, so the standard reach is a quarter of one: you fight inside a part of
-## the room rather than across the whole of it, and closing the distance is most
-## of what a ranged build spends its time doing. Every weapon scales it
+## across, so the standard reach is an eighth of one — five cells: you fight
+## inside a part of the room rather than across the whole of it, and closing the
+## distance is most of what a ranged build spends its time doing. Every weapon scales it
 ## (`Weapons.finalize`), SPEED extends it, and a monster's shot is given the
 ## reach its own attack range needs (`Enemy._make_runner`).
 ##
 ## It is a property of the shot rather than a constant on the bolt because that
 ## is where the answer differs: a gun outranges a thrown rock, and a Sentry
 ## outranges both or it could never hit anything from where it sits.
-const BASE_RANGE := 320.0
+const BASE_RANGE := 160.0
 
 var damage: float = 10.0
 var size: float = 1.0

@@ -113,8 +113,8 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 -- stacks for as long as the board has room. SIZE stops at three, which is an
 -- attack four times the size. SPEED stops at four, and the fourth is the one
 -- that matters: a bolt whose SPEED is at its limit flies at laser speed
--- (`Projectile.LASER_SPEED`). RANGE stops at three, which is further than a
--- room is wide — the most range there is to have.
+-- (`Projectile.LASER_SPEED`). RANGE stops at three, which carries the gun's
+-- bolt further than a room is wide — the most range there is to have.
 INSERT INTO parts (id, name, category, heat, stack_limit, description) VALUES
 	('DAMAGE', 'DAMAGE +', 'stat', 0.3, NULL, 'Raises damage, and each one stacked raises it by more than the last. Stable and simple, but interacts with little else.'),
 	('SIZE', 'SIZE x', 'stat', 0.4, 3, 'Scales the attack by 1.6. Melee arcs widen and reach further. Stacks up to 3.'),
