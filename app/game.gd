@@ -141,6 +141,7 @@ func _process(_delta: float) -> void:
 	if touch_pad != null and is_instance_valid(touch_pad):
 		touch_pad.face = _touch_face()
 		touch_pad.use_near = _use_nearby()
+		touch_pad.kit = _kit_size()
 
 ## Which keys the pad shows. The shell answers because the shell is the one
 ## thing that knows both what screen is up and who has the controls.
@@ -181,6 +182,13 @@ func _use_nearby() -> bool:
 	if current == null or not is_instance_valid(current) or not (current is World):
 		return false
 	return (current as World).use_nearby()
+
+## How many weapons the player on screen is carrying: the console keeps a key
+## for changing weapon only while there is more than one.
+func _kit_size() -> int:
+	for p in get_tree().get_nodes_in_group("player"):
+		return (p as Player).weapons.size()
+	return 0
 
 ## Whether the world has a panel of its own up over it — see `World.paneled`.
 func _paneled() -> bool:
@@ -300,8 +308,13 @@ func goto_dragon_test() -> void:
 	add_child(d)
 	current = d
 
+## Through the gate holding `weapon`, with the rest of the kit the rack was
+## left carrying. A weapon that is not in that kit goes out on its own.
 func _deploy(weapon: String) -> void:
-	GameState.deploy(weapon)
+	if GameState.is_carried(weapon):
+		GameState.deploy(GameState.carried(), weapon)
+	else:
+		GameState.deploy(weapon)
 	_clear()
 	state = State.RAID
 	var r := Raid.new()
@@ -405,7 +418,7 @@ class PauseMenu extends Control:
 ## with nothing behind the rows its words came through them — through the RESUME
 ## button most of all, whose hover fill is a wash of colour rather than a solid.
 ##
-## Three pages, not one. The rebinding list is fifteen rows of two columns,
+## Three pages, not one. The rebinding list is eighteen rows of two columns,
 ## which is longer than everything else on the menu put together: inline, it
 ## pushed the way out so far down that the menu was a scrollbar with a RESUME
 ## button at the top. It sits behind CONTROL SETTINGS instead, on a page of its
@@ -602,7 +615,7 @@ func _build_pause_general() -> void:
 ## a sibling frame rather than a panel swapped into the first one, so each page
 ## scrolls on its own and neither inherits the other's scroll position.
 ##
-## Fifteen rows of two columns is longer than the screen on any window worth
+## Eighteen rows of two columns is longer than the screen on any window worth
 ## the name, so this is the page that shows what the frame is for: the list
 ## scrolls and the heading and the way back off it do not move.
 func _build_pause_controls() -> void:

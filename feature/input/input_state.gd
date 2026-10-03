@@ -58,6 +58,12 @@ var jump_released: bool = false
 var dash_pressed: bool = false
 ## What casts a charged graph.
 var cast_released: bool = false
+## A weapon asked for by its slot, 0 for the first carried, or -1 for none: the
+## key of the slot it is in.
+var weapon_slot: int = -1
+## A weapon asked for by its place next to the one in hand: 1 for the next, -1
+## for the one before, 0 for neither. A wheel, a button, the console's key.
+var weapon_step: int = 0
 
 ## --- what may happen ----------------------------------------------------------
 ## A jump, pressed or let go of.
@@ -65,6 +71,8 @@ var can_jump: bool = true
 var can_dash: bool = true
 ## The release that casts.
 var can_cast: bool = true
+## Putting another weapon in hand, by its slot or by a step.
+var can_switch: bool = true
 
 ## Drops every act whose gate is shut. The provider calls it once the whole line
 ## has had its say.
@@ -76,3 +84,6 @@ func apply_gates() -> void:
 		dash_pressed = false
 	if not can_cast:
 		cast_released = false
+	if not can_switch:
+		weapon_slot = -1
+		weapon_step = 0

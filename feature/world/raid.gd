@@ -56,7 +56,15 @@ func _ready() -> void:
 	player = Player.new()
 	player.collision_layer = 2
 	player.collision_mask = 1
-	player.setup(GameState.raid_weapon, GameState.raid_board)
+	# The whole kit: every weapon carried and the raid's own copy of the graph
+	# on each, with the one that was in hand in hand.
+	var graphs: Array = []
+	for w in GameState.raid_weapons:
+		graphs.append(GameState.raid_graphs[w])
+	player.setup_kit(GameState.raid_weapons, graphs, GameState.raid_hand)
+	# The profile is told which weapon is in hand as it changes: assembly opens
+	# that one's graph, and a raid put down is picked back up holding it.
+	player.weapon_switched.connect(func(_weapon: String) -> void: GameState.raid_hand = player.hand)
 	player.died.connect(_on_player_died)
 	add_child(player)
 

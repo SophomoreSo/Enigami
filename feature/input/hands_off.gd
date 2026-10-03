@@ -2,8 +2,8 @@ class_name HandsOff
 extends InputMiddleware
 
 ## Takes the hands off the body: nothing the player presses walks, sprints,
-## turns, crouches, jumps, dashes, swings, charges or casts, and the weapon
-## stays where it was last pointed. A screen over the game puts one on the
+## turns, crouches, jumps, dashes, swings, charges, casts or changes weapon, and
+## the weapon stays where it was last pointed. A screen over the game puts one on the
 ## player's line, and so does a conversation in the box (`Player.input_locked`,
 ## `Player.talk_locked`).
 ##
@@ -36,4 +36,5 @@ func process(s: InputState) -> InputState:
 	s.can_jump = false
 	s.can_dash = false
 	s.can_cast = false
+	s.can_switch = false
 	return s

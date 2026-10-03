@@ -863,7 +863,7 @@ func _build_general() -> void:
 		v.add_child(row)
 	_fill_page(_general, "general")
 
-## The rebinding list, on the page behind CONTROL SETTINGS. It is fifteen rows
+## The rebinding list, on the page behind CONTROL SETTINGS. It is eighteen rows
 ## of two columns — longer than every other setting put together — and inline
 ## it left the buttons under it somewhere off the bottom of a long scroll. A
 ## page of its own, as a sibling scroll rather than a panel swapped into the
@@ -901,7 +901,7 @@ func _fill_page(page: UiKit.ScreenFrame, menu: String) -> void:
 ## columns, and the frame adds its bar.
 ##
 ## Centred, since the pages are three very different heights: SETTINGS is three
-## buttons and the rebinding list is fifteen rows, and hung from a common top
+## buttons and the rebinding list is eighteen rows, and hung from a common top
 ## the short ones floated in the upper third of the screen. The rebinding list
 ## is taller than the room it has either way, so it fills that room from 56 and
 ## scrolls — its rows do, that is. The heading over them and the way back out

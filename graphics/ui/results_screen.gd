@@ -85,7 +85,7 @@ func _draw() -> void:
 	_line(Vector2(124, 196), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, UiKit.DIM)
 
 	var y := 260.0
-	_line(Vector2(120, y), Loc.t("menu.results.weapon", [Weapons.name_for(String(payload.get("weapon", "SWORD")))]),
+	_line(Vector2(120, y), _weapons_line(),
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 14, UiKit.TEXT if win else UiKit.BAD)
 	y += 26.0
 	_line(Vector2(120, y), Loc.t("menu.results.scrap", [int(payload.get("scrap", 0))]),
@@ -137,7 +137,7 @@ func _draw_for_a_thumb() -> void:
 	_line(Vector2(left + 4.0, 164), sub, HORIZONTAL_ALIGNMENT_LEFT, wide, 22, UiKit.DIM)
 
 	var y := 236.0
-	_line(Vector2(left, y), Loc.t("menu.results.weapon", [Weapons.name_for(String(payload.get("weapon", "SWORD")))]),
+	_line(Vector2(left, y), _weapons_line(),
 		HORIZONTAL_ALIGNMENT_LEFT, wide, 24, UiKit.TEXT if win else UiKit.BAD)
 	y += 40.0
 	_line(Vector2(left, y), Loc.t("menu.results.scrap", [int(payload.get("scrap", 0))]),
@@ -180,3 +180,14 @@ func _paragraph(at: Vector2, s: String, width: float, size: int, col: Color) -> 
 	draw_multiline_string(_font, at, s, HORIZONTAL_ALIGNMENT_LEFT, width, px, -1, col)
 	var tall := _font.get_multiline_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, width, px).y
 	return at.y + maxf(tall - _font.get_height(px), 0.0)
+
+## What the run was carrying: the one weapon, or every weapon of a kit, in the
+## order they were slotted.
+func _weapons_line() -> String:
+	var kit: Array = payload.get("weapons", [])
+	if kit.size() < 2:
+		return Loc.t("menu.results.weapon", [Weapons.name_for(String(payload.get("weapon", "SWORD")))])
+	var names: Array[String] = []
+	for w in kit:
+		names.append(Weapons.name_for(String(w)))
+	return Loc.t("menu.results.weapons", [Loc.t("editor.payload.separator").join(names)])

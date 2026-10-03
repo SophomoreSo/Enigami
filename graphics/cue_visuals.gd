@@ -64,6 +64,12 @@ func _on_cue(name: StringName, d: Dictionary) -> void:
 			var kind := String(d.get("kind", ""))
 			var text := Loc.t("hud.fx.winded") if kind == "stamina" else String(d.get("text", ""))
 			Fx.text(pos + Vector2(0, -44), text, Style.refuse_color(kind))
+		&"weapon_switch":
+			# The weapon drawn, by name over whoever drew it, in its own colour:
+			# the HUD's line says the same in the corner, and this says it where
+			# the eye is in a fight.
+			var drawn := String(d.get("weapon", ""))
+			Fx.text(pos + Vector2(0, -44), Weapons.name_for(drawn).to_upper(), Style.weapon_color(drawn))
 		&"shatter":
 			# Frost coming apart reads as shards, not as a bigger hit.
 			Fx.burst(pos, Style.SHATTER_SPARK, 10, 210.0)

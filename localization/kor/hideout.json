@@ -4,11 +4,12 @@
 	"records": "레이드 %d · 탈출 %d · 사망 %d · 처치 %d",
 	"title": "타이틀",
 	"weapons": {
-		"heading": "무기 — 레이드당 하나",
+		"heading": "무기 — 레이드당 최대 %d개",
 		"row": "%s%s%s",
 		"lost": "  (분실)",
 		"graph": "%s 위에 부품 %d개",
-		"build": "조립 >"
+		"build": "조립 >",
+		"leave": "내려놓기"
 	},
 	"facilities": {
 		"heading": "시설",

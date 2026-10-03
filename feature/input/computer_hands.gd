@@ -42,6 +42,10 @@ var cast: bool = false:
 ## then the pointer rests wherever it was when the computer took over.
 var _at: Vector2 = Vector2.ZERO
 var _pointing: bool = false
+## The weapon last asked for, by slot and by step, for as long as the act that
+## asked is still being read.
+var _slot: int = -1
+var _step: int = 0
 ## The acts raised and not yet read by both kinds of frame — see `_happened`.
 var _acts: Dictionary = {}
 
@@ -64,6 +68,16 @@ func let_go_of_jump() -> void:
 func dash() -> void:
 	_raise(&"dash_pressed")
 
+## Puts the weapon in `slot` in hand, 0 for the first carried.
+func take_weapon(slot: int) -> void:
+	_slot = slot
+	_raise(&"weapon_slot")
+
+## Puts the next weapon in hand, or with -1 the one before.
+func step_weapon(step: int = 1) -> void:
+	_step = signi(step)
+	_raise(&"weapon_step")
+
 func process(_said: InputState) -> InputState:
 	var s := InputState.new()
 	s.move = clampf(move, -1.0, 1.0)
@@ -75,6 +89,8 @@ func process(_said: InputState) -> InputState:
 	s.jump_released = _happened(&"jump_released")
 	s.dash_pressed = _happened(&"dash_pressed")
 	s.cast_released = _happened(&"cast_released")
+	s.weapon_slot = _slot if _happened(&"weapon_slot") else -1
+	s.weapon_step = _step if _happened(&"weapon_step") else 0
 	if body != null:
 		_aim(s)
 	return s

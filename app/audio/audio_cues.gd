@@ -65,6 +65,10 @@ func _on_cue(name: StringName, d: Dictionary) -> void:
 			Audio.play("extract")
 		&"ui":
 			Audio.play("ui", UI_PITCH.get(String(d.get("kind", "")), 1.0))
+		&"weapon_switch":
+			# The bench's weapon swap, a step higher for each slot along, so
+			# three weapons are three notes and the hand learns which is which.
+			Audio.play("ui", float(UI_PITCH.get("weapon", 1.0)) + 0.12 * float(int(d.get("slot", 0))))
 		&"talk":
 			_line_sound(d.get("line", {}))
 		&"talk_letter":

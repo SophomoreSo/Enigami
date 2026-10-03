@@ -4,11 +4,12 @@
 	"records": "raids %d · escaped %d · lost %d · kills %d",
 	"title": "TITLE",
 	"weapons": {
-		"heading": "WEAPON — one per raid",
+		"heading": "WEAPONS — up to %d a raid",
 		"row": "%s%s%s",
 		"lost": "  (lost)",
 		"graph": "on the %s: %d parts built",
-		"build": "BUILD >"
+		"build": "BUILD >",
+		"leave": "PUT BACK"
 	},
 	"facilities": {
 		"heading": "FACILITIES",

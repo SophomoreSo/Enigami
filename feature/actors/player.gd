@@ -1,7 +1,7 @@
 class_name Player
 extends Actor
 
-## Platforming plus one live skill circuit: the weapon's graph.
+## Platforming plus a live skill circuit: the graph of the weapon in hand.
 ##
 ## One board, the weapon's own — its attack form on the root, and whatever the
 ## player has built on after it — and two ways to fire it. The attack button
@@ -10,9 +10,22 @@ extends Actor
 ## cast life, which a graph with a cycle in it spends on laps, and letting go
 ## casts it with whatever the hold paid for. The graph's own length decides
 ## the cadence either way.
+##
+## Up to three weapons are carried (`MAX_WEAPONS`), each with its own graph and
+## its own wait between casts, and one of them is in hand: the one the two
+## buttons fire. A slot's key, or a step along with the wheel, puts another in
+## hand at once (`switch_to`) — so three weapons are three skills, a key apart.
+## A weapon put away goes on with what it was doing: a cast already out lands,
+## and its wait runs down, so it is ready again by the time it is drawn.
 
 signal cast_fired()
 signal parry_success()
+## Another weapon was put in hand.
+signal weapon_switched(weapon: String)
+
+## The most weapons carried at once. `GameState.MAX_CARRIED` is the same number
+## from the profile's side: what a raid can be walked into with.
+const MAX_WEAPONS := 3
 
 ## The silhouette the sprite has to stand on, and the reach of a hit against it.
 const BODY := Vector2(20.0, 30.0)
@@ -115,8 +128,16 @@ const MAX_CHARGE_TTL := float(SkillRunner.MAX_TTL_BONUS)
 const CHARGE_DECAY := 150.0       ## how fast an unspent charge bleeds off
 const CAST_BUFFER := 0.18         ## grace for a release landing on a cooldown
 
+## The weapons carried, in slot order, and the graph of each, run live. A
+## weapon is its skill, so this is every skill the player has to hand.
+var weapons: Array[String] = []
+var runners: Array[SkillRunner] = []
+## Which slot is in hand, and so which of them the buttons fire.
+var hand: int = 0
+## The weapon in hand and its runner: `weapons[hand]` and `runners[hand]`, kept
+## beside them because nearly everything that asks about the player's weapon
+## means this one.
 var weapon_id: String = "SWORD"
-## The weapon's graph, run live. There is one: the weapon is the skill.
 var runner: SkillRunner = null
 var room = null
 var aim: Vector2 = Vector2.RIGHT
@@ -252,17 +273,73 @@ func _setup_fsm() -> void:
 	if machine.start == null:
 		push_error("Player: no state to start in, so the player will not move — is data/enigami.db built and shipped?")
 
-## Hands the player a weapon and the graph on it. The runner is rebuilt
-## wholesale; the old one goes away with its signals.
+## Hands the player one weapon and the graph on it: a kit of one.
 func setup(weapon: String, board: SkillBoard) -> void:
-	weapon_id = weapon
-	runner = SkillRunner.new(board)
-	runner.cooldown_mul = CAST_COOLDOWN_MUL
-	runner.base_payload_provider = func() -> Payload: return Weapons.base_payload(weapon_id)
-	runner.fired.connect(_on_fired)
-	runner.cycle_started.connect(_on_cycle_started)
-	runner.dilation_requested.connect(func(sec: float) -> void: TimeCtl.dilate(sec, 0.42))
-	runner.parry_opened.connect(_on_parry_opened)
+	setup_kit([weapon], [board])
+
+## Hands the player a kit: up to MAX_WEAPONS weapons, in slot order, the graph
+## on each, and which slot is in hand. The runners are rebuilt wholesale; the
+## old ones go away with their signals, and so does whatever was being charged.
+func setup_kit(ids: Array, boards: Array, in_hand: int = 0) -> void:
+	weapons.clear()
+	runners.clear()
+	for i in mini(mini(ids.size(), boards.size()), MAX_WEAPONS):
+		weapons.append(String(ids[i]))
+		runners.append(_make_runner(String(ids[i]), boards[i]))
+	charge = 0.0
+	cast_charge = 0.0
+	_cast_buffer = 0.0
+	charging = false
+	if weapons.is_empty():
+		runner = null
+		hand = 0
+		return
+	hand = clampi(in_hand, 0, weapons.size() - 1)
+	weapon_id = weapons[hand]
+	runner = runners[hand]
+
+## One weapon's graph, run live. What it fires is finalized as that weapon's,
+## whichever weapon is in hand by the time it lands.
+func _make_runner(weapon: String, board: SkillBoard) -> SkillRunner:
+	var r := SkillRunner.new(board)
+	r.cooldown_mul = CAST_COOLDOWN_MUL
+	r.base_payload_provider = func() -> Payload: return Weapons.base_payload(weapon)
+	r.fired.connect(_on_fired.bind(weapon))
+	r.cycle_started.connect(_on_cycle_started)
+	r.dilation_requested.connect(func(sec: float) -> void: TimeCtl.dilate(sec, 0.42))
+	r.parry_opened.connect(_on_parry_opened)
+	return r
+
+## Puts the weapon in `slot` in hand, 0 for the first carried. Whether it did:
+## not for a slot nothing is carried in, nor for the one already in hand.
+##
+## It is instant, and it costs whatever was being charged: the hold was buying
+## life for the weapon being put away, and does not follow the hand to the next
+## one. That weapon keeps the wait it was in, and anything it had already cast
+## still lands.
+func switch_to(slot: int) -> bool:
+	if slot < 0 or slot >= weapons.size() or slot == hand:
+		return false
+	charge = 0.0
+	cast_charge = 0.0
+	_cast_buffer = 0.0
+	charging = false
+	if runner != null:
+		runner.ttl_bonus = 0
+		runner.set_active(false)
+	hand = slot
+	weapon_id = weapons[hand]
+	runner = runners[hand]
+	weapon_switched.emit(weapon_id)
+	Cues.at(&"weapon_switch", global_position, {"weapon": weapon_id, "slot": hand})
+	return true
+
+## Puts the weapon `step` slots along in hand: 1 for the next, -1 for the one
+## before, round from the last to the first.
+func switch_by(step: int) -> bool:
+	if weapons.size() < 2 or step == 0:
+		return false
+	return switch_to(posmod(hand + step, weapons.size()))
 
 func stamina_ratio() -> float:
 	return clampf(stamina / MAX_STAMINA, 0.0, 1.0)
@@ -325,25 +402,34 @@ func can_dash() -> bool:
 func can_charge() -> bool:
 	return runner != null and runner.is_ready()
 
-## The graph was edited under the runner: it walks it again.
+## A graph was edited under its runner: every weapon carried walks its own
+## again. Assembly only ever opens the one in hand, and the rest cost nothing
+## to be sure of.
 func rebuild_runner() -> void:
-	if runner != null:
-		runner.refresh()
+	for r in runners:
+		r.refresh()
 
 func _on_parry_opened(seconds: float) -> void:
 	parry_time = maxf(parry_time, seconds)
 
 ## A cycle started. If a release was waiting for one, this is the cast it
 ## bought: the life it paid for went in with the cycle, and the wait is over.
+## Only the weapon in hand ever starts one — a weapon put away is not cast — so
+## there is no asking whose it was.
 func _on_cycle_started() -> void:
 	_cast_buffer = 0.0
 
-func _on_fired(payload: Payload) -> void:
-	var p := Weapons.finalize(weapon_id, payload)
+## A graph's flow left its board: the attack. `weapon` is whose graph it was —
+## the weapon in hand, unless it says — since a cast still in flight when the
+## weapon was put away lands as that weapon's, not as the one drawn since.
+func _on_fired(payload: Payload, weapon: String = "") -> void:
+	if weapon == "":
+		weapon = weapon_id
+	var p := Weapons.finalize(weapon, payload)
 	Attacks.spawn(p, {
 		"attacker": self, "room": room, "team": team,
 		"aim": aim, "reach": aim_reach, "origin": global_position,
-		"gravity": Weapons.uses_gravity_shots(weapon_id),
+		"gravity": Weapons.uses_gravity_shots(weapon),
 	})
 	cast_fired.emit()
 
@@ -388,6 +474,13 @@ func _process(delta: float) -> void:
 	if parry_time > 0.0:
 		parry_time -= delta
 	var s := input.state()
+	# Another weapon in hand, by its slot's key or by a step along. Before the
+	# buttons are read, so the press that draws a weapon and a button already
+	# held are answered by the weapon drawn.
+	if s.weapon_slot >= 0:
+		switch_to(s.weapon_slot)
+	elif s.weapon_step != 0:
+		switch_by(s.weapon_step)
 	# Holding the cast button charges; letting go is what fires it. A tap is
 	# simply a charge of nothing, so a quick press still casts as it always did.
 	var holding := s.cast
@@ -413,6 +506,13 @@ func _process(delta: float) -> void:
 		runner.ttl_bonus = int(cast_charge) if _cast_buffer > 0.0 else 0
 		runner.set_active(_cast_buffer > 0.0 or attacking)
 		runner.update(delta)
+	# The weapons put away are not cast, but they go on: a cast already out
+	# plays through, and each one's wait runs down in its slot.
+	for r in runners:
+		if r != runner:
+			r.ttl_bonus = 0
+			r.set_active(false)
+			r.update(delta)
 	# Aiming is the player's hand as much as walking is: while a screen has the
 	# controls, the weapon stays where it was pointing instead of following the
 	# pointer round a menu.
