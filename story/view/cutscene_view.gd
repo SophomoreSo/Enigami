@@ -119,8 +119,8 @@ func _settle() -> void:
 func _marks_centre() -> float:
 	var low := INF
 	var high := -INF
-	for name in cut.marks:
-		var x := cut.point_of(name).x
+	for mark in cut.marks:
+		var x := cut.point_of(mark).x
 		low = minf(low, x)
 		high = maxf(high, x)
 	if low > high:

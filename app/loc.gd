@@ -190,8 +190,8 @@ func language_name(lang: String) -> String:
 ## The face a language ships, or "" when it has none and is borrowing glyphs
 ## from whatever the machine happens to have.
 func font_path(lang: String = language) -> String:
-	for name in FONT_NAMES:
-		var path := DIR.path_join(lang).path_join(name)
+	for file in FONT_NAMES:
+		var path := DIR.path_join(lang).path_join(file)
 		if ResourceLoader.exists(path):
 			return path
 	return ""
