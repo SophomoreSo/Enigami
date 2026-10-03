@@ -13,12 +13,13 @@ extends Node2D
 ## it, how much of a passing body's speed it takes. Every physics frame each
 ## free node falls, carries its speed, is pulled part of the way toward the
 ## spot its parent's heading and its own rest angle put it, and is then set
-## at exactly its distance from its parent, the parent standing still — so
-## a line hung from a point swings like the chain it is, and what hangs
-## below a push swings after it while what is above stays put. A body
-## moving through it — the player, a monster — hands it some of its speed.
-## That is the video's velocity buffer done by asking the bodies directly:
-## not a collision, but the good enough reaction it describes.
+## at exactly its distance from its parent — and what it was pulled by, its
+## parent is pulled by the other way, a frame later. So a line hung from a
+## point swings like the chain it is: what hangs below a push swings after
+## it, and what is above is drawn after it too, all the way up to the anchor.
+## A body moving through it — the player, a monster — hands it some of its
+## speed. That is the video's velocity buffer done by asking the bodies
+## directly: not a collision, but the good enough reaction it describes.
 ##
 ## The video calls its simulation spring-based, and the article it took it
 ## from cannot be read any more. A spring for the distance, tried first,
@@ -29,24 +30,44 @@ extends Node2D
 ## outright and springing only the shape is how a strand of hair is kept on
 ## a GPU, node from parent, and it is steady at any stiffness.
 ##
+## Kept that way and no further, a node weighs nothing to the one above it.
+## Its parent never feels it, so nothing done to the end of a cable reached
+## the top: a body through the bottom of one bent what it touched and left
+## the rest standing like a rod, up to the anchor. And the pull toward the
+## rest angle, felt by the child alone, was the chain of one-way resonators
+## over again: at a good many of the numbers a line can be given, it never
+## came to rest. The paper that keeps hair this way says as much — following
+## the leader weighs each node as nothing beside its parent — and its answer
+## is to hand the child's correction back to the parent as speed (Müller,
+## Kim and Chentanez, "Fast Simulation of Inextensible Hair and Fur", 2012).
+## That is `pull` here: what set a node at its length, and what drew it
+## toward its rest angle, go to its parent turned round, to be taken up in
+## the next frame. Two things are this line's own. A line pulls and cannot
+## push, so a node pushed back out to its length hands nothing on: a body
+## jumping up under a cable shoves the end of it, not the anchor. And the
+## shape's pull is handed on along with the length's: left to the child
+## alone it is a spring with one end, and that is what kept a line from
+## resting. The weight of everything hanging from a node reaches it the same
+## way, which is what makes the top of a cable harder to move than its end.
+##
 ## The picture is the video's too: the line is Bresenham's, pixel by pixel,
 ## each pixel a square on the grid the pixel camera draws the world at, so it
 ## is one buffer pixel wide however it lies. The video builds that mesh in a
 ## geometry shader and runs the simulation in a compute shader, for
-## thousands of nodes; a room here hangs a handful of cables of a dozen nodes
+## thousands of nodes; a room here hangs a handful of cables of a few nodes
 ## each, so both are plain GDScript — and Godot's 2D has no geometry shader
 ## to put the mesh in anyway.
 ##
 ## A node's rest angle is measured from the heading its parent was hung at,
 ## the direction the parent lies in from its own parent when nothing moves
 ## it, so a line keeps the shape it was made with: bend it and it straightens
-## again, what hangs below a push is dragged after it by its length, and what
-## is above, held from the anchor, stays put. Measuring from the parent's
-## live direction instead was tried, and reads worse: a bend passed down the
-## line that way keeps the tail moving long after the top has settled. The
-## root's `angle` is its heading outright. A branch is a node whose parent is
-## not the one before it; `attach` puts another node on the line to ride it,
-## the way the video offsets sprites along one.
+## again, and what hangs below a push is dragged after it by its length.
+## Measuring from the parent's live direction instead was tried, and reads
+## worse: a bend passed down the line that way keeps the tail moving long
+## after the top has settled. The root's `angle` is its heading outright. A
+## branch is a node whose parent is not the one before it; `attach` puts
+## another node on the line to ride it, the way the video offsets sprites
+## along one.
 ##
 ## A kind of line — a cable, a chain — is a row of `ropes` in the content
 ## database, and its numbers are the ones below; `of` makes a line of a kind,
@@ -64,9 +85,10 @@ const S := PixelCamera.SCALE
 ## Bodies moving slower than this move nothing. Standing in a cable is not
 ## pushing it, and the video's buffer holds no speed for a body standing still.
 const PUSH_MIN := 30.0
-## The most of its distance from its parent a node may move in one step.
-## Past half, a node could pass its parent within a step, and the line would
-## fold; at this, two neighbours cannot close on each other in a step either.
+## The most of its distance from its parent a node's own speed may move it in
+## one step. Past half, a node could pass its parent within a step, and the
+## line would fold; at this, two neighbours cannot close on each other in a
+## step either.
 const MOST_A_STEP := 0.4
 ## How far past a body's own edge it still reaches the line: the line's width.
 const PUSH_REACH := float(S)
@@ -78,7 +100,7 @@ const BODY_GUESS := Vector2(20.0, 30.0)
 
 ## --- what the whole line shares ---------------------------------------------
 ## The numbers a kind of line is, as its row of `ropes` has them; made by
-## hand, a line has a cable's.
+## hand, a line has the ones given here.
 ## Which kind of line this is: the id of its row.
 var kind: String = "cable"
 ## How far apart a hung line's nodes are, in world pixels: at 12, six buffer
@@ -87,7 +109,10 @@ var segment: float = 12.0
 ## How firmly the line keeps the angles it was made with, per second: a wire
 ## hung out from a wall droops under gravity at 1, and holds its line at 30.
 ## The distance to a parent is kept outright whatever this is, so a cable
-## hung from a point is a chain at 0 and a rod at 60.
+## hung from a point is a chain at 0 and a rod at 60. The pull is between a
+## node and its parent, each feeling the other's half, so what it holds
+## hardest is the line's shape: a stiff cable stays straight and swings from
+## its anchor all of a piece, and the stiffer it is the less far.
 var stiffness: float = 3.0
 ## How fast a node's motion dies away, per second: at 0.8, a swing is down to
 ## a third in a second and a half.
@@ -108,7 +133,7 @@ var color: Color = Style.rope_look("cable")["line"]
 var end_color: Color = Style.rope_look("cable")["end"]
 
 ## The nodes, in the order they were added — a parent always before its
-## children — each `{parent, angle, length, fixed, heading, pos, vel}`:
+## children — each `{parent, angle, length, fixed, heading, pos, vel, pull}`:
 ##
 ##   parent   the index it hangs from; -1 for the root
 ##   angle    where it wants to lie from its parent, in radians off the
@@ -117,6 +142,8 @@ var end_color: Color = Style.rope_look("cable")["end"]
 ##   fixed    held where it was put
 ##   heading  the direction it lies in from its parent at rest, outright
 ##   pos vel  where it is and how it moves, in this node's own space
+##   pull     the speed its children handed it in the last step — the other
+##            half of what held them to it — for it to take up in the next
 var nodes: Array = []
 ## What rides the line: `{node, index, offset}`.
 var _riders: Array = []
@@ -129,7 +156,7 @@ var _riders: Array = []
 func root(at: Vector2, heading: float) -> int:
 	nodes.clear()
 	nodes.append({"parent": -1, "angle": heading, "length": 0.0, "fixed": true,
-		"heading": heading, "pos": at, "vel": Vector2.ZERO})
+		"heading": heading, "pos": at, "vel": Vector2.ZERO, "pull": Vector2.ZERO})
 	return 0
 
 ## A node hung from `parent`, wanting to lie `angle` off its parent's heading
@@ -143,7 +170,7 @@ func add_node(parent: int, angle: float, length: float, fixed: bool = false) -> 
 	var heading := float(nodes[parent]["heading"]) + angle
 	var pos: Vector2 = nodes[parent]["pos"] + Vector2.from_angle(heading) * length
 	nodes.append({"parent": parent, "angle": angle, "length": length, "fixed": fixed,
-		"heading": heading, "pos": pos, "vel": Vector2.ZERO})
+		"heading": heading, "pos": pos, "vel": Vector2.ZERO, "pull": Vector2.ZERO})
 	return nodes.size() - 1
 
 ## A cable: hung from `at` straight down, `length` long, a node every
@@ -236,12 +263,16 @@ func tips() -> Array[int]:
 
 ## One physics frame. Every free node falls, carries its speed, slows, takes
 ## speed from any body moving through it, moves — never more than
-## MOST_A_STEP of its segment — is pulled part of the way toward where its
-## parent's heading and its own rest angle put it, and is set at exactly its
-## distance from its parent. Parents go before children, and a child reads
-## its parent as it is now, so a bend runs down the line within the frame it
-## is made. What a node ends up moving is its speed for the next frame,
-## whatever it was asked to do.
+## MOST_A_STEP of its segment of its own accord, and then by whatever its
+## children handed it in the last frame — is pulled part of the way toward
+## where its parent's heading and its own rest angle put it, and is set at
+## exactly its distance from its parent. What those two moved it by, its
+## parent is handed turned round, for the next frame: the shape's pull
+## always, and the length's only when the line was taut, since a line cannot
+## push. Parents go before children, and a child reads its parent as it is
+## now, so a bend runs down the line within the frame it is made, and up it
+## a node a frame. What a node ends up moving is its speed for the next
+## frame, whatever it was asked to do.
 func step(delta: float) -> void:
 	if delta <= 0.0:
 		return
@@ -254,18 +285,30 @@ func step(delta: float) -> void:
 			continue
 		var parent: int = n["parent"]
 		var at: Vector2 = n["pos"]
+		var length: float = n["length"]
 		var vel: Vector2 = (n["vel"] + Vector2(0.0, gravity) * delta) * damp
 		for m in movers:
 			if (m["rect"] as Rect2).has_point(at):
 				vel = vel.lerp(m["vel"], give)
-		var next := at + (vel * delta).limit_length(MOST_A_STEP * float(n["length"]))
+		# Where it was asked to go: by its own speed, held to MOST_A_STEP, and by
+		# what hangs from it. That second part is held to nothing: nearly all of
+		# it is the weight below, which lies along the line and is taken straight
+		# back out by the length.
+		var asked := at + (vel * delta).limit_length(MOST_A_STEP * length) + (n["pull"] as Vector2) * delta
+		n["pull"] = Vector2.ZERO
 		var hung: Vector2 = nodes[parent]["pos"]
-		var rest := hung + Vector2.from_angle(_heading(parent) + float(n["angle"])) * float(n["length"])
-		next = next.lerp(rest, keep)
+		var rest := hung + Vector2.from_angle(_heading(parent) + float(n["angle"])) * length
+		var next := asked.lerp(rest, keep)
 		var d := next - hung
-		next = rest if d.length_squared() < 0.0001 else hung + d.normalized() * float(n["length"])
-		n["vel"] = (next - at) / delta
-		n["pos"] = next
+		var far := d.length()
+		var held := rest if far < 0.01 else hung + d * (length / far)
+		n["vel"] = (held - at) / delta
+		n["pos"] = held
+		if not nodes[parent]["fixed"]:
+			var back := asked - next
+			if far > length:
+				back += next - held
+			nodes[parent]["pull"] += back / delta
 	_carry()
 
 func _physics_process(delta: float) -> void:

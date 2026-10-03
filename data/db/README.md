@@ -546,11 +546,12 @@ a part's look is `Style`'s.
 ## A rope
 
 The lines that hang in the rooms — cables today — are `Rope`
-(`graphics/rope.gd`): a line of nodes, hung from a point, swaying when
-somebody walks through it, drawn pixel by pixel. A **kind** of line is a
-row of `ropes`, the numbers the simulation shares along one, and what a
-room hangs of each kind is a row of `hangings`. Change a number in
-`ropes/ropes.sql` and rebuild, and every line of that kind moves that way.
+(`graphics/rope.gd`): a line of nodes, hung from a point, swinging from it
+when somebody walks through any part of it, drawn pixel by pixel. A
+**kind** of line is a row of `ropes`, the numbers the simulation shares
+along one, and what a room hangs of each kind is a row of `hangings`.
+Change a number in `ropes/ropes.sql` and rebuild, and every line of that
+kind moves that way.
 
 ```sql
 INSERT INTO ropes (id, segment, stiffness, damping, gravity, give, push_most) VALUES
@@ -563,10 +564,10 @@ INSERT INTO hangings (rope, fewest, most, shortest, longest) VALUES
 | Table · column | Meaning |
 |---|---|
 | `ropes.segment` | Pixels between nodes. Finer bends more smoothly, and costs more nodes. 12 is six pixels of the buffer the world is drawn into. |
-| `ropes.stiffness` | How firmly the line keeps the angles it was hung with, per second: 0 is a free chain, 30 holds a bent line nearly rigid. A node's distance from its parent is kept outright whatever this says. |
+| `ropes.stiffness` | How firmly the line keeps the angles it was hung with, per second: 0 is a free chain, 30 holds a bent line nearly rigid. A node's distance from its parent is kept outright whatever this says. What it holds hardest is the line's shape: a stiff cable stays straight and swings from its anchor all of a piece, and the stiffer it is the less far. |
 | `ropes.damping` | How fast a node's motion dies, per second. Lower swings longer. |
-| `ropes.gravity` | The pull on every free node, in pixels a second squared. Higher swings faster and hangs heavier. |
-| `ropes.give` | The share of a passing body's speed a node takes, each frame the body covers it. |
+| `ropes.gravity` | The pull on every free node, in pixels a second squared. Higher swings faster and hangs heavier — and a node carries the weight of everything under it, so the heavier the line, the less its top gives to a push at its end. |
+| `ropes.give` | The share of a passing body's speed a node takes, each frame the body covers it. The nodes it does not cover are drawn after those, up to the anchor. |
 | `ropes.push_most` | The most speed a body hands over, in pixels a second, however fast it goes. With `give`, how hard a dash swings a line. |
 | `hangings.fewest` `most` | How many of the kind a room hangs. |
 | `hangings.shortest` `longest` | How long each is, in cells of the room's grid, to the nearest node. |
@@ -577,10 +578,12 @@ ledge — never at the room's edge, never under the readout, never two close
 together, rolled from the room's own seed so a room looks the same every
 time. What keeps a line steady whatever its numbers say stays code, as
 constants on `Rope`: the most a node moves in a step, and the slowest body
-that moves it. What a kind looks like is `Style.ROPE_LOOK`
-(`graphics/style.gd`), by the same id; a kind with no look yet hangs in a
-cable's colours. `tests/graphics/rope_test.tscn` reads the tables, makes a
-line of each kind, and tries what the schema refuses.
+that moves it — and so does the rule that whatever holds a node to its
+parent pulls the parent the other way, which is what swings a whole line
+from its anchor and brings it to rest again. What a kind looks like is
+`Style.ROPE_LOOK` (`graphics/style.gd`), by the same id; a kind with no
+look yet hangs in a cable's colours. `tests/graphics/rope_test.tscn` reads
+the tables, makes a line of each kind, and tries what the schema refuses.
 
 ## Foliage
 
