@@ -55,6 +55,7 @@
 		"damage": "dmg %.0f",
 		"size": "x%.1f size",
 		"duplicates": "x%d",
+		"stacked": "%s x%d",
 		"pierce": "pierce %d",
 		"homing": "homing",
 		"blink": "blink",

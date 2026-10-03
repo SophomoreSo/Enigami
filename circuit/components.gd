@@ -52,10 +52,11 @@ const CAT_TRIGGER := "trigger"
 ## Fields of a payload the runner keeps for itself, which no effect may touch:
 ## a part's own heat is its `heat`, and the rest is how a trigger's branch is
 ## carried and chained.
-const KEPT := ["heat", "branch", "follow_up", "on_hit", "on_kill", "on_parry"]
+const KEPT := ["heat", "branch", "follow_up", "stacks", "on_hit", "on_kill", "on_parry"]
 
 ## id -> definition, in palette order. Fields:
-##   name, cat, heat, cells (1 or 2), tag ("" for none), outs (local output
+##   name, cat, heat, cells (1 or 2), limit (how many of it one flow can stack,
+##   0 for any number), tag ("" for none), outs (local output
 ##   dirs, in the order flows leave), payload_out
 ##   (local dir of a trigger's branch, -1 if none), effects (what entering it
 ##   does, see `_effect`), acts_on_entry (it does its work on the way in; see
@@ -161,7 +162,8 @@ static func codes() -> Dictionary:
 	return _codes.duplicate()
 
 ## What entering a part does, in order: {op, field, value}, with the value in
-## the type its field holds. See `SkillRunner._apply`.
+## the type its field holds — and `per_stack`, on a row that is worth more the
+## more of the part a flow has stacked. See `SkillRunner._apply`.
 static func effects_of(id: String) -> Array:
 	return get_def(id).get("effects", [])
 
@@ -170,6 +172,12 @@ static func effects_of(id: String) -> Array:
 ## part with no opposite. See `SkillRunner._invert`.
 static func inversions_of(id: String) -> Array:
 	return get_def(id).get("inversions", [])
+
+## How many of a part one flow can stack: the part does its work that many
+## times on a flow, and any more of it the flow passes do nothing but cost
+## their heat. 0 for a part with no limit. Its `stack_limit`.
+static func limit_of(id: String) -> int:
+	return int(get_def(id).get("limit", 0))
 
 ## Whether a part does its work the moment a flow enters it, rather than by
 ## carrying that flow on out of the board — it slows the fight or opens a guard.
@@ -264,6 +272,7 @@ static func _load() -> void:
 		_defs[id] = {
 			"name": String(p["name"]), "cat": String(p["category"]),
 			"heat": float(p.get("heat", 0.0)), "cells": int(p.get("cells", 1)),
+			"limit": int(p.get("stack_limit", 0)),
 			"tag": String(p.get("tag", "")),
 			"outs": [], "payload_out": -1, "effects": [], "inversions": [], "acts_on_entry": false,
 			"code": -1, "desc": String(p["description"]),
@@ -369,7 +378,17 @@ static func _effect(row: Dictionary, shape: Payload) -> Variant:
 	if fit == null:
 		var what := "" if value == null else " " + str(value)
 		return "%s %s%s, which %s cannot take — %s" % [op, field, what, field, _takes(now)]
-	return {"op": op, "field": StringName(field), "value": null if op == "toggle" else fit}
+	var made := {"op": op, "field": StringName(field), "value": null if op == "toggle" else fit}
+	# What the row is worth more for every one of its part already stacked.
+	var per = row.get("per_stack", null)
+	if per != null:
+		var whole := typeof(now) == TYPE_INT
+		if not op in ["add", "multiply"] or not (per is float or per is int) \
+				or not typeof(now) in [TYPE_FLOAT, TYPE_INT] or (whole and float(per) != floorf(float(per))):
+			return "%s %s by %s more per stack, which only an add or a multiply to a number can grow by" \
+				% [op, field, str(per)]
+		made["per_stack"] = int(per) if whole else float(per)
+	return made
 
 ## What can be done to a field holding what `now` holds, for a fault to say.
 static func _takes(now) -> String:

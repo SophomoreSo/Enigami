@@ -395,6 +395,7 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 | `parts.category` | Which block of the palette it sits in: `form`, `element`, `stat`, `behavior`, `flow` or `trigger`. Every part drops, sells and is spent from the stash alike. |
 | `parts.heat` | Added to the cooldown of every cast that passes through it. |
 | `parts.cells` | 1 or 2: its footprint, and the ticks a flow spends in it. |
+| `parts.stack_limit` | How many of the part one flow can stack. Stacking is the rule for every part — each one a flow passes does its work again, so three DAMAGE are worth more than one — and this is where it stops: past the limit the part still costs its heat and does nothing. Empty for any number. `Payload.stacks` keeps the count, and `Payload.at_limit` is how a rule asks whether a flow got there (SPEED's bolt at laser speed). |
 | `parts.tag` | What it makes a board — `ranged`, `melee`, `area`, `mobility`, `trigger` — for a weapon's `accepts` to match. |
 | `ports` | The sides its flow leaves by, as it faces east, in the order the flows leave. It takes flow on every other side. A `branch` is a trigger's second way out, which carries its payload. Every part has one: a flow ends by leaving the board, never on a part. |
 | `effects` | What it does to a flow as the flow enters it, in `position` order. See below. |
@@ -418,9 +419,14 @@ it:
 | `guard` | opens a guard window for `value` seconds, a hit absorbed in it runs the part's branch; no field | — |
 | `invert` | takes back what the part the flow came from did, and does its `inversions` instead; no field, no `value` | — |
 
+An `add` or a `multiply` may also carry a `per_stack`: what is added to its
+`value` for every one of the part the flow has already stacked, so that each
+one is worth more than the last. DAMAGE adds 8, then 12, then 16.
+
 The fields are the payload's: `damage` `size` `speed` `range_px` `stun`
-`heal` (numbers), `pierce` `duplicates` (whole numbers), `homing` `blink`
-`pull` `knockback` `shatter` `mana_drain` `cleanse` `repel` `hook` (flags), `form` (a word) and `elements` (a list). `value` is read as
+`heal` (numbers), `pierce` `duplicates` `homing` `pull` `knockback` `shatter`
+`mana_drain` `repel` `hook` (whole numbers — the behaviours are counts, one
+for every part of the kind stacked), `blink` `cleanse` (flags), `form` (a word) and `elements` (a list). `value` is read as
 JSON — `8`, `1.6`, `'true'` — and a word may go without its quotes: `'FIRE'`.
 A row asking for a field there is not, or for something its field cannot
 take, is a fault the game reports as it reads the parts, and

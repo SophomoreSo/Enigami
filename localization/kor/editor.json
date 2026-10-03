@@ -55,6 +55,7 @@
 		"damage": "피해 %.0f",
 		"size": "크기 x%.1f",
 		"duplicates": "x%d",
+		"stacked": "%s x%d",
 		"pierce": "관통 %d",
 		"homing": "유도",
 		"blink": "점멸",

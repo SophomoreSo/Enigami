@@ -358,7 +358,7 @@ func knock_travel(kind: String, p: Payload, short: float = 0.0) -> float:
 func _repel() -> void:
 	var plain := hit()
 	var push := hit()
-	push.repel = true
+	push.repel = 1
 	for kind in ["DUMMY", "CRAWLER", "LOBBER", "DRIFTER"]:
 		var driven: float = await push_travel(kind, push) - await push_travel(kind, plain)
 		check(driven > 20.0, "a %s 60px from a hit that repels is driven %.0fpx away from it" % [kind, driven])
@@ -374,7 +374,7 @@ func _repel() -> void:
 func _hook() -> void:
 	var plain := hit()
 	var reel := hit()
-	reel.hook = true
+	reel.hook = 1
 	var hauled: float = await knock_travel("DUMMY", reel)
 	check(hauled < -20.0, "a dummy struck by a hit going right that hooks is hauled %.0fpx left, back the way it came" % -hauled)
 	for kind in ["DUMMY", "CRAWLER", "LOBBER"]:

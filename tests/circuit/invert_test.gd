@@ -60,8 +60,8 @@ func _fired(b: SkillBoard) -> Payload:
 	return outs[0] if outs.size() > 0 else null
 
 ## The fields `a` and `b` disagree on — every field a part could touch, but
-## heat, which every part adds to, and the trigger payloads, which are not the
-## flow's own.
+## heat, which every part adds to, the count of the parts it has been through,
+## and the trigger payloads, which are not the flow's own.
 func differ(a: Payload, b: Payload) -> Array:
 	var out: Array = []
 	if a == null or b == null:
@@ -70,7 +70,7 @@ func differ(a: Payload, b: Payload) -> Array:
 		if not (int(prop["usage"]) & PROPERTY_USAGE_SCRIPT_VARIABLE):
 			continue
 		var name := String(prop["name"])
-		if name in ["heat", "on_hit", "on_kill", "on_parry"]:
+		if name in ["heat", "stacks", "on_hit", "on_kill", "on_parry"]:
 			continue
 		if str(a.get(name)) != str(b.get(name)):
 			out.append(name)
@@ -141,9 +141,11 @@ func _flips() -> void:
 	var hurt := payload_of(["SLASH", "DAMAGE"])
 	var heal := payload_of(["SLASH", "DAMAGE", "INVERT"])
 	check(hurt.damage > plain.damage, "(DAMAGE adds to the damage: %.0f over %.0f)" % [hurt.damage, plain.damage])
-	check(is_equal_approx(heal.damage, plain.damage) and is_equal_approx(heal.heal, hurt.damage - plain.damage),
-		"DAMAGE then INVERT: what DAMAGE added comes off (%.0f) and heals the enemy struck instead (%.0f)"
+	check(is_equal_approx(heal.damage, plain.damage)
+			and is_equal_approx(heal.heal, _value(Components.effects_of("DAMAGE"), "add", &"damage")),
+		"DAMAGE then INVERT: what DAMAGE did comes off (%.0f) and what it adds heals the enemy struck instead (%.0f)"
 			% [heal.damage, heal.heal])
+	check(heal.stack("DAMAGE") == 0, "and, turned round, it no longer counts as a DAMAGE stacked")
 	check(differ(heal, plain) == ["heal"], "and nothing else about the attack is touched (%s)" % str(differ(heal, plain)))
 	var after := payload_of(["SLASH", "DAMAGE", "INVERT", "DAMAGE"])
 	check(is_equal_approx(after.damage, hurt.damage) and is_equal_approx(after.heal, heal.heal),
@@ -154,7 +156,7 @@ func _flips() -> void:
 		check(calm.cleanse and not calm.elements.has(id) and differ(calm, plain) == ["cleanse"],
 			"%s then INVERT: no %s, a cleanse instead (%s)" % [id, id.to_lower(), str(differ(calm, plain))])
 	var stunning := payload_of(["SLASH", "STUN"])
-	check(is_equal_approx(stunning.stun, _value(Components.effects_of("STUN"), "set", &"stun")),
+	check(is_equal_approx(stunning.stun, _value(Components.effects_of("STUN"), "add", &"stun")),
 		"STUN carries its seconds to the hit (%.1f)" % stunning.stun)
 	var woken := payload_of(["SLASH", "STUN", "INVERT"])
 	check(woken.stun == 0.0 and woken.cleanse and differ(woken, plain) == ["cleanse"],

@@ -41,6 +41,8 @@ var extract_hold: float = 0.0
 ## loud so the console can offer USE there.
 var extract_offered: bool = false
 var _extract_active: bool = false
+## The open cells as a grid to find a way through, built by `path_between`.
+var _paths: AStarGrid2D = null
 ## The box this room's loot is kept in, or null when it was found with none.
 var box: TreasureBox = null
 
@@ -94,6 +96,63 @@ func has_line_of_sight(a: Vector2, b: Vector2) -> bool:
 		if is_solid(int(floor(p.x / CELL)), int(floor(p.y / CELL))):
 			return false
 	return true
+
+## Whether something could travel straight from `a` to `b` and stay `margin`
+## clear of the rock on both sides. It walks the line either side of the
+## straight one — a cell is wider than the gap between them, so nothing fits
+## in the middle unseen — in steps a corner cannot slip between.
+##
+## Finer than `has_line_of_sight`, which answers whether one monster can see
+## another and is happy to look past the tip of a corner: a bolt steered down
+## that line clips it.
+func clear_between(a: Vector2, b: Vector2, margin: float) -> bool:
+	var la := to_local(a)
+	var to := to_local(b) - la
+	var dist := to.length()
+	if dist < 1.0:
+		return not is_solid(int(floor(la.x / CELL)), int(floor(la.y / CELL)))
+	var side := to.orthogonal() / dist * margin
+	var steps := int(dist / 8.0) + 1
+	for i in range(1, steps + 1):
+		var at := la + to * (float(i) / float(steps))
+		if is_solid(int(floor((at.x + side.x) / CELL)), int(floor((at.y + side.y) / CELL))) \
+				or is_solid(int(floor((at.x - side.x) / CELL)), int(floor((at.y - side.y) / CELL))):
+			return false
+	return true
+
+## The way from `from` to `to` through the room's open cells, as the points to
+## fly through in order, ending on `to` — or nothing, when there is no way or
+## either end is inside the rock. What a HOMING bolt follows when a wall stands
+## between it and what it is after (`Projectile`).
+##
+## The grid is built the first time anything asks: a room's walls are settled
+## by `build` and never move. A diagonal is only taken where both cells beside
+## it are open, so a path never cuts a corner a bolt would clip.
+func path_between(from: Vector2, to: Vector2) -> PackedVector2Array:
+	if _paths == null:
+		_paths = AStarGrid2D.new()
+		_paths.region = Rect2i(0, 0, W, H)
+		_paths.cell_size = Vector2(CELL, CELL)
+		_paths.offset = Vector2(CELL, CELL) * 0.5
+		_paths.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES
+		_paths.update()
+		for y in H:
+			for x in W:
+				if is_solid(x, y):
+					_paths.set_point_solid(Vector2i(x, y))
+	var a := Vector2i((to_local(from) / CELL).floor())
+	var b := Vector2i((to_local(to) / CELL).floor())
+	var out := PackedVector2Array()
+	if not _paths.is_in_boundsv(a) or not _paths.is_in_boundsv(b) \
+			or _paths.is_point_solid(a) or _paths.is_point_solid(b):
+		return out
+	var cells := _paths.get_point_path(a, b)
+	# The first point is the cell the bolt is already in.
+	for i in range(1, cells.size() - 1):
+		out.append(to_global(cells[i]))
+	if not cells.is_empty():
+		out.append(to)
+	return out
 
 ## Stops a lunge — or a beam — at the first wall on the way.
 func clamp_dash(from: Vector2, to: Vector2) -> Vector2:

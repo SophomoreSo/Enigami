@@ -103,25 +103,41 @@ static func distance_for(reach: float) -> float:
 ## opposite of real gravity and the point of this one: an even pull leaves the
 ## far enemies where they were and throws the near ones past the middle, where a
 ## rising one brings the whole room in together and lands them in a heap.
+##
+## That is one GRAVITY. Every one stacked drags as hard again, and reaches a
+## little further (`PULL_REACH_PER`): the pull is what the part is for, so that
+## is what stacking it buys, and the reach only keeps up with it.
 const PULL_RADIUS := 150.0
 const PULL_FORCE := 300.0
 const PULL_NEAR := 0.45
+const PULL_REACH_PER := 0.25
 
 ## KNOCKBACK. The push it adds to a hit, in pixels a second, straight along the
 ## way the attack was going — on top of the hit's own shove, not instead of it.
 ## Bled off at `Actor.SHOVE_DECAY`, it carries an enemy that stands its ground
-## some five cells, where an ordinary hit moves one less than a cell.
+## some five cells, where an ordinary hit moves one less than a cell. Every
+## KNOCKBACK stacked pushes as hard again.
 const KNOCKBACK_FORCE := 300.0
 
-## SHATTER. What a hit is worth against an enemy frost has already slowed. It
-## does not thaw them: the chill runs its own course, so a board that chills and
-## then lands twice more collects the bonus every time.
-const SHATTER_MUL := 1.8
+## SHATTER. What a hit is worth against an enemy frost has already slowed: the
+## frost breaks, the hit lands this much harder for every SHATTER stacked, and
+## the enemy thaws. Breaking it is what pays, so there is one break to a chill —
+## a board has to freeze them again to do it again.
+const SHATTER_PER := 1.5
 
-## MANA DRAIN. What one connection gives the caster back. Each connection pays,
-## so a board that lands three bolts drains three times — that is what a leech
-## build is for — and a trigger's follow-up pays like any other hit.
+## MANA DRAIN. What one connection gives the caster back, for every MANA DRAIN
+## stacked. Each connection pays, so a board that lands three bolts drains
+## three times — that is what a leech build is for — and a trigger's follow-up
+## pays like any other hit.
 const MANA_PER_HIT := 6.0
+
+## What a hit carrying `stacked` SHATTERs is multiplied by on a chilled enemy.
+static func shatter_mul(stacked: int) -> float:
+	return 1.0 + SHATTER_PER * float(stacked)
+
+## How far a pull or a push carrying `stacked` of its part reaches, at `size`.
+static func pull_radius(stacked: int, size: float) -> float:
+	return PULL_RADIUS * size * (1.0 + PULL_REACH_PER * float(maxi(stacked - 1, 0)))
 
 ## Staggered follow-ups (DUPLICATE, multi-hit forms, triggers) are scheduled by
 ## a small node rather than a captured lambda: an attacker can die between the
@@ -393,17 +409,17 @@ static func summary(p: Payload) -> String:
 	if p.pierce > 0:
 		parts.append(Loc.t("editor.payload.pierce", [p.pierce]))
 	if p.homing:
-		parts.append(Loc.t("editor.payload.homing"))
+		parts.append(_stacked(Loc.t("editor.payload.homing"), p.homing))
 	if p.blink:
 		parts.append(Loc.t("editor.payload.blink"))
 	if p.pull:
-		parts.append(Loc.t("editor.payload.pull"))
+		parts.append(_stacked(Loc.t("editor.payload.pull"), p.pull))
 	if p.knockback:
-		parts.append(Loc.t("editor.payload.knockback"))
+		parts.append(_stacked(Loc.t("editor.payload.knockback"), p.knockback))
 	if p.shatter:
-		parts.append(Loc.t("editor.payload.shatter", [SHATTER_MUL]))
+		parts.append(Loc.t("editor.payload.shatter", [shatter_mul(p.shatter)]))
 	if p.mana_drain:
-		parts.append(Loc.t("editor.payload.mana_drain", [MANA_PER_HIT]))
+		parts.append(Loc.t("editor.payload.mana_drain", [MANA_PER_HIT * float(p.mana_drain)]))
 	if p.stun > 0.0:
 		parts.append(Loc.t("editor.payload.stun", [p.stun]))
 	if p.heal > 0.0:
@@ -411,10 +427,16 @@ static func summary(p: Payload) -> String:
 	if p.cleanse:
 		parts.append(Loc.t("editor.payload.cleanse"))
 	if p.repel:
-		parts.append(Loc.t("editor.payload.repel"))
+		parts.append(_stacked(Loc.t("editor.payload.repel"), p.repel))
 	if p.hook:
-		parts.append(Loc.t("editor.payload.hook"))
+		parts.append(_stacked(Loc.t("editor.payload.hook"), p.hook))
 	return Loc.t("editor.payload.separator").join(parts)
+
+## A behaviour's words in the preview, with how many of its part are stacked
+## when that is more than one: what stacking it bought has no number of its own
+## to show, the way SHATTER's and MANA DRAIN's do, so the count is the number.
+static func _stacked(words: String, count: int) -> String:
+	return words if count <= 1 else Loc.t("editor.payload.stacked", [words, count])
 
 ## A single connection: damage, feedback, and any trigger flows it unlocks.
 ##
@@ -435,15 +457,18 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 	# carrying ICE and SHATTER together does not shatter the chill it is in the
 	# middle of applying. It takes two arrivals, which is what makes it a
 	# combination rather than a flat damage part.
-	var chilled := target.chill_time > 0.0
-	var damage := p.damage * SHATTER_MUL if (p.shatter and chilled) else p.damage
+	var breaks := p.shatter > 0 and target.chill_time > 0.0
+	var damage := p.damage * shatter_mul(p.shatter) if breaks else p.damage
 	# A hit that cleanses lands bare, and what it carries goes on once the
 	# cleanse has been through (below): the other way round, the cleanse would
 	# take what its own hit brought along with what was there before it.
 	var dealt := target.apply_damage(damage, [] if p.cleanse else p.elements, atk)
 	if dealt <= 0.0:
 		return
-	if p.shatter and chilled:
+	# The frost is what broke: the enemy thaws, and that takes the chill this
+	# same hit may have brought with it, so the next break needs a fresh one.
+	if breaks:
+		target.chill_time = 0.0
 		Cues.at(&"shatter", pos, {"payload": p, "damage": dealt})
 	# A cleanse — what an INVERT makes of FIRE, ICE or STUN — ends what the enemy
 	# struck was carrying when the hit reached it: every burn, chill and stun.
@@ -466,20 +491,21 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 	# GRAVITY's pin included, so a board with both gathers the room and sends
 	# the one it struck flying out of the middle of it.
 	if p.knockback:
-		target.knockback(dir, KNOCKBACK_FORCE)
+		target.knockback(dir, KNOCKBACK_FORCE * float(p.knockback))
 	# What an INVERT made of KNOCKBACK: the struck enemy is hauled back the way
 	# the attack came, as hard as KNOCKBACK throws it on — and in place of the
 	# shove every hit gives (above), or a heavy blow's would cancel the pull.
 	if p.hook:
-		target.knockback(-dir, KNOCKBACK_FORCE)
+		target.knockback(-dir, KNOCKBACK_FORCE * float(p.hook))
 	# And of GRAVITY: everything round the impact is driven off it.
 	if p.repel:
 		_repel(p, target, pos, team)
 	if p.stun > 0.0 and target.stun(p.stun):
 		Cues.at(&"stun", target.global_position, {"seconds": p.stun, "target_team": target.team})
 	if p.mana_drain and atk != null and atk.has_method("gain_mana"):
-		atk.gain_mana(MANA_PER_HIT)
-		Cues.at(&"mana_drain", pos, {"amount": MANA_PER_HIT})
+		var drained := MANA_PER_HIT * float(p.mana_drain)
+		atk.gain_mana(drained)
+		Cues.at(&"mana_drain", pos, {"amount": drained})
 	# What an INVERT made of DAMAGE: health given back to the enemy struck, after
 	# the harm and only while it still stands, so a blow that kills stays a kill.
 	if p.heal > 0.0 and not target.dead:
@@ -513,7 +539,7 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 ## target, so there it takes a small pull of its own — which is the same rule,
 ## not an exception to it.)
 static func _pull(p: Payload, pos: Vector2, team: int) -> void:
-	var radius := PULL_RADIUS * p.size
+	var radius := pull_radius(p.pull, p.size)
 	for a in targets(team):
 		var to: Vector2 = pos - a.global_position
 		var d := to.length()
@@ -521,7 +547,7 @@ static func _pull(p: Payload, pos: Vector2, team: int) -> void:
 			continue
 		if d < 0.01:
 			continue   # already there; a zero direction would be a shove nowhere
-		a.knockback(to / d, PULL_FORCE * lerpf(PULL_NEAR, 1.0, d / radius))
+		a.knockback(to / d, PULL_FORCE * float(p.pull) * lerpf(PULL_NEAR, 1.0, d / radius))
 	Cues.at(&"pull", pos, {"radius": radius})
 
 ## Everything `team` may hurt, driven off `pos`: GRAVITY's drag turned round,
@@ -531,7 +557,7 @@ static func _pull(p: Payload, pos: Vector2, team: int) -> void:
 ## strikes, and that is the hard end of this: counted among the driven, the one
 ## a bolt struck would be thrown several times as far as one a swing did.
 static func _repel(p: Payload, struck: Actor, pos: Vector2, team: int) -> void:
-	var radius := PULL_RADIUS * p.size
+	var radius := pull_radius(p.repel, p.size)
 	for a in targets(team):
 		if a == struck:
 			continue
@@ -541,7 +567,7 @@ static func _repel(p: Payload, struck: Actor, pos: Vector2, team: int) -> void:
 			continue
 		if d < 0.01:
 			continue   # standing on it; a zero direction would be a shove nowhere
-		a.knockback(away / d, PULL_FORCE * lerpf(1.0, PULL_NEAR, d / radius))
+		a.knockback(away / d, PULL_FORCE * float(p.repel) * lerpf(1.0, PULL_NEAR, d / radius))
 	Cues.at(&"repel", pos, {"radius": radius})
 
 ## A link of a chain, marked as belonging to the blow that caused it rather than

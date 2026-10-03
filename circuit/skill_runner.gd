@@ -339,9 +339,9 @@ func _begin_pass() -> bool:
 	var p := _base_payload()
 	var id := String(entry["id"])
 	var before := _before(id, p)
-	_apply(id, p)
+	var took := _apply(id, p)
 	var first := Pulse.new(start, Components.tick_cost(id), p, cycle_ttl())
-	first.undo = {"id": id, "before": before}
+	first.undo = {"id": id, "before": before, "took": took}
 	pulses = [first]
 	return true
 
@@ -437,19 +437,27 @@ func _send(from: Vector2i, dir: int, payload: Payload, result: Array[Pulse], ttl
 		return  # out of life; a ring winds down here
 	var tid := String(port["id"])
 	var before := _before(tid, payload)
-	_apply(tid, payload, came)
+	var took := _apply(tid, payload, came)
 	var next := Pulse.new(port["to"], Components.tick_cost(tid), payload, ttl - 1)
-	next.undo = {"id": tid, "before": before}
+	next.undo = {"id": tid, "before": before, "took": took}
 	result.append(next)
 
 ## Mutate the payload as it enters a component: its heat, then each of its
 ## effects in turn — the part's rows of `effects`, which `Components` has held
 ## to the payload already, so every one fits the field it names. `came` is the
 ## part the flow came from and what it did, which only INVERT reads.
-func _apply(id: String, p: Payload, came: Dictionary = {}) -> void:
+##
+## A part with a `stack_limit` does its work that many times on one flow and no
+## more: past it the part still costs its heat, and does nothing. Returns
+## whether it did its work, which an INVERT straight after needs to know.
+func _apply(id: String, p: Payload, came: Dictionary = {}) -> bool:
 	var def := Components.get_def(id)
 	p.heat += float(def.get("heat", 0.0))
 	cycle_heat += float(def.get("heat", 0.0))
+	var limit := int(def.get("limit", 0))
+	if limit > 0 and p.stack(id) >= limit:
+		return false
+	p.stacks[id] = p.stack(id) + 1
 	for e: Dictionary in def.get("effects", []):
 		match String(e["op"]):
 			"dilate":
@@ -461,19 +469,25 @@ func _apply(id: String, p: Payload, came: Dictionary = {}) -> void:
 			"invert":
 				_invert(p, came)
 			_:
-				_do(p, e)
+				_do(p, e, p.stack(id))
+	return true
 
 ## One change to one field of `p`, an effect's or an opposite's: set, add,
-## multiply, toggle or include.
-static func _do(p: Payload, e: Dictionary) -> void:
+## multiply, toggle or include. `stacked` is how many of the part the flow has
+## been through, this one included: a row with a `per_stack` is worth that much
+## more for every one before this.
+static func _do(p: Payload, e: Dictionary, stacked: int = 1) -> void:
 	var field: StringName = e["field"]
+	var value = e["value"]
+	if e.has("per_stack"):
+		value += e["per_stack"] * maxi(stacked - 1, 0)
 	match String(e["op"]):
 		"set":
-			p.set(field, e["value"])
+			p.set(field, value)
 		"add":
-			p.set(field, p.get(field) + e["value"])
+			p.set(field, p.get(field) + value)
 		"multiply":
-			p.set(field, p.get(field) * e["value"])
+			p.set(field, p.get(field) * value)
 		"toggle":
 			p.set(field, not p.get(field))
 		"include":
@@ -488,9 +502,13 @@ static func _do(p: Payload, e: Dictionary) -> void:
 ## A part with no opposite is left as it was, so an INVERT after a form, a
 ## trigger or another INVERT does nothing.
 func _invert(p: Payload, came: Dictionary) -> void:
-	var opposite := Components.inversions_of(String(came.get("id", "")))
-	if opposite.is_empty():
+	var from := String(came.get("id", ""))
+	var opposite := Components.inversions_of(from)
+	# A part past its limit did nothing, so there is nothing to turn round.
+	if opposite.is_empty() or not bool(came.get("took", true)):
 		return
+	# Turned round, it no longer counts towards its own stack.
+	p.stacks[from] = maxi(p.stack(from) - 1, 0)
 	var before: Dictionary = came.get("before", {})
 	for field in before:
 		p.set(field, _kept(before[field]))

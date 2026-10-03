@@ -23,15 +23,18 @@ var range_px: float = BASE_RANGE
 var form: String = ""              ## "", PROJECTILE, SLASH, EXPLODE, DASHSLASH, DASHSLASH_AUTO, ZAP
 var elements: Array[String] = []   ## FIRE / ICE
 var pierce: int = 0                ## extra targets an attack passes through
-var homing: bool = false
+## The behaviours below are counts, not flags: 0 is without, and every part of
+## the kind the flow passes adds one, so a board that stacks them does the same
+## thing harder — a tighter turn, a stronger drag, a longer throw.
+var homing: int = 0                ## tracks the nearest enemy, and finds its way round walls
 var blink: bool = false            ## teleport behind nearest enemy
 ## Drags nearby enemies into the impact instead of knocking the struck one back.
 ## Not to be confused with a thrown weapon's `gravity_shots`, which arcs the
 ## bolt: that one is a property of the weapon and rides in the spawn context.
-var pull: bool = false
-var knockback: bool = false        ## the struck enemy is thrown on along the attack
-var shatter: bool = false          ## far harder on an enemy frost has slowed
-var mana_drain: bool = false       ## every connection pays the caster back
+var pull: int = 0
+var knockback: int = 0             ## the struck enemy is thrown on along the attack
+var shatter: int = 0               ## breaks the frost on a slowed enemy, for far more damage
+var mana_drain: int = 0            ## every connection pays the caster back
 var stun: float = 0.0              ## seconds the struck enemy stands stunned
 ## What an INVERT makes of the part before it (the `inversions` rows), each
 ## landing on the struck enemy once the hit has: health given back, every burn,
@@ -41,14 +44,19 @@ var stun: float = 0.0              ## seconds the struck enemy stands stunned
 ## thrown on (KNOCKBACK's).
 var heal: float = 0.0
 var cleanse: bool = false
-var repel: bool = false
-var hook: bool = false
+var repel: int = 0
+var hook: int = 0
 var duplicates: int = 1
 var heat: float = 0.0              ## accumulated while travelling; feeds cycle cooldown
 var branch: String = ""            ## "", "ON_HIT", "ON_KILL", "ON_PARRY"
 ## Set on an attack spawned as a trigger's follow-up. The chain it belongs to is
 ## one blow, so its links do not each stop the clock like a blow of their own.
 var follow_up: bool = false
+
+## How many times each part has done its work on this flow, by id: what a
+## part's `stack_limit` is counted against (`SkillRunner._apply`), and how
+## anything asks whether a part has been stacked to its limit (`at_limit`).
+var stacks: Dictionary = {}
 
 ## Trigger payloads resolved from branch flows, attached at fire time.
 var on_hit: Payload = null
@@ -79,6 +87,7 @@ func clone() -> Payload:
 	p.heat = heat
 	p.branch = branch
 	p.follow_up = follow_up
+	p.stacks = stacks.duplicate()
 	p.on_hit = on_hit
 	p.on_kill = on_kill
 	p.on_parry = on_parry
@@ -86,6 +95,15 @@ func clone() -> Payload:
 
 func has_element(e: String) -> bool:
 	return elements.has(e)
+
+## How many of part `id` this flow has been through that did their work.
+func stack(id: String) -> int:
+	return int(stacks.get(id, 0))
+
+## Whether part `id` has a limit and this flow has reached it.
+func at_limit(id: String) -> bool:
+	var limit := Components.limit_of(id)
+	return limit > 0 and stack(id) >= limit
 
 ## Does this payload do anything at all when it leaves the board?
 func is_productive() -> bool:

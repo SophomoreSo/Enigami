@@ -22,7 +22,7 @@ CREATE TABLE meta (
 );
 -- `Db.SCHEMA_VERSION` in app/db.gd is the same number: bump both when a
 -- change is one older code could not read. build.sh adds `source_hash`.
-INSERT INTO meta (key, value) VALUES ('schema_version', '12');
+INSERT INTO meta (key, value) VALUES ('schema_version', '13');
 
 -- How a portrait and the letters behave while a line is said: the ids
 -- `Style.EMOTIONS` (graphics/style.gd) draws. A line naming one not here
@@ -362,6 +362,7 @@ CREATE TABLE parts (
 	category    TEXT NOT NULL REFERENCES categories (id) DEFERRABLE INITIALLY DEFERRED,
 	heat        REAL NOT NULL DEFAULT 0 CHECK (heat >= 0),           -- added to the cooldown of a cast that passes through
 	cells       INTEGER NOT NULL DEFAULT 1 CHECK (cells IN (1, 2)),  -- its footprint, and a tick for each cell
+	stack_limit INTEGER CHECK (stack_limit >= 1),                    -- how many of it one flow can stack; past it the part costs its heat and does nothing. NULL: any number
 	tag         TEXT CHECK (tag IN ('ranged', 'melee', 'area', 'mobility', 'trigger')),   -- what it makes a board, for a weapon to accept
 	description TEXT NOT NULL CHECK (description <> ''),             -- the English, too
 	FOREIGN KEY (id) REFERENCES codes (id) DEFERRABLE INITIALLY DEFERRED
@@ -407,15 +408,22 @@ CREATE UNIQUE INDEX ports_one_branch ON ports (part_id) WHERE kind = 'branch';
 -- quotes: 'FIRE'. Which fields a payload has, and what each holds, is the
 -- payload's to say: `Components` holds every row to it as it reads them, and
 -- tests/circuit/parts_test fails on a row that does not fit.
+--
+-- An `add` or a `multiply` may be worth more the more of its part a flow has
+-- stacked: `per_stack` is added to `value` for every one of the part the flow
+-- has already been through, so the second adds `value + per_stack` and the
+-- third `value + 2 × per_stack`. NULL: every one is worth the same.
 CREATE TABLE effects (
-	part_id  TEXT NOT NULL REFERENCES parts (id) ON DELETE CASCADE,
-	position INTEGER NOT NULL CHECK (position >= 0),
-	field    TEXT CHECK (field <> ''),
-	op       TEXT NOT NULL CHECK (op IN ('set', 'add', 'multiply', 'toggle', 'include', 'dilate', 'guard', 'invert')),
-	value    JSON,
+	part_id   TEXT NOT NULL REFERENCES parts (id) ON DELETE CASCADE,
+	position  INTEGER NOT NULL CHECK (position >= 0),
+	field     TEXT CHECK (field <> ''),
+	op        TEXT NOT NULL CHECK (op IN ('set', 'add', 'multiply', 'toggle', 'include', 'dilate', 'guard', 'invert')),
+	value     JSON,
+	per_stack REAL,
 	PRIMARY KEY (part_id, position),
 	CHECK ((field IS NULL) = (op IN ('dilate', 'guard', 'invert'))),
-	CHECK ((value IS NULL) = (op IN ('toggle', 'invert')))
+	CHECK ((value IS NULL) = (op IN ('toggle', 'invert'))),
+	CHECK (per_stack IS NULL OR op IN ('add', 'multiply'))
 );
 
 -- What a part does instead when an INVERT comes straight after it: rows like
