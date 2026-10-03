@@ -609,7 +609,6 @@ const REGION_TINT := [
 static func region_tint(region: int) -> Color:
 	return REGION_TINT[clampi(region, 0, REGION_TINT.size() - 1)]
 
-const HAZARD := Color(0.9, 0.35, 0.4)
 ## A line hanging in a room (`Rope`), by the kind of line it is — the rows of
 ## `ropes` in the content database — as the colour of the line and of the
 ## plug on its end. A kind with no look here hangs in a cable's.
@@ -625,8 +624,7 @@ static func rope_look(kind: String) -> Dictionary:
 ## flower is a `stem` with a head of one of its `petals` round a `heart`. A
 ## bush stands on `stem`s. A kind with no look here grows in grass's.
 ##
-## Cool greens, to sit in the rooms' blue rock rather than shout over it, and
-## no red or pink anywhere: on the floor, that colour is spikes.
+## Cool greens, to sit in the rooms' blue rock rather than shout over it.
 const FOLIAGE_LOOK := {
 	"grass": {"dark": Color(0.17, 0.33, 0.27), "mid": Color(0.26, 0.47, 0.34),
 		"light": Color(0.49, 0.69, 0.42), "stem": Color(0.26, 0.47, 0.34)},

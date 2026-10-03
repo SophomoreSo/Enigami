@@ -72,9 +72,6 @@ func _ready() -> void:
 		"kind": "entry", "danger": 1, "region": 0, "variant": 3,
 		"flat": true, "enemies": [], "loot": [],
 	}, {}, 20260920)
-	# The generator lays spikes along the floor of about half the rooms it
-	# makes. A raid wants them; the room the player shops in does not.
-	room.hazards.clear()
 
 	if weapon_id == "" or not GameState.owned_weapons.has(weapon_id):
 		weapon_id = GameState.owned_weapons[0] if GameState.owned_weapons.size() > 0 else "SWORD"

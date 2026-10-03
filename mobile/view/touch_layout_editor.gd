@@ -26,11 +26,11 @@ signal closed()
 const PANEL_W := 336.0
 const PANEL_X := 48.0
 
-## The HUD's corner — the bars, the weapon and the graph's square under them —
-## which no button may cover: a thumb on JUMP would sit on the health bar for
-## the whole of a fight.
+## The HUD's corner — the bars and the weapon's line under them — which no
+## button may cover: a thumb on JUMP would sit on the health bar for the whole
+## of a fight.
 const HUD_CORNER := Rect2(Hud.BAR_AT,
-	Vector2(Hud.BAR_W, Hud.SLOT_TOP + Hud.SLOT.y + PixelDraw.LINE * 2.0 - Hud.BAR_AT.y))
+	Vector2(Hud.BAR_W, Hud.WEAPON_LINE + PixelDraw.LINE - Hud.BAR_AT.y))
 
 ## Behind it all: the settings page this was opened from, nearly out of sight.
 const GROUND := Color(UiKit.BG, 0.95)

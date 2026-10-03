@@ -30,8 +30,7 @@ extends Node
 const GameScript := preload("res://app/game.gd")
 
 ## The two bands the HUD keeps, out of `graphics/ui/hud.gd`: the bars and the
-## weapon down the top-left corner, and the slot cards with the hint line over
-## them and the footer under them across the bottom.
+## weapon down the top-left corner, and the slot cards across the bottom.
 const HUD_BARS := Rect2(24, 24, 264, 88)
 const HUD_CARDS := Rect2(0, 592, 1280, 128)
 

@@ -8,9 +8,6 @@
 		"parry": "PARRY",
 		"boss_phase": "%s: SECOND FORM"
 	},
-	"slot": {
-		"hint": "%s casts · hold %s to charge, release to cast"
-	},
 	"map": {
 		"title": "MAP",
 		"clock": "%02d:%02d  •  %s",
@@ -33,12 +30,10 @@
 		"close": "%s OR ESC TO CLOSE"
 	},
 	"extracting": "EXTRACTING",
-	"footer": "%s assemble   %s map   %s interact   %s dash",
-	"footer_lobby": "TAB assemble   F interact   SHIFT dash",
 	"extract": {
 		"hold": "hold %s to extract",
 		"no_exit": "no exit",
-		"needs_scrap": "needs %d scrap (have %d)",
+		"needs_scrap": "needs %d gold (have %d)",
 		"sealed": "sealed until the Arbiter falls"
 	},
 	"dialogue": {
@@ -87,7 +82,7 @@
 		"resumed": "Back where you left off. The raid kept going without you.",
 		"followed": "Something followed you in here.",
 		"boss_down": "The Arbiter is down. Its gate is open.",
-		"scrap": "+%d scrap",
+		"scrap": "+%d gold",
 		"kit_waiting": "Your kit is still down here, where you fell. The map has the room.",
 		"kit_back": "You have it back — %d things. Now walk them out."
 	}

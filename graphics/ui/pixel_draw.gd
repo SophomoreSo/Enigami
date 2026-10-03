@@ -150,22 +150,6 @@ func bar(r: Rect2, ratio: float, fill: Color, ground: Color, edge: Color) -> voi
 	rect(Rect2(r.position, Vector2(r.size.x * clampf(ratio, 0.0, 1.0), r.size.y)), fill)
 	frame(r, edge)
 
-## The cooldown state the graph's square shows, on the grid: `UiKit.draw_cooldown` is
-## the same thing drawn smooth, and carries why it looks the way it does. The
-## flash thickens the edge by a PIXEL rather than growing a line width, which at
-## this size is the only way to thicken anything.
-func cooldown(r: Rect2, progress: float, flash: float, border: Color) -> void:
-	var p := clampf(progress, 0.0, 1.0)
-	if p < 1.0:
-		var top := snap(Vector2(0.0, r.position.y + r.size.y * p)).y
-		rect(Rect2(r.position.x, top, r.size.x, r.end.y - top), Color(0.55, 0.58, 0.65, 0.55))
-		rect(Rect2(r.position.x, top, r.size.x, PX), Color(0.85, 0.9, 1.0, 0.75))
-	var f := clampf(flash, 0.0, 1.0)
-	var edge := border.lerp(Color(1, 1, 1), f * 0.85)
-	frame(r, edge)
-	if f > 0.2:
-		frame(r.grow(-PX), edge)
-
 ## A bitmap — one string per row, `#` for a PIXEL — with its top-left at `at`,
 ## each bitmap pixel `zoom` PIXELs square. Each run along a row goes down as one
 ## rect.

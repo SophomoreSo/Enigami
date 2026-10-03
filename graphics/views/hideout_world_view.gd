@@ -59,8 +59,8 @@ var _shade: ColorRect = null
 ## menu comes up over a panel, and its controls page is where the mode is
 ## thrown, so a panel can outlive the mode it was built in — and is built again.
 var _panel_thumb: bool = false
-## The same readout the raid draws, over the same room: health, the weapon in
-## hand and the square for the graph on it. What the gate would carry is a thing to look
+## The same readout the raid draws, over the same room: health and the weapon
+## in hand. What the gate would carry is a thing to look
 ## at while you are still deciding, and the player standing here is carrying it
 ## already — `HideoutWorld.refresh_kit` is what keeps that true.
 var hud: Hud
@@ -89,7 +89,6 @@ func _ready() -> void:
 	# Added before any panel is, so a station's panel opens over the readout
 	# rather than under it: on one layer, later is higher.
 	hud = Hud.new()
-	hud.key_hints = false
 	layer.add_child(hud)
 
 	world.panel_changed.connect(_on_panel_changed)

@@ -1,6 +1,6 @@
 extends Node
 ## While somebody talks to the player in the box, the readout steps aside: the
-## HUD's bars, the graph's square and the lines of keys go as the box opens, and
+## HUD's bars go as the box opens, and
 ## the bench's damage line and drawer tab go with them — the tab answering
 ## nothing until they are back. All of it comes back once the talking stops.
 ##
@@ -130,7 +130,7 @@ func _in_the_box() -> void:
 		"a press by the SAGE opens a conversation in the box")
 	await settle()
 	check(all_gone(),
-		"and the readout steps aside while it lasts: the bars, the square, the tab and the damage line (%.2f, %.2f)"
+		"and the readout steps aside while it lasts: the bars, the tab and the damage line (%.2f, %.2f)"
 			% [hud.shown, panel.shown])
 	await tap(panel.tab_rect().get_center())
 	check(not panel.is_out() and sage.is_talking(),

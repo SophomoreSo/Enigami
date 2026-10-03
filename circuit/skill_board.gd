@@ -525,6 +525,13 @@ static func deserialize(d: Dictionary) -> SkillBoard:
 func duplicate_board() -> SkillBoard:
 	return SkillBoard.deserialize(serialize())
 
+## A copy of this board with the root taken off it: how the board looks while
+## the root is in hand, which this board never stands without.
+func without_root() -> SkillBoard:
+	var b := duplicate_board()
+	b._erase_origin(b.root)
+	return b
+
 ## How far a build drawn on `other` moves to come onto this board: its way out
 ## onto this one's. A build is a chain ending at the way out, so that is what
 ## has to line up — and a bigger board has its way out further over and lower

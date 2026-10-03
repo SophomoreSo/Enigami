@@ -8,9 +8,6 @@
 		"parry": "막아냄",
 		"boss_phase": "%s: 제2형태"
 	},
-	"slot": {
-		"hint": "%s 시전 · %s 길게 눌러 충전, 떼면 시전"
-	},
 	"map": {
 		"title": "지도",
 		"clock": "%02d:%02d  •  %s",
@@ -33,12 +30,10 @@
 		"close": "%s 또는 ESC로 닫기"
 	},
 	"extracting": "탈출 중",
-	"footer": "%s 조립   %s 지도   %s 상호작용   %s 대시",
-	"footer_lobby": "TAB 조립   F 상호작용   SHIFT 대시",
 	"extract": {
 		"hold": "%s를 길게 눌러 탈출",
 		"no_exit": "출구 없음",
-		"needs_scrap": "고철 %d 필요 (보유 %d)",
+		"needs_scrap": "골드 %d 필요 (보유 %d)",
 		"sealed": "중재자를 쓰러뜨려야 열립니다"
 	},
 	"dialogue": {
@@ -87,7 +82,7 @@
 		"resumed": "떠났던 자리로 돌아왔습니다. 레이드는 그대로 남아 있었습니다.",
 		"followed": "무언가 당신을 따라 들어왔습니다.",
 		"boss_down": "중재자가 쓰러졌습니다. 그 관문이 열렸습니다.",
-		"scrap": "고철 +%d",
+		"scrap": "골드 +%d",
 		"kit_waiting": "당신의 장비는 쓰러진 자리에 그대로 있습니다. 지도에 그 방이 표시됩니다.",
 		"kit_back": "장비를 되찾았습니다 — %d개. 이제 들고 나가세요."
 	}

@@ -44,9 +44,6 @@ func _process(_delta: float) -> void:
 	if sandbox == null or not is_instance_valid(sandbox):
 		return
 	hud.player = sandbox.player
-	# No map here and nothing to extract from: the line along the bottom names
-	# the keys the room answers to, which are the hideout's.
-	hud.footer = Loc.t("hud.footer_lobby")
 
 ## See RaidView._unhandled_input: the editor consumes its own close key.
 func _unhandled_input(event: InputEvent) -> void:

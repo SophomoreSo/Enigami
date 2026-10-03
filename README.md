@@ -228,13 +228,10 @@ never learn what a finger is. What changes while it is up:
   weapon for as long as it rested there. The mouse bindings are set aside for as
   long as the console is up and handed straight back when it goes; the rebinding
   screen still shows them, and they are still what gets saved.
-* **Every prompt names the control on the glass.** The graph's square, the
-  extract prompt, the hint over an NPC — all of them ask
-  `Controls.short_label_for`, which answers with the console's own word, so the
-  square reads `HIT` rather than `LMB`. The two keyboard legends along the bottom of
-  the HUD are dropped outright: with the controls drawn on the screen with their
-  names on them, a line telling you to press one is two rows of a small screen
-  spent saying nothing.
+* **Every prompt names the control on the glass.** The extract prompt, the
+  hint over an NPC — all of them ask `Controls.short_label_for`, which answers
+  with the console's own word, so the extract prompt reads `USE` rather than
+  `F`.
 * **What is on the console follows the screen.** Playing shows everything; a
   conversation or a scene shows nothing, the whole screen being the page; a
   window that has taken the controls — the map, the bench's drawer — keeps only

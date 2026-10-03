@@ -10,7 +10,7 @@ extends Node
 ## the floor and all of it at the tallest tip, rising all the way up, the same
 ## for a push and for the wind; a bush's foot does not move and its crown does.
 ## A room grows what the `growths` rows say, as many and as long, on floors
-## with open air over them, never on spikes or at the room's edge, never two
+## with open air over them, never at the room's edge, never two
 ## of a kind on one cell, the same every time it is built. And what the schema
 ## promises to refuse is tried against a scratch copy.
 ##
@@ -195,16 +195,12 @@ func _layout(view: RoomView) -> Array:
 	return out
 
 ## Every patch of `view` stands on rock with open air over it, in from the
-## edge and off the spikes; none crosses another of its kind; each is as long
+## edge; none crosses another of its kind; each is as long
 ## as its row says, and there are as many as it says.
 func _grown_well(room: Room, view: RoomView, what: String) -> void:
-	var spiked := {}
-	for hz: Vector2i in room.hazards:
-		spiked[hz + Vector2i(0, 1)] = true
 	var taken := {}
 	var on_ground := true
 	var crossed := false
-	var on_spikes := false
 	var on_grid := true
 	var behind := true
 	for f: Foliage in view.plants:
@@ -216,8 +212,6 @@ func _grown_well(room: Room, view: RoomView, what: String) -> void:
 			var c := cell + Vector2i(k, 0)
 			if not room.is_solid(c.x, c.y) or room.is_solid(c.x, c.y - 1) or c.x < 1 or c.x > Room.W - 2:
 				on_ground = false
-			if spiked.has(c):
-				on_spikes = true
 			if taken.has([f.kind, c]):
 				crossed = true
 			taken[[f.kind, c]] = true
@@ -225,7 +219,6 @@ func _grown_well(room: Room, view: RoomView, what: String) -> void:
 			behind = false
 	check(on_grid, "%s: every patch stands on the room's grid" % what)
 	check(on_ground, "%s: every patch grows on rock with open air over it, in from the edge" % what)
-	check(not on_spikes, "%s: nothing grows on the spikes (%d spiked cells)" % [what, spiked.size()])
 	check(not crossed, "%s: no two patches of a kind grow on one cell" % what)
 	check(behind, "%s: every patch is under the room's view, behind everything that moves, seen by the pixel camera" % what)
 	for row in Foliage.growths():
@@ -255,18 +248,6 @@ func _rooms() -> void:
 	var vb := Views.of(b) as RoomView
 	check(vb != null and _layout(vb) == _layout(view),
 		"the same room grows the same foliage every time it is built")
-	# Rooms with spikes in them, until one is found: nothing grows on them.
-	var spiked: Room = null
-	for variant in range(20):
-		var r := _room({"kind": "entry", "danger": 1, "region": 0, "variant": variant, "enemies": [], "loot": []}, 777)
-		if not r.hazards.is_empty():
-			spiked = r
-			break
-		r.free()
-	check(spiked != null, "a room with spikes in it is found to try")
-	if spiked != null:
-		_grown_well(spiked, Views.of(spiked) as RoomView, "a room with spikes")
-		spiked.free()
 	var flat := _room({"kind": "entry", "danger": 1, "region": 0, "variant": 3,
 		"flat": true, "enemies": [], "loot": []}, 20260920)
 	var vf := Views.of(flat) as RoomView

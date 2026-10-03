@@ -1,7 +1,7 @@
 class_name RoomView
 extends Node2D
 
-## A room, drawn: the tile field, its hazards and door frames, whatever exit it
+## A room, drawn: the tile field, its door frames, whatever exit it
 ## holds, the cables hung from its rock and the foliage growing on its floors.
 ##
 ## Tiles never change while a room is loaded, so they are drawn once onto their
@@ -132,8 +132,8 @@ func _clear_under(x: int, y: int, n: int) -> bool:
 ## What grows on the room's floors is the `growths` rows of the content
 ## database: of each kind of foliage, how many patches and how long. Where each
 ## grows is decided here: along the top of solid cells with open air over
-## them — the floor and the tops of the ledges — never on the spikes, never at
-## the room's edge, and never over a patch of its own kind. Which cells, how
+## them — the floor and the tops of the ledges — never at the room's edge, and
+## never over a patch of its own kind. Which cells, how
 ## many and how long is rolled from the room's own seed, so a room looks the
 ## same every time it is walked into, and from a roll of its own rather than
 ## the room's, so the monsters and the loot fall as they always did.
@@ -177,15 +177,12 @@ func _grow_foliage() -> void:
 			plants.append(patch)
 
 ## The cells foliage may grow on top of, as a set: solid, with open air over
-## them inside the room, in from its edge and not under the spikes.
+## them inside the room and in from its edge.
 func _ground() -> Dictionary:
-	var spiked := {}
-	for h: Vector2i in room.hazards:
-		spiked[h + Vector2i(0, 1)] = true
 	var out := {}
 	for y in range(1, Room.H):
 		for x in range(1, Room.W - 1):
-			if room.is_solid(x, y) and not room.is_solid(x, y - 1) and not spiked.has(Vector2i(x, y)):
+			if room.is_solid(x, y) and not room.is_solid(x, y - 1):
 				out[Vector2i(x, y)] = true
 	return out
 
@@ -253,16 +250,6 @@ func draw_static(c: CanvasItem) -> void:
 			if not _rock(x, y - 1):
 				c.draw_rect(Rect2(r.position, Vector2(Room.CELL, 4)), tint.lightened(0.35))
 			c.draw_rect(r, Color(0, 0, 0, 0.22), false, 2.0)
-
-	for cell in room.hazards:
-		var base: Vector2 = Vector2(cell.x * Room.CELL, (cell.y + 1) * Room.CELL)
-		for i in 4:
-			var x0: float = base.x + float(i) * Room.CELL * 0.25
-			c.draw_colored_polygon(PackedVector2Array([
-				Vector2(x0, base.y),
-				Vector2(x0 + Room.CELL * 0.125, base.y - 14.0),
-				Vector2(x0 + Room.CELL * 0.25, base.y),
-			]), Style.HAZARD)
 
 	for dir in room.doors:
 		var dr := room.door_rect(int(dir))
