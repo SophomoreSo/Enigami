@@ -345,6 +345,10 @@ func _ready() -> void:
 	var starter := _saved([["INPUT", 0, 2, 0], ["SLASH", 1, 2, 0], ["WIRE", 2, 2, 0], ["OUTPUT", 3, 2, 0]])
 	check(same_parts(starter, _board([["SLASH", 1, 2, 0]])) and not starter.has_root(),
 		"a starter board saved with its INPUT, WIRE and OUTPUT reads back as its SLASH")
+	# And from before DASH was: the same, a cell left empty where it stood.
+	check(same_parts(_saved([["SLASH", 0, 2, 0], ["DASH", 1, 2, 0], ["FIRE", 2, 2, 0]]),
+			_board([["SLASH", 0, 2, 0], ["FIRE", 2, 2, 0]])),
+		"a board saved with a DASH on it reads back with the DASH left out")
 
 	# --- a board from before AREA was renamed EXPLODE -----------------------
 	# The part kept its number, so a code shared under the old name builds the

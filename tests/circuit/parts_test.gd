@@ -45,13 +45,14 @@ func _ready() -> void:
 	# and the clock. Each has to be in the table, and in the shape the code
 	# takes for granted. Where a flow starts and where it becomes an attack are
 	# no part's own: they are the board's root and its way out, and INPUT and
-	# OUTPUT, which were those, are retired.
+	# OUTPUT, which were those, are retired. So is DASH, which the player's own
+	# dash key and SWIFT STRIKE left with nothing to do.
 	var retired: Array = []
-	for id in ["INPUT", "OUTPUT", "WIRE", "BEND"]:
+	for id in ["INPUT", "OUTPUT", "WIRE", "BEND", "DASH"]:
 		if Components.exists(id) or not Components.is_retired(id) or Components.code_of(id) < 0:
 			retired.append(id)
 	check(retired.is_empty(),
-		"INPUT, OUTPUT, WIRE and BEND are retired: each keeps its number, and is no part (%s)" % str(retired))
+		"INPUT, OUTPUT, WIRE, BEND and DASH are retired: each keeps its number, and is no part (%s)" % str(retired))
 	check(Components.world_inputs("SLASH", 0) == [Components.S, Components.W, Components.N],
 		"no part is a source: every part takes flow on every side but its own outputs, the root's included")
 	var nowhere: Array = []
@@ -108,7 +109,7 @@ func _ready() -> void:
 	var dup := _entered("DUPLICATE")["payload"] as Payload
 	check(dup.duplicates == p0.duplicates * int(_value("DUPLICATE", "multiply", &"duplicates")),
 		"and DUPLICATE multiplies the count (%d)" % dup.duplicates)
-	check((_entered("DASH")["payload"] as Payload).dash, "set: DASH sets its flag")
+	check((_entered("BLINK")["payload"] as Payload).blink, "set: BLINK sets its flag")
 	var back := _entered("REVERSE", 1)["payload"] as Payload
 	var forth := _entered("REVERSE", 2)["payload"] as Payload
 	check(back.reverse and not forth.reverse, "toggle: one REVERSE flips a flow, and a second flips it back")
@@ -152,7 +153,7 @@ func _ready() -> void:
 		"a number added to a number is read as one (%s)" % str(ok))
 	var whole = Components._effect({"op": "add", "field": "pierce", "value": 2.0}, shape)
 	check(whole is Dictionary and typeof(whole["value"]) == TYPE_INT, "a whole one to a whole number, as a whole number")
-	var flag = Components._effect({"op": "set", "field": "dash", "value": 1}, shape)
+	var flag = Components._effect({"op": "set", "field": "blink", "value": 1}, shape)
 	check(flag is Dictionary and flag["value"] is bool and flag["value"], "and a 1 set on a flag as true")
 	var turn = Components._effect({"op": "invert", "field": null, "value": null}, shape)
 	check(turn is Dictionary and turn["op"] == "invert" and turn["field"] == &"" and turn["value"] == null,
@@ -162,7 +163,7 @@ func _ready() -> void:
 			[{"op": "invert", "value": 1}, "turns round the part before it", "an invert with an amount"],
 			[{"op": "add", "field": "damge", "value": 8}, "not a field of a payload", "a field a payload does not have"],
 			[{"op": "add", "field": "heat", "value": 1}, "keeps for itself", "a field the runner keeps"],
-			[{"op": "add", "field": "dash", "value": 1}, "it is a flag", "a number added to a flag"],
+			[{"op": "add", "field": "blink", "value": 1}, "it is a flag", "a number added to a flag"],
 			[{"op": "include", "field": "elements", "value": 3}, "it is a list", "a number included in a list"],
 			[{"op": "set", "field": "form", "value": 5}, "it is a word", "a word set to a number"],
 			[{"op": "multiply", "field": "duplicates", "value": 1.5}, "it is a whole number", "a whole number multiplied by a fraction"],

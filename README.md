@@ -218,7 +218,7 @@ never learn what a finger is. What changes while it is up:
   still a tap. The crosshair and the pointer setting stand down.
 * **How far is how far the thumb drags.** A cast dragged just past the dead
   zone goes a third of its distance, and one dragged out to the ring goes all
-  of it — a bolt's range, a thrown shot's arc, a lunge, a DASH; a burst or a
+  of it — a bolt's range, a thrown shot's arc, a lunge; a burst or a
   swing happens where the player stands either way. It rides on the same right
   stick, so a gamepad's push says the same thing; the mouse always asks for all
   of it (see `Player.aim_reach`). A cast keeps the aim and the distance it was

@@ -77,12 +77,6 @@ const TRIGGER_DELAY := 0.045
 const HITSTOP := 0.035
 const CHAIN_HITSTOP := 0.010
 
-## The lunge the DASH component adds to an attack. Its own number rather than
-## the player's dash speed: this one rides on a skill that has already paid for
-## itself in ticks and heat, so it is tuned against the board, not against the
-## movement button.
-const DASH_LUNGE_SPEED := 620.0
-
 ## How far a lunge travels at size 1. For DASHSLASH this is the cap on aiming
 ## it: the cursor decides where inside that range it lands.
 const DASH_SLASH_REACH := 170.0
@@ -94,8 +88,8 @@ const ZAP_MIN_AIM := 8.0
 
 ## How much of its own distance an attack aimed at the shortest reach still
 ## covers. The right stick says how far a cast goes (`Player.aim_reach`, the
-## `reach` a spawn is handed): a bolt's range, a thrown shot's arc, a lunge, a
-## DASH. Pushed just past its dead zone it goes this share of the way, and at
+## `reach` a spawn is handed): a bolt's range, a thrown shot's arc, a lunge.
+## Pushed just past its dead zone it goes this share of the way, and at
 ## the rim all of it. A burst and a swing happen where the caster stands and do
 ## not move with it.
 const REACH_MIN := 0.3
@@ -230,7 +224,7 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 	var origin: Vector2 = ctx.get("origin", attacker.global_position if attacker != null else Vector2.ZERO)
 	var far := distance_for(float(ctx.get("reach", 1.0)))
 
-	# Movement effects run first: they decide where the attack comes from.
+	# BLINK runs first: it decides where the attack comes from.
 	if payload.blink and attacker != null and is_instance_valid(attacker):
 		var t := nearest_target(attacker.global_position, team, 460.0)
 		if t != null:
@@ -240,11 +234,6 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 				attacker.global_position = behind
 				origin = behind
 				Cues.emit_cue(&"blink", {"from": was, "to": behind})
-	if payload.dash and attacker != null and is_instance_valid(attacker):
-		attacker.velocity = aim * DASH_LUNGE_SPEED * far
-		if attacker.has_method("on_dashed"):
-			attacker.on_dashed()
-		Cues.at(&"lunge", attacker.global_position)
 
 	var count: int = clampi(payload.duplicates, 1, 9)
 	# One announcement per cast, whatever the duplicate count: the form is what
@@ -407,8 +396,6 @@ static func summary(p: Payload) -> String:
 		parts.append(Loc.t("editor.payload.homing"))
 	if p.reverse:
 		parts.append(Loc.t("editor.payload.reverse"))
-	if p.dash:
-		parts.append(Loc.t("editor.payload.dash"))
 	if p.blink:
 		parts.append(Loc.t("editor.payload.blink"))
 	if p.pull:

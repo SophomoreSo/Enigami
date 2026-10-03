@@ -45,7 +45,6 @@ func _cut() -> void:
 		# Arriving does not carry the fall that got you here. The lunge sets
 		# where you end up, so letting the old descent through would snatch you
 		# straight back down out of it; gravity builds again from zero instead.
-		# (The DASH component needs no such thing — it overwrites velocity.)
 		attacker.velocity.y = 0.0
 		if attacker.has_method("on_dashed"):
 			attacker.on_dashed()

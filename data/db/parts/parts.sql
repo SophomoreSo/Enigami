@@ -48,7 +48,11 @@ INSERT INTO codes (code, id) VALUES
 -- (`SkillBoard.way_out`). A board that still has any of them reads with the
 -- part left out and its cell left empty, and one that ended on an OUTPUT is
 -- slid along to where its flow used to end (`SkillBoard.slide_onto_way_out`).
-INSERT INTO retired_parts (id) VALUES ('WIRE'), ('BEND'), ('INPUT'), ('OUTPUT');
+--
+-- DASH lunged the caster along the aim as the attack went off. The player has
+-- a dash of their own on a key now, and SWIFT STRIKE is the lunge a board
+-- makes, so it was a third way to do one thing.
+INSERT INTO retired_parts (id) VALUES ('WIRE'), ('BEND'), ('INPUT'), ('OUTPUT'), ('DASH');
 
 INSERT INTO renamed_parts (old_id, new_id) VALUES ('AREA', 'EXPLODE');
 
@@ -126,7 +130,6 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 
 INSERT INTO parts (id, name, category, heat, tag, description) VALUES
 	('PIERCE', 'PIERCE', 'behavior', 0.5, NULL, 'The attack continues through targets instead of stopping on the first.'),
-	('DASH', 'DASH', 'behavior', 0.5, 'mobility', 'Lunges a short distance along the aim. Chains with melee forms into a moving arc.'),
 	('BLINK', 'BLINK', 'behavior', 0.7, 'mobility', 'Teleports behind the nearest visible enemy. Works alone; if nothing is in sight the flow simply continues.'),
 	('HOMING', 'HOMING', 'behavior', 0.6, NULL, 'Tracks the nearest enemy. Bolts curve; melee forms re-aim themselves.'),
 	('REVERSE', 'REVERSE', 'behavior', 0.4, NULL, 'Flips travel direction. Bolts return to you; other forms invert in their own way.'),
@@ -136,13 +139,12 @@ INSERT INTO parts (id, name, category, heat, tag, description) VALUES
 	('STUN', 'STUN', 'behavior', 0.6, NULL, 'Struck enemies are stunned: for a moment they stand where they are and cannot attack. Once it wears off, an enemy shrugs off the next stun for a while.');
 
 INSERT INTO ports (part_id, side) VALUES
-	('PIERCE', 'E'), ('DASH', 'E'), ('BLINK', 'E'), ('HOMING', 'E'),
+	('PIERCE', 'E'), ('BLINK', 'E'), ('HOMING', 'E'),
 	('REVERSE', 'E'), ('GRAVITY', 'E'), ('KNOCKBACK', 'E'), ('MANA_DRAIN', 'E'),
 	('STUN', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('PIERCE', 0, 'pierce', 'add', 2),
-	('DASH', 0, 'dash', 'set', 'true'),
 	('BLINK', 0, 'blink', 'set', 'true'),
 	('HOMING', 0, 'homing', 'set', 'true'),
 	('REVERSE', 0, 'reverse', 'toggle', NULL),

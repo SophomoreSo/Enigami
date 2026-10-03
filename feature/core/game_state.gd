@@ -155,7 +155,7 @@ func _new_profile() -> void:
 	scrap = 40
 	# A handful of parts to build a first graph with: something for every
 	# weapon's root, a step out of trouble, and a beam to try the gun's range.
-	for id in ["PROJECTILE", "SLASH", "DAMAGE", "FIRE", "SPLIT", "PIERCE", "DASH", "ZAP"]:
+	for id in ["PROJECTILE", "SLASH", "DAMAGE", "FIRE", "SPLIT", "PIERCE", "ZAP"]:
 		stash[id] = 2
 	stash["BLINK"] = 1
 	for w in owned_weapons:
@@ -477,6 +477,8 @@ func recover_lost_kit() -> Dictionary:
 		return {}
 	var kit := lost_kit.duplicate(true)
 	for id in kit.get("bag", {}):
+		if Components.is_retired(String(id)):
+			continue
 		add_component(Components.current_id(String(id)), int((kit["bag"] as Dictionary)[id]), raid_bag)
 	raid_scrap += int(kit.get("scrap", 0))
 	var boards: Dictionary = kit.get("boards", {})
@@ -708,6 +710,10 @@ func _read_save(path: String) -> bool:
 		return false
 	stash.clear()
 	for k in parsed.get("stash", {}):
+		# A part the game no longer has leaves the shelves: DASH was in every
+		# profile's first stash.
+		if Components.is_retired(String(k)):
+			continue
 		stash[Components.current_id(String(k))] = int(parsed["stash"][k])
 	owned_weapons.clear()
 	for w in parsed.get("weapons", ["SWORD"]):
@@ -753,6 +759,8 @@ func _read_raid(parsed: Dictionary) -> void:
 	if board is Dictionary and not (board as Dictionary).is_empty():
 		raid_board = SkillBoard.deserialize(board)
 	for k in parsed.get("raid_bag", {}):
+		if Components.is_retired(String(k)):
+			continue
 		raid_bag[Components.current_id(String(k))] = int(parsed["raid_bag"][k])
 	# A raid written before weapons had graphs carried a list of boards; what
 	# was built on them rides on in the bag, and the weapon's own bare graph

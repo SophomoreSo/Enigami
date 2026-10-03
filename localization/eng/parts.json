@@ -55,10 +55,6 @@
 		"name": "PIERCE",
 		"desc": "The attack continues through targets instead of stopping on the first."
 	},
-	"DASH": {
-		"name": "DASH",
-		"desc": "Lunges a short distance along the aim. Chains with melee forms into a moving arc."
-	},
 	"BLINK": {
 		"name": "BLINK",
 		"desc": "Teleports behind the nearest visible enemy. Works alone; if nothing is in sight the flow simply continues."

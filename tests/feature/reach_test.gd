@@ -2,7 +2,7 @@ extends Node2D
 ## How far an attack goes when the aim says how far: the right stick, pushed
 ## part of the way past its dead zone, asks for part of an attack's distance
 ## (`Player.aim_reach`), and a spawn handed that `reach` covers that share of
-## its own — a bolt's range, a thrown shot's arc, a lunge, a DASH. Nothing asks
+## its own — a bolt's range, a thrown shot's arc, a lunge. Nothing asks
 ## a burst or a swing to move: they happen where the caster stands.
 ##
 ## Driven through `Attacks.spawn`, the door the player's casts go through, and
@@ -98,7 +98,7 @@ func _ready() -> void:
 		"a thrown shot leaves slower, so its arc comes down REACH_MIN of the way (%.0f of %.0f)" % [short, full])
 	check(is_equal_approx(short_range, 400.0), "rather than being cut off in the air")
 
-	# --- a lunge and a DASH ------------------------------------------------------------
+	# --- a lunge ------------------------------------------------------------------------
 	var caster := Player.new()
 	add_child(caster)
 	await frames(2)
@@ -113,11 +113,6 @@ func _ready() -> void:
 	check(is_equal_approx(float(lunges[1.0]), Attacks.DASH_SLASH_REACH)
 			and is_equal_approx(float(lunges[0.0]), Attacks.DASH_SLASH_REACH * Attacks.REACH_MIN),
 		"a lunge aimed with the stick goes the share of its reach asked for (%s)" % str(lunges))
-	var dash := Payload.new()
-	dash.dash = true
-	Attacks.spawn(dash, {"attacker": caster, "aim": Vector2.RIGHT, "origin": caster.global_position, "reach": 0.0})
-	check(is_equal_approx(caster.velocity.length(), Attacks.DASH_LUNGE_SPEED * Attacks.REACH_MIN),
-		"and a DASH pushes off that much less hard (%.0f)" % caster.velocity.length())
 	caster.velocity = Vector2.ZERO
 
 	# --- the player reads it off the stick ---------------------------------------------

@@ -53,7 +53,6 @@ const COMPONENT := {
 	"SHATTER": {"glyph": "✶"},
 
 	"PIERCE": {"glyph": "⇢"},
-	"DASH": {"glyph": "≫"},
 	"BLINK": {"glyph": "✦"},
 	"HOMING": {"glyph": "◈"},
 	"REVERSE": {"glyph": "↺"},
@@ -218,15 +217,6 @@ const COMPONENT_ICON := {
 		"..#..#.",
 		"..#.#..",
 		"..#....",
-	],
-	"DASH": [
-		".......",
-		"##.##..",
-		".##.##.",
-		"..##.##",
-		".##.##.",
-		"##.##..",
-		".......",
 	],
 	"BLINK": [
 		"...#...",
