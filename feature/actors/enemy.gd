@@ -22,6 +22,17 @@ const GRAVITY := 1700.0
 ## they play out at.
 const ATTACK_COOLDOWN_MUL := 20.0
 
+## A monster only notices what is in front of it. Something standing this close
+## behind its back is noticed anyway: that is not being crept up on, that is
+## being stood on.
+const BLIND_MARGIN := 10.0
+## A monster standing idle looks over its shoulder now and then, somewhere
+## between these many seconds apart, so one that happened to stop facing a wall
+## is not blind for the rest of the raid — and so the moment its back is turned
+## is something to wait for.
+const GLANCE_MIN := 2.0
+const GLANCE_MAX := 4.0
+
 var kind: String = "CRAWLER"
 var def: Dictionary = {}
 var board: SkillBoard
@@ -33,6 +44,8 @@ var modifier: String = ""
 ## Half the silhouette: the hurt radius, and what the collider is built from.
 var size: float = 14.0
 ## Whether the monster has seen its target. A view marks it; the AI acts on it.
+## Seeing takes the target in front of it (see `_in_front`); once it has, it
+## turns to keep them there, so it stays seen until range or a wall breaks it.
 var aggro: bool = false
 ## Counts down through the wind-up before a leap, so the leap can be read
 ## before it lands.
@@ -41,6 +54,7 @@ var telegraph: float = 0.0
 var phase: int = 1
 
 var _patrol_dir: int = 1
+var _glance: float = 0.0
 var _jump_cd: float = 0.0
 var _bob: float = 0.0
 var _gravity_shots: bool = false
@@ -74,6 +88,9 @@ func _ready() -> void:
 	board = Monsters.build_board(kind)
 	_make_runner()
 	_patrol_dir = 1 if randf() < 0.5 else -1
+	# Found facing either way, not always to the right.
+	face(_patrol_dir)
+	_glance = randf_range(GLANCE_MIN, GLANCE_MAX)
 
 func _make_runner() -> void:
 	runner = SkillRunner.new(board)
@@ -121,15 +138,31 @@ func _process(delta: float) -> void:
 	# otherwise land while it stands there, and that is an attack.
 	if not stunned():
 		runner.update(delta)
-	_update_facing()
+	_update_facing(delta)
 
 ## Monsters look at what they are hunting, and at where they are going
-## otherwise — a patrolling Lobber should not moonwalk.
-func _update_facing() -> void:
+## otherwise — a patrolling Lobber should not moonwalk. One with nothing to
+## hunt and nowhere to go looks the other way every few seconds.
+func _update_facing(delta: float) -> void:
 	if aggro and target != null and is_instance_valid(target):
-		face(signi(int(signf(target.global_position.x - global_position.x))))
+		_face_target()
 	elif absf(velocity.x) > 4.0:
 		face(signi(int(signf(velocity.x))))
+	elif not stunned():
+		_glance -= delta
+		if _glance <= 0.0:
+			_glance = randf_range(GLANCE_MIN, GLANCE_MAX)
+			face(-facing)
+
+func _face_target() -> void:
+	face(signi(int(signf(target.global_position.x - global_position.x))))
+
+## Whether the target is on the side this monster is looking at. A boss is
+## never crept up on: its room is its own, and it knows who is in it.
+func _in_front() -> bool:
+	if def.get("boss", false):
+		return true
+	return (target.global_position.x - global_position.x) * float(facing) >= -BLIND_MARGIN
 
 ## Which movement script this monster runs. A view reads it to decide what an
 ## airborne pose or a hover should look like.
@@ -147,7 +180,9 @@ func _acquire() -> void:
 	var sees := true
 	if room != null and room.has_method("has_line_of_sight"):
 		sees = room.has_line_of_sight(global_position, target.global_position)
-	aggro = d <= float(def["aggro"]) and sees
+	# Noticing takes the target in front; having noticed, it only has to keep
+	# them in reach and in sight, since it turns to follow them.
+	aggro = d <= float(def["aggro"]) and sees and (aggro or _in_front())
 
 func _in_range() -> bool:
 	return global_position.distance_to(target.global_position) <= float(def["attack_range"])
@@ -290,4 +325,8 @@ func _kill() -> void:
 func apply_damage(amount: float, elements: Array = [], source: Node = null, is_hit: bool = true) -> float:
 	if modifier == "armored":
 		amount *= 0.7
+	# A blow in the back is the end of not having noticed: it turns round to
+	# whoever it is hunting, and sees them if they are near enough to be seen.
+	if is_hit and not aggro and target != null and is_instance_valid(target):
+		_face_target()
 	return super.apply_damage(amount, elements, source, is_hit)
