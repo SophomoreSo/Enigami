@@ -12,8 +12,9 @@ extends World
 ## started from (`JeanGreyBase.in_start`).
 ##
 ## Nothing is free here the way it is at the bench: a guard who sees the body,
-## or sees a monster the player is in throw, attacks it as it would anywhere.
-## The body falling ends the attempt, and so does the theft; either way the
+## or sees a monster the player is in throw, attacks it as it would anywhere,
+## and the body has `BODY_HEALTH` whatever the profile has built — three of a
+## Gunman's shots. The body falling ends the attempt, and so does the theft; either way the
 ## ground is set again a moment later, and R sets it again at once. Parts are
 ## free, as on the bench, and the graph is the test's own. What it looks like
 ## is `graphics/views/jean_grey_test_view.gd`.
@@ -32,6 +33,10 @@ signal fell()
 signal floor_reset()
 
 const WEAPON := "ROCK"
+## The body's health here, the same for everyone: what a Gunman's shot is
+## weighed against (`Monsters.DEFS`), so three of them are the end of it and
+## two are, after anything else has landed.
+const BODY_HEALTH := 100.0
 ## Seconds between an attempt ending and the ground being set again.
 const RESET_DELAY := 2.4
 
@@ -87,6 +92,8 @@ func _new_player() -> void:
 	room.player = player
 	player.global_position = room.spawn_point()
 	player.setup(WEAPON, board)
+	player.max_health = BODY_HEALTH
+	player.health = BODY_HEALTH
 	player.died.connect(_on_player_died)
 	diamond.player = player
 

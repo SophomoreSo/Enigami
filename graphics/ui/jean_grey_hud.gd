@@ -2,10 +2,15 @@ class_name JeanGreyHud
 extends Control
 
 ## The Jean Grey test's read-outs, along the top and the bottom of the screen so
-## the yard and the hall between stay clear: the body's health and, while the
-## player is in a monster, whose and for how long; what is left to do; whether
-## anyone has seen anything; the rock's graph and the keys; and a line across
-## the middle when an attempt begins or ends.
+## the ground between stays clear: the body's health and, while the player is
+## in a monster, whose and for how long; what is left to do; whether anyone has
+## seen anything; the rock's graph and the keys; and a line across the middle
+## when an attempt begins or ends.
+##
+## The ground is wider than the screen, so under what is left to do there is
+## the whole of it, small: its stone, the guards on it — a Gunman marked apart,
+## any guard who has seen something lit — the body, the diamond, the monster
+## the player is in, and the stretch the screen is showing.
 
 const INK := Color(0.94, 0.93, 0.98)
 const DIM := Color(0.62, 0.58, 0.74)
@@ -24,6 +29,15 @@ const BAR_W := 240.0
 const TITLE_TIME := 4.0
 ## How long the line saying the ground was set again stays up.
 const AGAIN_TIME := 0.8
+## The whole ground, small: one of its cells to this many pixels across and
+## down, so the map is three hundred and sixty across for the test's ground.
+const MAP_CELL := 3.0
+const MAP_TOP := 46.0
+const MAP_ROCK := Color(0.42, 0.5, 0.52, 0.55)
+const MAP_GROUND := Color(0.02, 0.03, 0.05, 0.6)
+const BODY := Color(0.55, 0.92, 1.0)
+const GUARD := Color(0.86, 0.36, 0.36)
+const GUN := Color(1.0, 0.62, 0.22)
 
 var screen: JeanGreyTest
 var _px := PixelDraw.new(self)
@@ -65,6 +79,7 @@ func _draw() -> void:
 		_draw_body(p)
 		_draw_skill(p, vp)
 	_draw_goal(vp)
+	_draw_map(vp)
 	_draw_watch(vp)
 	_text(Vector2(vp.x - MARGIN - PixelDraw.ink_width(_keys()), vp.y - 22.0), _keys(), DIM)
 	_draw_banners(vp)
@@ -111,6 +126,48 @@ func _draw_goal(vp: Vector2) -> void:
 		says = Loc.t("hud.jean.down")
 		col = FLAME
 	_centered(34.0, says, col, vp.x)
+
+## The ground, small, under what is left to do.
+func _draw_map(vp: Vector2) -> void:
+	var room := screen.room
+	if room == null or not is_instance_valid(room):
+		return
+	var size_px := Vector2(room.cols, room.rows) * MAP_CELL
+	var at := Vector2(floorf((vp.x - size_px.x) * 0.5), MAP_TOP)
+	draw_rect(Rect2(at - Vector2(2, 2), size_px + Vector2(4, 4)), MAP_GROUND)
+	# The stone, a run of cells at a time.
+	for y in room.rows:
+		var x := 0
+		while x < room.cols:
+			if not room.is_solid(x, y):
+				x += 1
+				continue
+			var from := x
+			while x < room.cols and room.is_solid(x, y):
+				x += 1
+			draw_rect(Rect2(at + Vector2(from, y) * MAP_CELL, Vector2(x - from, 1) * MAP_CELL), MAP_ROCK)
+	var k := MAP_CELL / float(Room.CELL)
+	# What the screen shows.
+	var shown := get_viewport().get_camera_2d()
+	if shown != null:
+		var w := vp.x * k
+		draw_rect(Rect2(at + Vector2(shown.global_position.x * k - w * 0.5, 0.0), Vector2(w, size_px.y)),
+			Color(1, 1, 1, 0.35), false, 1.0)
+	for c in room.get_children():
+		if c is Enemy and not c.dead:
+			var e := c as Enemy
+			var col := GUN if e.kind == "GUNMAN" else GUARD
+			if e.piloted():
+				col = Style.POSSESS_COLOR
+			elif e.aggro and fmod(screen.elapsed, 0.5) < 0.25:
+				col = Color.WHITE
+			draw_rect(Rect2(at + e.global_position * k - Vector2(2, 2), Vector2(4, 4)), col)
+	var p := screen.player
+	if p != null and is_instance_valid(p):
+		draw_rect(Rect2(at + p.global_position * k - Vector2(2, 3), Vector2(4, 6)), BODY)
+	var gem := screen.diamond.global_position * k + at
+	draw_colored_polygon(PackedVector2Array([gem + Vector2(0, -4), gem + Vector2(3, 0), gem + Vector2(0, 4),
+		gem + Vector2(-3, 0)]), Color(0.85, 1.0, 1.0))
 
 ## Whether anyone is after the player, and the clock.
 func _draw_watch(vp: Vector2) -> void:

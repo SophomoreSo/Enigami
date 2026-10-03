@@ -132,10 +132,14 @@ func _make_runner() -> void:
 	# than an ordinary bolt carries, so the ones that fight up close are not
 	# firing shorter shots than anybody else.
 	var reach := maxf(float(def.get("attack_range", 0.0)) * 1.25, Payload.BASE_RANGE)
+	# What one shot is worth and how fast it flies are the same for every
+	# monster, unless its kind says otherwise: the Gunman's say so.
+	var hit := float(def.get("damage", 7.0)) * dmg_scale
+	var pace := float(def.get("shot_speed", 0.85))
 	runner.base_payload_provider = func() -> Payload:
 		var p := Payload.new()
-		p.damage = 7.0 * dmg_scale
-		p.speed = 0.85
+		p.damage = hit
+		p.speed = pace
 		p.size = 1.0
 		p.range_px = reach
 		return p

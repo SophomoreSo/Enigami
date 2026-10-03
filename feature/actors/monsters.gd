@@ -52,6 +52,19 @@ const DEFS := {
 		"elite": true,
 		"board": "warden",
 	},
+	## A person with a rifle — not a monster, and not met in a raid (`pick` never
+	## names it): a guard of the Jean Grey test's building. It holds its post and
+	## shoots what it notices, from further off than anything else sees, with a
+	## shot quick enough to be hard to step out of and heavy enough that three
+	## put a body down — two, once anything else has landed. Possessed, it walks
+	## at a person's pace and its own attack is that shot.
+	"GUNMAN": {
+		"name": "Gunman", "hp": 40.0, "speed": 120.0, "ai": "turret",
+		"size": 15.0,
+		"aggro": 600.0, "attack_range": 440.0, "contact": 0.0, "scrap": 6,
+		"board": "gunman",
+		"damage": 45.0, "shot_speed": 2.2,
+	},
 	"DUMMY": {
 		"name": "Test Dummy", "hp": 99999.0, "speed": 0.0, "ai": "turret",
 		"size": 18.0,

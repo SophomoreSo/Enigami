@@ -480,6 +480,9 @@ const MONSTER := {
 	"HOPPER": {"art": "masked_orc", "color": Color(0.82, 0.8, 0.86)},
 	"DRIFTER": {"art": "angel", "color": Color(0.5, 0.85, 0.95)},
 	"WARDEN": {"art": "ogre", "color": Color(0.45, 0.65, 0.98), "tint": Color(0.66, 0.82, 1.1)},
+	# A person: the pack's knight, with a rifle the pack does not have, drawn
+	# by `EnemyView` (`gun`).
+	"GUNMAN": {"art": "knight_m", "color": Color(0.85, 0.72, 0.55), "gun": true},
 	"DUMMY": {"art": "skelet", "color": Color(0.6, 0.62, 0.68)},
 	"GRUNT": {"art": "orc_warrior", "color": Color(0.86, 0.1, 0.22)},
 	"ARBITER": {"art": "big_demon", "color": Color(0.98, 0.35, 0.55)},
@@ -495,6 +498,10 @@ static func monster_color(kind: String) -> Color:
 
 static func monster_tint(kind: String) -> Color:
 	return MONSTER.get(kind, {}).get("tint", Color.WHITE)
+
+## Whether the kind carries a rifle, drawn in its hands (`EnemyView`).
+static func monster_gun(kind: String) -> bool:
+	return bool(MONSTER.get(kind, {}).get("gun", false))
 
 ## The Arbiter's second form recolours the whole silhouette.
 const BOSS_PHASE2_TINT := Color(1.35, 0.7, 0.55)

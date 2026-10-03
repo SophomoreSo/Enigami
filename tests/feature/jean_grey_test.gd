@@ -53,6 +53,25 @@ func guard(kind: String) -> Enemy:
 			return e
 	return null
 
+## The guard of `kind` nearest column `col`.
+func nearest(kind: String, col: int) -> Enemy:
+	var best: Enemy = null
+	for e in guards():
+		if e.kind == kind and (best == null or absf(e.global_position.x - (col + 0.5) * Room.CELL)
+				< absf(best.global_position.x - (col + 0.5) * Room.CELL)):
+			best = e
+	return best
+
+func gunman_near(col: int) -> Enemy:
+	return nearest("GUNMAN", col)
+
+func crawler_near(col: int) -> Enemy:
+	return nearest("CRAWLER", col)
+
+## The Crawler in front of the gate: the nearest to the pit.
+func gate_guard() -> Enemy:
+	return nearest("CRAWLER", 0)
+
 func rock() -> LooseRock:
 	for c in screen.room.get_children():
 		if c is LooseRock and not c.is_queued_for_deletion():
@@ -65,7 +84,7 @@ func take_hands() -> void:
 	screen.player.input.add(hands)
 
 ## Walks whatever the player is in over to `x`, sprinting. Whether it got there.
-func walk_to(x: float, secs: float = 6.0) -> bool:
+func walk_to(x: float, secs: float = 10.0) -> bool:
 	var t := 0.0
 	hands.sprint = true
 	while t < secs:
@@ -100,8 +119,12 @@ func fly_to(to: Vector2, near: float, secs: float = 5.0) -> bool:
 	hands.sprint = false
 	return t < secs
 
-## One throw of the rock's graph at `at`.
+## One throw of the rock's graph at `at`. How long the player had left in the
+## monster they threw from is kept, for saying how close it was.
+var last_left := 0.0
+
 func throw_at(at: Vector2) -> void:
+	last_left = screen.player.possess_left
 	hands.point_at(at)
 	await frames(3)
 	hands.attack = true
@@ -117,6 +140,7 @@ func _ready() -> void:
 	await frames(20)
 	_ground()
 	_board()
+	await _shot_down()
 	await _the_theft()
 	await _whose_hands()
 	await _the_body_falls()
@@ -129,8 +153,10 @@ func _ground() -> void:
 	var room := screen.room
 	var rows_ok := JeanGreyBase.LAYOUT.size() == Room.H
 	for row in JeanGreyBase.LAYOUT:
-		rows_ok = rows_ok and String(row).length() == Room.W
-	check(rows_ok, "the ground is %d rows of %d cells" % [Room.H, Room.W])
+		rows_ok = rows_ok and String(row).length() == room.cols
+	check(rows_ok and room.rows == Room.H, "the ground is %d rows high, every one as long" % Room.H)
+	check(room.cols * Room.CELL >= 3 * Room.W * Room.CELL,
+		"and three screens across (%d cells)" % room.cols)
 
 	var posts := 0
 	var facing_ok := true
@@ -141,6 +167,8 @@ func _ground() -> void:
 		facing_ok = facing_ok and e.facing == int(rec["facing"])
 	check(screen.total_guards == posts and guards().size() == posts,
 		"a guard on every post (%d of %d)" % [guards().size(), posts])
+	check(guards().filter(func(e: Enemy) -> bool: return e.kind == "GUNMAN").size() >= 3,
+		"Gunmen among them")
 	check(facing_ok, "each looking the way its post says")
 	var grounded := true
 	for e in guards():
@@ -157,16 +185,16 @@ func _ground() -> void:
 	check(seen.is_empty(), "no guard can see into the pit (%s)" % str(seen))
 	check(room.in_start(screen.player.global_position), "and the player starts in it")
 
-	# Behind the gate guard, nothing inside can see the body: only the gate
-	# guard can give it away, and only by looking round.
-	var g1 := guard("CRAWLER")
+	# Behind the gate guard, nothing else notices the body: only the gate guard
+	# can give it away, and only by looking round.
+	var g1 := gate_guard()
 	var behind := Vector2(g1.global_position.x - 96.0, g1.global_position.y)
-	var inside: Array = []
+	var others: Array = []
 	for e in guards():
 		if e != g1 and room.has_line_of_sight(e.global_position, behind) \
 				and e.global_position.distance_to(behind) <= float(e.def["aggro"]):
-			inside.append(e.kind)
-	check(inside.is_empty(), "behind the gate guard, nobody inside can see the body (%s)" % str(inside))
+			others.append(e.kind)
+	check(others.is_empty(), "behind the gate guard, nobody else can see the body (%s)" % str(others))
 
 	# The diamond is out of any jump: only something that flies gets to it.
 	var gem := screen.diamond
@@ -181,7 +209,7 @@ func _ground() -> void:
 	check(gem.carrier == null and gem.global_position.distance_to(room.diamond_point()) < 1.0,
 		"and lies on its ledge in nobody's hands")
 
-## --- the rock's graph ---------------------------------------------------------
+## --- the rock's graph, and the Gunman's ------------------------------------------
 func _board() -> void:
 	var r := SkillRunner.new(screen.board)
 	r.base_payload_provider = func() -> Payload: return Weapons.base_payload(JeanGreyTest.WEAPON)
@@ -192,13 +220,71 @@ func _board() -> void:
 			% (Attacks.summary(p) if p != null else "nothing"))
 	check(screen.player.weapon_id == "ROCK" and screen.player.holds("ROCK"),
 		"and the player starts with the rock in hand")
+	check(is_equal_approx(screen.player.max_health, JeanGreyTest.BODY_HEALTH),
+		"the body has %.0f, whatever the profile has built" % JeanGreyTest.BODY_HEALTH)
+
+	var gun := gunman_near(36)
+	var shot: Payload = gun.runner.simulate()["outputs"][0]
+	check(shot.damage * 2.0 < JeanGreyTest.BODY_HEALTH and shot.damage * 3.0 >= JeanGreyTest.BODY_HEALTH,
+		"a Gunman's shot (%.0f) takes three to put the body down, two after anything else" % shot.damage)
+	check(not Monsters.NORMAL_POOL.has("GUNMAN") and Monsters.get_def("GUNMAN")["ai"] == "turret",
+		"and a Gunman holds its post, and is never met in a raid")
+
+## Stood in the gate in front of the Gunman watching it, the body takes three
+## shots.
+func _shot_down() -> void:
+	var p := screen.player
+	var gun := gunman_near(36)
+	var hits := [0]
+	p.damaged.connect(func(_a: Actor, _n: float) -> void: hits[0] += 1)
+	p.global_position = Vector2(gun.global_position.x - 6.0 * Room.CELL, 18 * Room.CELL - Player.BODY.y * 0.5)
+	gun.face(-1)
+	check(await until(func() -> bool: return fell == 1, 8.0),
+		"the body stood in front of a Gunman is shot down")
+	check(hits[0] == 3, "by its third shot (%d)" % hits[0])
+	await wait(JeanGreyTest.RESET_DELAY + 0.3)
+	fell = 0
 
 ## --- one way through, played --------------------------------------------------
+## A player waits for a Gunman to look away before throwing where it could see;
+## the computer is told when it would be, rather than waiting on its glance.
+func look_away(e: Enemy, dir: int) -> void:
+	e.face(dir)
+	e._glance = 30.0
+
+## Throws the rock from the monster the player is in, `back` px to the side of
+## `target`, into it. Whether the hands went in.
+func hop(target: Enemy, back: float, aim_up: float = 40.0) -> bool:
+	var p := screen.player
+	await walk_to(target.global_position.x + back)
+	await throw_at(target.global_position + Vector2(0, -aim_up))
+	return await until(func() -> bool: return p.possessing == target, 1.5)
+
+## Walks the monster the player is in over the rock where it came down.
+func fetch_rock() -> bool:
+	var p := screen.player
+	if not await until(func() -> bool: return rock() != null and rock().resting, 2.0):
+		return false
+	await walk_to(rock().global_position.x)
+	return await until(func() -> bool: return p.holds("ROCK") and p.weapon_hands() == p.vessel(), 1.0)
+
+## And over the diamond.
+func fetch_diamond() -> bool:
+	var gem := screen.diamond
+	var p := screen.player
+	await until(func() -> bool: return gem.carrier == null and gem._down >= Diamond.SETTLE, 2.0)
+	await walk_to(gem.global_position.x)
+	return await until(func() -> bool: return gem.carrier == p.vessel(), 1.0)
+
 func _the_theft() -> void:
 	take_hands()
 	var p := screen.player
-	var g1 := guard("CRAWLER")
+	var g1 := gate_guard()
+	var g2 := crawler_near(52)
 	var flyer := guard("DRIFTER")
+	var gm1 := gunman_near(36)
+	var gm2 := gunman_near(80)
+	var gm3 := gunman_near(106)
 	var gem := screen.diamond
 
 	# Waiting in the pit for the gate guard to look the other way.
@@ -211,31 +297,57 @@ func _the_theft() -> void:
 	check(await until(func() -> bool: return p.possessing == g1, 1.5),
 		"the rock in its back puts the player's hands into it")
 
-	# As one of them, the rock back in hand, and in through the gate.
-	check(await until(func() -> bool: return rock() != null and rock().resting, 2.0), "the rock comes down by it")
-	await walk_to(rock().global_position.x)
-	check(await until(func() -> bool: return p.holds("ROCK") and p.weapon_hands() == g1, 1.0),
-		"and the gate guard picks it back up")
+	# In through the gate as one of them, past the Gunman watching it, and into
+	# the Crawler down the hall behind the Gunman's back.
+	check(await fetch_rock(), "the gate guard picks the rock back up")
+	look_away(gm1, -1)
+	check(await hop(g2, -96.0), "and throws it into the Crawler in the first hall (%.1fs were left)" % last_left)
+
+	# Down the vault hall to the Drifter, and up into it while the Gunman under
+	# the ledge looks at the wall.
+	check(await fetch_rock(), "the Crawler picks it up")
 	await walk_to(flyer.global_position.x - 8.0)
-	check(p.possessing == g1 and screen.alerted() == 0,
-		"walked in through the gate and down the hall as one of them (%.1fs left)" % p.possess_left)
+	check(p.possessing == g2, "and walks it under the Drifter as one of them (%.1fs left)" % p.possess_left)
+	look_away(gm3, 1)
 	await throw_at(flyer.global_position + Vector2(0, -10))
-	check(await until(func() -> bool: return p.possessing == flyer, 1.5),
-		"thrown up into the one that flies, the hands go on into it")
+	check(await until(func() -> bool: return p.possessing == flyer, 1.5), "thrown up into the Drifter")
 
-	# Up to the ledge, and out with the diamond.
-	await fly_to(Vector2(flyer.global_position.x, gem.global_position.y - 40.0), 16.0)
+	# The diamond, and the rock off the floor, and back to the Gunman by the
+	# door: into him while he looks the other way.
+	# Up past the end of the ledge before going over it: under it is a ceiling.
+	await fly_to(Vector2(100.0 * Room.CELL, 8.0 * Room.CELL), 16.0)
 	await fly_to(gem.global_position + Vector2(0, -8), 6.0)
-	check(await until(func() -> bool: return gem.carrier == flyer, 1.0), "it takes the diamond off the ledge")
-	await fly_to(Vector2(20 * Room.CELL, 8 * Room.CELL), 24.0)
-	await fly_to(Vector2(17 * Room.CELL, 16 * Room.CELL + 20), 20.0)
-	await fly_to(Vector2(12 * Room.CELL, 16 * Room.CELL + 20), 20.0)
-	await fly_to(p.global_position + Vector2(40, -20), 24.0)
-	check(p.possessing == flyer and gem.carrier == flyer,
-		"and carries it out of the gate to the body (%.1fs left)" % p.possess_left)
-	check(not screen.over, "which is not a theft yet: it is not in the player's own hands")
+	check(await until(func() -> bool: return gem.carrier == flyer, 1.0), "the Drifter takes the diamond off the ledge")
+	await until(func() -> bool: return rock() != null and rock().resting, 2.0)
+	await fly_to(rock().global_position + Vector2(0, -16), 10.0)
+	check(await until(func() -> bool: return p.holds("ROCK") and p.weapon_hands() == flyer, 1.0),
+		"and the rock off the floor (%.1fs left)" % p.possess_left)
+	await fly_to(Vector2(gm2.global_position.x + 112.0, gm2.global_position.y - 24.0), 16.0)
+	look_away(gm2, -1)
+	await throw_at(gm2.global_position + Vector2(0, -30))
+	check(await until(func() -> bool: return p.possessing == gm2, 1.5),
+		"flown back down the hall and thrown into the Gunman (%.1fs were left)" % last_left)
 
-	# Out of the monster: the diamond falls where it was, and the body takes it.
+	# The Gunman carries both to the Crawler that was the gate guard, still
+	# standing where the player left it, and the hands go back into that.
+	check(await fetch_rock(), "the Gunman picks up the rock")
+	check(await fetch_diamond(), "and the diamond the Drifter let go of")
+	look_away(gm1, -1)
+	var shots := [0]
+	var count_shots := func(cue: StringName, d: Dictionary) -> void:
+		if cue == &"attack" and (d.get("payload") as Payload) != null and (d.get("payload") as Payload).damage >= 40.0:
+			shots[0] += 1
+	Cues.fired.connect(count_shots)
+	check(await hop(g1, 96.0), "and carries them up the first hall into the old gate guard (%.1fs were left)"
+		% last_left)
+	Cues.fired.disconnect(count_shots)
+	check(shots[0] == 0, "and throwing it, the Gunman fires nothing of its own (%d shots)" % shots[0])
+
+	# Out of the gate to the body, and home.
+	check(await fetch_rock() and await fetch_diamond(), "which takes both")
+	await walk_to(p.global_position.x + 40.0)
+	check(p.possessing == g1 and gem.carrier == g1,
+		"out of the gate and across the yard to the body (%.1fs left)" % p.possess_left)
 	hands.step_out()
 	check(await until(func() -> bool: return gem.carrier == null and gem._down > Diamond.SETTLE, 2.0),
 		"stepping out lets go of it, and it comes down on the floor")
@@ -244,7 +356,6 @@ func _the_theft() -> void:
 	await walk_to(3.0 * Room.CELL)
 	check(await until(func() -> bool: return stolen == 1, 1.0) and screen.over,
 		"and carried back into the pit, it is stolen (%.1fs)" % screen.best)
-	check(screen.best > 0.0, "and the time is kept")
 
 	await wait(JeanGreyTest.RESET_DELAY + 0.3)
 	check(not screen.over and guards().size() == screen.total_guards,

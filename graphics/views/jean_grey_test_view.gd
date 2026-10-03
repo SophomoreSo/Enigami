@@ -1,14 +1,23 @@
 class_name JeanGreyTestView
 extends Node2D
 
-## The Jean Grey test's screen: the camera over the whole ground, the HUD, and
-## the same assembly overlay the bench uses, for the rock's graph.
+## The Jean Grey test's screen: the camera, the HUD, and the same assembly
+## overlay the bench uses, for the rock's graph.
+##
+## The ground is three screens across, so the camera goes along it after
+## whoever the player is in — the body, or the monster their hands are in —
+## easing after them, and never past either end. It does not go up or down:
+## the ground is a screen high.
 
 var screen: JeanGreyTest
 var camera: Camera2D
 var pixels: PixelCamera
 var editor: SkillEditor
 var hud: JeanGreyHud
+
+## How quickly the camera closes on whoever it follows: the share of the way
+## it goes in a second.
+const FOLLOW := 5.0
 
 func _ready() -> void:
 	screen = get_parent() as JeanGreyTest
@@ -35,7 +44,28 @@ func _ready() -> void:
 	screen.editing_changed.connect(_on_editing)
 	screen.stolen.connect(func(seconds: float) -> void: hud.show_stolen(seconds))
 	screen.fell.connect(func() -> void: hud.show_fell())
-	screen.floor_reset.connect(func() -> void: hud.again())
+	screen.floor_reset.connect(func() -> void:
+		hud.again()
+		follow(0.0, true))
+	follow(0.0, true)
+
+func _process(delta: float) -> void:
+	follow(delta, false)
+
+## Takes the camera towards whoever the player is in, by `delta`'s worth of
+## `FOLLOW` — or all the way, with `snap`.
+func follow(delta: float, snap: bool) -> void:
+	if screen == null or not is_instance_valid(screen) or screen.room == null:
+		return
+	var want := camera.position
+	var p := screen.player
+	if p != null and is_instance_valid(p):
+		want.x = p.vessel().global_position.x
+	var width := float(screen.room.cols * Room.CELL)
+	var half := get_viewport().get_visible_rect().size.x * 0.5
+	want.x = clampf(want.x, half, width - half) if width > half * 2.0 else width * 0.5
+	want.y = screen.room.rows * Room.CELL * 0.5
+	camera.position = want if snap else camera.position.lerp(want, clampf(FOLLOW * delta, 0.0, 1.0))
 
 ## See RaidView._unhandled_input: the editor consumes its own keys, R included.
 func _unhandled_input(event: InputEvent) -> void:

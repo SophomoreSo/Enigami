@@ -183,6 +183,11 @@ var holders: Dictionary = {}
 ## Whether the attack button was down a frame ago, so a press on a rock that
 ## is not in the hand is answered once rather than every frame it is held.
 var _was_attacking: bool = false
+## Whether the press still held is the one that threw the rock out of the hands
+## the player is in. It is spent until it is let go: a click lasts a few frames,
+## and the rest of it would otherwise be a monster's own attack — a Crawler
+## slashing the air beside the throw, a Gunman firing and giving itself away.
+var _press_spent: bool = false
 ## Whether the monster has taken the weapon out of the body's hands. While it
 ## has, the weapon's graph is cast from the monster, and the body holds nothing.
 var vessel_armed: bool = false
@@ -656,6 +661,7 @@ func _on_fired(payload: Payload, weapon: String = "") -> void:
 		ctx["thrower"] = self
 		if holds(weapon) and holders[weapon] == from:
 			holders.erase(weapon)
+			_press_spent = true
 		else:
 			ctx["ghost"] = true
 	Attacks.spawn(p, ctx)
@@ -706,6 +712,8 @@ func _process(delta: float) -> void:
 	var s := input.state()
 	var pressed := s.attack and not _was_attacking
 	_was_attacking = s.attack
+	if not s.attack:
+		_press_spent = false
 	if possessing != null:
 		_mind_possession(delta, s)
 	# Another weapon in hand, by its slot's key or by a step along. Before the
@@ -767,7 +775,7 @@ func _process(delta: float) -> void:
 ## a hold buys life for the weapon's graph, and that is back at the body. The
 ## weapons go on recovering in their slots meanwhile.
 func _attack_as_monster(delta: float, s: InputState) -> void:
-	possessing.attacking = s.attack or s.cast
+	possessing.attacking = (s.attack and not _press_spent) or s.cast
 	_update_charge(delta, false)
 	_cast_buffer = 0.0
 	cast_charge = 0.0

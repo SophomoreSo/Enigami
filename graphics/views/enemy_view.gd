@@ -4,7 +4,9 @@ extends ActorView
 ## A monster: the atlas character its kind wears, plus the read-outs layered
 ## over it — a ring for a modifier, a second for an elite, a health strip, and
 ## the dot that says it has seen you. One the player is in wears a ring of its
-## own with the time left on it, and — once it has taken it — their weapon.
+## own with the time left on it, and — once it has taken it — their weapon. A
+## kind that carries a rifle (`Style.monster_gun`) holds it pointed at what it
+## is aiming at, and it flashes at the muzzle when it fires.
 
 ## AI kinds that leave the ground, and so need an airborne pose.
 const AIRBORNE_AI := ["runner", "jumper", "boss"]
@@ -15,12 +17,19 @@ var _phase: int = 1
 ## holds it (`PlayerView`): built the first time it is taken.
 var _held: Sprite2D = null
 var _held_art: String = ""
+## The rifle, for a kind that carries one.
+var _rifle: Rifle = null
 
 func _configure() -> void:
 	enemy = actor as Enemy
 	art = Style.monster_art(enemy.kind)
 	tint = Style.monster_tint(enemy.kind)
 	z_index = 45
+	if Style.monster_gun(enemy.kind):
+		_rifle = Rifle.new()
+		_rifle.z_index = 1
+		add_child(_rifle)
+		Cues.fired.connect(_on_cue)
 
 func _animate() -> void:
 	if enemy.phase != _phase:
@@ -35,6 +44,25 @@ func _animate() -> void:
 	else:
 		play("idle")
 	_update_held()
+	if _rifle != null:
+		_rifle.aim = _rifle_aim()
+		_rifle.position = Vector2(enemy.facing * enemy.size * 0.2, enemy.size * 0.25)
+
+## Where the rifle points: where the player in it is aiming, at what it is
+## after, or straight ahead.
+func _rifle_aim() -> Vector2:
+	if enemy.piloted():
+		return enemy.pilot.aim
+	if enemy.aggro and enemy.target != null and is_instance_valid(enemy.target):
+		return (enemy.target.global_position - enemy.global_position).normalized()
+	return Vector2(enemy.facing, 0.0)
+
+## A shot off this monster: the attack goes out from where it stands.
+func _on_cue(cue: StringName, d: Dictionary) -> void:
+	if cue != &"attack" or _rifle == null or enemy == null or not is_instance_valid(enemy):
+		return
+	if (d.get("pos", Vector2.INF) as Vector2).distance_to(enemy.global_position) < 1.0:
+		_rifle.flash = Rifle.FLASH
 
 ## The player's weapon, while the player in this monster has taken it — or the
 ## rock, once it has picked it up.
@@ -64,6 +92,50 @@ func _update_held() -> void:
 	_held.visible = true
 	_held.position = aim * (enemy.size * 0.6 + PlayerView.WEAPON_HAND * 0.5)
 	_held.rotation = 0.0 if Style.weapon_upright(weapon) else aim.angle() + PI * 0.5
+
+## A rifle in pixels of the world's picture, the stock at the hand and the
+## barrel along `aim`, turned over when it points left so it is never held
+## upside down.
+class Rifle extends Node2D:
+	## `#` the steel, `=` the light along the top of the barrel, `w` the stock.
+	const ART := [
+		"....=========",
+		"wwww#########",
+		"wwww..#......",
+		"ww...........",
+	]
+	const STEEL := Color(0.22, 0.23, 0.28)
+	const SHINE := Color(0.55, 0.58, 0.66)
+	const STOCK := Color(0.42, 0.27, 0.16)
+	const MUZZLE := Color(1.0, 0.86, 0.45)
+	## How long a muzzle flash stays up.
+	const FLASH := 0.07
+
+	var aim: Vector2 = Vector2.RIGHT
+	var flash: float = 0.0
+
+	func _process(delta: float) -> void:
+		flash = maxf(0.0, flash - delta)
+		queue_redraw()
+
+	func _draw() -> void:
+		var px := float(Sprites.PIXEL_SCALE)
+		var flip := -1.0 if aim.x < 0.0 else 1.0
+		draw_set_transform(Vector2.ZERO, aim.angle(), Vector2(1.0, flip))
+		var rows := ART.size()
+		for y in rows:
+			var row := String(ART[y])
+			for x in row.length():
+				var ch := row[x]
+				if ch == ".":
+					continue
+				var col := SHINE if ch == "=" else (STOCK if ch == "w" else STEEL)
+				draw_rect(Rect2(Vector2(x - 2, y - 1.5) * px, Vector2.ONE * px), col)
+		if flash > 0.0:
+			var tip := Vector2(String(ART[1]).length() - 2, -0.5) * px
+			draw_rect(Rect2(tip, Vector2(3, 2) * px), MUZZLE)
+			draw_rect(Rect2(tip + Vector2(px, -px), Vector2(px, 4.0 * px)), Color(MUZZLE, 0.7))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 ## The wind-up before a leap has to read before the leap lands.
 func status_flash() -> float:

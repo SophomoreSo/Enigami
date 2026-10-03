@@ -23,6 +23,11 @@ const CELL := 32
 const DOOR_ROWS := [15, 16, 17]
 const DOOR_COLS := [18, 19, 20, 21]
 
+## How many cells across and down this room is. Every room a raid builds is
+## `W` by `H`, one screen; a room laid by hand (`HandLaidRoom`) is as wide as
+## its rows, and a camera follows the player along it.
+var cols: int = W
+var rows: int = H
 var solid: PackedByteArray = PackedByteArray()
 var doors: Dictionary = {}          ## dir -> true
 var coord: Vector2i = Vector2i.ZERO
@@ -59,15 +64,15 @@ func build(room_coord: Vector2i, record: Dictionary, doorset: Dictionary, seed_b
 
 ## --- grid -------------------------------------------------------------------
 func _idx(x: int, y: int) -> int:
-	return y * W + x
+	return y * cols + x
 
 func _set_cell(x: int, y: int, v: int) -> void:
-	if x < 0 or y < 0 or x >= W or y >= H:
+	if x < 0 or y < 0 or x >= cols or y >= rows:
 		return
 	solid[_idx(x, y)] = v
 
 func is_solid(x: int, y: int) -> bool:
-	if x < 0 or y < 0 or x >= W or y >= H:
+	if x < 0 or y < 0 or x >= cols or y >= rows:
 		return true
 	return solid[_idx(x, y)] == 1
 
@@ -77,7 +82,7 @@ func is_solid_at(gp: Vector2) -> bool:
 
 func out_of_bounds(gp: Vector2) -> bool:
 	var l := to_local(gp)
-	return l.x < -64 or l.y < -64 or l.x > W * CELL + 64 or l.y > H * CELL + 64
+	return l.x < -64 or l.y < -64 or l.x > cols * CELL + 64 or l.y > rows * CELL + 64
 
 static func centre_of(x: int, y: int) -> Vector2:
 	return Vector2(float(x) + 0.5, float(y) + 0.5) * CELL
@@ -130,13 +135,13 @@ func clear_between(a: Vector2, b: Vector2, margin: float) -> bool:
 func path_between(from: Vector2, to: Vector2) -> PackedVector2Array:
 	if _paths == null:
 		_paths = AStarGrid2D.new()
-		_paths.region = Rect2i(0, 0, W, H)
+		_paths.region = Rect2i(0, 0, cols, rows)
 		_paths.cell_size = Vector2(CELL, CELL)
 		_paths.offset = Vector2(CELL, CELL) * 0.5
 		_paths.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES
 		_paths.update()
-		for y in H:
-			for x in W:
+		for y in rows:
+			for x in cols:
 				if is_solid(x, y):
 					_paths.set_point_solid(Vector2i(x, y))
 	var a := Vector2i((to_local(from) / CELL).floor())
@@ -251,14 +256,14 @@ func _build_collision() -> void:
 	body.collision_mask = 0
 	add_child(body)
 	# Merge each row's solid cells into runs, so a room is a handful of shapes.
-	for y in H:
+	for y in rows:
 		var x := 0
-		while x < W:
+		while x < cols:
 			if not is_solid(x, y):
 				x += 1
 				continue
 			var start := x
-			while x < W and is_solid(x, y):
+			while x < cols and is_solid(x, y):
 				x += 1
 			var run := x - start
 			var shape := CollisionShape2D.new()
@@ -549,7 +554,7 @@ func standing_near(at: Vector2) -> Vector2:
 	var cell := Vector2i(int(floor(at.x / CELL)), int(floor(at.y / CELL)))
 	if _catches(cell):
 		return at
-	for r in range(1, maxi(W, H)):
+	for r in range(1, maxi(cols, rows)):
 		# Sideways steps in order of how far they are, so the ring is walked
 		# from under the doorway outward rather than from one corner across.
 		var spread: Array[int] = [0]
@@ -568,14 +573,14 @@ func standing_near(at: Vector2) -> Vector2:
 ## Whether a body dropped on this cell lands in this room at all, rather than
 ## falling out through the door in the floor.
 func _catches(c: Vector2i) -> bool:
-	for y in range(maxi(c.y + 1, 0), H):
+	for y in range(maxi(c.y + 1, 0), rows):
 		if is_solid(c.x, y):
 			return true
 	return false
 
 ## Room to stand: the cell and the one above it open, and floor underneath.
 func _standable(c: Vector2i) -> bool:
-	if c.x < 1 or c.x >= W - 1 or c.y < 1 or c.y >= H - 1:
+	if c.x < 1 or c.x >= cols - 1 or c.y < 1 or c.y >= rows - 1:
 		return false
 	return not is_solid(c.x, c.y) and not is_solid(c.x, c.y - 1) and is_solid(c.x, c.y + 1)
 

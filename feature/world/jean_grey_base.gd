@@ -1,19 +1,28 @@
 class_name JeanGreyBase
 extends HandLaidRoom
 
-## The Jean Grey test's ground: a yard, a guarded building, and a diamond kept
-## where only something that flies can reach it.
+## The Jean Grey test's ground: three screens across, a yard, a ruin with two
+## halls in it, and a diamond kept where only something that flies can reach
+## it. The camera follows whoever the player is in.
 ##
 ## The player comes in by a pit in the yard's far corner, two cells deep, which
-## none of the guards can see down into — the one place to wait unseen. The
-## building's gate is watched from outside by one guard, and nothing inside
-## sees out past it: the gate is two cells high, and the guard watching the
-## hall does it from a catwalk, over the gate's lintel. The hall has guards on
-## the floor and one in the air; the diamond lies on a ledge high in its far
-## end, out of any jump. So the way in is the way the test is
-## named for: into the gate guard from behind, through the gate as one of them,
-## into the one that flies, up to the ledge — and the diamond carried back out
-## to the pit, the last stretch in the player's own hands.
+## none of the guards can see down into — the one place to wait unseen. A
+## Crawler watches the yard from in front of the gate. Inside the gate a Gunman
+## watches it along the floor, too far off to see the pit or the yard's far end
+## and close enough to shoot anything that walks up to the gate. At the far end
+## of the first hall there is a Crawler, and behind the wall there the vault
+## hall: a Gunman and a Warden on the floor, a Drifter in the air, and a last
+## Gunman under the ledge the diamond lies on — eight cells up, past any jump.
+##
+## Every guard stands on the floor but the one that flies. A guard sees from
+## the middle of itself, so one stood up on a roof or a catwalk sees nothing on
+## the floor near it past the edge it stands on — a Gunman up there would be
+## a Gunman nobody had to get past.
+##
+## Gunmen in sight of where a throw has to be made, and ten seconds in
+## each body: it is a long way in and a longer way out, the diamond passed from
+## one guard to the next on the way back as the rock is on the way in, and a
+## throw seen by a Gunman is a guard shot dead under the player's hands.
 ##
 ## `LAYOUT` (`HandLaidRoom`): `#` is solid, `P` is where the player starts, `,`
 ## is the rest of the pit — the start, where the diamond has to be brought —
@@ -21,28 +30,28 @@ extends HandLaidRoom
 ## being `POSTS`'s to say. Anything else is open.
 
 const LAYOUT := [
-	"########################################",
-	"#......................................#",
-	"#......................................#",
-	"#......................................#",
-	"#......................................#",
-	"#.............##########################",
-	"#.............#........................#",
-	"#.............#........................#",
-	"#.............#........................#",
-	"#.............#.....................D..#",
-	"#.............#..................#######",
-	"#.............#........................#",
-	"#.............#......2.................#",
-	"#.............#....#####...............#",
-	"#.............#........................#",
-	"#.............#................5.......#",
-	"#......................................#",
-	"#...........1.............3.........4..#",
-	"#,,,,,##################################",
-	"#,P,,,##################################",
-	"########################################",
-	"########################################",
+	"########################################################################################################################",
+	"#......................................................................................................................#",
+	"#......................................................................................................................#",
+	"#......................................................................................................................#",
+	"#......................................................................................................................#",
+	"#.............................##########################################################################################",
+	"#.............................#.................................#......................................................#",
+	"#.............................#.................................#......................................................#",
+	"#.............................#.................................#......................................................#",
+	"#.............................#.................................#.............................................D........#",
+	"#.............................#.................................#.....................................##################",
+	"#.............................#.................................#......................................................#",
+	"#.............................#.................................#......................................................#",
+	"#.............................#.................................#......................................................#",
+	"#.............................#.................................#......................................................#",
+	"#.............................#.................................#..................................6...................#",
+	"#......................................................................................................................#",
+	"#............1......................2...............3...........................4.......5.................7............#",
+	"#,,,,,##################################################################################################################",
+	"#,P,,,##################################################################################################################",
+	"########################################################################################################################",
+	"########################################################################################################################",
 ]
 
 ## Who stands at each post, and which way they are looking when the test
@@ -51,10 +60,12 @@ const LAYOUT := [
 ## air, in the middle of the cell, rather than standing on its floor.
 const POSTS := {
 	"1": {"kind": "CRAWLER", "facing": -1},
-	"2": {"kind": "SENTRY", "facing": 1},
-	"3": {"kind": "CRAWLER", "facing": -1},
-	"4": {"kind": "WARDEN", "facing": -1},
-	"5": {"kind": "DRIFTER", "facing": -1},
+	"2": {"kind": "GUNMAN", "facing": -1},
+	"3": {"kind": "CRAWLER", "facing": 1},
+	"4": {"kind": "GUNMAN", "facing": 1},
+	"5": {"kind": "WARDEN", "facing": -1},
+	"6": {"kind": "DRIFTER", "facing": -1},
+	"7": {"kind": "GUNMAN", "facing": -1},
 }
 
 func layout() -> Array:
@@ -85,12 +96,12 @@ func _spawn_enemy(e: Dictionary) -> void:
 
 func spawn_point() -> Vector2:
 	var door_cells := cells_marked("P")
-	return stand_point(door_cells[0] if not door_cells.is_empty() else Vector2i(2, H - 3), Player.BODY.y * 0.5)
+	return stand_point(door_cells[0] if not door_cells.is_empty() else Vector2i(2, rows - 3), Player.BODY.y * 0.5)
 
 ## Where the diamond lies when nobody has taken it: on the floor of its cell.
 func diamond_point() -> Vector2:
 	var spots := cells_marked("D")
-	return stand_point(spots[0] if not spots.is_empty() else Vector2i(W - 4, 9), Diamond.RADIUS)
+	return stand_point(spots[0] if not spots.is_empty() else Vector2i(cols - 4, 9), Diamond.RADIUS)
 
 ## Whether `at` is in the pit the player started in.
 func in_start(at: Vector2) -> bool:
