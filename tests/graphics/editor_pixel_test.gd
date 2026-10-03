@@ -1,17 +1,17 @@
 extends Node
 ## The assembly screen is drawn in UiKit's pixel look. On the frame, in all three
 ## places it opens — the bench, a raid and the workbench — with every part on a
-## board, joints and breaks, live pulses, a drag, the hovers and a message on
-## screen, a pair of rings the flow can never leave with the dead-code notice
-## up over one of them, and a board with a flow out, a leak and a break on it:
+## board, joints and breaks, live pulses, a drag, the hovers — a part's card
+## among them — and a message on screen, a pair of rings the flow can never
+## leave with the dead-code notice up over one of them, and a board with a flow out, a leak and a break on it:
 ## every PIXEL×PIXEL block of the picture is one colour, so nothing it draws is
 ## off the grid. On the way out: its arrow stands on the frame in the middle of
 ## the right edge, lit by a flow that reaches it, drained by one only a trigger
 ## sends, and red with none. On the layout: the biggest board a Workbench grows and
 ## the palette both end above the info panel, the palette is one block a part
 ## category with its name beside it in the gutter, every part's name fits its
-## palette row, the header's lines fit, and a preview with more to say than rows
-## to say it in is cut short and says so.
+## palette row, every part's description fits its card, the header's lines fit,
+## and a preview with more to say than rows to say it in is cut short and says so.
 ##
 ## Needs a real renderer: the block check reads the frame back.
 
@@ -255,9 +255,25 @@ func _ready() -> void:
 	red.selected = "SLASH"
 	red._hover_pal = 5
 	red._hover_close = true
+	# The card says what the part under the cursor is and does, hung off its
+	# row rather than over it.
+	var row := red._pal_rect(5)
+	var said := red._hint_rows(String(red._palette_ids()[5]), false)
+	var card := red._hint_box(get_viewport().get_visible_rect().size, row, said.size())
+	check(said.size() >= 2 and String(said[0][0]) == Components.name_for(String(red._palette_ids()[5])),
+		"hovering a part in the palette names it and says what it does (%d rows)" % said.size())
+	check(not card.intersects(row), "and its card sits clear of the row it names")
 	hidden = isolate(red)
 	await blocks("raid")
 	restore(hidden)
+	# Every part's description fits its card whole, in every language: none is
+	# cut short with an ellipsis.
+	for lang in Loc.languages():
+		for pid in Components.ids():
+			var desc := _in(lang, "parts.%s.desc" % pid)
+			var rows := PixelDraw.wrap(desc, SkillEditor.HINT_W - SkillEditor.HINT_PAD * 2.0, 99)
+			check(rows.size() <= SkillEditor.HINT_DESC_ROWS,
+				"%s's description fits its card in %s (%d rows)" % [pid, lang, rows.size()])
 	raid.set_editing(false)
 	await frames(2)
 
@@ -336,9 +352,13 @@ func _ready() -> void:
 	# The notice is hung off the whole ring, so it never covers what it names —
 	# measured at the tallest the box can be, which is the worst case for it.
 	var ring := wb._dead_group_rect(big, Vector2i(2, 1))
-	var note := wb._dead_hint_box(get_viewport().get_visible_rect().size, ring,
-		SkillEditor.DEAD_BOX_ROWS)
+	var note := wb._hint_box(get_viewport().get_visible_rect().size, ring,
+		SkillEditor.HINT_MOST_ROWS)
 	check(not note.intersects(ring), "and the notice sits clear of the ring it names")
+	var why := wb._hint_rows("DAMAGE", true)
+	check(String(why[0][0]) == Components.name_for("DAMAGE")
+		and why.any(func(r: Array) -> bool: return String(r[0]) == Loc.t("editor.dead.title")),
+		"and the card names the part and says why it is switched off")
 	check(wb._way_out_col == SkillEditor.BREAK, "with the flow caught in a ring, the way out is dark")
 	hidden = isolate(wb)
 	await blocks("dead")

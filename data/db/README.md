@@ -617,7 +617,7 @@ INSERT INTO growths (foliage, fewest, most, shortest, longest) VALUES
 
 Where a patch grows is `RoomView`'s (`graphics/views/room_view.gd`): along
 the top of solid cells with open air over them — the floor and the tops of
-the ledges — never on the spikes, never at the room's edge and never over a
+the ledges — never at the room's edge and never over a
 patch of its own kind, rolled from the room's own seed so a room looks the
 same every time. Kinds are drawn in the order their `growths` rows are
 written, each over the last. How the air springs back once it is pushed —

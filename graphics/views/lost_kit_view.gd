@@ -3,7 +3,7 @@ extends Node2D
 
 ## The kit a death left on the floor, drawn to be found.
 ##
-## A room is 1280 across and full of scrap, monsters and spikes, so this is not
+## A room is 1280 across and full of scrap and monsters, so this is not
 ## drawn as one more thing on the ground: a beam stands over it that clears the
 ## platforms, and a ring goes out from it on a slow pulse. Whatever else is
 ## happening in the room, the eye lands on it from the doorway.

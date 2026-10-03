@@ -1,6 +1,6 @@
 {
 	"heading": "은신처",
-	"scrap": "고철 %d",
+	"scrap": "골드 %d",
 	"records": "레이드 %d · 탈출 %d · 사망 %d · 처치 %d",
 	"title": "타이틀",
 	"weapons": {
@@ -50,7 +50,7 @@
 		"bench": "작업대",
 		"bench_prompt": "F를 눌러 무기의 그래프를 짜세요",
 		"shop": "상점",
-		"shop_prompt": "F를 눌러 고철을 쓰세요",
+		"shop_prompt": "F를 눌러 골드를 쓰세요",
 		"gate": "관문",
 		"gate_prompt": "F를 눌러 출격하세요",
 		"back": "방으로 돌아가기",

@@ -976,7 +976,7 @@ func _draw() -> void:
 		_draw_board()
 		_draw_palette()
 		_draw_message(vp)
-	_draw_dead_hint(vp)
+	_draw_hint(vp)
 	_draw_drag()
 
 ## How many PIXELs a pixel of a part's icon is drawn at on the board: ICON_ZOOM
@@ -1094,63 +1094,98 @@ func _draw_ports_preview(id: String, origin: Vector2i) -> void:
 	if p >= 0:
 		_draw_port_arrow(ex, p, Color(1.0, 0.6, 0.85, 0.8))
 
-## The notice, and the room it is given. The English takes four rows at this
-## width; the box is sized to however many the language being played actually
-## takes, so a translation that words it longer gets a taller box rather than
-## an ellipsis, and only one longer than DEAD_BOX_ROWS is cut short at all.
-const DEAD_BOX_W := 380.0
-const DEAD_BOX_ROWS := 6
-const DEAD_BOX_PAD := 8.0
-## Between the notice and the ring it is about, which it never covers.
-const DEAD_BOX_GAP := 8.0
+## The card a part is described on, and the room it is given: its name, then
+## what it does, then — for a part switched off — why. A description is cut
+## short past HINT_DESC_ROWS, which every part's fits in, in every language. The
+## notice about a ring takes four rows in English; the card grows to however
+## many the language being played takes, and only past HINT_DEAD_ROWS is it cut.
+const HINT_W := 380.0
+const HINT_DESC_ROWS := 7
+const HINT_DEAD_ROWS := 6
+const HINT_PAD := 8.0
+## Between the card and what it is about, which it never covers.
+const HINT_GAP := 8.0
+## The most rows a card can take: a name, a description, and a ring's notice.
+const HINT_MOST_ROWS := 1 + HINT_DESC_ROWS + 1 + HINT_DEAD_ROWS
 
-## Why a switched-off part is switched off, said under the cursor. Nothing is
-## wrong with the part — what is wrong is the wiring round it — so it is said at
-## the wiring, and the info panel along the bottom goes on naming the part like
-## any other.
-func _draw_dead_hint(vp: Vector2) -> void:
+## What the part under the cursor is and does, on a card hung off it: off its
+## row in the parts, or off it on the board. A part switched off says why on the
+## same card, under what it does. Nothing is wrong with the part — what is wrong
+## is the wiring round it — so the card is hung off the whole ring then.
+func _draw_hint(vp: Vector2) -> void:
 	# Never with a part in hand or the share sheet up: the first is already
 	# saying something under the cursor, and the second covers the board.
-	# Under a thumb there is no cursor to be over anything: it is said of the
-	# part the thumb picked.
-	var about := _hover_cell if _hover_cell.x >= 0 else _picked_part()
-	if _drag_id != "" or _share_open() or about == NOWHERE:
+	if _drag_id != "" or _share_open():
 		return
-	var b := current_board()
-	if b == null:
-		return
-	var origin = b.origin_at(about)
-	if origin == null or not _dead_at(origin):
-		return
-	var head := Loc.t("editor.dead.title")
-	var body := PixelDraw.wrap(Loc.t("editor.dead.body"),
-		DEAD_BOX_W - DEAD_BOX_PAD * 2.0, DEAD_BOX_ROWS)
-	var box := _dead_hint_box(vp, _dead_group_rect(b, origin), body.size())
+	var id := ""
+	var on := Rect2()
+	var dead := false
+	if _hover_pal >= 0:
+		id = String(_palette_ids()[_hover_pal])
+		on = _pal_rect(_hover_pal)
+	else:
+		# Under a thumb there is no cursor to be over anything: the why is said
+		# of the part the thumb picked, and nothing else is — its name is on the
+		# tab that came up.
+		var about := _hover_cell if _hover_cell.x >= 0 else _picked_part()
+		var b := current_board()
+		if b == null or about == NOWHERE:
+			return
+		var origin = b.origin_at(about)
+		if origin == null:
+			return
+		var entry := b.comp_origin_at(origin)
+		dead = _dead_at(origin)
+		if _hover_cell.x >= 0:
+			id = String(entry["id"])
+		elif not dead:
+			return
+		on = _dead_group_rect(b, origin) if dead \
+			else _part_rect(String(entry["id"]), origin, int(entry["rot"]))
+	var rows := _hint_rows(id, dead)
+	var box := _hint_box(vp, on, rows.size())
+	var edge := DEAD_EDGE if dead else Style.component_color(id)
 	# Opaque, like the drag chip and for the same reason: it lands over the
 	# board and the panel alike, and two rows of pixel text through each other
 	# are unreadable.
 	_px.rect(box, Color(0.07, 0.08, 0.11))
-	_px.rect(box, Color(DEAD_EDGE.r, DEAD_EDGE.g, DEAD_EDGE.b, 0.12))
-	_px.frame(box, DEAD_EDGE)
-	_px.text(box.position + Vector2(DEAD_BOX_PAD, 20.0), head, DEAD_EDGE)
-	for i in body.size():
-		_px.text(box.position + Vector2(DEAD_BOX_PAD, 20.0 + float(i + 1) * LINE),
-			body[i], Color(0.82, 0.86, 0.92))
+	_px.rect(box, Color(edge.r, edge.g, edge.b, 0.12))
+	_px.frame(box, edge)
+	for i in rows.size():
+		_px.text(box.position + Vector2(HINT_PAD, 20.0 + float(i) * LINE),
+			rows[i][0], rows[i][1], HINT_W - HINT_PAD * 2.0)
 
-## Where the notice goes for the ring boxed by `on`: hung off the ring rather
-## than off the cursor, since it is the whole ring the notice is about and a box
-## under the pointer would sit on the very thing it names. Below it and to the
-## right, flipped back over it when either would run off the screen.
-func _dead_hint_box(vp: Vector2, on: Rect2, rows: int) -> Rect2:
-	var size := Vector2(DEAD_BOX_W, 28.0 + rows * LINE)
-	var at := on.end + Vector2(DEAD_BOX_GAP, DEAD_BOX_GAP)
-	if at.x + size.x > vp.x - DEAD_BOX_PAD:
-		at.x = on.position.x - DEAD_BOX_GAP - size.x
-	if at.y + size.y > vp.y - DEAD_BOX_PAD:
-		at.y = on.position.y - DEAD_BOX_GAP - size.y
+## The card's rows, as [text, colour]: the part `id`'s name in its category's
+## colour and what it does under it, and when it is `dead`, the notice saying
+## why it is switched off. With no `id`, the notice alone.
+func _hint_rows(id: String, dead: bool) -> Array:
+	var rows: Array = []
+	var width := HINT_W - HINT_PAD * 2.0
+	var ink := Color(0.82, 0.86, 0.92)
+	if id != "":
+		rows.append([Components.name_for(id), Style.component_color(id)])
+		for line in PixelDraw.wrap(Components.desc_for(id), width, HINT_DESC_ROWS):
+			rows.append([line, ink])
+	if dead:
+		rows.append([Loc.t("editor.dead.title"), DEAD_EDGE])
+		for line in PixelDraw.wrap(Loc.t("editor.dead.body"), width, HINT_DEAD_ROWS):
+			rows.append([line, ink])
+	return rows
+
+## Where a card of `rows` rows goes for what is boxed by `on`: hung off it rather
+## than off the cursor, since a box under the pointer would sit on the very
+## thing it names. Below it and to the right, flipped back over it when either
+## would run off the screen.
+func _hint_box(vp: Vector2, on: Rect2, rows: int) -> Rect2:
+	var size := Vector2(HINT_W, 28.0 + float(maxi(rows - 1, 0)) * LINE)
+	var at := on.end + Vector2(HINT_GAP, HINT_GAP)
+	if at.x + size.x > vp.x - HINT_PAD:
+		at.x = on.position.x - HINT_GAP - size.x
+	if at.y + size.y > vp.y - HINT_PAD:
+		at.y = on.position.y - HINT_GAP - size.y
 	return Rect2(_px.snap(Vector2(
-		clampf(at.x, DEAD_BOX_PAD, vp.x - size.x - DEAD_BOX_PAD),
-		clampf(at.y, DEAD_BOX_PAD, vp.y - size.y - DEAD_BOX_PAD))), size)
+		clampf(at.x, HINT_PAD, vp.x - size.x - HINT_PAD),
+		clampf(at.y, HINT_PAD, vp.y - size.y - HINT_PAD))), size)
 
 ## The box round the whole ring the part at `origin` is caught in. The seams
 ## that came back with the loop are what holds it together: a part is in this

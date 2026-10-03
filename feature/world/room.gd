@@ -38,7 +38,6 @@ var extract_hold: float = 0.0
 ## its rect, and nothing sealing it. What a held `interact` acts on, said out
 ## loud so the console can offer USE there.
 var extract_offered: bool = false
-var hazards: Array = []             ## cells carrying spikes
 var _extract_active: bool = false
 
 func build(room_coord: Vector2i, record: Dictionary, doorset: Dictionary, seed_base: int) -> void:
@@ -182,15 +181,6 @@ func _generate() -> void:
 		for x in range(ex - 3, ex + 4):
 			if x > 0 and x < W - 1:
 				_set_cell(x, ey + 2, 1)
-
-	# Hazards give a reason to respect the layout.
-	hazards.clear()
-	if rng.randf() < 0.45:
-		var hx := rng.randi_range(4, W - 8)
-		var hlen := rng.randi_range(2, 5)
-		for x in range(hx, hx + hlen):
-			if not is_solid(x, H - 3) and is_solid(x, H - 2):
-				hazards.append(Vector2i(x, H - 3))
 
 func _build_collision() -> void:
 	body = StaticBody2D.new()

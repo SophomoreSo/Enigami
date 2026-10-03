@@ -57,5 +57,5 @@ func _process(delta: float) -> void:
 
 func label() -> String:
 	if scrap_amount > 0:
-		return "%d scrap" % scrap_amount
+		return "%d gold" % scrap_amount
 	return Components.name_for(component_id)

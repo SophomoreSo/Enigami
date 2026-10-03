@@ -61,8 +61,8 @@ may not reorder or retype them:
 
 ```json
 "scrapped": "Scrapped %s for %d."          ✅  %s then %d
-"scrapped": "%s을(를) 분해해 고철 %d을(를) 얻었습니다."   ✅  %s then %d
-"scrapped": "고철 %d을(를) %s에서 얻었습니다."            ❌  %d then %s — prints a
+"scrapped": "%s을(를) 분해해 골드 %d을(를) 얻었습니다."   ✅  %s then %d
+"scrapped": "골드 %d을(를) %s에서 얻었습니다."            ❌  %d then %s — prints a
                                                           name where a number goes
 ```
 

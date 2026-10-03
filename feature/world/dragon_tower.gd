@@ -43,7 +43,6 @@ const GUARD := "GRUNT"
 func _generate() -> void:
 	solid.resize(W * H)
 	solid.fill(0)
-	hazards.clear()
 	for y in H:
 		for x in W:
 			_set_cell(x, y, 1 if mark_at(x, y) == "#" else 0)
