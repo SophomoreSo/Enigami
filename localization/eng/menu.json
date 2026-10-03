@@ -38,9 +38,21 @@
 		"heading": "PAUSED",
 		"resume": "BACK TO GAME",
 		"title": "MAIN MENU",
-		"park": "MAIN MENU — the raid is kept where you left it",
-		"abandon": "ABANDON RAID — forfeits the kit",
+		"park": "MAIN MENU",
+		"abandon": "ABANDON RAID",
 		"arrow": "<"
+	},
+	"park": {
+		"heading": "MAIN MENU?",
+		"note": "The raid is kept where you left it.",
+		"back": "CANCEL",
+		"confirm": "MAIN MENU"
+	},
+	"abandon": {
+		"heading": "ABANDON RAID?",
+		"note": "You will forfeit the kit.",
+		"back": "CANCEL",
+		"confirm": "ABANDON RAID"
 	},
 	"results": {
 		"won": "EXTRACTED",

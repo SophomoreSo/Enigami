@@ -15,7 +15,8 @@ extends RefCounted
 ##
 ## Every word comes out in the language being played: the English in the rows
 ## is the fallback under `localization/<lang>/menu.json`, by id —
-## `menu.<menu>.heading` for a name, `menu.<menu>.<item>` for an item's text
+## `menu.<menu>.heading` for a name, `menu.<menu>.note` for the line under
+## it, `menu.<menu>.<item>` for an item's text
 ## (`Loc.opt`). An item with no text of its own says the name of the menu it
 ## opens, so GENERAL SETTINGS is written once, as that menu's name, and every
 ## door to it says it.
@@ -55,6 +56,14 @@ static func name_for(id: String) -> String:
 	if name == null:
 		return ""
 	return Loc.opt("menu.%s.heading" % id, String(name))
+
+## The line under `id`'s heading, in the language being played, or "" for a
+## menu with none.
+static func note_for(id: String) -> String:
+	var note = Db.value("SELECT note FROM menus WHERE id = ?", [id])
+	if note == null:
+		return ""
+	return Loc.opt("menu.%s.note" % id, String(note))
 
 ## The items on `id`, in order, each `{id, text, exit}` and, for one that
 ## leads to a menu, `opens` — `text` in the language being played, an item

@@ -22,7 +22,7 @@ CREATE TABLE meta (
 );
 -- `Db.SCHEMA_VERSION` in app/db.gd is the same number: bump both when a
 -- change is one older code could not read. build.sh adds `source_hash`.
-INSERT INTO meta (key, value) VALUES ('schema_version', '11');
+INSERT INTO meta (key, value) VALUES ('schema_version', '12');
 
 -- How a portrait and the letters behave while a line is said: the ids
 -- `Style.EMOTIONS` (graphics/style.gd) draws. A line naming one not here
@@ -499,7 +499,8 @@ CREATE UNIQUE INDEX board_parts_one_root ON board_parts (board_id) WHERE root = 
 
 CREATE TABLE menus (
 	id   TEXT PRIMARY KEY CHECK (id <> '' AND id = lower(id)),
-	name TEXT CHECK (name <> '')   -- the heading over it; NULL for one with none, the title's, which the seal heads
+	name TEXT CHECK (name <> ''),  -- the heading over it; NULL for one with none, the title's, which the seal heads
+	note TEXT CHECK (note <> '')   -- a line under the heading, for a question that says what answering it costs; NULL: none
 );
 
 CREATE TABLE menu_items (

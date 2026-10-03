@@ -44,6 +44,10 @@ var pause_abandon: Button = null
 ## (nothing) and is a different act (the run is written down, not ended).
 var pause_title: Button = null
 var pause_park: Button = null
+## The questions MAIN MENU and ABANDON RAID ask in a raid before they go, by
+## menu id: each a shade and a small frame over PAUSED, which stays where it is
+## underneath. At most one is up; see `_pause_ask`.
+var pause_asks: Dictionary = {}
 ## Whether the pause menu was built for a thumb (`UiKit.mobile`). It is built
 ## once and kept, so it is built again when the mode it was built for is no
 ## longer the one in force — see `_pause_remode`.
@@ -53,7 +57,7 @@ var hideout_ref: HideoutWorld = null
 ## two pages behind its doors — the same two the title's settings show, from
 ## the same rows. What is on each is its rows (`Menus`); `_pause_open` knows
 ## which page each is, and `_pause_acts` what its other items do.
-const PAUSE_MENUS := ["pause", "general", "controls"]
+const PAUSE_MENUS := ["pause", "general", "controls", "park", "abandon"]
 
 func _ready() -> void:
 	randomize()
@@ -382,7 +386,9 @@ class PauseMenu extends Control:
 			# One level at a time: from a page behind PAUSED the key goes back
 			# to PAUSED, the way that page's BACK button does, rather than
 			# dropping straight into a raid the player cannot see behind it.
-			if game.pause_general != null and game.pause_general.visible:
+			if game.pause_asking() != "":
+				game._pause_ask("")
+			elif game.pause_general != null and game.pause_general.visible:
 				game._pause_general(false)
 			elif game.pause_controls != null and game.pause_controls.visible:
 				game._pause_controls(false)
@@ -442,6 +448,8 @@ func _build_pause_menu() -> void:
 			push_error("Game: PAUSED has no '%s' — see data/db/menus/menus.sql" % id)
 	_build_pause_general()
 	_build_pause_controls()
+	for menu in ["park", "abandon"]:
+		pause_asks[menu] = _build_pause_ask(menu)
 	overlay_layer.add_child(pause_menu)
 
 ## A pause page's items, from its menu's rows: a button each, in order, under
@@ -461,7 +469,7 @@ func _pause_items(frame: UiKit.ScreenFrame, menu: String) -> Dictionary:
 		var tone := UiKit.ACCENT
 		if id == "resume":
 			tone = UiKit.GOOD
-		elif id == "abandon":
+		elif id == "abandon" or (menu == "abandon" and id == "confirm"):
 			tone = UiKit.BAD
 		var b := UiKit.button(String(item["text"]), tone, true)
 		b.custom_minimum_size = Vector2(280, maxf(40 if id == "resume" else 36, UiKit.thumb()))
@@ -494,12 +502,56 @@ func _pause_acts(menu: String) -> Dictionary:
 	match menu:
 		"pause":
 			return {"resume": _unpause, "title": _pause_to_title,
-				"park": _pause_park, "abandon": _pause_abandon}
+				"park": _pause_ask.bind("park"), "abandon": _pause_ask.bind("abandon")}
+		"park":
+			return {"back": _pause_ask.bind(""), "confirm": _pause_park}
+		"abandon":
+			return {"back": _pause_ask.bind(""), "confirm": _pause_abandon}
 		"general":
 			return {"back": func() -> void: _pause_general(false)}
 		"controls":
 			return {"back": func() -> void: _pause_controls(false)}
 	return {}
+
+## A question over PAUSED: its heading, the line under it that says what the
+## answer costs, and the answers — CANCEL first, back to PAUSED, then the one
+## that goes. A popup rather than a page, so PAUSED stays in sight under it and
+## it is plain which button asked.
+func _build_pause_ask(menu: String) -> Control:
+	var holder := Control.new()
+	holder.visible = false
+	holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(UiKit.shade())
+	var frame := UiKit.screen_frame(520.0, 36.0, 28.0, true)
+	holder.add_child(frame)
+	frame.head.add_child(UiKit.title(Menus.name_for(menu), UiKit.text(24), true))
+	frame.head.add_child(UiKit.hline(true))
+	var note := UiKit.label(Menus.note_for(menu), UiKit.text(16), UiKit.DIM, true)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	frame.rows.add_child(note)
+	_pause_items(frame, menu)
+	pause_menu.add_child(holder)
+	return holder
+
+## Puts the question `menu` up over PAUSED, or takes whichever is up down for
+## "". While one is up PAUSED cannot take the keyboard either: the shade stops
+## a click reaching it, and this stops the arrow keys.
+func _pause_ask(menu: String, sound: bool = true) -> void:
+	for id in pause_asks:
+		(pause_asks[id] as Control).visible = id == menu
+	pause_main.focus_behavior_recursive = Control.FOCUS_BEHAVIOR_DISABLED if menu != "" \
+		else Control.FOCUS_BEHAVIOR_INHERITED
+	if sound:
+		Audio.play("ui")
+
+## The question up over PAUSED, or "" for none.
+func pause_asking() -> String:
+	for id in pause_asks:
+		if (pause_asks[id] as Control).visible:
+			return id
+	return ""
 
 ## MAIN MENU: to the title from wherever it is pressed.
 func _pause_to_title() -> void:
@@ -509,7 +561,7 @@ func _pause_to_title() -> void:
 ## The same destination from inside a raid, and the raid survives it: the run
 ## is written into the save slot as it stands and walked back into when that
 ## slot is opened again. It is the only way out of a raid that costs nothing,
-## which is why the button says so.
+## which is why its question says so.
 func _pause_park() -> void:
 	_unpause()
 	if state == State.RAID and current != null and is_instance_valid(current):
@@ -617,6 +669,7 @@ func _pause() -> void:
 	pause_main.visible = true
 	pause_general.visible = false
 	pause_controls.visible = false
+	_pause_ask("", false)
 	get_tree().paused = true
 	pause_menu.visible = true
 	Audio.play("ui")
