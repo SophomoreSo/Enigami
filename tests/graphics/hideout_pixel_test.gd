@@ -8,9 +8,8 @@ extends Node
 ## wider than what holds it unless it is allowed to wrap or be cut short.
 ##
 ## The hideout is a room now, so these are the panels its stations open — the
-## rack, the workbench and the counter, one column each. They are the columns
-## the old screen showed all three of at once, which is why one test still
-## covers all of them.
+## rack and the counter, one column each. They are columns the old screen
+## showed side by side, which is why one test still covers all of them.
 ##
 ## And where each of those sits: a panel is a pinned title, the rows and the way
 ## out, and only the rows scroll. Scrolled whole, as it was, the counter's list

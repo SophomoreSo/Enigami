@@ -3,9 +3,13 @@ extends World
 
 ## Between raids, as a place rather than a screen. The player stands in a room
 ## and walks to what they want: the rack to pick the weapon they will carry, the
-## bench to build on that weapon's graph, the counter to spend scrap, the gate
-## to go. Each is a `Station` — walk up, press interact, and that station's
-## panel opens over the room; the bench opens the assembly board itself.
+## counter to spend scrap, the gate to go. Each is a `Station` — walk up, press
+## interact, and that station's panel opens over the room.
+##
+## The weapon's graph is not a station. TAB opens it from anywhere on the floor,
+## the key that opens assembly in a raid, and the rack's BUILD opens it too. A
+## workbench used to stand between the rack and the counter for it, which was a
+## walk to reach what a key already reached.
 ##
 ## The panels are the ones the old screen was made of, built one at a time
 ## instead of three at once; `graphics/ui/hideout.gd` still owns what is in
@@ -19,9 +23,9 @@ signal title_requested()
 ## A station was used: "weapons" or "shop". The view opens the panel; the rules
 ## do not know there is one.
 signal station_used(id: String)
-## The weapon's graph was asked for — at the bench, or by the key that opens
-## assembly in a raid. The editor belongs to `app/game.gd`, the same one the
-## workbench has always opened, so this only passes the ask on.
+## The weapon's graph was asked for — by the key that opens assembly in a raid,
+## or off the rack's BUILD. The editor belongs to `app/game.gd`, so this only
+## passes the ask on.
 signal edit_requested()
 ## Something the room wants to say, for the HUD to toast. The raid says things
 ## the same way (`Raid.noticed`), and this is the same kind of thing: an answer
@@ -33,11 +37,10 @@ signal panel_changed(id: String)
 ## Where each station stands, in room cells. The floor is generated, so these
 ## are columns rather than exact spots: `_floor_at` drops each one onto whatever
 ## the generator put under it. Laid left to right in the order you would use
-## them — pick a weapon, fill it, buy what it still needs, leave.
+## them — pick a weapon, buy what its graph still needs, leave.
 const STATION_CELLS := {
 	"weapons": 7,
-	"bench": 15,
-	"shop": 24,
+	"shop": 20,
 	"gate": 34,
 }
 
@@ -49,13 +52,13 @@ var stations: Dictionary = {}
 ## player is held still: they are reading, not walking.
 var open_panel: String = ""
 ## `editing`, from `World`, is whether the workbench's editor is up over the
-## room, opened on the assembly key or off the bench's list. `app/game.gd` owns
+## room, opened on the assembly key or off the rack's BUILD. `app/game.gd` owns
 ## the editor and says so here, the way a raid and the sandbox are told theirs;
 ## the player is held under it just as under a panel. Opened by key from the
 ## floor it used to hold nobody, so the player walked the room behind it and
 ## the game kept the mouse for their aim.
-## The weapon the kit is being built around. The rack writes it, the bench reads
-## it, and the gate carries it.
+## The weapon the kit is being built around. The rack writes it, the editor
+## reads it, and the gate carries it.
 var weapon_id: String = ""
 
 func _ready() -> void:
@@ -98,7 +101,7 @@ func _ready() -> void:
 	_refresh_gate()
 	GameState.kit_changed.connect(_refresh_gate)
 	# The player standing in the room carries what the gate would carry, so a
-	# graph built at the bench has to reach them before the HUD can show it.
+	# graph built on the board has to reach them before the HUD can show it.
 	GameState.kit_changed.connect(refresh_kit)
 	GameState.stash_changed.connect(_refresh_gate)
 	# The signs are words written once, unlike everything the view draws every
@@ -126,7 +129,7 @@ func _relabel(_lang: String) -> void:
 	_refresh_gate()
 
 ## The lowest cell in column `x` with a body's worth of room above it. The floor
-## is generated, so nothing may assume where it is — the bench standing inside a
+## is generated, so nothing may assume where it is — a station standing inside a
 ## platform is exactly the bug the bench's own dummy used to have.
 func _floor_at(x: int) -> int:
 	for y in range(Room.H - 1, 0, -1):
@@ -173,13 +176,8 @@ func _on_station_used(s: Station) -> void:
 ## Opens a station's panel, from a press or from a test. The player is held
 ## still while it is up: `Player.controls_locked` is what an NPC conversation
 ## uses to the same end, and reading a shop list is no different from listening.
-## The bench has no panel: it opens the weapon's graph on the assembly board,
-## which holds the player the same way once the shell has raised it.
 func open_station(id: String) -> void:
 	if not stations.has(id) or id == "gate":
-		return
-	if id == "bench":
-		edit_requested.emit()
 		return
 	open_panel = id
 	_hold()
@@ -225,7 +223,7 @@ func set_weapon(id: String) -> void:
 	_refresh_gate()
 
 ## Whether the player is being held still by something on screen. The view asks
-## before it lets a key through, the same way the bench does while assembling.
+## before it lets a key through, the same way the sandbox does while assembling.
 func reading() -> bool:
 	return open_panel != "" or editing
 
@@ -240,8 +238,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if reading():
 		return
 	# The key that opens assembly in a raid opens it here too, over the graph
-	# the gate would carry: the same thing the bench opens, reached without the
-	# walk.
+	# the gate would carry. From the floor it is the way onto the board: there
+	# is no workbench to walk to.
 	if event.is_action_pressed("open_editor"):
 		edit_requested.emit()
 		get_viewport().set_input_as_handled()

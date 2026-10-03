@@ -1,8 +1,8 @@
 class_name Hideout
 extends Control
 
-## Between raids. Pick the one weapon you will carry, build on its graph at
-## the bench, spend loot on the facilities, and deploy.
+## Between raids. Pick the one weapon you will carry, build on its graph,
+## spend loot on the facilities, and deploy.
 ##
 ## Built in UiKit's pixel look, like the title and the assembly screen: every
 ## piece of text is Silkscreen at a multiple of its native 8px and every box is
@@ -239,8 +239,8 @@ func _weapons_column() -> Control:
 	v.add_child(UiKit.spacer(6))
 	v.add_child(_wrapped(Weapons.desc_for(weapon_id)))
 	# And the graph on it: what has been built onto the weapon's own part, and
-	# the way onto the assembly board to build more. The bench opens the same
-	# board; this is it without the walk.
+	# the way onto the assembly board to build more. TAB opens the same board
+	# from the floor.
 	v.add_child(UiKit.spacer(6))
 	var graph := HBoxContainer.new()
 	graph.add_theme_constant_override("separation", 6)

@@ -2,7 +2,7 @@ class_name Station
 extends Node2D
 
 ## A place in the hideout you walk up to and press interact at: the weapon rack,
-## the workbench, the merchant's counter, the gate out.
+## the merchant's counter, the gate out.
 ##
 ## It is the same gesture as talking to an `Npc` and as holding an extraction in
 ## a raid — stand close enough, press the key — and deliberately not a button:
@@ -20,7 +20,7 @@ signal used(station: Station)
 ## walking "up to" a counter should not mean standing inside it.
 const RANGE := 84.0
 
-## Which station this is — "weapons", "bench", "shop", "gate". The world reads
+## Which station this is — "weapons", "shop", "gate". The world reads
 ## it to decide what a press opens; nothing else should care.
 var id: String = ""
 ## What the sign over it says.

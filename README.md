@@ -354,7 +354,7 @@ nobody spends that week again.
 sword's `SWIFT STRIKE`, the gun's and the rock's `PROJECTILE` — and everything you
 build is wired on round it. There are no skills apart from weapons and no
 weapon without its graph: what you carry into a raid is the weapon and
-whatever is on it, the rack picks the weapon and the bench opens its graph.
+whatever is on it, the rack picks the weapon and `TAB` opens its graph.
 The root is moved and turned like any part, but it never leaves the board: it
 is the weapon's, not the bag's. `LMB` casts the graph as it is, again and again
 while it is held, for nothing; `RMB` charges it (below) and casts on release.
@@ -629,8 +629,8 @@ The PRD left eight questions open. This build answers them as follows.
 1. **One graph per weapon.** A weapon is its graph: its own attack form is
    the root and everything you build is wired on round it. There
    are no slots and no skills apart from weapons — what you carry is the
-   weapon and what is on it, and the rack, the bench and the gate are three
-   ways of looking at the same thing.
+   weapon and what is on it, and the rack, the graph `TAB` opens and the
+   gate are three ways of looking at the same thing.
 2. **A weapon starts bare** — its own part and nothing else, standing
    against the way out, so it works the moment it is picked up; move it back
    and every cell in front of it is yours. Identity without locking the build.

@@ -119,14 +119,6 @@ func _the_hideout() -> void:
 	await frames(3)
 	aiming("the floor, with the rack put away")
 
-	hideout.open_station("bench")
-	await frames(3)
-	check(game.editor != null, "the bench opens the workbench itself")
-	arrow("the workbench, opened at the bench")
-	await key(KEY_ESCAPE)
-	check(game.editor == null, "ESC puts the workbench away")
-	aiming("the floor, with the workbench put away")
-
 	# The key that opens assembly in a raid opens it here too, over the weapon's
 	# graph. Nothing held the player still under it, so the game went on taking
 	# the mouse for them.
@@ -138,6 +130,12 @@ func _the_hideout() -> void:
 	check(game.editor == null, "TAB puts it away")
 	aiming("the floor, with the workbench put away")
 	check(not hideout.player.controls_locked(), "and the player is let go again")
+
+	await key(KEY_TAB)
+	check(game.editor != null, "TAB opens it again")
+	await key(KEY_ESCAPE)
+	check(game.editor == null, "and ESC puts it away too")
+	aiming("the floor, with the workbench put away by ESC")
 
 	await key(KEY_ESCAPE)
 	check(get_tree().paused, "ESC on the floor pauses")

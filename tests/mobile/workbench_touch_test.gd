@@ -138,9 +138,9 @@ func _ready() -> void:
 ## --- a desk, the mouse for a finger -----------------------------------------
 
 func _on_a_desk() -> void:
-	hideout.open_station("bench")
+	game._edit_weapon_graph()
 	await frames(4)
-	check(workbench_up(), "the bench raises the workbench over the room")
+	check(workbench_up(), "the weapon's graph raises the workbench over the room")
 	if not workbench_up():
 		return
 	check(pad.face == TouchPad.Face.CLEAR, "and the workbench leaves the console CLEAR")
@@ -229,7 +229,7 @@ func _from_a_gamepad() -> void:
 ## MENU. This is also the first finger this pad has seen, which it takes as the
 ## mouse first — see `TouchPad._saw_a_finger`.
 func _with_a_thumb() -> void:
-	hideout.open_station("bench")
+	game._edit_weapon_graph()
 	await frames(4)
 	await tap(game.editor._close_rect().get_center())
 	check(not workbench_up(), "a thumb on the workbench's CLOSE closes it")
