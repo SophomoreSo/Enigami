@@ -807,8 +807,8 @@ mobile/view/       the two-thumb console drawn on the glass, and the screen that
 graphics/          the atlas, screen effects, the pixel camera, the palette, view attachment
 graphics/views/    one view per gameplay node: actors, attacks, rooms, loot
                    hideout_scenery: what the hideout's room is dressed in, drawn in
-                   code — the ground its looks stand on; hideout_city, _keep, _grove
-                   and _orbit are the looks, and hideout_themes which one is on
+                   code — the ground its looks stand on; hideout_city, _keep, _grove,
+                   _orbit and _brass are the looks, and hideout_themes which one is on
 graphics/ui/       skill editor, HUD, hideout, title, results, bench panel, logo card
                    ui_kit: one look for screens built of Controls
                    pixel_draw: the same look for screens that draw themselves

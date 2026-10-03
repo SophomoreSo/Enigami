@@ -13,6 +13,10 @@ extends HideoutScenery
 ## world is drawn into, drawn once or drawn again as it moves, and reads the
 ## room without changing it.
 
+# A picture drawn in whole pixels halves and thirds whole numbers on purpose,
+# all the way down.
+@warning_ignore_start("integer_division")
+
 ## --- where things are, in buffer pixels of the room -------------------------
 ## The glass: from under the ceiling's run of pipes down to the sill, and from
 ## the pillar on the left wall across to the one the gate's bay starts at.

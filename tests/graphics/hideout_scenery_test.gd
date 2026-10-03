@@ -201,11 +201,13 @@ func _laid_out() -> void:
 			and HideoutScenery.TOP * S == Room.CELL,
 		"it was laid out for a room this size: its walls and ceiling are the room's")
 	var open_all_the_way := true
+	@warning_ignore("integer_division")
+	var floor_row := HideoutScenery.FLOOR * S / Room.CELL
 	for x in range(1, Room.W - 1):
-		for y in range(1, int(HideoutScenery.FLOOR * S / Room.CELL)):
+		for y in range(1, floor_row):
 			if room.is_solid(x, y):
 				open_all_the_way = false
-		if not room.is_solid(x, int(HideoutScenery.FLOOR * S / Room.CELL)):
+		if not room.is_solid(x, floor_row):
 			open_all_the_way = false
 	check(open_all_the_way, "and its floor is the room's: open above it from wall to wall, solid under")
 	for id in world.stations:
@@ -314,14 +316,13 @@ func _lights() -> void:
 	# What it is lit in, read with nobody standing in front of it.
 	stand(480.0)
 	await wait(0.3)
-	var open := await _gate_colour()
+	var open := await _gate_lights()
 	gate().open = false
-	var shut := await _gate_colour()
+	var shut := await _gate_lights()
 	gate().open = true
-	var redder := (shut.r - shut.g) - (open.r - open.g)
-	check(redder > 20.0 and open.g - shut.g > 10.0,
-		"the gate is lit red while it is shut and green once it is open (%.0f redder shut, %.0f greener open)"
-			% [redder, open.g - shut.g])
+	check(shut.x - open.x > 20.0 and open.y - shut.y > 20.0,
+		"the gate is lit red while it is shut and green once it is open (%.0f more red pixels shut, %.0f more green open)"
+			% [shut.x - open.x, open.y - shut.y])
 
 ## How lit the stations other than `id` are, all told.
 func _lit_elsewhere(id: String) -> float:
@@ -331,25 +332,31 @@ func _lit_elsewhere(id: String) -> float:
 			sum += float(scenery._lit[other])
 	return sum
 
-## What colour the gate is lit in, over a second of it: every lit pixel over
-## the top of it, clear of what grows at its foot, added up. Whatever of the
-## look is that bright and that coloured whether the gate is open or not — moss
-## on a ring of stone, say — is in both sums, so it is how much more red than
-## green one is than the other that is asked, and that goes out of it.
-func _gate_colour() -> Color:
+## How much red light the gate shows and how much green, as `x` and `y`: the
+## pixels over the top of it, clear of what grows at its foot, that are bright,
+## strongly coloured and plainly the one hue or the other, counted over three
+## seconds of it — a shut gate's lamps come and go slowly, and that is one
+## whole breath of them. By hue, because a look is made of colours of its own
+## — brass is bright and warm and no lamp, a crystal is blue, moss is green
+## whether the gate is open or not — and what is asked is how the count
+## changes.
+func _gate_lights() -> Vector2:
 	var g: Vector2i = scenery._at["gate"]
 	var ring := on_screen(g.x - 32, g.y - HideoutScenery.TALLEST - 2, 64, 44)
-	var sum := Color(0, 0, 0)
-	for again in 4:
-		await wait(0.25)
+	var lights := Vector2.ZERO
+	for again in 7:
+		await wait(0.45)
 		var im := await frame()
 		for y in range(ring.position.y, ring.end.y, 2):
 			for x in range(ring.position.x, ring.end.x, 2):
 				var c := im.get_pixel(x, y)
-				# Light, not stone or steel: a colour, and a bright one.
-				if maxf(c.r, c.g) > 0.35 and absf(c.r - c.g) > 0.15:
-					sum += c
-	return sum
+				if c.v < 0.45 or c.s < 0.5:
+					continue
+				if c.h < 0.035 or c.h > 0.96:
+					lights.x += 1.0
+				elif c.h > 0.25 and c.h < 0.47:
+					lights.y += 1.0
+	return lights
 
 func _cost() -> void:
 	stand(480.0)
