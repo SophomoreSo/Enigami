@@ -96,6 +96,8 @@ func _on_cue(name: StringName, d: Dictionary) -> void:
 				[Monsters.name_for(String(d.get("kind", ""))).to_upper()]), Style.BOSS_TEXT)
 		&"pickup":
 			Fx.burst(pos, Style.loot_color(String(d.get("id", "")), int(d.get("scrap", 0))), 6, 120.0)
+		&"box_open":
+			Fx.burst(pos + Vector2(0, -8), Style.TREASURE_BAND, 10 + 3 * int(d.get("count", 0)), 160.0)
 		&"kit_back":
 			# Bigger than a part being picked up, because it is: everything a
 			# run was carrying, coming back in one go.

@@ -52,6 +52,9 @@ func _on_cue(name: StringName, d: Dictionary) -> void:
 			Audio.play("deny", 0.85 if String(d.get("kind", "")) == "stamina" else 1.0)
 		&"pickup":
 			Audio.play("pickup")
+		&"box_open":
+			# A pickup's chime, lower: several things at once, out of a box.
+			Audio.play("pickup", 0.8)
 		&"kit_back":
 			# The extraction chime, a little lower: getting the kit back is the
 			# same kind of relief, one step short of being out with it.

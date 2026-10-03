@@ -261,6 +261,7 @@ func _enter_room(coord: Vector2i, from_dir: int) -> void:
 	room.build(coord, rec, map.doors_for(coord), map.seed_base)
 	room.pickup_collected.connect(_on_pickup)
 	room.lost_kit_collected.connect(_on_lost_kit)
+	room.box_opened.connect(_on_box_opened)
 	room.enemy_killed.connect(_on_enemy_killed)
 	room.extraction_progress.connect(_on_extract_progress)
 	room.extraction_done.connect(_on_extract_done)
@@ -296,6 +297,27 @@ func _on_pickup(p: Pickup) -> void:
 	else:
 		GameState.add_component(p.component_id, 1, GameState.raid_bag)
 		noticed.emit(Loc.t("hud.pickup", [Components.name_for(p.component_id)]))
+
+## A treasure box, opened. Everything in it goes into the run at once, like a
+## pickup but all together, and the raid says what came out in one line.
+func _on_box_opened(_box: TreasureBox, items: Array) -> void:
+	var scrap := 0
+	var names: Array = []
+	for l in items:
+		if l.has("scrap"):
+			scrap += int(l["scrap"])
+		else:
+			# The record can be out of a raid parked before one of its parts was renamed.
+			var id := Components.current_id(String(l["id"]))
+			GameState.add_component(id, 1, GameState.raid_bag)
+			names.append(Components.name_for(id))
+	GameState.raid_scrap += scrap
+	if scrap > 0:
+		names.append(Loc.t("hud.toast.scrap", [scrap]))
+	if names.is_empty():
+		noticed.emit(Loc.t("hud.toast.box_empty"))
+	else:
+		noticed.emit(Loc.t("hud.toast.box", [", ".join(names)]))
 
 ## The drop, picked back up. What was in it goes into the run rather than
 ## straight home — a recovered kit is being carried, and it still has to be
@@ -370,6 +392,7 @@ func set_reading_map(on: bool) -> void:
 func on_board_changed() -> void:
 	player.rebuild_runner()
 
-## An exit the player is standing in, with nothing sealing it.
+## An exit the player is standing in, with nothing sealing it, or a shut
+## treasure box within reach.
 func use_nearby() -> bool:
-	return room != null and is_instance_valid(room) and room.extract_offered
+	return room != null and is_instance_valid(room) and (room.extract_offered or room.box_offered())

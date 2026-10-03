@@ -182,18 +182,30 @@ func _run() -> void:
 	var loot_here := 0
 	for c in raid.room.get_children():
 		if c is Pickup:
-			loot_here += 1
-	for i in 200:
-		for c in raid.room.get_children():
-			if c is Pickup:
-				raid.player.global_position = c.global_position
+			fail("a room's loot was left on the floor instead of in its box")
+	var box: TreasureBox = raid.room.box
+	if box != null:
+		loot_here = TreasureBox.takeable(box.contents).size()
+		var bag_before := 0
+		for k in GameState.raid_bag:
+			bag_before += int(GameState.raid_bag[k])
+		var scrap_before := GameState.raid_scrap
+		for i in 30:
+			raid.player.global_position = box.global_position
+			await get_tree().process_frame
+			if box.offered():
 				break
-		await get_tree().process_frame
-	say("loot in room %d -> bag=%s scrap=%d  stash untouched=%s" % [loot_here, str(GameState.raid_bag), GameState.raid_scrap, str(GameState.stash == stash_before)])
+		Input.action_press("interact")
+		await frames(2)
+		Input.action_release("interact")
+		var bag_after := 0
+		for k in GameState.raid_bag:
+			bag_after += int(GameState.raid_bag[k])
+		if not box.is_open or (bag_after == bag_before and GameState.raid_scrap == scrap_before):
+			fail("the treasure box could not be opened")
+	say("loot in box %d -> bag=%s scrap=%d  stash untouched=%s" % [loot_here, str(GameState.raid_bag), GameState.raid_scrap, str(GameState.stash == stash_before)])
 	if GameState.stash != stash_before:
 		fail("raid loot leaked into the stash")
-	if loot_here > 0 and GameState.raid_bag.size() <= 1 and GameState.raid_scrap <= 0:
-		fail("loot on the floor could not be picked up")
 
 	# Extraction at the entry gate.
 	raid._enter_room(raid.map.entry, -1)

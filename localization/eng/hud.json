@@ -69,6 +69,9 @@
 		"clear": "FLOOR CLEAR   BEST CAST %d OF %d",
 		"board": "Dragon Dash"
 	},
+	"box": {
+		"open": "%s  Open"
+	},
 	"pickup": "Recovered %s — assemble it with TAB",
 	"exit": {
 		"sign": "EXIT",
@@ -84,6 +87,8 @@
 		"boss_down": "The Arbiter is down. Its gate is open.",
 		"scrap": "+%d gold",
 		"kit_waiting": "Your kit is still down here, where you fell. The map has the room.",
-		"kit_back": "You have it back — %d things. Now walk them out."
+		"kit_back": "You have it back — %d things. Now walk them out.",
+		"box": "Treasure box: %s",
+		"box_empty": "The box is empty."
 	}
 }
