@@ -69,9 +69,6 @@
 		"clear": "FLOOR CLEAR   BEST CAST %d OF %d",
 		"board": "Dragon Dash"
 	},
-	"box": {
-		"open": "%s  Open"
-	},
 	"pickup": "Recovered %s — assemble it with TAB",
 	"exit": {
 		"sign": "EXIT",

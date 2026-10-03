@@ -616,7 +616,6 @@ const TREASURE_EDGE := Color(0.12, 0.07, 0.04)
 const TREASURE_BAND := Color(0.95, 0.78, 0.35)
 const TREASURE_INSIDE := Color(0.06, 0.04, 0.03)
 const TREASURE_GLOW := Color(1.0, 0.85, 0.4)
-const TREASURE_PROMPT := Color(1.0, 0.95, 0.8)
 
 static func loot_color(component_id: String, scrap: int) -> Color:
 	if scrap > 0:
