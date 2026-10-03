@@ -18,7 +18,8 @@ extends RefCounted
 ## Screens using it: `SkillEditor`, `SandboxPanel`, `Hud`, and the hideout's
 ## station signs — which draw it over the world rather than on a screen, and say
 ## in `HideoutWorldView` why the words cannot go into the world itself — and an
-## NPC's talk prompt, which is the same `key_cap` the signs show.
+## NPC's talk prompt and a treasure box's, which are the same `key_cap` the
+## signs show.
 
 const PX := UiKit.PIXEL
 const FONT := UiKit.PIXEL_FONT
