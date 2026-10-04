@@ -31,16 +31,18 @@ func chain(n: int) -> SkillBoard:
 func shots(r: SkillRunner) -> int:
 	return (r.simulate()["outputs"] as Array).size()
 
-## A DASHSLASH+ on the root whose ON HIT walks three OVERCLOCKs back round into
-## it, so every lap the life pays for is one more follow-up. The root takes
-## flow like any other part, which is what closes the ring.
+## SWIFT STRIKE on the root, an ON HIT whose branch walks three OVERCLOCKs back
+## round into it, and AUTO-AIM on the way out — the dragon test's board — so
+## every lap the life pays for is one more follow-up. The root takes flow like
+## any other part, which is what closes the ring.
 func trigger_ring() -> SkillBoard:
 	var b := SkillBoard.new(7, 5, "trigger ring")
-	b.set_root("DASHSLASH_AUTO", Vector2i(4, 2))
-	b.place("ON_HIT", Vector2i(6, 2), 0)
-	b.place("OVERCLOCK", Vector2i(6, 3), 2)
+	b.set_root("DASHSLASH", Vector2i(3, 2))
+	b.place("ON_HIT", Vector2i(5, 2), 0)
+	b.place("AUTO_AIM", Vector2i(6, 2), 0)
 	b.place("OVERCLOCK", Vector2i(5, 3), 2)
-	b.place("OVERCLOCK", Vector2i(4, 3), 3)
+	b.place("OVERCLOCK", Vector2i(4, 3), 2)
+	b.place("OVERCLOCK", Vector2i(3, 3), 3)
 	return b
 
 ## Attacks in a chain: the one fired, and every follow-up hung off it.

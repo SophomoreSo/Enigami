@@ -47,9 +47,10 @@ var _counting: bool = false
 var _chain_cache: Dictionary = {}
 
 ## The board this room is built around, `dragon` in the content database
-## (`data/db/boards/dragon_test.sql`): a DASHSLASH+ on the root whose ON HIT
-## walks three OVERCLOCKs back round into it. Every lap the cast has life for is
-## one more lunge at the nearest guard still standing.
+## (`data/db/boards/dragon_test.sql`): SWIFT STRIKE on the root, an ON HIT whose
+## branch walks three OVERCLOCKs back round into it, and AUTO-AIM on the way
+## out. Every lap the cast has life for is one more lunge at the nearest guard
+## still standing.
 static func dragon_board() -> SkillBoard:
 	return Boards.build("dragon", Loc.t("hud.dragon.board"))
 

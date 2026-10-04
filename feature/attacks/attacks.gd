@@ -25,6 +25,16 @@ static func nearest_target(pos: Vector2, team: int, max_dist: float = 1e9) -> Ac
 			best = a
 	return best
 
+## What an AUTO-AIM flow goes at from `from`: the nearest enemy within its
+## sight, or null — and null for a flow with no AUTO-AIM on it.
+static func auto_target(p: Payload, from: Vector2, team: int) -> Actor:
+	if p.auto_aim <= 0:
+		return null
+	return nearest_target(from, team, auto_aim_sight(p))
+
+static func auto_aim_sight(p: Payload) -> float:
+	return AUTO_AIM_SIGHT * (1.0 + AUTO_AIM_FURTHER * float(maxi(p.auto_aim - 1, 0)))
+
 static func container() -> Node:
 	return Arena.current()
 
@@ -80,6 +90,12 @@ const CHAIN_HITSTOP := 0.010
 ## How far a lunge travels at size 1. For DASHSLASH this is the cap on aiming
 ## it: the cursor decides where inside that range it lands.
 const DASH_SLASH_REACH := 85.0
+
+## AUTO-AIM. How far one looks for something to go at, and how much further
+## each one stacked looks: the first looks as far as SWIFT STRIKE+ used to,
+## which was SWIFT STRIKE with this built in.
+const AUTO_AIM_SIGHT := 520.0
+const AUTO_AIM_FURTHER := 0.5
 
 ## A cursor closer than this to where a beam starts is not aiming it anywhere:
 ## the beam goes down the aim instead, its whole reach, rather than being a
@@ -254,6 +270,13 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 				origin = behind
 				Cues.emit_cue(&"blink", {"from": was, "to": behind})
 
+	# AUTO-AIM: at the nearest enemy, whatever the aim said. A lunge and a beam
+	# look for it again as they go off (`_dash_slash`, `_zap`), which a
+	# volley's later ones do a moment after this one.
+	var locked := auto_target(payload, origin, team)
+	if locked != null:
+		aim = (locked.global_position - origin).normalized()
+
 	var count: int = clampi(payload.duplicates, 1, 9)
 	# A thrown weapon throws itself (`Weapons.is_thrown`): the first of the
 	# volley is the weapon, unless the flow says it is a copy, and the rest are
@@ -287,7 +310,7 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 					_burst(payload, pos, team, attacker, room)
 				else:
 					_schedule(float(i) * 0.1, "burst", payload, aim, pos, team, attacker, room)
-		"DASHSLASH", "DASHSLASH_AUTO":
+		"DASHSLASH":
 			for i in count:
 				if i == 0:
 					_dash_slash(payload, aim, team, attacker, room, far)
@@ -347,8 +370,10 @@ static func _dash_slash(p: Payload, aim: Vector2, team: int, atk: Actor, room, f
 	var start: Vector2 = atk.global_position
 	var reach := DASH_SLASH_REACH * p.size * far
 	var dest: Vector2
-	if p.form == "DASHSLASH_AUTO":
-		var t := nearest_target(start, team, 520.0)
+	if p.auto_aim > 0:
+		# AUTO-AIM: all the way to the nearest enemy and through it, however
+		# far its reach — or, with nothing in sight, down the aim.
+		var t := auto_target(p, start, team)
 		if t == null:
 			dest = start + aim * reach
 		else:
@@ -393,6 +418,10 @@ static func _zap(p: Payload, origin: Vector2, aim: Vector2, team: int, atk: Acto
 	var reach := p.range_px * far
 	var end := origin + aim * reach
 	var pt = atk.get("aim_point") if atk != null else null
+	# AUTO-AIM points it at the nearest enemy instead of where the cursor is.
+	var t := auto_target(p, origin, team)
+	if t != null:
+		pt = t.global_position
 	if pt is Vector2:
 		var to_pt: Vector2 = (pt as Vector2) - origin
 		if to_pt.length() >= ZAP_MIN_AIM:
@@ -422,6 +451,8 @@ static func summary(p: Payload) -> String:
 		parts.append(Loc.t("editor.payload.pierce", [p.pierce]))
 	if p.homing:
 		parts.append(_stacked(Loc.t("editor.payload.homing"), p.homing))
+	if p.auto_aim:
+		parts.append(_stacked(Loc.t("editor.payload.auto_aim"), p.auto_aim))
 	if p.blink:
 		parts.append(Loc.t("editor.payload.blink"))
 	if p.pull:

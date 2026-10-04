@@ -15,10 +15,6 @@
 		"name": "SWIFT STRIKE",
 		"desc": "Lunges along the aim direction, cutting everything on the path. Uses two cells."
 	},
-	"DASHSLASH_AUTO": {
-		"name": "SWIFT STRIKE+",
-		"desc": "Seeks the nearest visible enemy and blinks through it, cutting the path. Uses two cells."
-	},
 	"ZAP": {
 		"name": "ZAP",
 		"desc": "A beam to where the cursor points, striking the instant it is cast. Stops at the first wall, and at the first enemy unless PIERCE carries it on."
@@ -82,6 +78,10 @@
 	"POSSESS": {
 		"name": "POSSESS",
 		"desc": "Takes over the monster struck for 5 seconds, unharmed, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, left behind and still hunted. Bosses resist it."
+	},
+	"AUTO_AIM": {
+		"name": "AUTO-AIM",
+		"desc": "Aims the attack at the nearest enemy, wherever you point: bolts and beams go straight at it, a swing turns to it, and SWIFT STRIKE lunges all the way to it and through. Each one stacked looks further for one."
 	},
 	"DUPLICATE": {
 		"name": "DUPLICATE x3",

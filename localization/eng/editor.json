@@ -58,6 +58,7 @@
 		"stacked": "%s x%d",
 		"pierce": "pierce %d",
 		"homing": "homing",
+		"auto_aim": "auto-aims",
 		"blink": "blink",
 		"pull": "pulls in",
 		"knockback": "knocks back",

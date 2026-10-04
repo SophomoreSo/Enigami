@@ -111,7 +111,7 @@ func _run() -> void:
 		fail("casting produced no output")
 
 	# Every attack form, straight through the spawner.
-	for form in ["PROJECTILE", "SLASH", "EXPLODE", "DASHSLASH", "DASHSLASH_AUTO", "ZAP"]:
+	for form in ["PROJECTILE", "SLASH", "EXPLODE", "DASHSLASH", "ZAP"]:
 		var p := Payload.new()
 		p.form = form
 		p.damage = 5.0

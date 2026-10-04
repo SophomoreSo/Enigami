@@ -58,6 +58,7 @@
 		"stacked": "%s x%d",
 		"pierce": "관통 %d",
 		"homing": "유도",
+		"auto_aim": "자동 조준",
 		"blink": "점멸",
 		"pull": "끌어당김",
 		"knockback": "밀쳐냄",

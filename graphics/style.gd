@@ -40,7 +40,6 @@ const COMPONENT := {
 	"SLASH": {"glyph": "/"},
 	"EXPLODE": {"glyph": "◎"},
 	"DASHSLASH": {"glyph": "»"},
-	"DASHSLASH_AUTO": {"glyph": "»*"},
 	"ZAP": {"glyph": "⌁"},
 
 	"FIRE": {"glyph": "🔥"},
@@ -60,6 +59,7 @@ const COMPONENT := {
 	"MANA_DRAIN": {"glyph": "⊚"},
 	"STUN": {"glyph": "@"},
 	"POSSESS": {"glyph": "◑"},
+	"AUTO_AIM": {"glyph": "⊕"},
 
 	"DUPLICATE": {"glyph": "⋯"},
 	"OVERCLOCK": {"glyph": "⚡"},
@@ -131,15 +131,6 @@ const COMPONENT_ICON := {
 		".#..#..",
 		"#..#...",
 		".......",
-	],
-	"DASHSLASH_AUTO": [
-		".....#.",
-		"....###",
-		"#.#..#.",
-		".#.#...",
-		"..#.#..",
-		".#.#...",
-		"#.#....",
 	],
 	"ZAP": [
 		".......",
@@ -279,6 +270,16 @@ const COMPONENT_ICON := {
 		"#######",
 		"#######",
 		"#.#.#.#",
+	],
+	# Crosshairs on what it goes at.
+	"AUTO_AIM": [
+		"...#...",
+		".#####.",
+		".#...#.",
+		"##.#.##",
+		".#...#.",
+		".#####.",
+		"...#...",
 	],
 	# Round and round, the way a head goes when it has been struck too hard.
 	"STUN": [

@@ -99,7 +99,7 @@ static func base_payload(weapon_id: String) -> Payload:
 static func finalize(weapon_id: String, p: Payload) -> Payload:
 	var d := get_def(weapon_id)
 	match p.form:
-		"SLASH", "DASHSLASH", "DASHSLASH_AUTO":
+		"SLASH", "DASHSLASH":
 			p.damage *= float(d["melee_mul"])
 		"PROJECTILE":
 			p.damage *= float(d["ranged_mul"])

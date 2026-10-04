@@ -1,7 +1,7 @@
 extends Node2D
-## Where a lunge lands. DASHSLASH goes to what the player is pointing at, up to
-## the skill's reach; DASHSLASH+ picks its own target and stops as soon as the
-## cut has carried past it.
+## Where a lunge lands. SWIFT STRIKE goes to what the player is pointing at, up
+## to the skill's reach; with AUTO-AIM it picks its own target and stops as
+## soon as the cut has carried past it.
 
 var fails := 0
 
@@ -16,12 +16,13 @@ func frames(n: int) -> void:
 	for i in n:
 		await get_tree().process_frame
 
-func fire(atk: Actor, form: String, size: float) -> Vector2:
+func fire(atk: Actor, form: String, size: float, auto_aim: int = 0) -> Vector2:
 	var from := atk.global_position
 	var p := Payload.new()
 	p.form = form
 	p.damage = 3.0
 	p.size = size
+	p.auto_aim = auto_aim
 	Attacks.spawn(p, {"attacker": atk, "room": null, "team": atk.team,
 		"aim": atk.aim if atk is Player else Vector2.RIGHT, "origin": from})
 	await frames(2)
@@ -61,7 +62,8 @@ func _ready() -> void:
 	check(absf(big.x - reach * 1.5) < 1.0,
 		"and SIZE scales that cap (%.1f of %.0f px)" % [big.x, reach * 1.5])
 
-	# DASHSLASH+ ends just clear of its target, however far away it started.
+	# SWIFT STRIKE with AUTO-AIM ends just clear of its target, however far away
+	# it started.
 	for gap: float in [80.0, 160.0, 300.0]:
 		p.global_position = Vector2(400, 300)
 		p.aim = Vector2.RIGHT
@@ -73,7 +75,7 @@ func _ready() -> void:
 		await frames(2)
 		var enemy_x := e.global_position.x
 		var hp := e.health
-		await fire(p, "DASHSLASH_AUTO", 1.0)
+		await fire(p, "DASHSLASH", 1.0, 1)
 		var clearance := e.hurt_radius + p.hurt_radius
 		var past := p.global_position.x - enemy_x
 		check(absf(past - clearance) < 1.0,

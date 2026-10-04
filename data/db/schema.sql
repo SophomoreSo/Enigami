@@ -348,7 +348,10 @@ CREATE TABLE categories (
 -- Every number a part has ever had in a shared code (circuit/board_code.gd).
 -- A code written today has to mean the same board next year, so a number is
 -- a part's for good: **only ever add to the end**. A part that is retired
--- keeps its number, and one that is renamed hands its number to its new id.
+-- keeps its number, and one that is renamed hands its number to its new id —
+-- unless the new id has a number of its own already, which is two parts made
+-- one: then the old id keeps its number, and a code reads it as the new id
+-- (`renamed_parts`, `BoardCode.decode`).
 -- tests/circuit/code_test holds every number already given out to its part.
 CREATE TABLE codes (
 	code INTEGER PRIMARY KEY CHECK (code BETWEEN 0 AND 63),   -- six bits in a code
