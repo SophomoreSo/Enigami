@@ -58,6 +58,8 @@ func view_script_for(n: Node) -> GDScript:
 		return LostKitView
 	if n is LooseRock:
 		return LooseRockView
+	if n is StuckShuriken:
+		return StuckShurikenView
 	if n is Diamond:
 		return DiamondView
 	if n is TreasureBox:

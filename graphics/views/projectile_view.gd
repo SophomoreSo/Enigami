@@ -16,7 +16,8 @@ extends Node2D
 ## thinning back the way it came. The beam is its trail, so it has no beads.
 ##
 ## A bolt that is a thrown weapon — the rock — is drawn as the rock, turning
-## over as it flies, with its trail faint behind it (`_draw_thrown`).
+## over as it flies, with its trail faint behind it (`_draw_thrown`). A shuriken
+## is drawn the same way, spinning far faster, an eighth of a turn at a time.
 
 const TRAIL_LEN := 8
 ## The beam behind a bolt at laser speed: how solid it is at its far end and at
@@ -30,6 +31,7 @@ const BEAM_WIDTH_HEAD := 1.8
 ## of it is drawn; and the colour of the dust it trails with nothing built
 ## into it to colour it.
 const TUMBLE := 14.0
+const SPIN := 40.0
 const GHOST_ALPHA := 0.45
 const DUST := Color(0.78, 0.75, 0.68)
 
@@ -58,6 +60,8 @@ func _process(delta: float) -> void:
 	color = Style.element_color(bolt.payload)
 	if bolt.thrown != "":
 		_spin += delta * TUMBLE * (1.0 if bolt.velocity.x >= 0.0 else -1.0)
+	elif bolt.sticks != "":
+		_spin += delta * SPIN * (1.0 if bolt.velocity.x >= 0.0 else -1.0)
 	_trail.append(bolt.global_position)
 	if _trail.size() > TRAIL_LEN:
 		_trail.pop_front()
@@ -107,7 +111,7 @@ func streaks() -> Array:
 func _draw() -> void:
 	if bolt == null or not is_instance_valid(bolt):
 		return
-	if bolt.thrown != "":
+	if bolt.thrown != "" or bolt.sticks != "":
 		_draw_thrown()
 		return
 	for s: Dictionary in streaks():
@@ -125,7 +129,7 @@ func _draw() -> void:
 ## with a faint trail behind it, in the colour of what its graph built into it
 ## or of dust. A copy of it is drawn see-through.
 func _draw_thrown() -> void:
-	var tex := Sprites.texture(Style.weapon_art(bolt.thrown))
+	var tex := Sprites.texture(Style.shuriken_art(_spin) if bolt.sticks != "" else Style.weapon_art(bolt.thrown))
 	var built := bolt.payload != null and not bolt.payload.elements.is_empty()
 	var a := GHOST_ALPHA if bolt.ghost else 1.0
 	var tint := color if built else DUST
@@ -138,7 +142,8 @@ func _draw_thrown() -> void:
 	if tex == null:
 		draw_circle(Vector2.ZERO, bolt.radius, Color(DUST.r, DUST.g, DUST.b, a))
 		return
-	var turn := roundf(_spin / (PI * 0.5)) * PI * 0.5
+	# A shuriken's turn is in its two tiles; the rock's, a quarter at a time.
+	var turn := 0.0 if bolt.sticks != "" else roundf(_spin / (PI * 0.5)) * PI * 0.5
 	draw_set_transform(Vector2.ZERO, turn, Vector2.ONE * Sprites.PIXEL_SCALE)
 	draw_texture(tex, -(tex.get_size() * 0.5).floor(), Color(1, 1, 1, a))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

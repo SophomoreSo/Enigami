@@ -7,6 +7,7 @@
 	"stunned": "기절",
 	"possessing": "%s 빙의 %d초",
 	"thrown": "%s (던짐)",
+	"stock": "%s x%d",
 	"fx": {
 		"winded": "탈진",
 		"parry": "막아냄",

@@ -77,6 +77,12 @@ func _ready() -> void:
 		player.global_position = Vector2(float(at[0]), float(at[1]))
 		player.velocity = Vector2.ZERO
 	player.health = clampf(float(parked.get("health", player.health)), 1.0, player.max_health)
+	# The shuriken that were in hand: any stuck in the room it was put down in
+	# were left behind with it, as walking out of a room leaves them.
+	var stock: Dictionary = parked.get("stock", {})
+	for w in stock:
+		if player.stock.has(String(w)):
+			player.stock[String(w)] = clampi(int(stock[w]), 0, Weapons.stack_of(String(w)))
 
 ## Puts a previous death's drop into the room it was left in. The map is that
 ## same map — the deployment reused the seed that built
@@ -129,6 +135,7 @@ func park() -> Dictionary:
 	var at := player.standing_position()
 	saved["pos"] = [at.x, at.y]
 	saved["health"] = player.health
+	saved["stock"] = player.stock.duplicate()
 	return saved
 
 func _process(delta: float) -> void:

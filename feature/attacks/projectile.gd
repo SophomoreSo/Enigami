@@ -10,6 +10,12 @@ extends Node2D
 ## struck, or out of the end of its throw, and lies where it lands for whoever
 ## threw it to pick back up (`LooseRock`). The rest of a volley it went out in
 ## are copies of it, and those go the way any bolt does.
+##
+## Off a stacked weapon (`Weapons.is_stacked`) every bolt of a volley is one of
+## the stack — a shuriken — and it does not fade either: it sticks where it
+## strikes, in the wall at the point it met it or in the last enemy it struck,
+## and out of the end of its throw it drops until it sticks in whatever it
+## meets (`StuckShuriken`).
 
 ## Longest hop a bolt may take before its collision is sampled again. Walls are
 ## a 32px grid and a target only a few pixels across, so a fast bolt has to be
@@ -101,6 +107,9 @@ var _travelled: float = 0.0
 var thrown: String = ""
 var thrower: Player = null
 var ghost: bool = false
+## The stacked weapon this bolt is one of, or "": the shuriken, which sticks
+## where it ends rather than fading. `thrower` is whose it is.
+var sticks: String = ""
 ## The last place the bolt stood that was open, for a rock that ends in a wall
 ## to come down from.
 var _last_open: Vector2 = Vector2.ZERO
@@ -156,6 +165,9 @@ func _process(delta: float) -> void:
 		if is_rock():
 			_come_down(velocity * 0.5)
 			return
+		if sticks != "":
+			_drop_out()
+			return
 		Cues.at(&"impact", global_position, {"payload": payload, "kind": "fade"})
 		_expire()
 
@@ -183,6 +195,9 @@ func _fly_homing(delta: float) -> void:
 		if spent:
 			if is_rock():
 				_come_down(velocity * 0.5)
+				return
+			if sticks != "":
+				_drop_out()
 				return
 			Cues.at(&"impact", global_position, {"payload": payload, "kind": "fade"})
 			_expire()
@@ -293,6 +308,9 @@ func _sample() -> bool:
 		if is_rock():
 			_come_down(_off_the_wall(), true)
 			return true
+		if sticks != "":
+			_stick(_surface())
+			return true
 		queue_free()
 		return true
 	if room != null and room.has_method("out_of_bounds") and room.out_of_bounds(global_position):
@@ -316,6 +334,9 @@ func _sample() -> bool:
 					# up, before it drops at their feet.
 					_come_down(Vector2(-velocity.x * 0.25, -180.0))
 					return true
+				if sticks != "":
+					_stick(global_position, a)
+					return true
 				queue_free()
 				return true
 	return false
@@ -323,6 +344,9 @@ func _sample() -> bool:
 func _expire() -> void:
 	if is_rock():
 		_come_down(velocity * 0.5)
+		return
+	if sticks != "":
+		_drop_out()
 		return
 	queue_free()
 
@@ -347,6 +371,34 @@ func _off_the_wall() -> Vector2:
 	if room != null and room.has_method("is_solid_at") and not room.is_solid_at(level):
 		return Vector2(velocity.x * 0.5, -velocity.y * 0.3)
 	return Vector2(-velocity.x * 0.3, velocity.y * 0.3)
+
+## The shuriken, done flying: stuck at `at` — in the wall it met, or in `into`,
+## the enemy it struck last — pointing the way it was going.
+func _stick(at: Vector2, into: Actor = null) -> void:
+	StuckShuriken.lodge(sticks, at, velocity, room, thrower, into)
+	queue_free()
+
+## The shuriken, out of throw with nothing struck: it drops from where it has
+## got to, carrying on a little the way it went, until it sticks in something.
+func _drop_out() -> void:
+	StuckShuriken.drop(sticks, global_position, velocity * 0.2, room, thrower)
+	queue_free()
+
+## Where a bolt that has flown into the wall met it: between the last place it
+## stood in the open and where it stands now, halved until it is a pixel either
+## side — so a shuriken sticks at the face of the wall, and not a hop inside it.
+func _surface() -> Vector2:
+	var open := _last_open
+	var shut := global_position
+	if room == null or not room.has_method("is_solid_at"):
+		return open
+	for i in 6:
+		var mid := open.lerp(shut, 0.5)
+		if room.is_solid_at(mid):
+			shut = mid
+		else:
+			open = mid
+	return open
 
 ## Where the rock would come down if it were brought down now: for a room
 ## being walked out of with the rock still in the air.

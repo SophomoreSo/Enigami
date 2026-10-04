@@ -386,7 +386,7 @@ func _dying() -> void:
 		"the drop holds every weapon that can be lost (%s)" % str(dropped))
 	check((drop.get("boards", {}) as Dictionary).size() == 3, "and the graph of all three, the free one's included")
 	check(not GameState.owned_weapons.has("SWORD") and not GameState.owned_weapons.has("GUN")
-			and GameState.owned_weapons == [GameState.FREE_WEAPON, "SHOVEL"],
+			and GameState.owned_weapons == [GameState.FREE_WEAPON, "SHOVEL", "SHURIKEN"],
 		"the vault is left with the free weapon, and what was not carried (%s)" % str(GameState.owned_weapons))
 	check(GameState.graph_is_bare("ROCK") and GameState.graph_is_bare("SWORD"), "and every graph that went in is gone from it")
 	check(GameState.carried() == [GameState.FREE_WEAPON], "the kit is what is left to carry (%s)" % str(GameState.carried()))
