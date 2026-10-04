@@ -12,8 +12,9 @@ extends Node2D
 ## pixels of the buffer the world is drawn into (`PixelCamera`), where a room
 ## is 640 by 352, so nothing can land between two of them; where each
 ## station's fittings stand, and how lit they are for whoever is standing at
-## one; the depths themselves, drawn once or drawn again as they move; and the
-## handful of shapes everything is made of.
+## one; the depths themselves, drawn once or drawn again as they move; what
+## hangs in the room on a line and swings on it; and the handful of shapes
+## everything is made of.
 ##
 ## It is scenery, and only that. It reads where the stations stand, whether the
 ## player is at one and whether the gate would open, and changes nothing; with
@@ -64,6 +65,12 @@ var ink_shut := Style.HIDEOUT_SIGN_SHUT
 ## are drawn again REDRAWS times a second.
 var _still: Array[Layer] = []
 var _moving: Array[Layer] = []
+## What hangs in the room and is drawn again as often as what moves is: see
+## `hung`.
+var _hung: Array[Layer] = []
+## The cords hung in the room for a light to swing on, in the order they were
+## hung: see `cord`.
+var cords: Array[Rope] = []
 var _t := 0.0
 ## How long until what moves is next drawn.
 var _due := 0.0
@@ -120,6 +127,45 @@ func moving(paint: Callable) -> Layer:
 	_moving.append(l)
 	return l
 
+## Something that hangs in the room and swings — a lantern on the end of its
+## cord — and is neither kind of depth: it is carried by what it hangs on
+## (`Rope.attach`), so it is drawn about its own origin, which is the pixel it
+## hangs by, and is never slid. Drawn once, since being carried draws nothing
+## again; or with `again`, as often as what moves is — a flame flickers
+## wherever it has swung to.
+func hung(paint: Callable, again: bool = false) -> Layer:
+	var l := Layer.new()
+	l.paint = paint
+	add_child(l)
+	if again:
+		_hung.append(l)
+	return l
+
+## A cord hung in the room from the pixel `at`, `drop` pixels long, for a
+## light to swing on: a `Rope` of the kind `cord`, which is one length, taut
+## under what rides it (`ride`). In `colour`, a look's own for what its lights
+## hang on — a chain's iron, a strap's leather — or the kind's with none
+## given. It hangs from the middle of that pixel: in that column, and not on
+## the line between two.
+func cord(at: Vector2i, drop: int, colour: Color = Color(0, 0, 0, 0)) -> Rope:
+	var rope := Rope.of("cord")
+	if colour.a > 0.0:
+		rope.color = colour
+	var length := float(drop * S)
+	rope.hang((Vector2(at) + Vector2(0.5, 0.5)) * S, length,
+		length / float(maxi(1, roundi(length / rope.segment))))
+	add_child(rope)
+	cords.append(rope)
+	return rope
+
+## `what` — something `hung` — put on the end of the cord `on`, to swing with
+## it. With a `body`, the room it takes up from the pixel it hangs by, it is
+## something to walk into: a body going through it sets it swinging, and so
+## does an attack.
+func ride(on: Rope, what: Layer, body: Rect2i = Rect2i()) -> void:
+	on.attach(what, on.nodes.size() - 1, Vector2.ZERO,
+		Rect2(Vector2(body.position) * S, Vector2(body.size) * S))
+
 func _process(delta: float) -> void:
 	_t += delta
 	if world != null and is_instance_valid(world):
@@ -133,6 +179,8 @@ func _process(delta: float) -> void:
 	if _due <= 0.0:
 		_due = maxf(_due + 1.0 / REDRAWS, 0.0)
 		for l in _moving:
+			l.queue_redraw()
+		for l in _hung:
 			l.queue_redraw()
 
 ## Whether there is a player in the room to move the depths for.

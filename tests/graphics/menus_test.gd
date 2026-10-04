@@ -81,8 +81,9 @@ func _ready() -> void:
 	var pause := Menus.items("pause")
 	var exits: Array = pause.filter(func(i: Dictionary) -> bool: return bool(i["exit"]))
 	var doors: Array = pause.filter(func(i: Dictionary) -> bool: return i.has("opens"))
-	check(exits.size() == 4 and String(exits[0]["id"]) == "resume" and doors.size() == 2,
-		"PAUSED is two doors and four ways out, BACK TO GAME first among them")
+	check(String(pause[0]["id"]) == "resume" and not bool(pause[0]["exit"])
+			and exits.size() == 3 and doors.size() == 2,
+		"PAUSED is BACK TO GAME on top, two doors, and three ways out at its foot")
 	check(Menus.text_for("pause", "general") == Menus.name_for("general")
 			and Menus.name_for("general") == "GENERAL SETTINGS"
 			and Menus.text_for("settings", "general") == Menus.name_for("general"),
@@ -129,7 +130,8 @@ func _ready() -> void:
 	Loc.set_language(was)
 	var src := Menus.source("pause")
 	check(String(src.get("name", "")) == "PAUSED" and (src["items"] as Array).size() == 6
-			and not (src["items"][0] as Dictionary).has("text"),
+			and (src["items"] as Array).any(func(it: Dictionary) -> bool:
+				return it.get("id", "") == "general" and not it.has("text")),
 		"the source is the rows as written: the English, and no text on a door")
 
 	# --- what the schema refuses ----------------------------------------------

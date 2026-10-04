@@ -37,7 +37,7 @@ extends RefCounted
 ##
 ## Pure data, like the board it reads. Nothing here draws.
 
-const VERSION := 2
+const VERSION := 3
 
 ## No `0`, and in this order for good: a character's place in this string is its
 ## value, so reordering it would change every code ever written down.
@@ -67,8 +67,12 @@ const ALPHABET := "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
 ## Version 1, written while a root could not move, has no root field: its root
 ## is whatever stands at `SkillBoard.ROOT`, which is where every root stood
 ## then. One from before the OUTPUT was retired is put where its flow used to
-## end, the way a save from then is (`SkillBoard.slide_onto_way_out`). Codes
-## are written in version 2, and both read.
+## end, the way a save from then is (`SkillBoard.slide_onto_way_out`).
+## Versions 1 and 2 were both written while SWIFT STRIKE and EXPLODE covered
+## two cells each, and each of those is moved on into the cell it let its flow
+## out of, the way a save's is (`SkillBoard.shrink_two_cell_parts`). Version 3
+## is laid out exactly as version 2, every part a cell. Codes are written in
+## version 3, and all three read.
 const VER_BITS := 3
 const SIDE_BITS := 4
 const COUNT_BITS := 7
@@ -214,14 +218,15 @@ static func decode(code: String) -> Dictionary:
 	var count := r.take(COUNT_BITS)
 	if not r.ok:
 		return _fail(TRUNCATED)
-	if ver != VERSION and ver != 1:
+	if ver < 1 or ver > VERSION:
 		return _fail(WRONG_VERSION, [ver, VERSION])
 	var root_index := r.take(COUNT_BITS) if ver >= 2 else -1
 	if not r.ok:
 		return _fail(TRUNCATED)
 
 	var board := SkillBoard.new(w, h, name_for(c))
-	# Version 2 says which part its root is, and a board with none has none.
+	# From version 2 on a code says which part its root is, and a board with
+	# none has none.
 	if ver >= 2:
 		board.root = Vector2i(-1, -1)
 	var outputs: Array = []
@@ -263,6 +268,8 @@ static func decode(code: String) -> Dictionary:
 	# zeros — characters stuck on the end show up as something else.
 	if not r.rest_is_padding():
 		return _fail(MISTYPED)
+	if ver < 3:
+		board.shrink_two_cell_parts()
 	board.slide_onto_way_out(outputs)
 	return {"board": board, "error": "", "args": []}
 

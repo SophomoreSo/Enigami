@@ -747,6 +747,10 @@ static func region_tint(region: int) -> Color:
 ## plug on its end. A kind with no look here hangs in a cable's.
 const ROPE_LOOK := {
 	"cable": {"line": Color(0.52, 0.44, 0.34), "end": Color(0.78, 0.68, 0.50)},
+	# Hemp, in the shade: what the grove's lanterns hang on, and any light a
+	# look of the hideout hangs without a colour of its own for it. Something
+	# always rides the end of one, so its plug is never drawn.
+	"cord": {"line": Color(0.468, 0.416, 0.299), "end": Color(0.468, 0.416, 0.299)},
 }
 
 static func rope_look(kind: String) -> Dictionary:

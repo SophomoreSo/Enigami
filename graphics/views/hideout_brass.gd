@@ -64,8 +64,11 @@ const ROOMS := [
 	Vector2i(5, 1), Vector2i(6, 1), Vector2i(1, 3), Vector2i(5, 3), Vector2i(2, 4), Vector2i(6, 0),
 ]
 ## The lamps hung in the arches, by where each hangs and how far down, and the
-## station each is over.
+## station each is over. Each hangs on a chain of its own (`_hang_lamps`).
 const LAMPS := [[141, 60, 26, "weapons"], [331, 60, 26, "shop"]]
+## The room a lamp takes up, from the pixel it hangs by: what has to go through
+## it to set it swinging.
+const LAMP_BODY := Rect2i(-4, 0, 9, 14)
 ## Where the steam gets out: the place, and how long between one breath of it
 ## and the next.
 const LEAKS := [[396, PIPE - 6, 5.0], [468, PIPE + 12, 3.4], [112, PIPE - 6, 7.0]]
@@ -165,6 +168,7 @@ func _build() -> void:
 	_near = still(_paint_near)
 	_drift = moving(_paint_drift)
 	_room = still(_paint_room)
+	_hang_lamps()
 	_room_life = moving(_paint_room_life)
 	_fittings = still(_paint_fittings)
 	_life = moving(_paint_life)
@@ -505,6 +509,28 @@ func _paint_arches(c: CanvasItem) -> void:
 		box(c, mid - 4, FRIEZE, 8, 5, BRASS_LIT)
 		box(c, mid - 3, FRIEZE + 5, 6, 2, BRASS)
 		box(c, mid - 4, FRIEZE, 8, 1, CREAM)
+
+## The lamps in the arches, each hung from its arch's boss on a chain of its
+## own (`cord`) with the lamp riding the end, so it swings when something goes
+## through it — a bolt, a blade: they hang over anybody's head.
+func _hang_lamps() -> void:
+	for lamp: Array in LAMPS:
+		ride(cord(Vector2i(lamp[0], lamp[1]), lamp[2], UMBER),
+			hung(_paint_lamp.bind(String(lamp[3])), true), LAMP_BODY)
+
+## A lamp on the end of its chain, about the pixel it hangs by: lit when the
+## `station` under it would answer.
+func _paint_lamp(c: CanvasItem, station: String) -> void:
+	var on := float(_lit.get(station, 0.0))
+	box(c, -3, 0, 7, 2, BRASS_DARK)
+	box(c, -4, 2, 9, 9, UMBER)
+	box(c, -3, 3, 7, 7, CREAM.darkened(0.25).lerp(LAMP, on))
+	box(c, -3, 3, 2, 7, CREAM.darkened(0.1).lerp(Color.WHITE, on))
+	box(c, 0, 3, 1, 7, UMBER)
+	box(c, -2, 11, 5, 1, BRASS_DARK)
+	box(c, 0, 12, 1, 2, BRASS_DARK)
+	if on > 0.0:
+		halo(c, -3, 3, 7, 7, LAMP, 4, 0.10 * on)
 
 ## A wheel's body: a round of metal with a darker ring let into it.
 func _wheel(c: CanvasItem, cx: int, cy: int, r: int, metal: Color, dark: Color) -> void:
@@ -1040,8 +1066,8 @@ func _hand(c: CanvasItem, cx: int, cy: int, a: float, long: float, col: Color) -
 	line(c, cx, cy, cx + int(round(sin(a) * long)), cy - int(round(cos(a) * long)), col)
 
 ## What the terrace does by itself: the clock and its wheels, the weight
-## swinging, the lamps on the board, the steam, the glass on the pipe, the
-## sun on the window, and the lamps hung in the arches.
+## swinging, the lamps on the board, the steam, the glass on the pipe, and the
+## sun on the window. The lamps hung in the arches are on their chains.
 func _paint_room_life(c: CanvasItem) -> void:
 	# The clock keeps a quicker time than most: its long hand goes round in a
 	# minute.
@@ -1081,21 +1107,6 @@ func _paint_room_life(c: CanvasItem) -> void:
 		var gy := 124 + int(glint * 2.0 * 76.0)
 		box(c, LEFT + 9, gy, 12, 1, faded(Color.WHITE, 0.55))
 		box(c, LEFT + 11, gy + 2, 8, 1, faded(Color.WHITE, 0.3))
-	# The lamps in the arches: lit when the station under each would answer.
-	for lamp in LAMPS:
-		var lx: int = lamp[0]
-		var ly: int = int(lamp[1]) + int(lamp[2])
-		var on := float(_lit.get(String(lamp[3]), 0.0))
-		box(c, lx, lamp[1], 1, lamp[2], UMBER)
-		box(c, lx - 3, ly, 7, 2, BRASS_DARK)
-		box(c, lx - 4, ly + 2, 9, 9, UMBER)
-		box(c, lx - 3, ly + 3, 7, 7, CREAM.darkened(0.25).lerp(LAMP, on))
-		box(c, lx - 3, ly + 3, 2, 7, CREAM.darkened(0.1).lerp(Color.WHITE, on))
-		box(c, lx, ly + 3, 1, 7, UMBER)
-		box(c, lx - 2, ly + 11, 5, 1, BRASS_DARK)
-		box(c, lx, ly + 12, 1, 2, BRASS_DARK)
-		if on > 0.0:
-			halo(c, lx - 3, ly + 3, 7, 7, LAMP, 4, 0.10 * on)
 
 ## The board of lamps: every room of the way through lit, and one of them
 ## brighter as the way is followed — or all of them red, when there is no way.

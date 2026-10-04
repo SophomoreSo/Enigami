@@ -22,6 +22,13 @@ extends HideoutScenery
 ## stations' signs hang from.
 const BEAM := 40
 const LEDGE := 224
+## The ring of candles over the gate: how far under the beam its chain ends,
+## and the room the ring takes up from there — what has to go through it to
+## set it swinging.
+const CANDLES_DROP := 10
+const CANDLES_BODY := Rect2i(-23, 0, 47, 14)
+## The same for the lantern at the stall, from the pixel it hangs by.
+const STALL_LANTERN_BODY := Rect2i(-2, 0, 5, 9)
 ## The windows, by their middles: how wide each is, where its sill is, where
 ## its arch starts to close and how far above that it comes to its point.
 const WINDOWS := [96, 224, 352]
@@ -166,8 +173,10 @@ func _build() -> void:
 	_near = still(_paint_near)
 	_out = moving(_paint_out)
 	_wall = still(_paint_wall)
+	_hang_candles()
 	_wall_life = moving(_paint_wall_life)
 	_fittings = still(_paint_fittings)
+	_hang_stall_lantern()
 	_life = moving(_paint_life)
 
 ## What is out of the windows slides a little as the player walks the room,
@@ -632,20 +641,7 @@ func _paint_bay(c: CanvasItem) -> void:
 	box(c, 595, 110, 2, 17, GOLD)
 	box(c, 588, 117, 17, 2, GOLD)
 	disc(c, 596, 118, 2, GOLD.lightened(0.2))
-	# The ring of candles, on its chains. Their flames are `_paint_wall_life`'s.
-	var g: Vector2i = _at["gate"]
-	box(c, g.x, BEAM, 1, 10, IRON_LIT.lightened(0.1))
-	line(c, g.x, 50, g.x - 18, 60, IRON_LIT.lightened(0.1))
-	line(c, g.x, 50, g.x + 18, 60, IRON_LIT.lightened(0.1))
-	box(c, g.x - 22, 61, 45, 3, IRON_LIT.darkened(0.25))
-	box(c, g.x - 22, 61, 45, 1, IRON_LIT.lightened(0.15))
-	box(c, g.x - 23, 58, 1, 5, IRON_LIT)
-	box(c, g.x + 23, 58, 1, 5, IRON_LIT)
-	for k in 5:
-		box(c, g.x - 20 + k * 9, 60, 4, 1, IRON_LIT.lightened(0.15))
-	for k in 5:
-		box(c, g.x - 19 + k * 9, 56, 2, 5, CREAM)
-		box(c, g.x - 19 + k * 9, 56, 1, 5, CREAM.lightened(0.15))
+	# The ring of candles overhead is on its chain: `_hang_candles`.
 	# A chest of whatever came back from the last time.
 	box(c, 456, FLOOR - 13, 24, 13, TIMBER)
 	box(c, 455, FLOOR - 18, 26, 6, TIMBER_LIT.darkened(0.15))
@@ -654,6 +650,79 @@ func _paint_bay(c: CanvasItem) -> void:
 		box(c, band, FLOOR - 18, 2, 18, IRON_LIT.darkened(0.3))
 	box(c, 466, FLOOR - 13, 3, 4, GOLD)
 	box(c, 456, FLOOR - 1, 24, 1, TIMBER_DARK)
+
+## The ring of candles over the gate, hung from the beam on a chain of its own
+## (`cord`) with the ring riding the end of it — its two chains, its iron and
+## its candles drawn once, then what they throw on the wall and on the iron,
+## and their flames again as they flicker — so all of it swings together when
+## something goes through it. It hangs over anybody's head: what reaches it is
+## a bolt, or a blade.
+func _hang_candles() -> void:
+	var g: Vector2i = _at["gate"]
+	var chain := cord(Vector2i(g.x, BEAM), CANDLES_DROP, IRON_LIT.lightened(0.1))
+	ride(chain, hung(_paint_candle_ring), CANDLES_BODY)
+	ride(chain, hung(_paint_candlelight))
+	ride(chain, hung(_paint_candle_flames, true))
+
+## The ring itself, about the pixel its chain ends on: two chains down to it,
+## the iron, a cup for each candle and the candles.
+func _paint_candle_ring(c: CanvasItem) -> void:
+	line(c, 0, 0, -18, 10, IRON_LIT.lightened(0.1))
+	line(c, 0, 0, 18, 10, IRON_LIT.lightened(0.1))
+	box(c, -22, 11, 45, 3, IRON_LIT.darkened(0.25))
+	box(c, -22, 11, 45, 1, IRON_LIT.lightened(0.15))
+	box(c, -23, 8, 1, 5, IRON_LIT)
+	box(c, 23, 8, 1, 5, IRON_LIT)
+	for k in 5:
+		box(c, -20 + k * 9, 10, 4, 1, IRON_LIT.lightened(0.15))
+	for k in 5:
+		box(c, -19 + k * 9, 6, 2, 5, CREAM)
+		box(c, -19 + k * 9, 6, 1, 5, CREAM.lightened(0.15))
+
+## What the candles throw on whatever is behind them, and on their own iron,
+## about the same pixel: it rides the chain with the ring, so it is drawn once
+## and goes where the ring swings.
+func _paint_candlelight(c: CanvasItem) -> void:
+	disc(c, 0, 6, 30, faded(FIRE, 0.04))
+	disc(c, 0, 6, 18, faded(FIRE, 0.05))
+
+## The candles' flames, about the same pixel: each out of step with the rest.
+func _paint_candle_flames(c: CanvasItem) -> void:
+	for k in 5:
+		var f := flicker(_t, 20 + k * 5)
+		var cx := -19 + k * 9
+		box(c, cx, 4 - int(f * 2.0), 2, 2 + int(f * 2.0), FLAME_MID)
+		box(c, cx, 4, 1, 2, FLAME_CORE)
+		box(c, cx - 2, -1, 6, 8, faded(FIRE, 0.06 * f))
+
+## The lantern at the stall, on its hook: hung on a link of its own (`cord`)
+## once the stall is drawn, so it hangs in front of it, where somebody jumping
+## at the counter goes through it. Its iron is drawn once and its flame again,
+## brighter for somebody the counter would answer.
+func _hang_stall_lantern() -> void:
+	var at: Vector2i = _at["shop"]
+	var link := cord(Vector2i(at.x + 27, at.y - 60), 5, IRON_LIT)
+	ride(link, hung(_paint_stall_lantern), STALL_LANTERN_BODY)
+	ride(link, hung(_paint_stall_flame, true))
+
+## The lantern's iron, about the pixel it hangs by.
+func _paint_stall_lantern(c: CanvasItem) -> void:
+	box(c, -2, 0, 5, 1, IRON_LIT)
+	box(c, -2, 8, 5, 1, IRON_LIT)
+	box(c, -2, 1, 1, 7, IRON)
+	box(c, 2, 1, 1, 7, IRON)
+
+## How bright the stall's lantern burns: brighter for somebody standing at the
+## counter, and never still.
+func _stall_light() -> float:
+	return (0.6 + 0.4 * float(_lit.get("shop", 0.0))) * flicker(_t, 60)
+
+## The flame in it, about the same pixel.
+func _paint_stall_flame(c: CanvasItem) -> void:
+	var on := _stall_light()
+	box(c, -1, 1, 3, 7, FLAME_OUT.lerp(FLAME_MID, on))
+	box(c, 0, 3, 1, 4, FLAME_CORE)
+	halo(c, -2, 0, 5, 9, FIRE, 5, 0.09 * on)
 
 ## The piers, floor to ceiling, each with its capital, its foot, and the iron
 ## its torch stands in. The fire is `_paint_wall_life`'s.
@@ -682,17 +751,15 @@ func _paint_piers(c: CanvasItem) -> void:
 		box(c, x - 1, TORCH, 2, 8, TIMBER_LIT)
 		box(c, x - 2, TORCH - 2, 4, 4, Color(0.20, 0.14, 0.10))
 
-## What the fires throw on the stone round them, as it lies when they are
-## steady. How it comes and goes is `_paint_wall_life`'s.
+## What the torches throw on the stone round them, as it lies when they are
+## steady. How it comes and goes is `_paint_wall_life`'s, and what the candles
+## over the gate throw goes with their ring: `_paint_candlelight`.
 func _paint_firelight(c: CanvasItem) -> void:
 	for x: int in TORCHES:
 		glow(c, x, TORCH - 4, 34, faded(FIRE, 0.06))
 		glow(c, x, TORCH - 4, 25, faded(FIRE, 0.07))
 		glow(c, x, TORCH - 4, 15, faded(FIRE, 0.09))
 		glow(c, x, TORCH - 4, 7, faded(FIRE, 0.10))
-	var g: Vector2i = _at["gate"]
-	glow(c, g.x, 56, 30, faded(FIRE, 0.04))
-	glow(c, g.x, 56, 18, faded(FIRE, 0.05))
 
 ## The floor: flagstones, with the fires' light on their edge under each, and
 ## a rug laid in front of the stall and another before the gate.
@@ -884,12 +951,7 @@ func _paint_stall(c: CanvasItem, at: Vector2i) -> void:
 	box(c, at.x - 9, y - 18, 18, 1, GOLD.darkened(0.15))
 	disc(c, at.x, y - 11, 3, GOLD)
 	box(c, at.x, y - 13, 1, 5, GOLD.darkened(0.35))
-	# The lantern's iron, on its hook.
-	box(c, x + 59, y - 60, 1, 5, IRON_LIT)
-	box(c, x + 57, y - 55, 5, 1, IRON_LIT)
-	box(c, x + 57, y - 47, 5, 1, IRON_LIT)
-	box(c, x + 57, y - 54, 1, 7, IRON)
-	box(c, x + 61, y - 54, 1, 7, IRON)
+	# The lantern is on its hook: `_hang_stall_lantern`.
 	# A barrel, and a sack.
 	box(c, x - 22, y - 18, 14, 18, TIMBER)
 	box(c, x - 22, y - 18, 14, 1, TIMBER_LIT)
@@ -1005,8 +1067,8 @@ func _sparks(c: CanvasItem, x: int, y: int, salt: int) -> void:
 			faded(FLAME_MID, 1.0 - up))
 
 ## The wall's own lights, behind whatever stands against it: the torches, the
-## candles over the gate, the dust in the moonlight, and the way through the
-## map.
+## dust in the moonlight, and the way through the map. The candles over the
+## gate are on their chain.
 func _paint_wall_life(c: CanvasItem) -> void:
 	for i in TORCHES.size():
 		var x: int = TORCHES[i]
@@ -1021,13 +1083,6 @@ func _paint_wall_life(c: CanvasItem) -> void:
 		box(c, from, TORCH - 26, x + 14 - from, 44, faded(FIRE, a))
 		from = maxi(x - 9, LEFT)
 		box(c, from, TORCH - 13, x + 9 - from, 18, faded(FIRE, a))
-	var g: Vector2i = _at["gate"]
-	for k in 5:
-		var f := flicker(_t, 20 + k * 5)
-		var cx := g.x - 19 + k * 9
-		box(c, cx, 54 - int(f * 2.0), 2, 2 + int(f * 2.0), FLAME_MID)
-		box(c, cx, 54, 1, 2, FLAME_CORE)
-		box(c, cx - 2, 49, 6, 8, faded(FIRE, 0.06 * f))
 	# The dust, drifting down the moon's light.
 	for m in _motes:
 		var cx: int = WINDOWS[m["pane"]]
@@ -1127,12 +1182,9 @@ func _life_stall(c: CanvasItem, at: Vector2i, lit: float) -> void:
 	else:
 		box(c, hx + 4 + eyes, hy + 7, 2, 2, eye)
 		box(c, hx + 8 + eyes, hy + 7, 2, 2, eye)
-	# The lantern, brighter for somebody standing at the counter.
-	var f := flicker(_t, 60)
-	var on := (0.6 + 0.4 * lit) * f
-	box(c, x + 58, y - 54, 3, 7, FLAME_OUT.lerp(FLAME_MID, on))
-	box(c, x + 59, y - 52, 1, 4, FLAME_CORE)
-	halo(c, x + 57, y - 55, 5, 9, FIRE, 5, 0.09 * on)
+	# What the lantern throws on the stall, brighter for somebody standing at
+	# the counter. The lantern itself is on its hook.
+	var on := _stall_light()
 	box(c, x - 2, y - 58, 68, 1, faded(FIRE, 0.22 * on))
 	for k in 3:
 		box(c, x + 28 + k * 4, y - 57 + k * 4, 38 - k * 4, 4, faded(FIRE, 0.045 * on * (1.0 - k / 3.0)))

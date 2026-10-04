@@ -20,6 +20,12 @@ extends Node
 ## read: the same city every time, with its signs clear of the posts between
 ## the panes however far their depth slides, its lights on, and the rain on it.
 ##
+## And what a look hangs — the grove's lanterns, the lamps in the brass
+## terrace's arches, the keep's ring of candles and the lantern at its stall —
+## hangs on a cord of its own (`Rope`): riding the end of it where it was
+## painted, no depth of the picture and never slid; swung aside by a body
+## going through it, and hanging still again afterwards.
+##
 ## Needs a real renderer: what shows is read off the frame.
 
 const GameScript := preload("res://app/game.gd")
@@ -149,10 +155,98 @@ func _ready() -> void:
 			_same_city()
 			await _the_city_slides()
 			await _the_city_shows()
+		await _hangs()
 
 	HideoutThemes.pick(HideoutThemes.DEFAULT, false)
 	print("[SCENERY] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)
+
+## --- what hangs ---------------------------------------------------------------
+
+## How far the end of the look's cord `i` is from `rest`, a pixel of the
+## buffer, in pixels.
+func _swung(i: int, rest: Vector2) -> Vector2:
+	var cord: Rope = scenery.cords[i]
+	return cord.point_of(cord.nodes.size() - 1) / S - rest
+
+## Where each thing the look hangs was painted, by the pixel it hangs by, in
+## the order the look hangs them — for as many of them as say so themselves.
+func _painted() -> Array:
+	var out: Array = []
+	if scenery is HideoutGrove:
+		for lantern: Array in HideoutGrove.LANTERNS:
+			out.append(Vector2i(lantern[0], int(lantern[1]) + int(lantern[2])))
+	elif scenery is HideoutBrass:
+		for lamp: Array in HideoutBrass.LAMPS:
+			out.append(Vector2i(lamp[0], int(lamp[1]) + int(lamp[2])))
+	elif scenery is HideoutKeep:
+		out.append(Vector2i(int(scenery._at["gate"].x), HideoutKeep.BEAM + HideoutKeep.CANDLES_DROP))
+	return out
+
+func _hangs() -> void:
+	var hangs_some: bool = scenery is HideoutGrove or scenery is HideoutBrass or scenery is HideoutKeep
+	check(scenery.cords.is_empty() != hangs_some,
+		"%s (%d cords)" % ["it hangs its lights on cords" if hangs_some else "nothing hangs in it", scenery.cords.size()])
+	if scenery.cords.is_empty():
+		return
+	stand(480.0)
+	await wait(0.5)
+	# Each a cord with something riding the end of it, where the end of a cable
+	# has its plug.
+	var bare: Array = []
+	for i in scenery.cords.size():
+		var cord: Rope = scenery.cords[i]
+		if cord.kind != "cord" or not cord.ridden(cord.nodes.size() - 1) or not cord.plugged().is_empty():
+			bare.append(i)
+	check(bare.is_empty(), "each a cord with what hangs on it riding its end (%s)" % str(bare))
+	# Where it was painted: the air leans on a long cord, a pixel either way and
+	# no further, and lifts nothing.
+	var painted := _painted()
+	var out_of_place: Array = []
+	for i in painted.size():
+		var off := _swung(i, Vector2(painted[i]) + Vector2(0.5, 0.5)) if i < scenery.cords.size() else Vector2.INF
+		if absf(off.x) > 1.6 or absf(off.y) > 0.1:
+			out_of_place.append("%d: %s" % [i, str(off)])
+	check(painted.size() <= scenery.cords.size() and out_of_place.is_empty(),
+		"hanging where it was painted (%d of them, out of place: %s)" % [painted.size(), str(out_of_place)])
+	var depths_too := false
+	for l: HideoutScenery.Layer in scenery._hung:
+		if depths().has(l):
+			depths_too = true
+	check(not scenery._hung.is_empty() and not depths_too,
+		"and what hangs is no depth of the picture: carried by its cord, and never slid (%d drawn again as they swing)"
+			% scenery._hung.size())
+	# A body through the first of them and the last: put in what rides the
+	# cord, going sideways, the way somebody jumping through it would be. It
+	# swings, and hangs still again.
+	var unmoved: Array = []
+	var unsettled: Array = []
+	var tried: Array = [0]
+	if scenery.cords.size() > 1:
+		tried.append(scenery.cords.size() - 1)
+	for i: int in tried:
+		var cord: Rope = scenery.cords[i]
+		var rest := cord.point_of(cord.nodes.size() - 1) / S
+		var rider: Node2D = cord._riders[0]["node"]
+		world.player.global_position = rider.global_position + Vector2(-10.0, 12.0)
+		world.player.velocity = Vector2(150.0, 0.0)
+		var furthest := 0.0
+		var t := 0.0
+		while t < 0.6:
+			await get_tree().physics_frame
+			t += 1.0 / 60.0
+			furthest = maxf(furthest, _swung(i, rest).length())
+		if furthest < 1.0:
+			unmoved.append("%d: %.1f" % [i, furthest])
+		stand(480.0)
+		if not await settle(func() -> bool: return _swung(i, rest).length() < 1.6, 6.0):
+			unsettled.append("%d: %s" % [i, str(_swung(i, rest))])
+	check(unmoved.is_empty(), "a body going through what hangs on a cord swings it aside (%s)" % str(unmoved))
+	check(unsettled.is_empty(), "and it comes to hang still again where it hung (%s)" % str(unsettled))
+	if scenery is HideoutGrove:
+		check(scenery.cords.size() == HideoutGrove.LANTERNS.size() + 2,
+			"the grove hangs every lantern, and the lamp at each of its two stations (%d cords for %d lanterns)"
+				% [scenery.cords.size(), HideoutGrove.LANTERNS.size()])
 
 ## --- putting it on ----------------------------------------------------------
 

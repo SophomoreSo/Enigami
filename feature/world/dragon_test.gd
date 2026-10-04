@@ -48,7 +48,7 @@ var _chain_cache: Dictionary = {}
 
 ## The board this room is built around, `dragon` in the content database
 ## (`data/db/boards/dragon_test.sql`): SWIFT STRIKE on the root, an ON HIT whose
-## branch walks three OVERCLOCKs back round into it, and AUTO-AIM on the way
+## branch walks two OVERCLOCKs back round into it, and AUTO-AIM on the way
 ## out. Every lap the cast has life for is one more lunge at the nearest guard
 ## still standing.
 static func dragon_board() -> SkillBoard:

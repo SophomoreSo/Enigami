@@ -161,11 +161,11 @@ func _ready() -> void:
 		{"x": 0, "y": 2, "part": "EXPLODE", "facing": "E", "root": 1},
 		{"x": 2, "y": 2, "part": "FIRE", "facing": "E"}]}
 	check(Boards.problems_in(base).is_empty(), "a sound board has no problems (%s)" % str(Boards.problems_in(base)))
-	check(_caught(base, {"x": 6, "y": 2, "part": "DASHSLASH", "facing": "E"}, "does not fit"),
-		"a two-cell part hanging off the grid is caught")
+	check(_caught(base, {"x": 7, "y": 2, "part": "DASHSLASH", "facing": "E"}, "does not fit"),
+		"a part off the grid is caught")
 	check(_caught(base, {"x": 2, "y": 1, "part": "SLASH", "facing": "S"}, "does not fit") == false
-			and _caught(base, {"x": 1, "y": 2, "part": "SLASH", "facing": "E"}, "does not fit"),
-		"a part on the cell another part covers is caught, and one beside it is not")
+			and _caught(base, {"x": 2, "y": 2, "part": "SLASH", "facing": "E"}, "does not fit"),
+		"a part on the cell another part stands in is caught, and one beside it is not")
 	var unrooted := {"id": "u", "width": 7, "height": 5, "parts": [
 		{"x": 1, "y": 2, "part": "SLASH", "facing": "E"},
 		{"x": 2, "y": 2, "part": "FIRE", "facing": "E"}]}

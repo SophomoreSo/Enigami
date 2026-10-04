@@ -45,16 +45,17 @@ INSERT INTO menu_items (menu_id, id, position, text, exit) VALUES
 	('general',  'back', 0, 'BACK', 1),
 	('controls', 'back', 0, 'BACK', 1);
 
--- PAUSED: the same two doors, and the ways out gathered at the foot in the
--- order of what they cost — back into the game, out to the title, and last
--- the one that forfeits a raid. Which of the three ways to the title is
--- shown is the shell's: MAIN MENU everywhere but a raid, where leaving parks
--- the run, and ABANDON RAID beside it. Those two ask first, and the question
--- is what says what each costs.
+-- PAUSED: BACK TO GAME on top, where the eye lands first, since it is what a
+-- pause is mostly left by; then the same two doors; and the ways out to the
+-- title gathered at the foot in the order of what they cost, the one that
+-- forfeits a raid last. Which of the three ways to the title is shown is the
+-- shell's: MAIN MENU everywhere but a raid, where leaving parks the run, and
+-- ABANDON RAID beside it. Those two ask first, and the question is what says
+-- what each costs.
 INSERT INTO menu_items (menu_id, id, position, text, opens, exit) VALUES
-	('pause', 'general',  0, NULL,                                            'general',  0),
-	('pause', 'controls', 1, NULL,                                            'controls', 0),
-	('pause', 'resume',   2, 'BACK TO GAME',                                  NULL,       1),
+	('pause', 'resume',   0, 'BACK TO GAME',                                  NULL,       0),
+	('pause', 'general',  1, NULL,                                            'general',  0),
+	('pause', 'controls', 2, NULL,                                            'controls', 0),
 	('pause', 'title',    3, 'MAIN MENU',                                     NULL,       1),
 	('pause', 'park',     4, 'MAIN MENU',                                     NULL,       1),
 	('pause', 'abandon',  5, 'ABANDON RAID',                                  NULL,       1);

@@ -12,12 +12,20 @@ extends Node
 ## cannot push it, and a bend is felt by the node before it; a line comes to
 ## rest whatever numbers it is given; a stiff wire sags less than a loose
 ## one, and not at all without gravity; a branch keeps its angle; a rider
-## follows its node; a body moving through the line hands it speed, and one
-## standing still or elsewhere hands it none — and a body through the end of
-## a cable swings all of it, from the anchor down. A room hangs what the
+## follows its node, on the pixel the node is drawn on, and is the end of its
+## line where a plug would be; a body moving through the line hands it speed,
+## and one standing still or elsewhere hands it none — and a body through the
+## end of a cable swings all of it, from the anchor down. A rider with a body
+## of its own is walked into where it is, shouldered aside by a body that
+## comes up under it, and never carried over what it hangs from; and a body
+## the game has stopped moves nothing. An attack that goes through a line
+## swings it as a body does: a bolt, however fast; a blast, outward as its
+## ring passes; and a lunge, a beam and a slash, for the moment after each is
+## made. A room hangs what the
 ## `hangings` rows say, as many and as long, from rock with open air under
-## them, the same ones every time it is built. And what the schema promises
-## to refuse is tried against a scratch copy.
+## them, the same ones every time it is built — and no cords, which are the
+## grove's to hang. And what the schema promises to refuse is tried against a
+## scratch copy.
 ##
 ## No renderer needed: the simulation is stepped by hand, and the pixels are
 ## asked for rather than drawn. The refusals print an `SQL error` line each
@@ -50,6 +58,7 @@ func _ready() -> void:
 	_stiff()
 	_branch_and_rider()
 	_movers()
+	_cut_through()
 	_rooms()
 	_refusals()
 	print("[ROPE] ---- %d failures ----" % fails)
@@ -83,6 +92,19 @@ func _table() -> void:
 	var rows := Rope.hangings()
 	check(rows.size() >= 1 and String(rows[0].get("rope", "")) == "cable",
 		"the rooms hang cables (%s)" % str(rows))
+	# A cord: what a lantern hangs on. One length however long it is, and not
+	# for any room to hang.
+	var cord_row := Rope.source("cord")
+	var cord := Rope.of("cord")
+	check(kinds.has("cord") and cord.kind == "cord" and cord.give == float(cord_row.get("give", -1))
+			and cord.push_most == float(cord_row.get("push_most", -1)),
+		"a cord is a kind of line too, made with its own row's numbers (%s)" % str(cord_row))
+	cord.hang(Vector2.ZERO, 168.0, 168.0 / float(maxi(1, roundi(168.0 / cord.segment))))
+	check(cord.nodes.size() == 2 and cord.point_of(1).is_equal_approx(Vector2(0, 168)),
+		"and the longest the grove hangs is one length, top to bottom (%d nodes)" % cord.nodes.size())
+	check(not rows.any(func(r: Dictionary) -> bool: return String(r.get("rope", "")) == "cord"),
+		"which no room hangs")
+	cord.free()
 	cable.free()
 	plain.free()
 	none.free()
@@ -331,13 +353,23 @@ func _branch_and_rider() -> void:
 	var lamp := Node2D.new()
 	add_child(lamp)
 	rope.attach(lamp, 2, Vector2(0, 4))
-	check(lamp.global_position.is_equal_approx(Vector2(0, 36)),
+	# To the corner of the pixel its node is drawn on, so a lamp is never a
+	# pixel off the end of its cable.
+	var on := Vector2(rope._pixel(rope.point_of(2))) * Rope.S
+	check(lamp.global_position.is_equal_approx(on + Vector2(0, 4))
+			and lamp.global_position.distance_to(Vector2(0, 36)) <= float(Rope.S),
 		"a rider is carried to its node the moment it is attached (%s)" % str(lamp.global_position))
 	rope.nudge(2, Vector2(300, 0))
 	rope.step(DT)
-	check(lamp.global_position.is_equal_approx(rope.point_of(2) + Vector2(0, 4)) and lamp.global_position.x > 1.0,
-		"and follows it as it moves (%s)" % str(lamp.global_position))
+	on = Vector2(rope._pixel(rope.point_of(2))) * Rope.S
+	check(lamp.global_position.is_equal_approx(on + Vector2(0, 4)) and lamp.global_position.x > 1.0
+			and lamp.global_position.distance_to(rope.point_of(2) + Vector2(0, 4)) < float(Rope.S) * 1.5,
+		"and follows it as it moves, on the pixel the node is drawn on (%s, the node at %s)"
+			% [str(lamp.global_position), str(rope.point_of(2))])
+	check(rope.ridden(2) and not rope.ridden(3) and rope.plugged().size() == 1 and rope.plugged()[0] == 3,
+		"and is the end of its line: the plug is drawn on the end nothing rides (%s)" % str(rope.plugged()))
 	lamp.free()
+	check(not rope.ridden(2) and rope.plugged().size() == 2, "a rider that is gone leaves the end its plug")
 	rope.free()
 
 ## --- bodies -----------------------------------------------------------------
@@ -428,11 +460,195 @@ func _movers() -> void:
 				if seg.y < 0.0 or absf(seg.length() - 16.0) > 0.01:
 					folded = true
 	check(not folded, "a body jumping up through the line and falling back down it folds no node over its parent")
+	_riders_walked_into(walker)
 	walker.free()
 	rope.free()
 	idle.free()
 	struck.free()
 	fallen.free()
+
+## A lantern on a cord: one length, hung at `at`, with a rider on its end that
+## takes up 14 by 24 under it.
+func _lantern_here(at: Vector2, drop: float) -> Rope:
+	var cord := Rope.of("cord")
+	add_child(cord)
+	cord.set_physics_process(false)
+	cord.hang(at, drop, drop)
+	var lamp := Node2D.new()
+	add_child(lamp)
+	cord.attach(lamp, 1, Vector2.ZERO, Rect2(-6, 0, 14, 24))
+	return cord
+
+## A rider with a body of its own is something to walk into.
+func _riders_walked_into(walker: Actor) -> void:
+	# Walked through below the end of its cord: the body covers the lantern
+	# and not the node it hangs by.
+	var hung := _lantern_here(Vector2(301, 101), 60.0)
+	walker.global_position = hung.point_of(1) + Vector2(-4, 12 + walker.body_size.y * 0.5 + Rope.PUSH_REACH)
+	walker.velocity = Vector2(250, 0)
+	var covers := Rect2(walker.global_position - walker.body_size * 0.5, walker.body_size).grow(Rope.PUSH_REACH)
+	hung.step(DT)
+	check(not covers.has_point(Vector2(301, 161)) and (hung.nodes[1]["vel"] as Vector2).x > 5.0,
+		"a body through a lantern moves the cord it hangs on, without touching the cord (%s)"
+			% str(hung.nodes[1]["vel"]))
+	check((hung.nodes[1]["vel"] as Vector2).length() <= hung.push_most + 0.5,
+		"by no more than the kind hands over (%.0f of %.0f)" % [(hung.nodes[1]["vel"] as Vector2).length(), hung.push_most])
+	# Coming straight up under it, a little to one side: along the cord, which
+	# neither stretches nor folds. The lantern is shouldered aside instead.
+	for side in [-1.0, 1.0]:
+		var under := _lantern_here(Vector2(301, 101), 60.0)
+		walker.global_position = under.point_of(1) + Vector2(-5.0 * side, 30.0)
+		walker.velocity = Vector2(0, -500)
+		under.step(DT)
+		check((under.nodes[1]["vel"] as Vector2).x * side > 5.0,
+			"a body coming up under a lantern, %s of its middle, shoulders it the other way (%s)"
+				% ["left" if side > 0.0 else "right", str(under.nodes[1]["vel"])])
+		(under._riders[0]["node"] as Node2D).free()
+		under.free()
+	check(Rope.glanced(Vector2(120, 0), Vector2(0, 60), Vector2(8, 0)) == Vector2(120, 0),
+		"a push across the line is handed on as it is")
+	# Carried along for as long as a body takes to walk through it, on the
+	# shortest cord there is: leaned out to the side, and never up over what it
+	# hangs from.
+	var short := _lantern_here(Vector2(301, 101), 10.0)
+	walker.global_position = short.point_of(1) + Vector2(-20, 12)
+	walker.velocity = Vector2(60, 0)
+	var highest := INF
+	var furthest := 0.0
+	for k in 60:
+		walker.global_position += walker.velocity * DT
+		short.step(DT)
+		highest = minf(highest, short.point_of(1).y)
+		furthest = maxf(furthest, short.point_of(1).x - 301.0)
+	check(furthest > 2.0 and highest > 101.0,
+		"a lantern on a short cord, walked through slowly, is leaned aside and never carried over what it hangs from (%.1f aside, %.1f under it at the highest)"
+			% [furthest, highest - 101.0])
+	# A body the game has stopped moves nothing, whatever speed it was stopped at.
+	var still := _lantern_here(Vector2(301, 101), 60.0)
+	walker.global_position = still.point_of(1) + Vector2(-4, 12)
+	walker.velocity = Vector2(250, 0)
+	walker.process_mode = Node.PROCESS_MODE_DISABLED
+	still.step(DT)
+	check(absf((still.nodes[1]["vel"] as Vector2).x) < 0.01, "a body the game has stopped moves nothing, whatever speed it was stopped at")
+	walker.process_mode = Node.PROCESS_MODE_INHERIT
+	for r: Rope in [hung, short, still]:
+		(r._riders[0]["node"] as Node2D).free()
+		r.free()
+
+## --- attacks ----------------------------------------------------------------
+
+## Whatever an attack puts in the air is in the world the arena holds, and a
+## line asks it for them as it asks the room for its bodies. None of these is
+## left to run: each is put where it is wanted and the line stepped by hand.
+func _cut_through() -> void:
+	var was_world: Node = Arena.current()
+	var world := Node2D.new()
+	add_child(world)
+	Arena.register(world)
+	var at := Vector2(300, 100)
+
+	# A bolt, through a node of a cable.
+	var rope := _hung_here(at)
+	var bolt := Projectile.new()
+	bolt.setup(Payload.new(), rope.point_of(3), Vector2.RIGHT, 0, null, null)
+	world.add_child(bolt)
+	bolt.set_physics_process(false)
+	bolt.set_process(false)
+	rope.step(DT)
+	check((rope.nodes[3]["vel"] as Vector2).x > 20.0 and absf((rope.nodes[1]["vel"] as Vector2).x) < 0.01,
+		"a bolt through the line hands the node it is on some of its speed, and none to one it is not (%s)"
+			% str(rope.nodes[3]["vel"]))
+	check((rope.nodes[3]["vel"] as Vector2).length() <= rope.push_most * rope.give + 0.5,
+		"and no more than a body would (%.0f)" % (rope.nodes[3]["vel"] as Vector2).length())
+	# One fast enough to be either side of the line in two steps running.
+	var fast := _hung_here(at)
+	bolt.global_position = fast.point_of(3) + Vector2(-200, 0)
+	fast.step(DT)
+	check(absf((fast.nodes[3]["vel"] as Vector2).x) < 0.01, "a bolt that has not got there yet moves nothing")
+	bolt.global_position = fast.point_of(3) + Vector2(200, 0)
+	fast.step(DT)
+	check((fast.nodes[3]["vel"] as Vector2).x > 20.0,
+		"one that was this side of the line a step ago and is the far side of it now went through it (%s)"
+			% str(fast.nodes[3]["vel"]))
+	# Stopped with the game, it is not moving.
+	var paused := _hung_here(at)
+	bolt.global_position = paused.point_of(3)
+	bolt.process_mode = Node.PROCESS_MODE_DISABLED
+	paused.step(DT)
+	check(absf((paused.nodes[3]["vel"] as Vector2).x) < 0.01, "a bolt the game has stopped moves nothing")
+	bolt.free()
+
+	# A lunge, down the path it cut: for the moment after it is made.
+	var lunged := _hung_here(at)
+	var lunge := DashSlash.new()
+	lunge.setup(Payload.new(), lunged.point_of(3) + Vector2(-80, 0), lunged.point_of(3) + Vector2(80, 0), 0, null, null)
+	world.add_child(lunge)
+	lunge.set_process(false)
+	lunged.step(DT)
+	check((lunged.nodes[3]["vel"] as Vector2).x > 20.0,
+		"a lunge through the line swings it the way the lunge went (%s)" % str(lunged.nodes[3]["vel"]))
+	var late := _hung_here(at)
+	lunge.life = lunge.max_life - Rope.CUT_FOR - 0.02
+	late.step(DT)
+	check(absf((late.nodes[3]["vel"] as Vector2).x) < 0.01,
+		"and only for the moment after it is made: its picture hanging in the air moves nothing")
+	lunge.free()
+
+	# A beam, down its length; and a slash, across what it swept.
+	var zapped := _hung_here(at)
+	var beam := Zap.new()
+	beam.setup(Payload.new(), zapped.point_of(3) + Vector2(-90, 0), zapped.point_of(3) + Vector2(90, 0), 0, null, null)
+	world.add_child(beam)
+	beam.set_process(false)
+	zapped.step(DT)
+	check((zapped.nodes[3]["vel"] as Vector2).x > 20.0, "a beam through the line swings it down the beam (%s)" % str(zapped.nodes[3]["vel"]))
+	beam.free()
+	# What hangs below a push is drawn after it in the same step, so what was
+	# not reached is asked of a node above.
+	var slashed := _hung_here(at)
+	var slash := MeleeArc.new()
+	slash.setup(Payload.new(), Vector2.RIGHT, 0, null, null)
+	slash.position = slashed.point_of(5) + Vector2(-30, 0)
+	world.add_child(slash)
+	slash.set_process(false)
+	slashed.step(DT)
+	check((slashed.nodes[5]["vel"] as Vector2).x > 20.0 and absf((slashed.nodes[1]["vel"] as Vector2).x) < 0.01,
+		"a slash across the line swings what it swept, the way it was aimed, and not what it did not reach (%s, %s)"
+			% [str(slashed.nodes[5]["vel"]), str(slashed.nodes[1]["vel"])])
+	slash.free()
+
+	# A blast: a ring opening from its middle, pushing outward as it passes.
+	var blown := _hung_here(at)
+	var blast := AreaBurst.new()
+	blast.setup(Payload.new(), blown.point_of(5) + Vector2(-60, 0), 0, null, null)
+	world.add_child(blast)
+	blast.set_process(false)
+	blast.life = blast.max_life * (1.0 - 60.0 / blast.radius)
+	blown.step(DT)
+	check((blown.nodes[5]["vel"] as Vector2).x > 5.0 and absf((blown.nodes[1]["vel"] as Vector2).x) < 0.01,
+		"a blast pushes what its ring is on outward, and not what the ring has not reached (%s, %s)"
+			% [str(blown.nodes[5]["vel"]), str(blown.nodes[1]["vel"])])
+	blast.free()
+
+	# And what rides a line is cut at where it is: a bolt through a lantern,
+	# under the end of its cord.
+	var hung := _lantern_here(Vector2(301, 101), 60.0)
+	var shot := Projectile.new()
+	shot.setup(Payload.new(), hung.point_of(1) + Vector2(-2, 14), Vector2.RIGHT, 0, null, null)
+	world.add_child(shot)
+	shot.set_physics_process(false)
+	shot.set_process(false)
+	hung.step(DT)
+	check((hung.nodes[1]["vel"] as Vector2).x > 5.0,
+		"a bolt through a lantern swings the cord it hangs on (%s)" % str(hung.nodes[1]["vel"]))
+	shot.free()
+
+	for r: Rope in [rope, fast, paused, lunged, late, zapped, slashed, blown]:
+		r.free()
+	(hung._riders[0]["node"] as Node2D).free()
+	hung.free()
+	Arena.register(was_world)
+	world.free()
 
 ## --- a room -----------------------------------------------------------------
 

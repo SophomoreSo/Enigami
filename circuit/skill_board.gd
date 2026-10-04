@@ -32,6 +32,14 @@ signal changed()
 ## `BoardCode.decode`).
 const ROOT := Vector2i(0, 2)
 
+## How a board is written down (`serialize`). A save that says none was written
+## while SWIFT STRIKE and EXPLODE covered two cells each, and is read back the
+## way `shrink_two_cell_parts` says.
+const VERSION := 2
+
+## The parts that covered two cells until every part came to cover one.
+const ONCE_TWO_CELLS := ["DASHSLASH", "EXPLODE"]
+
 var width: int = 7
 var height: int = 5
 var skill_name: String = "Skill"
@@ -234,6 +242,35 @@ func slide_onto_way_out(outputs: Array) -> void:
 			if not in_bounds(c):
 				return
 	_shift(by)
+
+## A board from before every part covered one cell, its flow joined up again.
+## A SWIFT STRIKE or an EXPLODE stood across two cells then: the one it is filed
+## under, where its flow came in, and the next one along the way it faces,
+## where its flow went out. It reads back covering the first alone, with the
+## cell its flow left by empty and nothing carrying the flow over it — so it
+## is moved on into that cell. Whatever it handed its flow to, it hands it to
+## still, and the build in front of a sword's root goes on from it as it did;
+## anything that fed it runs into the cell it left, which is where to mend it.
+func shrink_two_cell_parts() -> void:
+	var moves: Array = []
+	for origin in cells:
+		var entry: Dictionary = cells[origin]
+		if not ONCE_TWO_CELLS.has(String(entry["id"])):
+			continue
+		var facing := Components.rotate_dir(Components.E, int(entry["rot"]))
+		var ahead: Vector2i = origin + Components.dir_to_vec(facing)
+		if in_bounds(ahead) and not occupancy.has(ahead):
+			moves.append([origin, ahead])
+	for move in moves:
+		var origin: Vector2i = move[0]
+		var ahead: Vector2i = move[1]
+		var id := String(cells[origin]["id"])
+		var rot := int(cells[origin]["rot"])
+		if origin == root:
+			move_root(ahead, rot)
+		elif can_place(id, ahead, rot):
+			_erase_origin(origin)
+			place(id, ahead, rot)
 
 ## --- placing ----------------------------------------------------------------
 
@@ -500,13 +537,18 @@ func serialize() -> Dictionary:
 	var out: Array = []
 	for c in cells:
 		out.append({"x": c.x, "y": c.y, "id": cells[c]["id"], "rot": cells[c]["rot"]})
-	return {"w": width, "h": height, "name": skill_name, "root": [root.x, root.y], "cells": out}
+	return {"version": VERSION, "w": width, "h": height, "name": skill_name,
+		"root": [root.x, root.y], "cells": out}
 
 ## Reads a board back out of a save. A part the game no longer has — a WIRE, a
 ## BEND, an INPUT, an OUTPUT — is left out, and its cell left empty; a board
 ## that had an OUTPUT is then put where its flow used to end
 ## (`slide_onto_way_out`). A save from before a root could move wrote none
-## down, and its root is where every root stood then: `ROOT`.
+## down, and its root is where every root stood then: `ROOT`. One from before
+## every part covered one cell wrote no `version` down either, and has its
+## SWIFT STRIKEs and EXPLODEs moved on into the cells they let their flow out
+## of (`shrink_two_cell_parts`) before its OUTPUT is looked for — the flow that
+## fed one came out of those cells.
 static func deserialize(d: Dictionary) -> SkillBoard:
 	var b := SkillBoard.new(int(d.get("w", 7)), int(d.get("h", 5)), String(d.get("name", "Skill")))
 	var at: Array = d.get("root", [])
@@ -521,6 +563,8 @@ static func deserialize(d: Dictionary) -> SkillBoard:
 				outputs.append(cell)
 			continue
 		b.place(id, cell, int(e["rot"]))
+	if int(d.get("version", 1)) < 2:
+		b.shrink_two_cell_parts()
 	b.slide_onto_way_out(outputs)
 	return b
 
@@ -557,8 +601,9 @@ func fits(other: SkillBoard) -> bool:
 ## Where this board's root would stand to take `other` on, as [origin, rot]:
 ## where `other`'s own root hands its flow over, so the build goes on from this
 ## weapon's part the way it went on from its author's. The two need not be the
-## same size — a DASHSLASH is two cells, a PROJECTILE one — so it is the cells
-## they hand the flow over from that are put together, facing the same way.
+## same size — a part covers as many cells as its row in `parts` says — so it is
+## the cells they hand the flow over from that are put together, facing the
+## same way.
 ## With no root in `other`, or no room on the grid for this one there, it stays
 ## where it is. Empty on a board with no root of its own.
 func _root_spot(other: SkillBoard) -> Array:

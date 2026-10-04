@@ -52,7 +52,7 @@ godot res://tests/graphics/title_mobile_test.tscn # mobile mode's title: a row o
 godot res://tests/graphics/screen_fit_test.tscn # a phone- or tablet-shaped screen is filled to its edges
 godot res://tests/graphics/editor_pixel_test.tscn # every pixel of the assembly screen is on the grid
 godot res://tests/graphics/hideout_pixel_test.tscn # the hideout's pixel look, and everything on it fits
-godot res://tests/graphics/hideout_scenery_test.tscn # the hideout's scenery, in every look it has: where each stands, what lights it, that it stays in the room, and what a frame of it costs
+godot res://tests/graphics/hideout_scenery_test.tscn # the hideout's scenery, in every look it has: where each stands, what lights it, that it stays in the room, what a frame of it costs, and what a look hangs swinging on its cord
 godot res://tests/graphics/hideout_theme_test.tscn # HIDEOUT THEME, on the hideout's pause menu: the looks listed, the room dressed as one is pressed, and the pick kept
 godot res://tests/graphics/bench_pixel_test.tscn # the bench panel's pixel look and layout
 godot res://tests/circuit/code_test.tscn    # a board survives being written down as a code
@@ -60,7 +60,7 @@ godot res://tests/circuit/parts_test.tscn   # every part's rows fit, and the run
 godot res://tests/circuit/invert_test.tscn  # INVERT turns round the one part before it, by that part's opposites
 godot res://tests/feature/boards_test.tscn  # every board the game ships builds whole and gets all its flow out
 godot res://tests/graphics/menus_test.tscn  # every menu's rows name an act its screen has, in every language
-godot res://tests/graphics/rope_test.tscn   # a cable's line of nodes: hung, pushed, settled, and where a room hangs them
+godot res://tests/graphics/rope_test.tscn   # a cable's line of nodes: hung, pushed, settled, cut at, what rides one, and where a room hangs them
 godot res://tests/graphics/foliage_test.tscn # the grass, flowers and bushes a patch grows, its mask, and where a room grows them
 godot res://tests/graphics/velocity_test.tscn # the velocity buffer: what moving things push, how it springs back, and the foliage leaning for it
 godot res://tests/graphics/bolt_view_test.tscn # a bolt's trail: the gaps between its beads drawn in, and a laser's beam from the muzzle
@@ -404,13 +404,13 @@ stepping out, the monster lets it fall where it stands. A monster with its own
 mind never touches it. The pack has no stone, so the rock is drawn in code, a
 letter a pixel (`Style.DRAWN_TILES`).
 
-A board is a circuit. A pulse leaves the root, spends **one tick in every cell
-of every part** it enters, and mutates a payload on the way through — a part
-costs exactly the room it takes up, so a two-cell part like `EXPLODE` costs two
-ticks and everything else costs one. A flow goes from a part into the part
-beside it and no further: an empty cell carries nothing. The root is entered
-like any other part, so the weapon's own form is the first thing on the
-payload; a form placed after it makes the flow that instead.
+A board is a circuit. A pulse leaves the root, spends **one tick in every
+part** it enters, and mutates a payload on the way through — every part takes
+up one cell, and a part costs exactly the room it takes up, so time on a board
+is distance on it. A flow goes from a part into the part beside it and no
+further: an empty cell carries nothing. The root is entered like any other
+part, so the weapon's own form is the first thing on the payload; a form placed
+after it makes the flow that instead.
 
 Every board has **one way out**: the arrow on its frame in the middle of the
 right edge. A flow that leaves the board there is fired into the world as
@@ -681,6 +681,12 @@ root stood then.
 A renamed part keeps its number too. EXPLODE was called AREA, and a code or a
 save from then reads back with an EXPLODE wherever it had an AREA.
 
+Every part covers one cell. SWIFT STRIKE and EXPLODE covered two until they
+were made one, and let their flow out of the second: a code or a save from then
+reads back with each of them moved on into that cell, so whatever it fed, it
+feeds still, and the build in front of a sword's root goes on from it as it
+did. Whatever fed one runs into the cell it left, which is where to mend it.
+
 ## The dragon test
 
 Title → SANDBOX → **DRAGON TEST**. A four-storey tower with eight guards posted
@@ -688,15 +694,16 @@ across it, after the room in Katana ZERO where the Dragon tries out his dash:
 one cut kills a guard, and the whole building is inside one cast of the board
 the screen hands you.
 
-That board is `SWIFT STRIKE+` on the root with an `ON HIT` whose branch runs
-three `OVERCLOCK`s back round into it, so **every lap the cast has life for is
-one more lunge at the nearest guard still standing**. A tap is one lunge and one
-body; hold the cast button and the chain grows a link at a time — the read-out
-along the top counts what a release right now would reach, the mark on the
-charge bar is where that becomes all eight, and letting go there sends you
-through the whole tower in one line. Guards stand far enough apart that each
-lunge only carries the cut through its own, and the stairwells cut through the
-floors are where the jumps between storeys pass, so the chain climbs.
+That board is `SWIFT STRIKE` on the root with an `ON HIT` whose branch runs two
+`OVERCLOCK`s back round into it, and `AUTO-AIM` on the way out, so **every lap
+the cast has life for is one more lunge at the nearest guard still standing**.
+A tap is one lunge and one body; hold the cast button and the chain grows a
+link at a time — the read-out along the top counts what a release right now
+would reach, the mark on the charge bar is where that becomes all eight, and
+letting go there sends you through the whole tower in one line. Guards stand
+far enough apart that each lunge only carries the cut through its own, and the
+stairwells cut through the floors are where the jumps between storeys pass, so
+the chain climbs.
 
 `R` sets the floor again, `TAB` opens the board (parts are free), `ESC` goes
 back to the bench. Nothing is at stake and the floor resets itself once it is

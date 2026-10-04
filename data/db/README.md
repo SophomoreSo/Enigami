@@ -474,7 +474,7 @@ the save.
 INSERT INTO boards (id) VALUES ('arbiter_phase2');
 
 INSERT INTO board_parts (board_id, x, y, part, facing, root) VALUES
-	('arbiter_phase2', 2, 2, 'EXPLODE', 'E', 1), ('arbiter_phase2', 4, 2, 'ON_HIT', 'E', 0),
+	('arbiter_phase2', 3, 2, 'EXPLODE', 'E', 1), ('arbiter_phase2', 4, 2, 'ON_HIT', 'E', 0),
 	('arbiter_phase2', 5, 2, 'DELAY', 'E', 0), ('arbiter_phase2', 6, 2, 'DELAY', 'E', 0),
 	('arbiter_phase2', 4, 3, 'PROJECTILE', 'E', 0), ('arbiter_phase2', 5, 3, 'DUPLICATE', 'N', 0);
 ```
@@ -537,7 +537,7 @@ INSERT INTO menu_items (menu_id, id, position, text, opens, exit) VALUES
 | `menu_items.position` | The order the items are shown in. |
 | `menu_items.text` | What the item says. Leave it out for a door, which says the name of the menu it opens — so GENERAL SETTINGS is written once, as that menu's name, and every door to it says it. The build refuses one with neither. |
 | `menu_items.opens` | The menu it leads to. The screen knows which page each menu is, and a door to a menu it has no page for is reported, not guessed at. Written before the item, since a door with no text asks for the name as it goes in. |
-| `menu_items.exit` | 1: a way out of the menu — BACK, BACK TO GAME, MAIN MENU — which the screen gathers at the foot of the page, pinned, however long the rows above it grow. |
+| `menu_items.exit` | 1: a way out of the menu — BACK, MAIN MENU — which the screen gathers at the foot of the page, pinned, however long the rows above it grow. BACK TO GAME is left out of them on purpose: it heads PAUSED instead, where the eye lands first. |
 
 The two pages behind the settings, `general` and `controls`, are shown by
 the title and by PAUSED alike, from the same rows: each carries its own rows
@@ -555,11 +555,22 @@ a part's look is `Style`'s.
 
 The lines that hang in the rooms — cables today — are `Rope`
 (`graphics/rope.gd`): a line of nodes, hung from a point, swinging from it
-when somebody walks through any part of it, drawn pixel by pixel. A
+when somebody walks through any part of it — or an attack goes through it: a
+bolt, a blast, a lunge, a beam, a slash — drawn pixel by pixel. A
 **kind** of line is a row of `ropes`, the numbers the simulation shares
 along one, and what a room hangs of each kind is a row of `hangings`.
 Change a number in `ropes/ropes.sql` and rebuild, and every line of that
 kind moves that way.
+
+A kind with no row of `hangings` is one no room hangs, and whoever wants
+one hangs it. A `cord` is that: what a light hangs on in the hideout — the
+grove's lanterns, the lamps in the brass terrace's arches, the keep's ring
+of candles and the lantern at its stall — hung by the look that has it
+(`HideoutScenery.cord`), with the light riding its end (`Rope.attach`). So
+a lantern swings when somebody goes through it, or cuts at it, and what it
+throws on the wall goes with it. Its `segment` is longer than any cord,
+which makes each one length, taut under its light and swinging from the top
+as a pendulum does.
 
 ```sql
 INSERT INTO ropes (id, segment, stiffness, damping, gravity, give, push_most) VALUES
@@ -575,8 +586,8 @@ INSERT INTO hangings (rope, fewest, most, shortest, longest) VALUES
 | `ropes.stiffness` | How firmly the line keeps the angles it was hung with, per second: 0 is a free chain, 30 holds a bent line nearly rigid. A node's distance from its parent is kept outright whatever this says. What it holds hardest is the line's shape: a stiff cable stays straight and swings from its anchor all of a piece, and the stiffer it is the less far. |
 | `ropes.damping` | How fast a node's motion dies, per second. Lower swings longer. |
 | `ropes.gravity` | The pull on every free node, in pixels a second squared. Higher swings faster and hangs heavier — and a node carries the weight of everything under it, so the heavier the line, the less its top gives to a push at its end. |
-| `ropes.give` | The share of a passing body's speed a node takes, each frame the body covers it. The nodes it does not cover are drawn after those, up to the anchor. |
-| `ropes.push_most` | The most speed a body hands over, in pixels a second, however fast it goes. With `give`, how hard a dash swings a line. |
+| `ropes.give` | The share of a passing body's speed a node takes, each frame the body covers it — or covers what rides it, a lantern on its end. An attack going through hands its speed over the same way. The nodes it does not cover are drawn after those, up to the anchor. Low, a line is leaned on rather than carried off: at a quarter, a lantern is held out to the side of a body going through it for as long as the body is in it. |
+| `ropes.push_most` | The most speed a body hands over, in pixels a second, however fast it goes — and an attack: a bolt, a lunge and a blast as it leaves its middle hand over this much. With `give`, how hard a dash swings a line. |
 | `hangings.fewest` `most` | How many of the kind a room hangs. |
 | `hangings.shortest` `longest` | How long each is, in cells of the room's grid, to the nearest node. |
 

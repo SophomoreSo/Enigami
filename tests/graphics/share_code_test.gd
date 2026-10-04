@@ -105,8 +105,8 @@ func _ready() -> void:
 	var b: SkillBoard = ed.current_board()
 	for c in b.cells.keys().duplicate():
 		b.erase_at(c)
-	# A two-cell part and four facings, so the code carries more than a
-	# straight line of defaults — and the weapon's own root, which stays.
+	# Four facings, so the code carries more than a straight line of
+	# defaults — and the weapon's own root, which stays.
 	b.place("EXPLODE", Vector2i(1, 1), 0)
 	b.place("FIRE", Vector2i(3, 1), 1)
 	b.place("ICE", Vector2i(3, 2), 2)
