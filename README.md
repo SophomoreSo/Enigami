@@ -52,7 +52,7 @@ godot res://tests/graphics/title_mobile_test.tscn # mobile mode's title: a row o
 godot res://tests/graphics/screen_fit_test.tscn # a phone- or tablet-shaped screen is filled to its edges
 godot res://tests/graphics/editor_pixel_test.tscn # every pixel of the assembly screen is on the grid
 godot res://tests/graphics/hideout_pixel_test.tscn # the hideout's pixel look, and everything on it fits
-godot res://tests/graphics/hideout_scenery_test.tscn # the hideout's scenery, in every look it has: where each stands, what lights it, that it stays in the room, and what a frame of it costs
+godot res://tests/graphics/hideout_scenery_test.tscn # the hideout's scenery, in every look it has: where each stands, what lights it, that it stays in the room, what a frame of it costs, and what a look hangs swinging on its cord
 godot res://tests/graphics/hideout_theme_test.tscn # HIDEOUT THEME, on the hideout's pause menu: the looks listed, the room dressed as one is pressed, and the pick kept
 godot res://tests/graphics/bench_pixel_test.tscn # the bench panel's pixel look and layout
 godot res://tests/circuit/code_test.tscn    # a board survives being written down as a code
@@ -60,7 +60,7 @@ godot res://tests/circuit/parts_test.tscn   # every part's rows fit, and the run
 godot res://tests/circuit/invert_test.tscn  # INVERT turns round the one part before it, by that part's opposites
 godot res://tests/feature/boards_test.tscn  # every board the game ships builds whole and gets all its flow out
 godot res://tests/graphics/menus_test.tscn  # every menu's rows name an act its screen has, in every language
-godot res://tests/graphics/rope_test.tscn   # a cable's line of nodes: hung, pushed, settled, and where a room hangs them
+godot res://tests/graphics/rope_test.tscn   # a cable's line of nodes: hung, pushed, settled, cut at, what rides one, and where a room hangs them
 godot res://tests/graphics/foliage_test.tscn # the grass, flowers and bushes a patch grows, its mask, and where a room grows them
 godot res://tests/graphics/velocity_test.tscn # the velocity buffer: what moving things push, how it springs back, and the foliage leaning for it
 godot res://tests/graphics/bolt_view_test.tscn # a bolt's trail: the gaps between its beads drawn in, and a laser's beam from the muzzle

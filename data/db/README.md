@@ -555,11 +555,22 @@ a part's look is `Style`'s.
 
 The lines that hang in the rooms — cables today — are `Rope`
 (`graphics/rope.gd`): a line of nodes, hung from a point, swinging from it
-when somebody walks through any part of it, drawn pixel by pixel. A
+when somebody walks through any part of it — or an attack goes through it: a
+bolt, a blast, a lunge, a beam, a slash — drawn pixel by pixel. A
 **kind** of line is a row of `ropes`, the numbers the simulation shares
 along one, and what a room hangs of each kind is a row of `hangings`.
 Change a number in `ropes/ropes.sql` and rebuild, and every line of that
 kind moves that way.
+
+A kind with no row of `hangings` is one no room hangs, and whoever wants
+one hangs it. A `cord` is that: what a light hangs on in the hideout — the
+grove's lanterns, the lamps in the brass terrace's arches, the keep's ring
+of candles and the lantern at its stall — hung by the look that has it
+(`HideoutScenery.cord`), with the light riding its end (`Rope.attach`). So
+a lantern swings when somebody goes through it, or cuts at it, and what it
+throws on the wall goes with it. Its `segment` is longer than any cord,
+which makes each one length, taut under its light and swinging from the top
+as a pendulum does.
 
 ```sql
 INSERT INTO ropes (id, segment, stiffness, damping, gravity, give, push_most) VALUES
@@ -575,8 +586,8 @@ INSERT INTO hangings (rope, fewest, most, shortest, longest) VALUES
 | `ropes.stiffness` | How firmly the line keeps the angles it was hung with, per second: 0 is a free chain, 30 holds a bent line nearly rigid. A node's distance from its parent is kept outright whatever this says. What it holds hardest is the line's shape: a stiff cable stays straight and swings from its anchor all of a piece, and the stiffer it is the less far. |
 | `ropes.damping` | How fast a node's motion dies, per second. Lower swings longer. |
 | `ropes.gravity` | The pull on every free node, in pixels a second squared. Higher swings faster and hangs heavier — and a node carries the weight of everything under it, so the heavier the line, the less its top gives to a push at its end. |
-| `ropes.give` | The share of a passing body's speed a node takes, each frame the body covers it. The nodes it does not cover are drawn after those, up to the anchor. |
-| `ropes.push_most` | The most speed a body hands over, in pixels a second, however fast it goes. With `give`, how hard a dash swings a line. |
+| `ropes.give` | The share of a passing body's speed a node takes, each frame the body covers it — or covers what rides it, a lantern on its end. An attack going through hands its speed over the same way. The nodes it does not cover are drawn after those, up to the anchor. Low, a line is leaned on rather than carried off: at a quarter, a lantern is held out to the side of a body going through it for as long as the body is in it. |
+| `ropes.push_most` | The most speed a body hands over, in pixels a second, however fast it goes — and an attack: a bolt, a lunge and a blast as it leaves its middle hand over this much. With `give`, how hard a dash swings a line. |
 | `hangings.fewest` `most` | How many of the kind a room hangs. |
 | `hangings.shortest` `longest` | How long each is, in cells of the room's grid, to the nearest node. |
 

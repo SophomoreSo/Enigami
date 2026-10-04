@@ -5,10 +5,11 @@ extends HideoutScenery
 ## and the moon coming up through the trees. Three of its columns still stand,
 ## two of them with their lintel; past them it is forest, in the mist, with a
 ## fall of water in it somewhere. Lanterns hang from a rail lashed across the
-## place and from the branches over it, the fireflies are out, and what the
-## hideout needs has been set up among the roots: arms on a rack of forked
-## poles, a tent with somebody small and capped behind its plank, and the gate
-## as a ring of old stone under the biggest tree there is.
+## place and from the branches over it, each on a cord of its own and swinging
+## on it when somebody goes through one, or cuts at it; the fireflies are out,
+## and what the hideout needs has been set up among the roots: arms on a rack
+## of forked poles, a tent with somebody small and capped behind its plank,
+## and the gate as a ring of old stone under the biggest tree there is.
 ##
 ## One of the hideout's looks (`HideoutThemes`), on the ground they all stand
 ## on (`HideoutScenery`): everything is placed in pixels of the buffer the
@@ -53,7 +54,15 @@ const TRUNKS := [[46, 9, 262], [98, 7, 258], [186, 11, 264], [268, 8, 256], [316
 	[388, 10, 262], [452, 8, 258]]
 ## The lanterns: where each hangs from and how far down, in order along the
 ## room. The first three hang from the rail, the rest from what is overhead.
+## Each hangs on a cord of its own (`_hang_lanterns`).
 const LANTERNS := [[60, RAIL, 5], [224, RAIL, 5], [440, RAIL, 5], [196, 34, 62], [352, 66, 16], [430, 30, 84]]
+## The room a lantern takes up, from the pixel it hangs by: what a body has to
+## go through to set it swinging.
+const LANTERN_BODY := Rect2i(-3, 0, 7, 12)
+## How hard the air in the wood leans on a lantern, in pixels a second squared
+## at its strongest: enough to have one on a long cord drift a pixel either way
+## and back, and one on a short cord not at all.
+const BREEZE := 10.0
 ## The way through, on the standing stone: the rooms of it, on a grid.
 const ROOMS := [
 	Vector2i(0, 2), Vector2i(1, 2), Vector2i(1, 1), Vector2i(2, 1), Vector2i(2, 0), Vector2i(3, 0),
@@ -153,9 +162,50 @@ func _build() -> void:
 	_mist = moving(_paint_mist)
 	_mid = still(_paint_mid)
 	_room = still(_paint_room)
+	_hang_lanterns()
 	_room_life = moving(_paint_room_life)
 	_fittings = still(_paint_fittings)
 	_life = moving(_paint_life)
+	_hang_station_lamps()
+
+## The lanterns, each hung on a cord of its own (`cord`) where LANTERNS says,
+## with what it throws on the wood behind it and then the lantern itself
+## riding the end. So a lantern swings when somebody goes through it, and its
+## light goes with it. In three passes — the cords, the light, the lanterns —
+## so the light lies on the cords as it does on everything else behind a
+## lantern, and no lantern is under another's.
+func _hang_lanterns() -> void:
+	var strung: Array[Rope] = []
+	for lantern: Array in LANTERNS:
+		strung.append(cord(Vector2i(lantern[0], lantern[1]), lantern[2]))
+	for each in strung:
+		ride(each, hung(_paint_lamplight))
+	for i in strung.size():
+		ride(strung[i], hung(_paint_lamp.bind(_salt(i), ""), true), LANTERN_BODY)
+
+## The lamps at the stations — on the rack's pole, and under the tent's ridge —
+## each on a cord of its own like the lanterns overhead, where somebody
+## jumping at the station goes through it. Hung last, so they hang in front of
+## what they hang from and of whoever keeps the tent; and brighter for
+## somebody the station would answer.
+func _hang_station_lamps() -> void:
+	var rack: Vector2i = _at["weapons"]
+	var tent: Vector2i = _at["shop"]
+	for lamp in [[Vector2i(rack.x - 30, rack.y - 43), 51, "weapons"], [Vector2i(tent.x + 8, tent.y - 46), 67, "shop"]]:
+		ride(cord(lamp[0], 3), hung(_paint_lamp.bind(lamp[1], lamp[2]), true), LANTERN_BODY)
+
+## What puts lantern `i` out of step with the rest: its flame, and the air on
+## it.
+static func _salt(i: int) -> int:
+	return 3 + i * 7
+
+## The air is never quite still in a wood: it leans on every lantern a little,
+## each out of step with the rest, the way they swung when they were painted.
+## One on a cord as short as a station's lamp has does not feel it.
+func _physics_process(delta: float) -> void:
+	for i in cords.size():
+		cords[i].nudge(cords[i].nodes.size() - 1,
+			Vector2(sin(_t * 0.9 + float(_salt(i)) * 1.3) * BREEZE * delta, 0.0))
 
 ## The wood slides a little as the player walks the room, the nearer trees
 ## further than the far ones and the sky not at all: whole pixels of the
@@ -313,7 +363,6 @@ func _paint_room(c: CanvasItem) -> void:
 	_paint_canopy(c)
 	_paint_stone(c)
 	_paint_rail(c)
-	_paint_lamplight(c)
 	_paint_ground(c)
 
 ## What stands among the roots.
@@ -527,8 +576,8 @@ func _paint_stone(c: CanvasItem) -> void:
 	box(c, x + 6, 147, 9, 2, MOSS_LIT.darkened(0.15))
 
 ## The rail: a long pole, lashed to the trees and the columns, with what has
-## started to grow along it. The lanterns' cords hang from here and from
-## overhead; the lanterns themselves are `_paint_room_life`'s.
+## started to grow along it. Three of the lanterns hang from here, and the
+## rest from overhead: each on a cord of its own (`_hang_lanterns`).
 func _paint_rail(c: CanvasItem) -> void:
 	box(c, LEFT + 18, RAIL - 3, RIGHT - LEFT - 26, 3, WOOD)
 	box(c, LEFT + 18, RAIL - 3, RIGHT - LEFT - 26, 1, WOOD_LIT)
@@ -543,17 +592,19 @@ func _paint_rail(c: CanvasItem) -> void:
 	for x in range(LEFT + 24, RIGHT - 14, 6):
 		if _odd(x, 81) % 4 == 0:
 			box(c, x, RAIL - 5, 3, 2, MOSS if _odd(x, 82) % 2 == 0 else LEAF.lightened(0.1))
-	for lantern in LANTERNS:
-		box(c, lantern[0], lantern[1], 1, lantern[2], ROPE.darkened(0.35))
 
-## What the lanterns throw on whatever is behind them, as it lies when they
-## hang still.
+## What a lantern throws on whatever is behind it, about the pixel the lantern
+## hangs by: it rides the cord with the lantern, so it is drawn once and goes
+## where the lantern swings.
 func _paint_lamplight(c: CanvasItem) -> void:
-	for lantern in LANTERNS:
-		var y: int = int(lantern[1]) + int(lantern[2]) + 5
-		glow(c, lantern[0], y, 26, faded(LAMP, 0.04))
-		glow(c, lantern[0], y, 17, faded(LAMP, 0.055))
-		glow(c, lantern[0], y, 9, faded(LAMP, 0.07))
+	disc(c, 0, 5, 26, faded(LAMP, 0.04))
+	disc(c, 0, 5, 17, faded(LAMP, 0.055))
+	disc(c, 0, 5, 9, faded(LAMP, 0.07))
+
+## A lantern on the end of its cord, about the pixel it hangs by: brighter for
+## somebody its `station` would answer, if it is at one.
+func _paint_lamp(c: CanvasItem, salt: int, station: String) -> void:
+	_lantern(c, 0, 0, salt, float(_lit.get(station, 0.0)))
 
 ## The ground: earth, with moss along the top of it, stones in it, and the big
 ## tree's roots running through.
@@ -651,9 +702,8 @@ func _paint_arms(c: CanvasItem, at: Vector2i) -> void:
 	box(c, x + 40, y - 18, 1, 13, WOOD_DARK)
 	box(c, x + 36, y - 12, 9, 1, WOOD_DARK)
 	disc(c, x + 40, y - 12, 2, STEEL)
-	# The little lamp on the pole.
+	# The arm on the pole its lamp hangs from: `_hang_station_lamps`.
 	box(c, x - 6, y - 44, 6, 1, WOOD_DARK)
-	box(c, x - 6, y - 43, 1, 3, ROPE.darkened(0.35))
 
 ## The tent: striped canvas on a ridge pole, the plank across two barrels that
 ## does for a counter, what is for sale hung up and set out, a basket of apples,
@@ -807,12 +857,11 @@ func _flame(c: CanvasItem, x: int, y: int, tall: int, f: float, salt: int) -> vo
 	@warning_ignore("integer_division")
 	box(c, x, y - h * 4 / 10, 1, h * 4 / 10, FLAME_CORE)
 
-## A lantern, hung at (x, y) by its top: paper round a flame, swinging a
-## little, and brighter by `more`.
+## A lantern, hung at (x, y) by its top: paper round a flame, and brighter by
+## `more`. It hangs still: what swings it is the cord it is on.
 func _lantern(c: CanvasItem, x: int, y: int, salt: int, more: float = 0.0) -> void:
 	var f := flicker(_t, salt)
-	var swing := int(round(sin(_t * 0.9 + float(salt) * 1.3) * 0.9))
-	var lx := x - 3 + swing
+	var lx := x - 3
 	box(c, lx + 1, y, 5, 1, WOOD_DARK)
 	box(c, lx, y + 1, 7, 8, LAMP.darkened(0.25 - 0.2 * f))
 	box(c, lx + 1, y + 2, 5, 6, LAMP.lerp(Color.WHITE, 0.15 + 0.25 * f))
@@ -821,13 +870,10 @@ func _lantern(c: CanvasItem, x: int, y: int, salt: int, more: float = 0.0) -> vo
 	box(c, lx + 3, y + 10, 1, 2, CAP)
 	halo(c, lx, y + 1, 7, 8, LAMP, 5, (0.05 + 0.05 * more) * f)
 
-## What the place does by itself: the lanterns, the fireflies, a leaf coming
-## down, what glows on the bark and on the log, the owl, and the way through
-## the stone.
+## What the place does by itself: the fireflies, a leaf coming down, what
+## glows on the bark and on the log, the owl, and the way through the stone.
+## The lanterns are on their cords.
 func _paint_room_life(c: CanvasItem) -> void:
-	for i in LANTERNS.size():
-		var lantern: Array = LANTERNS[i]
-		_lantern(c, lantern[0], int(lantern[1]) + int(lantern[2]), 3 + i * 7)
 	for fly in _flies:
 		var on := sin(_t * 1.3 + float(fly["c"]))
 		if on <= 0.0:
@@ -900,8 +946,6 @@ func _glint(c: CanvasItem, x: int, y: int, on: float) -> void:
 func _life_arms(c: CanvasItem, at: Vector2i, lit: float) -> void:
 	var x := at.x - 24
 	var y := at.y
-	# The lamp on the pole, up for somebody standing here.
-	_lantern(c, x - 6, y - 40, 51, lit)
 	# What is in the fork of the staff.
 	var pulse := 0.6 + 0.4 * sin(_t * 2.3)
 	halo(c, x + 35, y - 51, 3, 3, SHROOM, 3, 0.10 * pulse * (0.6 + 0.4 * lit))
@@ -944,8 +988,6 @@ func _life_tent(c: CanvasItem, at: Vector2i, lit: float) -> void:
 		box(c, hx + 9 + eyes, hy + bob + 10, 2, 2, Color(0.10, 0.08, 0.08))
 	box(c, hx + 4, hy + bob + 13, 1, 1, CAP.lightened(0.25))
 	box(c, hx + 11, hy + bob + 13, 1, 1, CAP.lightened(0.25))
-	# The lantern under the ridge, up for somebody at the plank.
-	_lantern(c, x + 40, y - 43, 67, lit)
 	if lit > 0.0:
 		box(c, x - 3, y - 22, 70, 1, faded(ink_lit, lit))
 	# The fire, and the kettle coming to the boil over it.
