@@ -110,7 +110,6 @@ func _ready() -> void:
 	layer.add_child(hud)
 
 	world.panel_changed.connect(_on_panel_changed)
-	world.noticed.connect(func(text: String) -> void: hud.show_toast(text))
 	HideoutThemes.watch(_on_look_picked)
 	set_process(true)
 

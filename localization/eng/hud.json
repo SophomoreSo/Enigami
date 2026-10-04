@@ -100,24 +100,11 @@
 		"keys": "R RESET  TAB EDIT  %s LEAVE MONSTER  ESC BACK",
 		"board": "Psychic Throw"
 	},
-	"pickup": "Recovered %s — assemble it with TAB",
 	"exit": {
 		"sign": "EXIT",
 		"entry": "ENTRY GATE",
 		"arbiter": "ARBITER GATE",
 		"toll": "TOLL GATE",
 		"crack": "CRACK IN THE WALL"
-	},
-	"toast": {
-		"deployed": "Deployed. Hold %s at an exit to leave with what you carry.",
-		"resumed": "Back where you left off. The raid kept going without you.",
-		"followed": "Something followed you in here.",
-		"boss_down": "The Arbiter is down. Its gate is open.",
-		"scrap": "+%d gold",
-		"kit_waiting": "Your kit is still down here, where you fell. The map has the room.",
-		"kit_back": "You have it back — %d things. Now walk them out.",
-		"box": "Treasure box: %s",
-		"box_empty": "The box is empty.",
-		"dug": "Dug up: %s"
 	}
 }

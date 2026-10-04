@@ -285,9 +285,9 @@ func _check_keys_exist() -> void:
 ## way anybody finds out is by reading a Korean screen and seeing a line of
 ## English on it. These are the calls that carry a line to the player, so a
 ## quoted string opening one of them is always a line that was missed.
-const MESSAGE_SINKS := ["noticed.emit", "show_toast", "_notify", "_say", "note",
+const MESSAGE_SINKS := ["_notify", "_say", "note",
 	"_share.note", "_banner =", "prompt =", "txt =",
-	"toast =", "_message =", "hint ="]
+	"_message =", "hint ="]
 
 ## The same, for the calls that draw a line somewhere rather than hand it to a
 ## screen. They all take the place first, so what is looked for is a quoted

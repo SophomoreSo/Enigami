@@ -9,13 +9,6 @@ extends World
 ## and signals below.
 
 signal finished(result: String, payload: Dictionary)
-## Something worth saying once, in passing: loot picked up, a boss down.
-signal noticed(text: String)
-## The player is in: on a fresh deploy, or back where their kit fell
-## (`kit_waiting`). A fact rather than a line, because the line names the key
-## that extracts, and which key that is — after a rebind, or on a phone, where
-## it is a button on the console — is the picture's to know.
-signal deployed(kit_waiting: bool)
 ## The assembly overlay opened or closed. The raid keeps running either way.
 signal editing_changed(on: bool)
 ## The map opened or closed. The raid keeps running either way, as above.
@@ -51,7 +44,7 @@ func _ready() -> void:
 	# in the room the map says it is in rather than in whatever the save last
 	# wrote there. Collecting it clears it from both at once, so this can never
 	# put a kit back that has already been picked up.
-	var waiting := _place_lost_kit()
+	_place_lost_kit()
 
 	player = Player.new()
 	player.collision_layer = 2
@@ -74,7 +67,6 @@ func _ready() -> void:
 
 	if parked.is_empty():
 		_enter_room(map.entry, -1)
-		deployed.emit(waiting)
 		return
 	# Back into the room it was left in, standing where it was left standing.
 	# `_enter_room` puts the player on the room's own spawn point, which is the
@@ -85,10 +77,9 @@ func _ready() -> void:
 		player.global_position = Vector2(float(at[0]), float(at[1]))
 		player.velocity = Vector2.ZERO
 	player.health = clampf(float(parked.get("health", player.health)), 1.0, player.max_health)
-	noticed.emit(Loc.t("hud.toast.resumed"))
 
-## Puts a previous death's drop into the room it was left in, and says whether
-## it did. The map is that same map — the deployment reused the seed that built
+## Puts a previous death's drop into the room it was left in. The map is that
+## same map — the deployment reused the seed that built
 ## it — so the room is there, in the same place, with the same way in. What is
 ## written is the room's own record, which is what `Room.build` reads its
 ## contents out of.
@@ -96,18 +87,17 @@ func _ready() -> void:
 ## A drop from another map is left where it is rather than moved here: it
 ## belongs to a floor the player can still go back to, and dragging it onto
 ## this one would quietly turn a recovery run into a free delivery.
-func _place_lost_kit() -> bool:
+func _place_lost_kit() -> void:
 	var kit: Dictionary = GameState.lost_kit
 	if kit.is_empty() or int(kit.get("seed", 0)) != map.seed_base:
-		return false
+		return
 	var c: Array = kit.get("room", [])
 	if c.size() != 2:
-		return false
+		return
 	var coord := Vector2i(int(c[0]), int(c[1]))
 	if not map.has_room(coord):
-		return false
+		return
 	(map.get_record(coord) as Dictionary)["lost_kit"] = kit.duplicate(true)
-	return true
 
 ## The thrown weapons lying in this map's rooms, by the records the rooms keep:
 ## the rock, if a run put down left it on a floor somewhere.
@@ -188,8 +178,8 @@ func _update_wandering() -> void:
 		_relocate(e, target, Room.arrival_point(RaidMap.opposite(dir)))
 
 ## Whatever was chasing the player and is still at their heels when they go
-## through a doorway or a gate comes through after them. Returns how many did.
-func _carry_followers(target: Vector2i, dir: int) -> int:
+## through a doorway or a gate comes through after them.
+func _carry_followers(target: Vector2i, dir: int) -> void:
 	var door: Vector2 = room.way_point(dir)
 	var chasing: Array = []
 	for c in room.get_children():
@@ -209,7 +199,6 @@ func _carry_followers(target: Vector2i, dir: int) -> int:
 		into = Vector2(ARRIVAL_SPACING, 0.0)
 	for i in chasing.size():
 		_relocate(chasing[i], target, at + into * float(i + 1))
-	return chasing.size()
 
 ## Whether a monster is one that could walk into another room at all. A boss
 ## holds its arena: its gate stays sealed until it falls, and one that wandered
@@ -256,13 +245,12 @@ func _update_prompt() -> void:
 
 ## --- rooms ------------------------------------------------------------------
 func _enter_room(coord: Vector2i, from_dir: int) -> void:
-	var followed := 0
 	if room != null:
 		# What the room has become is written back before it is torn down, so
 		# walking back in finds the room that was left rather than a fresh one.
 		room.save_state()
 		if from_dir >= 0:
-			followed = _carry_followers(coord, from_dir)
+			_carry_followers(coord, from_dir)
 		# Nothing in the room being left gets another turn. A monster's board is
 		# mid-cycle when the door is crossed, and a node that has been freed
 		# still runs out the frame it was freed in — and the raid processes
@@ -288,7 +276,6 @@ func _enter_room(coord: Vector2i, from_dir: int) -> void:
 	room.lost_kit_collected.connect(_on_lost_kit)
 	room.box_opened.connect(_on_box_opened)
 	room.spot_dug.connect(_on_spot_dug)
-	room.enemy_killed.connect(_on_enemy_killed)
 	room.extraction_progress.connect(_on_extract_progress)
 	room.extraction_done.connect(_on_extract_done)
 	room.gate_entered.connect(_take_gate)
@@ -305,8 +292,6 @@ func _enter_room(coord: Vector2i, from_dir: int) -> void:
 			c.room = room
 	_pending_dir = -1
 	room_changed.emit(room)
-	if followed > 0:
-		noticed.emit(Loc.t("hud.toast.followed"))
 
 func _travel(dir: int) -> void:
 	var target: Vector2i = room.coord + RaidMap.dir_delta(dir)
@@ -327,57 +312,34 @@ func _take_gate(dir: int) -> void:
 func _on_pickup(p: Pickup) -> void:
 	if p.scrap_amount > 0:
 		GameState.raid_scrap += p.scrap_amount
-		noticed.emit(Loc.t("hud.toast.scrap", [p.scrap_amount]))
 	else:
 		GameState.add_component(p.component_id, 1, GameState.raid_bag)
-		noticed.emit(Loc.t("hud.pickup", [Components.name_for(p.component_id)]))
 
 ## A treasure box, opened. Everything in it goes into the run at once, like a
-## pickup but all together, and the raid says what came out in one line.
+## pickup but all together.
 func _on_box_opened(_box: TreasureBox, items: Array) -> void:
-	var names := _take_haul(items)
-	if names.is_empty():
-		noticed.emit(Loc.t("hud.toast.box_empty"))
-	else:
-		noticed.emit(Loc.t("hud.toast.box", [", ".join(names)]))
+	_take_haul(items)
 
 ## Ground dug up with the shovel: what was buried goes into the run the way a
 ## box's does.
 func _on_spot_dug(_spot: DigSpot, items: Array) -> void:
-	var names := _take_haul(items)
-	if not names.is_empty():
-		noticed.emit(Loc.t("hud.toast.dug", [", ".join(names)]))
+	_take_haul(items)
 
 ## Loot records, `{"id": ...}` or `{"scrap": ...}`, into the run's bag and
-## purse. What came out, in words, for the line that says so.
-func _take_haul(items: Array) -> Array:
-	var scrap := 0
-	var names: Array = []
+## purse.
+func _take_haul(items: Array) -> void:
 	for l in items:
 		if l.has("scrap"):
-			scrap += int(l["scrap"])
+			GameState.raid_scrap += int(l["scrap"])
 		else:
 			# The record can be out of a raid parked before one of its parts was renamed.
-			var id := Components.current_id(String(l["id"]))
-			GameState.add_component(id, 1, GameState.raid_bag)
-			names.append(Components.name_for(id))
-	GameState.raid_scrap += scrap
-	if scrap > 0:
-		names.append(Loc.t("hud.toast.scrap", [scrap]))
-	return names
+			GameState.add_component(Components.current_id(String(l["id"])), 1, GameState.raid_bag)
 
 ## The drop, picked back up. What was in it goes into the run rather than
 ## straight home — a recovered kit is being carried, and it still has to be
-## walked out — so the raid says so and leaves the rest to the exit.
-func _on_lost_kit(k: LostKit) -> void:
-	var kit := GameState.recover_lost_kit()
-	if kit.is_empty():
-		return
-	noticed.emit(Loc.t("hud.toast.kit_back", [k.size()]))
-
-func _on_enemy_killed(kind: String, _pos: Vector2) -> void:
-	if Monsters.get_def(kind).get("boss", false):
-		noticed.emit(Loc.t("hud.toast.boss_down"))
+## walked out — and the rest is left to the exit.
+func _on_lost_kit(_k: LostKit) -> void:
+	GameState.recover_lost_kit()
 
 func _on_extract_progress(ratio: float, _info: Dictionary) -> void:
 	extract_ratio = ratio
