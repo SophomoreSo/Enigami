@@ -45,9 +45,6 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 			# thing it struck.
 			Fx.shake(2.0)
 			Fx.burst(d.get("to", pos), Style.element_color(d.get("payload")), 5, 90.0)
-		&"blink":
-			Fx.burst(d.get("from", pos), Style.BLINK_TRAIL, 10, 160.0)
-			Fx.burst(d.get("to", pos), Style.BLINK_TRAIL, 10, 160.0)
 		&"death":
 			Fx.burst(pos, _death_color(d.get("actor")), 14, 230.0)
 		&"jump":

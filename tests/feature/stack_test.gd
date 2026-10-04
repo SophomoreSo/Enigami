@@ -97,9 +97,8 @@ func _limits() -> void:
 		if Components.limit_of(id) != int(want.get(id, 0)):
 			off.append(id)
 	check(off.is_empty(), "a part's limit is its stack_limit in the table (%s)" % str(off))
-	for id in ["SIZE", "SPEED", "RANGE", "BLINK"]:
+	for id in ["SIZE", "SPEED", "RANGE"]:
 		check(Components.limit_of(id) > 0, "%s has a limit (%d)" % [id, Components.limit_of(id)])
-	check(Components.limit_of("BLINK") == 1, "and BLINK's is one")
 	check(Components.limit_of("DAMAGE") == 0, "DAMAGE has none")
 
 	var cap := Components.limit_of("SIZE")
@@ -118,8 +117,6 @@ func _limits() -> void:
 	var longest := Weapons.finalize("GUN", stacked_on("GUN", "RANGE", range_cap)).range_px
 	check(longest > float(Room.W * Room.CELL),
 		"which carries the gun's bolt further than a room is wide (%.0f px)" % longest)
-	var blinks := stacked("SLASH", "BLINK", 3)
-	check(blinks.blink and blinks.stack("BLINK") == 1, "BLINK stays what it was, once")
 	# An INVERT after a part past its limit has nothing to turn round.
 	var ids: Array = ["SLASH"]
 	for i in cap + 1:
@@ -154,7 +151,7 @@ func _payloads() -> void:
 	var grows = Components._effect({"op": "add", "field": "pierce", "value": 1, "per_stack": 2.0}, shape)
 	check(grows is Dictionary and typeof(grows["per_stack"]) == TYPE_INT, "a whole number grows by whole numbers")
 	for bad in [
-			{"op": "set", "field": "blink", "value": 1, "per_stack": 1.0},
+			{"op": "set", "field": "cleanse", "value": 1, "per_stack": 1.0},
 			{"op": "set", "field": "stun", "value": 1, "per_stack": 1.0},
 			{"op": "add", "field": "pierce", "value": 1, "per_stack": 0.5}]:
 		check(Components._effect(bad, shape) is String, "and a row that cannot grow that way is turned away (%s %s)" % [bad["op"], bad["field"]])

@@ -34,8 +34,6 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 			Audio.play("explode")
 		&"lunge_cut", &"dash":
 			Audio.play("dash")
-		&"blink":
-			Audio.play("dash", 1.3)
 		&"hit":
 			Audio.play("hit", 1.0 + randf_range(-0.12, 0.12))
 		&"death":

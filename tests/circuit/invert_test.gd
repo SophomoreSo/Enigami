@@ -206,7 +206,7 @@ func _nothing_to_flip() -> void:
 	var once := payload_of(["SLASH", "DAMAGE", "INVERT"])
 	var again := payload_of(["SLASH", "DAMAGE", "INVERT", "INVERT"])
 	check(differ(again, once).is_empty(), "nor after another INVERT, which has no opposite (%s)" % str(differ(again, once)))
-	for id in ["PIERCE", "BLINK", "HOMING", "SHATTER", "MANA_DRAIN", "HEALTH_DRAIN", "WATER", "DUPLICATE"]:
+	for id in ["PIERCE", "HOMING", "SHATTER", "MANA_DRAIN", "HEALTH_DRAIN", "WATER", "DUPLICATE"]:
 		var with := payload_of(["SLASH", id])
 		var turned := payload_of(["SLASH", id, "INVERT"])
 		check(differ(turned, with).is_empty(), "nor after %s, which has none (%s)" % [id, str(differ(turned, with))])

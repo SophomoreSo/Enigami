@@ -269,17 +269,6 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 	var origin: Vector2 = ctx.get("origin", attacker.global_position if attacker != null else Vector2.ZERO)
 	var far := distance_for(float(ctx.get("reach", 1.0)))
 
-	# BLINK runs first: it decides where the attack comes from.
-	if payload.blink and attacker != null and is_instance_valid(attacker):
-		var t := nearest_target(attacker.global_position, team, 460.0)
-		if t != null:
-			var behind: Vector2 = t.global_position - aim * (t.hurt_radius + 26.0)
-			if room == null or not room.has_method("is_solid_at") or not room.is_solid_at(behind):
-				var was: Vector2 = attacker.global_position
-				attacker.global_position = behind
-				origin = behind
-				Cues.emit_cue(&"blink", {"from": was, "to": behind})
-
 	# AUTO-AIM: at the nearest enemy, whatever the aim said. A lunge and a beam
 	# look for it again as they go off (`_dash_slash`, `_zap`), which a
 	# volley's later ones do a moment after this one.
@@ -470,8 +459,6 @@ static func summary(p: Payload) -> String:
 		parts.append(_stacked(Loc.t("editor.payload.homing"), p.homing))
 	if p.auto_aim:
 		parts.append(_stacked(Loc.t("editor.payload.auto_aim"), p.auto_aim))
-	if p.blink:
-		parts.append(Loc.t("editor.payload.blink"))
 	if p.pull:
 		parts.append(_stacked(Loc.t("editor.payload.pull"), p.pull))
 	if p.knockback:

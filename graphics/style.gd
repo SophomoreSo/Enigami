@@ -53,7 +53,6 @@ const COMPONENT := {
 	"SHATTER": {"glyph": "✶"},
 
 	"PIERCE": {"glyph": "⇢"},
-	"BLINK": {"glyph": "✦"},
 	"HOMING": {"glyph": "◈"},
 	"GRAVITY": {"glyph": "⤓"},
 	"KNOCKBACK": {"glyph": "↦"},
@@ -217,15 +216,6 @@ const COMPONENT_ICON := {
 		"..#..#.",
 		"..#.#..",
 		"..#....",
-	],
-	"BLINK": [
-		"...#...",
-		"...#...",
-		"..###..",
-		"#######",
-		"..###..",
-		"...#...",
-		"...#...",
 	],
 	"HOMING": [
 		"...#...",
@@ -816,7 +806,6 @@ static func refuse_color(kind: String) -> Color:
 const PARRY := Color(1, 0.95, 0.6)
 const JUMP_DUST := Color(0.7, 0.85, 1.0)
 const WALL_DUST := Color(0.6, 0.7, 0.8)
-const BLINK_TRAIL := Color(0.6, 0.8, 1.0)
 const TRAVEL_DUST := Color(0.5, 0.8, 1.0)
 const EXTRACT_SPARK := Color(0.6, 1.0, 0.8)
 const BOSS_RING := Color(1, 0.4, 0.4)

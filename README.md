@@ -450,7 +450,7 @@ what lets `DELAY` hold a trigger's branch back behind the attack it follows.
   Some parts stop. A part's limit is how many of it one flow can stack
   (`stack_limit`, with its other numbers in `data/db/parts/parts.sql`), and past
   it the part costs its heat and does nothing: `SIZE` stops at three, `RANGE` at
-  three, `BLINK` at one, and `SPEED` at four — where a bolt stops getting half
+  three, and `SPEED` at four — where a bolt stops getting half
   as quick again and flies at laser speed, across a room in a tenth of a second,
   drawn as a beam from the muzzle to the bolt.
 - `PIERCE` carries an attack through one enemy and on to the next: one enemy

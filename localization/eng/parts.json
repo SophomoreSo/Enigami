@@ -55,10 +55,6 @@
 		"name": "PIERCE",
 		"desc": "The attack passes through one enemy and carries on to the next. Each one stacked is one more enemy it passes through."
 	},
-	"BLINK": {
-		"name": "BLINK",
-		"desc": "Teleports behind the nearest visible enemy. Works alone; if nothing is in sight the flow simply continues. A cast blinks once: more than one does nothing more."
-	},
 	"HOMING": {
 		"name": "HOMING",
 		"desc": "Tracks the nearest enemy. Bolts curve and find their way round walls; melee forms re-aim themselves. Each one stacked turns a bolt tighter, so it holds a winding path it would otherwise fly wide of."

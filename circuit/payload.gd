@@ -28,7 +28,6 @@ var pierce: int = 0                ## extra targets an attack passes through
 ## thing harder — a tighter turn, a stronger drag, a longer throw.
 var homing: int = 0                ## tracks the nearest enemy, and finds its way round walls
 var auto_aim: int = 0              ## goes at the nearest enemy, wherever it was aimed
-var blink: bool = false            ## teleport behind nearest enemy
 ## Drags nearby enemies into the impact instead of knocking the struck one back.
 ## Not to be confused with a thrown weapon's `gravity_shots`, which arcs the
 ## bolt: that one is a property of the weapon and rides in the spawn context.
@@ -78,7 +77,6 @@ func clone() -> Payload:
 	p.pierce = pierce
 	p.homing = homing
 	p.auto_aim = auto_aim
-	p.blink = blink
 	p.pull = pull
 	p.knockback = knockback
 	p.shatter = shatter
@@ -114,4 +112,4 @@ func at_limit(id: String) -> bool:
 
 ## Does this payload do anything at all when it leaves the board?
 func is_productive() -> bool:
-	return form != "" or blink
+	return form != ""
