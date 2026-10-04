@@ -270,7 +270,7 @@ func _check_keys_exist() -> void:
 		if not Loc.has(key):
 			unknown.append("%s (%s)" % [key, String(asked[key]).get_file()])
 	check(unknown.is_empty(), "every line a screen asks for exists (missing: %s)" % _first(unknown))
-	# A share code's refusal is an id the circuit returns and the sheet spells as
+	# A share code's refusal is an id the circuit returns and the editor spells as
 	# `editor.code_error.<id>`, which the scan above cannot see; so every id the
 	# decoder can return is asked for here by name.
 	var unspelled: Array = []

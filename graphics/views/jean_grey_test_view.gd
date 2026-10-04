@@ -84,7 +84,6 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_editing(on: bool) -> void:
 	if on:
-		editor.weapon_id = JeanGreyTest.WEAPON
 		editor.configure(screen.board, screen.inventory, true,
 			screen.player.runner if screen.player != null and is_instance_valid(screen.player) else null)
 		editor.visible = true

@@ -485,7 +485,6 @@ static func _reach_from(links: Dictionary, start: Vector2i) -> Dictionary:
 	return seen
 
 ## Tags describe what a board does: the `tag` of every part on it, once each.
-## The share sheet reads them to say what a code builds.
 func compute_tags() -> Array[String]:
 	var t: Array[String] = []
 	for c in cells:

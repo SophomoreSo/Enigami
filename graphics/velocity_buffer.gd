@@ -26,8 +26,12 @@ extends Node
 ## take turns: one steps the buffer from the other (`velocity.gdshader`), and
 ## the other keeps that step for the next one — the package's own blit to its
 ## previous texture. They are float buffers (`use_hdr_2d`, which the
-## compatibility renderer gives as RGBA32F): a push is signed, and in eight
-## bits a spring sticks short of rest.
+## compatibility renderer gives as RGBA16F): a push is signed, and in eight
+## bits a spring sticks short of rest. No other renderer will do, which is why
+## project.godot asks for this one on phones too (`rendering_method.mobile`):
+## the Mobile renderer's `use_hdr_2d` is ten unsigned bits a colour and two of
+## alpha, so nothing is ever pushed left or up, and both it and Forward+ turn
+## the colours drawn into linear light, so an emitter's speed is not what lands.
 ##
 ## What writes into it are emitters, drawn into a third viewport that nothing
 ## shows — the video's sprites on a layer the camera leaves out. Here they are

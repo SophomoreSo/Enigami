@@ -10,8 +10,14 @@ extends Node
 ## sends, and red with none. On the layout: the biggest board a Workbench grows and
 ## the palette both end above the info panel, the palette is one block a part
 ## category with its name beside it in the gutter, every part's name fits its
-## palette row, every part's description fits its card, the header's lines fit,
-## and a preview with more to say than rows to say it in is cut short and says so.
+## palette row, every part's description fits its card, the X stands in the
+## screen's corner and COPY and PASTE under the board, clear of the parts in
+## every language, and a preview with more to say than rows to say it in is cut
+## short and says so.
+## On the track: the root is lit round its own outline, its dots running to its
+## point, and a run's dots set off from the middle of the side the flow comes in
+## by and meet in the middle of the side it leaves by, however the part behind
+## that side turns it.
 ##
 ## Needs a real renderer: the block check reads the frame back.
 
@@ -66,10 +72,12 @@ func _on_track(ed: SkillEditor, p: Vector2) -> float:
 
 ## Which way the dots travel where they cross `p`, one entry a run passing
 ## through it — two where the outline doubles back on itself, as it does down a
-## seam. Empty if no run reaches it.
-func _dot_ways(ed: SkillEditor, p: Vector2) -> Array:
+## seam. Empty if no run reaches it. Over `arcs` when given, and every run the
+## editor has otherwise: the root's outline lies on the same line as a side
+## against it, so a side's own runs are sometimes asked about alone.
+func _dot_ways(ed: SkillEditor, p: Vector2, arcs: Array = []) -> Array:
 	var out: Array = []
-	for arc in ed._flow_arcs:
+	for arc in (arcs if not arcs.is_empty() else ed._flow_arcs):
 		var loop: PackedVector2Array = arc["loop"]
 		var total := ed._loop_length(loop)
 		var walked := 0.0
@@ -91,8 +99,8 @@ func _dot_ways(ed: SkillEditor, p: Vector2) -> Array:
 	return out
 
 ## Whether the dots crossing `p` run `way`, and only that way.
-func _runs_one_way(ed: SkillEditor, p: Vector2, way: Vector2) -> bool:
-	var ways := _dot_ways(ed, p)
+func _runs_one_way(ed: SkillEditor, p: Vector2, way: Vector2, arcs: Array = []) -> bool:
+	var ways := _dot_ways(ed, p, arcs)
 	if ways.is_empty():
 		return false
 	for w in ways:
@@ -190,9 +198,22 @@ func _ready() -> void:
 	await frames(4)
 	var ed: SkillEditor = Views.of(sb).editor
 	check(ed.current_board() == sb.board(), "the bench brings the weapon's graph")
-	check(ed._title_rect().end.x <= ed._share_rect().position.x,
-		"its name fits before CODE (%.0f of %.0f)" % [ed._title_rect().end.x, ed._share_rect().position.x])
-	check(ed._share_rect().end.x <= ed._close_rect().position.x, "and CODE before CLOSE")
+	# No header: the X in the screen's own corner, and COPY and PASTE under the
+	# board, side by side and short of the parts — as wide as their words are
+	# in whichever language is the widest.
+	var frame := ed._board_frame()
+	check(ed._close_rect().position == SkillEditor.CORNER and not ed._close_rect().intersects(frame),
+		"the X stands in the top-left corner, clear of the board (%s)" % str(ed._close_rect()))
+	check(ed._copy_rect().position.y > frame.end.y and ed._paste_rect().position.x > ed._copy_rect().end.x,
+		"COPY and PASTE stand under the board, side by side")
+	for lang in Loc.languages():
+		var copy_w := maxf(SkillEditor.BTN_W, ceilf((PixelDraw.ink_width(_in(lang, "editor.share.copy"))
+			+ 40.0) / UiKit.PIXEL) * UiKit.PIXEL)
+		var paste_w := maxf(SkillEditor.BTN_W, ceilf((PixelDraw.ink_width(_in(lang, "editor.share.paste"))
+			+ 40.0) / UiKit.PIXEL) * UiKit.PIXEL)
+		var row_end := frame.position.x + copy_w + SkillEditor.BTN_GAP + paste_w
+		check(row_end <= ed._pal_panel().position.x,
+			"and short of the parts in %s (%.0f of %.0f)" % [lang, row_end, ed._pal_panel().position.x])
 	var b := ed.current_board()
 	for c in b.cells.keys().duplicate():
 		b.erase_at(c)
@@ -255,6 +276,7 @@ func _ready() -> void:
 	red.selected = "SLASH"
 	red._hover_pal = 5
 	red._hover_close = true
+	red._hover_copy = true
 	# The card says what the part under the cursor is and does, hung off its
 	# row rather than over it.
 	var row := red._pal_rect(5)
@@ -295,37 +317,20 @@ func _ready() -> void:
 	await blocks("workbench")
 	restore(hidden)
 
-	# --- the share sheet, over the same board ---------------------------------
-	# Both boxes full, a button under the cursor and something to say, so every
-	# piece of it is on screen at once.
-	wb._open_share()
-	wb._share.entry = BoardCode.clean(BoardCode.encode(big))
-	wb._share.note("Short of 2 more FIRE, 1 more DUPLICATE x3 — nothing has been spent.", UiKit.BAD)
-	wb._share._hover = "build"
-	wb._share._caret = 0.0
+	# --- COPY and PASTE, under the biggest board ------------------------------
+	# PASTE under the cursor and the news of a COPY along the bottom: the two
+	# stand on the screen, above the line the news is written on.
+	wb._hover_paste = true
+	wb._notify(Loc.t("editor.share.copied", [16]), true)
 	hidden = isolate(wb)
-	await blocks("share")
+	await blocks("copy_paste")
 	restore(hidden)
-	var sheet := wb._share._layout()
-	var panel_rect: Rect2 = sheet["panel"]
 	var screen := get_viewport().get_visible_rect().size
-	check(panel_rect.position.x >= 0.0 and panel_rect.end.x <= screen.x
-		and panel_rect.position.y >= 0.0 and panel_rect.end.y <= screen.y,
-		"the share sheet fits on screen (%s in %s)" % [str(panel_rect.size), str(screen)])
-	for pair in [["copy", "paste"], ["paste", "build"]]:
-		check(not (sheet[pair[0]] as Rect2).intersects(sheet[pair[1]] as Rect2),
-			"the sheet's %s and %s buttons do not overlap" % pair)
-	# The widest line the alphabet can spell, which is what the box is sized for.
-	var widest := "W".repeat(ShareCodePanel.CHARS_PER_LINE) + "_"
-	check((sheet["code_box"] as Rect2).size.x - ShareCodePanel.BOX_PAD * 2.0
-		>= PixelDraw.text_width(widest),
-		"the widest line the alphabet can spell, caret and all, fits the code box")
-	# In every language: a translation is free to reword the line, not to run it
-	# off the sheet, and the widest face is not always the one being played in.
-	for lang in Loc.languages():
-		check(PixelDraw.text_width(_in(lang, "editor.share.hint")) <= float(sheet["text_width"]),
-			"and the sheet's own controls line fits it in %s" % lang)
-	wb._close_share()
+	check(wb._paste_rect().end.y <= screen.y - 40.0 and wb._copy_rect().position.y > wb._board_frame().end.y,
+		"under the biggest board COPY and PASTE still stand on the screen, over the line news is written on (%s)"
+			% str(wb._paste_rect()))
+	wb._hover_paste = false
+	wb._message_time = 0.0
 
 	# --- rings the flow can never leave ---------------------------------------
 	# Two of them: the board from the report, fed by the root, and an unfed one
@@ -461,6 +466,48 @@ func _ready() -> void:
 			"a straight run carries its dots east %s it too (%s)"
 				% ["over" if side < 0.0 else "under", str(_dot_ways(wb, edge))])
 
+	# The board from the report of 2026-10-04: a trigger straight off the root,
+	# its main line out by the way out and its branch running home under the
+	# root and up into it again. The trigger is crossed on a slant — in from the
+	# west, out east and south — and the branch's last part turns the flow north,
+	# and the dots still set off from the middle of the side the root feeds and
+	# meet in the middle of the side that feeds it back, not at a corner of either.
+	for rc in big.cells.keys().duplicate():
+		big.erase_at(rc)
+	var exit_at := big.way_out()
+	big.move_root(exit_at - Vector2i(2, 0), 0)
+	big.place("ON_HIT", exit_at - Vector2i(1, 0), 0)        # on east, and its branch south
+	big.place("HOMING", exit_at, 0)                          # and out
+	big.place("OVERCLOCK", exit_at + Vector2i(-1, 1), 2)     # the branch, running west
+	big.place("OVERCLOCK", exit_at + Vector2i(-2, 1), 3)     # and north, back into the root
+	wb._sim_dirty = true
+	await frames(2)
+	var quarter := SkillEditor.CELL * 0.25
+	var feeds := wb._cell_rect(exit_at - Vector2i(1, 0))
+	var fed_back := wb._cell_rect(exit_at + Vector2i(-2, 1))
+	var off_root: Array = wb._flow_arcs.filter(func(a: Dictionary) -> bool:
+		return (a["owners"] as Array)[0] != big.root)
+	check(_runs_one_way(wb, Vector2(feeds.position.x, feeds.get_center().y - quarter), Vector2.UP, off_root)
+			and _runs_one_way(wb, Vector2(feeds.position.x, feeds.get_center().y + quarter),
+				Vector2.DOWN, off_root),
+		"the dots set off both ways from the middle of the side the root feeds")
+	check(_runs_one_way(wb, Vector2(fed_back.get_center().x - quarter, fed_back.position.y),
+				Vector2.RIGHT, off_root)
+			and _runs_one_way(wb, Vector2(fed_back.get_center().x + quarter, fed_back.position.y),
+				Vector2.LEFT, off_root),
+		"and meet in the middle of the side that feeds it back")
+	# The root itself is lit, a shape of its own: its dots run from the middle of
+	# its back over and under it to its point, where the run after it sets off.
+	var on_root: Array = wb._flow_arcs.filter(func(a: Dictionary) -> bool:
+		return (a["owners"] as Array)[0] == big.root)
+	var root_box := wb._cell_rect(big.root)
+	check(on_root.size() == 2
+			and _runs_one_way(wb, Vector2(root_box.position.x + quarter, root_box.position.y),
+				Vector2.RIGHT, on_root)
+			and _runs_one_way(wb, Vector2(root_box.position.x + quarter, root_box.end.y),
+				Vector2.RIGHT, on_root),
+		"the root is lit, its dots running over and under it to its point (%d runs)" % on_root.size())
+
 	# --- the way out ----------------------------------------------------------
 	# The arrow on the frame, in the middle of the right edge: where a flow
 	# leaves the board and becomes an attack — from the cell against it, and no
@@ -492,14 +539,16 @@ func _ready() -> void:
 	big.move_root(big.way_out(), 0)
 	wb._sim_dirty = true
 	await frames(2)
-	check(wb._flow_loops.is_empty() and wb._way_out_col == SkillEditor.FLOW_EDGE,
-		"a weapon with nothing built on it lights it with its own part")
+	check(wb._flow_loops.size() == 1 and (wb._flow_loops[0]["owners"] as Array)[0] == big.root
+			and wb._way_out_col == SkillEditor.FLOW_EDGE,
+		"a weapon with nothing built on it lights it with its own part, lit round its outline")
 	# Turned away from it, nothing gets out.
 	big.move_root(big.way_out(), 3)
 	wb._sim_dirty = true
 	await frames(2)
-	check(wb._way_out_col == SkillEditor.BREAK and (wb._trace_cache["leaks"] as Array).size() == 1,
-		"turned away from it, the root's flow leaks and the way out is dark")
+	check(wb._way_out_col == SkillEditor.BREAK and (wb._trace_cache["leaks"] as Array).size() == 1
+			and wb._flow_loops.is_empty(),
+		"turned away from it, the root's flow leaks, the way out is dark and the root is not lit")
 	# Reached only by a trigger's branch, it is drained like the branch: there
 	# is a follow-up there and no attack for it to follow.
 	big.move_root(big.way_out() - Vector2i(1, 0), 0)

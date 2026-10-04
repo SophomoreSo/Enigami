@@ -28,10 +28,11 @@ extends Control
 ## forms, elements, stats and the rest — each block named down the gutter beside
 ## it in the category's own colour, which is the colour its parts wear.
 ##
-## CODE, in the header, drops the share sheet (`ShareCodePanel`) over all of it:
-## the board on the grid written out as a code, and a field to build somebody
-## else's board from theirs. What a pasted code costs is decided here — see
-## `_build_from_code`.
+## There is no header over it: the board and the parts have the screen, with an
+## X in its top-left corner that closes it, and COPY and PASTE under the board.
+## COPY puts the board on the clipboard as a code, and PASTE builds the board
+## out of the code on the clipboard. What a pasted code costs is decided here —
+## see `_paste_code`.
 ##
 ## **In mobile mode it is laid out for a thumb** (`UiKit.mobile`), and it is a
 ## different screen rather than this one drawn bigger — see "for a thumb" below.
@@ -83,18 +84,19 @@ const NOWHERE := Vector2i(-1, -1)
 ## --- for a thumb --------------------------------------------------------------
 ## Mobile mode's screen, top to bottom and left to right:
 ##
-##   * a header THUMB_HEADER tall — the graph's name on a plate, then CODE and
-##     CLOSE, each THUMB_BTN tall, in the corner the console's own screens stand
-##     in;
-##   * the board, in all the room left of the parts, its cells as big as that
-##     room lets them be: at a desk a cell is 50 across whatever the grid, and
-##     here a first workbench's seven by five stands at 90, a thumb's width;
-##   * down the right, THUMB_PARTS wide, the parts: a tab a category, and beside
-##     them the picked category's parts, a plate each, with the name written at
-##     the size a thumb's page writes at. A block's plates share the column's
-##     height between them, so nothing scrolls — a list that scrolled under a
-##     thumb dragging a part out of it would be asking the same gesture to mean
-##     two things;
+##   * in the top-left corner the X that closes it, THUMB_BTN square, and beside
+##     it, for the moment one lasts, a refusal or what COPY and PASTE did, on a
+##     plate of its own;
+##   * the board, in the room under the X and left of the parts, its cells as big
+##     as that room lets them be: at a desk a cell is 50 across whatever the
+##     grid, and here a first workbench's seven by five stands at 90, a thumb's
+##     width. Under it, COPY and PASTE, each THUMB_BTN tall;
+##   * down the right, THUMB_PARTS wide and the screen's height, the parts: a
+##     tab a category, and beside them the picked category's parts, a plate
+##     each, with the name written at the size a thumb's page writes at. A
+##     block's plates share the column's height between them, so nothing
+##     scrolls — a list that scrolled under a thumb dragging a part out of it
+##     would be asking the same gesture to mean two things;
 ##   * under the parts, TURN and REMOVE.
 ##
 ## What a thumb does there: a touch on a part's plate takes it in hand, and a
@@ -104,10 +106,10 @@ const NOWHERE := Vector2i(-1, -1)
 ## the bag. A part dragged is moved, from the plate or across the board, and
 ## one dragged back onto the parts is put away, as at a desk.
 const THUMB_EDGE := 16.0
-const THUMB_HEADER := 80.0
 const THUMB_BTN := 64.0
-const THUMB_CLOSE_W := 184.0
-const THUMB_SHARE_W := 136.0
+## The least a thumb's COPY or PASTE is across: a word wider than that at a
+## thumb's size widens its own.
+const THUMB_COPY_W := 136.0
 ## The parts' column, the tabs down its left, and the room between things in it.
 const THUMB_PARTS := 560.0
 const THUMB_TAB_W := 132.0
@@ -127,14 +129,14 @@ var board: SkillBoard = null
 var inventory: Dictionary = {}       ## component id -> count (the live pool)
 var unlimited: bool = false          ## sandbox
 var runner: SkillRunner = null       ## the graph running live, for the flow display
-var weapon_id: String = "SWORD"
 
 var selected: String = ""
 var rotation_step: int = 0
 var _hover_cell: Vector2i = Vector2i(-1, -1)
 var _hover_pal: int = -1
 var _hover_close: bool = false
-var _hover_share: bool = false
+var _hover_copy: bool = false
+var _hover_paste: bool = false
 ## Mobile mode's own things to press: a category's tab, by index, and the two
 ## plates under the parts.
 var _hover_tab: int = -1
@@ -189,6 +191,8 @@ var _way_out_col: Color = BREAK
 var _flow_time: float = 0.0
 var _message: String = ""
 var _message_time: float = 0.0
+## Whether the message is news rather than a refusal: what COPY and PASTE did.
+var _message_good: bool = false
 ## The palette, laid out once per width of screen: a row per part and a block
 ## per category, both drawn and hit-tested from the same rects. See
 ## `_build_palette`.
@@ -210,8 +214,6 @@ var _ports: Array = []               ## PORT turned to face each direction
 var _arrows: Array = []              ## ARROW likewise, for mobile mode's TURN
 ## The board drawn while the root is in hand. See `_shown_board`.
 var _lifted: SkillBoard = null
-## The share sheet, built the first time it is asked for and kept after that.
-var _share: ShareCodePanel = null
 var _px := PixelDraw.new(self)
 
 ## Whether the screen is laid out for a thumb: mobile mode.
@@ -237,28 +239,27 @@ func _layout_key() -> Array:
 		Vector2i(b.width, b.height) if b != null else Vector2i.ZERO, _tab]
 
 ## Where everything on mobile mode's screen stands, for a screen of this shape
-## and a grid of this size: `title`, `share` and `close` in the header; `column`,
-## the parts' whole column, with its `tabs`, the `plates` room beside them, and
-## `turn` and `remove` along its foot; and the board's `cell`, `origin` and
-## `frame`.
+## and a grid of this size: `close` in the top-left corner and `message` beside
+## it; `column`, the parts' whole column, with its `tabs`, the `plates` room
+## beside them, and `turn` and `remove` along its foot; the board's `cell`,
+## `origin` and `frame`; and `copy` and `paste` under it. COPY and PASTE are as
+## wide as their words, so the language is part of what this is worked out for.
 func _thumb_layout() -> Dictionary:
 	var b := current_board()
 	var grid := Vector2i(b.width, b.height) if b != null else Vector2i(7, 5)
 	var vp := get_viewport_rect().size
 	var groups := _pal_groups().size()
-	var key := [vp, grid, groups]
+	var key := [vp, grid, groups, Loc.language]
 	if not _thumb_rects.is_empty() and _thumb_key == key:
 		return _thumb_rects
 	_thumb_key = key
 	var l := {}
-	var top := (THUMB_HEADER - THUMB_BTN) * 0.5
-	l["close"] = Rect2(vp.x - THUMB_EDGE - THUMB_CLOSE_W, top, THUMB_CLOSE_W, THUMB_BTN)
-	l["share"] = Rect2((l["close"] as Rect2).position.x - 8.0 - THUMB_SHARE_W, top, THUMB_SHARE_W, THUMB_BTN)
-	l["title"] = Rect2(THUMB_EDGE, top, (l["share"] as Rect2).position.x - 16.0 - THUMB_EDGE, THUMB_BTN)
-
-	var under := THUMB_HEADER + 12.0
-	var column := Rect2(vp.x - THUMB_EDGE - THUMB_PARTS, under, THUMB_PARTS, vp.y - THUMB_EDGE - under)
+	var corner := Rect2(THUMB_EDGE, THUMB_EDGE, THUMB_BTN, THUMB_BTN)
+	l["close"] = corner
+	var column := Rect2(vp.x - THUMB_EDGE - THUMB_PARTS, THUMB_EDGE, THUMB_PARTS, vp.y - THUMB_EDGE * 2.0)
 	l["column"] = column
+	l["message"] = Rect2(corner.end.x + 12.0, THUMB_EDGE,
+		column.position.x - 16.0 - corner.end.x - 12.0, THUMB_BTN)
 	var acts := column.end.y - THUMB_ACT
 	var half := floorf((column.size.x - 8.0) * 0.5 / PX) * PX
 	l["turn"] = Rect2(column.position.x, acts, half, THUMB_ACT)
@@ -275,19 +276,32 @@ func _thumb_layout() -> Dictionary:
 	l["plates"] = Rect2(column.position.x + THUMB_TAB_W + 8.0, column.position.y,
 		column.size.x - THUMB_TAB_W - 8.0, room)
 
-	# The board has the rest: as big as fits, a cell an odd number of PIXELs so
-	# an icon still lands in the middle of one (see `_cell_center`).
-	var space := Rect2(THUMB_EDGE, under, column.position.x - 16.0 - THUMB_EDGE, vp.y - THUMB_EDGE - under)
+	# The board has the rest, under the X and over a row for COPY and PASTE: as
+	# big as fits, a cell an odd number of PIXELs so an icon still lands in the
+	# middle of one (see `_cell_center`).
+	var under := corner.end.y + 12.0
+	var space := Rect2(THUMB_EDGE, under, column.position.x - 16.0 - THUMB_EDGE,
+		vp.y - THUMB_EDGE - THUMB_BTN - 12.0 - under)
 	var most := mini(int((space.size.x - 20.0) / float(grid.x)), int((space.size.y - 20.0) / float(grid.y)))
 	most = clampi(most, THUMB_CELL_LEAST, THUMB_CELL_MOST)
 	var c := most - posmod(most - PX, PX * 2)
 	var across := Vector2(grid) * float(c)
-	var corner := _px.snap(space.position + (space.size - across - Vector2(20, 20)) * 0.5)
+	var at := _px.snap(space.position + (space.size - across - Vector2(20, 20)) * 0.5)
 	l["cell"] = float(c)
-	l["frame"] = Rect2(corner, across + Vector2(20, 20))
-	l["origin"] = corner + Vector2(10, 10)
+	l["frame"] = Rect2(at, across + Vector2(20, 20))
+	l["origin"] = at + Vector2(10, 10)
+	var row := Vector2(at.x, (l["frame"] as Rect2).end.y + 12.0)
+	l["copy"] = Rect2(row, Vector2(_thumb_copy_width(Loc.t("editor.share.copy")), THUMB_BTN))
+	l["paste"] = Rect2(Vector2((l["copy"] as Rect2).end.x + 8.0, row.y),
+		Vector2(_thumb_copy_width(Loc.t("editor.share.paste")), THUMB_BTN))
 	_thumb_rects = l
 	return l
+
+## How wide a thumb's COPY or PASTE is for `label`: THUMB_COPY_W, or the word at
+## a thumb's size with room either side of it, on the PIXEL grid.
+func _thumb_copy_width(label: String) -> float:
+	var ink := PixelDraw.ink_width(label, Loc.text_size(label, UiKit.THUMB_TEXT))
+	return maxf(THUMB_COPY_W, ceilf((ink + 48.0) / PX) * PX)
 
 ## How tall each of `n` plates stands to share `room` between them, THUMB_GAP
 ## apart: THUMB_PLATE where they fit at that, and less where they do not.
@@ -367,9 +381,6 @@ func configure(b: SkillBoard, inv: Dictionary, unlim: bool, r: SkillRunner = nul
 	_trace_cache = {}
 	_picked = NOWHERE
 	_tap = {}
-	# The hosts that keep an editor between openings call this every time they
-	# raise it: a share sheet left up would come back over a different board.
-	_close_share()
 
 func current_board() -> SkillBoard:
 	return board
@@ -417,16 +428,19 @@ func _input(event: InputEvent) -> void:
 		return
 	if not (event is InputEventKey) or not event.is_pressed() or event.is_echo():
 		return
-	# The share sheet takes the whole keyboard while it is up, its own ESC
-	# included: a key falling through it would turn a part or close the editor
-	# behind the sheet, and ESC would leave the sheet standing over nothing.
-	if _share_open():
-		_share.handle_key(event as InputEventKey)
+	var key := event as InputEventKey
+	# The clipboard's own keys are COPY and PASTE here, as they are everywhere.
+	if key.is_command_or_control_pressed():
+		match key.keycode:
+			KEY_C:
+				_copy()
+			KEY_V:
+				_paste()
+			_:
+				return
 		get_viewport().set_input_as_handled()
 		return
-	match (event as InputEventKey).keycode:
-		KEY_C:
-			_open_share()
+	match key.keycode:
 		KEY_R:
 			_rotate(CCW)
 		KEY_ESCAPE, KEY_TAB:
@@ -435,54 +449,73 @@ func _input(event: InputEvent) -> void:
 			return
 	get_viewport().set_input_as_handled()
 
-## The graph's name sits in the header's top row, with CODE and CLOSE.
-const TITLE_ORIGIN := Vector2(420, 14)
-const TITLE_H := 30.0
-const CLOSE_W := 100.0
-const SHARE_W := 92.0
+## At a desk the X is a square in the screen's own top-left corner, and COPY and
+## PASTE stand under the board, each as wide as its word and no narrower than
+## BTN_W.
+const CORNER := Vector2(16, 14)
+const CLOSE_SIDE := 30.0
+const BTN_H := 30.0
+const BTN_W := 92.0
 const BTN_GAP := 8.0
-
-## The room the name has: from where it starts to the buttons.
-func _title_rect() -> Rect2:
-	if thumb():
-		return _thumb_layout()["title"]
-	var origin := TITLE_ORIGIN + _inset()
-	return Rect2(origin, Vector2(_share_rect().position.x - 16.0 - origin.x, TITLE_H))
 
 ## How far the board, the palette and the tabs stand in from where they are
 ## written. They are laid out in DESIGN_W, and a screen wider than that — a
-## phone longer than 16:9 — has them in its middle, with the header still run
-## out to both edges and CODE and CLOSE still in the corner, where KIT, MAP and
-## MENU stand on the glass.
+## phone longer than 16:9 — has them in its middle, with the X still in the
+## screen's own corner.
 func _inset() -> Vector2:
 	var spare := maxf(get_viewport_rect().size.x - DESIGN_W, 0.0)
 	return Vector2(floorf(spare * 0.5 / PX) * PX, 0.0)
 
+## The X that closes the screen, in its top-left corner.
 func _close_rect() -> Rect2:
 	if thumb():
 		return _thumb_layout()["close"]
-	return Rect2(get_viewport_rect().size.x - 16.0 - CLOSE_W, 14.0, CLOSE_W, 30.0)
+	return Rect2(CORNER, Vector2(CLOSE_SIDE, CLOSE_SIDE))
 
-## Beside CLOSE, because a board is shared from the same place it is left.
-func _share_rect() -> Rect2:
+## COPY, under the board and level with its left edge: the board is what it
+## copies, and what PASTE beside it builds.
+func _copy_rect() -> Rect2:
 	if thumb():
-		return _thumb_layout()["share"]
-	return Rect2(_close_rect().position.x - BTN_GAP - SHARE_W, 14.0, SHARE_W, 30.0)
+		return _thumb_layout()["copy"]
+	var frame := _board_frame()
+	return Rect2(Vector2(frame.position.x, frame.end.y + BTN_GAP),
+		Vector2(_button_width(Loc.t("editor.share.copy")), BTN_H))
+
+func _paste_rect() -> Rect2:
+	if thumb():
+		return _thumb_layout()["paste"]
+	var copy := _copy_rect()
+	return Rect2(Vector2(copy.end.x + BTN_GAP, copy.position.y),
+		Vector2(_button_width(Loc.t("editor.share.paste")), BTN_H))
+
+## A desk's button for `label`: BTN_W, or the word with room either side of it.
+func _button_width(label: String) -> float:
+	return maxf(BTN_W, ceilf((PixelDraw.ink_width(label) + 40.0) / PX) * PX)
+
+## The frame round the board: ten clear of its cells on every side.
+func _board_frame() -> Rect2:
+	if thumb():
+		return _thumb_layout()["frame"]
+	var b := current_board()
+	var grid := Vector2(b.width, b.height) if b != null else Vector2(7, 5)
+	return Rect2(board_origin() - Vector2(10, 10), grid * cell_size() + Vector2(20, 20))
 
 func _clear_hover() -> void:
 	_hover_cell = Vector2i(-1, -1)
 	_hover_pal = -1
 	_hover_close = false
-	_hover_share = false
+	_hover_copy = false
+	_hover_paste = false
 	_hover_tab = -1
 	_hover_turn = false
 	_hover_remove = false
 
 func _update_hover(pos: Vector2) -> void:
 	_clear_hover()
-	_hover_share = _share_rect().has_point(pos)
 	_hover_close = _close_rect().has_point(pos)
-	if _hover_close or _hover_share:
+	_hover_copy = _copy_rect().has_point(pos)
+	_hover_paste = _paste_rect().has_point(pos)
+	if _hover_close or _hover_copy or _hover_paste:
 		return
 	if thumb():
 		var l := _thumb_layout()
@@ -593,8 +626,11 @@ func _press_left() -> void:
 		Audio.play("ui")
 		closed.emit()
 		return
-	if _hover_share:
-		_open_share()
+	if _hover_copy:
+		_copy()
+		return
+	if _hover_paste:
+		_paste()
 		return
 	if _hover_tab >= 0:
 		_show_tab(_hover_tab)
@@ -803,57 +839,79 @@ func _give(id: String) -> void:
 		return
 	GameState.return_component(id, inventory)
 
-func _notify(msg: String) -> void:
+## A line for the moment it lasts: a refusal, or with `good` the news of what
+## COPY or PASTE did.
+func _notify(msg: String, good: bool = false) -> void:
 	_message = msg
+	_message_good = good
 	_message_time = 2.2
 
 ## --- sharing ----------------------------------------------------------------
 ## A board is a circuit, and a circuit is something a player wants to hand to
-## another player. `BoardCode` turns this one into a code and back; the sheet
-## shows them and collects them, and everything the game has a say in — whether
-## the build fits this workbench's grid, and whether the bag can pay for it —
-## is decided here, where the board and the pool are.
-func _share_open() -> bool:
-	return _share != null and is_instance_valid(_share) and _share.visible
+## another player. `BoardCode` turns this one into a code and back: COPY puts
+## the code on the clipboard, and PASTE builds the board out of the code on it.
+## Everything the game has a say in — whether the build fits this workbench's
+## grid, and whether the bag can pay for it — is decided here, where the board
+## and the pool are. Neither does anything with a part in hand: the board it
+## came off is short of it until it is set down.
 
-func _open_share() -> void:
-	# Never with a part in hand: the sheet covers the board it would be dropped
-	# on, and the release would land somewhere the player cannot see.
-	if _drag_id != "":
-		return
-	if _share == null or not is_instance_valid(_share):
-		_share = ShareCodePanel.new()
-		_share.closed.connect(_close_share)
-		_share.build_requested.connect(_build_from_code)
-		add_child(_share)
-	_hover_cell = Vector2i(-1, -1)
-	_hover_pal = -1
-	_hover_close = false
-	_hover_share = false
+## One of `BoardCode`'s refusals, spelled out: the id it returns and the numbers
+## its line takes, as the line in `localization/<lang>/editor.json` under
+## `code_error`. The circuit says what is wrong; the editor says it in words.
+static func code_error_text(key: String, args: Array = []) -> String:
+	return Loc.t("editor.code_error.%s" % key, args)
+
+## COPY: the board onto the clipboard, as a code.
+func _copy() -> void:
 	var b := current_board()
-	_share.open_with(BoardCode.encode(b) if b != null else "")
+	if b == null or _drag_id != "":
+		return
+	var code := BoardCode.encode(b)
+	if code.is_empty():
+		_notify(Loc.t("editor.share.uncodeable"))
+		Audio.play("deny")
+		return
+	if not DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD):
+		_notify(Loc.t("editor.share.no_clipboard"))
+		Audio.play("deny")
+		return
+	DisplayServer.clipboard_set(code)
+	_notify(Loc.t("editor.share.copied", [BoardCode.clean(code).length()]), true)
 	Audio.play("ui")
 
-func _close_share() -> void:
-	if _share != null and is_instance_valid(_share):
-		_share.visible = false
+## PASTE: the board built out of the code on the clipboard, whatever else is on
+## it dropped on the way — a stray space, a line break.
+func _paste() -> void:
+	if current_board() == null or _drag_id != "":
+		return
+	if not DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD):
+		_notify(Loc.t("editor.share.no_clipboard"))
+		Audio.play("deny")
+		return
+	var got := BoardCode.clean(DisplayServer.clipboard_get())
+	if got.is_empty():
+		_notify(Loc.t("editor.share.clipboard_empty"))
+		Audio.play("deny")
+		return
+	_paste_code(got.left(BoardCode.max_chars()))
 
-func _build_from_code(entry: String) -> void:
+## The board built out of `entry`, a code: refused whole, with the reason, when
+## the code is wrong, the build does not fit this grid, or the bag cannot pay.
+func _paste_code(entry: String) -> void:
 	var b := current_board()
 	if b == null:
-		_share.note(Loc.t("editor.share.no_board"), UiKit.BAD)
+		_notify(Loc.t("editor.share.no_board"))
 		return
 	var read := BoardCode.decode(entry)
 	if String(read["error"]) != "":
-		_share.note(ShareCodePanel.error_text(String(read["error"]), read["args"] as Array), UiKit.BAD)
+		_notify(code_error_text(String(read["error"]), read["args"] as Array))
 		Audio.play("deny")
 		return
 	var want: SkillBoard = read["board"]
 	# The grid is this workbench's, not the code's, so a build off a bigger one
 	# arrives only if none of it hangs over the edge.
 	if not b.fits(want):
-		_share.note(Loc.t("editor.share.wrong_size", [
-			want.width, want.height, b.width, b.height]), UiKit.BAD)
+		_notify(Loc.t("editor.share.wrong_size", [want.width, want.height, b.width, b.height]))
 		Audio.play("deny")
 		return
 	# A code is a blueprint and not the parts: it costs exactly what building the
@@ -864,18 +922,14 @@ func _build_from_code(entry: String) -> void:
 	if not unlimited:
 		var missing := GameState.trade_board(b, b.adoption_cost(want), inventory)
 		if not missing.is_empty():
-			_share.note(Loc.t("editor.share.short_of", [_missing_text(missing)]), UiKit.BAD)
+			_notify(Loc.t("editor.share.short_of", [_missing_text(missing)]))
 			Audio.play("deny")
 			return
 	b.adopt(want)
 	_picked = NOWHERE
 	_sim_dirty = true
 	_trace_cache = {}
-	# The sheet now shows this board's own code, which is not always the one that
-	# was typed: the grid it landed on may not be the grid it was drawn on, and
-	# the root on it is this weapon's.
-	_share.open_with(BoardCode.encode(b))
-	_share.note(Loc.t("editor.share.built", [b.cells.size()]), UiKit.GOOD)
+	_notify(Loc.t("editor.share.built", [b.cells.size()]), true)
 	Audio.play("place")
 	board_changed.emit()
 
@@ -893,7 +947,6 @@ func _missing_text(missing: Dictionary) -> String:
 ## --- drawing ----------------------------------------------------------------
 const PX := UiKit.PIXEL
 const LINE := PixelDraw.LINE
-const HEADER_H := 84.0
 
 ## A part's icon is drawn this many PIXELs per bitmap pixel on the board, and
 ## one PIXEL per bitmap pixel everywhere else.
@@ -987,15 +1040,15 @@ func _draw() -> void:
 	if laid != _flow_key:
 		_flow_key = laid
 		_sim_dirty = true
+	_draw_board()
+	_draw_copy_paste()
 	if thumb():
-		_draw_thumb_header(vp)
-		_draw_board()
 		_draw_thumb_parts()
+		_draw_thumb_message()
 	else:
-		_draw_header(vp)
-		_draw_board()
 		_draw_palette()
 		_draw_message(vp)
+	_draw_close()
 	_draw_hint(vp)
 	_draw_drag()
 
@@ -1016,37 +1069,34 @@ func _flow_dot_span() -> float:
 func _flow_dot() -> int:
 	return maxi(FLOW_DOT, int(cell_size() * 0.25 / float(PX)))
 
-func _draw_header(vp: Vector2) -> void:
-	_px.rect(Rect2(0, 0, vp.x, HEADER_H), Color(0.07, 0.08, 0.11, 0.9))
-	_px.rect(Rect2(0, HEADER_H, vp.x, PX), Color(0.3, 0.5, 0.7, 0.6))
-
-	# The graph's name — and the weapon it is on, when the name is not the
-	# weapon's own: the dragon test hands the sword a board of its own.
-	var b := current_board()
-	if b != null:
-		var r := _title_rect()
-		_px.rect(r, Color(0.18, 0.3, 0.42, 0.9))
-		_px.frame(r, Color(0.45, 0.8, 1.0))
-		var title := b.skill_name
-		if title != Weapons.name_for(weapon_id):
-			title = Loc.t("editor.title_on", [b.skill_name, Weapons.name_for(weapon_id)])
-		_px.text(r.position + Vector2(10, 20), title, Color(0.9, 0.95, 1.0), r.size.x - 20.0)
-	var sr := _share_rect()
-	_px.rect(sr, Color(0.16, 0.3, 0.4, 0.9) if _hover_share else Color(0.11, 0.13, 0.17, 0.9))
-	_px.frame(sr, Color(0.55, 0.9, 1.0) if _hover_share else Color(0.32, 0.4, 0.5))
-	var share_ink := Color(0.92, 0.98, 1.0) if _hover_share else Color(0.7, 0.8, 0.9)
-	var code_label := Loc.t("editor.code")
-	_px.text(sr.position + Vector2((sr.size.x - PixelDraw.ink_width(code_label)) * 0.5, 20), code_label,
-		share_ink)
-	var cr := _close_rect()
-	_px.rect(cr, Color(0.45, 0.18, 0.2, 0.9) if _hover_close else Color(0.14, 0.12, 0.14, 0.9))
-	_px.frame(cr, Color(1.0, 0.55, 0.55) if _hover_close else Color(0.45, 0.4, 0.44))
+## The X in the screen's top-left corner, which closes it: a desk's square, or a
+## thumb's plate with the cross at twice the size.
+func _draw_close() -> void:
+	var r := _close_rect()
 	var ink := Color(1, 0.9, 0.9) if _hover_close else Color(0.8, 0.78, 0.8)
-	var close_label := Loc.t("editor.close")
-	var mark := CROSS[0].length() * PX + 8.0
-	var at := _px.snap(cr.position + Vector2((cr.size.x - mark - PixelDraw.ink_width(close_label)) * 0.5, 10))
-	_px.icon(at, CROSS, ink)
-	_px.text(at + Vector2(mark, 10), close_label, ink)
+	if thumb():
+		_draw_thumb_plate(r, "", Color(1.0, 0.55, 0.55), _hover_close, true)
+		_px.icon_centered(r.get_center(), CROSS, ink, 2)
+		return
+	_px.rect(r, Color(0.45, 0.18, 0.2, 0.9) if _hover_close else Color(0.14, 0.12, 0.14, 0.9))
+	_px.frame(r, Color(1.0, 0.55, 0.55) if _hover_close else Color(0.45, 0.4, 0.44))
+	_px.icon_centered(r.get_center(), CROSS, ink)
+
+## COPY and PASTE under the board: a desk's buttons, or a thumb's plates.
+func _draw_copy_paste() -> void:
+	var buttons := [[_copy_rect(), Loc.t("editor.share.copy"), _hover_copy],
+		[_paste_rect(), Loc.t("editor.share.paste"), _hover_paste]]
+	for button in buttons:
+		var r: Rect2 = button[0]
+		var label: String = button[1]
+		var hot: bool = button[2]
+		if thumb():
+			_draw_thumb_plate(r, label, Color(0.55, 0.9, 1.0), hot, true)
+			continue
+		_px.rect(r, Color(0.16, 0.3, 0.4, 0.9) if hot else Color(0.11, 0.13, 0.17, 0.9))
+		_px.frame(r, Color(0.55, 0.9, 1.0) if hot else Color(0.32, 0.4, 0.5))
+		_px.text(r.position + Vector2((r.size.x - PixelDraw.ink_width(label)) * 0.5, 20), label,
+			Color(0.92, 0.98, 1.0) if hot else Color(0.7, 0.8, 0.9))
 
 ## The board as it is drawn: the board itself, except while the root is in
 ## hand. The weapon keeps the root where it stands until it is set down
@@ -1069,8 +1119,7 @@ func _draw_board() -> void:
 	var b := _shown_board()
 	if b == null:
 		return
-	var frame := Rect2(board_origin() - Vector2(10, 10),
-		Vector2(b.width * cell_size() + 20, b.height * cell_size() + 20))
+	var frame := _board_frame()
 	_px.rect(frame, Color(0.08, 0.09, 0.12, 0.92))
 	_px.frame(frame, Color(0.3, 0.45, 0.6, 0.7))
 
@@ -1151,9 +1200,9 @@ const HINT_MOST_ROWS := 1 + HINT_DESC_ROWS + 1 + HINT_DEAD_ROWS
 ## same card, under what it does. Nothing is wrong with the part — what is wrong
 ## is the wiring round it — so the card is hung off the whole ring then.
 func _draw_hint(vp: Vector2) -> void:
-	# Never with a part in hand or the share sheet up: the first is already
-	# saying something under the cursor, and the second covers the board.
-	if _drag_id != "" or _share_open():
+	# Never with a part in hand, which is already saying something under the
+	# cursor.
+	if _drag_id != "":
 		return
 	var id := ""
 	var on := Rect2()
@@ -1432,7 +1481,8 @@ func _track_colors(cell: Vector2i) -> Array:
 ## leaves by: with a board running left to right, the track leaves the middle of
 ## the root's right edge, goes over and under everything after it, and meets
 ## again in the middle of the last part's far side, where the flow leaves it —
-## through the frame, on a board that fires.
+## through the frame, on a board that fires. The root is lit all the same, as a
+## shape of its own whose dots run out to its point: see `_rebuild_root_outline`.
 ##
 ## It is the boundary of that region rather than the lit silhouette, so the
 ## side facing the root counts even though it is fused and never drawn — that
@@ -1454,6 +1504,7 @@ func _track_colors(cell: Vector2i) -> Array:
 func _rebuild_outline(b: SkillBoard) -> void:
 	_flow_arcs = []
 	_flow_loops = []
+	_rebuild_root_outline(b)
 	var ends := _flow_ends(b)
 	if ends.is_empty():
 		return
@@ -1503,6 +1554,7 @@ func _rebuild_outline(b: SkillBoard) -> void:
 	# Whether it closes is the same right-hand question as every other step: it
 	# does when the turn asked for here is the edge the walk set off along.
 	var flow := _flow_through(b, mid)
+	var crossings := _crossings(b, mid)
 	for start in edges.keys():
 		while not (edges[start] as Array).is_empty():
 			var loop := PackedVector2Array()
@@ -1534,7 +1586,53 @@ func _rebuild_outline(b: SkillBoard) -> void:
 			# the whole point. Anything shorter is not a shape at all.
 			if loop.size() >= 2:
 				_flow_loops.append({"loop": loop, "owners": owners})
-				_cut_loop(loop, owners, flow, _flow_head(b, ends[0]), _flow_head(b, ends[1]))
+				_cut_loop(loop, owners, flow, crossings, _flow_head(b, ends[0]),
+					_flow_head(b, ends[1]))
+
+## The root's own outline, lit the way a wired part's is, with its dots setting
+## off from the middle of its back and going both ways round to its point. That
+## point is the tip the run after it sets off from, so the flow is seen to come
+## out of the weapon's own part rather than to start beside it.
+##
+## A shape of its own rather than one with what it feeds: joined to it, the seam
+## its point sits on would be inside the shape, and the run after it would have
+## nowhere to set off from but the root's own back. It is lit only while it hands
+## the flow on to something that carries it — the same test as every other part:
+## see `_hands_over`.
+func _rebuild_root_outline(b: SkillBoard) -> void:
+	var input = b.find_root()
+	if input == null:
+		return
+	var entry := b.comp_origin_at(input)
+	var id := String(entry["id"])
+	var rot := int(entry["rot"])
+	var cut := _port_cut(b, id, input, rot)
+	if cut < 0 or not _hands_over(Components.exit_cell(id, input, rot)):
+		return
+	var f := _port_frame(_part_rect(id, input, rot), cut)
+	var loop := _port_outline(f)
+	var owners: Array = []
+	for i in loop.size():
+		owners.append(input)
+	_flow_loops.append({"loop": loop, "owners": owners})
+	# The tip strip is the middle one, and the back is cut level with it.
+	@warning_ignore("integer_division")
+	var across := (float((int(f[4]) - 1) / 2) + 0.5) * float(PX)
+	var base: Vector2 = f[0]
+	var w: Vector2 = f[2]
+	_cut_at_ends(loop, owners, base + w * across,
+		base + (f[1] as Vector2) * float(f[3]) + w * across, _loop_length(loop))
+
+## Whether the flow out of `exit_cell` goes somewhere that carries it on: into a
+## part not caught in a loop it can never leave, or out by the way out.
+func _hands_over(exit_cell: Vector2i) -> bool:
+	for out in _trace_cache.get("outs", []):
+		if out["from"] == exit_cell:
+			return true
+	for link in _trace_cache.get("links", []):
+		if link[0] == exit_cell and not _dead_at(link[1]):
+			return true
+	return false
 
 ## Which of the edges starting here to take next, as an index into `here`:
 ## whichever turns furthest right from the way the walk arrived. Right first,
@@ -1623,18 +1721,7 @@ func _part_center(b: SkillBoard, origin: Vector2i) -> Vector2:
 ## between them, but the flow crosses from the one to the other all the same.
 func _flow_through(b: SkillBoard, mid: Dictionary) -> Dictionary:
 	var flow: Dictionary = {}
-	var steps: Array = []
-	for link in _trace_cache.get("links", []):
-		steps.append([link[0], link[1]])
-	for out in _trace_cache.get("outs", []):
-		var from: Vector2i = out["from"]
-		steps.append([from, from + Components.dir_to_vec(int(out["dir"]))])
-	for origin in b.cells.keys():
-		var entry: Dictionary = b.cells[origin]
-		var ex := Components.exit_cell(String(entry["id"]), origin, int(entry["rot"]))
-		if ex != origin:
-			steps.append([origin, ex])
-	for step in steps:
+	for step in _flow_steps(b):
 		var from: Vector2i = step[0]
 		var to: Vector2i = step[1]
 		var way := Vector2(to - from)
@@ -1646,6 +1733,47 @@ func _flow_through(b: SkillBoard, mid: Dictionary) -> Dictionary:
 				flow[c] = (flow.get(c, Vector2.ZERO) as Vector2) + way
 	return flow
 
+## Every step the flow takes from one cell into the next, as [from, to]: the
+## links the walk found, each way out of the board, and a two-cell part's own
+## step from the cell it is filed under to the one it emits from.
+func _flow_steps(b: SkillBoard) -> Array:
+	var steps: Array = []
+	for link in _trace_cache.get("links", []):
+		steps.append([link[0], link[1]])
+	for out in _trace_cache.get("outs", []):
+		var from: Vector2i = out["from"]
+		steps.append([from, from + Components.dir_to_vec(int(out["dir"]))])
+	for origin in b.cells.keys():
+		var entry: Dictionary = b.cells[origin]
+		var ex := Components.exit_cell(String(entry["id"]), origin, int(entry["rot"]))
+		if ex != origin:
+			steps.append([origin, ex])
+	return steps
+
+## Where the flow crosses the edge of the wired region, as Vector3i(cell.x,
+## cell.y, dir) for the side of a cell in it: 1 where the flow comes in across
+## that side — from the root — and -1 where it leaves — by the way out, back
+## into the root round a ring, or into a ring it never comes out of.
+##
+## These are the ends of a run, and they are found here rather than read off
+## which way a cell is crossed, which only finds them on a cell the flow goes
+## straight across. A trigger that sends its branch off sideways, or a part the
+## flow turns a corner on, is crossed on a slant, and none of its sides is
+## square to that: the run then set off from a corner of it, or ended on one.
+func _crossings(b: SkillBoard, mid: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for step in _flow_steps(b):
+		var from: Vector2i = step[0]
+		var to: Vector2i = step[1]
+		var dir := _step_dir(to - from)
+		if dir < 0:
+			continue
+		if mid.has(from) and not mid.has(to):
+			out[Vector3i(from.x, from.y, dir)] = -1
+		elif mid.has(to) and not mid.has(from):
+			out[Vector3i(to.x, to.y, Components.opposite(dir))] = 1
+	return out
+
 ## A closed outline cut into the runs the dots travel along, each stretch of it
 ## going the way the part it runs along sends the flow. That is the whole of the
 ## rule, and both readings fall out of it:
@@ -1655,20 +1783,23 @@ func _flow_through(b: SkillBoard, mid: Dictionary) -> Dictionary:
 ##     pointing across. The caps are where the runs meet, so the dots leave the
 ##     middle of the cap the root feeds, go both ways round, and arrive at the
 ##     middle of the one the flow leaves by. Nothing circles, exactly as before.
+##     A cap is the side the flow crosses there (`crossings`), whichever way the
+##     part behind it then turns the flow.
 ##   * A branch that comes back round — a ring, or a trigger's branch running
 ##     home along the row below — has every side pointing the same way round the
 ##     shape. There is no cap to meet at, so the dots go round with the flow
 ##     instead of one half of them running against it.
 ##
-## `owners` is the cell each side of the outline belongs to and `flow` which way
-## that cell is crossed; `head` and `tail` are only the fallback, for a shape
-## with nothing wired to say which way it goes.
+## `owners` is the cell each side of the outline belongs to, `flow` which way
+## that cell is crossed and `crossings` the sides the flow comes in or goes out
+## across; `head` and `tail` are only the fallback, for a shape with nothing
+## wired to say which way it goes.
 func _cut_loop(loop: PackedVector2Array, owners: Array, flow: Dictionary,
-		head: Vector2, tail: Vector2) -> void:
+		crossings: Dictionary, head: Vector2, tail: Vector2) -> void:
 	var total := _loop_length(loop)
 	if total <= 0.0:
 		return
-	var runs := _runs_along(loop, owners, flow, total)
+	var runs := _runs_along(loop, owners, flow, crossings, total)
 	if runs.is_empty():
 		_cut_at_ends(loop, owners, head, tail, total)
 		return
@@ -1681,29 +1812,52 @@ func _cut_loop(loop: PackedVector2Array, owners: Array, flow: Dictionary,
 ## `way` which way round the loop they then go, so a stretch the flow runs
 ## against the outline is kept from its far end.
 ##
-## A side square to the way its own cell is crossed decides nothing by itself:
-## it is a cap, and it takes the way of the sides around it. Where those two
-## disagree the cap is where the dots are born or die, and it is halved — the
-## middle of a cap is the middle of the seam the flow crosses there, which is
-## where the root hands over and where the last part lets go.
+## A side the flow crosses — in from the root, or out to wherever the run goes
+## next (`crossings`) — is an end of the run, and is halved: the middle of it is
+## the middle of the seam the flow crosses there, which is where the root hands
+## over and where the last part lets go. The dots set off from that middle both
+## ways where the flow comes in, and meet there where it goes out.
+##
+## Any other side square to the way its own cell is crossed decides nothing by
+## itself: it is a cap, and it takes the way of the sides around it. Where those
+## two disagree the cap is where the dots are born or die, and it is halved too.
 ##
 ## Empty when no side of the shape has anything to say, which is a shape the
 ## flow reaches without crossing any of its cells.
 func _runs_along(loop: PackedVector2Array, owners: Array, flow: Dictionary,
-		total: float) -> Array:
+		crossings: Dictionary, total: float) -> Array:
 	var n := loop.size()
 	var ways: Array = []
+	var cross: Array = []
 	var starts: Array = []
 	var walked := 0.0
-	var any := false
 	for i in n:
 		var step := loop[(i + 1) % n] - loop[i]
-		var f: Vector2 = flow.get(owners[i], Vector2.ZERO)
+		var cell: Vector2i = owners[i]
+		# Which side of its cell this is: the one it faces out of, on the
+		# outline's left, since the shape is always on its right.
+		var side := posmod(_step_dir(Vector2i(step.sign())) - 1, 4)
+		var c := int(crossings.get(Vector3i(cell.x, cell.y, side), 0))
+		var f: Vector2 = flow.get(cell, Vector2.ZERO)
 		var along := step.normalized().dot(f)
-		ways.append(0 if is_zero_approx(along) else (1 if along > 0.0 else -1))
-		any = any or int(ways[i]) != 0
+		# A side the flow crosses runs by its halves (`_crossing_halves`), not
+		# by the way its cell is crossed.
+		ways.append(0 if c != 0 or is_zero_approx(along) else (1 if along > 0.0 else -1))
+		cross.append(c)
 		starts.append(walked)
 		walked += step.length()
+	# What each side says at its start and at its end: the same at both for a
+	# side the flow runs along, one thing at each end for a side it crosses,
+	# and nothing yet for a cap.
+	var said: Array = []
+	var any := false
+	for i in n:
+		var pair: Array = [int(ways[i]), int(ways[i])]
+		if int(cross[i]) != 0:
+			pair = _crossing_halves(int(cross[i]), _nearest_way(ways, cross, i, -1),
+				_nearest_way(ways, cross, i, 1))
+		said.append(pair)
+		any = any or int(pair[0]) != 0
 	if not any:
 		return []
 	# Each cap takes the run it sits between, and is cut in half when the two
@@ -1712,16 +1866,16 @@ func _runs_along(loop: PackedVector2Array, owners: Array, flow: Dictionary,
 	for i in n:
 		var from: float = starts[i]
 		var span: float = (starts[(i + 1) % n] if i + 1 < n else total) - from
-		if int(ways[i]) != 0:
-			pieces.append({"from": from, "span": span, "way": int(ways[i])})
+		var first := int(said[i][0])
+		var second := int(said[i][1])
+		if first == 0:
+			first = _nearest_said(said, i, -1)
+			second = _nearest_said(said, i, 1)
+		if first == second:
+			pieces.append({"from": from, "span": span, "way": first})
 			continue
-		var before := _nearest_way(ways, i, -1)
-		var after := _nearest_way(ways, i, 1)
-		if before == after:
-			pieces.append({"from": from, "span": span, "way": before})
-			continue
-		pieces.append({"from": from, "span": span * 0.5, "way": before})
-		pieces.append({"from": from + span * 0.5, "span": span * 0.5, "way": after})
+		pieces.append({"from": from, "span": span * 0.5, "way": first})
+		pieces.append({"from": from + span * 0.5, "span": span * 0.5, "way": second})
 	# Neighbours going the same way are one run, the last and the first
 	# included: a shape the flow circles has no break in it anywhere.
 	var runs: Array = []
@@ -1742,16 +1896,50 @@ func _runs_along(loop: PackedVector2Array, owners: Array, flow: Dictionary,
 		run["way"] = float(run["way"])
 	return runs
 
-## The way the nearest side either side of `i` runs, `step` being which way to
-## look. Zero only if nothing on the loop has anything to say, which the caller
-## has already ruled out.
-func _nearest_way(ways: Array, i: int, step: int) -> int:
+## The way the nearest side either side of `i` runs at the end facing it,
+## `step` being which way to look. A side the flow crosses (`cross`) is taken
+## as its halves run when nothing turns them: its second half looking back, its
+## first looking on. Zero if no other side has anything to say.
+func _nearest_way(ways: Array, cross: Array, i: int, step: int) -> int:
 	var n := ways.size()
 	for k in range(1, n):
-		var w := int(ways[posmod(i + step * k, n)])
+		var j := posmod(i + step * k, n)
+		var c := int(cross[j])
+		if c != 0:
+			return c if step < 0 else -c
+		var w := int(ways[j])
 		if w != 0:
 			return w
 	return 0
+
+## What the nearest side either side of `i` says at the end facing it — its end
+## looking back, its start looking on — `step` being which way to look. Zero
+## only if nothing on the loop has anything to say, which the caller has
+## already ruled out.
+func _nearest_said(said: Array, i: int, step: int) -> int:
+	var n := said.size()
+	for k in range(1, n):
+		var pair: Array = said[posmod(i + step * k, n)]
+		var w := int(pair[1] if step < 0 else pair[0])
+		if w != 0:
+			return w
+	return 0
+
+## Which way the dots run along each half of a side the flow crosses, as
+## [first half, second half] in the outline's own order: out of the middle
+## where the flow comes in (`c` 1), and into it where the flow goes out (`c`
+## -1). `before` and `after` are the ways of the runs either side, and a half
+## one of them already runs through goes with it instead: round a ring the
+## root feeds, the dots coming round carry on past where it feeds it rather
+## than meeting the ones it sends the other way. Never both halves, though —
+## that would have the dots meet where the flow comes in, or set off where it
+## goes out.
+func _crossing_halves(c: int, before: int, after: int) -> Array:
+	var first := c if before == c else -c
+	var second := -c if after == -c else c
+	if first == c and second == -c:
+		return [-c, c]
+	return [first, second]
 
 ## The fallback: an outline cut into the two runs between `head` and `tail`,
 ## each kept from the head end onwards, for a shape whose own wiring says
@@ -2054,11 +2242,16 @@ func _draw_part_edges(id: String, origin: Vector2i, rot: int, own: Color, cut: i
 	var cells := Components.footprint(id, origin, rot)
 	var r := _part_rect(id, origin, rot)
 	var deep := _point_depth(r, cut) if cut >= 0 else 0.0
+	# The point is cut into the cell the part emits from and no other: the
+	# back cell of a two-cell root keeps its sides whole, rather than each of
+	# them stopping as far short of its own end as the point is deep.
+	var pointed := Components.exit_cell(id, origin, rot)
 	for c in cells:
 		for d in 4:
 			if d == cut or _fused(cells, c, d):
 				continue
-			_px.rect(_trim_to_point(_edge_rect(cells, c, d), d, cut, deep), own)
+			_px.rect(_trim_to_point(_edge_rect(cells, c, d), d, cut if c == pointed else -1, deep),
+				own)
 	if cut >= 0:
 		_draw_port_point(r, cut, own)
 
@@ -2100,6 +2293,21 @@ func _point_depth(r: Rect2, dir: int) -> float:
 ## that forty-five degree cut written on the grid. The middle strip runs the
 ## whole depth, and is the point itself.
 func _port_strips(r: Rect2, dir: int) -> Array:
+	var f := _port_frame(r, dir)
+	var base: Vector2 = f[0]
+	var v: Vector2 = f[1]
+	var w: Vector2 = f[2]
+	var out := []
+	for i in int(f[4]):
+		var a := base + w * (float(i) * float(PX))
+		var z := a + w * float(PX) + v * _strip_lead(f, i)
+		out.append(Rect2(Vector2(minf(a.x, z.x), minf(a.y, z.y)), (z - a).abs()))
+	return out
+
+## What a port's strips are laid out by, as [base, v, w, deep, n]: the corner
+## they are counted from, the way the port points, the way the strips stack,
+## how deep the port is and how many strips there are.
+func _port_frame(r: Rect2, dir: int) -> Array:
 	var v := Vector2(Components.dir_to_vec(dir))
 	var w := Vector2(-v.y, v.x)
 	# The corner the strips are counted from: the one both `v` and `w` run away
@@ -2108,14 +2316,31 @@ func _port_strips(r: Rect2, dir: int) -> Array:
 		r.position.y if v.y + w.y > 0.0 else r.end.y)
 	var deep := absf(r.size.x * v.x + r.size.y * v.y)
 	var n := int(absf(r.size.x * w.x + r.size.y * w.y) / float(PX))
-	var out := []
+	return [base, v, w, deep, n]
+
+## How far strip `i` of a port laid out by `f` runs: the whole depth in the
+## middle, and a PIXEL less for every strip out from it.
+func _strip_lead(f: Array, i: int) -> float:
+	@warning_ignore("integer_division")
+	return float(f[3]) - float(absi(i - (int(f[4]) - 1) / 2) * PX)
+
+## A port's silhouette as a closed loop of corners, clockwise like every other
+## outline the dots run: along one long side, down the staircase to the point
+## and back, along the other long side and across the back. A corner every
+## PIXEL of the staircase, so it is the outline of the strips exactly, and the
+## track laid along it covers the PIXELs `_draw_port_point` lights.
+func _port_outline(f: Array) -> PackedVector2Array:
+	var base: Vector2 = f[0]
+	var v: Vector2 = f[1]
+	var w: Vector2 = f[2]
+	var n := int(f[4])
+	var loop := PackedVector2Array([base])
 	for i in n:
-		@warning_ignore("integer_division")
-		var lead := deep - float(absi(i - (n - 1) / 2) * PX)
-		var a := base + w * (float(i) * float(PX))
-		var z := a + w * float(PX) + v * lead
-		out.append(Rect2(Vector2(minf(a.x, z.x), minf(a.y, z.y)), (z - a).abs()))
-	return out
+		var lead := _strip_lead(f, i)
+		loop.append(base + v * lead + w * (float(i) * float(PX)))
+		loop.append(base + v * lead + w * (float(i + 1) * float(PX)))
+	loop.append(base + w * (float(n) * float(PX)))
+	return loop
 
 ## The ground and the tint under a part, which for a port is its strips rather
 ## than its box: the two corners it is cut back to a point from show the board
@@ -2373,42 +2598,19 @@ func _draw_count(right: Vector2, id: String) -> void:
 
 ## --- for a thumb: the drawing -----------------------------------------------------
 
-## The header: the graph's name on its plate — or, for the moment one lasts, a
-## refusal, which at a desk is written along the bottom where a thumb's board
-## now is — and CODE and CLOSE, each a plate THUMB_BTN tall with its word at a
-## thumb's size.
-func _draw_thumb_header(vp: Vector2) -> void:
-	_px.rect(Rect2(0, 0, vp.x, THUMB_HEADER), Color(0.07, 0.08, 0.11, 0.9))
-	_px.rect(Rect2(0, THUMB_HEADER, vp.x, PX), Color(0.3, 0.5, 0.7, 0.6))
-	var big := UiKit.THUMB_TEXT
-	var r := _title_rect()
-	var b := current_board()
-	if _message_time > 0.0:
-		_px.rect(r, Color(0.3, 0.14, 0.12, 0.9))
-		_px.frame(r, Color(1.0, 0.65, 0.55))
-		# At the size everything else here is read at: it is a sentence, and the
-		# plate is one row.
-		_px.text(r.position + Vector2(16, 38), _message, Color(1.0, 0.8, 0.72), r.size.x - 32.0)
-	elif b != null:
-		_px.rect(r, Color(0.18, 0.3, 0.42, 0.9))
-		_px.frame(r, Color(0.45, 0.8, 1.0))
-		var title := b.skill_name
-		if title != Weapons.name_for(weapon_id):
-			title = Loc.t("editor.title_on", [b.skill_name, Weapons.name_for(weapon_id)])
-		_px.text(r.position + Vector2(16, 42), title, Color(0.9, 0.95, 1.0), r.size.x - 32.0,
-			Loc.text_size(title, big))
-	var code_label := Loc.t("editor.code")
-	_draw_thumb_plate(_share_rect(), code_label, Color(0.55, 0.9, 1.0), _hover_share, true)
-	var close_label := Loc.t("editor.close")
-	var cr := _close_rect()
-	_draw_thumb_plate(cr, "", Color(1.0, 0.55, 0.55), _hover_close, true)
-	var font_size := Loc.text_size(close_label, big)
-	var mark := CROSS[0].length() * PX * 2 + 14.0
-	var ink := Color(1, 0.9, 0.9) if _hover_close else Color(0.86, 0.82, 0.84)
-	var at := _px.snap(cr.position + Vector2(
-		(cr.size.x - mark - PixelDraw.ink_width(close_label, font_size)) * 0.5, 22.0))
-	_px.icon(at, CROSS, ink, 2)
-	_px.text(at + Vector2(mark, 20.0), close_label, ink, -1.0, font_size)
+## A message, for the moment it lasts, on a plate of its own beside the X — at a
+## desk it is written along the bottom, where a thumb's COPY and PASTE now are.
+## A refusal on red, and what COPY and PASTE did on green.
+func _draw_thumb_message() -> void:
+	if _message_time <= 0.0:
+		return
+	var r: Rect2 = _thumb_layout()["message"]
+	_px.rect(r, Color(0.12, 0.28, 0.2, 0.9) if _message_good else Color(0.3, 0.14, 0.12, 0.9))
+	_px.frame(r, UiKit.GOOD if _message_good else Color(1.0, 0.65, 0.55))
+	# At the size everything else here is read at: it is a sentence, and the
+	# plate is one row.
+	_px.text(r.position + Vector2(16, 38), _message,
+		Color(0.8, 1.0, 0.88) if _message_good else Color(1.0, 0.8, 0.72), r.size.x - 32.0)
 
 ## One of mobile mode's plates: its ground and its edge in `accent`, lit under a
 ## thumb, drained when it has nothing to act on, and `label` in the middle of it
@@ -2499,11 +2701,11 @@ func _draw_thumb_count(right: Vector2, id: String) -> float:
 	_px.text(_px.snap(right - Vector2(w, 0.0)), label, col, -1.0, font_size)
 	return w
 
-## A refusal (no room, none left) lasts a moment along the bottom. It is the
-## only thing written there.
+## A message lasts a moment along the bottom: a refusal (no room, none left) in
+## red, and what COPY and PASTE did in green. It is the only thing written there.
 func _draw_message(vp: Vector2) -> void:
 	if _message_time > 0.0:
 		# Under the board's own left edge, wherever that has been stood in to.
 		var inset := _inset()
-		_px.text(Vector2(48, vp.y - 24) + inset, _message, Color(1.0, 0.65, 0.55),
-			vp.x - 96.0 - inset.x * 2.0)
+		_px.text(Vector2(48, vp.y - 24) + inset, _message,
+			UiKit.GOOD if _message_good else Color(1.0, 0.65, 0.55), vp.x - 96.0 - inset.x * 2.0)

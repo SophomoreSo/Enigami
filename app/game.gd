@@ -376,7 +376,6 @@ func _edit_weapon_graph() -> void:
 func _open_board(board: SkillBoard) -> void:
 	_close_editor()
 	editor = SkillEditor.new()
-	editor.weapon_id = hideout_ref.weapon_id if hideout_ref != null else "SWORD"
 	editor.configure(board, GameState.stash, false, null)
 	editor.closed.connect(_close_editor)
 	editor.board_changed.connect(func() -> void: GameState.save_game())

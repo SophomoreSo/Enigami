@@ -81,7 +81,7 @@ func _ready() -> void:
 	await key(KEY_TAB)
 	check(raid.editing, "open again for the close button")
 	await click(Views.of(raid).editor._close_rect().get_center())
-	check(not raid.editing, "the CLOSE button closes it")
+	check(not raid.editing, "the X closes it")
 	await frames(6)
 	check(not raid.editing, "button-close is not undone")
 
@@ -171,7 +171,7 @@ func _ready() -> void:
 	await frames(6)
 	var ed: SkillEditor = game.editor
 	await click(ed._close_rect().get_center())
-	check(game.editor == null, "the CLOSE button closes the workbench editor")
+	check(game.editor == null, "the X closes the workbench editor")
 
 	# --- the hideout pauses too ----------------------------------------------
 	# It is a menu, but it is the one the player stands in between raids, and

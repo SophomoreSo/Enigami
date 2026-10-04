@@ -59,7 +59,6 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_editing(on: bool) -> void:
 	if on:
-		editor.weapon_id = sandbox.player.weapon_id
 		editor.configure(sandbox.board(), sandbox.inventory, true, sandbox.player.runner)
 		editor.visible = true
 		editor.grab_focus()

@@ -2,8 +2,9 @@ extends Node
 ## The assembly board in mobile mode, which is laid out for a thumb and worked
 ## with one (`SkillEditor`, "for a thumb").
 ##
-## On the layout: the header, the board, the tabs, the plates and the two under
-## them are all on the screen and none on another; everything a thumb presses is
+## On the layout: the X in the corner, the board with COPY and PASTE under it,
+## the tabs, the plates and the two under them are all on the screen and none on
+## another; everything a thumb presses is
 ## a thumb's size; every part in the pool is on some tab; a first workbench's
 ## grid stands at a thumb's width a cell and the biggest one a workbench grows
 ## still fits, its cells no smaller than a desk's, with the way out's arrow
@@ -16,8 +17,8 @@ extends Node
 ## moves nothing — for TURN to turn and REMOVE to put back in the bag; a part
 ## dragged is moved, from a plate or across the board, and thrown at the parts
 ## it is put away; the weapon's own part is picked, turned and moved the same
-## way, and REMOVE leaves it on the board. CODE opens the sheet with buttons a
-## thumb's size, and CLOSE closes the board.
+## way, and REMOVE leaves it on the board. COPY puts the board on the clipboard
+## and PASTE builds it back off it, and the X closes the board.
 ##
 ## And at a desk it is the board it was: thrown off under an open board, the
 ## desk's layout comes back, cell for cell.
@@ -139,7 +140,7 @@ func _ready() -> void:
 	await _the_parts()
 	await _a_part_picked()
 	await _a_part_dragged()
-	await _the_sheet()
+	await _copy_and_paste()
 	await _at_a_desk()
 	await _closing()
 	Touch.set_mode(was_mode)
@@ -153,7 +154,8 @@ func _the_layout() -> void:
 	check(ed.thumb() and bench.editing, "in mobile mode the board is laid out for a thumb")
 	var l := layout()
 	var vp := Rect2(Vector2.ZERO, screen())
-	var named := {"title": l["title"], "CODE": l["share"], "CLOSE": l["close"], "the board": l["frame"],
+	var named := {"X": l["close"], "the message": l["message"], "COPY": l["copy"], "PASTE": l["paste"],
+		"the board": l["frame"],
 		"the plates": l["plates"], "TURN": l["turn"], "REMOVE": l["remove"]}
 	var tabs: Array = l["tabs"]
 	for i in tabs.size():
@@ -171,10 +173,15 @@ func _the_layout() -> void:
 	check(off.is_empty(), "everything on it is on the screen (%s)" % str(off))
 	check(over.is_empty(), "and nothing stands on anything else (%s)" % str(over))
 	var small: Array = []
-	for k in ["CODE", "CLOSE", "TURN", "REMOVE"]:
+	for k in ["COPY", "PASTE", "TURN", "REMOVE"]:
 		var r: Rect2 = named[k]
 		if r.size.y < SkillEditor.THUMB_BTN or r.size.x < 120.0:
 			small.append("%s %s" % [k, str(r.size)])
+	var x: Rect2 = named["X"]
+	if x.size.x < SkillEditor.THUMB_BTN or x.size.y < SkillEditor.THUMB_BTN:
+		small.append("X %s" % str(x.size))
+	check(x.position == Vector2(SkillEditor.THUMB_EDGE, SkillEditor.THUMB_EDGE),
+		"the X is in the screen's top-left corner (%s)" % str(x.position))
 	for i in tabs.size():
 		var r: Rect2 = tabs[i]
 		if r.size.y < 60.0 or r.size.x < 120.0:
@@ -241,23 +248,25 @@ func _the_grid() -> void:
 		var side := float(l["cell"])
 		if side < float(SkillEditor.CELL) or int(side / UiKit.PIXEL) % 2 != 1 \
 				or not Rect2(Vector2.ZERO, screen()).encloses(frame) \
-				or frame.intersects(l["column"]) or frame.position.y < SkillEditor.THUMB_HEADER \
+				or frame.intersects(l["column"]) or frame.intersects(l["close"]) \
+				or not Rect2(Vector2.ZERO, screen()).encloses(l["paste"]) \
+				or (l["paste"] as Rect2).intersects(l["column"]) \
 				or probe._way_out_rect(probe.current_board()).intersects(l["column"]):
 			tight.append("level %d: cell %.0f, board %s" % [level, side, str(frame)])
 	check(tight.is_empty(),
-		"every grid a workbench grows fits beside the parts, way out and all, at no less than a desk's cell (%s)" % str(tight))
+		"every grid a workbench grows fits beside the parts, way out, COPY and PASTE and all, at no less than a desk's cell (%s)" % str(tight))
 	layer.queue_free()
 	await frames(2)
 
 ## Every PIXEL×PIXEL block of the frame is one colour, with the board dressed:
-## parts on it, one picked, a tab of plates up and a refusal in the header.
+## parts on it, one picked, a tab of plates up and a refusal beside the X.
 func _on_the_grid() -> void:
 	var form := part_on(0)
 	await tap(tab_of(form))
 	await tap(plate_of(form))
 	await tap(cell(Vector2i(3, 0)))
-	# The weapon's own part picked, and REMOVE pressed on it: a refusal, in the
-	# header. Then the part just set down picked in its place.
+	# The weapon's own part picked, and REMOVE pressed on it: a refusal, beside
+	# the X. Then the part just set down picked in its place.
 	await tap(cell(ed.current_board().root))
 	await tap((layout()["remove"] as Rect2).get_center())
 	await tap(cell(Vector2i(3, 0)))
@@ -386,7 +395,7 @@ func _a_part_picked() -> void:
 	before = changes
 	await tap(remove)
 	check(at(root) == root_id and b.root == root and changes == before and ed._message_time > 0.0,
-		"REMOVE leaves it on the board, and the header says why")
+		"REMOVE leaves it on the board, and the plate beside the X says why")
 	await tap(cell(root))
 	check(ed._picked == SkillEditor.NOWHERE, "a second touch lets it go")
 	var over := root + Vector2i(-2, 0)
@@ -414,24 +423,27 @@ func _a_part_dragged() -> void:
 	await carry(cell(to), Vector2(cell(to).x, screen().y - 4.0))
 	check(at(to) == id, "one let go nowhere goes back where it was")
 
-## --- the share sheet -----------------------------------------------------------------------
+## --- COPY and PASTE ------------------------------------------------------------------------
 
-func _the_sheet() -> void:
-	await tap(ed._share_rect().get_center())
-	check(ed._share_open(), "a thumb on CODE opens the share sheet")
-	if not ed._share_open():
+## A thumb on COPY puts the board on the clipboard, and one on PASTE builds the
+## board back off it — the same board, here. The machine's clipboard is put back
+## as it was; with none, there is nothing here to try.
+func _copy_and_paste() -> void:
+	if not DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD):
 		return
-	var sheet := ed._share
-	var l := sheet._layout()
-	var small: Array = []
-	for key in ["copy", "paste", "build", "close"]:
-		var r: Rect2 = l[key]
-		if r.size.y < ShareCodePanel.THUMB_BTN or not (l["panel"] as Rect2).encloses(r):
-			small.append("%s %s" % [key, str(r)])
-	check(small.is_empty(), "its buttons are a thumb's size, on the sheet (%s)" % str(small))
-	check(Rect2(Vector2.ZERO, screen()).encloses(l["panel"]), "and the sheet is on the screen")
-	await tap((l["close"] as Rect2).get_center())
-	check(not ed._share_open() and bench.editing, "a thumb on its CLOSE closes the sheet, not the board")
+	var was := DisplayServer.clipboard_get()
+	var b := ed.current_board()
+	var code := BoardCode.encode(b)
+	DisplayServer.clipboard_set("")
+	ed._message_time = 0.0
+	await tap(ed._copy_rect().get_center())
+	check(DisplayServer.clipboard_get() == code, "a thumb on COPY puts the board on the clipboard")
+	check(ed._message_time > 0.0 and ed._message_good, "and the plate beside the X says so")
+	var before := b.duplicate_board()
+	await tap(ed._paste_rect().get_center())
+	check(BoardCode.encode(b) == BoardCode.encode(before) and ed._message_good and bench.editing,
+		"a thumb on PASTE builds the board off it — the same one again")
+	DisplayServer.clipboard_set(was)
 
 ## --- a desk ----------------------------------------------------------------------------------
 
@@ -444,11 +456,12 @@ func _at_a_desk() -> void:
 			and ed.board_origin() == SkillEditor.BOARD_ORIGIN + ed._inset(),
 		"at a desk the board is a desk's: the same cell, in the same place")
 	check(ed._palette_ids().size() == ed._pool_ids().size(), "with every part in its rows at once")
-	check(ed._close_rect().size == Vector2(SkillEditor.CLOSE_W, 30.0), "and CLOSE the size it was")
+	check(ed._close_rect() == Rect2(SkillEditor.CORNER, Vector2.ONE * SkillEditor.CLOSE_SIDE),
+		"and the X a desk's, in its corner")
 	Touch.set_mode(Touch.ON)
 	await frames(4)
 	check(ed.thumb() and ed.cell_size() > float(SkillEditor.CELL), "and thrown back, a thumb's again")
 
 func _closing() -> void:
 	await tap(ed._close_rect().get_center())
-	check(not bench.editing, "a thumb on CLOSE closes the board")
+	check(not bench.editing, "a thumb on the X closes the board")

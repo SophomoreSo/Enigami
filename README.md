@@ -128,8 +128,8 @@ not a thing to reach for once it errors.
 | mouse wheel | the next weapon in hand, a notch down, or the one before, a notch up; round from the last to the first |
 | Q | leave the monster you are possessing, back into your own body |
 | mouse / right stick | aim, and where a lunge lands. A stick's aim is bent toward a monster it is near — never snapped, and never the mouse's; how much is AIM ASSIST in the control settings |
-| TAB | open assembly — **the raid keeps running**; TAB, ESC or the CLOSE button leaves it |
-| C | in assembly: the board as a share code — copy it out, or build someone else's board from theirs |
+| TAB | open assembly — **the raid keeps running**; TAB, ESC or the X in its corner leaves it |
+| Ctrl+C / Ctrl+V (⌘ on a Mac) | in assembly: COPY and PASTE — the board onto the clipboard as a share code, or someone else's board built from theirs |
 | F | interact: talk to an NPC — the last step over to them is walked for you, and pushing the other way on it changes your mind — (again for the next line), and hold to extract. Someone who talks free goes on by themselves; F only hurries their line |
 | W / S, ↑ / ↓ | when an NPC asks a question, move between answers; F gives the highlighted one |
 | ESC | pause |
@@ -258,8 +258,8 @@ never learn what a finger is. What changes while it is up:
   window that has taken the controls — the map, the bench's drawer — keeps only
   the keys that close it again, since the map is opened and shut with the same
   key and on a phone that key is on the console or it is nowhere. The assembly
-  board leaves the glass clear: it covers all of it, it is itself what the
-  thumb is for, and its own CLOSE is right where KIT, MAP and MENU would stand.
+  board leaves the glass clear: it covers all of it, and it is itself what the
+  thumb is for.
   So does a station's panel in the hideout, which is a page nearly the width of
   the screen with its own way out in two corners. The pause menu replaces the
   console: those are buttons you tap.
@@ -295,7 +295,7 @@ has a second layout (`UiKit.mobile`), and at a desk each is exactly as it was:
   take one off, and thirty-six parts in rows 20 high; a thumb has none of
   those. So the board is as big as the screen lets it be — a first workbench's
   cells are 90 across where a desk's are 50, and the biggest grid still fits
-  at 58 — the parts come a category at a time, on tabs, each a plate with its
+  at 54 — the parts come a category at a time, on tabs, each a plate with its
   name written big, and under them are TURN and REMOVE. A touch on a plate
   takes the part in hand and a touch on an empty cell sets it down; a touch on
   a part on the board picks it, bringing its tab up, for TURN to turn and
@@ -303,8 +303,8 @@ has a second layout (`UiKit.mobile`), and at a desk each is exactly as it was:
   the parts is put away. The weapon's own part is picked, turned and dragged
   the same way, and REMOVE leaves it on the board. Nothing scrolls, so a drag
   is never asked to mean two
-  things. CODE and CLOSE are plates in the corner, and the share sheet's
-  buttons are a thumb's, with a code coming in by PASTE.
+  things. The X that closes it is a plate in the top-left corner, and COPY and
+  PASTE are plates under the board.
 * **The rest** follow: the bench's drawer has buttons and a tab a thumb can
   land on, the screen behind SET BUTTON POSITIONS likewise, and the page after
   a raid is written bigger, in two columns, with the way back a plate.
@@ -626,8 +626,8 @@ components its attack was visibly built from.
 
 ## Sharing a board
 
-`C` in the assembly screen — or the **CODE** button beside CLOSE — writes the
-board on the grid out as a short code:
+**COPY**, under the board in the assembly screen — or Ctrl+C, ⌘C on a Mac —
+puts the board on the grid on the clipboard as a short code:
 
 ```
 CapygL1IE54LHBuM
@@ -635,22 +635,19 @@ CapygL1IE54LHBuM
 
 Every part, where it sits and which way it faces, in about twenty characters for
 an ordinary skill — one unbroken run, with no dashes or spaces to copy along with
-it, so it is a single word to a double-click. COPY takes it, and the same sheet
-builds somebody else's board from theirs: paste it, or type it in and press
-ENTER.
+it, so it is a single word to a double-click. **PASTE** beside it — or Ctrl+V,
+⌘V — builds somebody else's board out of theirs, from the clipboard.
 
 **Case matters** — the alphabet is the digits, the capitals and the small
 letters, so `k` and `K` are different boards. The one character left out is `0`:
 the pixel face draws `0` and `O` with the same pixels, so a round character is
-always the letter, and typing a zero says so instead of quietly building
-something else. That face has no small letters either — it draws them as
-capitals — so **a code on screen does not show its own case**. Use COPY to take
-one, rather than reading it off the screen and typing it back in.
+always the letter. **Copy a code and paste it whole**, rather than reading it off
+a screen and typing it back in.
 
 The last character is a check character, so **a single wrong character, one in
 the wrong case, or two neighbours swapped over is always refused** rather than
 quietly building a different board. A board is always the same code however it
-was built up, so two players can compare codes by eye. Paste the code on its own
+was built up, so two players can compare codes by eye. Copy the code on its own
 rather than the line it came in: the letters of the words around it are code
 characters too.
 
