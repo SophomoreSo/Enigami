@@ -14,6 +14,8 @@ signal exit_requested()
 signal editing_changed(on: bool)
 ## The dragon test was asked for: a building of guards to try a chain of lunges on.
 signal dragon_test_requested()
+## The Jean Grey test was asked for: a diamond to steal by possessing its guards.
+signal jean_grey_test_requested()
 
 const MONSTER_BUTTONS := ["CRAWLER", "SENTRY", "LOBBER", "HOPPER", "DRIFTER", "WARDEN", "ARBITER"]
 ## The column the apprentice stands in: by the left wall, which the wall kick
@@ -155,6 +157,9 @@ func leave() -> void:
 
 func open_dragon_test() -> void:
 	dragon_test_requested.emit()
+
+func open_jean_grey_test() -> void:
+	jean_grey_test_requested.emit()
 
 func _on_damage(_a: Actor, amount: float) -> void:
 	_dps_window.append([float(Time.get_ticks_msec()) / 1000.0, amount])

@@ -123,8 +123,8 @@ func _hang_lines() -> void:
 ## readout.
 func _spots(clear: int) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
-	for y in range(0, Room.H - clear):
-		for x in range(2, Room.W - 2):
+	for y in range(0, room.rows - clear):
+		for x in range(2, room.cols - 2):
 			if x < READOUT_COLS and y < READOUT_ROWS:
 				continue
 			if room.is_solid(x, y) and _clear_under(x, y, clear):
@@ -190,8 +190,8 @@ func _grow_foliage() -> void:
 ## them inside the room and in from its edge.
 func _ground() -> Dictionary:
 	var out := {}
-	for y in range(1, Room.H):
-		for x in range(1, Room.W - 1):
+	for y in range(1, room.rows):
+		for x in range(1, room.cols - 1):
 			if room.is_solid(x, y) and not room.is_solid(x, y - 1):
 				out[Vector2i(x, y)] = true
 	return out
@@ -209,13 +209,13 @@ static func reach(vp: Viewport) -> Vector2i:
 ## Whether a cell is rock, out past the room's own edge as well as in it. All of
 ## the outside is, but for the gap a door cuts, which runs on through it.
 func _rock(x: int, y: int) -> bool:
-	if x >= 0 and y >= 0 and x < Room.W and y < Room.H:
+	if x >= 0 and y >= 0 and x < room.cols and y < room.rows:
 		return room.is_solid(x, y)
-	if y >= 0 and y < Room.H and Room.DOOR_ROWS.has(y):
-		if (x < 0 and room.doors.has(Components.W)) or (x >= Room.W and room.doors.has(Components.E)):
+	if y >= 0 and y < room.rows and Room.DOOR_ROWS.has(y):
+		if (x < 0 and room.doors.has(Components.W)) or (x >= room.cols and room.doors.has(Components.E)):
 			return false
-	if x >= 0 and x < Room.W and Room.DOOR_COLS.has(x):
-		if (y < 0 and room.doors.has(Components.N)) or (y >= Room.H and room.doors.has(Components.S)):
+	if x >= 0 and x < room.cols and Room.DOOR_COLS.has(x):
+		if (y < 0 and room.doors.has(Components.N)) or (y >= room.rows and room.doors.has(Components.S)):
 			return false
 	return true
 
@@ -226,17 +226,17 @@ func _process(_delta: float) -> void:
 func draw_static(c: CanvasItem) -> void:
 	if room == null or not is_instance_valid(room):
 		return
-	var w := Room.W * Room.CELL
-	var h := Room.H * Room.CELL
+	var w := room.cols * Room.CELL
+	var h := room.rows * Room.CELL
 	c.draw_rect(Rect2(0, 0, w, h), Style.ROOM_BG)
-	for x in range(0, Room.W + 1, 2):
+	for x in range(0, room.cols + 1, 2):
 		c.draw_line(Vector2(x * Room.CELL, 0), Vector2(x * Room.CELL, h), Style.ROOM_GRID, 2.0)
-	for y in range(0, Room.H + 1, 2):
+	for y in range(0, room.rows + 1, 2):
 		c.draw_line(Vector2(0, y * Room.CELL), Vector2(w, y * Room.CELL), Style.ROOM_GRID, 2.0)
 
 	var tint := Style.region_tint(int(room.data.get("region", 0)))
-	for y in Room.H:
-		for x in Room.W:
+	for y in room.rows:
+		for x in room.cols:
 			if not room.is_solid(x, y):
 				continue
 			var r := Rect2(x * Room.CELL, y * Room.CELL, Room.CELL, Room.CELL)
@@ -248,9 +248,9 @@ func draw_static(c: CanvasItem) -> void:
 	# The rock past the room, tiled the way the room's own is, and the tunnels
 	# its doors open into.
 	var out := reach(get_viewport())
-	for y in range(-out.y, Room.H + out.y):
-		for x in range(-out.x, Room.W + out.x):
-			if x >= 0 and y >= 0 and x < Room.W and y < Room.H:
+	for y in range(-out.y, room.rows + out.y):
+		for x in range(-out.x, room.cols + out.x):
+			if x >= 0 and y >= 0 and x < room.cols and y < room.rows:
 				continue
 			var r := Rect2(x * Room.CELL, y * Room.CELL, Room.CELL, Room.CELL)
 			if not _rock(x, y):

@@ -24,16 +24,16 @@ extends Actor
 ## casts nothing; see `holders`.
 ##
 ## A hit carrying POSSESS puts the player's hands into the monster it strikes
-## (`possess`). The body stays where it was, standing still, and the monsters
-## go on hunting it — it dies, and the raid is lost. The input line drives the
+## (`possess`). The body stays where it was, standing still, and the monsters go
+## on hunting it — it dies, and the raid is lost. The input line drives the
 ## monster instead: it walks, jumps, talks to whoever is in reach and attacks
 ## with its own attack, or with the player's weapon once it has taken it out of
 ## the body's hands (`take_weapon`) — and it picks the rock up off the floor the
 ## way the body does, and throws it. The other monsters take it for one of them
-## until it attacks. It ends when the time runs out, when the player steps out,
-## or when the monster dies; the monster is left stunned, and the weapon goes
-## back to the body. The rock does not: it is in the monster's hand, and the
-## monster lets go of it where it stands.
+## until it hurts one of them. It ends when the time runs out, when the player
+## steps out, or when the monster dies; the monster is left stunned, and the
+## weapon goes back to the body. The rock does not: it is in the monster's hand,
+## and the monster lets go of it where it stands.
 
 signal cast_fired()
 signal parry_success()
@@ -183,6 +183,11 @@ var holders: Dictionary = {}
 ## Whether the attack button was down a frame ago, so a press on a rock that
 ## is not in the hand is answered once rather than every frame it is held.
 var _was_attacking: bool = false
+## Whether the press still held is the one that threw the rock out of the hands
+## the player is in. It is spent until it is let go: a click lasts a few frames,
+## and the rest of it would otherwise be a monster's own attack — a Crawler
+## slashing the air beside the throw, a Gunman firing and giving itself away.
+var _press_spent: bool = false
 ## Whether the monster has taken the weapon out of the body's hands. While it
 ## has, the weapon's graph is cast from the monster, and the body holds nothing.
 var vessel_armed: bool = false
@@ -631,7 +636,8 @@ func _on_cycle_started() -> void:
 ## weapon was put away lands as that weapon's, not as the one drawn since.
 ##
 ## It goes off from whichever body holds the weapon: the monster's, once it has
-## taken it, and then the monster has shown itself to the rest.
+## taken it — which gives the monster away only if what it throws hurts one of
+## them (`Attacks.resolve_hit`).
 ##
 ## Off a thrown weapon, a bolt is the weapon itself. The flow that finds the rock
 ## in the hand it goes off from throws it, with everything the graph built into
@@ -643,8 +649,6 @@ func _on_fired(payload: Payload, weapon: String = "") -> void:
 	if weapon == "":
 		weapon = weapon_id
 	var from := vessel()
-	if from != self:
-		(from as Enemy).revealed = true
 	var p := Weapons.finalize(weapon, payload)
 	var ctx := {
 		"attacker": from, "room": room, "team": team,
@@ -656,6 +660,7 @@ func _on_fired(payload: Payload, weapon: String = "") -> void:
 		ctx["thrower"] = self
 		if holds(weapon) and holders[weapon] == from:
 			holders.erase(weapon)
+			_press_spent = true
 		else:
 			ctx["ghost"] = true
 	Attacks.spawn(p, ctx)
@@ -706,6 +711,8 @@ func _process(delta: float) -> void:
 	var s := input.state()
 	var pressed := s.attack and not _was_attacking
 	_was_attacking = s.attack
+	if not s.attack:
+		_press_spent = false
 	if possessing != null:
 		_mind_possession(delta, s)
 	# Another weapon in hand, by its slot's key or by a step along. Before the
@@ -767,7 +774,7 @@ func _process(delta: float) -> void:
 ## a hold buys life for the weapon's graph, and that is back at the body. The
 ## weapons go on recovering in their slots meanwhile.
 func _attack_as_monster(delta: float, s: InputState) -> void:
-	possessing.attacking = s.attack or s.cast
+	possessing.attacking = (s.attack and not _press_spent) or s.cast
 	_update_charge(delta, false)
 	_cast_buffer = 0.0
 	cast_charge = 0.0

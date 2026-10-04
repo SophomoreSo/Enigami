@@ -163,7 +163,7 @@ INSERT INTO parts (id, name, category, heat, tag, stack_limit, description) VALU
 	('KNOCKBACK', 'KNOCKBACK', 'behavior', 0.5, NULL, NULL, 'Hits throw the enemy back the way the attack was going. Buys room, but can put it out of reach. Each one stacked throws harder.'),
 	('MANA_DRAIN', 'MANA DRAIN', 'behavior', 0.5, NULL, NULL, 'Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting. Each one stacked drains more.'),
 	('STUN', 'STUN', 'behavior', 0.6, NULL, NULL, 'Struck enemies are stunned: for a moment they stand where they are and cannot attack. Each one stacked holds them longer. Once it wears off, an enemy shrugs off the next stun for a while.'),
-	('POSSESS', 'POSSESS', 'behavior', 0.9, NULL, NULL, 'Takes over the monster struck for 5 seconds, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, which stays behind, still hunted. Bosses resist it.');
+	('POSSESS', 'POSSESS', 'behavior', 0.9, NULL, NULL, 'Takes over the monster struck for 5 seconds, unharmed, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, left behind and still hunted. Bosses resist it.');
 
 INSERT INTO ports (part_id, side) VALUES
 	('PIERCE', 'E'), ('BLINK', 'E'), ('HOMING', 'E'),

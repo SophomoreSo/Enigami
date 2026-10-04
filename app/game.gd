@@ -8,7 +8,7 @@ extends Node
 ## builds screens out of `graphics/` and drives them with `feature/`. Neither
 ## module reaches the other except through here and through `Cues`.
 
-enum State { TITLE, HIDEOUT, RAID, SANDBOX, RESULTS, DRAGON_TEST, INTRO }
+enum State { TITLE, HIDEOUT, RAID, SANDBOX, RESULTS, DRAGON_TEST, INTRO, JEAN_GREY_TEST }
 
 var state: int = State.TITLE
 var current: Node = null
@@ -316,6 +316,7 @@ func goto_sandbox() -> void:
 	var s := Sandbox.new()
 	s.exit_requested.connect(goto_title)
 	s.dragon_test_requested.connect(goto_dragon_test)
+	s.jean_grey_test_requested.connect(goto_jean_grey_test)
 	add_child(s)
 	current = s
 
@@ -327,6 +328,15 @@ func goto_dragon_test() -> void:
 	d.exit_requested.connect(goto_sandbox)
 	add_child(d)
 	current = d
+
+## Leaving the Jean Grey test goes back to the sandbox it was opened from, too.
+func goto_jean_grey_test() -> void:
+	_clear()
+	state = State.JEAN_GREY_TEST
+	var j := JeanGreyTest.new()
+	j.exit_requested.connect(goto_sandbox)
+	add_child(j)
+	current = j
 
 ## Through the gate holding `weapon`, with the rest of the kit the rack was
 ## left carrying. A weapon that is not in that kit goes out on its own.

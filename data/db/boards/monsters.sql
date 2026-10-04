@@ -10,7 +10,8 @@
 -- right edge, (6, 2), which is where its flow leaves as the attack.
 
 INSERT INTO boards (id) VALUES
-	('crawler'), ('sentry'), ('lobber'), ('hopper'), ('drifter'), ('warden'), ('arbiter'), ('arbiter_phase2');
+	('crawler'), ('sentry'), ('lobber'), ('hopper'), ('drifter'), ('warden'), ('arbiter'), ('arbiter_phase2'),
+	('gunman');
 
 INSERT INTO board_parts (board_id, x, y, part, facing, root) VALUES
 	('crawler', 6, 2, 'SLASH', 'E', 1),
@@ -36,4 +37,8 @@ INSERT INTO board_parts (board_id, x, y, part, facing, root) VALUES
 	-- the explosion's line to leave the way it does.
 	('arbiter_phase2', 2, 2, 'EXPLODE', 'E', 1), ('arbiter_phase2', 4, 2, 'ON_HIT', 'E', 0),
 	('arbiter_phase2', 5, 2, 'DELAY', 'E', 0), ('arbiter_phase2', 6, 2, 'DELAY', 'E', 0),
-	('arbiter_phase2', 4, 3, 'PROJECTILE', 'E', 0), ('arbiter_phase2', 5, 3, 'DUPLICATE', 'N', 0);
+	('arbiter_phase2', 4, 3, 'PROJECTILE', 'E', 0), ('arbiter_phase2', 5, 3, 'DUPLICATE', 'N', 0),
+
+	-- The Jean Grey test's rifle: one bolt, which the Gunman's kind makes
+	-- heavy and quick (feature/actors/monsters.gd).
+	('gunman', 6, 2, 'PROJECTILE', 'E', 1);

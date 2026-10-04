@@ -52,6 +52,7 @@
 	"sandbox": {
 		"swap_weapon": "무기 교체",
 		"dragon_test": "드래곤 테스트 >",
+		"jean_grey_test": "진 그레이 테스트 >",
 		"spawn": "%s 소환",
 		"spawn_dummy": "허수아비 소환",
 		"clear": "비우기",
@@ -71,6 +72,24 @@
 		"one_cast": "한 번의 시전으로 %d 전원 처치",
 		"clear": "층 클리어   최고 기록 %d / %d",
 		"board": "드래곤 대시"
+	},
+	"jean": {
+		"title": "진 그레이 테스트",
+		"subtitle": "직접 들어가지 않고 다이아몬드를 훔치세요",
+		"body": "몸 %d / %d",
+		"take": "다이아몬드를 가져가세요",
+		"down": "다이아몬드를 다시 주우세요",
+		"carry": "내 몸에게 가져다주세요",
+		"home": "들고 구덩이로 돌아가세요",
+		"unseen": "들키지 않음",
+		"seen": "%d명에게 들킴",
+		"best": "%s  최고 기록 %s",
+		"stolen": "다이아몬드 탈취  %s",
+		"fell": "몸이 쓰러졌습니다",
+		"again": "다시",
+		"rock_out": "돌이 바닥에 있음",
+		"keys": "R 초기화  TAB 편집  %s 몬스터에서 나가기  ESC 뒤로",
+		"board": "사이킥 투척"
 	},
 	"pickup": "%s을(를) 주웠습니다 — TAB으로 조립하세요",
 	"exit": {

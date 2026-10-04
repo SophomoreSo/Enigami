@@ -467,6 +467,13 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 	# Both halves are needed: a fully deleted node fails `is_instance_valid`,
 	# and one still being torn down passes it but no longer answers to `is`.
 	var atk: Actor = attacker if is_instance_valid(attacker) and attacker is Actor else null
+	# POSSESS takes the monster it strikes, and does it no harm: the hit is the
+	# player's hands going in, not a blow — no damage, no shove, nothing it
+	# carries. Something it cannot take, a boss, is struck as by anything else.
+	var pilot := _possessor(atk)
+	if p.possess > 0.0 and pilot != null and Player.can_possess(target):
+		_possess_hit(p, target, pos, dir, atk, pilot, room, team)
+		return
 	# SHATTER reads the target's state from before this hit lands, so an attack
 	# carrying ICE and SHATTER together does not shatter the chill it is in the
 	# middle of applying. It takes two arrivals, which is what makes it a
@@ -479,6 +486,13 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 	var dealt := target.apply_damage(damage, [] if p.cleanse else p.elements, atk)
 	if dealt <= 0.0:
 		return
+	# A monster the player is in passes for one of them until it hurts one of
+	# them, and then it is found out (`Enemy.revealed`). Attacking alone gives
+	# nothing away — a swing at the air, a throw that misses — and a throw that
+	# lands POSSESS hurts nobody (above), so a hop from one body to the next is
+	# never one of them hurt.
+	if atk is Enemy and (atk as Enemy).piloted() and target.team != atk.team:
+		(atk as Enemy).revealed = true
 	# The frost is what broke: the enemy thaws, and that takes the chill this
 	# same hit may have brought with it, so the next break needs a fresh one.
 	if breaks:
@@ -520,15 +534,6 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 		var drained := MANA_PER_HIT * float(p.mana_drain)
 		atk.gain_mana(drained)
 		Cues.at(&"mana_drain", pos, {"amount": drained})
-	# POSSESS: the player's hands go into the monster struck, if it is still
-	# standing — whether the hit came from their own body or from a monster
-	# they are already in, which is a hop from one to the next.
-	if p.possess > 0.0 and not target.dead and target is Enemy:
-		var pilot: Player = atk as Player
-		if pilot == null and atk is Enemy and (atk as Enemy).piloted():
-			pilot = (atk as Enemy).pilot
-		if pilot != null:
-			pilot.possess(target as Enemy, p.possess)
 	# What an INVERT made of DAMAGE: health given back to the enemy struck, after
 	# the harm and only while it still stands, so a blow that kills stays a kill.
 	if p.heal > 0.0 and not target.dead:
@@ -552,6 +557,30 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 		_schedule_spawn(TRIGGER_DELAY, _follow(p.on_hit), ctx)
 	if killed and p.on_kill != null:
 		_schedule_spawn(TRIGGER_DELAY, _follow(p.on_kill), ctx)
+
+## The player whose hit this is — struck from their own body, or from a monster
+## they are in — or null for anyone else's.
+static func _possessor(atk: Actor) -> Player:
+	if atk is Player:
+		return atk as Player
+	if atk is Enemy and (atk as Enemy).piloted():
+		return (atk as Enemy).pilot
+	return null
+
+## A hit carrying POSSESS on a monster it can take: the player's hands go into
+## it — whether the hit came from their own body or from a monster they are
+## already in, which is a hop from one to the next — and it is not hurt. It is
+## still a connection: it is heard and felt, and an ON HIT on it goes off.
+static func _possess_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, atk: Actor, pilot: Player,
+		room, team: int) -> void:
+	pilot.possess(target as Enemy, p.possess)
+	TimeCtl.hitstop(CHAIN_HITSTOP if p.follow_up else HITSTOP)
+	Cues.at(&"hit", pos, {"payload": p, "killed": false, "target_team": target.team})
+	if p.on_hit != null:
+		_schedule_spawn(TRIGGER_DELAY, _follow(p.on_hit), {
+			"attacker": atk, "room": room, "team": team,
+			"aim": dir, "origin": pos, "gravity": false,
+		})
 
 ## Everything `team` may hurt, dragged towards `pos`.
 ##
