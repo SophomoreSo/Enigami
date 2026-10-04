@@ -36,6 +36,7 @@ var pull: int = 0
 var knockback: int = 0             ## the struck enemy is thrown on along the attack
 var shatter: int = 0               ## breaks the frost on a slowed enemy, for far more damage
 var mana_drain: int = 0            ## every connection pays the caster back
+var health_drain: int = 0          ## every hit that hurts heals the caster a share of it
 var stun: float = 0.0              ## seconds the struck enemy stands stunned
 ## Seconds the player's hands go into the monster struck (`Player.possess`).
 var possess: float = 0.0
@@ -82,6 +83,7 @@ func clone() -> Payload:
 	p.knockback = knockback
 	p.shatter = shatter
 	p.mana_drain = mana_drain
+	p.health_drain = health_drain
 	p.stun = stun
 	p.possess = possess
 	p.heal = heal

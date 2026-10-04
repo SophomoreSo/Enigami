@@ -268,6 +268,21 @@ func _ready() -> void:
 	Attacks.resolve_hit(drain, victim, victim.global_position, Vector2.RIGHT, monster, null, 1)
 	check(true, "an attacker with no mana of its own drains harmlessly")
 
+	# --- HEALTH DRAIN -------------------------------------------------------
+	caster.max_health = 100.0
+	caster.health = 50.0
+	var leech := payload_of(["SLASH", "HEALTH_DRAIN"])
+	var before := victim.health
+	Attacks.resolve_hit(leech, victim, victim.global_position, Vector2.RIGHT, caster, null, 0)
+	var dealt := before - victim.health
+	check(dealt > 0.0 and is_equal_approx(caster.health, 50.0 + dealt * Attacks.HEALTH_DRAIN_SHARE),
+		"HEALTH DRAIN gives the caster back a fifth of what the hit dealt (%.1f of %.1f)" % [caster.health - 50.0, dealt])
+	caster.health = caster.max_health
+	Attacks.resolve_hit(leech, victim, victim.global_position, Vector2.RIGHT, caster, null, 0)
+	check(is_equal_approx(caster.health, caster.max_health), "and never past a full bar (%.1f)" % caster.health)
+	check(Attacks.summary(leech).contains(Loc.t("editor.payload.health_drain", [20])),
+		"and the preview says how much (%s)" % Attacks.summary(leech))
+
 	# --- the three of them together -----------------------------------------
 	var all_cold := dummy(Vector2(0, 1400))
 	all_cold.chill_time = 2.0

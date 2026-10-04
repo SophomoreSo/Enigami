@@ -147,6 +147,11 @@ const SHATTER_PER := 1.5
 ## pays like any other hit.
 const MANA_PER_HIT := 6.0
 
+## HEALTH DRAIN. The share of what a hit dealt that whoever struck it gets back
+## as health, for every HEALTH DRAIN stacked. It is paid out of damage dealt, so
+## a hit that hurt nothing — POSSESS taking a monster — heals nothing.
+const HEALTH_DRAIN_SHARE := 0.2
+
 ## What a hit carrying `stacked` SHATTERs is multiplied by on a chilled enemy.
 static func shatter_mul(stacked: int) -> float:
 	return 1.0 + SHATTER_PER * float(stacked)
@@ -463,6 +468,8 @@ static func summary(p: Payload) -> String:
 		parts.append(Loc.t("editor.payload.shatter", [shatter_mul(p.shatter)]))
 	if p.mana_drain:
 		parts.append(Loc.t("editor.payload.mana_drain", [MANA_PER_HIT * float(p.mana_drain)]))
+	if p.health_drain:
+		parts.append(Loc.t("editor.payload.health_drain", [roundi(HEALTH_DRAIN_SHARE * 100.0 * float(p.health_drain))]))
 	if p.stun > 0.0:
 		parts.append(Loc.t("editor.payload.stun", [p.stun]))
 	if p.possess > 0.0:
@@ -565,6 +572,10 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 		var drained := MANA_PER_HIT * float(p.mana_drain)
 		atk.gain_mana(drained)
 		Cues.at(&"mana_drain", pos, {"amount": drained})
+	if p.health_drain and atk != null:
+		var back := atk.heal(dealt * HEALTH_DRAIN_SHARE * float(p.health_drain))
+		if back > 0.0:
+			Cues.at(&"heal", atk.global_position, {"amount": back, "target_team": atk.team})
 	# What an INVERT made of DAMAGE: health given back to the enemy struck, after
 	# the harm and only while it still stands, so a blow that kills stays a kill.
 	if p.heal > 0.0 and not target.dead:

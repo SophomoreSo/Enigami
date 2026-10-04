@@ -159,7 +159,7 @@ func _payloads() -> void:
 			{"op": "add", "field": "pierce", "value": 1, "per_stack": 0.5}]:
 		check(Components._effect(bad, shape) is String, "and a row that cannot grow that way is turned away (%s %s)" % [bad["op"], bad["field"]])
 	for row in [["PIERCE", "pierce"], ["HOMING", "homing"], ["GRAVITY", "pull"], ["KNOCKBACK", "knockback"],
-			["MANA_DRAIN", "mana_drain"], ["SHATTER", "shatter"]]:
+			["MANA_DRAIN", "mana_drain"], ["HEALTH_DRAIN", "health_drain"], ["SHATTER", "shatter"]]:
 		var p := stacked("PROJECTILE", row[0], 3)
 		check(int(p.get(row[1])) == 3, "three %s are three (%s)" % [row[0], str(p.get(row[1]))])
 	var stun1 := stacked("SLASH", "STUN", 1)
@@ -221,6 +221,15 @@ func _hits() -> void:
 	var victim := dummy(Vector2(200, 12000))
 	Attacks.resolve_hit(stacked("SLASH", "MANA_DRAIN", 3), victim, victim.global_position, Vector2.RIGHT, caster, null, 0)
 	check(is_equal_approx(caster.mana, Attacks.MANA_PER_HIT * 3.0), "three MANA DRAIN drain three times the mana (%.0f)" % caster.mana)
+
+	# HEALTH DRAIN.
+	caster.max_health = 1000.0
+	caster.health = 1.0
+	var before := victim.health
+	Attacks.resolve_hit(stacked("SLASH", "HEALTH_DRAIN", 3), victim, victim.global_position, Vector2.RIGHT, caster, null, 0)
+	var drained := before - victim.health
+	check(drained > 0.0 and is_equal_approx(caster.health - 1.0, drained * Attacks.HEALTH_DRAIN_SHARE * 3.0),
+		"three HEALTH DRAIN heal three times as much (%.1f of %.1f dealt)" % [caster.health - 1.0, drained])
 	caster.queue_free()
 
 ## --- a bolt in the air -----------------------------------------------------------

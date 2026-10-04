@@ -57,6 +57,7 @@ const COMPONENT := {
 	"GRAVITY": {"glyph": "⤓"},
 	"KNOCKBACK": {"glyph": "↦"},
 	"MANA_DRAIN": {"glyph": "⊚"},
+	"HEALTH_DRAIN": {"glyph": "♥"},
 	"STUN": {"glyph": "@"},
 	"POSSESS": {"glyph": "◑"},
 	"AUTO_AIM": {"glyph": "⊕"},
@@ -260,6 +261,16 @@ const COMPONENT_ICON := {
 		"#######",
 		".#####.",
 		"..###..",
+	],
+	# A heart: the drop MANA DRAIN is, in red's shape.
+	"HEALTH_DRAIN": [
+		".##.##.",
+		"#######",
+		"#######",
+		"#######",
+		".#####.",
+		"..###..",
+		"...#...",
 	],
 	# A ghost: what goes out of the body and into the monster.
 	"POSSESS": [

@@ -71,6 +71,10 @@
 		"name": "MANA DRAIN",
 		"desc": "Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting. Each one stacked drains more."
 	},
+	"HEALTH_DRAIN": {
+		"name": "HEALTH DRAIN",
+		"desc": "Every enemy this attack hurts gives health back to the caster: a fifth of the damage dealt, and a fifth more for each one stacked. What keeps you standing is landing hits."
+	},
 	"STUN": {
 		"name": "STUN",
 		"desc": "Struck enemies are stunned: for a moment they stand where they are and cannot attack. Each one stacked holds them longer. Once it wears off, an enemy shrugs off the next stun for a while."

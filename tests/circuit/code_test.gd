@@ -26,6 +26,7 @@ const GIVEN := [
 	"INVERT", "STUN",
 	"POSSESS",
 	"AUTO_AIM",
+	"HEALTH_DRAIN",
 ]
 
 var fails := 0

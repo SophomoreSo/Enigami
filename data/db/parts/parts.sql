@@ -40,7 +40,8 @@ INSERT INTO codes (code, id) VALUES
 	(33, 'ZAP'),
 	(34, 'INVERT'), (35, 'STUN'),
 	(36, 'POSSESS'),
-	(37, 'AUTO_AIM');
+	(37, 'AUTO_AIM'),
+	(38, 'HEALTH_DRAIN');
 
 -- WIRE and BEND carried a flow one cell and did nothing else to it, which
 -- every part already does: any part takes flow on any side and sends it where
@@ -167,13 +168,14 @@ INSERT INTO parts (id, name, category, heat, tag, stack_limit, description) VALU
 	('GRAVITY', 'GRAVITY', 'behavior', 0.7, NULL, NULL, 'The enemy struck is not knocked back but pinned, and every other enemy nearby is dragged onto it. Gathers a room into one place for whatever comes next. Each one stacked drags harder.'),
 	('KNOCKBACK', 'KNOCKBACK', 'behavior', 0.5, NULL, NULL, 'Hits throw the enemy back the way the attack was going. Buys room, but can put it out of reach. Each one stacked throws harder.'),
 	('MANA_DRAIN', 'MANA DRAIN', 'behavior', 0.5, NULL, NULL, 'Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting. Each one stacked drains more.'),
+	('HEALTH_DRAIN', 'HEALTH DRAIN', 'behavior', 0.6, NULL, NULL, 'Every enemy this attack hurts gives health back to the caster: a fifth of the damage dealt, and a fifth more for each one stacked. What keeps you standing is landing hits.'),
 	('STUN', 'STUN', 'behavior', 0.6, NULL, NULL, 'Struck enemies are stunned: for a moment they stand where they are and cannot attack. Each one stacked holds them longer. Once it wears off, an enemy shrugs off the next stun for a while.'),
 	('POSSESS', 'POSSESS', 'behavior', 0.9, NULL, NULL, 'Takes over the monster struck for 5 seconds, unharmed, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, left behind and still hunted. Bosses resist it.'),
 	('AUTO_AIM', 'AUTO-AIM', 'behavior', 0.4, NULL, NULL, 'Aims the attack at the nearest enemy, wherever you point: bolts and beams go straight at it, a swing turns to it, and SWIFT STRIKE lunges all the way to it and through. Each one stacked looks further for one.');
 
 INSERT INTO ports (part_id, side) VALUES
 	('PIERCE', 'E'), ('BLINK', 'E'), ('HOMING', 'E'),
-	('GRAVITY', 'E'), ('KNOCKBACK', 'E'), ('MANA_DRAIN', 'E'),
+	('GRAVITY', 'E'), ('KNOCKBACK', 'E'), ('MANA_DRAIN', 'E'), ('HEALTH_DRAIN', 'E'),
 	('STUN', 'E'), ('POSSESS', 'E'), ('AUTO_AIM', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
@@ -183,6 +185,7 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('GRAVITY', 0, 'pull', 'add', 1),
 	('KNOCKBACK', 0, 'knockback', 'add', 1),
 	('MANA_DRAIN', 0, 'mana_drain', 'add', 1),
+	('HEALTH_DRAIN', 0, 'health_drain', 'add', 1),
 	('STUN', 0, 'stun', 'add', 0.8),
 	('POSSESS', 0, 'possess', 'add', 5),
 	('AUTO_AIM', 0, 'auto_aim', 'add', 1);
