@@ -13,23 +13,26 @@ module-split      runs alongside; gates nothing
 ```
 
 A branch being worked on is not run here: it is tested at the desk with
-`tests/run.sh` (below), and the workflow runs for what ships — a push to
-`master`, and a version tag. The **Run workflow** button (`workflow_dispatch`)
-is there for the odd time a run of a branch is wanted anyway.
+`tests/run.sh` (below), and the workflow runs for what ships — a version tag.
+A push to `master` does not start a run for now: master is tested at the desk
+as it is merged. The **Run workflow** button (`workflow_dispatch`) is there for
+the odd time a run of master or a branch is wanted anyway, and what the table
+says of master is what a job does when it is run there by hand.
 
 | Job | Runs on | What it is |
 |---|---|---|
-| **Rules tests** | pushes to master, and `v*` tags | `tests/circuit`, `tests/feature`, `tests/story`, `tests/shared` under `--headless` |
-| **Module split holds** | pushes to master, and `v*` tags | the four graphics autoloads deleted, the circuit and rules tests run again |
-| **Graphics tests** | pushes to master, and `v*` tags | `tests/graphics` and `tests/mobile` under Xvfb, plus screenshots of every screen |
-| **Build — Linux, Windows, Android** | master and `v*` tags | artifacts, kept 30 days |
-| **Build — macOS, iOS** | master always; tags only if opted in | artifacts, kept 30 days — see below |
+| **Rules tests** | `v*` tags | `tests/circuit`, `tests/feature`, `tests/story`, `tests/shared` under `--headless` |
+| **Module split holds** | `v*` tags | the four graphics autoloads deleted, the circuit and rules tests run again |
+| **Graphics tests** | `v*` tags | `tests/graphics` and `tests/mobile` under Xvfb, plus screenshots of every screen |
+| **Build — Linux, Windows, Android** | `v*` tags, and master by hand | artifacts, kept 30 days |
+| **Build — macOS, iOS** | master by hand; tags only if opted in | artifacts, kept 30 days — see below |
 | **Release** | `v*` tags | whatever was built, zipped per platform, attached to a GitHub Release |
 
 ### Why Apple is opt-in for releases
 
-The macOS/iOS job runs on **every push to master**, which is what keeps the
-macOS export honest. It does not run for a **tag** unless the repository
+The macOS/iOS job runs for **master** — by hand, while a push to master starts
+no run — which is what keeps the macOS export honest. It does not run for a
+**tag** unless the repository
 variable `RELEASE_APPLE` is set to `true`.
 
 The reason is that what it can produce today is an unsigned `.app` that

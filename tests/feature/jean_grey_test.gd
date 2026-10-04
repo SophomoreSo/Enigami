@@ -131,6 +131,25 @@ func throw_at(at: Vector2) -> void:
 	await frames(2)
 	hands.attack = false
 
+## The test's own camera, for a run with nothing to draw with (CI's module
+## split): the ground is three screens across and the computer's hands point
+## with the game's pointer, which stays on the screen — so with no camera
+## following, a throw from the second screen is aimed back at the edge of the
+## first. The screen's view brings the camera when there is one; this is the
+## same eye, on whoever the player is in.
+var eye: Camera2D = null
+
+func _look() -> void:
+	if eye == null or screen == null or screen.room == null or screen.player == null:
+		return
+	var width := float(screen.room.cols * Room.CELL)
+	var half := get_viewport().get_visible_rect().size.x * 0.5
+	eye.position = Vector2(clampf(screen.player.vessel().global_position.x, half, width - half),
+		screen.room.rows * Room.CELL * 0.5)
+
+func _process(_delta: float) -> void:
+	_look()
+
 func _ready() -> void:
 	seed(20261003)
 	screen = JeanGreyTest.new()
@@ -138,6 +157,11 @@ func _ready() -> void:
 	screen.fell.connect(func() -> void: fell += 1)
 	add_child(screen)
 	await frames(20)
+	if get_viewport().get_camera_2d() == null:
+		eye = Camera2D.new()
+		add_child(eye)
+		eye.make_current()
+		_look()
 	_ground()
 	_board()
 	await _shot_down()

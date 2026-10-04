@@ -2,13 +2,14 @@ name: CI
 
 # One file rather than two, so that "don't ship a red build" is an edge in the
 # graph instead of a convention: the export jobs simply `needs` the test jobs.
-# Runs for what ships: a push to master, and a version tag. A branch being
-# worked on is tested at the desk (`tests/run.sh`, see .github/README.md), not
-# here — and `workflow_dispatch` is the button for the odd time a run of a
-# branch is wanted anyway.
+# Runs for what ships: a version tag. A push to master does not start a run for
+# now — master is tested at the desk as it is merged, like a branch being
+# worked on (`tests/run.sh`, see .github/README.md) — and `workflow_dispatch`
+# is the button for the odd time a run of master or a branch is wanted anyway.
+# To have master run again, put `branches: ['master']` back beside `tags`: the
+# jobs below still say what each does on master.
 on:
   push:
-    branches: ['master']
     tags: ['v*']
   workflow_dispatch:
 
@@ -250,7 +251,7 @@ jobs:
   build-apple:
     name: Build — macOS, iOS
     needs: [rules, graphics]
-    # Every push to master, exactly as before — that is what keeps the macOS
+    # Every run for master, exactly as before — that is what keeps the macOS
     # export honest. Not on a tag, though, unless RELEASE_APPLE says so: what
     # this job can produce today is an unsigned .app that Gatekeeper refuses
     # and an iOS step that skips itself, which is nothing worth attaching to a
