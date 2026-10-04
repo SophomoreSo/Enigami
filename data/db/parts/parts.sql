@@ -176,7 +176,7 @@ INSERT INTO parts (id, name, category, heat, tag, stack_limit, description) VALU
 	('HEALTH_DRAIN', 'HEALTH DRAIN', 'behavior', 0.6, NULL, NULL, 'Every enemy this attack hurts gives health back to the caster: a fifth of the damage dealt, and a fifth more for each one stacked. What keeps you standing is landing hits.'),
 	('STUN', 'STUN', 'behavior', 0.6, NULL, NULL, 'Struck enemies are stunned: for a moment they stand where they are and cannot attack. Each one stacked holds them longer. Once it wears off, an enemy shrugs off the next stun for a while.'),
 	('POSSESS', 'POSSESS', 'behavior', 0.9, NULL, NULL, 'Takes over the monster struck for 5 seconds, unharmed, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, left behind and still hunted. Bosses resist it.'),
-	('AUTO_AIM', 'AUTO-AIM', 'behavior', 0.4, NULL, NULL, 'Aims the attack at the nearest enemy, wherever you point: bolts and beams go straight at it, a swing turns to it, and SWIFT STRIKE lunges all the way to it and through. Each one stacked looks further for one.');
+	('AUTO_AIM', 'AUTO-AIM', 'behavior', 0.4, NULL, NULL, 'Aims the attack at the nearest enemy, wherever you point: bolts and beams go straight at it, as far as they reach, a swing turns to it, and SWIFT STRIKE lunges all the way to it and through. Each one stacked looks further for one.');
 
 INSERT INTO ports (part_id, side) VALUES
 	('PIERCE', 'E'), ('BLINK', 'E'), ('HOMING', 'E'),

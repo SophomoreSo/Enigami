@@ -41,7 +41,14 @@ const LASER_SPEED := 12000.0
 ## the same pace, a turn twice as hard draws the same curve at half the size, so
 ## one HOMING still comes round onto something beside it before it is spent.
 const HOMING_TURN := 10.0
-## How far a homing bolt looks for something to go after.
+## A homing bolt turns by the distance it covers, as one flying at this pace
+## would turn over it, whenever it is going faster: a turn counted by time
+## alone is no turn at all at laser speed, where a frame is two hundred pixels.
+## A gun's bolt flies a little under it, so nothing slower turns differently.
+const HOMING_PACE := 1200.0
+## How far a homing bolt looks for something to go after, at the least: it
+## looks as far as it has yet to fly, so one with RANGE on it goes after
+## whatever it can reach, however far that is (`_quarry`).
 const HOMING_SIGHT := 520.0
 ## A homing bolt loses pace in a turn — the harder the turn, the more — and
 ## that is what lets it tighten onto something it would otherwise circle. Once
@@ -120,7 +127,8 @@ func _process(delta: float) -> void:
 		_expire()
 		return
 	if homing_strength > 0.0:
-		_home(delta)
+		_fly_homing(delta)
+		return
 	velocity.y += gravity * delta
 
 	# This frame's flight, and no further than the range it has left: a bolt
@@ -150,6 +158,36 @@ func _process(delta: float) -> void:
 			return
 		Cues.at(&"impact", global_position, {"payload": payload, "kind": "fade"})
 		_expire()
+
+## A homing bolt's frame, in hops no longer than `MAX_STEP`, turning before
+## each one rather than once for the frame: a laser's frame flown straight would
+## take it through the corner it was turning for, or into the floor under the
+## feet of whoever loosed it. Otherwise the same flight as any bolt's.
+func _fly_homing(delta: float) -> void:
+	var t := delta
+	while t > 0.0:
+		var pace := maxf(velocity.length(), 1.0)
+		var step := minf(t, MAX_STEP / pace)
+		_home(maxf(step, step * pace / HOMING_PACE))
+		velocity.y += gravity * step
+		var hop := velocity * step
+		var left := range_px - _travelled
+		var spent := hop.length() >= left
+		if spent:
+			hop = hop.limit_length(maxf(left, 0.0))
+		_travelled += hop.length()
+		position += hop
+		if _sample():
+			return
+		_last_open = global_position
+		if spent:
+			if is_rock():
+				_come_down(velocity * 0.5)
+				return
+			Cues.at(&"impact", global_position, {"payload": payload, "kind": "fade"})
+			_expire()
+			return
+		t -= step
 
 ## HOMING: turns the bolt towards the nearest enemy — straight at it while
 ## nothing stands between them, and otherwise at the furthest point it can fly
@@ -197,7 +235,7 @@ func _home(delta: float) -> void:
 ## for, and with PIERCE on it the bolt has somewhere else to be.
 func _quarry() -> Actor:
 	var best: Actor = null
-	var best_d := HOMING_SIGHT
+	var best_d := maxf(HOMING_SIGHT, range_px - _travelled)
 	for a: Actor in Attacks.targets(team):
 		if _hit.has(a):
 			continue
@@ -216,12 +254,29 @@ func _find_waypoint(goal: Vector2) -> void:
 	var way: PackedVector2Array = room.path_between(global_position, goal)
 	if way.is_empty():
 		return
-	_waypoint = way[0]
+	_waypoint = furthest_clear(room, global_position, way)
 	_has_waypoint = true
+
+## Where a bolt at `from` makes for, on its way to `goal`: `goal` itself when
+## nothing stands between, and otherwise the furthest point on the way round it
+## can fly straight to (`furthest_clear`). What AUTO-AIM points a homing bolt
+## at as it goes, so it leaves along the way and not into the wall.
+static func way_toward(rm, from: Vector2, goal: Vector2) -> Vector2:
+	if rm == null or not is_instance_valid(rm) or not rm.has_method("path_between") \
+			or rm.clear_between(from, goal, CLEARANCE):
+		return goal
+	var way: PackedVector2Array = rm.path_between(from, goal)
+	return goal if way.is_empty() else furthest_clear(rm, from, way)
+
+## The last point of `way` reachable from `from` in a straight line before a
+## wall first gets in the way — or its first, hard against a wall.
+static func furthest_clear(rm, from: Vector2, way: PackedVector2Array) -> Vector2:
+	var out := way[0]
 	for point in way:
-		if not room.clear_between(global_position, point, CLEARANCE):
-			return
-		_waypoint = point
+		if not rm.clear_between(from, point, CLEARANCE):
+			break
+		out = point
+	return out
 
 ## One collision sample where the bolt is standing. Returns true once the bolt
 ## is gone, so the caller stops walking it.

@@ -173,14 +173,21 @@ func open_dragon_test() -> void:
 func open_jean_grey_test() -> void:
 	jean_grey_test_requested.emit()
 
-## The skills the bench has ready to try, out of the proving grounds: each a
-## graph, the weapon it was built for, and what it is called. `board` builds a
-## fresh one, named in the language being played.
+## The skills the bench has ready to try: the proving grounds' graphs, and the
+## seeker arrow. Each is a graph, the weapon it was built for, and what it is
+## called; `board` builds a fresh one, named in the language being played.
 static func samples() -> Array:
 	return [
 		{"id": "dragon", "weapon": DragonTest.WEAPON, "board": DragonTest.dragon_board},
 		{"id": "jean_grey", "weapon": JeanGreyTest.WEAPON, "board": JeanGreyTest.jean_grey_board},
+		{"id": "seeker", "weapon": "GUN", "board": seeker_board},
 	]
+
+## An arrow off the gun that will not be dodged: AUTO-AIM, RANGE and SPEED to
+## their limits and three HOMING, `seeker` in the content database
+## (`data/db/boards/samples.sql`).
+static func seeker_board() -> SkillBoard:
+	return Boards.build("seeker", Loc.t("hud.sandbox.seeker"))
 
 ## Puts the sample skill `id` on its weapon here — over the bench's copy of that
 ## weapon's graph, never the profile's — and that weapon in hand. Whether there
