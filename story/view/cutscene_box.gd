@@ -149,8 +149,7 @@ func _draw_hint(box: Rect2) -> void:
 	# `interact` rather than `ui_accept`: a scene answers either — see
 	# `Cutscene._unhandled_input` — and `interact` is the one every other prompt
 	# in the game names and the one the rebinding screen can move. On the glass
-	# it is a hold anywhere on the screen, where a tap only hurries the line, and
-	# that is what is said instead.
+	# it is a tap anywhere on the screen, and that is what is said instead.
 	var hint := Loc.t("hud.cutscene.hint_touch")
 	if not Controls.on_glass():
 		hint = Loc.t("hud.cutscene.hint", [

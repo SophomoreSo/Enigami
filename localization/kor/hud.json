@@ -43,13 +43,13 @@
 	},
 	"dialogue": {
 		"choose": "%s/%s 선택  ·  %s 대답",
-		"choose_touch": "눌러서 선택  ·  길게 눌러 대답",
-		"next_touch": "길게 눌러 계속",
+		"choose_touch": "눌러서 대답",
+		"next_touch": "눌러서 계속",
 		"player": "나"
 	},
 	"cutscene": {
 		"hint": "%s 계속  ·  %s 건너뛰기",
-		"hint_touch": "길게 눌러 계속"
+		"hint_touch": "눌러서 계속"
 	},
 	"sandbox": {
 		"swap_weapon": "무기 교체",

@@ -126,20 +126,16 @@ func _ready() -> void:
 	var released := await play(cut, func() -> bool: return tinker.forced_anim == "idle")
 	check(released, "and a later one hands them back")
 
-	# A hurry — the console's tap on the right of the screen — brings a line
-	# out whole and does nothing else; the beat moves on for interact, which is
-	# the console's hold. Sent the way the console sends them, as actions down
-	# the tree rather than calls.
+	# Interact — the console's tap on the page — brings a line out whole, and
+	# the next one moves the beat on. Sent the way the console sends it, as an
+	# action down the tree rather than a call.
 	var typing := await play(cut, func() -> bool: return cut.line() != "" and not cut.line_finished())
 	check(typing, "a later line is typing")
 	var at := cut.index
-	await send("hurry")
-	check(cut.index == at and cut.line_finished(), "a hurry part-way brings the rest of the line out")
-	await send("hurry")
-	await frames(10)
-	check(cut.index == at, "and a hurry on a read line moves nothing on")
 	await send("interact")
-	check(cut.index == at + 1, "where interact does")
+	check(cut.index == at and cut.line_finished(), "interact part-way brings the rest of the line out")
+	await send("interact")
+	check(cut.index == at + 1, "and on a read line moves the beat on")
 
 	# --- skipping -----------------------------------------------------------
 	check(not cut.done, "the scene is still running before it is skipped")

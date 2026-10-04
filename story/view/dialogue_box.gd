@@ -19,17 +19,16 @@ extends Control
 ## most of the width of the screen and its words are written twice the size —
 ## at a desk's size a line stands under a millimetre of a phone's glass. And the
 ## answers are not lines in it: each is a plate under the box, as wide as the
-## box and PLATE tall, there once the question is out. A plate is picked by
-## touching it and given by holding it, the plate filling as the hold counts
-## (HOLD). So the rule the console keeps for a conversation holds here too —
-## going on is the one thing that cannot be taken back, so it is the one thing a
-## tap cannot do — and what a tap does is the thing a thumb on an answer means
-## first: this one. Under the plates, and beside the arrow on a line with none,
-## the box says so in words.
+## box and PLATE tall, there once the question is out. A plate is tapped to give
+## its answer: it lights as a thumb comes down on it, and gives the answer as
+## the thumb lifts off it — one that slides off first gives nothing. Under the
+## plates, and beside the arrow on a line with none, the box says so in words.
 ##
-## A thumb on a plate is the plate's, taken in `_input` ahead of the console,
-## which is earlier in the tree: everywhere else on the glass a tap hurries the
-## line and a hold goes on, and a plate is neither.
+## While the answers are up the whole glass is the box's, taken in `_input`
+## ahead of the console, which is earlier in the tree. Anywhere else a tap is
+## the console's page, which is interact — and with a question open, interact
+## gives whichever answer is lit. So with the answers up, a tap anywhere but on
+## a plate gives nothing.
 
 ## Over the pixel picture and its prompts, under the screens (5) and the HUD (10).
 const LAYER := 4
@@ -82,13 +81,6 @@ const PLATE := 64.0
 const PLATE_GAP := 8.0
 const PLATE_PAD := 20.0
 const PLATE_MARK := 36.0
-## How long a thumb stays on a plate before its answer is given, and how long
-## before the plate starts to fill: the console's own HOLD and HOLD_SHOW, which
-## `tests/mobile/talk_touch_test` holds these to. A tap shows nothing; a thumb
-## that stays sees the plate fill, so the first tap that was slow is the one
-## that says holding does something.
-const HOLD := 0.4
-const HOLD_SHOW := 0.12
 ## The mouse, as a finger: mobile mode on a desk has one pointer and no index.
 const MOUSE := -1
 
@@ -103,12 +95,10 @@ var _arrived := PackedFloat32Array()
 ## Mobile mode's plates as they stand this frame, one rect an answer, for the
 ## thumb to be tested against: empty unless a question is out.
 var _plates: Array[Rect2] = []
-## The thumb on a plate: which finger, which answer, and when it came down
-## (msec, on the wall clock like the console's holds). Empty with none.
+## The thumb on a plate: which finger, and which answer. Empty with none.
 var _press: Dictionary = {}
-## Fingers that came down on a plate, until they lift. A thumb that slid off
-## its plate, or whose answer has been given, is still not the page's: left to
-## the console it would be a hold that goes on past the next line unread.
+## Fingers that came down while the answers were up, until they lift, wherever
+## they wander: left to the console, one would be a tap on the page.
 var _mine: Dictionary = {}
 
 func _ready() -> void:
@@ -176,35 +166,22 @@ func _thumb_layout() -> Dictionary:
 	return {"box": box, "portrait": portrait, "rows": rows, "plates": plates,
 		"on_right": on_right, "foot": y}
 
-## The plates a thumb can land on this frame, and the hold on one of them: given
-## once the thumb has stayed HOLD, and off if the question has gone from under it.
+## The plates a thumb can land on this frame. A thumb on one whose question has
+## gone from under it is on nothing.
 func _keep_plates(talking: bool) -> void:
 	_plates.clear()
 	if talking and thumb() and _open >= 1.0 and npc.is_choosing():
 		for plate in _thumb_layout()["plates"]:
 			_plates.append(plate["rect"])
-	if _press.is_empty():
-		return
-	var i := int(_press["index"])
-	if i >= _plates.size():
+	if not _press.is_empty() and int(_press["index"]) >= _plates.size():
 		_press = {}
-		return
-	if _held_for() >= HOLD:
-		_press = {}
-		npc.choose(i)
 
 ## The game stopping, or starting again, under a thumb: a lift while it was
-## stopped is one nobody saw, and a hold timed across it is not a hold.
+## stopped is one nobody saw.
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_PAUSED or what == NOTIFICATION_UNPAUSED:
 		_press = {}
 		_mine.clear()
-
-## How long the thumb on a plate has been there, in seconds.
-func _held_for() -> float:
-	if _press.is_empty():
-		return 0.0
-	return float(Time.get_ticks_msec() - int(_press["from"])) / 1000.0
 
 ## The plate under `at`, or -1.
 func _plate_at(at: Vector2) -> int:
@@ -213,15 +190,15 @@ func _plate_at(at: Vector2) -> int:
 			return i
 	return -1
 
-## A thumb on a plate. Down picks the answer and starts the hold; sliding off the
-## plate or lifting calls the hold off; and the finger is this box's until it
-## lifts, whatever it does meanwhile. Everything else — a press anywhere but on
-## a plate — is left for the console, which hurries the line or holds it on.
+## A thumb while the answers are up. Down on a plate lights its answer, and
+## lifted off the same plate gives it; slid off first, it gives nothing. Down
+## anywhere else does nothing at all. Either way the finger is this box's until
+## it lifts, whatever it does meanwhile. With no answers up everything is left
+## for the console, whose page brings the line out or goes on.
 ##
 ## The system hands a touch over as a click as well, and first. That click is
-## swallowed with the touch it belongs to, or the console would take it for a
-## thumb on the page under the plate: a tap would hurry nothing, but a hold on
-## an answer would be a hold on the page too.
+## swallowed with the touch it belongs to while the answers are up, or the
+## console would take it for a tap on the page, and give the answer lit.
 func _input(event: InputEvent) -> void:
 	var finger := MOUSE
 	var at := Vector2.INF
@@ -242,9 +219,9 @@ func _input(event: InputEvent) -> void:
 	elif click != null and click.button_index == MOUSE_BUTTON_LEFT:
 		at = click.position
 		if click.device == InputEvent.DEVICE_ID_EMULATION:
-			# The touch's own click: the plate's if it is on one, and nothing
-			# more — the touch that follows is the press.
-			if _plate_at(at) >= 0 or not _mine.is_empty():
+			# The touch's own click: the box's while the answers are up, and
+			# nothing more — the touch that follows is the press.
+			if not _plates.is_empty() or not _mine.is_empty():
 				get_viewport().set_input_as_handled()
 			return
 		down = click.pressed
@@ -261,23 +238,29 @@ func _input(event: InputEvent) -> void:
 	if down:
 		# A finger coming down is a new touch, whatever it was before.
 		_mine.erase(finger)
-		var i := _plate_at(at)
-		if i < 0:
+		if _plates.is_empty():
 			return
 		_mine[finger] = true
 		get_viewport().set_input_as_handled()
-		# One hold at a time: a second thumb on another plate picks it and
-		# takes the hold over.
-		npc.select(i)
-		_press = {"finger": finger, "index": i, "from": Time.get_ticks_msec()}
+		var i := _plate_at(at)
+		if i >= 0:
+			# One thumb at a time: a second on another plate lights that one
+			# and takes the answer over.
+			npc.select(i)
+			_press = {"finger": finger, "index": i}
 		return
 	if not _mine.has(finger):
 		return
 	get_viewport().set_input_as_handled()
+	var on_one := not _press.is_empty() and int(_press["finger"]) == finger
 	if lifted:
 		_mine.erase(finger)
-	if not _press.is_empty() and int(_press["finger"]) == finger \
-			and (lifted or _plate_at(at) != int(_press["index"])):
+		if on_one:
+			var i := int(_press["index"])
+			_press = {}
+			if _plate_at(at) == i:
+				npc.choose(i)
+	elif on_one and _plate_at(at) != int(_press["index"]):
 		_press = {}
 
 ## Notes when each letter comes out, so it can rise into place in its own time.
@@ -406,8 +389,8 @@ func _draw_for_a_thumb() -> void:
 			_draw_plate(plates[i], i)
 		_text(Vector2(full.position.x, float(l["foot"])), _choice_hint(), HINT_SIZE, Style.DIALOGUE_HINT)
 	elif npc.line_finished():
-		# The bouncing arrow, twice the size, and what it is asking for beside it:
-		# on the glass the line goes on for a hold, and nothing else says so.
+		# The bouncing arrow, twice the size, and what it is asking for beside it,
+		# in words: on the glass there is no key for it to name.
 		var m := Vector2(text_right - 16.0, full.end.y - THUMB_PAD - 4.0 - roundf(absf(sin(_t * 5.0)) * 5.0))
 		draw_colored_polygon(PackedVector2Array([
 			m + Vector2(-16, -16), m + Vector2(16, -16), m,
@@ -417,17 +400,12 @@ func _draw_for_a_thumb() -> void:
 			hint, HINT_SIZE, Style.DIALOGUE_HINT)
 
 ## One answer's plate: the box's own ground and edge, lit for the answer picked,
-## with the marker before its words — and filling from the left while a thumb
-## holds it, once the press has outlasted a tap.
+## with the marker before its words.
 func _draw_plate(plate: Dictionary, i: int) -> void:
 	var r: Rect2 = plate["rect"]
 	var rows: PackedStringArray = plate["rows"]
 	var chosen := i == npc.selected
 	draw_rect(r, Style.DIALOGUE_FILL)
-	if not _press.is_empty() and int(_press["index"]) == i and _held_for() >= HOLD_SHOW:
-		var k := clampf((_held_for() - HOLD_SHOW) / (HOLD - HOLD_SHOW), 0.0, 1.0)
-		draw_rect(Rect2(r.position, Vector2(roundf(r.size.x * k), r.size.y)),
-			Color(Style.DIALOGUE_MARK, 0.45))
 	draw_rect(r, Style.DIALOGUE_EDGE if chosen else Color(Style.DIALOGUE_EDGE, 0.35), false, 2.0)
 	var top := r.position.y + (r.size.y - _line_h() * rows.size()) * 0.5
 	if chosen:
@@ -556,8 +534,7 @@ func _draw_line(pen: Vector2, rows: PackedStringArray, line_h: float, mood: Dict
 		pen.y += line_h
 
 ## How to answer, in whatever the player has the keys bound to. On the glass
-## there are no keys for it to name: an answer's plate is touched to pick it and
-## held to give it.
+## there are no keys for it to name: an answer's plate is tapped to give it.
 func _choice_hint() -> String:
 	if thumb() or Controls.on_glass():
 		return Loc.t("hud.dialogue.choose_touch")

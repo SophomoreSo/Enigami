@@ -44,15 +44,12 @@ extends Control
 ##     and the two are never wanted in the same place: you do not hit what
 ##     you are talking to.
 ##   * **In a conversation the whole screen is the page, and it is not drawn.**
-##     A tap anywhere brings the line coming in out whole and does nothing else,
-##     and a thumb held there goes on — to the next line, or with the answer
-##     picked — once a ring has closed in round it (`HOLD`). Going on is the one
-##     thing that cannot be taken back, so it is the one thing a tap cannot do:
-##     a reader tapping to hurry the words never passes a line or gives an
-##     answer by it. A button to find for every line is the wrong thing to ask
-##     of a thumb that is reading. The answers are not the console's: the box
-##     puts each on a plate of its own and takes the thumb that lands on one —
-##     touched to pick it, held to give it (`DialogueBox`).
+##     A tap anywhere is interact, as F is at a desk: it brings the line coming
+##     in out whole, or, with the line out, goes on to the next. A button to
+##     find for every line is the wrong thing to ask of a thumb that is reading.
+##     The answers are not the console's: the box puts each on a plate of its
+##     own, tapped to give it, and while they are up the glass is the box's —
+##     a tap anywhere else gives nothing (`DialogueBox`).
 ##   * **Everything else is a key.** Jump, dash and the three screens
 ##     take no direction, so they are buttons and nothing more — and so is the
 ##     key that puts the next weapon in hand, which stands beside the screens
@@ -92,8 +89,7 @@ extends Control
 
 ## What a control is.
 ##
-##   KEY   a button. Pressed while a thumb is on it, and nothing more — or, with a
-##         `hold`, a second action as well once the thumb has stayed HOLD.
+##   KEY   a button. Pressed while a thumb is on it, and nothing more.
 ##   MOVE  the movement stick. It has a zone rather than a place: it is drawn
 ##         nowhere until a thumb lands somewhere in that zone and drags, grows
 ##         where it landed, and is gone again the moment the thumb lifts.
@@ -132,8 +128,7 @@ enum Face { NONE, PLAY, TALK, SCREEN, CLEAR }
 ## instead, because they are labelled plates rather than things a thumb rests
 ## on, and looking different is how they say so. A `throw` stick is one whose
 ## release is a cast: it keeps the aim it was let go with until that cast has
-## gone off. A `hold` is what a key presses besides once a thumb has stayed on
-## it for HOLD, until the thumb lifts.
+## gone off.
 const CONTROLS := [
 	# The stick. It has no place of its own — only a `zone` a thumb may summon
 	# it anywhere inside, which is the whole left of the screen under the
@@ -154,11 +149,11 @@ const CONTROLS := [
 	{"kind": Kind.AIM, "action": "attack", "alt": "interact", "at": Vector2(976, 504),
 		"pin": Vector2(1, 1), "radius": 84.0, "faces": [Face.PLAY]},
 	# The page, in a conversation: the whole of the screen, invisible. A `zone`
-	# on a key is a tap area, drawn nowhere and never moved. A tap hurries the
-	# line out; held, it is interact — the next line, or the answer picked. It
-	# lies over the HUD's corner and its band, which no other control may: the
-	# HUD has stepped aside for the conversation (`Hud.talking`).
-	{"kind": Kind.KEY, "action": "hurry", "hold": "interact", "zone": Rect2(0, 0, 1280, 720),
+	# on a key is a tap area, drawn nowhere and never moved. A tap is interact:
+	# the line coming in out whole, or the next one. It lies over the HUD's
+	# corner and its band, which no other control may: the HUD has stepped
+	# aside for the conversation (`Hud.talking`).
+	{"kind": Kind.KEY, "action": "interact", "zone": Rect2(0, 0, 1280, 720),
 		"grow": Vector2(1, 1), "faces": [Face.TALK]},
 	{"kind": Kind.KEY, "action": "jump", "at": Vector2(1164, 496), "pin": Vector2(1, 1),
 		"radius": 92.0, "faces": [Face.PLAY]},
@@ -215,21 +210,6 @@ const LABEL_SIZE := PixelDraw.SIZE * 2
 const STICK_DEAD := 0.22
 const STICK_UPDOWN := 0.5
 
-## How long a thumb stays on a key with a `hold` before that is pressed as well:
-## the page in a conversation, where a tap brings the line out and a hold goes
-## on. About a phone's own long press, so a tap a little slow to lift is still
-## a tap.
-const HOLD := 0.4
-## How long a press has to last before the hold is drawn at all. A tap shows
-## nothing — a ring flashing up under every tap would be the stick's mistake
-## again — and a thumb that stays sees the ring close in, so the first time a
-## tap was slow is the time the player finds out holding does something.
-const HOLD_SHOW := 0.12
-## The ring a hold closes onto, round the thumb, and how far out it starts:
-## both clear of the thumb on the glass, so the whole of it is seen. The inner
-## one is the HIT button's size, so the hold reads as a key held down.
-const HOLD_RING := 84.0
-const HOLD_FROM := 168.0
 
 ## How far a thumb has to move from where it landed before the movement stick
 ## comes out under it. A thumb that only touches the glass grows nothing and
@@ -356,17 +336,12 @@ var _aim_off: Vector2 = Vector2.ZERO
 ## out in real time: a second branch, a staggered DELAY. It is held up until
 ## the cast has gone off (`Player.casting`) — see `_keep_throw`.
 var _held_throw: Dictionary = {}
-## The thumbs on a key with a `hold`, by finger: where the thumb is, when it
-## came down (msec), and whether the hold has gone off. One hold to a landing:
-## a thumb left down presses it once and has to lift to press it again, so a
-## conversation is never held straight through.
-var _holds: Dictionary = {}
 ## Fingers that were down when the face changed under them, until they lift.
-## What a thumb was doing belonged to the face it did it on. The one that holds
-## the last line of a conversation on is still down as the conversation ends,
+## What a thumb was doing belonged to the face it did it on. The one that tapped
+## the last line of a conversation away is still down as the conversation ends,
 ## and the one that pressed USE is still down as it opens; dragged, either would
 ## otherwise take whatever the new face has under it — JUMP, or the page, where
-## staying down is a hold that goes on past the first line unread.
+## it would turn past the first line unread.
 var _spent: Dictionary = {}
 ## Every finger on the glass now, on a control or not: what a change of face
 ## spends. A thumb resting between the buttons is as down as one on them, and
@@ -406,8 +381,8 @@ func _process(delta: float) -> void:
 		visible = up
 		if not up:
 			# Every thumb lifted by the game rather than by its owner: what each
-			# was doing ends here — a stick pushed, a hold counting — and a lift
-			# the pad cannot see while it is away is not waited for.
+			# was doing ends here — a stick pushed, a key held — and a lift the
+			# pad cannot see while it is away is not waited for.
 			_let_go()
 			_spent.clear()
 			_touching.clear()
@@ -420,7 +395,6 @@ func _process(delta: float) -> void:
 	_player = _find_player()
 	_drive()
 	_keep_throw(delta)
-	_keep_holds()
 	Touch.aim(aim())
 	queue_redraw()
 
@@ -522,21 +496,6 @@ func _keep_throw(delta: float) -> void:
 	if (started and not going) or (not started and t > THROW_START_WAIT) or t > THROW_HOLD_MAX:
 		_held_throw = {}
 
-## Presses the `hold` of every key a thumb has stayed on for HOLD, once. Timed on
-## the wall clock rather than the game's: a thumb is held for as long as it is
-## held, whatever a hitstop or a dilated fight is doing to the game's time.
-func _keep_holds() -> void:
-	for f in _holds:
-		var h: Dictionary = _holds[f]
-		if bool(h["fired"]) or _held_for(h) < HOLD:
-			continue
-		h["fired"] = true
-		Touch.press(String(CONTROLS[int(_down[f])]["hold"]))
-		Audio.play("ui")
-
-## How long the thumb holding `h` has been down, in seconds.
-func _held_for(h: Dictionary) -> float:
-	return float(Time.get_ticks_msec() - int(h["from"])) / 1000.0
 
 func _facing() -> float:
 	return 1.0 if _player == null else float(_player.facing)
@@ -601,23 +560,18 @@ func _saw_a_finger(index: int) -> void:
 	if _down.has(MOUSE):
 		_down[index] = _down[MOUSE]
 		_down.erase(MOUSE)
-	if _holds.has(MOUSE):
-		_holds[index] = _holds[MOUSE]
-		_holds.erase(MOUSE)
 
 ## One finger: where it is now, and whether it is still down.
 func _finger(index: int, at: Vector2, pressed: bool) -> void:
 	var was: int = _down.get(index, -1)
 	# A stick keeps the finger that started it, however far out it is dragged —
 	# that is what makes it a stick rather than a button you slid off. So does
-	# a zone, which has no edge anybody can see to slide off: the thumb holding
-	# a line on is the same thumb wherever on the page it has wandered to. A key
-	# lets go the moment the thumb leaves it, and may take the next key along.
+	# a zone, which has no edge anybody can see to slide off: a thumb on the
+	# page is on it wherever it wanders. A key lets go the moment the thumb
+	# leaves it, and may take the next key along.
 	if pressed and was >= 0 and _keeps(was):
 		if _is_stick(was):
 			_drag(was, at)
-		elif _holds.has(index):
-			_holds[index]["at"] = at
 		get_viewport().set_input_as_handled()
 		return
 	var now: int = _under(at) if pressed else -1
@@ -632,12 +586,9 @@ func _finger(index: int, at: Vector2, pressed: bool) -> void:
 	# Let go first, then take: a second thumb already on what is being left
 	# keeps it down, and what is being taken up is never released by this one.
 	if was >= 0:
-		_unhold(index, was)
 		_drop(was)
 	if now >= 0:
 		_take(now, at)
-		if CONTROLS[now].has("hold"):
-			_holds[index] = {"at": at, "from": Time.get_ticks_msec(), "fired": false}
 	if now >= 0 or was >= 0:
 		get_viewport().set_input_as_handled()
 
@@ -648,16 +599,6 @@ func _is_stick(i: int) -> bool:
 func _keeps(i: int) -> bool:
 	return _is_stick(i) or CONTROLS[i].has("zone")
 
-## The thumb `f` has come off `i`: a hold it was counting toward is off, and one
-## that had gone off is let go of with it. Called before `_drop`, once the
-## finger has left `_down`, so the hold is no longer counted among the held.
-func _unhold(f: int, i: int) -> void:
-	if not _holds.has(f):
-		return
-	var fired := bool(_holds[f]["fired"])
-	_holds.erase(f)
-	if fired:
-		_let_go_of(String(CONTROLS[i]["hold"]))
 
 ## A thumb has landed on `i`.
 func _take(i: int, at: Vector2) -> void:
@@ -739,23 +680,19 @@ func _drag(i: int, at: Vector2) -> void:
 		_aim_off = at - _aim_start
 
 ## Lets go of `action` unless some other finger is still holding it: two
-## thumbs can be down at once, HIT is USE as well, and a hold is a second
-## action under the same thumb.
+## thumbs can be down at once, and HIT's USE and the page both press interact.
 func _let_go_of(action: String) -> void:
 	for f in _down:
-		if _pressing(f).has(action):
+		if _pressing(f) == action:
 			return
 	Touch.release(action)
 
 ## What the thumb `f` is holding down: its control's action, or the `alt` it
-## pressed instead, and the control's `hold` once that has gone off.
-func _pressing(f: int) -> Array:
+## pressed instead.
+func _pressing(f: int) -> String:
 	var i := int(_down[f])
 	var c: Dictionary = CONTROLS[i]
-	var out := [String(c.get("alt", "")) if _alt_held.has(i) else String(c.get("action", ""))]
-	if _holds.has(f) and bool(_holds[f]["fired"]):
-		out.append(String(c["hold"]))
-	return out
+	return String(c.get("alt", "")) if _alt_held.has(i) else String(c.get("action", ""))
 
 ## The control under `at`, or -1. Only what is on the face that is up answers: a
 ## thumb where JUMP sits during a conversation presses nothing. The stick is
@@ -786,7 +723,6 @@ func _let_go() -> void:
 	for f in _touching:
 		_spent[f] = true
 	_down.clear()
-	_holds.clear()
 	_stick = Vector2.ZERO
 	_stick_at = Vector2.ZERO
 	_stick_from = Vector2.ZERO
@@ -968,8 +904,6 @@ func _draw() -> void:
 				# What the thumb on it is holding, or what a thumb would press.
 				var as_use := _alt_held.has(i) if _held(c) else uses(c)
 				paint_button(_px, placed(c, arranged), screen, _held(c), true, as_use)
-	for f in _holds:
-		_draw_hold(_holds[f])
 	# The throw is drawn last and over everything, since it reaches across
 	# whatever is beside the button it came from.
 	if _aim_from >= 0 and _aim_off.length() >= AIM_DEAD:
@@ -1068,22 +1002,6 @@ static func paint_button(px: PixelDraw, c: Dictionary, screen: Vector2, held: bo
 	px.ring(at, radius, EDGE_W, edge)
 	px.text_centered(at - Vector2(radius, -drop), label_of(c, use), ink, radius * 2.0, LABEL_SIZE)
 
-## A thumb holding the page: a ring closing in on it from HOLD_FROM onto one
-## standing at HOLD_RING, the two meeting as the hold goes off; then a key held
-## down, lit until the thumb lifts, which says this landing has done what it
-## can. Nothing at all for a press that has not outlasted a tap (HOLD_SHOW).
-func _draw_hold(h: Dictionary) -> void:
-	var at: Vector2 = h["at"]
-	if bool(h["fired"]):
-		_px.disc(at, HOLD_RING, FILL_HELD)
-		_px.ring(at, HOLD_RING, EDGE_W, EDGE_HELD)
-		return
-	var t := _held_for(h)
-	if t < HOLD_SHOW:
-		return
-	var k := clampf((t - HOLD_SHOW) / (HOLD - HOLD_SHOW), 0.0, 1.0)
-	_px.ring(at, HOLD_RING, EDGE_W, EDGE)
-	_px.ring(at, lerpf(HOLD_FROM, HOLD_RING, k), EDGE_W, EDGE_HELD)
 
 ## Where a held cast is pointing, and how far it will go: the ring is as far as
 ## it can, and the knob sits where the thumb has it — the distance this one
