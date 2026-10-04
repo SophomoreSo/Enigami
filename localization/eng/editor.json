@@ -42,7 +42,6 @@
 		"pierce": "pierce %d",
 		"homing": "homing",
 		"auto_aim": "auto-aims",
-		"blink": "blink",
 		"pull": "pulls in",
 		"knockback": "knocks back",
 		"shatter": "x%.1f on chilled",

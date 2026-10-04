@@ -119,7 +119,6 @@ func _run() -> void:
 		p.elements = ["FIRE", "ICE"] as Array[String]
 		p.pierce = 2
 		p.homing = 1
-		p.blink = true
 		var trig := Payload.new()
 		trig.form = "EXPLODE"
 		trig.damage = 3.0

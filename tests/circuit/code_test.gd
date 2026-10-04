@@ -365,12 +365,13 @@ func _ready() -> void:
 	var starter := _saved([["INPUT", 0, 2, 0], ["SLASH", 1, 2, 0], ["WIRE", 2, 2, 0], ["OUTPUT", 3, 2, 0]])
 	check(same_parts(starter, _board([["SLASH", 1, 2, 0]])) and not starter.has_root(),
 		"a starter board saved with its INPUT, WIRE and OUTPUT reads back as its SLASH")
-	# And from before DASH, SPLIT, TEE and REVERSE were: the same, a cell left
-	# empty where each stood.
+	# And from before DASH, SPLIT, TEE, REVERSE and BLINK were: the same, a cell
+	# left empty where each stood.
 	check(same_parts(_saved([["SLASH", 0, 2, 0], ["DASH", 1, 2, 0], ["FIRE", 2, 2, 0],
-			["SPLIT", 3, 2, 0], ["TEE", 4, 2, 0], ["REVERSE", 5, 2, 0], ["DAMAGE", 6, 2, 0]]),
+			["SPLIT", 3, 2, 0], ["TEE", 4, 2, 0], ["REVERSE", 5, 2, 0], ["DAMAGE", 6, 2, 0],
+			["BLINK", 2, 3, 0]]),
 			_board([["SLASH", 0, 2, 0], ["FIRE", 2, 2, 0], ["DAMAGE", 6, 2, 0]])),
-		"a board saved with a DASH, a SPLIT, a TEE and a REVERSE on it reads back with them left out")
+		"a board saved with a DASH, a SPLIT, a TEE, a REVERSE and a BLINK on it reads back with them left out")
 
 	# --- a board from before AREA was renamed EXPLODE -----------------------
 	# The part kept its number, so a code shared under the old name builds the

@@ -45,7 +45,7 @@
 	},
 	"RANGE": {
 		"name": "RANGE x",
-		"desc": "Bolts carry 1.75x as far before they fade, and a beam reaches 1.75x as far. Does nothing to a flow with neither. Stacks up to 3, which is the most range there is."
+		"desc": "Bolts carry 1.75x as far before they fade, a beam reaches 1.75x as far, and SWIFT STRIKE lunges 1.75x as far. Does nothing to any other attack. Stacks up to 3, which is the most range there is."
 	},
 	"SHATTER": {
 		"name": "SHATTER",
@@ -54,10 +54,6 @@
 	"PIERCE": {
 		"name": "PIERCE",
 		"desc": "The attack passes through one enemy and carries on to the next. Each one stacked is one more enemy it passes through."
-	},
-	"BLINK": {
-		"name": "BLINK",
-		"desc": "Teleports behind the nearest visible enemy. Works alone; if nothing is in sight the flow simply continues. A cast blinks once: more than one does nothing more."
 	},
 	"HOMING": {
 		"name": "HOMING",
@@ -89,7 +85,7 @@
 	},
 	"AUTO_AIM": {
 		"name": "AUTO-AIM",
-		"desc": "Aims the attack at the nearest enemy, wherever you point: bolts and beams go straight at it, as far as they reach, a swing turns to it, and SWIFT STRIKE lunges to it and through. Each one stacked looks further for one."
+		"desc": "Aims the attack at the nearest enemy, wherever you point: bolts and beams go straight at it and SWIFT STRIKE lunges through it, as far as each reaches, and a swing turns to it. Each one stacked looks further for one."
 	},
 	"DUPLICATE": {
 		"name": "DUPLICATE x3",

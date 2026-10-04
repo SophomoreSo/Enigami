@@ -83,6 +83,7 @@ func _ready() -> void:
 	_payloads()
 	await _hits()
 	await _bolts()
+	_lunges()
 	await _homing()
 	print("[STACK] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)
@@ -97,9 +98,8 @@ func _limits() -> void:
 		if Components.limit_of(id) != int(want.get(id, 0)):
 			off.append(id)
 	check(off.is_empty(), "a part's limit is its stack_limit in the table (%s)" % str(off))
-	for id in ["SIZE", "SPEED", "RANGE", "BLINK"]:
+	for id in ["SIZE", "SPEED", "RANGE"]:
 		check(Components.limit_of(id) > 0, "%s has a limit (%d)" % [id, Components.limit_of(id)])
-	check(Components.limit_of("BLINK") == 1, "and BLINK's is one")
 	check(Components.limit_of("DAMAGE") == 0, "DAMAGE has none")
 
 	var cap := Components.limit_of("SIZE")
@@ -118,8 +118,6 @@ func _limits() -> void:
 	var longest := Weapons.finalize("GUN", stacked_on("GUN", "RANGE", range_cap)).range_px
 	check(longest > float(Room.W * Room.CELL),
 		"which carries the gun's bolt further than a room is wide (%.0f px)" % longest)
-	var blinks := stacked("SLASH", "BLINK", 3)
-	check(blinks.blink and blinks.stack("BLINK") == 1, "BLINK stays what it was, once")
 	# An INVERT after a part past its limit has nothing to turn round.
 	var ids: Array = ["SLASH"]
 	for i in cap + 1:
@@ -154,7 +152,7 @@ func _payloads() -> void:
 	var grows = Components._effect({"op": "add", "field": "pierce", "value": 1, "per_stack": 2.0}, shape)
 	check(grows is Dictionary and typeof(grows["per_stack"]) == TYPE_INT, "a whole number grows by whole numbers")
 	for bad in [
-			{"op": "set", "field": "blink", "value": 1, "per_stack": 1.0},
+			{"op": "set", "field": "cleanse", "value": 1, "per_stack": 1.0},
 			{"op": "set", "field": "stun", "value": 1, "per_stack": 1.0},
 			{"op": "add", "field": "pierce", "value": 1, "per_stack": 0.5}]:
 		check(Components._effect(bad, shape) is String, "and a row that cannot grow that way is turned away (%s %s)" % [bad["op"], bad["field"]])
@@ -294,6 +292,48 @@ func _bolts() -> void:
 ## A flat room with a wall standing in the middle of it, open over the top: the
 ## bolt starts on one side at the foot of the wall and its target stands on the
 ## other. Whether it got there is whether the target was struck.
+## --- RANGE carries a lunge -----------------------------------------------------
+## SWIFT STRIKE's lunge goes RANGE's own multiple further for each one stacked,
+## up to the part's limit, and one an INVERT turns round goes shorter.
+func _lunges() -> void:
+	var by := 0.0
+	for e in Components.effects_of("RANGE"):
+		if e["field"] == &"lunge" and e["op"] == "multiply":
+			by = float(e["value"])
+	check(by > 1.0, "RANGE carries a lunge further (x%s)" % str(by))
+	var cap := Components.limit_of("RANGE")
+	var caster := Actor.new()
+	add_child(caster)
+	var far: Array = []
+	for n in cap + 2:
+		far.append(lunge_of(caster, stacked("DASHSLASH", "RANGE", n)))
+	check(float(far[0]) > 0.0 and is_equal_approx(float(far[0]),
+			Attacks.DASH_SLASH_REACH * Weapons.base_payload("SWORD").size),
+		"a bare SWIFT STRIKE lunges its own reach (%.0f px)" % float(far[0]))
+	check(is_equal_approx(float(far[1]), float(far[0]) * by),
+		"one RANGE carries it x%s as far (%.0f px)" % [str(by), float(far[1])])
+	check(is_equal_approx(float(far[cap]), float(far[0]) * pow(by, cap))
+			and is_equal_approx(float(far[cap + 1]), float(far[cap])),
+		"each one stacked as far again, up to the limit and no further (%s)" % str(far))
+	var turned := lunge_of(caster, payload_of(["DASHSLASH", "RANGE", "INVERT"]))
+	check(turned < float(far[0]) and absf(turned * by - float(far[0])) < 0.5,
+		"and one an INVERT turns round lunges that much shorter (%.0f px)" % turned)
+	caster.queue_free()
+
+## How far `p`, off the sword, carries `caster` down the aim with nothing in the
+## way: a lunge lands as it is cast.
+func lunge_of(caster: Actor, p: Payload) -> float:
+	caster.global_position = Vector2.ZERO
+	Attacks.spawn(Weapons.finalize("SWORD", p), {"attacker": caster, "aim": Vector2.RIGHT,
+		"origin": caster.global_position, "team": 0})
+	var out := -1.0
+	for c in get_children():
+		if c is DashSlash and not c.is_queued_for_deletion():
+			out = (c as DashSlash).from.distance_to((c as DashSlash).to)
+			remove_child(c)
+			c.queue_free()
+	return out
+
 func walled_room(at: Vector2) -> Room:
 	var r := Room.new()
 	add_child(r)

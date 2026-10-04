@@ -1,7 +1,7 @@
 extends Node2D
 ## Where a lunge lands. SWIFT STRIKE goes to what the player is pointing at, up
 ## to the skill's reach; with AUTO-AIM it picks its own target and stops as
-## soon as the cut has carried past it.
+## soon as the cut has carried past it, and looks for one as far as it lunges.
 
 var fails := 0
 
@@ -16,13 +16,14 @@ func frames(n: int) -> void:
 	for i in n:
 		await get_tree().process_frame
 
-func fire(atk: Actor, form: String, size: float, auto_aim: int = 0) -> Vector2:
+func fire(atk: Actor, form: String, size: float, auto_aim: int = 0, lunge: float = 1.0) -> Vector2:
 	var from := atk.global_position
 	var p := Payload.new()
 	p.form = form
 	p.damage = 3.0
 	p.size = size
 	p.auto_aim = auto_aim
+	p.lunge = lunge
 	Attacks.spawn(p, {"attacker": atk, "room": null, "team": atk.team,
 		"aim": atk.aim if atk is Player else Vector2.RIGHT, "origin": from})
 	await frames(2)
@@ -81,6 +82,33 @@ func _ready() -> void:
 		check(absf(past - clearance) < 1.0,
 			"an enemy %.0f px away is cleared by exactly %.1f px, no more" % [gap, past])
 		check(e.health < hp, "and the cut still lands on it on the way through")
+		e.queue_free()
+		await frames(2)
+
+	# AUTO-AIM looks as far as the lunge goes, where that is further than it
+	# looks on its own: an enemy past its sight is no target for a short lunge,
+	# and is for one that RANGE carries out to it.
+	var beyond := Attacks.AUTO_AIM_SIGHT + 200.0
+	var carried := (beyond + 100.0) / reach
+	for lunge: float in [1.0, carried]:
+		p.global_position = Vector2(400, 300)
+		p.aim = Vector2.RIGHT
+		p.aim_point = p.global_position + Vector2(40, 0)
+		var e := Enemy.new()
+		e.setup("CRAWLER", 1, "")
+		add_child(e)
+		e.global_position = p.global_position + Vector2(beyond, 0)
+		await frames(2)
+		var enemy_x := e.global_position.x
+		var moved := await fire(p, "DASHSLASH", 1.0, 1, lunge)
+		if lunge == 1.0:
+			check(absf(moved.x - reach) < 1.0,
+				"an enemy %.0f px off is past a %.0f px lunge's sight: it lunges its reach (%.1f px)"
+					% [beyond, reach, moved.x])
+		else:
+			check(absf(p.global_position.x - enemy_x - (e.hurt_radius + p.hurt_radius)) < 1.0,
+				"and a lunge that reaches %.0f px goes at it and through (%.1f px)"
+					% [reach * lunge, moved.x])
 		e.queue_free()
 		await frames(2)
 

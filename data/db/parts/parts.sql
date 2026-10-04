@@ -64,8 +64,11 @@ INSERT INTO codes (code, id) VALUES
 --
 -- REVERSE turned a bolt round to come back at the caster a moment after it
 -- left, and did nothing to any other form.
+--
+-- BLINK put the caster behind the nearest enemy in sight as the attack went
+-- off, once a cast.
 INSERT INTO retired_parts (id) VALUES ('WIRE'), ('BEND'), ('INPUT'), ('OUTPUT'), ('DASH'),
-	('SPLIT'), ('TEE'), ('REVERSE');
+	('SPLIT'), ('TEE'), ('REVERSE'), ('BLINK');
 
 -- DASHSLASH_AUTO, SWIFT STRIKE+, was SWIFT STRIKE with AUTO-AIM built into it:
 -- it lunged at the nearest enemy and through. AUTO-AIM is a part now, and does
@@ -125,12 +128,13 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 -- attack four times the size. SPEED stops at four, and the fourth is the one
 -- that matters: a bolt whose SPEED is at its limit flies at laser speed
 -- (`Projectile.LASER_SPEED`). RANGE stops at three, which carries the gun's
--- bolt further than a room is wide — the most range there is to have.
+-- bolt further than a room is wide — the most range there is to have — and
+-- SWIFT STRIKE's lunge five times as far.
 INSERT INTO parts (id, name, category, heat, stack_limit, description) VALUES
 	('DAMAGE', 'DAMAGE +', 'stat', 0.3, NULL, 'Raises damage, and each one stacked raises it by more than the last. Stable and simple, but interacts with little else.'),
 	('SIZE', 'SIZE x', 'stat', 0.4, 3, 'Scales the attack by 1.6. Melee arcs widen and reach further. Stacks up to 3.'),
 	('SPEED', 'SPEED x', 'stat', 0.35, 4, 'Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. A beam reaches a little further too. Does nothing to a flow with neither. Stacks up to 4, and at 4 a bolt flies at laser speed.'),
-	('RANGE', 'RANGE x', 'stat', 0.35, 3, 'Bolts carry 1.75x as far before they fade, and a beam reaches 1.75x as far. Does nothing to a flow with neither. Stacks up to 3, which is the most range there is.'),
+	('RANGE', 'RANGE x', 'stat', 0.35, 3, 'Bolts carry 1.75x as far before they fade, a beam reaches 1.75x as far, and SWIFT STRIKE lunges 1.75x as far. Does nothing to any other attack. Stacks up to 3, which is the most range there is.'),
 	('SHATTER', 'SHATTER', 'stat', 0.45, NULL, 'Breaks the frost on an enemy slowed by it: the hit lands far harder, and the enemy thaws. Each one stacked breaks harder still. Worth nothing on its own — pair it with ICE, or with a board that lands twice.');
 
 INSERT INTO ports (part_id, side) VALUES
@@ -145,6 +149,11 @@ INSERT INTO ports (part_id, side) VALUES
 -- when the thing you cannot do is reach. Their descriptions say 1.5x, 1.6
 -- and 1.75x; change one, change the other.
 --
+-- A lunge is reach too, but not a range: SWIFT STRIKE's distance is the
+-- attack's own (`Attacks.DASH_SLASH_REACH`), which a weapon's range does not
+-- change, so RANGE carries it on a row of its own, `lunge`, by the same 1.75.
+-- SPEED does not: a lunge already lands the instant it is cast.
+--
 -- DAMAGE grows with the stack (`per_stack`): one adds 8, as it always has, and
 -- every one after it adds 4 more than the one before — 8, 12, 16 — so three are
 -- worth 36 where three used to be worth 24. It grows by adding, not by
@@ -158,34 +167,32 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('SPEED', 0, 'speed', 'multiply', 1.5),
 	('SPEED', 1, 'range_px', 'multiply', 1.2),
 	('RANGE', 0, 'range_px', 'multiply', 1.75),
+	('RANGE', 1, 'lunge', 'multiply', 1.75),
 	('SHATTER', 0, 'shatter', 'add', 1);
 
 
 -- ---- behavior -------------------------------------------------------------------
 
 -- Every one of these stacks: each is a count on the payload, and what reads it
--- (feature/attacks/) does more for a higher one. BLINK is the exception — one
--- teleport is all a cast has in it — so its limit is 1.
-INSERT INTO parts (id, name, category, heat, tag, stack_limit, description) VALUES
-	('PIERCE', 'PIERCE', 'behavior', 0.5, NULL, NULL, 'The attack passes through one enemy and carries on to the next. Each one stacked is one more enemy it passes through.'),
-	('BLINK', 'BLINK', 'behavior', 0.7, 'mobility', 1, 'Teleports behind the nearest visible enemy. Works alone; if nothing is in sight the flow simply continues. A cast blinks once: more than one does nothing more.'),
-	('HOMING', 'HOMING', 'behavior', 0.6, NULL, NULL, 'Tracks the nearest enemy. Bolts curve and find their way round walls; melee forms re-aim themselves. Each one stacked turns a bolt tighter, so it holds a winding path it would otherwise fly wide of.'),
-	('GRAVITY', 'GRAVITY', 'behavior', 0.7, NULL, NULL, 'The enemy struck is not knocked back but pinned, and every other enemy nearby is dragged onto it. Gathers a room into one place for whatever comes next. Each one stacked drags harder.'),
-	('KNOCKBACK', 'KNOCKBACK', 'behavior', 0.5, NULL, NULL, 'Hits throw the enemy back the way the attack was going. Buys room, but can put it out of reach. Each one stacked throws harder.'),
-	('MANA_DRAIN', 'MANA DRAIN', 'behavior', 0.5, NULL, NULL, 'Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting. Each one stacked drains more.'),
-	('HEALTH_DRAIN', 'HEALTH DRAIN', 'behavior', 0.6, NULL, NULL, 'Every enemy this attack hurts gives health back to the caster: a fifth of the damage dealt, and a fifth more for each one stacked. What keeps you standing is landing hits.'),
-	('STUN', 'STUN', 'behavior', 0.6, NULL, NULL, 'Struck enemies are stunned: for a moment they stand where they are and cannot attack. Each one stacked holds them longer. Once it wears off, an enemy shrugs off the next stun for a while.'),
-	('POSSESS', 'POSSESS', 'behavior', 0.9, NULL, NULL, 'Takes over the monster struck for 5 seconds, unharmed, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, left behind and still hunted. Bosses resist it.'),
-	('AUTO_AIM', 'AUTO-AIM', 'behavior', 0.4, NULL, NULL, 'Aims the attack at the nearest enemy, wherever you point: bolts and beams go straight at it, as far as they reach, a swing turns to it, and SWIFT STRIKE lunges to it and through. Each one stacked looks further for one.');
+-- (feature/attacks/) does more for a higher one.
+INSERT INTO parts (id, name, category, heat, description) VALUES
+	('PIERCE', 'PIERCE', 'behavior', 0.5, 'The attack passes through one enemy and carries on to the next. Each one stacked is one more enemy it passes through.'),
+	('HOMING', 'HOMING', 'behavior', 0.6, 'Tracks the nearest enemy. Bolts curve and find their way round walls; melee forms re-aim themselves. Each one stacked turns a bolt tighter, so it holds a winding path it would otherwise fly wide of.'),
+	('GRAVITY', 'GRAVITY', 'behavior', 0.7, 'The enemy struck is not knocked back but pinned, and every other enemy nearby is dragged onto it. Gathers a room into one place for whatever comes next. Each one stacked drags harder.'),
+	('KNOCKBACK', 'KNOCKBACK', 'behavior', 0.5, 'Hits throw the enemy back the way the attack was going. Buys room, but can put it out of reach. Each one stacked throws harder.'),
+	('MANA_DRAIN', 'MANA DRAIN', 'behavior', 0.5, 'Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting. Each one stacked drains more.'),
+	('HEALTH_DRAIN', 'HEALTH DRAIN', 'behavior', 0.6, 'Every enemy this attack hurts gives health back to the caster: a fifth of the damage dealt, and a fifth more for each one stacked. What keeps you standing is landing hits.'),
+	('STUN', 'STUN', 'behavior', 0.6, 'Struck enemies are stunned: for a moment they stand where they are and cannot attack. Each one stacked holds them longer. Once it wears off, an enemy shrugs off the next stun for a while.'),
+	('POSSESS', 'POSSESS', 'behavior', 0.9, 'Takes over the monster struck for 5 seconds, unharmed, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, left behind and still hunted. Bosses resist it.'),
+	('AUTO_AIM', 'AUTO-AIM', 'behavior', 0.4, 'Aims the attack at the nearest enemy, wherever you point: bolts and beams go straight at it and SWIFT STRIKE lunges through it, as far as each reaches, and a swing turns to it. Each one stacked looks further for one.');
 
 INSERT INTO ports (part_id, side) VALUES
-	('PIERCE', 'E'), ('BLINK', 'E'), ('HOMING', 'E'),
+	('PIERCE', 'E'), ('HOMING', 'E'),
 	('GRAVITY', 'E'), ('KNOCKBACK', 'E'), ('MANA_DRAIN', 'E'), ('HEALTH_DRAIN', 'E'),
 	('STUN', 'E'), ('POSSESS', 'E'), ('AUTO_AIM', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('PIERCE', 0, 'pierce', 'add', 1),
-	('BLINK', 0, 'blink', 'set', 'true'),
 	('HOMING', 0, 'homing', 'add', 1),
 	('GRAVITY', 0, 'pull', 'add', 1),
 	('KNOCKBACK', 0, 'knockback', 'add', 1),
@@ -263,4 +270,5 @@ INSERT INTO inversions (part_id, position, field, op, value) VALUES
 	('SIZE', 0, 'size', 'multiply', 0.625),
 	('SPEED', 0, 'speed', 'multiply', 0.6667),
 	('SPEED', 1, 'range_px', 'multiply', 0.8333),
-	('RANGE', 0, 'range_px', 'multiply', 0.5714);
+	('RANGE', 0, 'range_px', 'multiply', 0.5714),
+	('RANGE', 1, 'lunge', 'multiply', 0.5714);

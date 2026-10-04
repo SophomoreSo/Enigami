@@ -188,8 +188,10 @@ func _flips() -> void:
 		"SPEED then INVERT: slower and shorter by as much (%.3f, %.0f)" % [slow.speed, slow.range_px])
 	var far := _value(Components.effects_of("RANGE"), "multiply", &"range_px")
 	var short := payload_of(["SLASH", "RANGE", "INVERT"])
-	check(_near(short.range_px, plain.range_px / far) and differ(short, plain) == ["range_px"],
-		"RANGE then INVERT: shorter by as much (%.0f)" % short.range_px)
+	check(_near(short.range_px, plain.range_px / far) and _near(short.lunge, plain.lunge / far)
+			and differ(short, plain) == ["range_px", "lunge"],
+		"RANGE then INVERT: shorter by as much, and the lunge with it (%.0f, %s)"
+			% [short.range_px, str(differ(short, plain))])
 
 ## --- and where there is nothing to turn round ------------------------------------
 
@@ -206,7 +208,7 @@ func _nothing_to_flip() -> void:
 	var once := payload_of(["SLASH", "DAMAGE", "INVERT"])
 	var again := payload_of(["SLASH", "DAMAGE", "INVERT", "INVERT"])
 	check(differ(again, once).is_empty(), "nor after another INVERT, which has no opposite (%s)" % str(differ(again, once)))
-	for id in ["PIERCE", "BLINK", "HOMING", "SHATTER", "MANA_DRAIN", "HEALTH_DRAIN", "WATER", "DUPLICATE"]:
+	for id in ["PIERCE", "HOMING", "SHATTER", "MANA_DRAIN", "HEALTH_DRAIN", "WATER", "DUPLICATE"]:
 		var with := payload_of(["SLASH", id])
 		var turned := payload_of(["SLASH", id, "INVERT"])
 		check(differ(turned, with).is_empty(), "nor after %s, which has none (%s)" % [id, str(differ(turned, with))])

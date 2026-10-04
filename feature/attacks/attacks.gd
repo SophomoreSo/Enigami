@@ -36,7 +36,14 @@ static func auto_aim_sight(p: Payload) -> float:
 	var sight := AUTO_AIM_SIGHT * (1.0 + AUTO_AIM_FURTHER * float(maxi(p.auto_aim - 1, 0)))
 	if p.form == "PROJECTILE" or p.form == "ZAP":
 		sight = maxf(sight, p.range_px)
+	elif p.form == "DASHSLASH":
+		sight = maxf(sight, dash_slash_reach(p))
 	return sight
+
+## How far SWIFT STRIKE off `p` lunges when it is aimed all the way: its own
+## reach, carried further by SIZE and RANGE (`Payload.lunge`).
+static func dash_slash_reach(p: Payload) -> float:
+	return DASH_SLASH_REACH * p.size * p.lunge
 
 static func container() -> Node:
 	return Arena.current()
@@ -90,15 +97,16 @@ const TRIGGER_DELAY := 0.045
 const HITSTOP := 0.035
 const CHAIN_HITSTOP := 0.010
 
-## How far a lunge travels at size 1. For DASHSLASH this is the cap on aiming
-## it: the cursor decides where inside that range it lands.
+## How far a lunge travels at size 1 with no RANGE on it. For DASHSLASH this is
+## the cap on aiming it: the cursor decides where inside that range it lands.
+## SIZE and RANGE carry it further (`Payload.lunge`).
 const DASH_SLASH_REACH := 85.0
 
 ## AUTO-AIM. How far one looks for something to go at, and how much further
 ## each one stacked looks: the first looks as far as SWIFT STRIKE+ used to,
 ## which was SWIFT STRIKE with this built in. A bolt or a beam looks as far as
-## it carries, if that is further, so one with RANGE on it goes at anything it
-## can reach (`auto_aim_sight`).
+## it carries, and a lunge as far as it lunges, if that is further, so one with
+## RANGE on it goes at anything it can reach (`auto_aim_sight`).
 const AUTO_AIM_SIGHT := 520.0
 const AUTO_AIM_FURTHER := 0.5
 
@@ -269,17 +277,6 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 	var origin: Vector2 = ctx.get("origin", attacker.global_position if attacker != null else Vector2.ZERO)
 	var far := distance_for(float(ctx.get("reach", 1.0)))
 
-	# BLINK runs first: it decides where the attack comes from.
-	if payload.blink and attacker != null and is_instance_valid(attacker):
-		var t := nearest_target(attacker.global_position, team, 460.0)
-		if t != null:
-			var behind: Vector2 = t.global_position - aim * (t.hurt_radius + 26.0)
-			if room == null or not room.has_method("is_solid_at") or not room.is_solid_at(behind):
-				var was: Vector2 = attacker.global_position
-				attacker.global_position = behind
-				origin = behind
-				Cues.emit_cue(&"blink", {"from": was, "to": behind})
-
 	# AUTO-AIM: at the nearest enemy, whatever the aim said. A lunge and a beam
 	# look for it again as they go off (`_dash_slash`, `_zap`), which a
 	# volley's later ones do a moment after this one.
@@ -385,7 +382,7 @@ static func _dash_slash(p: Payload, aim: Vector2, team: int, atk: Actor, room, f
 	if room != null and not is_instance_valid(room):
 		room = null
 	var start: Vector2 = atk.global_position
-	var reach := DASH_SLASH_REACH * p.size * far
+	var reach := dash_slash_reach(p) * far
 	var dest: Vector2
 	if p.auto_aim > 0:
 		# AUTO-AIM: all the way to the nearest enemy and through it, however
@@ -404,7 +401,7 @@ static func _dash_slash(p: Payload, aim: Vector2, team: int, atk: Actor, room, f
 	else:
 		# Land on what the attacker is pointing at rather than a fixed distance
 		# down the aim, so the lunge goes where it is aimed. Past the skill's
-		# reach it still stops at the reach, which is what SIZE buys. An
+		# reach it still stops at the reach, which is what SIZE and RANGE buy. An
 		# attacker with nothing to point at — every monster — keeps the aim.
 		var want := start + aim * reach
 		var pt = atk.get("aim_point")
@@ -470,8 +467,6 @@ static func summary(p: Payload) -> String:
 		parts.append(_stacked(Loc.t("editor.payload.homing"), p.homing))
 	if p.auto_aim:
 		parts.append(_stacked(Loc.t("editor.payload.auto_aim"), p.auto_aim))
-	if p.blink:
-		parts.append(Loc.t("editor.payload.blink"))
 	if p.pull:
 		parts.append(_stacked(Loc.t("editor.payload.pull"), p.pull))
 	if p.knockback:
