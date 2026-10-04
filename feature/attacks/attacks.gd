@@ -90,8 +90,9 @@ const TRIGGER_DELAY := 0.045
 const HITSTOP := 0.035
 const CHAIN_HITSTOP := 0.010
 
-## How far a lunge travels at size 1. For DASHSLASH this is the cap on aiming
-## it: the cursor decides where inside that range it lands.
+## How far a lunge travels at size 1 with no RANGE on it. For DASHSLASH this is
+## the cap on aiming it: the cursor decides where inside that range it lands.
+## SIZE and RANGE carry it further (`Payload.lunge`).
 const DASH_SLASH_REACH := 85.0
 
 ## AUTO-AIM. How far one looks for something to go at, and how much further
@@ -374,7 +375,7 @@ static func _dash_slash(p: Payload, aim: Vector2, team: int, atk: Actor, room, f
 	if room != null and not is_instance_valid(room):
 		room = null
 	var start: Vector2 = atk.global_position
-	var reach := DASH_SLASH_REACH * p.size * far
+	var reach := DASH_SLASH_REACH * p.size * p.lunge * far
 	var dest: Vector2
 	if p.auto_aim > 0:
 		# AUTO-AIM: all the way to the nearest enemy and through it, however
@@ -393,7 +394,7 @@ static func _dash_slash(p: Payload, aim: Vector2, team: int, atk: Actor, room, f
 	else:
 		# Land on what the attacker is pointing at rather than a fixed distance
 		# down the aim, so the lunge goes where it is aimed. Past the skill's
-		# reach it still stops at the reach, which is what SIZE buys. An
+		# reach it still stops at the reach, which is what SIZE and RANGE buy. An
 		# attacker with nothing to point at — every monster — keeps the aim.
 		var want := start + aim * reach
 		var pt = atk.get("aim_point")

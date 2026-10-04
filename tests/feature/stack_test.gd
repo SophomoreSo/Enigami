@@ -83,6 +83,7 @@ func _ready() -> void:
 	_payloads()
 	await _hits()
 	await _bolts()
+	_lunges()
 	await _homing()
 	print("[STACK] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)
@@ -291,6 +292,48 @@ func _bolts() -> void:
 ## A flat room with a wall standing in the middle of it, open over the top: the
 ## bolt starts on one side at the foot of the wall and its target stands on the
 ## other. Whether it got there is whether the target was struck.
+## --- RANGE carries a lunge -----------------------------------------------------
+## SWIFT STRIKE's lunge goes RANGE's own multiple further for each one stacked,
+## up to the part's limit, and one an INVERT turns round goes shorter.
+func _lunges() -> void:
+	var by := 0.0
+	for e in Components.effects_of("RANGE"):
+		if e["field"] == &"lunge" and e["op"] == "multiply":
+			by = float(e["value"])
+	check(by > 1.0, "RANGE carries a lunge further (x%s)" % str(by))
+	var cap := Components.limit_of("RANGE")
+	var caster := Actor.new()
+	add_child(caster)
+	var far: Array = []
+	for n in cap + 2:
+		far.append(lunge_of(caster, stacked("DASHSLASH", "RANGE", n)))
+	check(float(far[0]) > 0.0 and is_equal_approx(float(far[0]),
+			Attacks.DASH_SLASH_REACH * Weapons.base_payload("SWORD").size),
+		"a bare SWIFT STRIKE lunges its own reach (%.0f px)" % float(far[0]))
+	check(is_equal_approx(float(far[1]), float(far[0]) * by),
+		"one RANGE carries it x%s as far (%.0f px)" % [str(by), float(far[1])])
+	check(is_equal_approx(float(far[cap]), float(far[0]) * pow(by, cap))
+			and is_equal_approx(float(far[cap + 1]), float(far[cap])),
+		"each one stacked as far again, up to the limit and no further (%s)" % str(far))
+	var turned := lunge_of(caster, payload_of(["DASHSLASH", "RANGE", "INVERT"]))
+	check(turned < float(far[0]) and absf(turned * by - float(far[0])) < 0.5,
+		"and one an INVERT turns round lunges that much shorter (%.0f px)" % turned)
+	caster.queue_free()
+
+## How far `p`, off the sword, carries `caster` down the aim with nothing in the
+## way: a lunge lands as it is cast.
+func lunge_of(caster: Actor, p: Payload) -> float:
+	caster.global_position = Vector2.ZERO
+	Attacks.spawn(Weapons.finalize("SWORD", p), {"attacker": caster, "aim": Vector2.RIGHT,
+		"origin": caster.global_position, "team": 0})
+	var out := -1.0
+	for c in get_children():
+		if c is DashSlash and not c.is_queued_for_deletion():
+			out = (c as DashSlash).from.distance_to((c as DashSlash).to)
+			remove_child(c)
+			c.queue_free()
+	return out
+
 func walled_room(at: Vector2) -> Room:
 	var r := Room.new()
 	add_child(r)

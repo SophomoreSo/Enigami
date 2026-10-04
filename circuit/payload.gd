@@ -20,6 +20,10 @@ var damage: float = 10.0
 var size: float = 1.0
 var speed: float = 1.0
 var range_px: float = BASE_RANGE
+## How far a lunge carries, as a share of its own reach: SWIFT STRIKE's, which
+## is a distance of the attack's own rather than a range a shot flies to — see
+## `Attacks.DASH_SLASH_REACH`. RANGE is what changes it.
+var lunge: float = 1.0
 var form: String = ""              ## "", PROJECTILE, SLASH, EXPLODE, DASHSLASH, ZAP
 var elements: Array[String] = []   ## FIRE / ICE
 var pierce: int = 0                ## extra targets an attack passes through
@@ -72,6 +76,7 @@ func clone() -> Payload:
 	p.size = size
 	p.speed = speed
 	p.range_px = range_px
+	p.lunge = lunge
 	p.form = form
 	p.elements = elements.duplicate()
 	p.pierce = pierce

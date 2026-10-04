@@ -128,12 +128,13 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 -- attack four times the size. SPEED stops at four, and the fourth is the one
 -- that matters: a bolt whose SPEED is at its limit flies at laser speed
 -- (`Projectile.LASER_SPEED`). RANGE stops at three, which carries the gun's
--- bolt further than a room is wide — the most range there is to have.
+-- bolt further than a room is wide — the most range there is to have — and
+-- SWIFT STRIKE's lunge five times as far.
 INSERT INTO parts (id, name, category, heat, stack_limit, description) VALUES
 	('DAMAGE', 'DAMAGE +', 'stat', 0.3, NULL, 'Raises damage, and each one stacked raises it by more than the last. Stable and simple, but interacts with little else.'),
 	('SIZE', 'SIZE x', 'stat', 0.4, 3, 'Scales the attack by 1.6. Melee arcs widen and reach further. Stacks up to 3.'),
 	('SPEED', 'SPEED x', 'stat', 0.35, 4, 'Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. A beam reaches a little further too. Does nothing to a flow with neither. Stacks up to 4, and at 4 a bolt flies at laser speed.'),
-	('RANGE', 'RANGE x', 'stat', 0.35, 3, 'Bolts carry 1.75x as far before they fade, and a beam reaches 1.75x as far. Does nothing to a flow with neither. Stacks up to 3, which is the most range there is.'),
+	('RANGE', 'RANGE x', 'stat', 0.35, 3, 'Bolts carry 1.75x as far before they fade, a beam reaches 1.75x as far, and SWIFT STRIKE lunges 1.75x as far. Does nothing to any other attack. Stacks up to 3, which is the most range there is.'),
 	('SHATTER', 'SHATTER', 'stat', 0.45, NULL, 'Breaks the frost on an enemy slowed by it: the hit lands far harder, and the enemy thaws. Each one stacked breaks harder still. Worth nothing on its own — pair it with ICE, or with a board that lands twice.');
 
 INSERT INTO ports (part_id, side) VALUES
@@ -148,6 +149,11 @@ INSERT INTO ports (part_id, side) VALUES
 -- when the thing you cannot do is reach. Their descriptions say 1.5x, 1.6
 -- and 1.75x; change one, change the other.
 --
+-- A lunge is reach too, but not a range: SWIFT STRIKE's distance is the
+-- attack's own (`Attacks.DASH_SLASH_REACH`), which a weapon's range does not
+-- change, so RANGE carries it on a row of its own, `lunge`, by the same 1.75.
+-- SPEED does not: a lunge already lands the instant it is cast.
+--
 -- DAMAGE grows with the stack (`per_stack`): one adds 8, as it always has, and
 -- every one after it adds 4 more than the one before — 8, 12, 16 — so three are
 -- worth 36 where three used to be worth 24. It grows by adding, not by
@@ -161,6 +167,7 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('SPEED', 0, 'speed', 'multiply', 1.5),
 	('SPEED', 1, 'range_px', 'multiply', 1.2),
 	('RANGE', 0, 'range_px', 'multiply', 1.75),
+	('RANGE', 1, 'lunge', 'multiply', 1.75),
 	('SHATTER', 0, 'shatter', 'add', 1);
 
 
@@ -263,4 +270,5 @@ INSERT INTO inversions (part_id, position, field, op, value) VALUES
 	('SIZE', 0, 'size', 'multiply', 0.625),
 	('SPEED', 0, 'speed', 'multiply', 0.6667),
 	('SPEED', 1, 'range_px', 'multiply', 0.8333),
-	('RANGE', 0, 'range_px', 'multiply', 0.5714);
+	('RANGE', 0, 'range_px', 'multiply', 0.5714),
+	('RANGE', 1, 'lunge', 'multiply', 0.5714);
