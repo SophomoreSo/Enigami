@@ -3,6 +3,7 @@ extends Node2D
 
 ## A room, drawn: the tile field, its door frames, whatever exit it
 ## holds, the cables hung from its rock and the foliage growing on its floors.
+## Its gates are drawn by their own views (`GateView`).
 ##
 ## Tiles never change while a room is loaded, so they are drawn once onto their
 ## own layer the moment the room finishes building. The exit animates, the
@@ -207,15 +208,12 @@ static func reach(vp: Viewport) -> Vector2i:
 	return Vector2i((spare / Room.CELL).ceil()) + Vector2i(2, 2)
 
 ## Whether a cell is rock, out past the room's own edge as well as in it. All of
-## the outside is, but for the gap a door cuts, which runs on through it.
+## the outside is, but for the gap a doorway cuts, which runs on through it.
 func _rock(x: int, y: int) -> bool:
 	if x >= 0 and y >= 0 and x < room.cols and y < room.rows:
 		return room.is_solid(x, y)
 	if y >= 0 and y < room.rows and Room.DOOR_ROWS.has(y):
 		if (x < 0 and room.doors.has(Components.W)) or (x >= room.cols and room.doors.has(Components.E)):
-			return false
-	if x >= 0 and x < room.cols and Room.DOOR_COLS.has(x):
-		if (y < 0 and room.doors.has(Components.N)) or (y >= room.rows and room.doors.has(Components.S)):
 			return false
 	return true
 

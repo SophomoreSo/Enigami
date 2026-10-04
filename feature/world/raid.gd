@@ -188,9 +188,9 @@ func _update_wandering() -> void:
 		_relocate(e, target, Room.arrival_point(RaidMap.opposite(dir)))
 
 ## Whatever was chasing the player and is still at their heels when they go
-## through a door comes through after them. Returns how many did.
+## through a doorway or a gate comes through after them. Returns how many did.
 func _carry_followers(target: Vector2i, dir: int) -> int:
-	var door: Vector2 = room.door_rect(dir).get_center()
+	var door: Vector2 = room.way_point(dir)
 	var chasing: Array = []
 	for c in room.get_children():
 		if not (c is Enemy) or (c as Enemy).dead:
@@ -201,9 +201,12 @@ func _carry_followers(target: Vector2i, dir: int) -> int:
 			chasing.append(e)
 	# In from the door rather than in the mouth of it: a monster left standing
 	# in the doorway would be walked straight back out again by the sweep above
-	# on the very frame it arrived.
+	# on the very frame it arrived. Through a gate, along the floor beside the
+	# one they come out of, not into the rock over it or under it.
 	var at := Room.arrival_point(RaidMap.opposite(dir))
 	var into := Vector2(RaidMap.dir_delta(dir)) * ARRIVAL_SPACING
+	if dir == Components.N or dir == Components.S:
+		into = Vector2(ARRIVAL_SPACING, 0.0)
 	for i in chasing.size():
 		_relocate(chasing[i], target, at + into * float(i + 1))
 	return chasing.size()
@@ -288,6 +291,7 @@ func _enter_room(coord: Vector2i, from_dir: int) -> void:
 	room.enemy_killed.connect(_on_enemy_killed)
 	room.extraction_progress.connect(_on_extract_progress)
 	room.extraction_done.connect(_on_extract_done)
+	room.gate_entered.connect(_take_gate)
 	room.player = player
 
 	player.room = room
@@ -311,6 +315,13 @@ func _travel(dir: int) -> void:
 	_pending_dir = dir
 	Cues.at(&"travel", player.global_position)
 	_enter_room(target, dir)
+
+## Through one of the room's gates, up or down: into the room on the other side
+## of it, standing in front of the gate that leads back.
+func _take_gate(dir: int) -> void:
+	if ended or _pending_dir >= 0:
+		return
+	_travel(dir)
 
 ## --- events -----------------------------------------------------------------
 func _on_pickup(p: Pickup) -> void:
@@ -428,11 +439,11 @@ func set_reading_map(on: bool) -> void:
 func on_board_changed() -> void:
 	player.rebuild_runner()
 
-## An exit the player is standing in, with nothing sealing it, a shut treasure
-## box within reach, ground to dig with the shovel in hand, or — from inside a
-## monster — the body, with the weapon in its hands to take.
+## An exit the player is standing in, with nothing sealing it, a gate they are
+## at, a shut treasure box within reach, ground to dig with the shovel in hand,
+## or — from inside a monster — the body, with the weapon in its hands to take.
 func use_nearby() -> bool:
 	if player != null and player.can_take_weapon():
 		return true
 	return room != null and is_instance_valid(room) \
-		and (room.extract_offered or room.box_offered() or room.dig_offered())
+		and (room.extract_offered or room.gate_offered() or room.box_offered() or room.dig_offered())

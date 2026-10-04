@@ -147,9 +147,9 @@ func _run() -> void:
 	await frames(3)
 	say("raid editor ok, bag=%s" % str(GameState.raid_bag))
 
-	# Walk every door out of the entry room, and back.
+	# Walk every way out of the entry room — its doorways and any gate — and back.
 	var visited := 0
-	for dir in raid.room.doors.keys():
+	for dir in raid.map.doors_for(raid.room.coord).keys():
 		var before: Vector2i = raid.room.coord
 		raid._travel(int(dir))
 		await frames(8)

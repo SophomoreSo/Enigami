@@ -38,7 +38,7 @@ godot res://tests/feature/lost_kit_test.tscn # dying drops the kit, and the next
 godot res://tests/feature/possess_test.tscn # POSSESS: into a monster and out again, the body left behind, passing for one of them, the weapon, talking
 godot res://tests/feature/kit_test.tscn     # up to three weapons carried, one in hand: the rack, the keys and the wheel, and what walking out and dying do to the lot
 godot res://tests/feature/rock_test.tscn    # the rock: one stone, thrown with its graph in it, lying where it lands until it is picked back up — by the body, or a monster the player is in
-godot res://tests/feature/climb_test.tscn   # going up a room and staying there
+godot res://tests/feature/gate_test.tscn    # a gate on the floor, up a room and back down with F, and no hole to jump into
 godot res://tests/feature/cast_test.tscn    # the two buttons: attack casts the graph, cast charges it
 godot res://tests/feature/stamina_test.tscn # the dash budget under the health bar
 godot res://tests/feature/input_test.tscn   # the input line: the hands, a hold, a gate, a walk that gives the body back, and the computer's hands
@@ -130,7 +130,7 @@ not a thing to reach for once it errors.
 | mouse / right stick | aim, and where a lunge lands. A stick's aim is bent toward a monster it is near — never snapped, and never the mouse's; how much is AIM ASSIST in the control settings |
 | TAB | open assembly — **the raid keeps running**; TAB, ESC or the X in its corner leaves it |
 | Ctrl+C / Ctrl+V (⌘ on a Mac) | in assembly: COPY and PASTE — the board onto the clipboard as a share code, or someone else's board built from theirs |
-| F | interact: talk to an NPC — the last step over to them is walked for you, and pushing the other way on it changes your mind — (again for the next line), and hold to extract. Someone who talks free goes on by themselves; F only hurries their line |
+| F | interact: talk to an NPC — the last step over to them is walked for you, and pushing the other way on it changes your mind — (again for the next line), go through a gate to the room above or below, and hold to extract. Someone who talks free goes on by themselves; F only hurries their line |
 | W / S, ↑ / ↓ | when an NPC asks a question, move between answers; F gives the highlighted one |
 | ESC | pause |
 
