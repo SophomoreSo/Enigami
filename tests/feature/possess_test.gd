@@ -56,9 +56,9 @@ func monster(kind: String, x: int, dir: int = 1) -> Enemy:
 	return e
 
 ## A hit carrying POSSESS for `secs`, landed on `e` by `by`.
-func possess_hit(e: Enemy, secs: float, by: Actor) -> void:
+func possess_hit(e: Enemy, secs: float, by: Actor, damage: float = 1.0) -> void:
 	var p := Payload.new()
-	p.damage = 1.0
+	p.damage = damage
 	p.possess = secs
 	Attacks.resolve_hit(p, e, e.global_position, Vector2.RIGHT, by, bench.room, by.team)
 
@@ -126,10 +126,14 @@ func _taking_one() -> void:
 	vessel = monster("CRAWLER", 14, -1)
 	await frames(4)
 	var body_at := player.global_position
-	possess_hit(vessel, 30.0, player)
+	var hurt := [0.0]
+	vessel.damaged.connect(func(_a: Actor, n: float) -> void: hurt[0] += n)
+	possess_hit(vessel, 30.0, player, 20.0)
 	await frames(2)
 	check(player.possessing == vessel and vessel.pilot == player and player.vessel() == vessel,
 		"a POSSESS hit puts the player's hands into the monster struck")
+	check(hurt[0] == 0.0 and is_equal_approx(vessel.health, vessel.max_health),
+		"and does it no harm, whatever the hit carried (%.0f taken)" % hurt[0])
 	check(vessel.team == player.team, "which is on the player's side now")
 	check(player.input.body == vessel, "and their input line drives it")
 	check(not Attacks.targets(player.team).has(vessel) and Attacks.targets(1).has(vessel),

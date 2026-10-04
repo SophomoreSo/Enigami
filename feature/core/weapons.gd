@@ -56,7 +56,7 @@ const DEFS := {
 		"desc": "One stone, thrown with everything built into it. It lands where it lands, and does nothing more until you pick it up.",
 		"root": "PROJECTILE",
 		"board": "rock",
-		"base_damage": 15.0,
+		"base_damage": 7.5,
 		"melee_mul": 1.1,
 		"ranged_mul": 1.15,
 		"projectile_speed": 0.9,

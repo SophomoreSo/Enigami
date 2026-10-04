@@ -276,7 +276,6 @@ func _the_theft() -> void:
 	var g1 := gate_guard()
 	var g2 := crawler_near(52)
 	var flyer := guard("DRIFTER")
-	var gm1 := gunman_near(36)
 	var gm2 := gunman_near(80)
 	var gem := screen.diamond
 
@@ -318,9 +317,9 @@ func _the_theft() -> void:
 	check(await until(func() -> bool: return p.possessing == gm2, 1.5),
 		"flown back down the hall and thrown into the Gunman (%.1fs were left)" % last_left)
 
-	# The Gunman carries both up the first hall to the Gunman watching the gate,
-	# and the hands go on into him. Not back into a guard the rock has struck
-	# already: the rock hurts what it hits, and a Crawler struck twice is dead.
+	# The Gunman carries both to the Crawler that was the gate guard, still
+	# standing where the player left it, and the hands go back into that: a
+	# guard can be taken again, since POSSESS does it no harm.
 	check(await fetch_rock(), "the Gunman picks up the rock")
 	check(await fetch_diamond(), "and the diamond the Drifter let go of")
 	var shots := [0]
@@ -328,15 +327,16 @@ func _the_theft() -> void:
 		if cue == &"attack" and (d.get("payload") as Payload) != null and (d.get("payload") as Payload).damage >= 40.0:
 			shots[0] += 1
 	Cues.fired.connect(count_shots)
-	check(await hop(gm1, 96.0), "and carries them up the first hall into the Gunman at the gate (%.1fs were left)"
+	check(await hop(g1, 96.0), "and carries them up the first hall into the old gate guard (%.1fs were left)"
 		% last_left)
+	check(is_equal_approx(g1.health, g1.max_health), "taken twice, and not a scratch on it")
 	Cues.fired.disconnect(count_shots)
 	check(shots[0] == 0, "and throwing it, the Gunman fires nothing of its own (%d shots)" % shots[0])
 
 	# Out of the gate to the body, and home.
 	check(await fetch_rock() and await fetch_diamond(), "which takes both")
 	await walk_to(p.global_position.x + 40.0)
-	check(p.possessing == gm1 and gem.carrier == gm1,
+	check(p.possessing == g1 and gem.carrier == g1,
 		"out of the gate and across the yard to the body (%.1fs left)" % p.possess_left)
 	hands.step_out()
 	check(await until(func() -> bool: return gem.carrier == null and gem._down > Diamond.SETTLE, 2.0),
