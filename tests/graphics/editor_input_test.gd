@@ -90,15 +90,6 @@ func _ready() -> void:
 		"the part survives being rotated")
 	board.erase_at(Vector2i(5, 1))
 
-	# A two-cell part with no room to swing must stay put rather than vanish.
-	board.place("EXPLODE", Vector2i(0, 4), 0)
-	await move_to(cell_pos(Vector2i(0, 4)))
-	await button(cell_pos(Vector2i(0, 4)), MOUSE_BUTTON_WHEEL_UP, true)
-	await button(cell_pos(Vector2i(0, 4)), MOUSE_BUTTON_WHEEL_UP, false)
-	check(String(board.comp_at(Vector2i(0, 4)).get("id", "")) == "EXPLODE",
-		"a blocked rotation leaves the part on the board")
-	board.erase_at(Vector2i(0, 4))
-
 	# --- drag from palette onto the board -----------------------------------
 	var target := Vector2i(4, 0)
 	await move_to(pal_pos("FIRE"))
@@ -164,23 +155,6 @@ func _ready() -> void:
 	await button(Vector2(640, 700), MOUSE_BUTTON_LEFT, false)
 	check(ed._shown_board() == board and board.is_root(root_at),
 		"and let go off the board, it is drawn back where it stood")
-
-	# --- a two-cell part is held by its middle ------------------------------
-	# Let go over the seam between two cells, it lands across those two.
-	ed.rotation_step = 0
-	var seam := (cell_pos(Vector2i(1, 1)) + cell_pos(Vector2i(2, 1))) * 0.5
-	check(board.comp_at(Vector2i(1, 1)).is_empty() and board.comp_at(Vector2i(2, 1)).is_empty(),
-		"the two cells are free to try")
-	await move_to(pal_pos("DASHSLASH"))
-	await button(pal_pos("DASHSLASH"), MOUSE_BUTTON_LEFT, true)
-	await move_to(seam)
-	check(ed._hover_cell == Vector2i(1, 1),
-		"held by its middle, it would be set down by the cell left of the seam (%s)" % str(ed._hover_cell))
-	await button(seam, MOUSE_BUTTON_LEFT, false)
-	check(String(board.comp_at(Vector2i(1, 1)).get("id", "")) == "DASHSLASH"
-		and board.origin_at(Vector2i(2, 1)) == Vector2i(1, 1),
-		"and it lands across the two cells either side of the cursor")
-	board.erase_at(Vector2i(1, 1))
 
 	# --- dragging onto the palette discards it ------------------------------
 	await move_to(cell_pos(moved_to))

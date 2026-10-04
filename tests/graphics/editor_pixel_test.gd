@@ -384,7 +384,8 @@ func _ready() -> void:
 		for bc in big.cells.keys().duplicate():
 			big.erase_at(bc)
 		big.move_root(Vector2i(0, 2) + o, 0)
-		big.place("DASHSLASH", Vector2i(1, 2) + o, 0)    # two cells, out east, off the root
+		big.place("DASHSLASH", Vector2i(1, 2) + o, 0)    # out east, off the root
+		big.place("DELAY", Vector2i(2, 2) + o, 0)
 		big.place("ON_HIT", Vector2i(3, 2) + o, 0)       # out east to the way out, branch south
 		big.place("OVERCLOCK", Vector2i(3, 3) + o, 2)    # the branch, running west
 		big.place("OVERCLOCK", Vector2i(2, 3) + o, 2)

@@ -293,13 +293,14 @@ func _ready() -> void:
 	# separate attacks the board draws.
 	var tb := SkillBoard.new(7, 5, "trigger loop")
 	tb.set_root("DELAY", Vector2i(3, 2))
-	tb.place("DASHSLASH", Vector2i(4, 2), 0)   # head (4,2), tail (5,2)
+	tb.place("DASHSLASH", Vector2i(4, 2), 0)
+	tb.place("DELAY", Vector2i(5, 2), 0)
 	tb.place("ON_HIT", Vector2i(6, 2), 0)      # onward E and out, branch S
 	tb.place("DAMAGE", Vector2i(6, 3), 1)
 	tb.place("DAMAGE", Vector2i(6, 4), 2)
 	tb.place("DELAY", Vector2i(5, 4), 2)
 	tb.place("DAMAGE", Vector2i(4, 4), 3)
-	tb.place("DAMAGE", Vector2i(4, 3), 3)      # back into the DASHSLASH head
+	tb.place("DAMAGE", Vector2i(4, 3), 3)      # back into the DASHSLASH
 	var tr2 := SkillRunner.new(tb)
 	tr2.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
 	tr2.ttl_bonus = 48   # charged, so the branch goes round more than once
@@ -353,27 +354,11 @@ func _ready() -> void:
 		"the first attack already carries the whole chain (%s vs %d)"
 			% [str(live), chain.size()])
 
-	# Flow into the tail half of a two-cell part is a break, not a connection.
-	var c := SkillBoard.new(7, 5, "tail")
-	c.set_root("DELAY", Vector2i(0, 0), 1)      # points south
-	c.place("EXPLODE", Vector2i(0, 1), 1)        # turned to face north; tail at 0,2
-	var t2 := c.trace()
-	check((t2["breaks"] as Array).is_empty(), "entering a two-cell head is fine")
-	check(t2["reachable"].size() == 2, "and the two-cell part is reachable")
-	var d := SkillBoard.new(7, 5, "tail2")
-	d.set_root("DELAY", Vector2i(1, 0), 1)      # points south into the TAIL cell
-	d.place("EXPLODE", Vector2i(0, 1), 0)
-	var t3 := d.trace()
-	check((t3["breaks"] as Array).size() == 1, "entering a two-cell tail is a break")
-	var sb: Dictionary = (t3["breaks"] as Array)[0] if not (t3["breaks"] as Array).is_empty() else {}
-	check(String(sb.get("why", "")) == "side" and String(sb.get("id", "")) == "EXPLODE"
-			and sb.get("to") == Vector2i(1, 1),
-		"and it is reported as the tail cell entered (%s)" % str(sb))
 	# A part two cells off is not reached at all: the flow leaks into the empty
 	# cell between, and nothing carries it on.
 	var d2 := SkillBoard.new(7, 5, "gap")
 	d2.set_root("DELAY", Vector2i(1, 0), 1)     # south, down the column
-	d2.place("EXPLODE", Vector2i(0, 3), 0)       # tail at 1,3, two cells down
+	d2.place("EXPLODE", Vector2i(1, 2), 0)       # two cells down
 	var td2 := d2.trace()
 	check((td2["breaks"] as Array).is_empty() and (td2["leaks"] as Array).size() == 1
 			and td2["reachable"].size() == 1,
@@ -401,33 +386,30 @@ func _ready() -> void:
 	# The one part the hand cannot take off the board, or drop something on.
 	var w := SkillBoard.new(7, 5, "weapon")
 	w.set_root("DASHSLASH")
-	w.place("FIRE", Vector2i(2, 2), 0)
-	check(w.erase_at(SkillBoard.ROOT) == "" and w.erase_at(Vector2i(1, 2)) == "" and w.has_root(),
-		"erasing the root, by either of its cells, leaves it standing")
-	check(not w.can_place("FIRE", SkillBoard.ROOT, 0) and not w.can_place("FIRE", Vector2i(1, 2), 0),
-		"and nothing may be dropped on it")
-	check(w.erase_at(Vector2i(2, 2)) == "FIRE", "while everything else comes off as it always did")
+	w.place("FIRE", Vector2i(1, 2), 0)
+	check(w.erase_at(SkillBoard.ROOT) == "" and w.has_root(),
+		"erasing the root leaves it standing")
+	check(not w.can_place("FIRE", SkillBoard.ROOT, 0), "and nothing may be dropped on it")
+	check(w.erase_at(Vector2i(1, 2)) == "FIRE", "while everything else comes off as it always did")
 	check(w.used_components().is_empty(),
 		"the root is the weapon's, so it is not among the parts the build is made of")
 	# But it moves, and turns, like any part — never over another, and never off
 	# the grid. Where it goes the flow starts.
-	w.place("FIRE", Vector2i(3, 2), 0)
+	w.place("FIRE", Vector2i(2, 2), 0)
 	check(not w.can_move_root(Vector2i(2, 2), 0) and not w.move_root(Vector2i(2, 2), 0)
 			and w.root == SkillBoard.ROOT,
 		"the root is not moved where it would cover another part")
-	check(not w.move_root(Vector2i(6, 2), 0) and w.root == SkillBoard.ROOT,
-		"nor where it would hang off the grid")
+	check(not w.move_root(Vector2i(7, 2), 0) and w.root == SkillBoard.ROOT,
+		"nor off the grid")
 	check(w.move_root(Vector2i(1, 2), 0) and w.root == Vector2i(1, 2)
 			and w.comp_at(SkillBoard.ROOT).is_empty() and w.is_root(Vector2i(1, 2)),
-		"it moves onto a cell of its own and the next one along")
-	w.erase_at(Vector2i(3, 2))
-	check(w.move_root(Vector2i(5, 2), 0) and bool(w.trace()["gets_out"]),
+		"it moves onto a free cell, and leaves the one it stood on empty")
+	w.erase_at(Vector2i(2, 2))
+	check(w.move_root(Vector2i(6, 2), 0) and bool(w.trace()["gets_out"]),
 		"and against the way out its flow leaves the board")
-	check(w.move_root(w.root, 1) and int(w.root_entry()["rot"]) == 1
-			and w.comp_at(Vector2i(5, 3)) == w.root_entry() and w.comp_at(Vector2i(6, 2)).is_empty(),
-		"turned where it stands, its second cell swings round with it")
-	check(not w.move_root(Vector2i(5, 4), 1) and w.root == Vector2i(5, 2),
-		"and turned off the grid it is not")
+	check(w.move_root(w.root, 1) and int(w.root_entry()["rot"]) == 1 and w.root == Vector2i(6, 2)
+			and not bool(w.trace()["gets_out"]),
+		"turned where it stands, its flow goes the way it faces now")
 
 	# --- a board grown ----------------------------------------------------------
 	# A Workbench grows the board round what is on it, so a build against the way

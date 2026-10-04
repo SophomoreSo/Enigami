@@ -474,7 +474,7 @@ the save.
 INSERT INTO boards (id) VALUES ('arbiter_phase2');
 
 INSERT INTO board_parts (board_id, x, y, part, facing, root) VALUES
-	('arbiter_phase2', 2, 2, 'EXPLODE', 'E', 1), ('arbiter_phase2', 4, 2, 'ON_HIT', 'E', 0),
+	('arbiter_phase2', 3, 2, 'EXPLODE', 'E', 1), ('arbiter_phase2', 4, 2, 'ON_HIT', 'E', 0),
 	('arbiter_phase2', 5, 2, 'DELAY', 'E', 0), ('arbiter_phase2', 6, 2, 'DELAY', 'E', 0),
 	('arbiter_phase2', 4, 3, 'PROJECTILE', 'E', 0), ('arbiter_phase2', 5, 3, 'DUPLICATE', 'N', 0);
 ```

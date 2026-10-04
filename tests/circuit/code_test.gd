@@ -5,8 +5,8 @@ extends Node
 ## code is spelled in, and the numbers parts are known by inside one — the
 ## `codes` table in the content database — and what a code or a save written
 ## while OUTPUT, WIRE, BEND and INPUT were parts, while a root could not move,
-## or while EXPLODE was called AREA, or while SWIFT STRIKE+ was a part of its
-## own, reads back as.
+## while EXPLODE was called AREA, while SWIFT STRIKE+ was a part of its own, or
+## while SWIFT STRIKE and EXPLODE covered two cells, reads back as.
 
 ## Every number already given out, in order, as it was given. A code written
 ## down with any of these in it has to go on reading as the board it was, so
@@ -171,7 +171,14 @@ func _ready() -> void:
 	skill.place("DAMAGE", Vector2i(6, 2), 0)
 	var golden := round_trip(skill, "a three-part skill")
 	print("[CODE] Fire Bolt is ", golden)
-	check(golden == "CapygL1IE54LHBuM", "the format has not moved under existing codes")
+	check(golden == "HRV9zL1IE54LHBuf", "the format has not moved under existing codes")
+	# The same skill as it was shared in version 2, before every part covered
+	# one cell — the code this test held the format to then. Nothing on it
+	# covered two, so it reads exactly as it did.
+	var was_two := BoardCode.decode("CapygL1IE54LHBuM")
+	check(String(was_two["error"]) == "" and same_parts(was_two["board"], skill)
+			and (was_two["board"] as SkillBoard).root == skill.root,
+		"a version 2 code reads as the same skill, root and all (%s)" % was_two["error"])
 	# The same skill as it was shared in version 1, while its root could not
 	# move and it ended on an OUTPUT — the code this test held the format to
 	# then. It still reads: its root is what stood where every root stood, and
@@ -196,11 +203,10 @@ func _ready() -> void:
 			_board([["FIRE", 4, 2, 0], ["DAMAGE", 5, 2, 0], ["PROJECTILE", 6, 2, 0]])),
 		"a code written with a WIRE in it too still reads the same way (%s)" % old["error"])
 
-	# Every part in the table, turned every way — the two-cell ones included,
-	# whose tail cell swings round with them. First fit, because a part facing
-	# west starts a cell further in than one facing east. A retired number has
-	# no part to place, and neither has one whose part goes by another id now
-	# (SWIFT STRIKE+'s): that part is placed under its own number.
+	# Every part in the table, turned every way, each in the first cell clear
+	# for it. A retired number has no part to place, and neither has one whose
+	# part goes by another id now (SWIFT STRIKE+'s): that part is placed under
+	# its own number.
 	var all := SkillBoard.new(11, 9, "everything")
 	var turn := 0
 	var placeable := 0
@@ -327,10 +333,11 @@ func _ready() -> void:
 	# A save reads back the way the old codes above do: the OUTPUT left out, and
 	# a build whose one OUTPUT took its flow heading east slid along until that
 	# OUTPUT's cell is past the way out. The weapon's own part comes with it, so
-	# a graph built before fires as it did.
+	# a graph built before fires as it did — its SWIFT STRIKE a cell on, as
+	# every board's from before every part covered one cell is (below).
 	var built := _saved([["DASHSLASH", 0, 2, 0], ["FIRE", 2, 2, 0], ["OUTPUT", 3, 2, 0]])
-	check(same_parts(built, _board([["DASHSLASH", 4, 2, 0], ["FIRE", 6, 2, 0]]))
-			and built.root == Vector2i(4, 2) and bool(built.trace()["gets_out"]),
+	check(same_parts(built, _board([["DASHSLASH", 5, 2, 0], ["FIRE", 6, 2, 0]]))
+			and built.root == Vector2i(5, 2) and bool(built.trace()["gets_out"]),
 		"a graph saved with its OUTPUT comes back slid onto the way out, its root with it")
 	var built_run := SkillRunner.new(built)
 	built_run.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
@@ -368,7 +375,7 @@ func _ready() -> void:
 	# --- a board from before AREA was renamed EXPLODE -----------------------
 	# The part kept its number, so a code shared under the old name builds the
 	# same board. A save spells it the old way, and reads back under the new one.
-	var burst := _board([["EXPLODE", 5, 2, 0]])
+	var burst := _board([["EXPLODE", 6, 2, 0]])
 	var shared := BoardCode.decode("7kBve29jhx111117")
 	check(String(shared["error"]) == "" and same_parts(shared["board"], burst),
 		"a code shared while EXPLODE was AREA still builds it (%s)" % shared["error"])
@@ -377,13 +384,46 @@ func _ready() -> void:
 
 	# --- a board from before SWIFT STRIKE+ was made SWIFT STRIKE ------------
 	# It was SWIFT STRIKE with AUTO-AIM built in, in the same two cells. A save
-	# spells it the old way and reads back as SWIFT STRIKE where it stood; its
-	# number, 8, reads as SWIFT STRIKE too (`BoardCode.decode`).
+	# spells it the old way and reads back as SWIFT STRIKE in the cell it let
+	# its flow out of, as below; its number, 8, reads as SWIFT STRIKE too
+	# (`BoardCode.decode`).
 	check(same_parts(_saved([["DASHSLASH_AUTO", 1, 2, 0], ["FIRE", 3, 2, 0]]),
-			_board([["DASHSLASH", 1, 2, 0], ["FIRE", 3, 2, 0]])),
+			_board([["DASHSLASH", 2, 2, 0], ["FIRE", 3, 2, 0]])),
 		"a board saved with SWIFT STRIKE+ on it reads back with SWIFT STRIKE in its place")
 	check(Components.current_id(Components.part_for_code(8)) == "DASHSLASH",
 		"and the number SWIFT STRIKE+ had reads as SWIFT STRIKE")
+
+	# --- a board from before every part covered one cell ---------------------
+	# SWIFT STRIKE and EXPLODE covered two cells then, and let their flow out of
+	# the second. A save from then wrote no version down, and a code was version
+	# 2 or older: either reads back with each of them moved on into the cell it
+	# let its flow out of, so whatever it fed, it feeds still.
+	var lunge := _saved([["DASHSLASH", 3, 2, 0], ["FIRE", 5, 2, 0], ["DAMAGE", 6, 2, 0]], Vector2i(3, 2))
+	check(same_parts(lunge, _board([["DASHSLASH", 4, 2, 0], ["FIRE", 5, 2, 0], ["DAMAGE", 6, 2, 0]]))
+			and lunge.root == Vector2i(4, 2) and bool(lunge.trace()["gets_out"]),
+		"a sword built on then comes back with its SWIFT STRIKE a cell on, the root with it, and fires")
+	var bare_then := _saved([["DASHSLASH", 5, 2, 0]], Vector2i(5, 2))
+	check(same_parts(bare_then, Weapons.make_board("SWORD")) and bare_then.root == Weapons.make_board("SWORD").root,
+		"a sword nobody had built on is the one a new profile gets now")
+	# What fed one runs into the cell it left, and the break is there to mend.
+	var fed := _saved([["DELAY", 2, 2, 0], ["EXPLODE", 3, 2, 0], ["DAMAGE", 5, 2, 0], ["FIRE", 6, 2, 0]],
+		Vector2i(2, 2))
+	var fed_leaks: Array = fed.trace()["leaks"]
+	check(same_parts(fed, _board([["DELAY", 2, 2, 0], ["EXPLODE", 4, 2, 0], ["DAMAGE", 5, 2, 0], ["FIRE", 6, 2, 0]]))
+			and fed_leaks.size() == 1 and fed_leaks[0]["from"] == Vector2i(2, 2),
+		"an EXPLODE something fed moves on all the same, and what fed it leaks where it stood")
+	var shared_lunge := BoardCode.decode("CapygBlgg54LHBuG")
+	check(String(shared_lunge["error"]) == "" and same_parts(shared_lunge["board"], lunge)
+			and (shared_lunge["board"] as SkillBoard).root == lunge.root,
+		"and a code shared then reads the same way (%s)" % shared_lunge["error"])
+	# A board written since says so, and reads back as it was written: a SWIFT
+	# STRIKE with nothing in front of it stays where it was put.
+	var since := SkillBoard.new(7, 5, "since")
+	since.set_root("DASHSLASH", Vector2i(3, 2))
+	since.place("FIRE", Vector2i(5, 2), 0)
+	check(same_parts(SkillBoard.deserialize(since.serialize()), since)
+			and same_parts(BoardCode.decode(BoardCode.encode(since))["board"], since),
+		"a board saved or shared since reads back exactly as it was")
 
 	# --- taking a board on -------------------------------------------------
 	# The grid belongs to the workbench, not to the build drawn on it, and a
@@ -399,9 +439,9 @@ func _ready() -> void:
 		"and the board it was refused by is untouched")
 	var inside := SkillBoard.new(11, 9, "theirs, but close to its way out")
 	inside.place("SLASH", Vector2i(8, 3), 1)
-	inside.place("EXPLODE", Vector2i(9, 4), 0)   # against the way out, (10, 4)
+	inside.place("EXPLODE", Vector2i(10, 4), 0)  # against the way out
 	check(small.adopt(inside), "a build that fits is taken on")
-	check(same_parts(small, _board([["SLASH", 4, 1, 1], ["EXPLODE", 5, 2, 0]])),
+	check(same_parts(small, _board([["SLASH", 4, 1, 1], ["EXPLODE", 6, 2, 0]])),
 		"with its way out on this one's: everything four over and two up")
 	check(small.width == 7 and small.height == 5 and small.skill_name == "mine",
 		"on this board's own grid, under its own name")
@@ -418,27 +458,17 @@ func _ready() -> void:
 		"a build costs the parts that come onto the board, and its author's root is not one (%s)"
 			% str(mine.adoption_cost(theirs)))
 	check(mine.adopt(theirs) and String(mine.root_entry().get("id", "")) == "DASHSLASH"
-			and mine.root == Vector2i(3, 2) and mine.cells.size() == 3 and bool(mine.trace()["gets_out"]),
+			and mine.root == Vector2i(4, 2) and mine.cells.size() == 3 and bool(mine.trace()["gets_out"]),
 		"taken on, this weapon's own part hands its flow over where the author's did, and it fires (%s at %s)"
 			% [str(mine.root_entry()), str(mine.root)])
-	var gun := SkillBoard.new(7, 5, "the gun's own")
-	gun.set_root("PROJECTILE", Vector2i(6, 2))
-	var sword_build := SkillBoard.new(7, 5, "a sword's build")
-	sword_build.set_root("DASHSLASH", Vector2i(3, 2))
-	sword_build.place("FIRE", Vector2i(5, 2), 0)
-	sword_build.place("DAMAGE", Vector2i(6, 2), 0)
-	check(gun.adopt(sword_build) and gun.root == Vector2i(4, 2) and gun.cells.size() == 3
-			and bool(gun.trace()["gets_out"]),
-		"and a one-cell root where a two-cell one stood takes its front cell (%s)" % str(gun.root))
-	# With no room on the grid for this weapon's part where the author's stood,
-	# it stays where it is, and what is under it stays behind.
-	var edge_build := SkillBoard.new(7, 5, "a gun's build at the edge")
-	edge_build.set_root("PROJECTILE", Vector2i(0, 2))
-	edge_build.place("FIRE", Vector2i(1, 2), 0)
-	var long_root := SkillBoard.new(7, 5, "the sword again")
-	long_root.set_root("DASHSLASH", Vector2i(5, 2))
-	check(long_root.adopt(edge_build) and long_root.root == Vector2i(5, 2) and long_root.cells.size() == 2,
-		"a root with no room where the author's stood stays where it is (%s)" % str(long_root.root))
+	# A build with no root of its own leaves this weapon's where it is.
+	var rootless_build := SkillBoard.new(7, 5, "a build with no root")
+	rootless_build.place("FIRE", Vector2i(5, 2), 0)
+	var stays := SkillBoard.new(7, 5, "the sword again")
+	stays.set_root("DASHSLASH", Vector2i(6, 2))
+	check(stays.adopt(rootless_build) and stays.root == Vector2i(6, 2) and stays.cells.size() == 2
+			and bool(stays.trace()["gets_out"]),
+		"a build with no root leaves this weapon's where it stood (%s)" % str(stays.root))
 	# The code carries the root, so all of this holds for a build pasted in.
 	var pasted: SkillBoard = BoardCode.decode(BoardCode.encode(theirs))["board"]
 	check(pasted.root == theirs.root and pasted.root_entry() == theirs.root_entry(),
@@ -471,13 +501,15 @@ func _ready() -> void:
 	get_tree().quit(1 if fails > 0 else 0)
 
 ## A board as an older save holds it — [id, x, y, rot] a part, retired and
-## renamed ones included, rooted where every root stood then — read back the
-## way a save is.
-func _saved(parts: Array) -> SkillBoard:
+## renamed ones included, rooted where every root stood while none could move
+## unless `root` says otherwise, and with no version written down — read back
+## the way a save is.
+func _saved(parts: Array, root := SkillBoard.ROOT) -> SkillBoard:
 	var cells: Array = []
 	for p in parts:
 		cells.append({"id": p[0], "x": p[1], "y": p[2], "rot": p[3]})
-	return SkillBoard.deserialize({"w": 7, "h": 5, "name": "saved", "root": [0, 2], "cells": cells})
+	return SkillBoard.deserialize({"w": 7, "h": 5, "name": "saved", "root": [root.x, root.y],
+		"cells": cells})
 
 ## The board one of those ought to come back as.
 func _board(parts: Array) -> SkillBoard:

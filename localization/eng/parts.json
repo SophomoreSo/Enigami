@@ -9,11 +9,11 @@
 	},
 	"EXPLODE": {
 		"name": "EXPLODE",
-		"desc": "Damages everything inside a burst radius. Uses two board cells."
+		"desc": "Damages everything inside a burst radius."
 	},
 	"DASHSLASH": {
 		"name": "SWIFT STRIKE",
-		"desc": "Lunges along the aim direction, cutting everything on the path. Uses two cells."
+		"desc": "Lunges along the aim direction, cutting everything on the path."
 	},
 	"ZAP": {
 		"name": "ZAP",

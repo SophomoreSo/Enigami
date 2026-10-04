@@ -118,8 +118,8 @@ func _ready() -> void:
 
 	# A slower board must take proportionally longer to fill. Counted over a run
 	# of cycles rather than read off one of them: two bare graphs are only a
-	# cell and a tick of heat apart, a couple of steps of this loop, so a single
-	# reading of either is mostly quantisation.
+	# tick of heat apart, a step of this loop, so a single reading of either is
+	# mostly quantisation.
 	var rock_cycle := float(make("ROCK").simulate()["cycle_seconds"])
 	check(not is_equal_approx(rock_cycle, predicted),
 		"the ROCK's and the SWORD's bare graphs take different times (%.4fs vs %.4fs)" % [rock_cycle, predicted])
@@ -163,8 +163,11 @@ func _ready() -> void:
 		if Components.tick_cost(id) != int(Components.get_def(id)["cells"]):
 			drift.append(id)
 	check(drift.is_empty(), "every part costs one tick per cell (%s)" % str(drift))
-	check(Components.tick_cost("EXPLODE") == 2 and Components.tick_cost("DELAY") == 1,
-		"a two-cell part costs two ticks and a one-cell part one")
+	var wide: Array = []
+	for id in Components.ids():
+		if int(Components.get_def(id)["cells"]) != 1:
+			wide.append(id)
+	check(wide.is_empty(), "and every part is one cell, so one tick (%s)" % str(wide))
 	# And the board agrees: every cell added to the path is one more tick,
 	# whichever part it belongs to. DELAY, which used to hold a flow for twelve
 	# ticks of its own, is now a cell like any other.

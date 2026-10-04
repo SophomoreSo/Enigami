@@ -20,8 +20,7 @@ INSERT INTO board_parts (board_id, x, y, part, facing, root) VALUES
 
 	('lobber', 5, 2, 'PROJECTILE', 'E', 1), ('lobber', 6, 2, 'DAMAGE', 'E', 0),
 
-	-- EXPLODE covers two cells, so it starts a cell further in.
-	('hopper', 5, 2, 'EXPLODE', 'E', 1),
+	('hopper', 6, 2, 'EXPLODE', 'E', 1),
 
 	('drifter', 5, 2, 'PROJECTILE', 'E', 1), ('drifter', 6, 2, 'HOMING', 'E', 0),
 
@@ -35,7 +34,7 @@ INSERT INTO board_parts (board_id, x, y, part, facing, root) VALUES
 	-- An explosion whose every hit sends a bolt, three times over. The ON HIT's
 	-- branch drops to the row below, and the DUPLICATE turns it back up into
 	-- the explosion's line to leave the way it does.
-	('arbiter_phase2', 2, 2, 'EXPLODE', 'E', 1), ('arbiter_phase2', 4, 2, 'ON_HIT', 'E', 0),
+	('arbiter_phase2', 3, 2, 'EXPLODE', 'E', 1), ('arbiter_phase2', 4, 2, 'ON_HIT', 'E', 0),
 	('arbiter_phase2', 5, 2, 'DELAY', 'E', 0), ('arbiter_phase2', 6, 2, 'DELAY', 'E', 0),
 	('arbiter_phase2', 4, 3, 'PROJECTILE', 'E', 0), ('arbiter_phase2', 5, 3, 'DUPLICATE', 'N', 0),
 
