@@ -9,7 +9,8 @@ extends Actor
 ## the player, it is on their side, and it does what their input line says
 ## rather than what its own mind would — walks and jumps at its own pace, and
 ## attacks with its own attack when they press. The rest of the monsters take
-## it for one of them until it has attacked (`revealed`), and hunt it after.
+## it for one of them until it has hurt one of them (`revealed`), and hunt it
+## after.
 
 const GRAVITY := 1700.0
 
@@ -82,8 +83,11 @@ const SWITCH_NEARER := 0.6
 ## The player whose hands are in this monster, or null while it runs its own
 ## mind — see `Player.possess`.
 var pilot: Player = null
-## Whether a possessed monster has shown itself: until it attacks it passes for
-## one of them, and none of them hunts it.
+## Whether a possessed monster has shown itself: until a hit of its hurts one of
+## them it passes for one of them, and none of them hunts it. Attacking is not
+## enough — a swing at nothing, a throw that misses — and a hit that puts the
+## player's hands into the next one lets go of this one as it lands
+## (`Attacks.resolve_hit`).
 var revealed: bool = false
 ## Whether its pilot is attacking with its own attack, this frame. The pilot
 ## says so (`Player._attack_as_monster`).
@@ -148,10 +152,9 @@ func _make_runner() -> void:
 func _on_fired(p: Payload) -> void:
 	var aim: Vector2
 	if piloted():
-		# Where the pilot is pointing — and an attack is the end of passing for
-		# one of them.
+		# Where the pilot is pointing. Going off gives nothing away; hurting one
+		# of them does (`Attacks.resolve_hit`).
 		aim = pilot.aim
-		revealed = true
 	else:
 		if target == null or not is_instance_valid(target):
 			return

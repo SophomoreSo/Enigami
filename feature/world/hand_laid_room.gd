@@ -35,10 +35,10 @@ func _generate() -> void:
 
 ## The layout's character for cell (x, y). Anything off the drawn map is wall.
 func mark_at(x: int, y: int) -> String:
-	var rows := layout()
-	if y < 0 or y >= rows.size():
+	var laid := layout()
+	if y < 0 or y >= laid.size():
 		return "#"
-	var row := String(rows[y])
+	var row := String(laid[y])
 	return row[x] if x >= 0 and x < row.length() else "#"
 
 ## Every cell carrying `mark`, row by row from the top.

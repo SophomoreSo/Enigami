@@ -15,6 +15,10 @@ extends Node2D
 ## Drawn in pixels of the buffer the world is drawn into (`HideoutScenery.S`
 ## world units each), with `HideoutScenery`'s brushes; a cell is `C` of them.
 
+# A picture drawn in whole pixels halves whole numbers on purpose, all the way
+# down.
+@warning_ignore_start("integer_division")
+
 const S := HideoutScenery.S
 const C := Room.CELL / HideoutScenery.S
 
@@ -48,6 +52,9 @@ var _mist: Depth
 var _mid: Depth
 var _ground: Depth
 var _life: Depth
+## The first column of the ruin: where its roof starts. Stone from there on is
+## the temple's; short of it, the ground is the wood's earth.
+var _front: int = 0
 ## Under-roof lanterns, as the cell they hang from; and the fireflies, each a
 ## place it wanders round and the beat it wanders at.
 var _lanterns: Array[Vector2i] = []
@@ -83,6 +90,11 @@ func _depth(z: int, paint: Callable) -> Depth:
 	return d
 
 func _on_built() -> void:
+	_front = room.cols
+	for y in range(1, room.rows - 5):
+		for x in range(1, room.cols - 1):
+			if room.is_solid(x, y) and room.is_solid(x + 1, y):
+				_front = mini(_front, x)
 	_lanterns.clear()
 	for x in range(2, room.cols - 2):
 		if x % LANTERN_EVERY != 4:
@@ -114,6 +126,20 @@ func _process(delta: float) -> void:
 func _snap(v: float) -> float:
 	return roundf(v / S) * S
 
+## The stretch of a depth going along at `drift` that the screen can ever show,
+## from where it starts to where it ends, in its own pixels: the camera stays
+## inside the ground, so its middle runs from half a screen in at one end to
+## half a screen in at the other, and the depth slides `drift` of that.
+func _from(drift: float) -> int:
+	return -int(_screen_w() * (drift * 0.5 + 0.1))
+
+func _to(drift: float) -> int:
+	var w := float(room.cols * C)
+	return int((w - _screen_w() * 0.5) * (1.0 - drift) + _screen_w() * 0.6)
+
+func _screen_w() -> float:
+	return get_viewport().get_visible_rect().size.x / S
+
 ## The row of the nearest solid cell over open cell (x, row under it), or -1
 ## for one open to the sky: the top row of the ground is its edge, not a roof.
 func _roof_over(x: int) -> int:
@@ -135,16 +161,10 @@ func _covered(x: int, y: int) -> bool:
 	return false
 
 ## Whether solid cell (x, y) is the ruin's masonry rather than the wood's
-## earth: anything standing up off the ground, and the ground under a roof.
+## earth: everything from the ruin's first column on, short of the canopy
+## overhead.
 func _masonry(x: int, y: int) -> bool:
-	if y == 0:
-		return false
-	if not room.is_solid(x, y - 1):
-		return _covered(x, y)
-	for above in range(y - 1, 0, -1):
-		if not room.is_solid(x, above):
-			return _covered(x, above)
-	return true
+	return y > 0 and x >= _front
 
 ## --- the night ----------------------------------------------------------------
 func _paint_sky(c: CanvasItem) -> void:
@@ -171,29 +191,31 @@ func _paint_moon(c: CanvasItem) -> void:
 func _paint_far(c: CanvasItem) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 404
-	var span := int(room.cols * C * (1.0 - FAR_DRIFT)) + 4 * C
+	var from := _from(FAR_DRIFT)
+	var to := _to(FAR_DRIFT)
 	var base := int(room.rows * C * 0.62)
-	HideoutScenery.box(c, -2 * C, base, span + 4 * C, room.rows * C - base, HideoutGrove.FAR)
-	var x := -2 * C
-	while x < span:
+	HideoutScenery.box(c, from, base, to - from, room.rows * C - base, HideoutGrove.FAR)
+	var x := from
+	while x < to:
 		var r := rng.randi_range(10, 22)
 		HideoutScenery.oval(c, x, base - rng.randi_range(4, 16), r, r + rng.randi_range(4, 12), HideoutGrove.FAR)
 		x += rng.randi_range(14, 26)
 
 func _paint_mist(c: CanvasItem) -> void:
-	var span := int(room.cols * C * (1.0 - MIST_DRIFT)) + 4 * C
+	var from := _from(MIST_DRIFT)
+	var to := _to(MIST_DRIFT)
 	var y := int(room.rows * C * 0.66)
 	for k in 6:
-		HideoutScenery.box(c, -2 * C, y + k * 4, span + 4 * C, 4, HideoutScenery.faded(HideoutGrove.MOONLIGHT, 0.05 - 0.007 * k))
+		HideoutScenery.box(c, from, y + k * 4, to - from, 4, HideoutScenery.faded(HideoutGrove.MOONLIGHT, 0.05 - 0.007 * k))
 
 ## The near trunks, with their crowns over them, darker than anything further.
 func _paint_mid(c: CanvasItem) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 77
-	var span := int(room.cols * C * (1.0 - MID_DRIFT)) + 4 * C
+	var to := _to(MID_DRIFT)
 	var foot := (room.rows - 3) * C
-	var x := 0
-	while x < span:
+	var x := _from(MID_DRIFT)
+	while x < to:
 		var w := rng.randi_range(5, 10)
 		var top := rng.randi_range(20, 60)
 		HideoutScenery.box(c, x, top, w, foot - top, HideoutGrove.MID)
@@ -226,12 +248,18 @@ func _paint_solid(c: CanvasItem, x: int, y: int) -> void:
 	var px := x * C
 	var py := y * C
 	var top := y > 0 and not room.is_solid(x, y - 1)
-	if y == 0 and not _masonry(x, 1):
-		# The canopy over the yard.
+	if y == 0:
+		# The canopy over everything.
 		HideoutScenery.box(c, px, py - C, C, C * 2, HideoutGrove.DARK)
 		HideoutScenery.oval(c, px + 8, py + C - 2, 10, 5, HideoutGrove.LEAF.darkened(0.3))
 		return
 	if not _masonry(x, y):
+		if x == 0 and y < room.rows - 4:
+			# The wood's edge: one great trunk.
+			HideoutScenery.box(c, px, py, C, C, HideoutScenery.faded(HideoutGrove.BARK, 1.0))
+			HideoutScenery.box(c, px + C - 3, py, 2, C, HideoutGrove.WOOD_DARK)
+			HideoutScenery.box(c, px + 4, py + (y * 5) % 12, 1, 3, HideoutGrove.WOOD)
+			return
 		HideoutScenery.box(c, px, py, C, C, EARTH)
 		HideoutScenery.box(c, px + (x * 7 + y * 3) % 12, py + (x * 5 + y * 11) % 12 + 2, 2, 1, EARTH_SPECK)
 		if top:

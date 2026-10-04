@@ -194,7 +194,8 @@ func _draw_skill(p: Player, vp: Vector2) -> void:
 		_text(Vector2(card.end.x + 16.0, card.position.y + 26.0), Loc.t("hud.jean.rock_out"), FLAME)
 
 func _draw_banners(vp: Vector2) -> void:
-	var y := 128.0
+	# Under the map of the ground, clear of it.
+	var y := MAP_TOP + float(screen.room.rows) * MAP_CELL + 52.0
 	if _banner_time > 0.0:
 		var a := clampf(_banner_time / 0.4, 0.0, 1.0)
 		_centered(y, _banner, Color(_banner_color, a), vp.x, BIG)

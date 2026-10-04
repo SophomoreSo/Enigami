@@ -246,12 +246,6 @@ func _shot_down() -> void:
 	fell = 0
 
 ## --- one way through, played --------------------------------------------------
-## A player waits for a Gunman to look away before throwing where it could see;
-## the computer is told when it would be, rather than waiting on its glance.
-func look_away(e: Enemy, dir: int) -> void:
-	e.face(dir)
-	e._glance = 30.0
-
 ## Throws the rock from the monster the player is in, `back` px to the side of
 ## `target`, into it. Whether the hands went in.
 func hop(target: Enemy, back: float, aim_up: float = 40.0) -> bool:
@@ -284,7 +278,6 @@ func _the_theft() -> void:
 	var flyer := guard("DRIFTER")
 	var gm1 := gunman_near(36)
 	var gm2 := gunman_near(80)
-	var gm3 := gunman_near(106)
 	var gem := screen.diamond
 
 	# Waiting in the pit for the gate guard to look the other way.
@@ -298,22 +291,20 @@ func _the_theft() -> void:
 		"the rock in its back puts the player's hands into it")
 
 	# In through the gate as one of them, past the Gunman watching it, and into
-	# the Crawler down the hall behind the Gunman's back.
+	# the Crawler down the hall.
 	check(await fetch_rock(), "the gate guard picks the rock back up")
-	look_away(gm1, -1)
 	check(await hop(g2, -96.0), "and throws it into the Crawler in the first hall (%.1fs were left)" % last_left)
 
-	# Down the vault hall to the Drifter, and up into it while the Gunman under
-	# the ledge looks at the wall.
+	# Down the vault hall to the Drifter, and up into it under the Gunman's
+	# eyes: a throw that lands POSSESS hurts none of them that is left to tell.
 	check(await fetch_rock(), "the Crawler picks it up")
 	await walk_to(flyer.global_position.x - 8.0)
 	check(p.possessing == g2, "and walks it under the Drifter as one of them (%.1fs left)" % p.possess_left)
-	look_away(gm3, 1)
 	await throw_at(flyer.global_position + Vector2(0, -10))
 	check(await until(func() -> bool: return p.possessing == flyer, 1.5), "thrown up into the Drifter")
 
 	# The diamond, and the rock off the floor, and back to the Gunman by the
-	# door: into him while he looks the other way.
+	# door, and into him.
 	# Up past the end of the ledge before going over it: under it is a ceiling.
 	await fly_to(Vector2(100.0 * Room.CELL, 8.0 * Room.CELL), 16.0)
 	await fly_to(gem.global_position + Vector2(0, -8), 6.0)
@@ -323,22 +314,21 @@ func _the_theft() -> void:
 	check(await until(func() -> bool: return p.holds("ROCK") and p.weapon_hands() == flyer, 1.0),
 		"and the rock off the floor (%.1fs left)" % p.possess_left)
 	await fly_to(Vector2(gm2.global_position.x + 112.0, gm2.global_position.y - 24.0), 16.0)
-	look_away(gm2, -1)
 	await throw_at(gm2.global_position + Vector2(0, -30))
 	check(await until(func() -> bool: return p.possessing == gm2, 1.5),
 		"flown back down the hall and thrown into the Gunman (%.1fs were left)" % last_left)
 
-	# The Gunman carries both to the Crawler that was the gate guard, still
-	# standing where the player left it, and the hands go back into that.
+	# The Gunman carries both up the first hall to the Gunman watching the gate,
+	# and the hands go on into him. Not back into a guard the rock has struck
+	# already: the rock hurts what it hits, and a Crawler struck twice is dead.
 	check(await fetch_rock(), "the Gunman picks up the rock")
 	check(await fetch_diamond(), "and the diamond the Drifter let go of")
-	look_away(gm1, -1)
 	var shots := [0]
 	var count_shots := func(cue: StringName, d: Dictionary) -> void:
 		if cue == &"attack" and (d.get("payload") as Payload) != null and (d.get("payload") as Payload).damage >= 40.0:
 			shots[0] += 1
 	Cues.fired.connect(count_shots)
-	check(await hop(g1, 96.0), "and carries them up the first hall into the old gate guard (%.1fs were left)"
+	check(await hop(gm1, 96.0), "and carries them up the first hall into the Gunman at the gate (%.1fs were left)"
 		% last_left)
 	Cues.fired.disconnect(count_shots)
 	check(shots[0] == 0, "and throwing it, the Gunman fires nothing of its own (%d shots)" % shots[0])
@@ -346,7 +336,7 @@ func _the_theft() -> void:
 	# Out of the gate to the body, and home.
 	check(await fetch_rock() and await fetch_diamond(), "which takes both")
 	await walk_to(p.global_position.x + 40.0)
-	check(p.possessing == g1 and gem.carrier == g1,
+	check(p.possessing == gm1 and gem.carrier == gm1,
 		"out of the gate and across the yard to the body (%.1fs left)" % p.possess_left)
 	hands.step_out()
 	check(await until(func() -> bool: return gem.carrier == null and gem._down > Diamond.SETTLE, 2.0),
@@ -370,6 +360,26 @@ func _whose_hands() -> void:
 	var warden := guard("WARDEN")
 	var crawler := guard("CRAWLER")
 	var flyer := guard("DRIFTER")
+
+	# A throw that hurts nobody gives nothing away, even under a Gunman's nose.
+	take_hands()
+	var gm := gunman_near(36)
+	p.possess(crawler, 5.0)
+	p.take_back("ROCK", crawler)
+	crawler.global_position = Vector2(gm.global_position.x - 4.0 * Room.CELL, crawler.global_position.y)
+	gm.face(-1)
+	await frames(4)
+	await throw_at(crawler.global_position + Vector2(-200.0, -60.0))
+	await wait(1.0)
+	check(p.possessing == crawler and not crawler.revealed and not gm._hunts(crawler) and gm.target != crawler,
+		"a throw from a guard the player is in that hurts nobody gives nothing away, in front of a Gunman")
+	p.release()
+	screen.reset_floor()
+	await frames(4)
+	p = screen.player
+	crawler = gate_guard()
+	warden = guard("WARDEN")
+	flyer = guard("DRIFTER")
 
 	# A monster with its own mind leaves it where it is.
 	gem.place(warden.global_position + Vector2(0, warden.body_size.y * 0.5 - Diamond.RADIUS))

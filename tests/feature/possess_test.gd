@@ -4,9 +4,9 @@ extends Node
 ## Played on the bench, which has a floor, monsters to put down and somebody to
 ## talk to: the monster taken and on the player's side, the body left standing
 ## where it was and still hunted, the monster walking and jumping under the
-## player's keys, passing for one of them until it attacks, hurt by the rest
-## once it has, taking the weapon out of the body's hands, talking to the
-## Sage — and every way out: the time, the key, the monster dying, a hop to
+## player's keys, passing for one of them until it hurts one of them, hurt by
+## the rest once it has, taking the weapon out of the body's hands, talking to
+## the Sage — and every way out: the time, the key, the monster dying, a hop to
 ## the next one, and the body dying.
 
 var fails := 0
@@ -151,7 +151,7 @@ func _under_the_keys() -> void:
 	check(await until(func() -> bool: return vessel.velocity.y < -100.0, 0.5), "and jump it")
 	await until(func() -> bool: return vessel.is_on_floor(), 2.0)
 
-## --- passing for one of them, until it attacks -----------------------------------
+## --- passing for one of them, until it hurts one of them -----------------------
 func _passing_for_one_of_them() -> void:
 	# A monster beside the vessel, facing it, the body further off behind it.
 	var watcher := monster("CRAWLER", int(vessel.global_position.x / Room.CELL) + 3, -1)
@@ -165,7 +165,14 @@ func _passing_for_one_of_them() -> void:
 	hands.attack = true
 	check(await until(func() -> bool: return fired[0], 2.0), "a button attacks with the monster's own attack")
 	hands.attack = false
-	check(vessel.revealed, "and attacking gives it away")
+	await frames(4)
+	check(not vessel.revealed and not watcher._hunts(vessel) and watcher.target != vessel,
+		"and an attack that hurts none of them gives nothing away")
+	# A hit of its that hurts one of them does.
+	var cut := Payload.new()
+	cut.damage = 5.0
+	Attacks.resolve_hit(cut, watcher, watcher.global_position, Vector2.RIGHT, vessel, bench.room, vessel.team)
+	check(vessel.revealed, "hurting one of them gives it away")
 	check(watcher._hunts(vessel), "so the monsters hunt it after")
 	check(await until(func() -> bool: return watcher.target == vessel, 1.0),
 		"and the one beside it, nearer to it than to the body, goes after it")

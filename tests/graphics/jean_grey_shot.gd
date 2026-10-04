@@ -1,7 +1,7 @@
 extends Node
 ## Frames of the Jean Grey test, for looking at: the ground as it opens, the
-## player's hands in the gate guard, the diamond flown out by the guard that
-## flies, and the theft done.
+## player's hands in the gate guard, the vault hall with the diamond flown off
+## its ledge, the first hall from inside a Gunman, and the theft done.
 ##
 ## Needs a real renderer — `--headless` draws into a dummy and saves black.
 ## Writes to `user://shots` unless SHOTS_DIR names somewhere else.
@@ -54,17 +54,23 @@ func _ready() -> void:
 	await wait(0.5)
 	await shot("31_jean_in_the_gate_guard")
 
-	# The diamond, flown out by the guard that flies.
+	# The vault hall, and the diamond flown off its ledge by the guard that flies.
 	var flyer := guard(screen, "DRIFTER")
 	screen.player.possess(flyer, 10.0)
-	flyer.global_position = Vector2(26 * Room.CELL, 8 * Room.CELL)
+	flyer.global_position = Vector2(104 * Room.CELL, 8 * Room.CELL)
 	screen.diamond.take(flyer)
-	await wait(0.4)
+	await wait(1.2)
 	await shot("32_jean_diamond_flown_out")
+
+	# The first hall, a Gunman at the gate.
+	var gunman := guard(screen, "GUNMAN")
+	screen.player.possess(gunman, 10.0)
+	await wait(1.2)
+	await shot("33_jean_gunman_at_the_gate")
 
 	# Home with it.
 	screen.player.release()
 	screen.diamond.place(screen.player.global_position)
 	await wait(0.6)
-	await shot("33_jean_stolen")
+	await shot("34_jean_stolen")
 	get_tree().quit()

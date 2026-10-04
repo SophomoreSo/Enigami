@@ -24,16 +24,16 @@ extends Actor
 ## casts nothing; see `holders`.
 ##
 ## A hit carrying POSSESS puts the player's hands into the monster it strikes
-## (`possess`). The body stays where it was, standing still, and the monsters
-## go on hunting it — it dies, and the raid is lost. The input line drives the
+## (`possess`). The body stays where it was, standing still, and the monsters go
+## on hunting it — it dies, and the raid is lost. The input line drives the
 ## monster instead: it walks, jumps, talks to whoever is in reach and attacks
 ## with its own attack, or with the player's weapon once it has taken it out of
 ## the body's hands (`take_weapon`) — and it picks the rock up off the floor the
 ## way the body does, and throws it. The other monsters take it for one of them
-## until it attacks. It ends when the time runs out, when the player steps out,
-## or when the monster dies; the monster is left stunned, and the weapon goes
-## back to the body. The rock does not: it is in the monster's hand, and the
-## monster lets go of it where it stands.
+## until it hurts one of them. It ends when the time runs out, when the player
+## steps out, or when the monster dies; the monster is left stunned, and the
+## weapon goes back to the body. The rock does not: it is in the monster's hand,
+## and the monster lets go of it where it stands.
 
 signal cast_fired()
 signal parry_success()
@@ -636,7 +636,8 @@ func _on_cycle_started() -> void:
 ## weapon was put away lands as that weapon's, not as the one drawn since.
 ##
 ## It goes off from whichever body holds the weapon: the monster's, once it has
-## taken it, and then the monster has shown itself to the rest.
+## taken it — which gives the monster away only if what it throws hurts one of
+## them (`Attacks.resolve_hit`).
 ##
 ## Off a thrown weapon, a bolt is the weapon itself. The flow that finds the rock
 ## in the hand it goes off from throws it, with everything the graph built into
@@ -648,8 +649,6 @@ func _on_fired(payload: Payload, weapon: String = "") -> void:
 	if weapon == "":
 		weapon = weapon_id
 	var from := vessel()
-	if from != self:
-		(from as Enemy).revealed = true
 	var p := Weapons.finalize(weapon, payload)
 	var ctx := {
 		"attacker": from, "room": room, "team": team,

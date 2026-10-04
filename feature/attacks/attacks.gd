@@ -479,6 +479,13 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 	var dealt := target.apply_damage(damage, [] if p.cleanse else p.elements, atk)
 	if dealt <= 0.0:
 		return
+	# A monster the player is in passes for one of them until it hurts one of
+	# them, and then it is found out (`Enemy.revealed`). Attacking alone gives
+	# nothing away — a swing at the air, a throw that misses — and a throw that
+	# lands POSSESS lets go of the monster that threw it further down this same
+	# hit, so a hop from one body to the next is never one of them hurt.
+	if atk is Enemy and (atk as Enemy).piloted() and target.team != atk.team:
+		(atk as Enemy).revealed = true
 	# The frost is what broke: the enemy thaws, and that takes the chill this
 	# same hit may have brought with it, so the next break needs a fresh one.
 	if breaks:
