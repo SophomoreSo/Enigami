@@ -25,6 +25,16 @@ static func nearest_target(pos: Vector2, team: int, max_dist: float = 1e9) -> Ac
 			best = a
 	return best
 
+## What an AUTO-AIM flow goes at from `from`: the nearest enemy within its
+## sight, or null — and null for a flow with no AUTO-AIM on it.
+static func auto_target(p: Payload, from: Vector2, team: int) -> Actor:
+	if p.auto_aim <= 0:
+		return null
+	return nearest_target(from, team, auto_aim_sight(p))
+
+static func auto_aim_sight(p: Payload) -> float:
+	return AUTO_AIM_SIGHT * (1.0 + AUTO_AIM_FURTHER * float(maxi(p.auto_aim - 1, 0)))
+
 static func container() -> Node:
 	return Arena.current()
 
@@ -81,6 +91,12 @@ const CHAIN_HITSTOP := 0.010
 ## it: the cursor decides where inside that range it lands.
 const DASH_SLASH_REACH := 85.0
 
+## AUTO-AIM. How far one looks for something to go at, and how much further
+## each one stacked looks: the first looks as far as SWIFT STRIKE+ used to,
+## which was SWIFT STRIKE with this built in.
+const AUTO_AIM_SIGHT := 520.0
+const AUTO_AIM_FURTHER := 0.5
+
 ## A cursor closer than this to where a beam starts is not aiming it anywhere:
 ## the beam goes down the aim instead, its whole reach, rather than being a
 ## strike of no length on the caster's own feet.
@@ -130,6 +146,11 @@ const SHATTER_PER := 1.5
 ## three times — that is what a leech build is for — and a trigger's follow-up
 ## pays like any other hit.
 const MANA_PER_HIT := 6.0
+
+## HEALTH DRAIN. The share of what a hit dealt that whoever struck it gets back
+## as health, for every HEALTH DRAIN stacked. It is paid out of damage dealt, so
+## a hit that hurt nothing — POSSESS taking a monster — heals nothing.
+const HEALTH_DRAIN_SHARE := 0.2
 
 ## What a hit carrying `stacked` SHATTERs is multiplied by on a chilled enemy.
 static func shatter_mul(stacked: int) -> float:
@@ -254,6 +275,13 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 				origin = behind
 				Cues.emit_cue(&"blink", {"from": was, "to": behind})
 
+	# AUTO-AIM: at the nearest enemy, whatever the aim said. A lunge and a beam
+	# look for it again as they go off (`_dash_slash`, `_zap`), which a
+	# volley's later ones do a moment after this one.
+	var locked := auto_target(payload, origin, team)
+	if locked != null:
+		aim = (locked.global_position - origin).normalized()
+
 	var count: int = clampi(payload.duplicates, 1, 9)
 	# A thrown weapon throws itself (`Weapons.is_thrown`): the first of the
 	# volley is the weapon, unless the flow says it is a copy, and the rest are
@@ -287,7 +315,7 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 					_burst(payload, pos, team, attacker, room)
 				else:
 					_schedule(float(i) * 0.1, "burst", payload, aim, pos, team, attacker, room)
-		"DASHSLASH", "DASHSLASH_AUTO":
+		"DASHSLASH":
 			for i in count:
 				if i == 0:
 					_dash_slash(payload, aim, team, attacker, room, far)
@@ -347,8 +375,10 @@ static func _dash_slash(p: Payload, aim: Vector2, team: int, atk: Actor, room, f
 	var start: Vector2 = atk.global_position
 	var reach := DASH_SLASH_REACH * p.size * far
 	var dest: Vector2
-	if p.form == "DASHSLASH_AUTO":
-		var t := nearest_target(start, team, 520.0)
+	if p.auto_aim > 0:
+		# AUTO-AIM: all the way to the nearest enemy and through it, however
+		# far its reach — or, with nothing in sight, down the aim.
+		var t := auto_target(p, start, team)
 		if t == null:
 			dest = start + aim * reach
 		else:
@@ -393,6 +423,10 @@ static func _zap(p: Payload, origin: Vector2, aim: Vector2, team: int, atk: Acto
 	var reach := p.range_px * far
 	var end := origin + aim * reach
 	var pt = atk.get("aim_point") if atk != null else null
+	# AUTO-AIM points it at the nearest enemy instead of where the cursor is.
+	var t := auto_target(p, origin, team)
+	if t != null:
+		pt = t.global_position
 	if pt is Vector2:
 		var to_pt: Vector2 = (pt as Vector2) - origin
 		if to_pt.length() >= ZAP_MIN_AIM:
@@ -422,6 +456,8 @@ static func summary(p: Payload) -> String:
 		parts.append(Loc.t("editor.payload.pierce", [p.pierce]))
 	if p.homing:
 		parts.append(_stacked(Loc.t("editor.payload.homing"), p.homing))
+	if p.auto_aim:
+		parts.append(_stacked(Loc.t("editor.payload.auto_aim"), p.auto_aim))
 	if p.blink:
 		parts.append(Loc.t("editor.payload.blink"))
 	if p.pull:
@@ -432,6 +468,8 @@ static func summary(p: Payload) -> String:
 		parts.append(Loc.t("editor.payload.shatter", [shatter_mul(p.shatter)]))
 	if p.mana_drain:
 		parts.append(Loc.t("editor.payload.mana_drain", [MANA_PER_HIT * float(p.mana_drain)]))
+	if p.health_drain:
+		parts.append(Loc.t("editor.payload.health_drain", [roundi(HEALTH_DRAIN_SHARE * 100.0 * float(p.health_drain))]))
 	if p.stun > 0.0:
 		parts.append(Loc.t("editor.payload.stun", [p.stun]))
 	if p.possess > 0.0:
@@ -495,8 +533,9 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 		(atk as Enemy).revealed = true
 	# The frost is what broke: the enemy thaws, and that takes the chill this
 	# same hit may have brought with it, so the next break needs a fresh one.
+	# Frozen solid, it is the ice that breaks, and it stands free again.
 	if breaks:
-		target.chill_time = 0.0
+		target.thaw()
 		Cues.at(&"shatter", pos, {"payload": p, "damage": dealt})
 	# A cleanse — what an INVERT makes of FIRE, ICE or STUN — ends what the enemy
 	# struck was carrying when the hit reached it: every burn, chill and stun.
@@ -534,6 +573,10 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 		var drained := MANA_PER_HIT * float(p.mana_drain)
 		atk.gain_mana(drained)
 		Cues.at(&"mana_drain", pos, {"amount": drained})
+	if p.health_drain and atk != null:
+		var back := atk.heal(dealt * HEALTH_DRAIN_SHARE * float(p.health_drain))
+		if back > 0.0:
+			Cues.at(&"heal", atk.global_position, {"amount": back, "target_team": atk.team})
 	# What an INVERT made of DAMAGE: health given back to the enemy struck, after
 	# the harm and only while it still stands, so a blow that kills stays a kill.
 	if p.heal > 0.0 and not target.dead:

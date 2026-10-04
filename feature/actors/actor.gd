@@ -37,6 +37,18 @@ var chill_time: float = 0.0
 ## and once that is over, how long before another stun can take.
 var stun_time: float = 0.0
 var stun_guard: float = 0.0
+## WATER leaves an actor wet for a while (`afflict`). Wet, ICE does not chill
+## it but freezes it solid: it stands where it is for `FREEZE_TIME`, the way a
+## stun holds it, and the wet is gone into the ice. FIRE on a wet one dries it
+## rather than setting it alight, and WATER on a burning one puts it out. After
+## a freeze another cannot take for `FREEZE_GUARD`, or a board carrying WATER
+## and ICE together would hold what it struck frozen for good.
+const WET_TIME := 6.0
+const FREEZE_TIME := 2.5
+const FREEZE_GUARD := 1.5
+var wet_time: float = 0.0
+var freeze_time: float = 0.0
+var freeze_guard: float = 0.0
 var invuln: float = 0.0
 var dead: bool = false
 
@@ -58,6 +70,15 @@ func _process_status(delta: float) -> void:
 			_come_round()
 	elif stun_guard > 0.0:
 		stun_guard -= delta
+	if wet_time > 0.0:
+		wet_time -= delta
+	if freeze_time > 0.0:
+		freeze_time -= delta
+		if freeze_time <= 0.0:
+			freeze_time = 0.0
+			freeze_guard = FREEZE_GUARD
+	elif freeze_guard > 0.0:
+		freeze_guard -= delta
 	if burn_time > 0.0:
 		burn_time -= delta
 		apply_damage(burn_dps * delta, [], null, false)
@@ -81,17 +102,47 @@ func apply_damage(amount: float, elements: Array = [], _source: Node = null, is_
 	return amount
 
 ## What a blow of `amount` carrying `elements` leaves on this actor: a burn for
-## FIRE, as hard as the blow was, and a chill for ICE. Neither is cut short by a
+## FIRE, as hard as the blow was, a chill for ICE, and a soaking for WATER —
+## in the order the flow picked them up, so WATER then ICE is a freeze in one
+## blow. Wet changes what the other two do (`WET_TIME`). None is cut short by a
 ## lesser one landing on it. `apply_damage` does this for the blow it lands; a
 ## hit that cleanses does it itself, once the cleanse has been through
 ## (`Attacks.resolve_hit`).
 func afflict(amount: float, elements: Array) -> void:
 	for e in elements:
-		if e == "FIRE":
+		if e == "WATER":
+			wet_time = WET_TIME
+			burn_time = 0.0
+			burn_dps = 0.0
+		elif e == "FIRE":
+			if wet_time > 0.0:
+				wet_time = 0.0
+				continue
 			burn_time = maxf(burn_time, 2.5)
 			burn_dps = maxf(burn_dps, amount * 0.22)
 		elif e == "ICE":
-			chill_time = maxf(chill_time, 2.0)
+			if wet_time > 0.0 and freeze_time <= 0.0 and freeze_guard <= 0.0:
+				freeze()
+			else:
+				chill_time = maxf(chill_time, 2.0)
+
+## Frozen solid: held where it stands for `FREEZE_TIME`, the wet gone into the
+## ice. Frozen is chilled through, so SHATTER breaks it (`thaw`).
+func freeze() -> void:
+	wet_time = 0.0
+	freeze_time = FREEZE_TIME
+	chill_time = maxf(chill_time, FREEZE_TIME)
+
+func frozen() -> bool:
+	return freeze_time > 0.0
+
+## The cold goes out of it: no chill, and no ice if it was frozen — which ends
+## the freeze like any other, so the guard after one starts.
+func thaw() -> void:
+	chill_time = 0.0
+	if freeze_time > 0.0:
+		freeze_guard = FREEZE_GUARD
+	freeze_time = 0.0
 
 ## Gives back up to `amount` health, never past the most this actor has, and
 ## says so (`healed`). Returns what it really gave back: nothing to the dead,
@@ -119,16 +170,17 @@ func stun(seconds: float) -> bool:
 ## own. A monster neither moves, casts nor touches (`Enemy`); the player's
 ## hands are taken off their line (`Player`).
 func stunned() -> bool:
-	return stun_time > 0.0
+	return stun_time > 0.0 or freeze_time > 0.0
 
-## Ends every burn, chill and stun on this actor at once. A stun ended early is
-## over like any other, so the guard after one starts. Whether there was
-## anything to end.
+## Ends every burn, chill, soaking, freeze and stun on this actor at once. A
+## stun or a freeze ended early is over like any other, so the guard after one
+## starts. Whether there was anything to end.
 func cleanse() -> bool:
-	var had := burn_time > 0.0 or chill_time > 0.0 or stun_time > 0.0
+	var had := burn_time > 0.0 or chill_time > 0.0 or stun_time > 0.0 or wet_time > 0.0 or freeze_time > 0.0
 	burn_time = 0.0
 	burn_dps = 0.0
-	chill_time = 0.0
+	wet_time = 0.0
+	thaw()
 	if stun_time > 0.0:
 		_come_round()
 	return had

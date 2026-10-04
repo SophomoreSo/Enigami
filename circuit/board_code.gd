@@ -232,7 +232,9 @@ static func decode(code: String) -> Dictionary:
 		var rot := r.take(ROT_BITS)
 		if not r.ok:
 			return _fail(TRUNCATED)
-		var id := Components.part_for_code(part)
+		# A number keeps the id it was given, and a part since renamed reads as
+		# what it is called now — SWIFT STRIKE+ as SWIFT STRIKE.
+		var id := Components.current_id(Components.part_for_code(part))
 		if id == "":
 			return _fail(UNKNOWN_PART)
 		if pos >= w * h:

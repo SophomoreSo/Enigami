@@ -40,11 +40,11 @@ const COMPONENT := {
 	"SLASH": {"glyph": "/"},
 	"EXPLODE": {"glyph": "◎"},
 	"DASHSLASH": {"glyph": "»"},
-	"DASHSLASH_AUTO": {"glyph": "»*"},
 	"ZAP": {"glyph": "⌁"},
 
 	"FIRE": {"glyph": "🔥"},
 	"ICE": {"glyph": "❄", "color": Color(0.45, 0.8, 0.98)},
+	"WATER": {"glyph": "≈", "color": Color(0.3, 0.55, 1.0)},
 
 	"DAMAGE": {"glyph": "+"},
 	"SIZE": {"glyph": "⤢"},
@@ -58,8 +58,10 @@ const COMPONENT := {
 	"GRAVITY": {"glyph": "⤓"},
 	"KNOCKBACK": {"glyph": "↦"},
 	"MANA_DRAIN": {"glyph": "⊚"},
+	"HEALTH_DRAIN": {"glyph": "♥"},
 	"STUN": {"glyph": "@"},
 	"POSSESS": {"glyph": "◑"},
+	"AUTO_AIM": {"glyph": "⊕"},
 
 	"DUPLICATE": {"glyph": "⋯"},
 	"OVERCLOCK": {"glyph": "⚡"},
@@ -132,15 +134,6 @@ const COMPONENT_ICON := {
 		"#..#...",
 		".......",
 	],
-	"DASHSLASH_AUTO": [
-		".....#.",
-		"....###",
-		"#.#..#.",
-		".#.#...",
-		"..#.#..",
-		".#.#...",
-		"#.#....",
-	],
 	"ZAP": [
 		".......",
 		"....#.#",
@@ -168,6 +161,15 @@ const COMPONENT_ICON := {
 		"..###..",
 		".#.#.#.",
 		"...#...",
+	],
+	"WATER": [
+		"...#...",
+		"...#...",
+		"..###..",
+		".#####.",
+		"##.####",
+		"##.####",
+		".#####.",
 	],
 
 	"DAMAGE": [
@@ -270,6 +272,16 @@ const COMPONENT_ICON := {
 		".#####.",
 		"..###..",
 	],
+	# A heart: the drop MANA DRAIN is, in red's shape.
+	"HEALTH_DRAIN": [
+		".##.##.",
+		"#######",
+		"#######",
+		"#######",
+		".#####.",
+		"..###..",
+		"...#...",
+	],
 	# A ghost: what goes out of the body and into the monster.
 	"POSSESS": [
 		"..###..",
@@ -279,6 +291,16 @@ const COMPONENT_ICON := {
 		"#######",
 		"#######",
 		"#.#.#.#",
+	],
+	# Crosshairs on what it goes at.
+	"AUTO_AIM": [
+		"...#...",
+		".#####.",
+		".#...#.",
+		"##.#.##",
+		".#...#.",
+		".#####.",
+		"...#...",
 	],
 	# Round and round, the way a head goes when it has been struck too hard.
 	"STUN": [
@@ -389,7 +411,10 @@ const NEUTRAL_ATTACK := Color(0.98, 0.85, 0.4)
 const ELEMENT_COLOR := {
 	"FIRE": Color(1.0, 0.5, 0.22),
 	"ICE": Color(0.5, 0.85, 1.0),
+	"WATER": Color(0.32, 0.58, 1.0),
 }
+## What frozen solid looks like on whoever is: pale ice over the whole of them.
+const FROZEN_TINT := Color(0.78, 0.94, 1.0)
 
 ## What an attack carrying this payload is drawn in. First element wins, so a
 ## flow's colour tracks the first thing that was added to it.
@@ -411,6 +436,7 @@ const WEAPON := {
 	"SWORD": {"color": Color(0.85, 0.9, 1.0), "art": "weapon_regular_sword"},
 	"GUN": {"color": Color(0.6, 0.95, 0.85), "art": "weapon_bow_2"},
 	"ROCK": {"color": Color(0.95, 0.82, 0.55), "art": "rock", "grip": 0.5, "upright": true},
+	"SHOVEL": {"color": Color(0.78, 0.66, 0.46), "art": "shovel"},
 }
 
 static func weapon_color(id: String) -> Color:
@@ -433,7 +459,41 @@ static func weapon_upright(id: String) -> bool:
 ##
 ## The rock is cut in planes, lit from the top left like everything in the
 ## pack: a top it is lit across, a face under that, and the side turned away.
+## The shovel points up like the pack's blades: a steel spade lit down its left
+## edge, a socket, an ash handle and a crossbar grip at the foot.
 const DRAWN_TILES := {
+	"shovel": {
+		"rows": [
+			"..lll..",
+			".lmmmd.",
+			"lmmmmmd",
+			"lmmmmmd",
+			"lmmmmmd",
+			"lmmmmmd",
+			".mmmmd.",
+			"..mmd..",
+			"...s...",
+			"...s...",
+			"...w...",
+			"...w...",
+			"...w...",
+			"...w...",
+			"...w...",
+			"...w...",
+			"...w...",
+			"..owo..",
+			".o...o.",
+			".ooooo.",
+		],
+		"inks": {
+			"l": Color(0.86, 0.89, 0.92),
+			"m": Color(0.62, 0.66, 0.70),
+			"d": Color(0.38, 0.41, 0.45),
+			"s": Color(0.30, 0.30, 0.33),
+			"w": Color(0.56, 0.39, 0.22),
+			"o": Color(0.36, 0.24, 0.13),
+		},
+	},
 	"rock": {
 		"rows": [
 			"...ooo....",

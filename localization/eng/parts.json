@@ -15,21 +15,21 @@
 		"name": "SWIFT STRIKE",
 		"desc": "Lunges along the aim direction, cutting everything on the path. Uses two cells."
 	},
-	"DASHSLASH_AUTO": {
-		"name": "SWIFT STRIKE+",
-		"desc": "Seeks the nearest visible enemy and blinks through it, cutting the path. Uses two cells."
-	},
 	"ZAP": {
 		"name": "ZAP",
 		"desc": "A beam to where the cursor points, striking the instant it is cast. Stops at the first wall, and at the first enemy unless PIERCE carries it on."
 	},
 	"FIRE": {
 		"name": "FIRE",
-		"desc": "Adds flame. Struck enemies burn for damage over time."
+		"desc": "Adds flame. Struck enemies burn for damage over time; a wet one is only dried."
 	},
 	"ICE": {
 		"name": "ICE",
-		"desc": "Adds frost. Struck enemies are slowed."
+		"desc": "Adds frost. Struck enemies are slowed; a wet one freezes solid for a moment."
+	},
+	"WATER": {
+		"name": "WATER",
+		"desc": "Soaks what it strikes. A wet enemy freezes solid under ICE, and FIRE only dries it; water puts a burning enemy out."
 	},
 	"DAMAGE": {
 		"name": "DAMAGE +",
@@ -75,6 +75,10 @@
 		"name": "MANA DRAIN",
 		"desc": "Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting. Each one stacked drains more."
 	},
+	"HEALTH_DRAIN": {
+		"name": "HEALTH DRAIN",
+		"desc": "Every enemy this attack hurts gives health back to the caster: a fifth of the damage dealt, and a fifth more for each one stacked. What keeps you standing is landing hits."
+	},
 	"STUN": {
 		"name": "STUN",
 		"desc": "Struck enemies are stunned: for a moment they stand where they are and cannot attack. Each one stacked holds them longer. Once it wears off, an enemy shrugs off the next stun for a while."
@@ -82,6 +86,10 @@
 	"POSSESS": {
 		"name": "POSSESS",
 		"desc": "Takes over the monster struck for 5 seconds, unharmed, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, left behind and still hunted. Bosses resist it."
+	},
+	"AUTO_AIM": {
+		"name": "AUTO-AIM",
+		"desc": "Aims the attack at the nearest enemy, wherever you point: bolts and beams go straight at it, a swing turns to it, and SWIFT STRIKE lunges all the way to it and through. Each one stacked looks further for one."
 	},
 	"DUPLICATE": {
 		"name": "DUPLICATE x3",

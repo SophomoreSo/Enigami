@@ -284,6 +284,7 @@ func _enter_room(coord: Vector2i, from_dir: int) -> void:
 	room.pickup_collected.connect(_on_pickup)
 	room.lost_kit_collected.connect(_on_lost_kit)
 	room.box_opened.connect(_on_box_opened)
+	room.spot_dug.connect(_on_spot_dug)
 	room.enemy_killed.connect(_on_enemy_killed)
 	room.extraction_progress.connect(_on_extract_progress)
 	room.extraction_done.connect(_on_extract_done)
@@ -323,6 +324,22 @@ func _on_pickup(p: Pickup) -> void:
 ## A treasure box, opened. Everything in it goes into the run at once, like a
 ## pickup but all together, and the raid says what came out in one line.
 func _on_box_opened(_box: TreasureBox, items: Array) -> void:
+	var names := _take_haul(items)
+	if names.is_empty():
+		noticed.emit(Loc.t("hud.toast.box_empty"))
+	else:
+		noticed.emit(Loc.t("hud.toast.box", [", ".join(names)]))
+
+## Ground dug up with the shovel: what was buried goes into the run the way a
+## box's does.
+func _on_spot_dug(_spot: DigSpot, items: Array) -> void:
+	var names := _take_haul(items)
+	if not names.is_empty():
+		noticed.emit(Loc.t("hud.toast.dug", [", ".join(names)]))
+
+## Loot records, `{"id": ...}` or `{"scrap": ...}`, into the run's bag and
+## purse. What came out, in words, for the line that says so.
+func _take_haul(items: Array) -> Array:
 	var scrap := 0
 	var names: Array = []
 	for l in items:
@@ -336,10 +353,7 @@ func _on_box_opened(_box: TreasureBox, items: Array) -> void:
 	GameState.raid_scrap += scrap
 	if scrap > 0:
 		names.append(Loc.t("hud.toast.scrap", [scrap]))
-	if names.is_empty():
-		noticed.emit(Loc.t("hud.toast.box_empty"))
-	else:
-		noticed.emit(Loc.t("hud.toast.box", [", ".join(names)]))
+	return names
 
 ## The drop, picked back up. What was in it goes into the run rather than
 ## straight home — a recovered kit is being carried, and it still has to be
@@ -415,9 +429,10 @@ func on_board_changed() -> void:
 	player.rebuild_runner()
 
 ## An exit the player is standing in, with nothing sealing it, a shut treasure
-## box within reach, or — from inside a monster — the body, with the weapon in
-## its hands to take.
+## box within reach, ground to dig with the shovel in hand, or — from inside a
+## monster — the body, with the weapon in its hands to take.
 func use_nearby() -> bool:
 	if player != null and player.can_take_weapon():
 		return true
-	return room != null and is_instance_valid(room) and (room.extract_offered or room.box_offered())
+	return room != null and is_instance_valid(room) \
+		and (room.extract_offered or room.box_offered() or room.dig_offered())

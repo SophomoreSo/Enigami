@@ -207,6 +207,16 @@ func _update_facing(delta: float) -> void:
 func _face_target() -> void:
 	face(signi(int(signf(target.global_position.x - global_position.x))))
 
+## Something loud at `at` — somebody digging (`DigSpot`). One with nothing to
+## hunt, that is not the player's, turns to look that way and keeps looking for
+## a while rather than glancing straight back. Whether it then sees anybody is
+## noticing's business (`_acquire`), so a wall between still hides them.
+func hear(at: Vector2) -> void:
+	if dead or piloted() or aggro or stunned():
+		return
+	face(signi(int(signf(at.x - global_position.x))))
+	_glance = GLANCE_MAX
+
 ## Whether the target is on the side this monster is looking at. A boss is
 ## never crept up on: its room is its own, and it knows who is in it.
 func _in_front() -> bool:

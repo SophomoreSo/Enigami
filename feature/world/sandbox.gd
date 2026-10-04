@@ -3,9 +3,10 @@ extends World
 
 ## A room where nothing is at stake. Parts are unlimited, each weapon's graph
 ## is a copy of the profile's, and the weapons can be swapped back to back so
-## the differences between them are something you see rather than read: every
-## weapon is carried here, while there are no more of them than a kit holds,
-## and the keys that change weapon in a raid change it at the bench.
+## the differences between them are something you see rather than read: a
+## kit's worth is carried here — every weapon while a kit holds them all, and
+## otherwise the one the bench is on and the next ones round — and the keys
+## that change weapon in a raid change it at the bench.
 ##
 ## The bench's own buttons are `graphics/ui/sandbox_panel.gd`, in a drawer built
 ## by the view that attaches itself to this node, beside the raid's own HUD.
@@ -16,6 +17,8 @@ signal editing_changed(on: bool)
 signal dragon_test_requested()
 ## The Jean Grey test was asked for: a diamond to steal by possessing its guards.
 signal jean_grey_test_requested()
+## A sample skill was put on its weapon (`load_sample`).
+signal sample_loaded(id: String)
 
 const MONSTER_BUTTONS := ["CRAWLER", "SENTRY", "LOBBER", "HOPPER", "DRIFTER", "WARDEN", "ARBITER"]
 ## The column the apprentice stands in: by the left wall, which the wall kick
@@ -34,10 +37,13 @@ var apprentice: Npc
 var graphs: Dictionary = {}
 var weapon_index: int = 0
 var inventory: Dictionary = {}
-## Whether the drawer of bench tools is out. The player is held still while it
-## is, the way they are while assembling: its buttons are pressed with the mouse
-## they would otherwise be aiming with.
+## Whether a drawer is out — the bench tools, or the sample skills. The player
+## is held still while one is, the way they are while assembling: its buttons
+## are pressed with the mouse they would otherwise be aiming with.
 var tools_open: bool = false
+## Which drawers are out, by name: either can be out without the other, and the
+## player is free only once both are in.
+var _drawers_out: Dictionary = {}
 var _dps_window: Array = []   ## [time, damage] pairs over the last few seconds
 var _dps: float = 0.0
 
@@ -73,17 +79,23 @@ func _ready() -> void:
 
 ## Puts the bench's weapons on the player, with the one the bench is on in
 ## hand: all of them, as a kit, while a kit can hold them all — and otherwise
-## the one, as a kit of one.
+## a kit's worth, the one the bench is on and the next ones round, so the
+## bench's swap walks the kit along the rack.
 func _apply_weapon() -> void:
 	var ids := Weapons.ids()
 	weapon_index = weapon_index % ids.size()
+	var kit: Array = []
+	var boards: Array = []
+	var in_hand := weapon_index
 	if ids.size() <= Player.MAX_WEAPONS:
-		var boards: Array = []
-		for w in ids:
-			boards.append(graphs[String(w)])
-		player.setup_kit(ids, boards, weapon_index)
+		kit = ids
 	else:
-		player.setup(String(ids[weapon_index]), board())
+		in_hand = 0
+		for k in Player.MAX_WEAPONS:
+			kit.append(ids[(weapon_index + k) % ids.size()])
+	for w in kit:
+		boards.append(graphs[String(w)])
+	player.setup_kit(kit, boards, in_hand)
 	player.max_health = 9999.0
 	player.health = 9999.0
 
@@ -161,6 +173,31 @@ func open_dragon_test() -> void:
 func open_jean_grey_test() -> void:
 	jean_grey_test_requested.emit()
 
+## The skills the bench has ready to try, out of the proving grounds: each a
+## graph, the weapon it was built for, and what it is called. `board` builds a
+## fresh one, named in the language being played.
+static func samples() -> Array:
+	return [
+		{"id": "dragon", "weapon": DragonTest.WEAPON, "board": DragonTest.dragon_board},
+		{"id": "jean_grey", "weapon": JeanGreyTest.WEAPON, "board": JeanGreyTest.jean_grey_board},
+	]
+
+## Puts the sample skill `id` on its weapon here — over the bench's copy of that
+## weapon's graph, never the profile's — and that weapon in hand. Whether there
+## is one by that id.
+func load_sample(id: String) -> bool:
+	for s in samples():
+		if String(s["id"]) != id:
+			continue
+		var weapon := String(s["weapon"])
+		graphs[weapon] = (s["board"] as Callable).call()
+		weapon_index = maxi(Weapons.ids().find(weapon), 0)
+		_apply_weapon()
+		Cues.emit_cue(&"ui", {"kind": "weapon"})
+		sample_loaded.emit(id)
+		return true
+	return false
+
 func _on_damage(_a: Actor, amount: float) -> void:
 	_dps_window.append([float(Time.get_ticks_msec()) / 1000.0, amount])
 
@@ -182,8 +219,12 @@ func set_editing(on: bool) -> void:
 	player.input_locked = editing or tools_open
 	editing_changed.emit(on)
 
-func set_tools_open(on: bool) -> void:
-	tools_open = on
+func set_tools_open(on: bool, drawer: String = "tools") -> void:
+	if on:
+		_drawers_out[drawer] = true
+	else:
+		_drawers_out.erase(drawer)
+	tools_open = not _drawers_out.is_empty()
 	player.input_locked = editing or tools_open
 
 func on_board_changed() -> void:

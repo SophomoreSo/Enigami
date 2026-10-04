@@ -5,7 +5,8 @@ extends Node
 ## code is spelled in, and the numbers parts are known by inside one — the
 ## `codes` table in the content database — and what a code or a save written
 ## while OUTPUT, WIRE, BEND and INPUT were parts, while a root could not move,
-## or while EXPLODE was called AREA, reads back as.
+## or while EXPLODE was called AREA, or while SWIFT STRIKE+ was a part of its
+## own, reads back as.
 
 ## Every number already given out, in order, as it was given. A code written
 ## down with any of these in it has to go on reading as the board it was, so
@@ -23,6 +24,10 @@ const GIVEN := [
 	"KNOCKBACK",
 	"ZAP",
 	"INVERT", "STUN",
+	"POSSESS",
+	"AUTO_AIM",
+	"HEALTH_DRAIN",
+	"WATER",
 ]
 
 var fails := 0
@@ -74,10 +79,12 @@ func _ready() -> void:
 	for n in numbered:
 		var id := String(numbered[n])
 		seen[id] = true
-		if not Components.exists(id) and not Components.is_retired(id):
+		if not Components.exists(id) and not Components.is_retired(id) \
+				and not Components.renamed().has(id):
 			unknown.append(id)
 	check(unknown.is_empty(),
-		"every number in the table names a part that exists or was retired (%s)" % str(unknown))
+		"every number in the table names a part that exists, was retired, or was made one with another (%s)"
+			% str(unknown))
 	var kept: Array = []
 	for id in Components.retired_ids():
 		if not seen.has(String(id)) or Components.exists(String(id)):
@@ -87,10 +94,15 @@ func _ready() -> void:
 	var renames := Components.renamed()
 	for id in renames:
 		var now := String(renames[id])
-		if seen.has(String(id)) or Components.exists(String(id)) or not Components.exists(now):
+		# A renamed part hands its number to its new id — unless that has a
+		# number of its own, which is two parts made one: SWIFT STRIKE+ into
+		# SWIFT STRIKE. Then the old id keeps its number, and reads as the new.
+		var merged := Components.code_of(now) >= 0 and Components.code_of(String(id)) >= 0
+		if (seen.has(String(id)) and not merged) or Components.exists(String(id)) or not Components.exists(now):
 			misnamed.append(id)
 	check(misnamed.is_empty(),
-		"a renamed part is known only by its new id, in the table and out of it (%s)" % str(misnamed))
+		"a renamed part is known only by its new id, and keeps a number only where it was made one with another (%s)"
+			% str(misnamed))
 	var uncoded: Array = []
 	for id in Components.ids():
 		if not seen.has(String(id)):
@@ -187,7 +199,8 @@ func _ready() -> void:
 	# Every part in the table, turned every way — the two-cell ones included,
 	# whose tail cell swings round with them. First fit, because a part facing
 	# west starts a cell further in than one facing east. A retired number has
-	# no part to place.
+	# no part to place, and neither has one whose part goes by another id now
+	# (SWIFT STRIKE+'s): that part is placed under its own number.
 	var all := SkillBoard.new(11, 9, "everything")
 	var turn := 0
 	var placeable := 0
@@ -195,7 +208,7 @@ func _ready() -> void:
 	in_order.sort()
 	for n in in_order:
 		var id := String(numbered[n])
-		if Components.is_retired(id):
+		if Components.is_retired(id) or Components.renamed().has(id):
 			continue
 		placeable += 1
 		var landed := false
@@ -361,6 +374,16 @@ func _ready() -> void:
 		"a code shared while EXPLODE was AREA still builds it (%s)" % shared["error"])
 	check(same_parts(_saved([["INPUT", 0, 2, 0], ["AREA", 1, 2, 0], ["OUTPUT", 3, 2, 0]]), burst),
 		"and a board saved with an AREA on it reads back with an EXPLODE")
+
+	# --- a board from before SWIFT STRIKE+ was made SWIFT STRIKE ------------
+	# It was SWIFT STRIKE with AUTO-AIM built in, in the same two cells. A save
+	# spells it the old way and reads back as SWIFT STRIKE where it stood; its
+	# number, 8, reads as SWIFT STRIKE too (`BoardCode.decode`).
+	check(same_parts(_saved([["DASHSLASH_AUTO", 1, 2, 0], ["FIRE", 3, 2, 0]]),
+			_board([["DASHSLASH", 1, 2, 0], ["FIRE", 3, 2, 0]])),
+		"a board saved with SWIFT STRIKE+ on it reads back with SWIFT STRIKE in its place")
+	check(Components.current_id(Components.part_for_code(8)) == "DASHSLASH",
+		"and the number SWIFT STRIKE+ had reads as SWIFT STRIKE")
 
 	# --- taking a board on -------------------------------------------------
 	# The grid belongs to the workbench, not to the build drawn on it, and a

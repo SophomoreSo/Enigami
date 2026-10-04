@@ -82,6 +82,8 @@ func _process(delta: float) -> void:
 	_update_status()
 	_burn_sparks(delta)
 	_stun_stars(delta)
+	_wet_drips(delta)
+	_frost_glints(delta)
 	queue_redraw()
 
 ## Whether this actor's art has an animation of that name. The atlas characters
@@ -122,12 +124,17 @@ func _update_status() -> void:
 	if _mat == null:
 		return
 	var t := tint
+	if actor.wet_time > 0.0:
+		t = t.lerp(Style.ELEMENT_COLOR["WATER"], 0.3)
 	if actor.chill_time > 0.0:
 		t = t.lerp(Color(0.45, 0.8, 1.0), 0.5)
 	if actor.burn_time > 0.0:
 		t = t.lerp(Color(1.0, 0.45, 0.2), 0.4)
-	# Stunned is dulled: the colour goes out of it while it stands there.
-	if actor.stunned():
+	# Frozen is ice all over; stunned is dulled: the colour goes out of it
+	# while it stands there.
+	if actor.frozen():
+		t = t.lerp(Style.FROZEN_TINT, 0.75)
+	elif actor.stunned():
 		t = t.lerp(Color(0.6, 0.6, 0.62), 0.45)
 	_mat.set_shader_parameter("tint", t)
 	_mat.set_shader_parameter("flash", clampf(status_flash(), 0.0, 1.0))
@@ -152,9 +159,36 @@ func _burn_sparks(delta: float) -> void:
 var _star: float = 0.0
 var _star_turn: float = 0.0
 
-## Stars going round over the head of whatever is stunned, one at a time.
+var _drip: float = 0.0
+
+## Drops falling off whatever is wet, now and then.
+func _wet_drips(delta: float) -> void:
+	if actor.wet_time <= 0.0:
+		return
+	_drip -= delta
+	if _drip > 0.0:
+		return
+	_drip = 0.22
+	Fx.burst(actor.global_position + Vector2(randf_range(-actor.body_size.x, actor.body_size.x) * 0.4,
+		actor.body_size.y * 0.3), Style.ELEMENT_COLOR["WATER"], 1, 12.0)
+
+var _glint: float = 0.0
+
+## Frost catching the light on whatever is frozen solid.
+func _frost_glints(delta: float) -> void:
+	if not actor.frozen():
+		return
+	_glint -= delta
+	if _glint > 0.0:
+		return
+	_glint = 0.15
+	var at := Vector2(randf_range(-0.5, 0.5) * actor.body_size.x, randf_range(-0.5, 0.5) * actor.body_size.y)
+	Fx.burst(actor.global_position + at, Style.FROZEN_TINT, 1, 8.0)
+
+## Stars going round over the head of whatever is stunned, one at a time. One
+## frozen solid has frost on it instead (`_frost_glints`).
 func _stun_stars(delta: float) -> void:
-	if not actor.stunned():
+	if not actor.stunned() or actor.frozen():
 		return
 	_star -= delta
 	if _star > 0.0:

@@ -117,7 +117,8 @@ func _ready() -> void:
 		if e.global_position.distance_to(p.global_position) < nearest.global_position.distance_to(p.global_position):
 			nearest = e
 	var cut := Weapons.base_payload("GUN")
-	cut.form = "DASHSLASH_AUTO"
+	cut.form = "DASHSLASH"
+	cut.auto_aim = 1
 	Attacks.spawn(cut, {"attacker": p, "room": room, "team": 0, "aim": Vector2.RIGHT,
 		"origin": p.global_position})
 	await settle()

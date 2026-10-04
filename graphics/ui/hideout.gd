@@ -38,8 +38,9 @@ signal weapon_changed(weapon: String)
 const COL_WEAPONS := 320.0
 const COL_FACILITIES := 348.0
 ## The least a weapon's plate is across on the rack in mobile mode, where they
-## stand in a row: three to a page's width, and a word's room in each.
-const RACK_PLATE := 280.0
+## stand in a row: four to a page's width — every weapon there is, the shovel
+## among them — and a word's room in each.
+const RACK_PLATE := 208.0
 
 var weapon_id: String = ""
 ## Which of the two columns this screen is. "" builds both under a header and

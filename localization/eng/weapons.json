@@ -10,5 +10,9 @@
 	"ROCK": {
 		"name": "Rock",
 		"desc": "One stone, thrown with everything built into it. It lands where it lands, and does nothing more until you pick it up."
+	},
+	"SHOVEL": {
+		"name": "Shovel",
+		"desc": "A spade for a blade: it swings like anything heavy, and it digs. Hold the use key on lit ground to bring up what is buried there — loudly."
 	}
 }

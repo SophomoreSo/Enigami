@@ -39,7 +39,10 @@ INSERT INTO codes (code, id) VALUES
 	(32, 'KNOCKBACK'),
 	(33, 'ZAP'),
 	(34, 'INVERT'), (35, 'STUN'),
-	(36, 'POSSESS');
+	(36, 'POSSESS'),
+	(37, 'AUTO_AIM'),
+	(38, 'HEALTH_DRAIN'),
+	(39, 'WATER');
 
 -- WIRE and BEND carried a flow one cell and did nothing else to it, which
 -- every part already does: any part takes flow on any side and sends it where
@@ -64,7 +67,13 @@ INSERT INTO codes (code, id) VALUES
 INSERT INTO retired_parts (id) VALUES ('WIRE'), ('BEND'), ('INPUT'), ('OUTPUT'), ('DASH'),
 	('SPLIT'), ('TEE'), ('REVERSE');
 
-INSERT INTO renamed_parts (old_id, new_id) VALUES ('AREA', 'EXPLODE');
+-- DASHSLASH_AUTO, SWIFT STRIKE+, was SWIFT STRIKE with AUTO-AIM built into it:
+-- it lunged at the nearest enemy and through. AUTO-AIM is a part now, and does
+-- that for any form, so SWIFT STRIKE+ is SWIFT STRIKE wherever it was — a
+-- board, a stash, a drop — and AUTO-AIM is placed beside it. It keeps its own
+-- number, since SWIFT STRIKE has one already; a code that says 8 reads as
+-- SWIFT STRIKE through the rename (`BoardCode.decode`).
+INSERT INTO renamed_parts (old_id, new_id) VALUES ('AREA', 'EXPLODE'), ('DASHSLASH_AUTO', 'DASHSLASH');
 
 
 -- ---- form: what the attack is ------------------------------------------------
@@ -78,11 +87,10 @@ INSERT INTO parts (id, name, category, heat, cells, tag, description) VALUES
 	('SLASH', 'SLASH', 'form', 0.5, 1, 'melee', 'An instant short arc at the aim direction. Fast, but reach is short.'),
 	('EXPLODE', 'EXPLODE', 'form', 1.2, 2, 'area', 'Damages everything inside a burst radius. Uses two board cells.'),
 	('DASHSLASH', 'SWIFT STRIKE', 'form', 1.0, 2, 'melee', 'Lunges along the aim direction, cutting everything on the path. Uses two cells.'),
-	('DASHSLASH_AUTO', 'SWIFT STRIKE+', 'form', 1.4, 2, 'melee', 'Seeks the nearest visible enemy and blinks through it, cutting the path. Uses two cells.'),
 	('ZAP', 'ZAP', 'form', 0.7, 1, 'ranged', 'A beam to where the cursor points, striking the instant it is cast. Stops at the first wall, and at the first enemy unless PIERCE carries it on.');
 
 INSERT INTO ports (part_id, side) VALUES
-	('PROJECTILE', 'E'), ('SLASH', 'E'), ('EXPLODE', 'E'), ('DASHSLASH', 'E'), ('DASHSLASH_AUTO', 'E'),
+	('PROJECTILE', 'E'), ('SLASH', 'E'), ('EXPLODE', 'E'), ('DASHSLASH', 'E'),
 	('ZAP', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
@@ -90,21 +98,24 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('SLASH', 0, 'form', 'set', 'SLASH'),
 	('EXPLODE', 0, 'form', 'set', 'EXPLODE'),
 	('DASHSLASH', 0, 'form', 'set', 'DASHSLASH'),
-	('DASHSLASH_AUTO', 0, 'form', 'set', 'DASHSLASH_AUTO'),
 	('ZAP', 0, 'form', 'set', 'ZAP');
 
 
 -- ---- element ----------------------------------------------------------------
 
+-- WATER is the third, and what it does is change the other two: a wet enemy
+-- freezes under ICE and is only dried by FIRE (`Actor.afflict`).
 INSERT INTO parts (id, name, category, heat, description) VALUES
-	('FIRE', 'FIRE', 'element', 0.4, 'Adds flame. Struck enemies burn for damage over time.'),
-	('ICE', 'ICE', 'element', 0.4, 'Adds frost. Struck enemies are slowed.');
+	('FIRE', 'FIRE', 'element', 0.4, 'Adds flame. Struck enemies burn for damage over time; a wet one is only dried.'),
+	('ICE', 'ICE', 'element', 0.4, 'Adds frost. Struck enemies are slowed; a wet one freezes solid for a moment.'),
+	('WATER', 'WATER', 'element', 0.4, 'Soaks what it strikes. A wet enemy freezes solid under ICE, and FIRE only dries it; water puts a burning enemy out.');
 
-INSERT INTO ports (part_id, side) VALUES ('FIRE', 'E'), ('ICE', 'E');
+INSERT INTO ports (part_id, side) VALUES ('FIRE', 'E'), ('ICE', 'E'), ('WATER', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('FIRE', 0, 'elements', 'include', 'FIRE'),
-	('ICE', 0, 'elements', 'include', 'ICE');
+	('ICE', 0, 'elements', 'include', 'ICE'),
+	('WATER', 0, 'elements', 'include', 'WATER');
 
 
 -- ---- stat ---------------------------------------------------------------------
@@ -162,13 +173,15 @@ INSERT INTO parts (id, name, category, heat, tag, stack_limit, description) VALU
 	('GRAVITY', 'GRAVITY', 'behavior', 0.7, NULL, NULL, 'The enemy struck is not knocked back but pinned, and every other enemy nearby is dragged onto it. Gathers a room into one place for whatever comes next. Each one stacked drags harder.'),
 	('KNOCKBACK', 'KNOCKBACK', 'behavior', 0.5, NULL, NULL, 'Hits throw the enemy back the way the attack was going. Buys room, but can put it out of reach. Each one stacked throws harder.'),
 	('MANA_DRAIN', 'MANA DRAIN', 'behavior', 0.5, NULL, NULL, 'Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting. Each one stacked drains more.'),
+	('HEALTH_DRAIN', 'HEALTH DRAIN', 'behavior', 0.6, NULL, NULL, 'Every enemy this attack hurts gives health back to the caster: a fifth of the damage dealt, and a fifth more for each one stacked. What keeps you standing is landing hits.'),
 	('STUN', 'STUN', 'behavior', 0.6, NULL, NULL, 'Struck enemies are stunned: for a moment they stand where they are and cannot attack. Each one stacked holds them longer. Once it wears off, an enemy shrugs off the next stun for a while.'),
-	('POSSESS', 'POSSESS', 'behavior', 0.9, NULL, NULL, 'Takes over the monster struck for 5 seconds, unharmed, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, left behind and still hunted. Bosses resist it.');
+	('POSSESS', 'POSSESS', 'behavior', 0.9, NULL, NULL, 'Takes over the monster struck for 5 seconds, unharmed, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, left behind and still hunted. Bosses resist it.'),
+	('AUTO_AIM', 'AUTO-AIM', 'behavior', 0.4, NULL, NULL, 'Aims the attack at the nearest enemy, wherever you point: bolts and beams go straight at it, a swing turns to it, and SWIFT STRIKE lunges all the way to it and through. Each one stacked looks further for one.');
 
 INSERT INTO ports (part_id, side) VALUES
 	('PIERCE', 'E'), ('BLINK', 'E'), ('HOMING', 'E'),
-	('GRAVITY', 'E'), ('KNOCKBACK', 'E'), ('MANA_DRAIN', 'E'),
-	('STUN', 'E'), ('POSSESS', 'E');
+	('GRAVITY', 'E'), ('KNOCKBACK', 'E'), ('MANA_DRAIN', 'E'), ('HEALTH_DRAIN', 'E'),
+	('STUN', 'E'), ('POSSESS', 'E'), ('AUTO_AIM', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('PIERCE', 0, 'pierce', 'add', 1),
@@ -177,8 +190,10 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('GRAVITY', 0, 'pull', 'add', 1),
 	('KNOCKBACK', 0, 'knockback', 'add', 1),
 	('MANA_DRAIN', 0, 'mana_drain', 'add', 1),
+	('HEALTH_DRAIN', 0, 'health_drain', 'add', 1),
 	('STUN', 0, 'stun', 'add', 0.8),
-	('POSSESS', 0, 'possess', 'add', 5);
+	('POSSESS', 0, 'possess', 'add', 5),
+	('AUTO_AIM', 0, 'auto_aim', 'add', 1);
 
 
 -- ---- flow ---------------------------------------------------------------------

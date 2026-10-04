@@ -35,6 +35,12 @@ const MAX_CARRIED := 3
 ## --- hideout property -------------------------------------------------------
 var stash: Dictionary = {}              ## component id -> count, safe at home
 var owned_weapons: Array[String] = []
+## Weapons every profile is handed, once: a new one starts with them, and one
+## saved before a weapon was in the game is given it the first time it loads
+## (`_hand_out`). Once only, so a weapon lost to a death since is not given back.
+const HANDED_OUT := ["SHOVEL"]
+## Which of them this profile has been handed.
+var handed_out: Array[String] = []
 ## weapon id -> the graph on it. A weapon is its graph: the weapon's own part
 ## on the root, and whatever the player has wired on after it. There is no
 ## skill without a weapon and no weapon without a graph, so a weapon lost on
@@ -159,6 +165,15 @@ func _migrate_legacy_save() -> void:
 	DirAccess.rename_absolute(ProjectSettings.globalize_path(SAVE_PATH),
 		ProjectSettings.globalize_path(slot_path(1)))
 
+## Gives a profile every weapon in `HANDED_OUT` it has not been handed yet.
+func _hand_out() -> void:
+	for w in HANDED_OUT:
+		if handed_out.has(w):
+			continue
+		handed_out.append(w)
+		if not owned_weapons.has(w):
+			owned_weapons.append(w)
+
 func _ensure_free_weapon() -> void:
 	if not owned_weapons.has(FREE_WEAPON):
 		owned_weapons.append(FREE_WEAPON)
@@ -180,7 +195,8 @@ func _new_profile() -> void:
 	records = {"raids": 0, "escapes": 0, "deaths": 0, "kills": 0, "best_haul": 0}
 	intro_seen = false
 	memory = {}
-	owned_weapons = ["ROCK", "SWORD", "GUN"]
+	owned_weapons = ["ROCK", "SWORD", "GUN", "SHOVEL"]
+	handed_out.assign(HANDED_OUT)
 	loadout = []
 	weapon_boards.clear()
 	scrap = 40
@@ -770,6 +786,7 @@ func save_game() -> void:
 		"saved_at": int(Time.get_unix_time_from_system()),
 		"stash": stash,
 		"weapons": owned_weapons,
+		"handed_out": handed_out,
 		"loadout": loadout,
 		"weapon_boards": _boards_out(weapon_boards),
 		"scrap": scrap,
@@ -823,6 +840,10 @@ func _read_save(path: String) -> bool:
 	owned_weapons.clear()
 	for w in parsed.get("weapons", ["SWORD"]):
 		owned_weapons.append(String(w))
+	handed_out.clear()
+	for w in parsed.get("handed_out", []):
+		handed_out.append(String(w))
+	_hand_out()
 	# A profile saved before there was a kit to pick has none, which reads as
 	# the rack left where it always was: on its first weapon.
 	loadout = []

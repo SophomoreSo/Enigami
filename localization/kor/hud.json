@@ -2,6 +2,8 @@
 	"health": "%d / %d",
 	"burning": "화상",
 	"chilled": "냉각",
+	"wet": "젖음",
+	"frozen": "얼어붙음",
 	"stunned": "기절",
 	"possessing": "%s 빙의 %d초",
 	"thrown": "%s (던짐)",
@@ -53,6 +55,11 @@
 		"swap_weapon": "무기 교체",
 		"dragon_test": "드래곤 테스트 >",
 		"jean_grey_test": "진 그레이 테스트 >",
+		"samples": "샘플 스킬",
+		"sample": {
+			"dragon": "적중할 때마다 돌진이 이어짐",
+			"jean_grey": "맞은 적에게 10초 빙의"
+		},
 		"spawn": "%s 소환",
 		"spawn_dummy": "허수아비 소환",
 		"clear": "비우기",
@@ -108,6 +115,7 @@
 		"kit_waiting": "당신의 장비는 쓰러진 자리에 그대로 있습니다. 지도에 그 방이 표시됩니다.",
 		"kit_back": "장비를 되찾았습니다 — %d개. 이제 들고 나가세요.",
 		"box": "보물 상자: %s",
-		"box_empty": "상자가 비어 있습니다."
+		"box_empty": "상자가 비어 있습니다.",
+		"dug": "파낸 것: %s"
 	}
 }

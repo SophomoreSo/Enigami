@@ -122,12 +122,20 @@ func _draw_health() -> void:
 		var burning := Loc.t("hud.burning")
 		_px.text(at, burning, Color(1, 0.5, 0.2))
 		at.x += PixelDraw.text_width(burning) + 16.0
-	if player.chill_time > 0.0:
-		var chilled := Loc.t("hud.chilled")
-		_px.text(at, chilled, Color(0.5, 0.85, 1))
-		at.x += PixelDraw.text_width(chilled) + 16.0
-	if player.stunned():
-		_px.text(at, Loc.t("hud.stunned"), Style.STUN_COLOR)
+	if player.wet_time > 0.0:
+		var wet := Loc.t("hud.wet")
+		_px.text(at, wet, Style.ELEMENT_COLOR["WATER"])
+		at.x += PixelDraw.text_width(wet) + 16.0
+	# Frozen solid says so in place of the chill and the stun it is both of.
+	if player.frozen():
+		_px.text(at, Loc.t("hud.frozen"), Style.FROZEN_TINT)
+	else:
+		if player.chill_time > 0.0:
+			var chilled := Loc.t("hud.chilled")
+			_px.text(at, chilled, Color(0.5, 0.85, 1))
+			at.x += PixelDraw.text_width(chilled) + 16.0
+		if player.stunned():
+			_px.text(at, Loc.t("hud.stunned"), Style.STUN_COLOR)
 
 ## What a weapon is called on the kit's line: its name, and in a kit of more
 ## than one the number of its slot before it — the key that draws it.

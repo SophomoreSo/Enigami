@@ -20,13 +20,14 @@ var damage: float = 10.0
 var size: float = 1.0
 var speed: float = 1.0
 var range_px: float = BASE_RANGE
-var form: String = ""              ## "", PROJECTILE, SLASH, EXPLODE, DASHSLASH, DASHSLASH_AUTO, ZAP
+var form: String = ""              ## "", PROJECTILE, SLASH, EXPLODE, DASHSLASH, ZAP
 var elements: Array[String] = []   ## FIRE / ICE
 var pierce: int = 0                ## extra targets an attack passes through
 ## The behaviours below are counts, not flags: 0 is without, and every part of
 ## the kind the flow passes adds one, so a board that stacks them does the same
 ## thing harder — a tighter turn, a stronger drag, a longer throw.
 var homing: int = 0                ## tracks the nearest enemy, and finds its way round walls
+var auto_aim: int = 0              ## goes at the nearest enemy, wherever it was aimed
 var blink: bool = false            ## teleport behind nearest enemy
 ## Drags nearby enemies into the impact instead of knocking the struck one back.
 ## Not to be confused with a thrown weapon's `gravity_shots`, which arcs the
@@ -35,6 +36,7 @@ var pull: int = 0
 var knockback: int = 0             ## the struck enemy is thrown on along the attack
 var shatter: int = 0               ## breaks the frost on a slowed enemy, for far more damage
 var mana_drain: int = 0            ## every connection pays the caster back
+var health_drain: int = 0          ## every hit that hurts heals the caster a share of it
 var stun: float = 0.0              ## seconds the struck enemy stands stunned
 ## Seconds the player's hands go into the monster struck (`Player.possess`).
 var possess: float = 0.0
@@ -75,11 +77,13 @@ func clone() -> Payload:
 	p.elements = elements.duplicate()
 	p.pierce = pierce
 	p.homing = homing
+	p.auto_aim = auto_aim
 	p.blink = blink
 	p.pull = pull
 	p.knockback = knockback
 	p.shatter = shatter
 	p.mana_drain = mana_drain
+	p.health_drain = health_drain
 	p.stun = stun
 	p.possess = possess
 	p.heal = heal

@@ -24,7 +24,8 @@ func frames(n: int) -> void:
 
 func link(next: Payload) -> Payload:
 	var p := Payload.new()
-	p.form = "DASHSLASH_AUTO"
+	p.form = "DASHSLASH"
+	p.auto_aim = 1
 	p.damage = 4.0
 	p.on_hit = next
 	return p
