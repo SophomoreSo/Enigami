@@ -1,97 +1,37 @@
 class_name SandboxPanel
-extends Control
+extends BenchDrawer
 
 ## The bench's own tools, in a drawer on the left edge of the screen: a weapon to
-## swap to, the dragon test, a monster of every kind, a dummy, and the ways to
-## clear the floor and to leave. It slides out on its tab and back in on it, and
-## starts in, so the bench opens on the fight.
+## swap to, the dragon test and the Jean Grey test, a monster of every kind, a
+## dummy, and the ways to clear the floor and to leave. What it is to be a
+## drawer — the tab, the slide, holding the player still while it is out — is
+## `BenchDrawer`'s; the sample skills are the drawer on the right.
 ##
 ## Everything else on the screen is the raid's own `Hud` over the same player —
 ## the bars, the slots, the armed skill's name — so a skill tried here reads the
 ## way it will when it is carried. The one readout that is the bench's is what
 ## the last three seconds of damage came to, under the HUD's corner.
 ##
-## While the drawer is out the bench holds the player still, the way any window
-## over the fight does. Its buttons are pressed with the mouse the player would
-## otherwise be aiming with, and on the console a thumb there would otherwise be
-## the movement stick, whose zone is the whole left of the screen.
-##
-## In mobile mode (`UiKit.mobile`) the drawer is a thumb's: its buttons stand
-## THUMB_PLATE tall with their words at a thumb's size, and the tab it is pulled
-## by is THUMB_TAB — at a desk's it is 3mm of a phone's glass wide, with the
-## movement stick's zone all round it. The buttons are a little under the kit's
-## own THUMB because there are twelve of them and the drawer hangs under the
-## HUD's corner: at this they still end above the bottom of a phone.
-##
-## It steps aside with the HUD while somebody talks to the player (`Hud.talking`):
-## the damage line and the tab are the HUD's kind of thing, and a tab that
-## answered then would pull the drawer out over the conversation, which nothing
-## would move on until the drawer went back in.
-##
-## The tab is hit-tested here in `_input` rather than being a Button, because it
-## has to answer while the drawer is in and the player is aiming: the game points
-## with the crosshair then, and a Button hears only the hidden system pointer,
-## which is somewhere else at any speed but 1.0; and the console takes a press
-## on the left of the screen for its stick before any Control is asked — but
-## after this, which is later in the tree.
-##
-## Drawn in UiKit's pixel look: the buttons are the kit's pixel ones, and
-## everything drawn here goes through `PixelDraw`.
+## In mobile mode its buttons are a little under the kit's own THUMB because
+## there are thirteen of them and the drawer hangs under the HUD's corner: at
+## this they still end above the bottom of a phone.
 
 ## The damage readout's baseline, under the HUD's corner: clear of the armed
 ## skill's name, and of the line under it when the weapon refuses that skill.
 const DPS_AT := Vector2(24, 246)
-## The drawer's top edge, and the room inside its frame.
+## The drawer's top edge.
 const TOP := 264.0
-const PAD := 8.0
-const GAP := 4
-## The tab it is pulled by, and the chevron on it, which points the way a press
-## will send the drawer.
-const TAB := Vector2(32, 64)
-## The same for a thumb, and how tall a button in the drawer stands for one.
-const THUMB_TAB := Vector2(64, 96)
-const THUMB_PLATE := 64.0
-const CHEVRON := ["#....", ".#...", "..#..", "...#.", "....#", "...#.", "..#..", ".#...", "#...."]
-## Seconds to slide all the way.
-const SLIDE := 0.16
 
-const FILL := Color(0.07, 0.08, 0.11, 0.85)
-const EDGE := Color(0.35, 0.5, 0.65, 0.6)
+func _top() -> float:
+	return TOP
 
-var sandbox: Sandbox
-var _px := PixelDraw.new(self)
-## The buttons, two to a row. Everything else here is drawn every frame and so
-## is already in whatever language is on; these are words written once, and a
-## switch has to build them again.
-var _grid: GridContainer = null
-## Whether the drawer is out, and how far it has got there: 0 in, 1 out.
-var _out: bool = false
-var _slide: float = 0.0
-var _tab_hover: bool = false
-## Whether the buttons were built for a thumb. They are built again when the
-## mode is thrown, which the pause menu's controls page does over the bench.
-var _thumb: bool = false
-## How much of it is on the screen: 1, or 0 once it has stepped aside for a
-## conversation, in the HUD's time (`Hud.STEP_ASIDE`).
-var shown: float = 1.0
+func _columns() -> int:
+	return 2
 
-func _ready() -> void:
-	UiKit.fill_screen(self)
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_build_buttons()
-	Loc.language_changed.connect(func(_l: String) -> void: _build_buttons())
+func _drawer_name() -> String:
+	return "tools"
 
-func _build_buttons() -> void:
-	_thumb = UiKit.mobile()
-	if _grid != null and is_instance_valid(_grid):
-		remove_child(_grid)
-		_grid.queue_free()
-	_grid = GridContainer.new()
-	_grid.columns = 2
-	_grid.add_theme_constant_override("h_separation", GAP)
-	_grid.add_theme_constant_override("v_separation", GAP)
-	add_child(_grid)
+func _fill() -> void:
 	_add(Loc.t("hud.sandbox.swap_weapon"), UiKit.ACCENT, func() -> void: sandbox.cycle_weapon())
 	_add(Loc.t("hud.sandbox.dragon_test"), UiKit.ACCENT, func() -> void: sandbox.open_dragon_test())
 	_add(Loc.t("hud.sandbox.jean_grey_test"), UiKit.ACCENT, func() -> void: sandbox.open_jean_grey_test())
@@ -101,116 +41,6 @@ func _build_buttons() -> void:
 	_add(Loc.t("hud.sandbox.spawn_dummy"), UiKit.GOOD, func() -> void: sandbox.spawn_dummy())
 	_add(Loc.t("hud.sandbox.clear"), UiKit.BAD, func() -> void: sandbox.clear_monsters())
 	_add(Loc.t("hud.sandbox.leave"), UiKit.ACCENT, func() -> void: sandbox.leave())
-	# Both columns as wide as the widest button, so the drawer is a block and
-	# not a ragged edge.
-	var widest := 0.0
-	for b in _grid.get_children():
-		widest = maxf(widest, (b as Control).get_combined_minimum_size().x)
-	for b in _grid.get_children():
-		(b as Control).custom_minimum_size.x = widest
-	_place()
 
-func _add(text: String, accent: Color, press: Callable) -> void:
-	var b := UiKit.overlay_button(text, accent, true)
-	if _thumb:
-		b.custom_minimum_size.y = THUMB_PLATE
-		# The kit's thumb buttons pass a press on, for a page to be dragged by.
-		# There is no page here: the drawer lies over the game, and a press on
-		# one of its buttons is that button's and nobody else's.
-		b.mouse_filter = Control.MOUSE_FILTER_STOP
-	b.pressed.connect(press)
-	_grid.add_child(b)
-
-## Pulls the drawer out or pushes it back in. The bench holds the player still
-## for as long as it is out.
-func set_out(out: bool) -> void:
-	if out == _out:
-		return
-	_out = out
-	sandbox.set_tools_open(out)
-	Audio.play("ui")
-
-func is_out() -> bool:
-	return _out
-
-## The drawer where it stands this frame: all of its width off the left edge
-## when it is in, none of it when it is out, and on the grid in between.
-func drawer_rect() -> Rect2:
-	var px := PixelDraw.PX
-	var extent := ((_grid.get_combined_minimum_size() + Vector2.ONE * PAD * 2.0) / px).ceil() * px
-	var shift := floorf(-extent.x * (1.0 - smoothstep(0.0, 1.0, _slide)) / px) * px
-	return Rect2(Vector2(shift, TOP), extent)
-
-## On the drawer's right edge, sharing its border, so it comes and goes with it
-## and is all that is left on the screen once the drawer is in.
-func tab_rect() -> Rect2:
-	return Rect2(Vector2(drawer_rect().end.x - PixelDraw.PX, TOP), THUMB_TAB if UiKit.mobile() else TAB)
-
-## Off the screen with the drawer while it is in, where nothing can press it
-## and, since no button here takes focus, no key can reach it either.
-func _place() -> void:
-	_grid.position = drawer_rect().position + Vector2.ONE * PAD
-
-func _process(delta: float) -> void:
-	UiKit.sync_screen(self)
-	if _thumb != UiKit.mobile():
-		_build_buttons()
-	_slide = move_toward(_slide, 1.0 if _out else 0.0, delta / SLIDE)
-	_place()
-	# The tab is the person's to press, so it lights under their pointer: the
-	# crosshair while their hand is moving it, the system pointer otherwise —
-	# a window, or the computer having the crosshair (`Pointer.hand_point`).
-	_tab_hover = tab_rect().has_point(Pointer.hand_point())
-	shown = move_toward(shown, 0.0 if talking() else 1.0, delta / Hud.STEP_ASIDE)
-	modulate.a = shown
-	queue_redraw()
-
-## Whether somebody is talking to the bench's player in the box — see `Hud.talking`.
-func talking() -> bool:
-	return sandbox != null and is_instance_valid(sandbox) and sandbox.player != null \
-		and is_instance_valid(sandbox.player) and sandbox.player.talk_locked
-
-func _input(event: InputEvent) -> void:
-	if not is_visible_in_tree() or talking():
-		return
-	var at := Vector2.INF
-	var press := false
-	var click := event as InputEventMouseButton
-	var touch := event as InputEventScreenTouch
-	if click != null and click.button_index == MOUSE_BUTTON_LEFT:
-		# While the game is pointing, a click lands where the crosshair is, not
-		# where the hidden system pointer is.
-		at = Pointer.point if Input.mouse_mode == Input.MOUSE_MODE_HIDDEN else click.position
-		# The system hands a touch over as a click as well: the touch is the press.
-		press = click.pressed and click.device != InputEvent.DEVICE_ID_EMULATION
-	elif touch != null:
-		at = touch.position
-		press = touch.pressed
-	else:
-		return
-	if not tab_rect().has_point(at):
-		return
-	get_viewport().set_input_as_handled()
-	if press:
-		set_out(not _out)
-
-## ESC puts the drawer away, the way it closes every other window here, before
-## it would pause the bench behind it.
-func _unhandled_input(event: InputEvent) -> void:
-	if _out and is_visible_in_tree() and event.is_action_pressed("ui_cancel"):
-		set_out(false)
-		get_viewport().set_input_as_handled()
-
-func _draw() -> void:
-	if sandbox == null or not is_instance_valid(sandbox) or shown <= 0.0:
-		return
+func _draw_more() -> void:
 	_px.text(DPS_AT, Loc.t("hud.sandbox.dps", [sandbox.dps()]), UiKit.GOOD)
-	var d := drawer_rect()
-	if d.end.x > 0.0:
-		_px.rect(d, FILL)
-		_px.frame(d, EDGE)
-	var t := tab_rect()
-	_px.rect(t, Color(0.12, 0.16, 0.21, 0.9) if _tab_hover else FILL)
-	_px.frame(t, UiKit.ACCENT if _tab_hover else EDGE)
-	_px.icon_centered(t.get_center(), PixelDraw.turn(CHEVRON, 2) if _out else CHEVRON,
-		Color.WHITE if _tab_hover else UiKit.TEXT, 2 if UiKit.mobile() else 1)

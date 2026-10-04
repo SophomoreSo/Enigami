@@ -53,6 +53,11 @@
 		"swap_weapon": "무기 교체",
 		"dragon_test": "드래곤 테스트 >",
 		"jean_grey_test": "진 그레이 테스트 >",
+		"samples": "샘플 스킬",
+		"sample": {
+			"dragon": "적중할 때마다 돌진이 이어짐",
+			"jean_grey": "맞은 적에게 10초 빙의"
+		},
 		"spawn": "%s 소환",
 		"spawn_dummy": "허수아비 소환",
 		"clear": "비우기",

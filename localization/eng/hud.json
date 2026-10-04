@@ -53,6 +53,11 @@
 		"swap_weapon": "SWAP WEAPON",
 		"dragon_test": "DRAGON TEST >",
 		"jean_grey_test": "JEAN GREY TEST >",
+		"samples": "SAMPLE SKILLS",
+		"sample": {
+			"dragon": "chains a lunge on every hit",
+			"jean_grey": "possesses what it hits, 10s"
+		},
 		"spawn": "spawn %s",
 		"spawn_dummy": "spawn dummy",
 		"clear": "clear",

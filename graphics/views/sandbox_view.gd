@@ -1,8 +1,9 @@
 class_name SandboxView
 extends Node2D
 
-## The bench's screen: camera, the raid's own HUD, the drawer of bench tools,
-## and the same assembly overlay the raid uses.
+## The bench's screen: camera, the raid's own HUD, the drawer of bench tools on
+## the left and of sample skills on the right, and the same assembly overlay
+## the raid uses.
 
 var sandbox: Sandbox
 var camera: Camera2D
@@ -10,6 +11,7 @@ var pixels: PixelCamera
 var hud: Hud
 var editor: SkillEditor
 var panel: SandboxPanel
+var samples: SampleSkillsPanel
 
 func _ready() -> void:
 	sandbox = get_parent() as Sandbox
@@ -37,6 +39,9 @@ func _ready() -> void:
 	panel = SandboxPanel.new()
 	panel.sandbox = sandbox
 	layer.add_child(panel)
+	samples = SampleSkillsPanel.new()
+	samples.sandbox = sandbox
+	layer.add_child(samples)
 
 	sandbox.editing_changed.connect(_on_editing)
 
@@ -68,3 +73,4 @@ func _on_editing(on: bool) -> void:
 	else:
 		editor.visible = false
 	panel.visible = not on
+	samples.visible = not on
