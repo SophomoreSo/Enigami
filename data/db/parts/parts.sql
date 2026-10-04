@@ -184,7 +184,7 @@ INSERT INTO parts (id, name, category, heat, description) VALUES
 	('HEALTH_DRAIN', 'HEALTH DRAIN', 'behavior', 0.6, 'Every enemy this attack hurts gives health back to the caster: a fifth of the damage dealt, and a fifth more for each one stacked. What keeps you standing is landing hits.'),
 	('STUN', 'STUN', 'behavior', 0.6, 'Struck enemies are stunned: for a moment they stand where they are and cannot attack. Each one stacked holds them longer. Once it wears off, an enemy shrugs off the next stun for a while.'),
 	('POSSESS', 'POSSESS', 'behavior', 0.9, 'Takes over the monster struck for 5 seconds, unharmed, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, left behind and still hunted. Bosses resist it.'),
-	('AUTO_AIM', 'AUTO-AIM', 'behavior', 0.4, 'Aims the attack at the nearest enemy, wherever you point: bolts and beams go straight at it, as far as they reach, a swing turns to it, and SWIFT STRIKE lunges to it and through. Each one stacked looks further for one.');
+	('AUTO_AIM', 'AUTO-AIM', 'behavior', 0.4, 'Aims the attack at the nearest enemy, wherever you point: bolts and beams go straight at it, as far as they reach, a swing turns to it, and SWIFT STRIKE lunges to it and through, as far as it lunges. Each one stacked looks further for one.');
 
 INSERT INTO ports (part_id, side) VALUES
 	('PIERCE', 'E'), ('HOMING', 'E'),

@@ -36,7 +36,14 @@ static func auto_aim_sight(p: Payload) -> float:
 	var sight := AUTO_AIM_SIGHT * (1.0 + AUTO_AIM_FURTHER * float(maxi(p.auto_aim - 1, 0)))
 	if p.form == "PROJECTILE" or p.form == "ZAP":
 		sight = maxf(sight, p.range_px)
+	elif p.form == "DASHSLASH":
+		sight = maxf(sight, dash_slash_reach(p))
 	return sight
+
+## How far SWIFT STRIKE off `p` lunges when it is aimed all the way: its own
+## reach, carried further by SIZE and RANGE (`Payload.lunge`).
+static func dash_slash_reach(p: Payload) -> float:
+	return DASH_SLASH_REACH * p.size * p.lunge
 
 static func container() -> Node:
 	return Arena.current()
@@ -98,8 +105,8 @@ const DASH_SLASH_REACH := 85.0
 ## AUTO-AIM. How far one looks for something to go at, and how much further
 ## each one stacked looks: the first looks as far as SWIFT STRIKE+ used to,
 ## which was SWIFT STRIKE with this built in. A bolt or a beam looks as far as
-## it carries, if that is further, so one with RANGE on it goes at anything it
-## can reach (`auto_aim_sight`).
+## it carries, and a lunge as far as it lunges, if that is further, so one with
+## RANGE on it goes at anything it can reach (`auto_aim_sight`).
 const AUTO_AIM_SIGHT := 520.0
 const AUTO_AIM_FURTHER := 0.5
 
@@ -375,7 +382,7 @@ static func _dash_slash(p: Payload, aim: Vector2, team: int, atk: Actor, room, f
 	if room != null and not is_instance_valid(room):
 		room = null
 	var start: Vector2 = atk.global_position
-	var reach := DASH_SLASH_REACH * p.size * p.lunge * far
+	var reach := dash_slash_reach(p) * far
 	var dest: Vector2
 	if p.auto_aim > 0:
 		# AUTO-AIM: all the way to the nearest enemy and through it, however

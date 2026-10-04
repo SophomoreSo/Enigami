@@ -85,7 +85,7 @@
 	},
 	"AUTO_AIM": {
 		"name": "AUTO-AIM",
-		"desc": "Aims the attack at the nearest enemy, wherever you point: bolts and beams go straight at it, as far as they reach, a swing turns to it, and SWIFT STRIKE lunges to it and through. Each one stacked looks further for one."
+		"desc": "Aims the attack at the nearest enemy, wherever you point: bolts and beams go straight at it, as far as they reach, a swing turns to it, and SWIFT STRIKE lunges to it and through, as far as it lunges. Each one stacked looks further for one."
 	},
 	"DUPLICATE": {
 		"name": "DUPLICATE x3",
