@@ -473,11 +473,11 @@ func _build_pause_menu() -> void:
 	pause_main = frame
 	frame.head.add_child(_pause_heading(Menus.name_for("pause"), _unpause))
 	frame.head.add_child(UiKit.hline(true))
-	# The two doors, and the ways out of the menu gathered at the bottom and
-	# ordered by what they cost: back into the game, out to the title, and last
-	# the one that forfeits a raid — its own act and its own colour, so it stays
-	# its own button. Which is which, and what each says, is the `pause` menu's
-	# rows; the three ways to the title are kept by name, since `_pause` shows
+	# BACK TO GAME on top, then the two doors, and the ways out to the title
+	# gathered at the bottom and ordered by what they cost — the one that
+	# forfeits a raid last, its own act and its own colour, so it stays its own
+	# button. Which is which, and what each says, is the `pause` menu's rows;
+	# the three ways to the title are kept by name, since `_pause` shows
 	# whichever of them apply.
 	#
 	# Everywhere but a raid, leaving is leaving, and the button says where it

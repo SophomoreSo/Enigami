@@ -537,7 +537,7 @@ INSERT INTO menu_items (menu_id, id, position, text, opens, exit) VALUES
 | `menu_items.position` | The order the items are shown in. |
 | `menu_items.text` | What the item says. Leave it out for a door, which says the name of the menu it opens — so GENERAL SETTINGS is written once, as that menu's name, and every door to it says it. The build refuses one with neither. |
 | `menu_items.opens` | The menu it leads to. The screen knows which page each menu is, and a door to a menu it has no page for is reported, not guessed at. Written before the item, since a door with no text asks for the name as it goes in. |
-| `menu_items.exit` | 1: a way out of the menu — BACK, BACK TO GAME, MAIN MENU — which the screen gathers at the foot of the page, pinned, however long the rows above it grow. |
+| `menu_items.exit` | 1: a way out of the menu — BACK, MAIN MENU — which the screen gathers at the foot of the page, pinned, however long the rows above it grow. BACK TO GAME is left out of them on purpose: it heads PAUSED instead, where the eye lands first. |
 
 The two pages behind the settings, `general` and `controls`, are shown by
 the title and by PAUSED alike, from the same rows: each carries its own rows

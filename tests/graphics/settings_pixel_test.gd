@@ -371,8 +371,9 @@ func _ready() -> void:
 		"and BACK leads to PAUSED again")
 
 	# --- the way out, and the arrow ------------------------------------------
-	# BACK TO GAME sits directly above MAIN MENU, and every page carries an
-	# arrow in its top-left corner that means one level up.
+	# BACK TO GAME heads PAUSED, over the two doors, with the way to the menu
+	# left at the foot; and every page carries an arrow in its top-left corner
+	# that means one level up.
 	var back_to_game := button_named(game.pause_main, Loc.t("menu.pause.resume"))
 	# By which one the shell shows rather than by what it says: in a raid and out
 	# of one, the way to the menu is MAIN MENU alike.
@@ -380,11 +381,14 @@ func _ready() -> void:
 	check(back_to_game != null and to_menu != null,
 		"PAUSED offers '%s' and the way to the menu" % Loc.t("menu.pause.resume"))
 	if back_to_game != null and to_menu != null:
-		var column := back_to_game.get_parent()
-		check(to_menu.get_parent() == column
-				and to_menu.get_index() == back_to_game.get_index() + 1,
-			"with the way out of the menu directly under it (%d, %d)"
-				% [back_to_game.get_index(), to_menu.get_index()])
+		var rows := (game.pause_main as UiKit.ScreenFrame).rows
+		var first_door := button_named(game.pause_main, Menus.name_for("general"))
+		check(back_to_game.get_parent() == rows and back_to_game.get_index() == 0
+				and first_door != null and first_door.get_parent() == rows
+				and first_door.get_index() > back_to_game.get_index(),
+			"at the top, over the two doors (%d)" % back_to_game.get_index())
+		check(to_menu.get_parent() == (game.pause_main as UiKit.ScreenFrame).foot,
+			"and the way to the menu stays at the foot")
 	for page in [game.pause_main, game.pause_general, game.pause_controls]:
 		check(button_named(page, Loc.t("menu.pause.arrow")) != null,
 			"every pause page carries the arrow in its corner")
