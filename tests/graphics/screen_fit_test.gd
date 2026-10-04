@@ -209,8 +209,8 @@ func _the_workbench() -> void:
 	check(absf(left - right) <= float(UiKit.PIXEL) * 2.0,
 		"the assembly screen stands in the middle (%.0f clear on the left, %.0f on the right)"
 			% [left, right])
-	check(is_equal_approx(ed._close_rect().end.x, s.x - 16.0),
-		"and CLOSE stays in the corner (%.0f of %.0f)" % [ed._close_rect().end.x, s.x])
+	check(ed._close_rect().position == SkillEditor.CORNER,
+		"and the X stays in the screen's own corner (%s)" % str(ed._close_rect().position))
 	sb.set_editing(false)
 	await frames(4)
 

@@ -16,14 +16,16 @@ extends RefCounted
 ## always the letter.
 ##
 ## The face has no small letters either — it draws them as capitals — so a code
-## on screen does not show its own case. That is why COPY is the way a code
-## leaves the sheet; what matters here is that `hBw4k` and `HBW4K` are two
-## different boards, whatever they look like.
+## on screen would not show its own case. That is why a code leaves the game by
+## COPY and comes back by PASTE, and is never put on screen to be read off; what
+## matters here is that `hBw4k` and `HBW4K` are two different boards, whatever
+## they look like.
 ##
 ## Nothing goes between the characters — no dashes, no spaces. A code is shown
 ## and copied as one unbroken run, which keeps it exactly as long as it has to
 ## be, makes it a single word to a double-click in a chat window, and means the
-## code on the sheet is character for character the code on the clipboard.
+## code COPY puts on the clipboard is character for character the one PASTE
+## reads back off it.
 ##
 ## A code carries the circuit and only the circuit. Not the skill's name, which
 ## travels in the message beside it. Not the grid either, as a *rule*: a board
@@ -115,10 +117,10 @@ const CHECK_MOD := 61
 ## are the same news to the player.
 ##
 ## These are the names of the refusals, not the lines: what one actually says
-## is in `localization/<lang>/editor.json` under `code_error`, and the sheet
-## that shows a code spells it (`ShareCodePanel.error_text`), so a code typed
-## wrong is complained about in the language it was typed in — and the circuit
-## names no word, in any language.
+## is in `localization/<lang>/editor.json` under `code_error`, and the editor
+## a code is pasted into spells it (`SkillEditor.code_error_text`), so a code
+## pasted wrong is complained about in the language it was pasted in — and the
+## circuit names no word, in any language.
 const MISTYPED := "mistyped"
 const TRUNCATED := "truncated"
 const IMPOSSIBLE := "impossible"

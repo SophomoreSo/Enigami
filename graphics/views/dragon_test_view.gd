@@ -76,7 +76,6 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_editing(on: bool) -> void:
 	if on:
-		editor.weapon_id = screen.player.weapon_id
 		editor.configure(screen.board, screen.inventory, true, screen.player.runner)
 		editor.visible = true
 		editor.grab_focus()

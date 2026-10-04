@@ -78,7 +78,6 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_editing(on: bool) -> void:
 	if on:
-		editor.weapon_id = raid.player.weapon_id
 		editor.configure(GameState.raid_board, GameState.raid_bag, false, raid.player.runner)
 		editor.visible = true
 		editor.grab_focus()

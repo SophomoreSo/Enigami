@@ -28,10 +28,11 @@ extends Control
 ## forms, elements, stats and the rest — each block named down the gutter beside
 ## it in the category's own colour, which is the colour its parts wear.
 ##
-## CODE, in the header, drops the share sheet (`ShareCodePanel`) over all of it:
-## the board on the grid written out as a code, and a field to build somebody
-## else's board from theirs. What a pasted code costs is decided here — see
-## `_build_from_code`.
+## There is no header over it: the board and the parts have the screen, with an
+## X in its top-left corner that closes it, and COPY and PASTE under the board.
+## COPY puts the board on the clipboard as a code, and PASTE builds the board
+## out of the code on the clipboard. What a pasted code costs is decided here —
+## see `_paste_code`.
 ##
 ## **In mobile mode it is laid out for a thumb** (`UiKit.mobile`), and it is a
 ## different screen rather than this one drawn bigger — see "for a thumb" below.
@@ -83,18 +84,19 @@ const NOWHERE := Vector2i(-1, -1)
 ## --- for a thumb --------------------------------------------------------------
 ## Mobile mode's screen, top to bottom and left to right:
 ##
-##   * a header THUMB_HEADER tall — the graph's name on a plate, then CODE and
-##     CLOSE, each THUMB_BTN tall, in the corner the console's own screens stand
-##     in;
-##   * the board, in all the room left of the parts, its cells as big as that
-##     room lets them be: at a desk a cell is 50 across whatever the grid, and
-##     here a first workbench's seven by five stands at 90, a thumb's width;
-##   * down the right, THUMB_PARTS wide, the parts: a tab a category, and beside
-##     them the picked category's parts, a plate each, with the name written at
-##     the size a thumb's page writes at. A block's plates share the column's
-##     height between them, so nothing scrolls — a list that scrolled under a
-##     thumb dragging a part out of it would be asking the same gesture to mean
-##     two things;
+##   * in the top-left corner the X that closes it, THUMB_BTN square, and beside
+##     it, for the moment one lasts, a refusal or what COPY and PASTE did, on a
+##     plate of its own;
+##   * the board, in the room under the X and left of the parts, its cells as big
+##     as that room lets them be: at a desk a cell is 50 across whatever the
+##     grid, and here a first workbench's seven by five stands at 90, a thumb's
+##     width. Under it, COPY and PASTE, each THUMB_BTN tall;
+##   * down the right, THUMB_PARTS wide and the screen's height, the parts: a
+##     tab a category, and beside them the picked category's parts, a plate
+##     each, with the name written at the size a thumb's page writes at. A
+##     block's plates share the column's height between them, so nothing
+##     scrolls — a list that scrolled under a thumb dragging a part out of it
+##     would be asking the same gesture to mean two things;
 ##   * under the parts, TURN and REMOVE.
 ##
 ## What a thumb does there: a touch on a part's plate takes it in hand, and a
@@ -104,10 +106,10 @@ const NOWHERE := Vector2i(-1, -1)
 ## the bag. A part dragged is moved, from the plate or across the board, and
 ## one dragged back onto the parts is put away, as at a desk.
 const THUMB_EDGE := 16.0
-const THUMB_HEADER := 80.0
 const THUMB_BTN := 64.0
-const THUMB_CLOSE_W := 184.0
-const THUMB_SHARE_W := 136.0
+## The least a thumb's COPY or PASTE is across: a word wider than that at a
+## thumb's size widens its own.
+const THUMB_COPY_W := 136.0
 ## The parts' column, the tabs down its left, and the room between things in it.
 const THUMB_PARTS := 560.0
 const THUMB_TAB_W := 132.0
@@ -127,14 +129,14 @@ var board: SkillBoard = null
 var inventory: Dictionary = {}       ## component id -> count (the live pool)
 var unlimited: bool = false          ## sandbox
 var runner: SkillRunner = null       ## the graph running live, for the flow display
-var weapon_id: String = "SWORD"
 
 var selected: String = ""
 var rotation_step: int = 0
 var _hover_cell: Vector2i = Vector2i(-1, -1)
 var _hover_pal: int = -1
 var _hover_close: bool = false
-var _hover_share: bool = false
+var _hover_copy: bool = false
+var _hover_paste: bool = false
 ## Mobile mode's own things to press: a category's tab, by index, and the two
 ## plates under the parts.
 var _hover_tab: int = -1
@@ -189,6 +191,8 @@ var _way_out_col: Color = BREAK
 var _flow_time: float = 0.0
 var _message: String = ""
 var _message_time: float = 0.0
+## Whether the message is news rather than a refusal: what COPY and PASTE did.
+var _message_good: bool = false
 ## The palette, laid out once per width of screen: a row per part and a block
 ## per category, both drawn and hit-tested from the same rects. See
 ## `_build_palette`.
@@ -210,8 +214,6 @@ var _ports: Array = []               ## PORT turned to face each direction
 var _arrows: Array = []              ## ARROW likewise, for mobile mode's TURN
 ## The board drawn while the root is in hand. See `_shown_board`.
 var _lifted: SkillBoard = null
-## The share sheet, built the first time it is asked for and kept after that.
-var _share: ShareCodePanel = null
 var _px := PixelDraw.new(self)
 
 ## Whether the screen is laid out for a thumb: mobile mode.
@@ -237,28 +239,27 @@ func _layout_key() -> Array:
 		Vector2i(b.width, b.height) if b != null else Vector2i.ZERO, _tab]
 
 ## Where everything on mobile mode's screen stands, for a screen of this shape
-## and a grid of this size: `title`, `share` and `close` in the header; `column`,
-## the parts' whole column, with its `tabs`, the `plates` room beside them, and
-## `turn` and `remove` along its foot; and the board's `cell`, `origin` and
-## `frame`.
+## and a grid of this size: `close` in the top-left corner and `message` beside
+## it; `column`, the parts' whole column, with its `tabs`, the `plates` room
+## beside them, and `turn` and `remove` along its foot; the board's `cell`,
+## `origin` and `frame`; and `copy` and `paste` under it. COPY and PASTE are as
+## wide as their words, so the language is part of what this is worked out for.
 func _thumb_layout() -> Dictionary:
 	var b := current_board()
 	var grid := Vector2i(b.width, b.height) if b != null else Vector2i(7, 5)
 	var vp := get_viewport_rect().size
 	var groups := _pal_groups().size()
-	var key := [vp, grid, groups]
+	var key := [vp, grid, groups, Loc.language]
 	if not _thumb_rects.is_empty() and _thumb_key == key:
 		return _thumb_rects
 	_thumb_key = key
 	var l := {}
-	var top := (THUMB_HEADER - THUMB_BTN) * 0.5
-	l["close"] = Rect2(vp.x - THUMB_EDGE - THUMB_CLOSE_W, top, THUMB_CLOSE_W, THUMB_BTN)
-	l["share"] = Rect2((l["close"] as Rect2).position.x - 8.0 - THUMB_SHARE_W, top, THUMB_SHARE_W, THUMB_BTN)
-	l["title"] = Rect2(THUMB_EDGE, top, (l["share"] as Rect2).position.x - 16.0 - THUMB_EDGE, THUMB_BTN)
-
-	var under := THUMB_HEADER + 12.0
-	var column := Rect2(vp.x - THUMB_EDGE - THUMB_PARTS, under, THUMB_PARTS, vp.y - THUMB_EDGE - under)
+	var corner := Rect2(THUMB_EDGE, THUMB_EDGE, THUMB_BTN, THUMB_BTN)
+	l["close"] = corner
+	var column := Rect2(vp.x - THUMB_EDGE - THUMB_PARTS, THUMB_EDGE, THUMB_PARTS, vp.y - THUMB_EDGE * 2.0)
 	l["column"] = column
+	l["message"] = Rect2(corner.end.x + 12.0, THUMB_EDGE,
+		column.position.x - 16.0 - corner.end.x - 12.0, THUMB_BTN)
 	var acts := column.end.y - THUMB_ACT
 	var half := floorf((column.size.x - 8.0) * 0.5 / PX) * PX
 	l["turn"] = Rect2(column.position.x, acts, half, THUMB_ACT)
@@ -275,19 +276,32 @@ func _thumb_layout() -> Dictionary:
 	l["plates"] = Rect2(column.position.x + THUMB_TAB_W + 8.0, column.position.y,
 		column.size.x - THUMB_TAB_W - 8.0, room)
 
-	# The board has the rest: as big as fits, a cell an odd number of PIXELs so
-	# an icon still lands in the middle of one (see `_cell_center`).
-	var space := Rect2(THUMB_EDGE, under, column.position.x - 16.0 - THUMB_EDGE, vp.y - THUMB_EDGE - under)
+	# The board has the rest, under the X and over a row for COPY and PASTE: as
+	# big as fits, a cell an odd number of PIXELs so an icon still lands in the
+	# middle of one (see `_cell_center`).
+	var under := corner.end.y + 12.0
+	var space := Rect2(THUMB_EDGE, under, column.position.x - 16.0 - THUMB_EDGE,
+		vp.y - THUMB_EDGE - THUMB_BTN - 12.0 - under)
 	var most := mini(int((space.size.x - 20.0) / float(grid.x)), int((space.size.y - 20.0) / float(grid.y)))
 	most = clampi(most, THUMB_CELL_LEAST, THUMB_CELL_MOST)
 	var c := most - posmod(most - PX, PX * 2)
 	var across := Vector2(grid) * float(c)
-	var corner := _px.snap(space.position + (space.size - across - Vector2(20, 20)) * 0.5)
+	var at := _px.snap(space.position + (space.size - across - Vector2(20, 20)) * 0.5)
 	l["cell"] = float(c)
-	l["frame"] = Rect2(corner, across + Vector2(20, 20))
-	l["origin"] = corner + Vector2(10, 10)
+	l["frame"] = Rect2(at, across + Vector2(20, 20))
+	l["origin"] = at + Vector2(10, 10)
+	var row := Vector2(at.x, (l["frame"] as Rect2).end.y + 12.0)
+	l["copy"] = Rect2(row, Vector2(_thumb_copy_width(Loc.t("editor.share.copy")), THUMB_BTN))
+	l["paste"] = Rect2(Vector2((l["copy"] as Rect2).end.x + 8.0, row.y),
+		Vector2(_thumb_copy_width(Loc.t("editor.share.paste")), THUMB_BTN))
 	_thumb_rects = l
 	return l
+
+## How wide a thumb's COPY or PASTE is for `label`: THUMB_COPY_W, or the word at
+## a thumb's size with room either side of it, on the PIXEL grid.
+func _thumb_copy_width(label: String) -> float:
+	var ink := PixelDraw.ink_width(label, Loc.text_size(label, UiKit.THUMB_TEXT))
+	return maxf(THUMB_COPY_W, ceilf((ink + 48.0) / PX) * PX)
 
 ## How tall each of `n` plates stands to share `room` between them, THUMB_GAP
 ## apart: THUMB_PLATE where they fit at that, and less where they do not.
@@ -367,9 +381,6 @@ func configure(b: SkillBoard, inv: Dictionary, unlim: bool, r: SkillRunner = nul
 	_trace_cache = {}
 	_picked = NOWHERE
 	_tap = {}
-	# The hosts that keep an editor between openings call this every time they
-	# raise it: a share sheet left up would come back over a different board.
-	_close_share()
 
 func current_board() -> SkillBoard:
 	return board
@@ -417,16 +428,19 @@ func _input(event: InputEvent) -> void:
 		return
 	if not (event is InputEventKey) or not event.is_pressed() or event.is_echo():
 		return
-	# The share sheet takes the whole keyboard while it is up, its own ESC
-	# included: a key falling through it would turn a part or close the editor
-	# behind the sheet, and ESC would leave the sheet standing over nothing.
-	if _share_open():
-		_share.handle_key(event as InputEventKey)
+	var key := event as InputEventKey
+	# The clipboard's own keys are COPY and PASTE here, as they are everywhere.
+	if key.is_command_or_control_pressed():
+		match key.keycode:
+			KEY_C:
+				_copy()
+			KEY_V:
+				_paste()
+			_:
+				return
 		get_viewport().set_input_as_handled()
 		return
-	match (event as InputEventKey).keycode:
-		KEY_C:
-			_open_share()
+	match key.keycode:
 		KEY_R:
 			_rotate(CCW)
 		KEY_ESCAPE, KEY_TAB:
@@ -435,54 +449,73 @@ func _input(event: InputEvent) -> void:
 			return
 	get_viewport().set_input_as_handled()
 
-## The graph's name sits in the header's top row, with CODE and CLOSE.
-const TITLE_ORIGIN := Vector2(420, 14)
-const TITLE_H := 30.0
-const CLOSE_W := 100.0
-const SHARE_W := 92.0
+## At a desk the X is a square in the screen's own top-left corner, and COPY and
+## PASTE stand under the board, each as wide as its word and no narrower than
+## BTN_W.
+const CORNER := Vector2(16, 14)
+const CLOSE_SIDE := 30.0
+const BTN_H := 30.0
+const BTN_W := 92.0
 const BTN_GAP := 8.0
-
-## The room the name has: from where it starts to the buttons.
-func _title_rect() -> Rect2:
-	if thumb():
-		return _thumb_layout()["title"]
-	var origin := TITLE_ORIGIN + _inset()
-	return Rect2(origin, Vector2(_share_rect().position.x - 16.0 - origin.x, TITLE_H))
 
 ## How far the board, the palette and the tabs stand in from where they are
 ## written. They are laid out in DESIGN_W, and a screen wider than that — a
-## phone longer than 16:9 — has them in its middle, with the header still run
-## out to both edges and CODE and CLOSE still in the corner, where KIT, MAP and
-## MENU stand on the glass.
+## phone longer than 16:9 — has them in its middle, with the X still in the
+## screen's own corner.
 func _inset() -> Vector2:
 	var spare := maxf(get_viewport_rect().size.x - DESIGN_W, 0.0)
 	return Vector2(floorf(spare * 0.5 / PX) * PX, 0.0)
 
+## The X that closes the screen, in its top-left corner.
 func _close_rect() -> Rect2:
 	if thumb():
 		return _thumb_layout()["close"]
-	return Rect2(get_viewport_rect().size.x - 16.0 - CLOSE_W, 14.0, CLOSE_W, 30.0)
+	return Rect2(CORNER, Vector2(CLOSE_SIDE, CLOSE_SIDE))
 
-## Beside CLOSE, because a board is shared from the same place it is left.
-func _share_rect() -> Rect2:
+## COPY, under the board and level with its left edge: the board is what it
+## copies, and what PASTE beside it builds.
+func _copy_rect() -> Rect2:
 	if thumb():
-		return _thumb_layout()["share"]
-	return Rect2(_close_rect().position.x - BTN_GAP - SHARE_W, 14.0, SHARE_W, 30.0)
+		return _thumb_layout()["copy"]
+	var frame := _board_frame()
+	return Rect2(Vector2(frame.position.x, frame.end.y + BTN_GAP),
+		Vector2(_button_width(Loc.t("editor.share.copy")), BTN_H))
+
+func _paste_rect() -> Rect2:
+	if thumb():
+		return _thumb_layout()["paste"]
+	var copy := _copy_rect()
+	return Rect2(Vector2(copy.end.x + BTN_GAP, copy.position.y),
+		Vector2(_button_width(Loc.t("editor.share.paste")), BTN_H))
+
+## A desk's button for `label`: BTN_W, or the word with room either side of it.
+func _button_width(label: String) -> float:
+	return maxf(BTN_W, ceilf((PixelDraw.ink_width(label) + 40.0) / PX) * PX)
+
+## The frame round the board: ten clear of its cells on every side.
+func _board_frame() -> Rect2:
+	if thumb():
+		return _thumb_layout()["frame"]
+	var b := current_board()
+	var grid := Vector2(b.width, b.height) if b != null else Vector2(7, 5)
+	return Rect2(board_origin() - Vector2(10, 10), grid * cell_size() + Vector2(20, 20))
 
 func _clear_hover() -> void:
 	_hover_cell = Vector2i(-1, -1)
 	_hover_pal = -1
 	_hover_close = false
-	_hover_share = false
+	_hover_copy = false
+	_hover_paste = false
 	_hover_tab = -1
 	_hover_turn = false
 	_hover_remove = false
 
 func _update_hover(pos: Vector2) -> void:
 	_clear_hover()
-	_hover_share = _share_rect().has_point(pos)
 	_hover_close = _close_rect().has_point(pos)
-	if _hover_close or _hover_share:
+	_hover_copy = _copy_rect().has_point(pos)
+	_hover_paste = _paste_rect().has_point(pos)
+	if _hover_close or _hover_copy or _hover_paste:
 		return
 	if thumb():
 		var l := _thumb_layout()
@@ -593,8 +626,11 @@ func _press_left() -> void:
 		Audio.play("ui")
 		closed.emit()
 		return
-	if _hover_share:
-		_open_share()
+	if _hover_copy:
+		_copy()
+		return
+	if _hover_paste:
+		_paste()
 		return
 	if _hover_tab >= 0:
 		_show_tab(_hover_tab)
@@ -803,57 +839,79 @@ func _give(id: String) -> void:
 		return
 	GameState.return_component(id, inventory)
 
-func _notify(msg: String) -> void:
+## A line for the moment it lasts: a refusal, or with `good` the news of what
+## COPY or PASTE did.
+func _notify(msg: String, good: bool = false) -> void:
 	_message = msg
+	_message_good = good
 	_message_time = 2.2
 
 ## --- sharing ----------------------------------------------------------------
 ## A board is a circuit, and a circuit is something a player wants to hand to
-## another player. `BoardCode` turns this one into a code and back; the sheet
-## shows them and collects them, and everything the game has a say in — whether
-## the build fits this workbench's grid, and whether the bag can pay for it —
-## is decided here, where the board and the pool are.
-func _share_open() -> bool:
-	return _share != null and is_instance_valid(_share) and _share.visible
+## another player. `BoardCode` turns this one into a code and back: COPY puts
+## the code on the clipboard, and PASTE builds the board out of the code on it.
+## Everything the game has a say in — whether the build fits this workbench's
+## grid, and whether the bag can pay for it — is decided here, where the board
+## and the pool are. Neither does anything with a part in hand: the board it
+## came off is short of it until it is set down.
 
-func _open_share() -> void:
-	# Never with a part in hand: the sheet covers the board it would be dropped
-	# on, and the release would land somewhere the player cannot see.
-	if _drag_id != "":
-		return
-	if _share == null or not is_instance_valid(_share):
-		_share = ShareCodePanel.new()
-		_share.closed.connect(_close_share)
-		_share.build_requested.connect(_build_from_code)
-		add_child(_share)
-	_hover_cell = Vector2i(-1, -1)
-	_hover_pal = -1
-	_hover_close = false
-	_hover_share = false
+## One of `BoardCode`'s refusals, spelled out: the id it returns and the numbers
+## its line takes, as the line in `localization/<lang>/editor.json` under
+## `code_error`. The circuit says what is wrong; the editor says it in words.
+static func code_error_text(key: String, args: Array = []) -> String:
+	return Loc.t("editor.code_error.%s" % key, args)
+
+## COPY: the board onto the clipboard, as a code.
+func _copy() -> void:
 	var b := current_board()
-	_share.open_with(BoardCode.encode(b) if b != null else "")
+	if b == null or _drag_id != "":
+		return
+	var code := BoardCode.encode(b)
+	if code.is_empty():
+		_notify(Loc.t("editor.share.uncodeable"))
+		Audio.play("deny")
+		return
+	if not DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD):
+		_notify(Loc.t("editor.share.no_clipboard"))
+		Audio.play("deny")
+		return
+	DisplayServer.clipboard_set(code)
+	_notify(Loc.t("editor.share.copied", [BoardCode.clean(code).length()]), true)
 	Audio.play("ui")
 
-func _close_share() -> void:
-	if _share != null and is_instance_valid(_share):
-		_share.visible = false
+## PASTE: the board built out of the code on the clipboard, whatever else is on
+## it dropped on the way — a stray space, a line break.
+func _paste() -> void:
+	if current_board() == null or _drag_id != "":
+		return
+	if not DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD):
+		_notify(Loc.t("editor.share.no_clipboard"))
+		Audio.play("deny")
+		return
+	var got := BoardCode.clean(DisplayServer.clipboard_get())
+	if got.is_empty():
+		_notify(Loc.t("editor.share.clipboard_empty"))
+		Audio.play("deny")
+		return
+	_paste_code(got.left(BoardCode.max_chars()))
 
-func _build_from_code(entry: String) -> void:
+## The board built out of `entry`, a code: refused whole, with the reason, when
+## the code is wrong, the build does not fit this grid, or the bag cannot pay.
+func _paste_code(entry: String) -> void:
 	var b := current_board()
 	if b == null:
-		_share.note(Loc.t("editor.share.no_board"), UiKit.BAD)
+		_notify(Loc.t("editor.share.no_board"))
 		return
 	var read := BoardCode.decode(entry)
 	if String(read["error"]) != "":
-		_share.note(ShareCodePanel.error_text(String(read["error"]), read["args"] as Array), UiKit.BAD)
+		_notify(code_error_text(String(read["error"]), read["args"] as Array))
 		Audio.play("deny")
 		return
 	var want: SkillBoard = read["board"]
 	# The grid is this workbench's, not the code's, so a build off a bigger one
 	# arrives only if none of it hangs over the edge.
 	if not b.fits(want):
-		_share.note(Loc.t("editor.share.wrong_size", [
-			want.width, want.height, b.width, b.height]), UiKit.BAD)
+		_notify(Loc.t("editor.share.wrong_size", [want.width, want.height, b.width, b.height]))
 		Audio.play("deny")
 		return
 	# A code is a blueprint and not the parts: it costs exactly what building the
@@ -864,18 +922,14 @@ func _build_from_code(entry: String) -> void:
 	if not unlimited:
 		var missing := GameState.trade_board(b, b.adoption_cost(want), inventory)
 		if not missing.is_empty():
-			_share.note(Loc.t("editor.share.short_of", [_missing_text(missing)]), UiKit.BAD)
+			_notify(Loc.t("editor.share.short_of", [_missing_text(missing)]))
 			Audio.play("deny")
 			return
 	b.adopt(want)
 	_picked = NOWHERE
 	_sim_dirty = true
 	_trace_cache = {}
-	# The sheet now shows this board's own code, which is not always the one that
-	# was typed: the grid it landed on may not be the grid it was drawn on, and
-	# the root on it is this weapon's.
-	_share.open_with(BoardCode.encode(b))
-	_share.note(Loc.t("editor.share.built", [b.cells.size()]), UiKit.GOOD)
+	_notify(Loc.t("editor.share.built", [b.cells.size()]), true)
 	Audio.play("place")
 	board_changed.emit()
 
@@ -893,7 +947,6 @@ func _missing_text(missing: Dictionary) -> String:
 ## --- drawing ----------------------------------------------------------------
 const PX := UiKit.PIXEL
 const LINE := PixelDraw.LINE
-const HEADER_H := 84.0
 
 ## A part's icon is drawn this many PIXELs per bitmap pixel on the board, and
 ## one PIXEL per bitmap pixel everywhere else.
@@ -987,15 +1040,15 @@ func _draw() -> void:
 	if laid != _flow_key:
 		_flow_key = laid
 		_sim_dirty = true
+	_draw_board()
+	_draw_copy_paste()
 	if thumb():
-		_draw_thumb_header(vp)
-		_draw_board()
 		_draw_thumb_parts()
+		_draw_thumb_message()
 	else:
-		_draw_header(vp)
-		_draw_board()
 		_draw_palette()
 		_draw_message(vp)
+	_draw_close()
 	_draw_hint(vp)
 	_draw_drag()
 
@@ -1016,37 +1069,34 @@ func _flow_dot_span() -> float:
 func _flow_dot() -> int:
 	return maxi(FLOW_DOT, int(cell_size() * 0.25 / float(PX)))
 
-func _draw_header(vp: Vector2) -> void:
-	_px.rect(Rect2(0, 0, vp.x, HEADER_H), Color(0.07, 0.08, 0.11, 0.9))
-	_px.rect(Rect2(0, HEADER_H, vp.x, PX), Color(0.3, 0.5, 0.7, 0.6))
-
-	# The graph's name — and the weapon it is on, when the name is not the
-	# weapon's own: the dragon test hands the sword a board of its own.
-	var b := current_board()
-	if b != null:
-		var r := _title_rect()
-		_px.rect(r, Color(0.18, 0.3, 0.42, 0.9))
-		_px.frame(r, Color(0.45, 0.8, 1.0))
-		var title := b.skill_name
-		if title != Weapons.name_for(weapon_id):
-			title = Loc.t("editor.title_on", [b.skill_name, Weapons.name_for(weapon_id)])
-		_px.text(r.position + Vector2(10, 20), title, Color(0.9, 0.95, 1.0), r.size.x - 20.0)
-	var sr := _share_rect()
-	_px.rect(sr, Color(0.16, 0.3, 0.4, 0.9) if _hover_share else Color(0.11, 0.13, 0.17, 0.9))
-	_px.frame(sr, Color(0.55, 0.9, 1.0) if _hover_share else Color(0.32, 0.4, 0.5))
-	var share_ink := Color(0.92, 0.98, 1.0) if _hover_share else Color(0.7, 0.8, 0.9)
-	var code_label := Loc.t("editor.code")
-	_px.text(sr.position + Vector2((sr.size.x - PixelDraw.ink_width(code_label)) * 0.5, 20), code_label,
-		share_ink)
-	var cr := _close_rect()
-	_px.rect(cr, Color(0.45, 0.18, 0.2, 0.9) if _hover_close else Color(0.14, 0.12, 0.14, 0.9))
-	_px.frame(cr, Color(1.0, 0.55, 0.55) if _hover_close else Color(0.45, 0.4, 0.44))
+## The X in the screen's top-left corner, which closes it: a desk's square, or a
+## thumb's plate with the cross at twice the size.
+func _draw_close() -> void:
+	var r := _close_rect()
 	var ink := Color(1, 0.9, 0.9) if _hover_close else Color(0.8, 0.78, 0.8)
-	var close_label := Loc.t("editor.close")
-	var mark := CROSS[0].length() * PX + 8.0
-	var at := _px.snap(cr.position + Vector2((cr.size.x - mark - PixelDraw.ink_width(close_label)) * 0.5, 10))
-	_px.icon(at, CROSS, ink)
-	_px.text(at + Vector2(mark, 10), close_label, ink)
+	if thumb():
+		_draw_thumb_plate(r, "", Color(1.0, 0.55, 0.55), _hover_close, true)
+		_px.icon_centered(r.get_center(), CROSS, ink, 2)
+		return
+	_px.rect(r, Color(0.45, 0.18, 0.2, 0.9) if _hover_close else Color(0.14, 0.12, 0.14, 0.9))
+	_px.frame(r, Color(1.0, 0.55, 0.55) if _hover_close else Color(0.45, 0.4, 0.44))
+	_px.icon_centered(r.get_center(), CROSS, ink)
+
+## COPY and PASTE under the board: a desk's buttons, or a thumb's plates.
+func _draw_copy_paste() -> void:
+	var buttons := [[_copy_rect(), Loc.t("editor.share.copy"), _hover_copy],
+		[_paste_rect(), Loc.t("editor.share.paste"), _hover_paste]]
+	for button in buttons:
+		var r: Rect2 = button[0]
+		var label: String = button[1]
+		var hot: bool = button[2]
+		if thumb():
+			_draw_thumb_plate(r, label, Color(0.55, 0.9, 1.0), hot, true)
+			continue
+		_px.rect(r, Color(0.16, 0.3, 0.4, 0.9) if hot else Color(0.11, 0.13, 0.17, 0.9))
+		_px.frame(r, Color(0.55, 0.9, 1.0) if hot else Color(0.32, 0.4, 0.5))
+		_px.text(r.position + Vector2((r.size.x - PixelDraw.ink_width(label)) * 0.5, 20), label,
+			Color(0.92, 0.98, 1.0) if hot else Color(0.7, 0.8, 0.9))
 
 ## The board as it is drawn: the board itself, except while the root is in
 ## hand. The weapon keeps the root where it stands until it is set down
@@ -1069,8 +1119,7 @@ func _draw_board() -> void:
 	var b := _shown_board()
 	if b == null:
 		return
-	var frame := Rect2(board_origin() - Vector2(10, 10),
-		Vector2(b.width * cell_size() + 20, b.height * cell_size() + 20))
+	var frame := _board_frame()
 	_px.rect(frame, Color(0.08, 0.09, 0.12, 0.92))
 	_px.frame(frame, Color(0.3, 0.45, 0.6, 0.7))
 
@@ -1151,9 +1200,9 @@ const HINT_MOST_ROWS := 1 + HINT_DESC_ROWS + 1 + HINT_DEAD_ROWS
 ## same card, under what it does. Nothing is wrong with the part — what is wrong
 ## is the wiring round it — so the card is hung off the whole ring then.
 func _draw_hint(vp: Vector2) -> void:
-	# Never with a part in hand or the share sheet up: the first is already
-	# saying something under the cursor, and the second covers the board.
-	if _drag_id != "" or _share_open():
+	# Never with a part in hand, which is already saying something under the
+	# cursor.
+	if _drag_id != "":
 		return
 	var id := ""
 	var on := Rect2()
@@ -2549,42 +2598,19 @@ func _draw_count(right: Vector2, id: String) -> void:
 
 ## --- for a thumb: the drawing -----------------------------------------------------
 
-## The header: the graph's name on its plate — or, for the moment one lasts, a
-## refusal, which at a desk is written along the bottom where a thumb's board
-## now is — and CODE and CLOSE, each a plate THUMB_BTN tall with its word at a
-## thumb's size.
-func _draw_thumb_header(vp: Vector2) -> void:
-	_px.rect(Rect2(0, 0, vp.x, THUMB_HEADER), Color(0.07, 0.08, 0.11, 0.9))
-	_px.rect(Rect2(0, THUMB_HEADER, vp.x, PX), Color(0.3, 0.5, 0.7, 0.6))
-	var big := UiKit.THUMB_TEXT
-	var r := _title_rect()
-	var b := current_board()
-	if _message_time > 0.0:
-		_px.rect(r, Color(0.3, 0.14, 0.12, 0.9))
-		_px.frame(r, Color(1.0, 0.65, 0.55))
-		# At the size everything else here is read at: it is a sentence, and the
-		# plate is one row.
-		_px.text(r.position + Vector2(16, 38), _message, Color(1.0, 0.8, 0.72), r.size.x - 32.0)
-	elif b != null:
-		_px.rect(r, Color(0.18, 0.3, 0.42, 0.9))
-		_px.frame(r, Color(0.45, 0.8, 1.0))
-		var title := b.skill_name
-		if title != Weapons.name_for(weapon_id):
-			title = Loc.t("editor.title_on", [b.skill_name, Weapons.name_for(weapon_id)])
-		_px.text(r.position + Vector2(16, 42), title, Color(0.9, 0.95, 1.0), r.size.x - 32.0,
-			Loc.text_size(title, big))
-	var code_label := Loc.t("editor.code")
-	_draw_thumb_plate(_share_rect(), code_label, Color(0.55, 0.9, 1.0), _hover_share, true)
-	var close_label := Loc.t("editor.close")
-	var cr := _close_rect()
-	_draw_thumb_plate(cr, "", Color(1.0, 0.55, 0.55), _hover_close, true)
-	var font_size := Loc.text_size(close_label, big)
-	var mark := CROSS[0].length() * PX * 2 + 14.0
-	var ink := Color(1, 0.9, 0.9) if _hover_close else Color(0.86, 0.82, 0.84)
-	var at := _px.snap(cr.position + Vector2(
-		(cr.size.x - mark - PixelDraw.ink_width(close_label, font_size)) * 0.5, 22.0))
-	_px.icon(at, CROSS, ink, 2)
-	_px.text(at + Vector2(mark, 20.0), close_label, ink, -1.0, font_size)
+## A message, for the moment it lasts, on a plate of its own beside the X — at a
+## desk it is written along the bottom, where a thumb's COPY and PASTE now are.
+## A refusal on red, and what COPY and PASTE did on green.
+func _draw_thumb_message() -> void:
+	if _message_time <= 0.0:
+		return
+	var r: Rect2 = _thumb_layout()["message"]
+	_px.rect(r, Color(0.12, 0.28, 0.2, 0.9) if _message_good else Color(0.3, 0.14, 0.12, 0.9))
+	_px.frame(r, UiKit.GOOD if _message_good else Color(1.0, 0.65, 0.55))
+	# At the size everything else here is read at: it is a sentence, and the
+	# plate is one row.
+	_px.text(r.position + Vector2(16, 38), _message,
+		Color(0.8, 1.0, 0.88) if _message_good else Color(1.0, 0.8, 0.72), r.size.x - 32.0)
 
 ## One of mobile mode's plates: its ground and its edge in `accent`, lit under a
 ## thumb, drained when it has nothing to act on, and `label` in the middle of it
@@ -2675,11 +2701,11 @@ func _draw_thumb_count(right: Vector2, id: String) -> float:
 	_px.text(_px.snap(right - Vector2(w, 0.0)), label, col, -1.0, font_size)
 	return w
 
-## A refusal (no room, none left) lasts a moment along the bottom. It is the
-## only thing written there.
+## A message lasts a moment along the bottom: a refusal (no room, none left) in
+## red, and what COPY and PASTE did in green. It is the only thing written there.
 func _draw_message(vp: Vector2) -> void:
 	if _message_time > 0.0:
 		# Under the board's own left edge, wherever that has been stood in to.
 		var inset := _inset()
-		_px.text(Vector2(48, vp.y - 24) + inset, _message, Color(1.0, 0.65, 0.55),
-			vp.x - 96.0 - inset.x * 2.0)
+		_px.text(Vector2(48, vp.y - 24) + inset, _message,
+			UiKit.GOOD if _message_good else Color(1.0, 0.65, 0.55), vp.x - 96.0 - inset.x * 2.0)

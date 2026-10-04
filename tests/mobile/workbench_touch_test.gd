@@ -152,17 +152,22 @@ func _on_a_desk() -> void:
 			% [layer_of(game.editor), layer_of(pad), layer_of(game.pause_menu)])
 
 	await click(game.editor._close_rect().get_center())
-	check(not paused(), "a click on the workbench's CLOSE does not open the pause menu")
+	check(not paused(), "a click on the workbench's X does not open the pause menu")
 	check(not workbench_up(), "it closes the workbench")
 	check(pad.face == TouchPad.Face.PLAY, "and the floor is back with its keys")
 	await tidy()
 
-	# CODE stood over KIT and MAP the same way, and neither does anything here.
+	# COPY stands under the board, over nothing on the console, and a click on
+	# it copies and does nothing else. The clipboard is put back as it was.
 	game._edit_weapon_graph()
 	await frames(4)
-	await click(game.editor._share_rect().get_center())
-	check(workbench_up() and game.editor._share_open(),
-		"a click on the workbench's CODE opens the share sheet")
+	var clipboard := DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD)
+	var was := DisplayServer.clipboard_get() if clipboard else ""
+	await click(game.editor._copy_rect().get_center())
+	check(workbench_up() and not paused(),
+		"a click on the workbench's COPY leaves it up and presses nothing under it")
+	if clipboard:
+		DisplayServer.clipboard_set(was)
 	await tidy()
 
 ## --- opened by key, from the floor ------------------------------------------
@@ -232,7 +237,7 @@ func _with_a_thumb() -> void:
 	game._edit_weapon_graph()
 	await frames(4)
 	await tap(game.editor._close_rect().get_center())
-	check(not workbench_up(), "a thumb on the workbench's CLOSE closes it")
+	check(not workbench_up(), "a thumb on the workbench's X closes it")
 	check(not paused(), "and presses nothing else on the way")
 	await tidy()
 
@@ -246,7 +251,7 @@ func _the_raids_board() -> void:
 	await frames(3)
 	check(pad.face == TouchPad.Face.CLEAR, "the raid's board leaves the console CLEAR too")
 	await tap(Views.of(raid).editor._close_rect().get_center())
-	check(not raid.editing, "a thumb on its CLOSE closes it")
+	check(not raid.editing, "a thumb on its X closes it")
 	check(not paused(), "rather than pressing the MENU key that stood on it")
 	await tidy()
 

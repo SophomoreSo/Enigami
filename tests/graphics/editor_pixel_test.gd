@@ -10,8 +10,10 @@ extends Node
 ## sends, and red with none. On the layout: the biggest board a Workbench grows and
 ## the palette both end above the info panel, the palette is one block a part
 ## category with its name beside it in the gutter, every part's name fits its
-## palette row, every part's description fits its card, the header's lines fit,
-## and a preview with more to say than rows to say it in is cut short and says so.
+## palette row, every part's description fits its card, the X stands in the
+## screen's corner and COPY and PASTE under the board, clear of the parts in
+## every language, and a preview with more to say than rows to say it in is cut
+## short and says so.
 ## On the track: the root is lit round its own outline, its dots running to its
 ## point, and a run's dots set off from the middle of the side the flow comes in
 ## by and meet in the middle of the side it leaves by, however the part behind
@@ -196,9 +198,22 @@ func _ready() -> void:
 	await frames(4)
 	var ed: SkillEditor = Views.of(sb).editor
 	check(ed.current_board() == sb.board(), "the bench brings the weapon's graph")
-	check(ed._title_rect().end.x <= ed._share_rect().position.x,
-		"its name fits before CODE (%.0f of %.0f)" % [ed._title_rect().end.x, ed._share_rect().position.x])
-	check(ed._share_rect().end.x <= ed._close_rect().position.x, "and CODE before CLOSE")
+	# No header: the X in the screen's own corner, and COPY and PASTE under the
+	# board, side by side and short of the parts — as wide as their words are
+	# in whichever language is the widest.
+	var frame := ed._board_frame()
+	check(ed._close_rect().position == SkillEditor.CORNER and not ed._close_rect().intersects(frame),
+		"the X stands in the top-left corner, clear of the board (%s)" % str(ed._close_rect()))
+	check(ed._copy_rect().position.y > frame.end.y and ed._paste_rect().position.x > ed._copy_rect().end.x,
+		"COPY and PASTE stand under the board, side by side")
+	for lang in Loc.languages():
+		var copy_w := maxf(SkillEditor.BTN_W, ceilf((PixelDraw.ink_width(_in(lang, "editor.share.copy"))
+			+ 40.0) / UiKit.PIXEL) * UiKit.PIXEL)
+		var paste_w := maxf(SkillEditor.BTN_W, ceilf((PixelDraw.ink_width(_in(lang, "editor.share.paste"))
+			+ 40.0) / UiKit.PIXEL) * UiKit.PIXEL)
+		var row_end := frame.position.x + copy_w + SkillEditor.BTN_GAP + paste_w
+		check(row_end <= ed._pal_panel().position.x,
+			"and short of the parts in %s (%.0f of %.0f)" % [lang, row_end, ed._pal_panel().position.x])
 	var b := ed.current_board()
 	for c in b.cells.keys().duplicate():
 		b.erase_at(c)
@@ -261,6 +276,7 @@ func _ready() -> void:
 	red.selected = "SLASH"
 	red._hover_pal = 5
 	red._hover_close = true
+	red._hover_copy = true
 	# The card says what the part under the cursor is and does, hung off its
 	# row rather than over it.
 	var row := red._pal_rect(5)
@@ -301,37 +317,20 @@ func _ready() -> void:
 	await blocks("workbench")
 	restore(hidden)
 
-	# --- the share sheet, over the same board ---------------------------------
-	# Both boxes full, a button under the cursor and something to say, so every
-	# piece of it is on screen at once.
-	wb._open_share()
-	wb._share.entry = BoardCode.clean(BoardCode.encode(big))
-	wb._share.note("Short of 2 more FIRE, 1 more DUPLICATE x3 — nothing has been spent.", UiKit.BAD)
-	wb._share._hover = "build"
-	wb._share._caret = 0.0
+	# --- COPY and PASTE, under the biggest board ------------------------------
+	# PASTE under the cursor and the news of a COPY along the bottom: the two
+	# stand on the screen, above the line the news is written on.
+	wb._hover_paste = true
+	wb._notify(Loc.t("editor.share.copied", [16]), true)
 	hidden = isolate(wb)
-	await blocks("share")
+	await blocks("copy_paste")
 	restore(hidden)
-	var sheet := wb._share._layout()
-	var panel_rect: Rect2 = sheet["panel"]
 	var screen := get_viewport().get_visible_rect().size
-	check(panel_rect.position.x >= 0.0 and panel_rect.end.x <= screen.x
-		and panel_rect.position.y >= 0.0 and panel_rect.end.y <= screen.y,
-		"the share sheet fits on screen (%s in %s)" % [str(panel_rect.size), str(screen)])
-	for pair in [["copy", "paste"], ["paste", "build"]]:
-		check(not (sheet[pair[0]] as Rect2).intersects(sheet[pair[1]] as Rect2),
-			"the sheet's %s and %s buttons do not overlap" % pair)
-	# The widest line the alphabet can spell, which is what the box is sized for.
-	var widest := "W".repeat(ShareCodePanel.CHARS_PER_LINE) + "_"
-	check((sheet["code_box"] as Rect2).size.x - ShareCodePanel.BOX_PAD * 2.0
-		>= PixelDraw.text_width(widest),
-		"the widest line the alphabet can spell, caret and all, fits the code box")
-	# In every language: a translation is free to reword the line, not to run it
-	# off the sheet, and the widest face is not always the one being played in.
-	for lang in Loc.languages():
-		check(PixelDraw.text_width(_in(lang, "editor.share.hint")) <= float(sheet["text_width"]),
-			"and the sheet's own controls line fits it in %s" % lang)
-	wb._close_share()
+	check(wb._paste_rect().end.y <= screen.y - 40.0 and wb._copy_rect().position.y > wb._board_frame().end.y,
+		"under the biggest board COPY and PASTE still stand on the screen, over the line news is written on (%s)"
+			% str(wb._paste_rect()))
+	wb._hover_paste = false
+	wb._message_time = 0.0
 
 	# --- rings the flow can never leave ---------------------------------------
 	# Two of them: the board from the report, fed by the root, and an unfed one
