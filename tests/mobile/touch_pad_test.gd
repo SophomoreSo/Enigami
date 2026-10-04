@@ -259,7 +259,7 @@ func _layout() -> void:
 
 	var unknown: Array = []
 	for c in TouchPad.CONTROLS:
-		for key in ["action", "arm", "alt", "hold"]:
+		for key in ["action", "arm", "alt"]:
 			var a := String(c.get(key, ""))
 			if a != "" and not InputMap.has_action(a):
 				unknown.append(a)
@@ -975,9 +975,11 @@ func _the_faces() -> void:
 		if pad.shown(c):
 			shown.append(String(c.get("action", "move")))
 	shown.sort()
-	check(shown == ["hurry"],
+	check(shown == ["interact"],
 		"which is the page and nothing else (%s)" % str(shown))
-	var page := TouchPad.area(control_of("hurry"), screen())
+	# Asked for by face rather than by action: HIT's USE is interact as well.
+	var talking := TouchPad.CONTROLS.filter(func(c: Dictionary) -> bool: return pad.shown(c))
+	var page := TouchPad.area(talking[0], screen())
 	check(page.is_equal_approx(Rect2(Vector2.ZERO, screen())),
 		"and the page is the whole of the screen (%s)" % str(page))
 	var drawn: Array = []
@@ -986,25 +988,19 @@ func _the_faces() -> void:
 			drawn.append(String(c.get("action", "move")))
 	check(drawn.is_empty(), "none of them with a picture, and none of them movable (%s)" % str(drawn))
 
-	# The right: a tap hurries the line and nothing else, and a thumb that stays
-	# presses interact as well, once, until it lifts.
+	# The right: a tap is interact — the line out, or the next one — and
+	# nothing else, pressed as the thumb comes down and let go as it lifts.
 	touch(0, spot("jump"), true)
 	await frames(2)
-	check(Input.is_action_pressed("hurry") and not Input.is_action_pressed("jump")
-			and not Input.is_action_pressed("interact"),
-		"a thumb where JUMP was hurries the line, and is neither JUMP nor a turn of the page")
+	check(Input.is_action_pressed("interact") and not Input.is_action_pressed("jump"),
+		"a thumb where JUMP was turns the page, and is not JUMP")
 	touch(0, spot("jump"), false)
 	await frames(2)
-	check(not Input.is_action_pressed("hurry") and not Input.is_action_pressed("interact"),
-		"and lifted, it has let go")
+	check(not Input.is_action_pressed("interact"), "and lifted, it has let go")
 	touch(0, Vector2(700, 300), true)
 	await frames(2)
-	check(Input.is_action_pressed("hurry") and not Input.is_action_pressed("attack"),
+	check(Input.is_action_pressed("interact") and not Input.is_action_pressed("attack"),
 		"so does one on the empty right of the screen")
-	await get_tree().create_timer(TouchPad.HOLD + 0.1).timeout
-	await frames(2)
-	check(Input.is_action_pressed("interact") and Input.is_action_pressed("hurry"),
-		"and kept there past a hold, it presses interact as well")
 	drag(0, Vector2(300, 300))
 	await frames(2)
 	check(Input.is_action_pressed("interact") and not Input.is_action_pressed("move_up")
@@ -1012,30 +1008,28 @@ func _the_faces() -> void:
 		"still holding it when it wanders to the left, which is the same page")
 	touch(0, Vector2(300, 300), false)
 	await frames(2)
-	check(not Input.is_action_pressed("interact") and not Input.is_action_pressed("hurry"),
-		"and lifted, it lets go of both")
+	check(not Input.is_action_pressed("interact"), "and lifted, it lets go")
 
 	# The left is the page too: where the stick grows while there is somebody to
 	# play, a thumb reads. Picking an answer is not the console's — the box puts
 	# each on a plate of its own (`tests/mobile/talk_touch_test`).
 	touch(0, Vector2(200, 400), true)
 	await frames(3)
-	check(Input.is_action_pressed("hurry") and not pad.stick_showing()
+	check(Input.is_action_pressed("interact") and not pad.stick_showing()
 			and not Input.is_action_pressed("move_up") and not Input.is_action_pressed("move_down"),
-		"a thumb on the left hurries the line like any other, and grows no stick")
+		"a thumb on the left turns the page like any other, and grows no stick")
 	touch(0, Vector2(200, 400), false)
 	await frames(2)
-	check(not Input.is_action_pressed("hurry"), "until it lifts")
+	check(not Input.is_action_pressed("interact"), "until it lifts")
 
 	# The faces coming and going under a thumb that stays down: what it was
 	# doing was the face's, and it does nothing on the next until it lifts.
 	touch(0, Vector2(700, 300), true)
-	await get_tree().create_timer(TouchPad.HOLD + 0.1).timeout
 	await frames(2)
 	player.talk_locked = false
 	await frames(3)
 	check(pad.face == TouchPad.Face.PLAY and not Input.is_action_pressed("interact"),
-		"a hold still down as the conversation ends is let go of")
+		"a thumb still down on the page as the conversation ends is let go of")
 	drag(0, spot("jump"))
 	await frames(2)
 	check(not Input.is_action_pressed("jump"), "and its thumb, dragged over JUMP, presses nothing")

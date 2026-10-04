@@ -31,12 +31,6 @@ signal station_used(id: String)
 ## or off the rack's BUILD. The editor belongs to `app/game.gd`, so this only
 ## passes the ask on.
 signal edit_requested()
-## Something the room wants to say, for the HUD to toast. The raid says things
-## the same way (`Raid.noticed`), and this is the same kind of thing: an answer
-## to a press that would otherwise be silence. Nothing in the room says anything
-## yet, but the view listens for it, so it stays.
-@warning_ignore("unused_signal")
-signal noticed(text: String)
 ## The panel over the room opened or closed. The room keeps standing either way.
 signal panel_changed(id: String)
 

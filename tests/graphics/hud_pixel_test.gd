@@ -6,8 +6,8 @@ extends Node
 ## this one.
 ##
 ## Checked with everything it can show on it at once: a wounded player, a dash
-## spent, a charge half drained, a prompt, a toast and an extraction under way —
-## so nothing that only shows sometimes goes unchecked.
+## spent, a charge half drained, a prompt and an extraction under way — so
+## nothing that only shows sometimes goes unchecked.
 ##
 ## And the number the layout stands on, which the pixel face is what decides: a
 ## health bar that holds the longest reading it can show.
@@ -115,7 +115,6 @@ func _ready() -> void:
 	# reads them rather than on the HUD itself.
 	raid.prompt = Loc.t("hud.extract.hold")
 	raid.extract_ratio = 0.4
-	hud.show_toast(Loc.t("hud.burning"))
 	await frames(4)
 
 	var hidden := isolate()

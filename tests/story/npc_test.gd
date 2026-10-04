@@ -1,9 +1,9 @@
 extends Node2D
 ## Talking to an NPC: interact only works up close, a press finishes a line
-## still coming in before it moves on, a hurry finishes it and does nothing
-## else, a question waits for an answer picked with up and down, the answer
-## decides what comes next, and walking away ends it. Attacks never treat a
-## bystander as a target. Every conversation in the database reads cleanly.
+## still coming in before it moves on, a question waits for an answer picked
+## with up and down, the answer decides what comes next, and walking away ends
+## it. Attacks never treat a bystander as a target. Every conversation in the
+## database reads cleanly.
 
 var fails := 0
 
@@ -147,15 +147,9 @@ func _ready() -> void:
 	check(n.selected == 0, "a new line starts with the highlight back on top")
 	check(n.reveal_rate() == float(n.current_node()["speed"]), "a line types at the speed its file gives it")
 
-	# A hurry brings the rest of a line out, and that is all it ever does: on
-	# the glass it is a tap, and a reader tapping to hurry the words never
-	# passes a line by it.
 	check(not n.line_finished(), "the answer is still typing")
-	await press("hurry")
-	check(n.node_id == "charge" and n.line_finished(), "a hurry mid-line brings the rest of it out")
-	await press("hurry")
-	await press("hurry")
-	check(n.node_id == "charge", "and a hurry on a line that is out moves nothing on (%s)" % n.node_id)
+	await press()
+	check(n.node_id == "charge" and n.line_finished(), "a press brings the rest of it out")
 	await press()
 	check(n.node_id == "ask_again", "a plain line after it carries on (%s)" % n.node_id)
 
@@ -178,11 +172,8 @@ func _ready() -> void:
 	await listen(n)
 	check(n.is_choosing() and n.choices().size() == 2, "which asks a question of its own")
 	var given := picks.size()
-	await press("hurry")
-	check(n.node_id == "who" and n.is_choosing() and picks.size() == given,
-		"and a hurry with the answers out gives none of them")
-	# An answer pointed at rather than stepped to — its plate, on the glass —
-	# is picked, and that is all.
+	# An answer pointed at rather than stepped to — a thumb coming down on its
+	# plate, on the glass — is picked, and that is all.
 	n.select(1)
 	check(n.selected == 1 and n.node_id == "who" and picks.size() == given,
 		"an answer pointed at is picked, and not given")

@@ -64,6 +64,8 @@ func view_script_for(n: Node) -> GDScript:
 		return TreasureBoxView
 	if n is DigSpot:
 		return DigSpotView
+	if n is Gate:
+		return GateView
 	if n is DragonTower:
 		return TowerView
 	if n is JeanGreyBase:

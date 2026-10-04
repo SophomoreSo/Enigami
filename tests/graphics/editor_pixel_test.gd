@@ -7,13 +7,13 @@ extends Node
 ## every PIXEL×PIXEL block of the picture is one colour, so nothing it draws is
 ## off the grid. On the way out: its arrow stands on the frame in the middle of
 ## the right edge, lit by a flow that reaches it, drained by one only a trigger
-## sends, and red with none. On the layout: the biggest board a Workbench grows and
-## the palette both end above the info panel, the palette is one block a part
-## category with its name beside it in the gutter, every part's name fits its
-## palette row, every part's description fits its card, the X stands in the
-## screen's corner and COPY and PASTE under the board, clear of the parts in
-## every language, and a preview with more to say than rows to say it in is cut
-## short and says so.
+## sends, and red with none. On the layout: the board and the palette stand side
+## by side in the middle of the screen, the biggest board a Workbench grows
+## included; the palette is one block a part category with its name beside it in
+## the gutter, every part's name fits its palette row, every part's description
+## fits its card, the X stands in the screen's corner and COPY and PASTE under
+## the board, clear of the parts in every language, and a preview with more to
+## say than rows to say it in is cut short and says so.
 ## On the track: the root is lit round its own outline, its dots running to its
 ## point, and a run's dots set off from the middle of the side the flow comes in
 ## by and meet in the middle of the side it leaves by, however the part behind
@@ -257,7 +257,8 @@ func _ready() -> void:
 	ed.selected = "FIRE"
 	ed._update_hover(ed._cell_center(Vector2i(at.x + 1, at.y)))
 	ed._drag_id = "DASHSLASH"
-	ed._mouse_pos = Vector2(611, 333)
+	# In hand between the board and the parts.
+	ed._mouse_pos = Vector2(ed._pal_panel().position.x - SkillEditor.BOARD_TO_PARTS * 0.5, 333.0)
 	ed._notify("No room for SWIFT STRIKE there.")
 	var hidden := isolate(ed)
 	await blocks("bench")
@@ -516,7 +517,7 @@ func _ready() -> void:
 	# nothing reaches it from across an empty cell.
 	var cell := float(SkillEditor.CELL)
 	var arrow := wb._way_out_rect(big)
-	var frame_end := SkillEditor.BOARD_ORIGIN.x + wb._inset().x + big.width * cell + 10.0
+	var frame_end := wb.board_origin().x + big.width * cell + 10.0
 	check(big.way_out() == Vector2i(big.width - 1, SkillBoard.middle(big.height)),
 		"the way out is the middle of the right edge (%s)" % str(big.way_out()))
 	check(arrow.position.x == wb._cell_rect(big.way_out()).end.x and arrow.end.x > frame_end
@@ -580,19 +581,29 @@ func _ready() -> void:
 	restore(hidden)
 
 	# --- layout -------------------------------------------------------------
+	# The board and the parts side by side in the middle of the screen: the
+	# pair as far from the one side as from the other, and each as far from the
+	# top as from the bottom — the board with COPY and PASTE under it.
 	var vp := get_viewport().get_visible_rect().size
-	var board_end := SkillEditor.BOARD_ORIGIN + Vector2(most) * SkillEditor.CELL + Vector2(10, 10)
-	check(board_end.y <= vp.y, "the biggest board (%dx%d) ends inside the screen (%.0f of %.0f)"
-		% [most.x, most.y, board_end.y, vp.y])
-	check(board_end.x <= SkillEditor.PAL_ORIGIN.x - 10.0, "and short of the palette (%.0f of %.0f)"
-		% [board_end.x, SkillEditor.PAL_ORIGIN.x - 10.0])
+	var biggest := wb._board_frame()
+	var foot := wb._paste_rect().end.y
+	var panel := wb._pal_panel()
+	check(biggest.position.x >= 0.0 and biggest.position.y >= 0.0 and foot <= vp.y,
+		"the biggest board (%dx%d) is inside the screen, COPY and PASTE with it (%s, %.0f of %.0f)"
+			% [most.x, most.y, str(biggest), foot, vp.y])
+	check(is_equal_approx(biggest.end.x + SkillEditor.BOARD_TO_PARTS, panel.position.x),
+		"and the palette stands BOARD_TO_PARTS beside it (%.0f and %.0f)" % [biggest.end.x, panel.position.x])
+	check(panel.end.x <= vp.x and panel.end.y <= vp.y, "the palette is inside the screen (%s of %s)"
+		% [str(panel), str(vp)])
+	check(absf(biggest.position.x - (vp.x - panel.end.x)) <= SkillEditor.PX,
+		"the pair is in the middle, as far from either side (%.0f and %.0f)"
+			% [biggest.position.x, vp.x - panel.end.x])
+	check(absf(biggest.position.y - (vp.y - foot)) <= SkillEditor.PX
+			and absf(panel.position.y - (vp.y - panel.end.y)) <= SkillEditor.PX,
+		"and each is halfway down (the board %.0f over and %.0f under, the palette %.0f and %.0f)"
+			% [biggest.position.y, vp.y - foot, panel.position.y, vp.y - panel.end.y])
 	# The palette's panel runs 10 past its rows on every side.
 	var ids := wb._palette_ids()
-	var panel := wb._pal_panel()
-	check(panel.end.y <= vp.y, "the palette ends inside the screen (%.0f of %.0f)"
-		% [panel.end.y, vp.y])
-	check(panel.end.x <= vp.x, "and inside the screen (%.0f of %.0f)" % [panel.end.x, vp.x])
-	check(panel.position.x >= SkillEditor.PAL_ORIGIN.x - 10.0, "the palette's panel starts at its gutter")
 	# One block a category, every part of a category inside its own block, and
 	# every block's name written in the gutter beside it rather than over it.
 	var blocks := wb._pal_blocks

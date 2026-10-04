@@ -43,13 +43,13 @@
 	},
 	"dialogue": {
 		"choose": "%s/%s 선택  ·  %s 대답",
-		"choose_touch": "눌러서 선택  ·  길게 눌러 대답",
-		"next_touch": "길게 눌러 계속",
+		"choose_touch": "눌러서 대답",
+		"next_touch": "눌러서 계속",
 		"player": "나"
 	},
 	"cutscene": {
 		"hint": "%s 계속  ·  %s 건너뛰기",
-		"hint_touch": "길게 눌러 계속"
+		"hint_touch": "눌러서 계속"
 	},
 	"sandbox": {
 		"swap_weapon": "무기 교체",
@@ -100,24 +100,11 @@
 		"keys": "R 초기화  TAB 편집  %s 몬스터에서 나가기  ESC 뒤로",
 		"board": "사이킥 투척"
 	},
-	"pickup": "%s을(를) 주웠습니다 — TAB으로 조립하세요",
 	"exit": {
 		"sign": "비상구",
 		"entry": "입구 관문",
 		"arbiter": "중재자의 관문",
 		"toll": "통행료 관문",
 		"crack": "벽의 틈"
-	},
-	"toast": {
-		"deployed": "출격했습니다. 출구에서 %s를 길게 눌러 챙긴 것을 들고 나가세요.",
-		"resumed": "떠났던 자리로 돌아왔습니다. 레이드는 그대로 남아 있었습니다.",
-		"followed": "무언가 당신을 따라 들어왔습니다.",
-		"boss_down": "중재자가 쓰러졌습니다. 그 관문이 열렸습니다.",
-		"scrap": "골드 +%d",
-		"kit_waiting": "당신의 장비는 쓰러진 자리에 그대로 있습니다. 지도에 그 방이 표시됩니다.",
-		"kit_back": "장비를 되찾았습니다 — %d개. 이제 들고 나가세요.",
-		"box": "보물 상자: %s",
-		"box_empty": "상자가 비어 있습니다.",
-		"dug": "파낸 것: %s"
 	}
 }

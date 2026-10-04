@@ -1,9 +1,14 @@
 class_name Room
 extends Node2D
 
-## One screen of the raid: a solid grid, doors on the sides that have
-## neighbours, whatever monsters and loot the map says are still here, and
+## One screen of the raid: a solid grid, a doorway in the wall on each side
+## with a room beside it, a gate on the floor for a room above it and another
+## for a room below, whatever monsters and loot the map says are still here, and
 ## sometimes an extraction point.
+##
+## A doorway is walked through. A gate is gone through with interact
+## (`Gate`), and it is the only way up or down: no room has a hole in its
+## ceiling to be jumped up into or one in its floor to fall through.
 
 signal enemy_killed(kind: String, pos: Vector2)
 signal pickup_collected(pickup: Pickup)
@@ -18,12 +23,26 @@ signal extraction_done(info: Dictionary)
 ## Raised once the grid, the collision and the contents are all in place. A
 ## room is drawn once and then never again, so the view waits for this.
 signal built()
+## The player went through one of this room's gates: `dir` is the way it leads.
+signal gate_entered(dir: int)
 
 const W := 40
 const H := 22
 const CELL := 32
 const DOOR_ROWS := [15, 16, 17]
-const DOOR_COLS := [18, 19, 20, 21]
+## The row a body stands in on the room's floor.
+const FLOOR_ROW := H - 3
+## The column each gate stands in, on the floor: the one up left of the middle
+## and the one down right of it, clear of every exit's pocket
+## (`RaidMap._assign_roles`) and of the ledges the doorways level.
+const GATE_COLS := {Components.N: 14, Components.S: 25}
+## How many rows a gate stands, and the one over it kept open: nothing hangs in
+## front of a gate, so it is walked up to and never climbed to.
+const GATE_ROWS := 4
+## How far either side of a gate's column nothing is put down when a room is
+## filled — no box, no ground to dig, no monster — so a press at a gate is a
+## press at the gate and nothing else.
+const GATE_CLEAR := 3
 
 ## How many cells across and down this room is. Every room a raid builds is
 ## `W` by `H`, one screen; a room laid by hand (`HandLaidRoom`) is as wide as
@@ -31,7 +50,12 @@ const DOOR_COLS := [18, 19, 20, 21]
 var cols: int = W
 var rows: int = H
 var solid: PackedByteArray = PackedByteArray()
-var doors: Dictionary = {}          ## dir -> true
+var doors: Dictionary = {}          ## dir -> true, a doorway: west and east
+## dir -> Gate, a way up or down: north and south.
+var gates: Dictionary = {}
+## The sides a gate is put down for, known before the grid is: what it is cut
+## round and what the room's contents keep clear of.
+var _gate_dirs: Array[int] = []
 var coord: Vector2i = Vector2i.ZERO
 var data: Dictionary = {}           ## live room record owned by RaidMap
 var rng := RandomNumberGenerator.new()
@@ -60,12 +84,21 @@ const DIG_APART := 96.0
 func build(room_coord: Vector2i, record: Dictionary, doorset: Dictionary, seed_base: int) -> void:
 	coord = room_coord
 	data = record
-	doors = doorset
+	# Every side with a room beyond it: one beside is through a doorway, and
+	# one above or below through a gate.
+	doors = {}
+	_gate_dirs.clear()
+	for dir in doorset:
+		if int(dir) == Components.N or int(dir) == Components.S:
+			_gate_dirs.append(int(dir))
+		else:
+			doors[int(dir)] = true
 	danger = int(record.get("danger", 1))
 	extraction = record.get("extraction", {})
 	rng.seed = hash(Vector2i(seed_base, 0)) ^ hash(coord) ^ int(record.get("variant", 0))
 	_generate()
 	_build_collision()
+	_spawn_gates()
 	_spawn_contents()
 	built.emit()
 
@@ -194,14 +227,6 @@ func _generate() -> void:
 		for r in DOOR_ROWS:
 			_set_cell(W - 1, r, 0)
 			_set_cell(W - 2, r, 0)
-	if doors.has(Components.N):
-		for c in DOOR_COLS:
-			_set_cell(c, 0, 0)
-			_set_cell(c, 1, 0)
-	if doors.has(Components.S):
-		for c in DOOR_COLS:
-			_set_cell(c, H - 1, 0)
-			_set_cell(c, H - 2, 0)
 
 	# The floor by each side door is levelled so an entering player always lands.
 	var floor_row: int = DOOR_ROWS[DOOR_ROWS.size() - 1] + 1
@@ -225,24 +250,13 @@ func _generate() -> void:
 			for x in range(px, px + len_p):
 				_set_cell(x, py, 1)
 
-	# A climbable stack under a top door, so a north exit is always reachable.
-	if doors.has(Components.N):
-		var cx: int = DOOR_COLS[0]
-		var y := H - 5
-		var side := 1
-		while y > 2:
-			for x in range(cx - 2, cx + 3):
-				_set_cell(x + side * 3, y, 1)
-			side *= -1
-			y -= 3
-
-	# Falling into a bottom door should not be blocked by a platform.
-	if doors.has(Components.S):
-		for c in DOOR_COLS:
-			for y in range(H - 7, H):
-				_set_cell(c, y, 0)
-		for c in DOOR_COLS:
-			_set_cell(c, H - 1, 0)
+	# Each gate stands on the floor with room round it, whatever ledge was
+	# rolled across its column.
+	for dir in _gate_dirs:
+		var gx: int = GATE_COLS[dir]
+		for x in range(gx - 1, gx + 2):
+			for y in range(FLOOR_ROW - GATE_ROWS + 1, FLOOR_ROW + 1):
+				_set_cell(x, y, 0)
 
 	# An exit must always be reachable: clear a pocket around it and floor it.
 	if not extraction.is_empty():
@@ -356,10 +370,19 @@ func _random_open_point() -> Vector2:
 	for attempt in 60:
 		var x := rng.randi_range(3, W - 4)
 		var y := rng.randi_range(3, H - 4)
-		if not is_solid(x, y) and not is_solid(x, y - 1) and is_solid(x, y + 1):
+		if not is_solid(x, y) and not is_solid(x, y - 1) and is_solid(x, y + 1) \
+				and not _by_a_gate(x, y):
 			return cell_center(x, y)
 	@warning_ignore("integer_division")
 	return cell_center(int(W / 2), 5)
+
+## Whether a cell is on the floor in front of one of this room's gates, where
+## nothing the room is filled with is put down.
+func _by_a_gate(x: int, y: int) -> bool:
+	for dir in _gate_dirs:
+		if absi(x - int(GATE_COLS[dir])) <= GATE_CLEAR and y > FLOOR_ROW - GATE_ROWS:
+			return true
+	return false
 
 func _spawn_enemy(e: Dictionary) -> void:
 	var n := Enemy.new()
@@ -425,6 +448,27 @@ func _spawn_box() -> void:
 	box.player = player
 	box.opened.connect(_on_box_opened)
 	add_child(box)
+
+## A gate for each room above or below this one, standing on the floor in its
+## column — where a body that comes through the one in the other room is put
+## down.
+func _spawn_gates() -> void:
+	gates.clear()
+	for dir in _gate_dirs:
+		var g := Gate.new()
+		g.setup(dir, arrival_point(dir))
+		g.player = player
+		g.entered.connect(func(way: int) -> void: gate_entered.emit(way))
+		add_child(g)
+		gates[dir] = g
+
+## Whether a press of interact would take the player through one of the gates.
+func gate_offered() -> bool:
+	for dir in gates:
+		var g: Gate = gates[dir]
+		if is_instance_valid(g) and g.offered():
+			return true
+	return false
 
 func _on_box_opened(b: TreasureBox, items: Array) -> void:
 	data["box"]["opened"] = true
@@ -564,16 +608,25 @@ func enemies_left() -> int:
 			n += 1
 	return n
 
-## --- doors & extraction -----------------------------------------------------
+## --- doors, gates & extraction ----------------------------------------------
+## The doorway in the west or east wall. A room has none north or south: what
+## leads that way is a gate (`way_point`).
 func door_rect(dir: int) -> Rect2:
 	match dir:
 		Components.W: return Rect2(0, DOOR_ROWS[0] * CELL, CELL * 1.2, DOOR_ROWS.size() * CELL)
 		Components.E: return Rect2((W - 1.2) * CELL, DOOR_ROWS[0] * CELL, CELL * 1.2, DOOR_ROWS.size() * CELL)
-		Components.N: return Rect2(DOOR_COLS[0] * CELL, 0, DOOR_COLS.size() * CELL, CELL * 1.2)
-		Components.S: return Rect2(DOOR_COLS[0] * CELL, (H - 1.2) * CELL, DOOR_COLS.size() * CELL, CELL * 1.2)
 	return Rect2()
 
-## Where a body arriving through `from_dir` is put down.
+## The middle of the way out of this room toward `dir`: the doorway in that
+## wall, or the gate on the floor that leads up or down.
+func way_point(dir: int) -> Vector2:
+	if dir == Components.N or dir == Components.S:
+		return arrival_point(dir)
+	return door_rect(dir).get_center()
+
+## Where a body arriving through `from_dir` is put down: in from the doorway on
+## that side, or in front of the gate that leads back the way it came — the one
+## up for a body that came down, and the one down for a body that came up.
 ##
 ## Static, and paired with `centre_of` for the same reason: a monster wandering
 ## into a room has to be given somewhere to stand in it, and the room it is
@@ -582,22 +635,14 @@ static func arrival_point(from_dir: int) -> Vector2:
 	match from_dir:
 		Components.W: return centre_of(2, DOOR_ROWS[1])
 		Components.E: return centre_of(W - 3, DOOR_ROWS[1])
-		Components.N: return centre_of(DOOR_COLS[1], 2)
-		Components.S: return centre_of(DOOR_COLS[1], H - 4)
+		Components.N: return centre_of(int(GATE_COLS[Components.N]), FLOOR_ROW)
+		Components.S: return centre_of(int(GATE_COLS[Components.S]), FLOOR_ROW)
 	@warning_ignore("integer_division")
 	return centre_of(int(W / 2), int(H / 2))
 
-## Where a player arriving through `from_dir` should be put down: the door's own
-## arrival point, or the nearest floor to it when nothing under that point would
-## catch them.
-##
-## A room is entered from below through the hole its own south door is — the
-## floor is carved away across those columns so a body can drop through to the
-## room underneath — so a player walking up into one was put down standing in
-## the shaft they had just come up. They fell straight back down it, the room
-## below took them, and going north simply could not be done. The north door has
-## the same hole under it in any room that has both, which is the same fall one
-## room further on.
+## Where a player arriving through `from_dir` should be put down: the doorway's
+## or the gate's own arrival point, or the nearest floor to it should nothing
+## under that point catch them.
 func entry_point(from_dir: int) -> Vector2:
 	return standing_near(arrival_point(from_dir))
 
@@ -608,12 +653,11 @@ func spawn_point() -> Vector2:
 ## `at`, or the nearest place to it a body can stand.
 ##
 ## A point with something solid somewhere below it is left exactly where it is:
-## dropping in is how a room is entered from above, and a body that will land is
-## not lost. Only one with nothing under it at all is moved, and then to the
-## closest cell that is open, has headroom, and has floor under it — measured in
-## cells, nearest first, and settled downward before sideways, so a body put
-## down over a hole steps onto the floor beside it rather than onto whatever
-## platform happens to be level with the doorway.
+## a body that will land is not lost. Only one with nothing under it at all is
+## moved, and then to the closest cell that is open, has headroom, and has floor
+## under it — measured in cells, nearest first, and settled downward before
+## sideways, so a body put down over a gap steps onto the floor beside it rather
+## than onto whatever platform happens to be level with it.
 func standing_near(at: Vector2) -> Vector2:
 	var cell := Vector2i(int(floor(at.x / CELL)), int(floor(at.y / CELL)))
 	if _catches(cell):
@@ -635,7 +679,7 @@ func standing_near(at: Vector2) -> Vector2:
 	return at
 
 ## Whether a body dropped on this cell lands in this room at all, rather than
-## falling out through the door in the floor.
+## falling out of it.
 func _catches(c: Vector2i) -> bool:
 	for y in range(maxi(c.y + 1, 0), rows):
 		if is_solid(c.x, y):
@@ -696,8 +740,9 @@ func _update_extraction(delta: float) -> void:
 		_extract_active = false
 		extract_hold = maxf(0.0, extract_hold - delta * 2.0)
 
-## Which door a point is standing in, or -1 for none. The player and every
-## monster that could walk out of here are asked the same question.
+## Which doorway a point is standing in, or -1 for none. The player and every
+## monster that could walk out of here are asked the same question. A gate is
+## not walked into: it is gone through with interact, and only by the player.
 func door_at(gp: Vector2) -> int:
 	var l := to_local(gp)
 	for dir in doors:

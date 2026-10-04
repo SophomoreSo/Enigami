@@ -22,7 +22,9 @@ extends Control
 ## saying nothing the assembly screen does not say better. Nor are the two lines
 ## of keys that ran along the bottom: what each key does is the controls
 ## screen's to say. Nor is the graph's square that stood under the bars with
-## the wait until the next cast on it.
+## the wait until the next cast on it. Nor is a line across the top saying what
+## just happened — the player deployed, loot picked up, a box opened: nothing is
+## written over the room.
 ##
 ## It steps aside while somebody talks to the player (`talking`). A conversation
 ## in the box holds the player still and has the screen, and the bars are a
@@ -61,8 +63,6 @@ var prompt: String = ""
 ## is — after a rebind, or on a phone — is the picture's to know.
 var extract_offered: bool = false
 var extract_ratio: float = 0.0
-var toast: String = ""
-var toast_time: float = 0.0
 ## How much of the readout is on the screen: 1, or 0 once it has stepped aside
 ## for a conversation.
 var shown: float = 1.0
@@ -73,14 +73,8 @@ func _ready() -> void:
 	UiKit.fill_screen(self)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-func show_toast(t: String) -> void:
-	toast = t
-	toast_time = 2.6
-
 func _process(delta: float) -> void:
 	UiKit.sync_screen(self)
-	if toast_time > 0.0:
-		toast_time -= delta
 	shown = move_toward(shown, 0.0 if talking() else 1.0, delta / STEP_ASIDE)
 	modulate.a = shown
 	queue_redraw()
@@ -201,6 +195,3 @@ func _draw_prompts(vp: Vector2) -> void:
 		_px.bar(r, extract_ratio, Color(0.5, 1.0, 0.8), Color(0, 0, 0, 0.6), BAR_EDGE)
 		_px.text_centered(r.position + Vector2(0, -10.0), Loc.t("hud.extracting"),
 			Color(0.7, 1.0, 0.9), w)
-	if toast_time > 0.0:
-		var a := clampf(toast_time / 0.8, 0.0, 1.0)
-		_px.text_centered(Vector2((vp.x - band) * 0.5, 120.0), toast, Color(1, 0.95, 0.8, a), band)

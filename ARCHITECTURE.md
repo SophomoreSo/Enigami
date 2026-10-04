@@ -368,6 +368,7 @@ has to hear about it.
 | What anyone actually says, on any screen, in any language | `localization/<lang>/` — see its README. A new language is a folder and an entry in `LANGUAGES` in `app/loc.gd` |
 | What an emotion looks like | `EMOTIONS` in `graphics/style.gd` |
 | Retune damage, room generation | `feature/` |
+| The ways between a raid's rooms — a doorway in the wall to a room beside, a gate on the floor to a room above or below, gone through with F | `Room` (`feature/world/room.gd`): `DOOR_ROWS`, `GATE_COLS` and `_generate` cut them, `arrival_point` is where a body coming through is put down; a gate is a `Gate` (`feature/world/gate.gd`), and going through one is `Raid._take_gate`. How a gate looks, `graphics/views/gate_view.gd` |
 | Retune a part — its heat, what it adds or multiplies, how long it slows the fight | `data/db/parts/parts.sql`, then `data/db/build.sh` |
 | Retune a board's timing — ticks, cooldowns, a pulse's life | `circuit/skill_runner.gd` |
 | The dragon test's tower — where the guards stand, where the stairwells are | `LAYOUT` in `feature/world/dragon_tower.gd`; how it is lit and dressed, `graphics/views/tower_view.gd` |

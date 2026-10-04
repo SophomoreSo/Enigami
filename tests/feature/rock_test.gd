@@ -369,8 +369,9 @@ func start_raid() -> Raid:
 	await frames(4)
 	return r
 
+## A way out of the live room to another: a doorway, or a gate up or down.
 func a_door(raid: Raid) -> int:
-	for d in raid.room.doors:
+	for d in raid.map.doors_for(raid.room.coord):
 		if raid.map.has_room(raid.room.coord + RaidMap.dir_delta(int(d))):
 			return int(d)
 	return -1

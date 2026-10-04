@@ -90,7 +90,8 @@ func plant(raid: Raid, kind: String, cell: Vector2i, tag: String) -> Enemy:
 	raid.room._spawn_enemy(rec)
 	return find(raid, tag)
 
-## A direction out of the live room that has a room on the other side.
+## A doorway out of the live room that has a room on the other side: a monster
+## walks through a doorway, and never through a gate.
 func way_out(raid: Raid) -> int:
 	for dir in raid.room.doors:
 		if raid.map.has_room(raid.room.coord + RaidMap.dir_delta(int(dir))):

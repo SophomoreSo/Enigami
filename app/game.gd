@@ -445,9 +445,10 @@ class PauseMenu extends Control:
 ## the raid behind it is pixel art.
 ##
 ## On a panel of its own, and an opaque one. The raid goes on drawing behind the
-## pause menu: it is stopped, so a toast caught mid-life stays where it was, and
-## with nothing behind the rows its words came through them — through the RESUME
-## button most of all, whose hover fill is a wash of colour rather than a solid.
+## pause menu: it is stopped, so whatever was on the screen stays where it was,
+## and with nothing behind the rows its words came through them — through the
+## RESUME button most of all, whose hover fill is a wash of colour rather than a
+## solid.
 ##
 ## Three pages, not one. The rebinding list is eighteen rows of two columns,
 ## which is longer than everything else on the menu put together: inline, it

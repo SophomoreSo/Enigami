@@ -146,7 +146,8 @@ func has_room(c: Vector2i) -> bool:
 func get_record(c: Vector2i) -> Dictionary:
 	return rooms.get(c, {})
 
-## Which sides of this room have a neighbour to walk into.
+## Which sides of this room have a neighbour: one beside it through a doorway,
+## and one above or below through a gate (`Room`).
 func doors_for(c: Vector2i) -> Dictionary:
 	var d: Dictionary = {}
 	if rooms.has(c + Vector2i(1, 0)):

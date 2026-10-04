@@ -28,8 +28,9 @@ extends Control
 ## forms, elements, stats and the rest — each block named down the gutter beside
 ## it in the category's own colour, which is the colour its parts wear.
 ##
-## There is no header over it: the board and the parts have the screen, with an
-## X in its top-left corner that closes it, and COPY and PASTE under the board.
+## There is no header over it: the board and the parts have the screen, side by
+## side in the middle of it (`_desk_layout`), with an X in its top-left corner
+## that closes it, and COPY and PASTE under the board.
 ## COPY puts the board on the clipboard as a code, and PASTE builds the board
 ## out of the code on the clipboard. What a pasted code costs is decided here —
 ## see `_paste_code`.
@@ -47,11 +48,9 @@ signal board_changed()
 signal closed()
 
 const CELL := 50
-## The width the board, the palette and the tabs are laid out in. See `_inset`.
-const DESIGN_W := 1280.0
-const BOARD_ORIGIN := Vector2(48, 104)
-## The palette's top-left, the gutter its category names sit in included.
-const PAL_ORIGIN := Vector2(626, 104)
+## How far apart a desk's board and parts stand, from the board's frame to the
+## parts' panel. See `_desk_layout`.
+const BOARD_TO_PARTS := 48.0
 ## Two wide columns of one-line rows rather than four of two-line tiles: the
 ## pixel face runs up to twice as wide as the one the palette was laid out for,
 ## and the longest part name takes 130 of a row.
@@ -193,14 +192,15 @@ var _message: String = ""
 var _message_time: float = 0.0
 ## Whether the message is news rather than a refusal: what COPY and PASTE did.
 var _message_good: bool = false
-## The palette, laid out once per width of screen: a row per part and a block
-## per category, both drawn and hit-tested from the same rects. See
-## `_build_palette`.
+## The palette, laid out once per shape of screen and size of board: a row per
+## part and a block per category, both drawn and hit-tested from the same
+## rects. See `_build_palette`.
 var _pal_rows: Array = []
 var _pal_blocks: Array = []
 var _pal_height: float = 0.0
-## The `_inset` the palette was laid out at.
-var _pal_inset := Vector2.ZERO
+## Where the palette was laid out from: its first row's top-left, the gutter
+## included.
+var _pal_origin := Vector2.ZERO
 ## What the palette was laid out for — the mode, the screen, the tab — so it is
 ## laid out again when any of them changes. See `_layout_key`.
 var _pal_key: Array = []
@@ -238,7 +238,7 @@ func cell_size() -> float:
 func board_origin() -> Vector2:
 	if _drawing:
 		return _drawn_origin
-	return _thumb_layout()["origin"] if thumb() else BOARD_ORIGIN + _inset()
+	return _thumb_layout()["origin"] if thumb() else _desk_layout()["board"]
 
 ## Everything the layout in force is worked out from: the mode, the screen, the
 ## grid and the tab. What is kept in the screen's coordinates — the palette's
@@ -246,7 +246,7 @@ func board_origin() -> Vector2:
 ## it changes.
 func _layout_key() -> Array:
 	var b := current_board()
-	return [thumb(), get_viewport_rect().size, _inset(),
+	return [thumb(), get_viewport_rect().size,
 		Vector2i(b.width, b.height) if b != null else Vector2i.ZERO, _tab]
 
 ## Where everything on mobile mode's screen stands, for a screen of this shape
@@ -469,13 +469,30 @@ const BTN_H := 30.0
 const BTN_W := 92.0
 const BTN_GAP := 8.0
 
-## How far the board, the palette and the tabs stand in from where they are
-## written. They are laid out in DESIGN_W, and a screen wider than that — a
-## phone longer than 16:9 — has them in its middle, with the X still in the
+## Where a desk's board and parts stand: side by side in the middle of the
+## screen, BOARD_TO_PARTS apart, the pair halfway across it and each halfway
+## down it — the board with COPY and PASTE under it, which go where it goes.
+## `board` is the top-left of its first cell and `parts` that of the first row,
+## the gutter the category names sit in included: what `board_origin` and the
+## palette's rows are laid out from. A board a Workbench has grown takes more
+## of the middle, and the parts stand further over for it. The X stays in the
 ## screen's own corner.
-func _inset() -> Vector2:
-	var spare := maxf(get_viewport_rect().size.x - DESIGN_W, 0.0)
-	return Vector2(floorf(spare * 0.5 / PX) * PX, 0.0)
+func _desk_layout() -> Dictionary:
+	var vp := get_viewport_rect().size
+	var b := current_board()
+	var grid := Vector2(b.width, b.height) if b != null else Vector2(7, 5)
+	var frame := grid * float(CELL) + Vector2(20, 20)
+	var panel := _pal_panel_size()
+	var left := _halfway(vp.x, frame.x + BOARD_TO_PARTS + panel.x)
+	return {
+		"board": Vector2(left, _halfway(vp.y, frame.y + BTN_GAP + BTN_H)) + Vector2(10, 10),
+		"parts": Vector2(left + frame.x + BOARD_TO_PARTS, _halfway(vp.y, panel.y)) + Vector2(10, 10),
+	}
+
+## Where a thing `long` across starts, to stand halfway along `room`: on the
+## PIXEL grid, and never before the start of it.
+static func _halfway(room: float, long: float) -> float:
+	return floorf(maxf(room - long, 0.0) * 0.5 / PX) * PX
 
 ## The X that closes the screen, in its top-left corner.
 func _close_rect() -> Rect2:
@@ -1036,8 +1053,8 @@ const INFINITY := [".##...##.", "#..#.#..#", "#...#...#", "#..#.#..#", ".##...##
 ## PIXEL out from the middle — so the two read as a pair: the board's flow
 ## starts at one point and leaves by the other. This many PIXELs from its back,
 ## against the last cell, to its tip, which is as far outside the frame as the
-## room there allows: at a desk the biggest board a Workbench grows ends eight
-## short of the palette, and for a thumb the parts stand sixteen from the board.
+## room there allows: for a thumb the parts stand sixteen from the board, and at
+## a desk the board stands BOARD_TO_PARTS from them.
 const WAY_OUT_DEEP := 8
 const WAY_OUT_DEEP_THUMB := 12
 
@@ -1056,7 +1073,7 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, vp), Color(0.04, 0.05, 0.07, 0.62))
 	# The wiring's outline is kept where the board stood when it was worked out.
 	# A screen that has changed shape, or mode, has the board somewhere else.
-	var laid := _layout_key().slice(0, 4)
+	var laid := _layout_key().slice(0, 3)
 	if laid != _flow_key:
 		_flow_key = laid
 		_sim_dirty = true
@@ -2523,8 +2540,8 @@ func _pal_groups() -> Array:
 func _build_palette() -> void:
 	_pal_rows = []
 	_pal_blocks = []
-	_pal_inset = _inset()
-	var origin := PAL_ORIGIN + _pal_inset
+	var origin: Vector2 = _desk_layout()["parts"]
+	_pal_origin = origin
 	var x := origin.x + PAL_GUTTER
 	var y := origin.y
 	for group in _pal_groups():
@@ -2566,7 +2583,6 @@ func _pal_list() -> Array:
 func _build_thumb_parts() -> void:
 	_pal_rows = []
 	_pal_blocks = []
-	_pal_inset = _inset()
 	var groups := _pal_groups()
 	if groups.is_empty():
 		return
@@ -2587,9 +2603,18 @@ func _pal_panel() -> Rect2:
 	# For a thumb it is the whole column: tabs, plates, and the two under them.
 	if thumb():
 		return _thumb_layout()["column"]
-	_pal_list()   # for _pal_height and _pal_inset, which the layout works out
-	return Rect2(PAL_ORIGIN + _pal_inset - Vector2(10, 10),
+	_pal_list()   # for _pal_height and _pal_origin, which the layout works out
+	return Rect2(_pal_origin - Vector2(10, 10),
 		Vector2(PAL_GUTTER + PAL_COLS * PAL_W - 4 + 20, _pal_height + 20))
+
+## How big a desk's parts panel stands: 10 clear of its rows on every side, the
+## gutter included. Counted off the blocks rather than off the rows, since
+## where the rows go is worked out from it.
+func _pal_panel_size() -> Vector2:
+	var tall := -PAL_GROUP_GAP
+	for group in _pal_groups():
+		tall += ceilf(float((group["ids"] as Array).size()) / float(PAL_COLS)) * PAL_H + PAL_GROUP_GAP
+	return Vector2(PAL_GUTTER + PAL_COLS * PAL_W - 4 + 20, tall + 20)
 
 func _draw_palette() -> void:
 	var panel := _pal_panel()
@@ -2755,7 +2780,7 @@ func _draw_thumb_count(right: Vector2, id: String) -> float:
 ## red, and what COPY and PASTE did in green. It is the only thing written there.
 func _draw_message(vp: Vector2) -> void:
 	if _message_time > 0.0:
-		# Under the board's own left edge, wherever that has been stood in to.
-		var inset := _inset()
-		_px.text(Vector2(48, vp.y - 24) + inset, _message,
-			UiKit.GOOD if _message_good else Color(1.0, 0.65, 0.55), vp.x - 96.0 - inset.x * 2.0)
+		# Under the board's own left edge, and no further over than the parts.
+		var x := board_origin().x
+		_px.text(Vector2(x, vp.y - 24), _message,
+			UiKit.GOOD if _message_good else Color(1.0, 0.65, 0.55), _pal_panel().end.x - x)
