@@ -113,6 +113,7 @@
 		"kit_waiting": "Your kit is still down here, where you fell. The map has the room.",
 		"kit_back": "You have it back — %d things. Now walk them out.",
 		"box": "Treasure box: %s",
-		"box_empty": "The box is empty."
+		"box_empty": "The box is empty.",
+		"dug": "Dug up: %s"
 	}
 }

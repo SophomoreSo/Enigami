@@ -315,16 +315,19 @@ func _put_down_and_picked_up() -> void:
 	await frames(2)
 	GameState.die()
 
-## --- the bench carries every weapon -------------------------------------------------
+## --- the bench carries a kit's worth -----------------------------------------------
+## There are more weapons than a kit holds, so the bench carries three: the one
+## it is on and the next ones round.
 func _at_the_bench() -> void:
 	fresh()
 	var bench := Sandbox.new()
 	add_child(bench)
 	await frames(4)
 	var all: Array = Weapons.ids()
-	check(Array(bench.player.weapons) == all and bench.player.weapon_id == bench.current_weapon()
+	check(Array(bench.player.weapons) == all.slice(0, Player.MAX_WEAPONS)
+			and bench.player.weapon_id == bench.current_weapon()
 			and bench.player.runner.board == bench.board(),
-		"the bench puts every weapon on the player, the one it is on in hand, with its bench graph (%s)" % str(bench.player.weapons))
+		"the bench puts a kit's worth on the player, the one it is on in hand, with its bench graph (%s)" % str(bench.player.weapons))
 	await tap_key(KEY_2)
 	check(bench.current_weapon() == String(all[1]) and bench.player.runner.board == bench.board(),
 		"a slot's key changes weapon at the bench, and the bench is on that weapon (%s)" % bench.current_weapon())
@@ -332,6 +335,9 @@ func _at_the_bench() -> void:
 	check(bench.current_weapon() == String(all[2]) and bench.player.weapon_id == String(all[2])
 			and bench.player.runner.board == bench.board(),
 		"and the bench's own swap is the next one round (%s)" % bench.current_weapon())
+	bench.cycle_weapon()
+	check(bench.current_weapon() == String(all[3]) and bench.player.weapons.has(String(all[3])),
+		"and on past the kit to a weapon it did not have in it (%s)" % bench.current_weapon())
 	bench.cycle_weapon()
 	check(bench.current_weapon() == String(all[0]) and bench.player.hand == 0, "from the last back to the first")
 	bench.queue_free()
@@ -380,8 +386,8 @@ func _dying() -> void:
 		"the drop holds every weapon that can be lost (%s)" % str(dropped))
 	check((drop.get("boards", {}) as Dictionary).size() == 3, "and the graph of all three, the free one's included")
 	check(not GameState.owned_weapons.has("SWORD") and not GameState.owned_weapons.has("GUN")
-			and GameState.owned_weapons == [GameState.FREE_WEAPON],
-		"the vault is left with the free weapon")
+			and GameState.owned_weapons == [GameState.FREE_WEAPON, "SHOVEL"],
+		"the vault is left with the free weapon, and what was not carried (%s)" % str(GameState.owned_weapons))
 	check(GameState.graph_is_bare("ROCK") and GameState.graph_is_bare("SWORD"), "and every graph that went in is gone from it")
 	check(GameState.carried() == [GameState.FREE_WEAPON], "the kit is what is left to carry (%s)" % str(GameState.carried()))
 

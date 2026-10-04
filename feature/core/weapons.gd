@@ -65,6 +65,20 @@ const DEFS := {
 		"gravity_shots": true,
 		"thrown": true,
 	},
+	"SHOVEL": {
+		"name": "Shovel",
+		"desc": "A spade for a blade: it swings like anything heavy, and it digs. Hold the use key on lit ground to bring up what is buried there — loudly.",
+		"root": "SLASH",
+		"board": "shovel",
+		"base_damage": 10.0,
+		"melee_mul": 1.2,
+		"ranged_mul": 0.6,
+		"projectile_speed": 0.8,
+		"reach_mul": 0.6,
+		"size_mul": 1.1,
+		"gravity_shots": false,
+		"digs": true,
+	},
 }
 
 static func get_def(id: String) -> Dictionary:
@@ -126,6 +140,10 @@ static func uses_gravity_shots(weapon_id: String) -> bool:
 ## been picked back up.
 static func is_thrown(weapon_id: String) -> bool:
 	return bool(get_def(weapon_id).get("thrown", false))
+
+## Whether the weapon digs (`DigSpot`): the shovel, in hand on lit ground.
+static func digs(weapon_id: String) -> bool:
+	return bool(get_def(weapon_id).get("digs", false))
 
 ## The weapon's graph as a new profile gets it: its `board` in the content
 ## database (`data/db/boards/weapons.sql`), named after the weapon. What a

@@ -7,10 +7,11 @@
 -- and tests/feature/boards_test holds the two to each other. Named in the
 -- code, after the weapon, in the language being played.
 
-INSERT INTO boards (id) VALUES ('sword'), ('gun'), ('rock');
+INSERT INTO boards (id) VALUES ('sword'), ('gun'), ('rock'), ('shovel');
 
 INSERT INTO board_parts (board_id, x, y, part, root) VALUES
 	-- DASHSLASH covers two cells, so it starts a cell further in.
 	('sword', 5, 2, 'DASHSLASH', 1),
 	('gun', 6, 2, 'PROJECTILE', 1),
-	('rock', 6, 2, 'PROJECTILE', 1);
+	('rock', 6, 2, 'PROJECTILE', 1),
+	('shovel', 6, 2, 'SLASH', 1);

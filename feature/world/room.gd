@@ -11,6 +11,8 @@ signal pickup_collected(pickup: Pickup)
 signal lost_kit_collected(kit: LostKit)
 ## The room's treasure box, opened. `items` are the loot records that came out.
 signal box_opened(box: TreasureBox, items: Array)
+## Ground was dug up here (`DigSpot`); `items` are what came out.
+signal spot_dug(spot: DigSpot, items: Array)
 signal extraction_progress(ratio: float, info: Dictionary)
 signal extraction_done(info: Dictionary)
 ## Raised once the grid, the collision and the contents are all in place. A
@@ -49,6 +51,11 @@ var _extract_active: bool = false
 var _paths: AStarGrid2D = null
 ## The box this room's loot is kept in, or null when it was found with none.
 var box: TreasureBox = null
+## The ground worth digging in this room, dug or not.
+var digs: Array[DigSpot] = []
+## How far apart two spots of it are kept, and how far from the box: one dug
+## should not be one stood on while opening something else.
+const DIG_APART := 96.0
 
 func build(room_coord: Vector2i, record: Dictionary, doorset: Dictionary, seed_base: int) -> void:
 	coord = room_coord
@@ -290,6 +297,11 @@ func _spawn_contents() -> void:
 	for e in data["enemies"]:
 		_spawn_enemy(e)
 	_spawn_box()
+	# Rolled after everything else, so a room that had none — one filled
+	# before there was ground to dig — rolls its monsters and loot as it did.
+	if not data.has("digs"):
+		data["digs"] = _roll_digs()
+	_spawn_digs()
 	# Put down before the room was built, by `Raid`, out of what a death left
 	# behind. It is not rolled and it is not loot: this room holds one only
 	# because the player died standing in it.
@@ -417,6 +429,58 @@ func _spawn_box() -> void:
 func _on_box_opened(b: TreasureBox, items: Array) -> void:
 	data["box"]["opened"] = true
 	box_opened.emit(b, items)
+
+## Ground worth digging, rolled with the room: one or two spots in an ordinary
+## room and two or three where the treasure is, and none in the room a raid
+## starts in or the boss's. Each is open floor, kept clear of the box and of
+## the others, with something buried under it — some gold, a part, and now and
+## then a second part: a treasure box's sort of haul (`DigSpot`).
+func _roll_digs() -> Array:
+	var kind := String(data.get("kind", "normal"))
+	var n := 0
+	if kind == "normal":
+		n = rng.randi_range(1, 2)
+	elif kind == "treasure":
+		n = rng.randi_range(2, 3)
+	var taken: Array[Vector2] = []
+	var loot: Array = data.get("loot", [])
+	if not loot.is_empty() and (loot[0] as Dictionary).has("pos"):
+		var b: Array = loot[0]["pos"]
+		taken.append(Vector2(float(b[0]), float(b[1])))
+	var out: Array = []
+	for i in n:
+		var at := Vector2.INF
+		for attempt in 12:
+			var p := _random_open_point()
+			if taken.all(func(t: Vector2) -> bool: return t.distance_to(p) >= DIG_APART):
+				at = p
+				break
+		if at == Vector2.INF:
+			continue
+		taken.append(at)
+		var buried: Array = [{"scrap": rng.randi_range(5, 18)}]
+		var pool := Components.loot_pool()
+		for k in (2 if rng.randf() < 0.3 else 1):
+			buried.append({"id": pool[rng.randi() % pool.size()]})
+		out.append({"pos": [at.x, at.y], "loot": buried, "dug": false})
+	return out
+
+func _spawn_digs() -> void:
+	digs.clear()
+	for rec in data.get("digs", []):
+		var d := DigSpot.new()
+		d.setup(rec)
+		d.player = player
+		d.dug.connect(func(s: DigSpot, items: Array) -> void: spot_dug.emit(s, items))
+		add_child(d)
+		digs.append(d)
+
+## Whether holding interact would dig here.
+func dig_offered() -> bool:
+	for d in digs:
+		if is_instance_valid(d) and d.offered():
+			return true
+	return false
 
 ## Whether a press of interact would open this room's box.
 func box_offered() -> bool:

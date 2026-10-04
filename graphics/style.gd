@@ -412,6 +412,7 @@ const WEAPON := {
 	"SWORD": {"color": Color(0.85, 0.9, 1.0), "art": "weapon_regular_sword"},
 	"GUN": {"color": Color(0.6, 0.95, 0.85), "art": "weapon_bow_2"},
 	"ROCK": {"color": Color(0.95, 0.82, 0.55), "art": "rock", "grip": 0.5, "upright": true},
+	"SHOVEL": {"color": Color(0.78, 0.66, 0.46), "art": "shovel"},
 }
 
 static func weapon_color(id: String) -> Color:
@@ -434,7 +435,41 @@ static func weapon_upright(id: String) -> bool:
 ##
 ## The rock is cut in planes, lit from the top left like everything in the
 ## pack: a top it is lit across, a face under that, and the side turned away.
+## The shovel points up like the pack's blades: a steel spade lit down its left
+## edge, a socket, an ash handle and a crossbar grip at the foot.
 const DRAWN_TILES := {
+	"shovel": {
+		"rows": [
+			"..lll..",
+			".lmmmd.",
+			"lmmmmmd",
+			"lmmmmmd",
+			"lmmmmmd",
+			"lmmmmmd",
+			".mmmmd.",
+			"..mmd..",
+			"...s...",
+			"...s...",
+			"...w...",
+			"...w...",
+			"...w...",
+			"...w...",
+			"...w...",
+			"...w...",
+			"...w...",
+			"..owo..",
+			".o...o.",
+			".ooooo.",
+		],
+		"inks": {
+			"l": Color(0.86, 0.89, 0.92),
+			"m": Color(0.62, 0.66, 0.70),
+			"d": Color(0.38, 0.41, 0.45),
+			"s": Color(0.30, 0.30, 0.33),
+			"w": Color(0.56, 0.39, 0.22),
+			"o": Color(0.36, 0.24, 0.13),
+		},
+	},
 	"rock": {
 		"rows": [
 			"...ooo....",
