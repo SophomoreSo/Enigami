@@ -21,11 +21,15 @@
 	},
 	"FIRE": {
 		"name": "FIRE",
-		"desc": "Adds flame. Struck enemies burn for damage over time."
+		"desc": "Adds flame. Struck enemies burn for damage over time; a wet one is only dried."
 	},
 	"ICE": {
 		"name": "ICE",
-		"desc": "Adds frost. Struck enemies are slowed."
+		"desc": "Adds frost. Struck enemies are slowed; a wet one freezes solid for a moment."
+	},
+	"WATER": {
+		"name": "WATER",
+		"desc": "Soaks what it strikes. A wet enemy freezes solid under ICE, and FIRE only dries it; water puts a burning enemy out."
 	},
 	"DAMAGE": {
 		"name": "DAMAGE +",

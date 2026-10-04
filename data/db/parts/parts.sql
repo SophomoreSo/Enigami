@@ -41,7 +41,8 @@ INSERT INTO codes (code, id) VALUES
 	(34, 'INVERT'), (35, 'STUN'),
 	(36, 'POSSESS'),
 	(37, 'AUTO_AIM'),
-	(38, 'HEALTH_DRAIN');
+	(38, 'HEALTH_DRAIN'),
+	(39, 'WATER');
 
 -- WIRE and BEND carried a flow one cell and did nothing else to it, which
 -- every part already does: any part takes flow on any side and sends it where
@@ -102,15 +103,19 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 
 -- ---- element ----------------------------------------------------------------
 
+-- WATER is the third, and what it does is change the other two: a wet enemy
+-- freezes under ICE and is only dried by FIRE (`Actor.afflict`).
 INSERT INTO parts (id, name, category, heat, description) VALUES
-	('FIRE', 'FIRE', 'element', 0.4, 'Adds flame. Struck enemies burn for damage over time.'),
-	('ICE', 'ICE', 'element', 0.4, 'Adds frost. Struck enemies are slowed.');
+	('FIRE', 'FIRE', 'element', 0.4, 'Adds flame. Struck enemies burn for damage over time; a wet one is only dried.'),
+	('ICE', 'ICE', 'element', 0.4, 'Adds frost. Struck enemies are slowed; a wet one freezes solid for a moment.'),
+	('WATER', 'WATER', 'element', 0.4, 'Soaks what it strikes. A wet enemy freezes solid under ICE, and FIRE only dries it; water puts a burning enemy out.');
 
-INSERT INTO ports (part_id, side) VALUES ('FIRE', 'E'), ('ICE', 'E');
+INSERT INTO ports (part_id, side) VALUES ('FIRE', 'E'), ('ICE', 'E'), ('WATER', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('FIRE', 0, 'elements', 'include', 'FIRE'),
-	('ICE', 0, 'elements', 'include', 'ICE');
+	('ICE', 0, 'elements', 'include', 'ICE'),
+	('WATER', 0, 'elements', 'include', 'WATER');
 
 
 -- ---- stat ---------------------------------------------------------------------

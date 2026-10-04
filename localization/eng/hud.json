@@ -2,6 +2,8 @@
 	"health": "%d / %d",
 	"burning": "BURNING",
 	"chilled": "CHILLED",
+	"wet": "WET",
+	"frozen": "FROZEN",
 	"stunned": "STUNNED",
 	"possessing": "IN THE %s %ds",
 	"thrown": "%s (THROWN)",

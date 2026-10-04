@@ -2,6 +2,8 @@
 	"health": "%d / %d",
 	"burning": "화상",
 	"chilled": "냉각",
+	"wet": "젖음",
+	"frozen": "얼어붙음",
 	"stunned": "기절",
 	"possessing": "%s 빙의 %d초",
 	"thrown": "%s (던짐)",

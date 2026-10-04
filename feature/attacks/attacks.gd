@@ -533,8 +533,9 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 		(atk as Enemy).revealed = true
 	# The frost is what broke: the enemy thaws, and that takes the chill this
 	# same hit may have brought with it, so the next break needs a fresh one.
+	# Frozen solid, it is the ice that breaks, and it stands free again.
 	if breaks:
-		target.chill_time = 0.0
+		target.thaw()
 		Cues.at(&"shatter", pos, {"payload": p, "damage": dealt})
 	# A cleanse — what an INVERT makes of FIRE, ICE or STUN — ends what the enemy
 	# struck was carrying when the hit reached it: every burn, chill and stun.

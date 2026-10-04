@@ -44,6 +44,7 @@ const COMPONENT := {
 
 	"FIRE": {"glyph": "🔥"},
 	"ICE": {"glyph": "❄", "color": Color(0.45, 0.8, 0.98)},
+	"WATER": {"glyph": "≈", "color": Color(0.3, 0.55, 1.0)},
 
 	"DAMAGE": {"glyph": "+"},
 	"SIZE": {"glyph": "⤢"},
@@ -160,6 +161,15 @@ const COMPONENT_ICON := {
 		"..###..",
 		".#.#.#.",
 		"...#...",
+	],
+	"WATER": [
+		"...#...",
+		"...#...",
+		"..###..",
+		".#####.",
+		"##.####",
+		"##.####",
+		".#####.",
 	],
 
 	"DAMAGE": [
@@ -401,7 +411,10 @@ const NEUTRAL_ATTACK := Color(0.98, 0.85, 0.4)
 const ELEMENT_COLOR := {
 	"FIRE": Color(1.0, 0.5, 0.22),
 	"ICE": Color(0.5, 0.85, 1.0),
+	"WATER": Color(0.32, 0.58, 1.0),
 }
+## What frozen solid looks like on whoever is: pale ice over the whole of them.
+const FROZEN_TINT := Color(0.78, 0.94, 1.0)
 
 ## What an attack carrying this payload is drawn in. First element wins, so a
 ## flow's colour tracks the first thing that was added to it.
