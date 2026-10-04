@@ -1432,7 +1432,8 @@ func _track_colors(cell: Vector2i) -> Array:
 ## leaves by: with a board running left to right, the track leaves the middle of
 ## the root's right edge, goes over and under everything after it, and meets
 ## again in the middle of the last part's far side, where the flow leaves it —
-## through the frame, on a board that fires.
+## through the frame, on a board that fires. The root is lit all the same, as a
+## shape of its own whose dots run out to its point: see `_rebuild_root_outline`.
 ##
 ## It is the boundary of that region rather than the lit silhouette, so the
 ## side facing the root counts even though it is fused and never drawn — that
@@ -1454,6 +1455,7 @@ func _track_colors(cell: Vector2i) -> Array:
 func _rebuild_outline(b: SkillBoard) -> void:
 	_flow_arcs = []
 	_flow_loops = []
+	_rebuild_root_outline(b)
 	var ends := _flow_ends(b)
 	if ends.is_empty():
 		return
@@ -1503,6 +1505,7 @@ func _rebuild_outline(b: SkillBoard) -> void:
 	# Whether it closes is the same right-hand question as every other step: it
 	# does when the turn asked for here is the edge the walk set off along.
 	var flow := _flow_through(b, mid)
+	var crossings := _crossings(b, mid)
 	for start in edges.keys():
 		while not (edges[start] as Array).is_empty():
 			var loop := PackedVector2Array()
@@ -1534,7 +1537,53 @@ func _rebuild_outline(b: SkillBoard) -> void:
 			# the whole point. Anything shorter is not a shape at all.
 			if loop.size() >= 2:
 				_flow_loops.append({"loop": loop, "owners": owners})
-				_cut_loop(loop, owners, flow, _flow_head(b, ends[0]), _flow_head(b, ends[1]))
+				_cut_loop(loop, owners, flow, crossings, _flow_head(b, ends[0]),
+					_flow_head(b, ends[1]))
+
+## The root's own outline, lit the way a wired part's is, with its dots setting
+## off from the middle of its back and going both ways round to its point. That
+## point is the tip the run after it sets off from, so the flow is seen to come
+## out of the weapon's own part rather than to start beside it.
+##
+## A shape of its own rather than one with what it feeds: joined to it, the seam
+## its point sits on would be inside the shape, and the run after it would have
+## nowhere to set off from but the root's own back. It is lit only while it hands
+## the flow on to something that carries it — the same test as every other part:
+## see `_hands_over`.
+func _rebuild_root_outline(b: SkillBoard) -> void:
+	var input = b.find_root()
+	if input == null:
+		return
+	var entry := b.comp_origin_at(input)
+	var id := String(entry["id"])
+	var rot := int(entry["rot"])
+	var cut := _port_cut(b, id, input, rot)
+	if cut < 0 or not _hands_over(Components.exit_cell(id, input, rot)):
+		return
+	var f := _port_frame(_part_rect(id, input, rot), cut)
+	var loop := _port_outline(f)
+	var owners: Array = []
+	for i in loop.size():
+		owners.append(input)
+	_flow_loops.append({"loop": loop, "owners": owners})
+	# The tip strip is the middle one, and the back is cut level with it.
+	@warning_ignore("integer_division")
+	var across := (float((int(f[4]) - 1) / 2) + 0.5) * float(PX)
+	var base: Vector2 = f[0]
+	var w: Vector2 = f[2]
+	_cut_at_ends(loop, owners, base + w * across,
+		base + (f[1] as Vector2) * float(f[3]) + w * across, _loop_length(loop))
+
+## Whether the flow out of `exit_cell` goes somewhere that carries it on: into a
+## part not caught in a loop it can never leave, or out by the way out.
+func _hands_over(exit_cell: Vector2i) -> bool:
+	for out in _trace_cache.get("outs", []):
+		if out["from"] == exit_cell:
+			return true
+	for link in _trace_cache.get("links", []):
+		if link[0] == exit_cell and not _dead_at(link[1]):
+			return true
+	return false
 
 ## Which of the edges starting here to take next, as an index into `here`:
 ## whichever turns furthest right from the way the walk arrived. Right first,
@@ -1623,18 +1672,7 @@ func _part_center(b: SkillBoard, origin: Vector2i) -> Vector2:
 ## between them, but the flow crosses from the one to the other all the same.
 func _flow_through(b: SkillBoard, mid: Dictionary) -> Dictionary:
 	var flow: Dictionary = {}
-	var steps: Array = []
-	for link in _trace_cache.get("links", []):
-		steps.append([link[0], link[1]])
-	for out in _trace_cache.get("outs", []):
-		var from: Vector2i = out["from"]
-		steps.append([from, from + Components.dir_to_vec(int(out["dir"]))])
-	for origin in b.cells.keys():
-		var entry: Dictionary = b.cells[origin]
-		var ex := Components.exit_cell(String(entry["id"]), origin, int(entry["rot"]))
-		if ex != origin:
-			steps.append([origin, ex])
-	for step in steps:
+	for step in _flow_steps(b):
 		var from: Vector2i = step[0]
 		var to: Vector2i = step[1]
 		var way := Vector2(to - from)
@@ -1646,6 +1684,47 @@ func _flow_through(b: SkillBoard, mid: Dictionary) -> Dictionary:
 				flow[c] = (flow.get(c, Vector2.ZERO) as Vector2) + way
 	return flow
 
+## Every step the flow takes from one cell into the next, as [from, to]: the
+## links the walk found, each way out of the board, and a two-cell part's own
+## step from the cell it is filed under to the one it emits from.
+func _flow_steps(b: SkillBoard) -> Array:
+	var steps: Array = []
+	for link in _trace_cache.get("links", []):
+		steps.append([link[0], link[1]])
+	for out in _trace_cache.get("outs", []):
+		var from: Vector2i = out["from"]
+		steps.append([from, from + Components.dir_to_vec(int(out["dir"]))])
+	for origin in b.cells.keys():
+		var entry: Dictionary = b.cells[origin]
+		var ex := Components.exit_cell(String(entry["id"]), origin, int(entry["rot"]))
+		if ex != origin:
+			steps.append([origin, ex])
+	return steps
+
+## Where the flow crosses the edge of the wired region, as Vector3i(cell.x,
+## cell.y, dir) for the side of a cell in it: 1 where the flow comes in across
+## that side — from the root — and -1 where it leaves — by the way out, back
+## into the root round a ring, or into a ring it never comes out of.
+##
+## These are the ends of a run, and they are found here rather than read off
+## which way a cell is crossed, which only finds them on a cell the flow goes
+## straight across. A trigger that sends its branch off sideways, or a part the
+## flow turns a corner on, is crossed on a slant, and none of its sides is
+## square to that: the run then set off from a corner of it, or ended on one.
+func _crossings(b: SkillBoard, mid: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for step in _flow_steps(b):
+		var from: Vector2i = step[0]
+		var to: Vector2i = step[1]
+		var dir := _step_dir(to - from)
+		if dir < 0:
+			continue
+		if mid.has(from) and not mid.has(to):
+			out[Vector3i(from.x, from.y, dir)] = -1
+		elif mid.has(to) and not mid.has(from):
+			out[Vector3i(to.x, to.y, Components.opposite(dir))] = 1
+	return out
+
 ## A closed outline cut into the runs the dots travel along, each stretch of it
 ## going the way the part it runs along sends the flow. That is the whole of the
 ## rule, and both readings fall out of it:
@@ -1655,20 +1734,23 @@ func _flow_through(b: SkillBoard, mid: Dictionary) -> Dictionary:
 ##     pointing across. The caps are where the runs meet, so the dots leave the
 ##     middle of the cap the root feeds, go both ways round, and arrive at the
 ##     middle of the one the flow leaves by. Nothing circles, exactly as before.
+##     A cap is the side the flow crosses there (`crossings`), whichever way the
+##     part behind it then turns the flow.
 ##   * A branch that comes back round — a ring, or a trigger's branch running
 ##     home along the row below — has every side pointing the same way round the
 ##     shape. There is no cap to meet at, so the dots go round with the flow
 ##     instead of one half of them running against it.
 ##
-## `owners` is the cell each side of the outline belongs to and `flow` which way
-## that cell is crossed; `head` and `tail` are only the fallback, for a shape
-## with nothing wired to say which way it goes.
+## `owners` is the cell each side of the outline belongs to, `flow` which way
+## that cell is crossed and `crossings` the sides the flow comes in or goes out
+## across; `head` and `tail` are only the fallback, for a shape with nothing
+## wired to say which way it goes.
 func _cut_loop(loop: PackedVector2Array, owners: Array, flow: Dictionary,
-		head: Vector2, tail: Vector2) -> void:
+		crossings: Dictionary, head: Vector2, tail: Vector2) -> void:
 	var total := _loop_length(loop)
 	if total <= 0.0:
 		return
-	var runs := _runs_along(loop, owners, flow, total)
+	var runs := _runs_along(loop, owners, flow, crossings, total)
 	if runs.is_empty():
 		_cut_at_ends(loop, owners, head, tail, total)
 		return
@@ -1681,29 +1763,52 @@ func _cut_loop(loop: PackedVector2Array, owners: Array, flow: Dictionary,
 ## `way` which way round the loop they then go, so a stretch the flow runs
 ## against the outline is kept from its far end.
 ##
-## A side square to the way its own cell is crossed decides nothing by itself:
-## it is a cap, and it takes the way of the sides around it. Where those two
-## disagree the cap is where the dots are born or die, and it is halved — the
-## middle of a cap is the middle of the seam the flow crosses there, which is
-## where the root hands over and where the last part lets go.
+## A side the flow crosses — in from the root, or out to wherever the run goes
+## next (`crossings`) — is an end of the run, and is halved: the middle of it is
+## the middle of the seam the flow crosses there, which is where the root hands
+## over and where the last part lets go. The dots set off from that middle both
+## ways where the flow comes in, and meet there where it goes out.
+##
+## Any other side square to the way its own cell is crossed decides nothing by
+## itself: it is a cap, and it takes the way of the sides around it. Where those
+## two disagree the cap is where the dots are born or die, and it is halved too.
 ##
 ## Empty when no side of the shape has anything to say, which is a shape the
 ## flow reaches without crossing any of its cells.
 func _runs_along(loop: PackedVector2Array, owners: Array, flow: Dictionary,
-		total: float) -> Array:
+		crossings: Dictionary, total: float) -> Array:
 	var n := loop.size()
 	var ways: Array = []
+	var cross: Array = []
 	var starts: Array = []
 	var walked := 0.0
-	var any := false
 	for i in n:
 		var step := loop[(i + 1) % n] - loop[i]
-		var f: Vector2 = flow.get(owners[i], Vector2.ZERO)
+		var cell: Vector2i = owners[i]
+		# Which side of its cell this is: the one it faces out of, on the
+		# outline's left, since the shape is always on its right.
+		var side := posmod(_step_dir(Vector2i(step.sign())) - 1, 4)
+		var c := int(crossings.get(Vector3i(cell.x, cell.y, side), 0))
+		var f: Vector2 = flow.get(cell, Vector2.ZERO)
 		var along := step.normalized().dot(f)
-		ways.append(0 if is_zero_approx(along) else (1 if along > 0.0 else -1))
-		any = any or int(ways[i]) != 0
+		# A side the flow crosses runs by its halves (`_crossing_halves`), not
+		# by the way its cell is crossed.
+		ways.append(0 if c != 0 or is_zero_approx(along) else (1 if along > 0.0 else -1))
+		cross.append(c)
 		starts.append(walked)
 		walked += step.length()
+	# What each side says at its start and at its end: the same at both for a
+	# side the flow runs along, one thing at each end for a side it crosses,
+	# and nothing yet for a cap.
+	var said: Array = []
+	var any := false
+	for i in n:
+		var pair: Array = [int(ways[i]), int(ways[i])]
+		if int(cross[i]) != 0:
+			pair = _crossing_halves(int(cross[i]), _nearest_way(ways, cross, i, -1),
+				_nearest_way(ways, cross, i, 1))
+		said.append(pair)
+		any = any or int(pair[0]) != 0
 	if not any:
 		return []
 	# Each cap takes the run it sits between, and is cut in half when the two
@@ -1712,16 +1817,16 @@ func _runs_along(loop: PackedVector2Array, owners: Array, flow: Dictionary,
 	for i in n:
 		var from: float = starts[i]
 		var span: float = (starts[(i + 1) % n] if i + 1 < n else total) - from
-		if int(ways[i]) != 0:
-			pieces.append({"from": from, "span": span, "way": int(ways[i])})
+		var first := int(said[i][0])
+		var second := int(said[i][1])
+		if first == 0:
+			first = _nearest_said(said, i, -1)
+			second = _nearest_said(said, i, 1)
+		if first == second:
+			pieces.append({"from": from, "span": span, "way": first})
 			continue
-		var before := _nearest_way(ways, i, -1)
-		var after := _nearest_way(ways, i, 1)
-		if before == after:
-			pieces.append({"from": from, "span": span, "way": before})
-			continue
-		pieces.append({"from": from, "span": span * 0.5, "way": before})
-		pieces.append({"from": from + span * 0.5, "span": span * 0.5, "way": after})
+		pieces.append({"from": from, "span": span * 0.5, "way": first})
+		pieces.append({"from": from + span * 0.5, "span": span * 0.5, "way": second})
 	# Neighbours going the same way are one run, the last and the first
 	# included: a shape the flow circles has no break in it anywhere.
 	var runs: Array = []
@@ -1742,16 +1847,50 @@ func _runs_along(loop: PackedVector2Array, owners: Array, flow: Dictionary,
 		run["way"] = float(run["way"])
 	return runs
 
-## The way the nearest side either side of `i` runs, `step` being which way to
-## look. Zero only if nothing on the loop has anything to say, which the caller
-## has already ruled out.
-func _nearest_way(ways: Array, i: int, step: int) -> int:
+## The way the nearest side either side of `i` runs at the end facing it,
+## `step` being which way to look. A side the flow crosses (`cross`) is taken
+## as its halves run when nothing turns them: its second half looking back, its
+## first looking on. Zero if no other side has anything to say.
+func _nearest_way(ways: Array, cross: Array, i: int, step: int) -> int:
 	var n := ways.size()
 	for k in range(1, n):
-		var w := int(ways[posmod(i + step * k, n)])
+		var j := posmod(i + step * k, n)
+		var c := int(cross[j])
+		if c != 0:
+			return c if step < 0 else -c
+		var w := int(ways[j])
 		if w != 0:
 			return w
 	return 0
+
+## What the nearest side either side of `i` says at the end facing it — its end
+## looking back, its start looking on — `step` being which way to look. Zero
+## only if nothing on the loop has anything to say, which the caller has
+## already ruled out.
+func _nearest_said(said: Array, i: int, step: int) -> int:
+	var n := said.size()
+	for k in range(1, n):
+		var pair: Array = said[posmod(i + step * k, n)]
+		var w := int(pair[1] if step < 0 else pair[0])
+		if w != 0:
+			return w
+	return 0
+
+## Which way the dots run along each half of a side the flow crosses, as
+## [first half, second half] in the outline's own order: out of the middle
+## where the flow comes in (`c` 1), and into it where the flow goes out (`c`
+## -1). `before` and `after` are the ways of the runs either side, and a half
+## one of them already runs through goes with it instead: round a ring the
+## root feeds, the dots coming round carry on past where it feeds it rather
+## than meeting the ones it sends the other way. Never both halves, though —
+## that would have the dots meet where the flow comes in, or set off where it
+## goes out.
+func _crossing_halves(c: int, before: int, after: int) -> Array:
+	var first := c if before == c else -c
+	var second := -c if after == -c else c
+	if first == c and second == -c:
+		return [-c, c]
+	return [first, second]
 
 ## The fallback: an outline cut into the two runs between `head` and `tail`,
 ## each kept from the head end onwards, for a shape whose own wiring says
@@ -2054,11 +2193,16 @@ func _draw_part_edges(id: String, origin: Vector2i, rot: int, own: Color, cut: i
 	var cells := Components.footprint(id, origin, rot)
 	var r := _part_rect(id, origin, rot)
 	var deep := _point_depth(r, cut) if cut >= 0 else 0.0
+	# The point is cut into the cell the part emits from and no other: the
+	# back cell of a two-cell root keeps its sides whole, rather than each of
+	# them stopping as far short of its own end as the point is deep.
+	var pointed := Components.exit_cell(id, origin, rot)
 	for c in cells:
 		for d in 4:
 			if d == cut or _fused(cells, c, d):
 				continue
-			_px.rect(_trim_to_point(_edge_rect(cells, c, d), d, cut, deep), own)
+			_px.rect(_trim_to_point(_edge_rect(cells, c, d), d, cut if c == pointed else -1, deep),
+				own)
 	if cut >= 0:
 		_draw_port_point(r, cut, own)
 
@@ -2100,6 +2244,21 @@ func _point_depth(r: Rect2, dir: int) -> float:
 ## that forty-five degree cut written on the grid. The middle strip runs the
 ## whole depth, and is the point itself.
 func _port_strips(r: Rect2, dir: int) -> Array:
+	var f := _port_frame(r, dir)
+	var base: Vector2 = f[0]
+	var v: Vector2 = f[1]
+	var w: Vector2 = f[2]
+	var out := []
+	for i in int(f[4]):
+		var a := base + w * (float(i) * float(PX))
+		var z := a + w * float(PX) + v * _strip_lead(f, i)
+		out.append(Rect2(Vector2(minf(a.x, z.x), minf(a.y, z.y)), (z - a).abs()))
+	return out
+
+## What a port's strips are laid out by, as [base, v, w, deep, n]: the corner
+## they are counted from, the way the port points, the way the strips stack,
+## how deep the port is and how many strips there are.
+func _port_frame(r: Rect2, dir: int) -> Array:
 	var v := Vector2(Components.dir_to_vec(dir))
 	var w := Vector2(-v.y, v.x)
 	# The corner the strips are counted from: the one both `v` and `w` run away
@@ -2108,14 +2267,31 @@ func _port_strips(r: Rect2, dir: int) -> Array:
 		r.position.y if v.y + w.y > 0.0 else r.end.y)
 	var deep := absf(r.size.x * v.x + r.size.y * v.y)
 	var n := int(absf(r.size.x * w.x + r.size.y * w.y) / float(PX))
-	var out := []
+	return [base, v, w, deep, n]
+
+## How far strip `i` of a port laid out by `f` runs: the whole depth in the
+## middle, and a PIXEL less for every strip out from it.
+func _strip_lead(f: Array, i: int) -> float:
+	@warning_ignore("integer_division")
+	return float(f[3]) - float(absi(i - (int(f[4]) - 1) / 2) * PX)
+
+## A port's silhouette as a closed loop of corners, clockwise like every other
+## outline the dots run: along one long side, down the staircase to the point
+## and back, along the other long side and across the back. A corner every
+## PIXEL of the staircase, so it is the outline of the strips exactly, and the
+## track laid along it covers the PIXELs `_draw_port_point` lights.
+func _port_outline(f: Array) -> PackedVector2Array:
+	var base: Vector2 = f[0]
+	var v: Vector2 = f[1]
+	var w: Vector2 = f[2]
+	var n := int(f[4])
+	var loop := PackedVector2Array([base])
 	for i in n:
-		@warning_ignore("integer_division")
-		var lead := deep - float(absi(i - (n - 1) / 2) * PX)
-		var a := base + w * (float(i) * float(PX))
-		var z := a + w * float(PX) + v * lead
-		out.append(Rect2(Vector2(minf(a.x, z.x), minf(a.y, z.y)), (z - a).abs()))
-	return out
+		var lead := _strip_lead(f, i)
+		loop.append(base + v * lead + w * (float(i) * float(PX)))
+		loop.append(base + v * lead + w * (float(i + 1) * float(PX)))
+	loop.append(base + w * (float(n) * float(PX)))
+	return loop
 
 ## The ground and the tint under a part, which for a port is its strips rather
 ## than its box: the two corners it is cut back to a point from show the board
