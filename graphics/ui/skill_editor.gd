@@ -210,6 +210,13 @@ var _flow_key: Array = []
 ## Mobile mode's layout, and what it was worked out for. See `_thumb_layout`.
 var _thumb_rects: Dictionary = {}
 var _thumb_key: Array = []
+## The parts in their blocks, worked out on first use and kept. See `_pal_groups`.
+var _groups: Array = []
+## Whether a draw is under way, and the cell's size and the board's corner as it
+## found them. See `_draw`.
+var _drawing := false
+var _drawn_cell := 0.0
+var _drawn_origin := Vector2.ZERO
 var _ports: Array = []               ## PORT turned to face each direction
 var _arrows: Array = []              ## ARROW likewise, for mobile mode's TURN
 ## The board drawn while the root is in hand. See `_shown_board`.
@@ -223,10 +230,14 @@ func thumb() -> bool:
 ## How big a cell of the board is drawn: CELL at a desk, and for a thumb as big
 ## as the room beside the parts allows.
 func cell_size() -> float:
+	if _drawing:
+		return _drawn_cell
 	return float(_thumb_layout()["cell"]) if thumb() else float(CELL)
 
 ## The top-left corner of the board's first cell.
 func board_origin() -> Vector2:
+	if _drawing:
+		return _drawn_origin
 	return _thumb_layout()["origin"] if thumb() else BOARD_ORIGIN + _inset()
 
 ## Everything the layout in force is worked out from: the mode, the screen, the
@@ -1031,6 +1042,15 @@ const WAY_OUT_DEEP := 8
 const WAY_OUT_DEEP_THUMB := 12
 
 func _draw() -> void:
+	# The cell's size and the board's corner, asked the once for the whole of
+	# this draw. Every rect on the board is worked out from the two of them —
+	# near a thousand askings a frame — and for a thumb each one is the layout
+	# held up against the screen again. Nothing moves the board mid-draw; a
+	# press or a test asking between draws is still answered from the layout.
+	_drawing = false
+	_drawn_cell = cell_size()
+	_drawn_origin = board_origin()
+	_drawing = true
 	var vp := get_viewport_rect().size
 	# Only a light veil: the fight behind this panel has to stay readable.
 	draw_rect(Rect2(Vector2.ZERO, vp), Color(0.04, 0.05, 0.07, 0.62))
@@ -1051,6 +1071,7 @@ func _draw() -> void:
 	_draw_close()
 	_draw_hint(vp)
 	_draw_drag()
+	_drawing = false
 
 ## How many PIXELs a pixel of a part's icon is drawn at on the board: ICON_ZOOM
 ## at a desk's cell, and more as a thumb's cell has the room.
@@ -1992,18 +2013,33 @@ func _loop_length(loop: PackedVector2Array) -> float:
 ## those is what lets a dot be laid down a run at a time: it says where the
 ## outline next turns; the fourth says whose side of the shape it is on, and so
 ## what colour the dot is there.
-func _loop_sample(loop: PackedVector2Array, s: float) -> Array:
-	var at := s
-	for i in loop.size():
+##
+## The side `s` falls on is the last to start at or before it by `marks` —
+## `_loop_marks` of the same loop — which is found by halving rather than by
+## walking round from the first corner: a port's staircase has a corner every
+## PIXEL, and a dot going down it asks at each one.
+func _loop_sample(loop: PackedVector2Array, marks: PackedFloat64Array, s: float) -> Array:
+	var i := marks.bsearch(s, false) - 1
+	if i >= 0 and i < loop.size():
 		var a := loop[i]
 		var step := loop[(i + 1) % loop.size()] - a
 		var span := step.length()
-		if span <= 0.0:
-			continue
+		var at := s - marks[i]
 		if at < span:
 			return [a + step * (at / span), step / span, span - at, i]
-		at -= span
 	return [loop[0], Vector2.RIGHT, 0.0, 0]
+
+## How far round `loop` each of its sides starts, from its first corner, and
+## after the last of them how far round the whole of it is — `_loop_length` —
+## so one more entry than the loop has sides.
+func _loop_marks(loop: PackedVector2Array) -> PackedFloat64Array:
+	var marks := PackedFloat64Array()
+	var walked := 0.0
+	for i in loop.size():
+		marks.append(walked)
+		walked += (loop[(i + 1) % loop.size()] - loop[i]).length()
+	marks.append(walked)
+	return marks
 
 ## One side of `cell` as a directed segment with the shape on its right, which
 ## is what makes the loops these chain into come out clockwise. The cell comes
@@ -2063,7 +2099,13 @@ func _draw_flow_dots() -> void:
 	var apart := _flow_dot_span()
 	for arc in _flow_arcs:
 		var loop: PackedVector2Array = arc["loop"]
-		var total := _loop_length(loop)
+		# Where each side of the outline starts, measured the first time the run
+		# is drawn and kept with it: a run lasts until the wiring is read again,
+		# and its dots are placed every frame.
+		if not arc.has("marks"):
+			arc["marks"] = _loop_marks(loop)
+		var marks: PackedFloat64Array = arc["marks"]
+		var total := marks[marks.size() - 1]
 		var way: float = arc["way"]
 		var span: float = arc["span"]
 		# Distance from the head cut, so a dot sets off from the start rather
@@ -2072,7 +2114,7 @@ func _draw_flow_dots() -> void:
 		while at < span:
 			# `way` places the dot and nothing else: a dot is the same mark
 			# either way round, being drawn out from its middle.
-			_draw_dot(loop, arc["owners"], fposmod(float(arc["from"]) + at * way, total), total)
+			_draw_dot(loop, marks, arc["owners"], fposmod(float(arc["from"]) + at * way, total), total)
 			at += apart
 
 ## The whole of one wired shape's outline, lit low: the line the dots run on.
@@ -2106,7 +2148,8 @@ func _draw_track(loop: PackedVector2Array, owners: Array) -> void:
 ## going round a corner turns with the shape instead of carrying straight on off
 ## it. That is what the walk below is for: a piece per straight run the dot
 ## covers, which for a dot on a corner is two of them meeting there.
-func _draw_dot(loop: PackedVector2Array, owners: Array, at: float, total: float) -> void:
+func _draw_dot(loop: PackedVector2Array, marks: PackedFloat64Array, owners: Array, at: float,
+		total: float) -> void:
 	var left := float(_flow_dot() * PX)
 	# Started on the PIXEL grid rather than wherever the middle happens to fall:
 	# every corner is on it too, so each piece below is whole PIXELs and none of
@@ -2116,7 +2159,7 @@ func _draw_dot(loop: PackedVector2Array, owners: Array, at: float, total: float)
 	var along := Vector2.ZERO
 	var lit := 0
 	while left > 0.0:
-		var hit := _loop_sample(loop, s)
+		var hit := _loop_sample(loop, marks, s)
 		var turn: Vector2 = hit[1]
 		if along.cross(turn) > 0.0:
 			# Where the outline turns out of the shape, both of its sides own
@@ -2149,10 +2192,11 @@ func _draw_dot(loop: PackedVector2Array, owners: Array, at: float, total: float)
 ## arms meeting there pick up where each other left off.
 func _draw_dot_piece(at: Vector2, along: Vector2, span: float, lit: int, cols: Array) -> void:
 	var step := along * float(PX)
+	var whole := float(_flow_dot())
 	for i in int(span / float(PX)):
 		# Over the length of the whole dot, ends included: a PIXEL of it is
 		# taken at its middle, so neither end comes out at nothing.
-		var k := (float(lit + i) + 0.5) / float(_flow_dot())
+		var k := (float(lit + i) + 0.5) / whole
 		# Out of the track and back into it, rather than out of nothing: the
 		# line is already lit, and a dot is the length of it that is brightest.
 		_draw_band(at + step * float(i), along, float(PX),
@@ -2455,16 +2499,22 @@ func _draw_live_flow(b: SkillBoard) -> void:
 ## The parts, in blocks — one a category, in the order the pool brings them: a
 ## category's block starts where its first part does, and every later part of
 ## the same category joins it rather than starting a second block of its own.
+##
+## Worked out on first use and kept, the pool being a constant: a thumb's layout
+## is checked against how many blocks there are every time anything asks where
+## something stands, and gathering them again for each asking was most of what
+## a frame of mobile mode cost.
 func _pal_groups() -> Array:
-	var groups: Array = []
+	if not _groups.is_empty():
+		return _groups
 	var at := {}
 	for id in _pool_ids():
 		var cat := String(Components.get_def(id).get("cat", ""))
 		if not at.has(cat):
-			at[cat] = groups.size()
-			groups.append({"cat": cat, "ids": []})
-		(groups[int(at[cat])]["ids"] as Array).append(id)
-	return groups
+			at[cat] = _groups.size()
+			_groups.append({"cat": cat, "ids": []})
+		(_groups[int(at[cat])]["ids"] as Array).append(id)
+	return _groups
 
 ## Every row and every block placed, once. The pool is a constant, so this is
 ## worked out on first use and kept: the rows the palette draws and the rects
