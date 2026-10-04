@@ -33,7 +33,10 @@ static func auto_target(p: Payload, from: Vector2, team: int) -> Actor:
 	return nearest_target(from, team, auto_aim_sight(p))
 
 static func auto_aim_sight(p: Payload) -> float:
-	return AUTO_AIM_SIGHT * (1.0 + AUTO_AIM_FURTHER * float(maxi(p.auto_aim - 1, 0)))
+	var sight := AUTO_AIM_SIGHT * (1.0 + AUTO_AIM_FURTHER * float(maxi(p.auto_aim - 1, 0)))
+	if p.form == "PROJECTILE" or p.form == "ZAP":
+		sight = maxf(sight, p.range_px)
+	return sight
 
 static func container() -> Node:
 	return Arena.current()
@@ -93,7 +96,9 @@ const DASH_SLASH_REACH := 85.0
 
 ## AUTO-AIM. How far one looks for something to go at, and how much further
 ## each one stacked looks: the first looks as far as SWIFT STRIKE+ used to,
-## which was SWIFT STRIKE with this built in.
+## which was SWIFT STRIKE with this built in. A bolt or a beam looks as far as
+## it carries, if that is further, so one with RANGE on it goes at anything it
+## can reach (`auto_aim_sight`).
 const AUTO_AIM_SIGHT := 520.0
 const AUTO_AIM_FURTHER := 0.5
 
@@ -280,7 +285,14 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 	# volley's later ones do a moment after this one.
 	var locked := auto_target(payload, origin, team)
 	if locked != null:
-		aim = (locked.global_position - origin).normalized()
+		var at := locked.global_position
+		# A homing bolt leaves along the way round whatever stands between —
+		# the floor under the feet of whoever loosed it, the edge of a ledge —
+		# and its HOMING keeps it to that way. One without HOMING could not
+		# follow it, so it goes straight, as AUTO-AIM says.
+		if payload.form == "PROJECTILE" and payload.homing > 0:
+			at = Projectile.way_toward(room, origin, at)
+		aim = (at - origin).normalized()
 
 	var count: int = clampi(payload.duplicates, 1, 9)
 	# A thrown weapon throws itself (`Weapons.is_thrown`): the first of the

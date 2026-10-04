@@ -58,8 +58,10 @@
 		"samples": "샘플 스킬",
 		"sample": {
 			"dragon": "적중할 때마다 돌진이 이어짐",
-			"jean_grey": "맞은 적에게 10초 빙의"
+			"jean_grey": "맞은 적에게 10초 빙의",
+			"seeker": "번개처럼 날아가 끝까지 쫓아감"
 		},
+		"seeker": "추적 화살",
 		"spawn": "%s 소환",
 		"spawn_dummy": "허수아비 소환",
 		"clear": "비우기",

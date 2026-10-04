@@ -1,17 +1,17 @@
 extends Node
 ## The skill boards the game ships with, and the tables they are read from.
 ##
-## Each weapon's graph as a new profile gets it, every monster's, and the dragon
-## test's and the Jean Grey test's boards are rows in the content database
-## (`data/db/boards/`): a grid, and the parts placed on it. Which part feeds
-## which follows from their ports and the way each faces, so a row a cell out of
-## place is a board that quietly does nothing — a monster that never attacks, a
-## weapon that will not swing. Every board has to build whole, have a root and
-## let its flow out of the board — all of it: a board has one way out, and a
-## branch that never gets there is an attack the monster was meant to have.
-## Every board the code asks for by name has to be in the table; a weapon's
-## graph has to start with the part the weapon says it does; and what the schema
-## promises to refuse is tried against a scratch copy of it.
+## Each weapon's graph as a new profile gets it, every monster's, the dragon
+## test's and the Jean Grey test's boards and the bench's seeker arrow are rows
+## in the content database (`data/db/boards/`): a grid, and the parts placed on
+## it. Which part feeds which follows from their ports and the way each faces,
+## so a row a cell out of place is a board that quietly does nothing — a monster
+## that never attacks, a weapon that will not swing. Every board has to build
+## whole, have a root and let its flow out of the board — all of it: a board has
+## one way out, and a branch that never gets there is an attack the monster was
+## meant to have. Every board the code asks for by name has to be in the table;
+## a weapon's graph has to start with the part the weapon says it does; and what
+## the schema promises to refuse is tried against a scratch copy of it.
 ##
 ## No renderer needed: nothing here draws. The refusals print an `SQL error`
 ## line each from the extension, which is the point of them.
@@ -72,6 +72,7 @@ func _ready() -> void:
 				asked.append(board_id)
 	asked.append("dragon")
 	asked.append("jean_grey")
+	asked.append("seeker")
 	var missing: Array = []
 	for id in asked:
 		if not ids.has(id):
