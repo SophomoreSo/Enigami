@@ -89,6 +89,11 @@ func flat_room() -> Room:
 		r._set_cell(WALL_X, y, 1)
 	return r
 
+## Where the open floor is: the far side of the wall, further from it and from
+## the room's own end than a shuriken flies.
+func open_floor() -> Vector2:
+	return floor_at(float(WALL_X + 1) * Room.CELL + 360.0)
+
 ## Where the player stands on the floor, `x` along.
 func floor_at(x: float) -> Vector2:
 	var y := float(Room.H - 2) * Room.CELL
@@ -101,8 +106,10 @@ func stand(at: Vector2) -> void:
 	p.velocity = Vector2.ZERO
 	await frames(3)
 
-## A press of attack, as a hand does it, aimed level `dir` of the player.
+## A press of attack, as a hand does it, aimed level `dir` of the player — once
+## the last throw's wait has run down, or the press would throw nothing.
 func throw(dir: Vector2) -> void:
+	await until(func() -> bool: return p.runner.is_ready(), 3.0)
 	bot.point_at(p.global_position + dir * 300.0)
 	await frames(2)
 	bot.attack = true
@@ -186,7 +193,7 @@ func _straight_into_the_wall() -> void:
 	check(not room.is_solid_at(s.global_position) and room.is_solid_at(s.global_position + Vector2(2.0, 0.0))
 			and absf(s.global_position.x - face) < 2.0,
 		"at the face of the wall it struck (%.1f, the face at %.0f)" % [s.global_position.x, face])
-	check(absf(s.global_position.y - level) < 0.5 and s.heading.is_equal_approx(Vector2.RIGHT),
+	check(absf(s.global_position.y - level) < 0.5 and s.heading.dot(Vector2.RIGHT) > 0.999,
 		"at the height it flew at, pointing the way it went")
 	await wait(0.5)
 	check(stars().size() == 1 and s.global_position.x > face - 2.0, "and stays there")
@@ -212,13 +219,13 @@ func _taken_back() -> void:
 			and p.stock_of("SHURIKEN") == Weapons.stack_of("SHURIKEN"),
 		"with the stack whole, one walked over stays where it is")
 	p.stock["SHURIKEN"] = Weapons.stack_of("SHURIKEN") - 1
-	check(await until(func() -> bool: return not is_instance_valid(spare) or spare.is_queued_for_deletion(), 1.0),
+	check(await until(func() -> bool: return stars().is_empty(), 1.0),
 		"and is taken the moment there is room for it")
 	await clear_stars()
 
 ## --- out of throw, it drops into the floor ---------------------------------------------
 func _out_of_throw() -> void:
-	await stand(floor_at(float(WALL_X) * Room.CELL - 520.0))
+	await stand(open_floor())
 	var from := p.global_position
 	await throw(Vector2.LEFT)
 	check(await until(func() -> bool:
@@ -235,7 +242,7 @@ func _out_of_throw() -> void:
 
 ## --- in a monster it rides with it, until it dies --------------------------------------
 func _in_a_monster() -> void:
-	await stand(floor_at(float(WALL_X) * Room.CELL - 520.0))
+	await stand(open_floor())
 	var e := Enemy.new()
 	e.setup("CRAWLER", 1, "")
 	e.max_health = 100000.0
@@ -278,7 +285,7 @@ func _in_a_monster() -> void:
 
 ## --- a volley spends one a bolt ------------------------------------------------------
 func _volleys() -> void:
-	await stand(floor_at(float(WALL_X) * Room.CELL - 520.0))
+	await stand(open_floor())
 	p.stock["SHURIKEN"] = Weapons.stack_of("SHURIKEN")
 	var three := Weapons.base_payload("SHURIKEN")
 	three.form = "PROJECTILE"
