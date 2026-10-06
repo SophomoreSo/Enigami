@@ -1,5 +1,5 @@
 extends Node
-## The title's menu in mobile mode: the same four entries as a row of big square
+## The title's menu in mobile mode: the same five entries as a row of big square
 ## tiles a thumb can land on, and the column of lines again the moment mobile
 ## mode is thrown off.
 ##
@@ -96,16 +96,16 @@ func _ready() -> void:
 	print("[MOBILE] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)
 
-## Off, the menu is what it always was: four lines, one under another.
+## Off, the menu is what it always was: five lines, one under another.
 func _the_column() -> void:
 	var t := title()
 	check(t._menu_root is VBoxContainer and t._tiles.is_empty(),
 		"with mobile mode off, the menu is a column of lines")
 	var e := entries()
-	var down := e.size() == 4
+	var down := e.size() == 5
 	for i in range(1, e.size()):
 		down = down and (e[i] as Control).global_position.y > (e[i - 1] as Control).global_position.y
-	check(down, "four of them, one under another")
+	check(down, "five of them, one under another")
 
 ## Thrown on the controls page, the way a player throws it: SETTINGS, CONTROL
 ## SETTINGS, the switch, and back out twice.
@@ -138,8 +138,8 @@ func _thrown_on() -> void:
 
 func _the_row() -> void:
 	var t := title()
-	check(t._menu_root is HBoxContainer and t._tiles.size() == 4,
-		"with mobile mode on, the menu is a row of four tiles (%d)" % t._tiles.size())
+	check(t._menu_root is HBoxContainer and t._tiles.size() == 5,
+		"with mobile mode on, the menu is a row of five tiles (%d)" % t._tiles.size())
 	var e := entries()
 	var names: Array = []
 	for b: Button in e:
@@ -161,7 +161,7 @@ func _the_row() -> void:
 	for i in range(1, rects.size()):
 		level = level and is_equal_approx(rects[i].position.y, rects[0].position.y)
 		apart = apart and rects[i].position.x - rects[i - 1].end.x >= 16.0
-	check(level, "all four on one line")
+	check(level, "all five on one line")
 	check(apart, "left to right, with room between them")
 	var span := Rect2(rects[0].position, rects[-1].end - rects[0].position)
 	check(absf(span.get_center().x - TitleScreen.SEAL.x) <= 1.0,
@@ -174,7 +174,9 @@ func _the_row() -> void:
 	check(screen.encloses(span), "and on the screen with room to spare (%s)" % str(span))
 
 ## Every name fits the tile it is written in, in every language: a tile is the
-## one width it is, so a longer word has nowhere to go.
+## one width it is, so a longer word has nowhere to go. A name of two words
+## may stand on two lines — MAP CREATOR does — and then it is the lines that
+## have to fit: across the tile, and in the room the name has under the mark.
 func _the_names() -> void:
 	var was := Loc.language
 	for lang in Loc.languages():
@@ -184,12 +186,13 @@ func _the_names() -> void:
 		var over: Array = []
 		for b: Button in entries():
 			var box := b.get_theme_stylebox("normal")
-			var room := b.size.x - box.content_margin_left - box.content_margin_right
-			var wide := b.get_theme_font("font").get_string_size(b.text,
-				HORIZONTAL_ALIGNMENT_LEFT, -1, b.get_theme_font_size("font_size")).x
-			if wide > room:
-				over.append("%s %.0f of %.0f" % [b.text, wide, room])
-		check(t._tiles.size() == 4 and over.is_empty(),
+			var room := Vector2(b.size.x - box.content_margin_left - box.content_margin_right,
+				b.size.y - box.content_margin_top - box.content_margin_bottom)
+			var lines := b.get_theme_font("font").get_multiline_string_size(b.text,
+				HORIZONTAL_ALIGNMENT_LEFT, room.x, b.get_theme_font_size("font_size"))
+			if lines.x > room.x or lines.y > room.y:
+				over.append("%s %s of %s" % [b.text, str(lines), str(room)])
+		check(t._tiles.size() == 5 and over.is_empty(),
 			"in %s the menu is still tiles, and every name fits its own (%s)" % [lang, str(over)])
 	Loc.set_language(was)
 	await frames(4)
@@ -204,11 +207,12 @@ func _the_keys() -> void:
 	check(focus_owner() == e[1], "right goes from START to the next tile")
 	await action("ui_right")
 	await action("ui_right")
-	check(focus_owner() == e[3], "and on along the row to the last")
 	await action("ui_right")
-	check(focus_owner() == e[3], "and no further")
+	check(focus_owner() == e[4], "and on along the row to the last")
+	await action("ui_right")
+	check(focus_owner() == e[4], "and no further")
 	await action("ui_left")
-	check(focus_owner() == e[2], "and left comes back")
+	check(focus_owner() == e[3], "and left comes back")
 
 ## A click on the mark presses the tile, and it does what the line did: START
 ## asks for a save slot, SETTINGS opens the settings, SANDBOX goes to the bench.
@@ -230,7 +234,7 @@ func _pressed() -> void:
 	check(game.current is Sandbox, "and one on SANDBOX's goes to the bench (%s)" % game.current)
 	game.goto_title()
 	await frames(10)
-	check(title() != null and title()._tiles.size() == 4,
+	check(title() != null and title()._tiles.size() == 5,
 		"and the title that comes back is laid out for mobile mode too")
 
 ## Thrown off, the tiles go and the column comes back, and nothing is left
@@ -243,5 +247,5 @@ func _thrown_off() -> void:
 		"thrown off, the menu is a column of lines again")
 	check(t._buttons.all(func(b: Object) -> bool: return is_instance_valid(b) and not b.is_queued_for_deletion()),
 		"and every button the screen still counts is one that is on it (%d)" % t._buttons.size())
-	check(entries().size() == 4 and (entries()[0] as Button).text == Loc.t("menu.title.start"),
-		"the same four, START first")
+	check(entries().size() == 5 and (entries()[0] as Button).text == Loc.t("menu.title.start"),
+		"the same five, START first")

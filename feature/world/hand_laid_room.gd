@@ -8,7 +8,8 @@ extends Room
 ## mean is the room's own business — a guard's post, the door the player comes
 ## in by, where something is kept — and it finds them with `cells_marked`. The
 ## dragon test's tower (`DragonTower`) and the Jean Grey test's base
-## (`JeanGreyBase`) are two.
+## (`JeanGreyBase`) are two, and every map made in the map creator is one
+## (`MadeRoom`), with its rows kept in a scene rather than in a script.
 
 ## The rows of cells, top to bottom, all the same length. Every room laid this
 ## way hands over its own.
