@@ -18,8 +18,9 @@ extends Node
 ## dark alike.
 ##
 ## Shadows: what stands in a lamp's light is dark behind and lit across its
-## own face; each lamp's shadows are its own; a lamp inside a body takes none
-## from it; and only so many lamps throw them at once.
+## own face; each lamp's shadows are its own; a lamp inside a body still has
+## it throw one, as from the edge the lamp is nearest, and a body's own light
+## inside it takes none from it; and only so many lamps throw them at once.
 ##
 ## A light as the property of what gives it (`Shine`): made from its kind's
 ## row, giving its light where the thing is, going with it, and out when it is
@@ -441,10 +442,14 @@ func _sprites() -> void:
 
 func _shadows() -> void:
 	var here := Vector2(950, 450)
+	# A body, as a view puts one: the box it throws its shadow by, and anything
+	# of its own beside it.
+	var body := Node2D.new()
+	stage.add_child(body)
 	var box := ShadowCaster.new()
 	box.box(Rect2(-10, -10, 20, 20))
 	box.position = here
-	stage.add_child(box)
+	body.add_child(box)
 	var left := lamp_at(here + Vector2(-60, 0), 160.0)
 	var behind := here + Vector2(50, 0)
 	var beside := here + Vector2(0, 50)
@@ -470,10 +475,30 @@ func _shadows() -> void:
 	check(lighting.lamps_shadowed == 0 and near(at(img, behind), times(GROUND, 1.0 + share(left, behind))),
 		"a lamp told to throw none shines through (%s)" % at(img, behind))
 	left.shadows = true
-	left.position = here
+	# Inside the body, nearer its right edge than any other: it throws the
+	# shadow it threw as the lamp came in over that edge.
+	left.position = here + Vector2(6, 0)
 	img = await shown()
-	check(near(at(img, behind), times(GROUND, 1.0 + share(left, behind))),
-		"and a lamp inside a body takes no shadow from it (%s)" % at(img, behind))
+	check(near(at(img, before), GROUND) and near(at(img, behind), times(GROUND, 1.0 + share(left, behind))),
+		"a lamp inside a body still has it throw a shadow, away from the edge it is nearest (%s, %s)" % [at(img, before), at(img, behind)])
+	check(near(at(img, here), times(GROUND, 1.0 + share(left, here))), "with the body lit across its own face (%s)" % at(img, here))
+	left.position = here + Vector2(-6, 0)
+	img = await shown()
+	check(near(at(img, behind), GROUND) and near(at(img, before), times(GROUND, 1.0 + share(left, before))),
+		"and past its middle, the other way (%s, %s)" % [at(img, behind), at(img, before)])
+	# The body's own light, inside it — a body on fire — lights the room round it.
+	left.visible = false
+	var own := Lamp.of(Color.WHITE, 160.0)
+	own.position = here
+	body.add_child(own)
+	img = await shown()
+	var round_it := true
+	for spot: Vector2 in [behind, before, beside, here + Vector2(0, -50)]:
+		if not near(at(img, spot), times(GROUND, 1.0 + share(own, spot))):
+			round_it = false
+	check(round_it, "and a body's own light inside it takes no shadow from it, any way round (%s, %s)" % [at(img, beside), at(img, behind)])
+	await out([own])
+	left.visible = true
 
 	# Loose edges, as a room's rock is: one wall, facing left, and a lamp either side.
 	left.position = here + Vector2(-60, 0)
@@ -488,7 +513,7 @@ func _shadows() -> void:
 	box.visible = false
 	img = await shown()
 	check(near(at(img, before), times(GROUND, 1.0 + share(left, before))), "a caster that is hidden throws none")
-	await out([left, box])
+	await out([left, body])
 
 func _only_so_many() -> void:
 	var lamps: Array = []

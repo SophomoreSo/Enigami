@@ -275,26 +275,27 @@ func _lights() -> Array[Lit]:
 	for n in get_tree().get_nodes_in_group(Lamp.GROUP):
 		var lamp := n as Lamp
 		if lamp != null and lamp.lit():
-			_take(out, lamp.as_shine(), lamp.get_global_transform(), shown)
+			_take(out, lamp.as_shine(), lamp.get_global_transform(), shown, lamp)
 	for n in get_tree().get_nodes_in_group(Shine.GROUP):
 		var thing := n as CanvasItem
 		if thing == null or not thing.is_visible_in_tree():
 			continue
 		var xf := thing.get_global_transform()
 		for shine in Shine.on(thing):
-			_take(out, shine as Shine, xf, shown)
+			_take(out, shine as Shine, xf, shown, thing)
 	return out
 
-## `shine`, given by something placed at `xf`, if it reaches `shown`: where it
+## `shine`, given by `source`, placed at `xf`, if it reaches `shown`: where it
 ## is in the world, which way it shines there, how bright it is this moment,
 ## and the mesh it is drawn with. Where it is on the thing is in world units,
 ## however the thing is scaled.
-func _take(out: Array[Lit], shine: Shine, xf: Transform2D, shown: Rect2) -> void:
+func _take(out: Array[Lit], shine: Shine, xf: Transform2D, shown: Rect2, source: Node) -> void:
 	var power := shine.strength(_t)
 	if power <= 0.0:
 		return
 	var lit := Lit.new()
 	lit.shine = shine
+	lit.source = source
 	lit.power = power
 	lit.at = xf.origin + shine.position.rotated(xf.get_rotation())
 	lit.aim = Vector2.from_angle(deg_to_rad(shine.direction) + xf.get_rotation())
@@ -356,13 +357,27 @@ func _draw_shadows(lights: Array[Lit]) -> Dictionary:
 		m.set_shader_parameter("reach", lit.bounds.size.length() * 2.0 if sun else lit.half.length() * THROW)
 		shade.thrown.clear()
 		for caster in casters:
-			if caster.covers().intersects(lit.bounds) and (sun or not caster.holds(lit.at)):
+			if not caster.covers().intersects(lit.bounds):
+				continue
+			if sun or not caster.holds(lit.at):
 				shade.thrown.append([caster.mesh, caster.global_transform])
+			elif not _own(caster, lit.source):
+				# Inside a body, and not its own light: the body throws the
+				# shadow it threw as the light came in (`ShadowCaster.beyond`).
+				var part := caster.beyond(lit.at)
+				if part != null:
+					shade.thrown.append([part, Transform2D.IDENTITY])
 		shade.queue_redraw()
 	for i in MASKS:
 		_masks[i].render_target_update_mode = SubViewport.UPDATE_ALWAYS \
 			if i * PER_MASK < throwing.size() else SubViewport.UPDATE_DISABLED
 	return given
+
+## Whether a light given by `source` is the body's `caster` is the shadow of:
+## given by the body's own view, or by anything of it — a body on fire.
+static func _own(caster: ShadowCaster, source: Node) -> bool:
+	var of := caster.get_parent()
+	return of != null and source != null and (of == source or of.is_ancestor_of(source))
 
 ## Every light's mesh in the picture, told what its light is like and which
 ## colour of which mask its shadows are in.
@@ -414,12 +429,14 @@ func _beam() -> Beam:
 	_lit.add_child(beam)
 	return beam
 
-## A light, this frame: whose it is, where it is in the world and which way
-## it shines there, how bright it is, and its mesh — its middle, how far it is
-## turned, half of it each way in its own frame, and what it covers in the
-## world.
+## A light, this frame: whose it is and what gives it, where it is in the
+## world and which way it shines there, how bright it is, and its mesh — its
+## middle, how far it is turned, half of it each way in its own frame, and
+## what it covers in the world.
 class Lit extends RefCounted:
 	var shine: Shine
+	## What gives it: the shining thing, or the lamp.
+	var source: Node
 	var at := Vector2.ZERO
 	var aim := Vector2.DOWN
 	var power := 0.0
