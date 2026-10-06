@@ -138,6 +138,7 @@
 		"zoom": "ZOOM %d%%",
 		"hint": "LMB LAY  RMB ERASE  SHIFT+DRAG BOX  MMB OR MOVE KEYS PAN  WHEEL ZOOM",
 		"hint_touch": "DRAG TO LAY  TAKE MOVE TO PAN",
+		"edge": "DRAG THE EDGE TO MAKE THE MAP BIGGER OR SMALLER",
 		"unsaved": "NOT SAVED",
 		"saved": "SAVED  %s",
 		"loaded": "LOADED %s",

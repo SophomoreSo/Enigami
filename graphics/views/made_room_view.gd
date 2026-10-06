@@ -158,7 +158,7 @@ func _chunk() -> void:
 	for old in chunks:
 		old.queue_free()
 	chunks.clear()
-	var out := RoomView.reach(get_viewport())
+	var out := _reach()
 	var from := Vector2i(floori(float(-out.x) / CHUNK), floori(float(-out.y) / CHUNK))
 	var to := Vector2i(floori(float(cells.cols + out.x - 1) / CHUNK), floori(float(cells.rows + out.y - 1) / CHUNK))
 	var shown := Rect2i(-out, Vector2i(cells.cols, cells.rows) + out * 2)
@@ -169,6 +169,15 @@ func _chunk() -> void:
 				chunks.append(_new_chunk(area, _paint_back, -8))
 				chunks.append(_new_chunk(area, _paint_ground, -7))
 	_wake()
+
+## How far past the map's edge the screen can show, in cells, each way: as far
+## as it can past a raid's room, and further round a map smaller than the
+## screen, which the camera holds in the middle of it.
+func _reach() -> Vector2i:
+	var shown := get_viewport().get_visible_rect().size
+	var map := Vector2(cells.cols, cells.rows) * Room.CELL
+	var spare := (shown - map).max(Vector2.ZERO) * 0.5
+	return RoomView.reach(get_viewport()).max(Vector2i((spare / Room.CELL).ceil()) + Vector2i(2, 2))
 
 func _new_chunk(area: Rect2i, paint: Callable, z: int) -> MapTiles.Chunk:
 	var chunk := MapTiles.Chunk.new()

@@ -139,6 +139,7 @@ func _ready() -> void:
 	await _keeping()
 	await _playing()
 	await _leaving()
+	await _canvas()
 	await _both_ways()
 	Touch.set_mode(was_mode)
 	Loc.set_language(was_language)
@@ -554,6 +555,62 @@ func _leaving() -> void:
 	maker = game.current as MapMaker
 	view = Views.of(maker) as MapMakerView
 	table = view.table
+
+## The map's own edges: a grip just past each, the foot saying what it does;
+## dragged, the map grows or is cut on that side — at its left as at its right,
+## what is on it staying where it is on the sheet — no smaller than the least a
+## map may be, and a step to take back. And a map smaller than the screen,
+## played, is seen in the middle of it with the ground drawn all round.
+func _canvas() -> void:
+	await frames(2)
+	maker.begin_stroke()
+	maker.lay(Vector2i(10, 10), "w")
+	table._changed_all()
+	await frames(2)
+	var cs := table.cell_size()
+	var size := Vector2i(maker.cols, maker.rows)
+	var map := Rect2(table._sheet.global_position + table._origin, Vector2(size) * cs)
+	var right := Vector2(map.end.x + 6.0, map.get_center().y)
+	await move(right)
+	check(table._edge_hover == Vector2i(1, 0), "a grip stands just past the map's right edge (%s)" % table._edge_hover)
+	await drag(right, right + Vector2(5.0 * cs, 0.0))
+	check(maker.cols == size.x + 5 and maker.rows == size.y and maker.unsaved,
+		"dragged out, the map grows on that side (%dx%d)" % [maker.cols, maker.rows])
+	var was := table._origin + Vector2(10, 10) * cs
+	map = Rect2(table._sheet.global_position + table._origin, Vector2(maker.cols, maker.rows) * cs)
+	var left := Vector2(map.position.x - 6.0, map.get_center().y)
+	await drag(left, left - Vector2(3.0 * cs, 0.0))
+	check(maker.cols == size.x + 8 and maker.mark_at(Vector2i(13, 10)) == "w"
+			and (table._origin + Vector2(13, 10) * cs).is_equal_approx(was),
+		"and at its left, what is on it moved over and staying where it was on the sheet (%dx%d)" % [maker.cols, maker.rows])
+	# The corner, dragged in far past the least a map may be.
+	map = Rect2(table._sheet.global_position + table._origin, Vector2(maker.cols, maker.rows) * cs)
+	await drag(map.end + Vector2(6.0, 6.0), map.position + Vector2(6.0, 6.0))
+	check(maker.cols == MapMaker.MIN_SIZE.x and maker.rows == MapMaker.MIN_SIZE.y,
+		"a corner takes both its sides, and the map is cut no smaller than the least it may be (%dx%d)" % [maker.cols, maker.rows])
+	check(maker.undo() and maker.cols == size.x + 8 and maker.mark_at(Vector2i(13, 10)) == "w",
+		"and a size dragged to is a step to take back")
+	# A map smaller than the screen, played.
+	maker.resize(Vector2i(14, 9))
+	maker.begin_stroke()
+	for x in 14:
+		maker.lay(Vector2i(x, 8), "%")
+	maker.lay(Vector2i(6, 7), MadeRoom.START)
+	table._changed_all()
+	maker.play()
+	await frames(8)
+	var drawn := Views.of(maker.room) as MadeRoomView
+	var cam := drawn.get_viewport().get_camera_2d()
+	var shown := drawn.get_viewport().get_visible_rect().size
+	var seen := Rect2(cam.get_screen_center_position() - shown * 0.5, shown)
+	var covered := Rect2()
+	for ch in drawn.chunks:
+		var cr := Rect2(Vector2(ch.area.position * Room.CELL), Vector2(ch.area.size * Room.CELL))
+		covered = cr if covered.size == Vector2.ZERO else covered.merge(cr)
+	check(cam.get_screen_center_position().is_equal_approx(Vector2(14, 9) * Room.CELL * 0.5) and covered.encloses(seen),
+		"a map smaller than the screen is played in the middle of it, the ground drawn all round (%s in %s)" % [seen, covered])
+	maker.stop()
+	await frames(4)
 
 ## In the other language and in mobile mode the table is built again, and still
 ## fits: nothing wider than the bar, the column no wider than it was and no

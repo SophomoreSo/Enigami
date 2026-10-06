@@ -33,10 +33,12 @@ signal floor_reset()
 
 ## The layers, as `MadeRoom` has them.
 enum { PLAN, BACK, DRESSING }
-## The least a map can be is a raid's room, one screen; the most, four of them
-## each way.
-const MIN_SIZE := Vector2i(Room.W, Room.H)
+## The least a map can be, in cells — a nook a body can just about move in,
+## seen in the middle of the screen with the ground all round it — and the
+## most, four of a raid's rooms each way. A new map is one room, one screen.
+const MIN_SIZE := Vector2i(8, 6)
 const MAX_SIZE := Vector2i(Room.W * 4, Room.H * 4)
+const NEW_SIZE := Vector2i(Room.W, Room.H)
 ## How many strokes can be taken back.
 const UNDO_STEPS := 100
 ## Seconds between the body falling and the floor being set again.
@@ -49,8 +51,8 @@ static var _kept: Dictionary = {}
 
 ## The name the map was last saved or opened under, or "" for one that never was.
 var map_id: String = ""
-var cols: int = MIN_SIZE.x
-var rows: int = MIN_SIZE.y
+var cols: int = NEW_SIZE.x
+var rows: int = NEW_SIZE.y
 ## Which tileset draws it, and which region's rock the plain rock is
 ## (`MadeRoom.tileset`, `MadeRoom.region`).
 var tileset: String = NEW_TILESET
@@ -155,8 +157,8 @@ func new_map() -> void:
 	begin_stroke()
 	if not _plan.is_empty():
 		_remember()
-	cols = MIN_SIZE.x
-	rows = MIN_SIZE.y
+	cols = NEW_SIZE.x
+	rows = NEW_SIZE.y
 	_plan = PackedStringArray()
 	for y in rows:
 		if y == 0:
@@ -216,29 +218,38 @@ func lay_box(a: Vector2i, b: Vector2i, mark: String, layer: int = PLAN) -> bool:
 			changed = lay(Vector2i(x, y), mark, layer) or changed
 	return changed
 
-## Makes the map `to` cells across and down, within what a map may be: every
-## layer grown with nothing to its right and under it, or cut from there.
-## Whether it changed.
-func resize(to: Vector2i) -> bool:
+## Makes the map `to` cells across and down, within what a map may be, with
+## what was on it moved `shift` cells right and down: every layer grown with
+## nothing, or cut, at whichever edges that puts the change on — with no
+## shift, its right and its foot; a shift of the cells it grows by, its left
+## and its top. Whatever is cut off is gone, a mark the plan holds one of with
+## it, and a step back brings it back. Whether it changed.
+func resize(to: Vector2i, shift: Vector2i = Vector2i.ZERO) -> bool:
 	to = to.clamp(MIN_SIZE, MAX_SIZE)
-	if to == Vector2i(cols, rows):
+	if to == Vector2i(cols, rows) and shift == Vector2i.ZERO:
 		return false
 	begin_stroke()
 	_remember()
-	_plan = _sized(_plan, to)
-	_back = _sized(_back, to)
-	_dressing = _sized(_dressing, to)
+	_plan = _sized(_plan, to, shift)
+	_back = _sized(_back, to, shift)
+	_dressing = _sized(_dressing, to, shift)
 	cols = to.x
 	rows = to.y
 	begin_stroke()
 	unsaved = true
 	return true
 
-## `laid`, `to` cells across and down: cut, or grown with nothing.
-static func _sized(laid: PackedStringArray, to: Vector2i) -> PackedStringArray:
+## `laid`, `to` cells across and down, what it had moved `shift` right and
+## down: cut, or grown with nothing.
+static func _sized(laid: PackedStringArray, to: Vector2i, shift: Vector2i = Vector2i.ZERO) -> PackedStringArray:
 	var out := PackedStringArray()
 	for y in to.y:
-		var row := laid[y] if y < laid.size() else ""
+		var from := y - shift.y
+		var row := laid[from] if from >= 0 and from < laid.size() else ""
+		if shift.x > 0:
+			row = MadeRoom.OPEN.repeat(shift.x) + row
+		elif shift.x < 0:
+			row = row.substr(-shift.x)
 		out.append(row.left(to.x).rpad(to.x, MadeRoom.OPEN))
 	return out
 

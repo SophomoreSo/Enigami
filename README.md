@@ -775,17 +775,27 @@ the ground shows a sheen where it meets the air, and one behind its dark.
 | `SHIFT` and a drag | a box, of either |
 | Middle button, the move keys, two fingers on a trackpad, or the MOVE tool | carries the map |
 | Wheel, a pinch, or ZOOM | a room's own size, or half of it |
+| A grip on the map's edge, dragged | the map bigger or smaller on that side |
 | `Ctrl`/`Cmd`+`Z`, and with `SHIFT` | a step back, and forward again |
 | `Ctrl`/`Cmd`+`S` | SAVE |
 | `ESC` | the pause menu, whose MAIN MENU is one way out; the arrow in the corner is the other |
 
+A map is no set size. It is made bigger or smaller by its own edges: a grip
+stands just outside each side and corner of it, and one dragged takes that
+side with it, a cell at a time, while the foot says what size the map is
+coming to — the left and the top as well as the right and the foot, what is on
+the map staying where it is, and whatever is cut off gone until a step back
+brings it back. A new map is one screen; any map can be anything from 8 cells
+by 6, a nook played in the middle of the screen with the ground all round it,
+to four screens each way. The brighter lines across the sheet are where one
+screen ends and the next begins.
+
 **MAP** holds the rest of what a map is. TILESET changes the one it is drawn
-in, whenever, and a step back changes it back. WIDTH and HEIGHT keep it
-between one screen and four each way, a cell a press and ten with `SHIFT`
-held; the brighter lines across the sheet are where one screen ends and the
-next begins. In Rock, ROCK picks which region's rock it is cut from. WEAPON
-picks which weapon a played map starts in hand, the next two round the rack
-beside it.
+in, whenever, and a step back changes it back. WIDTH and HEIGHT change its
+size too, at its right and its foot, a cell a press and ten with `SHIFT`
+held. In Rock, ROCK picks which region's rock it is cut from. WEAPON picks
+which weapon a played map starts in hand, the next two round the rack beside
+it.
 
 **SAVE** keeps the map as a scene, named for it: `data/maps/<name>.tscn` when
 the game is run from the project, where it is committed and ships with the

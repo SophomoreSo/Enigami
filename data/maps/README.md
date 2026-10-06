@@ -87,8 +87,8 @@ own cell.
 The scene is text and the layers are lists of strings, so a map reads in a
 diff and can be mended by hand — in the file, or in Godot's inspector. The
 creator squares off whatever it loads: rows made one length, every layer the
-plan's size, and the whole kept between one screen (40 by 22) and four each
-way.
+plan's size, and the whole kept between 8 cells by 6 and four screens (40 by
+22 each) each way.
 
 ## Picking one up
 

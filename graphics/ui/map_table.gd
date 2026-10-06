@@ -29,8 +29,12 @@ extends Control
 ## A pointer's screen: the left button lays what is in hand, the right one
 ## erases, SHIFT held drags a box of either, and the map is moved under the
 ## pointer by the middle button, the move keys or the MOVE tool, and brought
-## nearer or further by the wheel. A thumb has MOVE and ERASE for what it has
-## no button for. Nothing here takes the keyboard but the name, so the keys
+## nearer or further by the wheel. The map's own edges are what it is made
+## bigger or smaller by: a grip stands just outside each side and corner, and
+## one dragged takes that side with it, a cell at a time, while the foot says
+## what size the map is coming to — the left and the top as well as the right
+## and the foot, what is on the map staying where it is. A thumb has MOVE and
+## ERASE for what it has no button for. Nothing here takes the keyboard but the name, so the keys
 ## are the map's whenever the name is not being typed.
 ##
 ## It makes no change of its own: everything it does is asked of the maker,
@@ -57,6 +61,11 @@ const ZOOMS := [1.0, 0.5]
 const PAN_SPEED := 900.0
 ## How far past its own edge the map can be moved, in cells.
 const PAD_CELLS := 4
+## How far past the map's edge, in pixels of the screen, the pointer has hold of
+## the edge — a thumb's further — and how big a grip on it is drawn.
+const GRAB := 14.0
+const GRAB_THUMB := 28.0
+const GRIP := 12.0
 ## How long a button that asks twice stays asked, and a line stays said.
 const ARM_TIME := 3.0
 const SAY_TIME := 4.0
@@ -122,6 +131,12 @@ var _box_mark: String = ""
 ## Whether the pointer is carrying the map, and where it last had hold of it.
 var _panning: bool = false
 var _pan_at := Vector2.ZERO
+## Which of the map's edges the pointer is on, and which it is dragging, each
+## way: -1 the left or the top, 1 the right or the foot, 0 neither. And while
+## one is dragged, what the map is coming to, in the cells it has now.
+var _edge_hover := Vector2i.ZERO
+var _sizing := Vector2i.ZERO
+var _sized_to := Rect2i()
 ## The line the foot is saying, in what colour, and for how much longer.
 var _said: String = ""
 var _said_tone := UiKit.TEXT
@@ -708,7 +723,15 @@ func _paint_over(cv: CanvasItem) -> void:
 	for y in range(first.y, last.y + 1):
 		cv.draw_rect(Rect2(map.position.x, _origin.y + y * cs, map.size.x, line),
 			SCREEN_LINE if y % Room.H == 0 else GRID)
-	if _popup != null or (brush == MOVE and not _boxing):
+	if _popup != null:
+		return
+	_paint_grips(cv, map)
+	if _sizing != Vector2i.ZERO:
+		var coming := Rect2(_origin + Vector2(_sized_to.position) * cs, Vector2(_sized_to.size) * cs)
+		cv.draw_rect(coming, Color(UiKit.ACCENT, 0.10))
+		_edge(cv, coming, UiKit.ACCENT)
+		return
+	if brush == MOVE and not _boxing:
 		return
 	if _boxing:
 		var a := cell_rect(_box_from.clamp(Vector2i.ZERO, across - Vector2i.ONE))
@@ -718,6 +741,29 @@ func _paint_over(cv: CanvasItem) -> void:
 		_edge(cv, box, UiKit.ACCENT)
 	elif maker.holds(_hover):
 		_edge(cv, cell_rect(_hover), Color.WHITE)
+
+## A grip just outside each corner of the map and halfway along each of its
+## sides, to drag that side by — lit, with the side itself, where the pointer
+## has hold of one or is on it.
+func _paint_grips(cv: CanvasItem, map: Rect2) -> void:
+	var held := _sizing if _sizing != Vector2i.ZERO else _edge_hover
+	var px := float(UiKit.PIXEL)
+	var out := px * 2.0
+	for sy: int in [-1, 0, 1]:
+		for sx: int in [-1, 0, 1]:
+			if sx == 0 and sy == 0:
+				continue
+			var at := Vector2(
+				map.position.x - out - GRIP if sx < 0 else (map.end.x + out if sx > 0 else map.get_center().x - GRIP * 0.5),
+				map.position.y - out - GRIP if sy < 0 else (map.end.y + out if sy > 0 else map.get_center().y - GRIP * 0.5))
+			var grip := Rect2((at / px).round() * px, Vector2(GRIP, GRIP))
+			var lit := (held.x != 0 and sx == held.x) or (held.y != 0 and sy == held.y)
+			cv.draw_rect(grip, UiKit.ACCENT if lit else UiKit.DIM)
+			_edge(cv, grip, UiKit.BG)
+	if held.x != 0:
+		cv.draw_rect(Rect2(map.position.x - px if held.x < 0 else map.end.x, map.position.y, px, map.size.y), UiKit.ACCENT)
+	if held.y != 0:
+		cv.draw_rect(Rect2(map.position.x, map.position.y - px if held.y < 0 else map.end.y, map.size.x, px), UiKit.ACCENT)
 
 ## A border a PIXEL wide, inside `r`.
 func _edge(cv: CanvasItem, r: Rect2, col: Color) -> void:
@@ -847,9 +893,18 @@ func _on_sheet_input(event: InputEvent) -> void:
 		if click.pressed:
 			# The name lets go of the keyboard: the keys are the map's again.
 			get_viewport().gui_release_focus()
+			if _sizing != Vector2i.ZERO:
+				# Another button while an edge is dragged lets it go where it was.
+				_sizing = Vector2i.ZERO
+				_over.queue_redraw()
+				_sheet.accept_event()
+				return
 			match click.button_index:
 				MOUSE_BUTTON_LEFT:
-					if brush == MOVE:
+					var edge := edge_at(click.position)
+					if edge != Vector2i.ZERO:
+						_begin_sizing(edge)
+					elif brush == MOVE:
 						_begin_pan(click.position)
 					elif click.shift_pressed:
 						_begin_box(cell, brush)
@@ -866,6 +921,8 @@ func _on_sheet_input(event: InputEvent) -> void:
 					_zoom_to(_zoom_at - 1, click.position)
 				MOUSE_BUTTON_WHEEL_DOWN:
 					_zoom_to(_zoom_at + 1, click.position)
+		elif click.button_index == MOUSE_BUTTON_LEFT and _sizing != Vector2i.ZERO:
+			_end_sizing()
 		elif click.button_index == MOUSE_BUTTON_LEFT or click.button_index == MOUSE_BUTTON_RIGHT:
 			if _boxing:
 				_boxing = false
@@ -883,7 +940,14 @@ func _on_sheet_input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion:
 		var motion := event as InputEventMouseMotion
 		var cell := cell_at(motion.position)
-		if _panning:
+		if not _panning and not _laying and not _boxing and _sizing == Vector2i.ZERO:
+			var edge := edge_at(motion.position)
+			if edge != _edge_hover:
+				_edge_hover = edge
+				_over.queue_redraw()
+		if _sizing != Vector2i.ZERO:
+			_size_to(motion.position)
+		elif _panning:
 			# By how far the pointer has got, not by what the event says it moved:
 			# a thumb's drag, handed over as a mouse's, says nothing of that.
 			_origin += motion.position - _pan_at
@@ -926,6 +990,63 @@ func _begin_box(cell: Vector2i, mark: String) -> void:
 func _begin_pan(at: Vector2) -> void:
 	_panning = true
 	_pan_at = at
+
+## Which of the map's edges the point `at` of the sheet has hold of, each way:
+## -1 its left or its top, 1 its right or its foot, 0 neither — anywhere from
+## the edge out to GRAB past it, and at a corner both. Inside the map is all
+## for laying, edge cells as much as any.
+func edge_at(at: Vector2) -> Vector2i:
+	var map := Rect2(_origin, Vector2(maker.cols, maker.rows) * cell_size())
+	var reach := GRAB_THUMB if _thumb else GRAB
+	if map.has_point(at) or not map.grow(reach).has_point(at) or _popup != null:
+		return Vector2i.ZERO
+	var side := Vector2i.ZERO
+	if at.x < map.position.x:
+		side.x = -1
+	elif at.x >= map.end.x:
+		side.x = 1
+	if at.y < map.position.y:
+		side.y = -1
+	elif at.y >= map.end.y:
+		side.y = 1
+	return side
+
+## Takes hold of the edges `edge` says, the map as it is to start from.
+func _begin_sizing(edge: Vector2i) -> void:
+	_sizing = edge
+	_edge_hover = edge
+	_sized_to = Rect2i(0, 0, maker.cols, maker.rows)
+	_over.queue_redraw()
+
+## The edges held, taken to the line between cells nearest `at` — no nearer
+## the other side than the least a map may be, and no further from it than the
+## most — in the cells the map has now.
+func _size_to(at: Vector2) -> void:
+	var to := ((at - _origin) / cell_size()).round()
+	var lo := Vector2i.ZERO
+	var hi := Vector2i(maker.cols, maker.rows)
+	for axis in 2:
+		if _sizing[axis] < 0:
+			lo[axis] = clampi(int(to[axis]), hi[axis] - MapMaker.MAX_SIZE[axis], hi[axis] - MapMaker.MIN_SIZE[axis])
+		elif _sizing[axis] > 0:
+			hi[axis] = clampi(int(to[axis]), lo[axis] + MapMaker.MIN_SIZE[axis], lo[axis] + MapMaker.MAX_SIZE[axis])
+	var now := Rect2i(lo, hi - lo)
+	if now != _sized_to:
+		_sized_to = now
+		_over.queue_redraw()
+
+## Lets go of the edges: the map made the size it was dragged to — a step to
+## take back, like a stroke — and what was on it left where it was on the
+## sheet, the cells grown at its left and top coming in before it.
+func _end_sizing() -> void:
+	var to := _sized_to
+	_sizing = Vector2i.ZERO
+	if maker.resize(to.size, -to.position):
+		_origin += Vector2(to.position) * cell_size()
+		_changed_all()
+		_keep_in_sight()
+		_moved()
+	_over.queue_redraw()
 
 func _point_at(cell: Vector2i) -> void:
 	if cell != _hover or _boxing:
@@ -983,6 +1104,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if _popup != null and is_visible_in_tree() and event.is_action_pressed("ui_cancel"):
 		_close_popup()
+		get_viewport().set_input_as_handled()
+	elif _sizing != Vector2i.ZERO and event.is_action_pressed("ui_cancel"):
+		# An edge being dragged is let go where it was.
+		_sizing = Vector2i.ZERO
+		_over.queue_redraw()
 		get_viewport().set_input_as_handled()
 
 ## --- what the bar does --------------------------------------------------------
@@ -1188,10 +1314,15 @@ func _draw() -> void:
 	_px.rect(foot, UiKit.PANEL)
 	var base := foot.position + Vector2(12.0, 20.0)
 	var where := "%dx%d" % [maker.cols, maker.rows]
-	if maker.holds(_hover):
+	var tone := UiKit.DIM
+	if _sizing != Vector2i.ZERO:
+		# What the map is coming to, while an edge is dragged.
+		where = "%dx%d" % [_sized_to.size.x, _sized_to.size.y]
+		tone = UiKit.ACCENT
+	elif maker.holds(_hover):
 		where = "%d,%d   %s" % [_hover.x, _hover.y, where]
 	var right := foot.end.x - 12.0 - PixelDraw.text_width(where)
-	_px.text(Vector2(right, base.y), where, UiKit.DIM)
+	_px.text(Vector2(right, base.y), where, tone)
 	if maker.unsaved:
 		var unsaved := Loc.t("hud.maker.unsaved")
 		right -= PixelDraw.text_width(unsaved) + 16.0
@@ -1199,6 +1330,8 @@ func _draw() -> void:
 	var room := right - base.x - 16.0
 	if _said_left > 0.0:
 		_px.text(base, _said, _said_tone, room)
+	elif _sizing != Vector2i.ZERO or _edge_hover != Vector2i.ZERO:
+		_px.text(base, Loc.t("hud.maker.edge"), UiKit.TEXT, room)
 	elif _over_tile != "":
 		_px.text(base, name_of(_over_tile), UiKit.TEXT, room)
 	else:
