@@ -427,6 +427,7 @@ const WEAPON := {
 	"GUN": {"color": Color(0.6, 0.95, 0.85), "art": "weapon_bow_2"},
 	"ROCK": {"color": Color(0.95, 0.82, 0.55), "art": "rock", "grip": 0.5, "upright": true},
 	"SHOVEL": {"color": Color(0.78, 0.66, 0.46), "art": "shovel"},
+	"SHURIKEN": {"color": Color(0.72, 0.8, 0.9), "art": "shuriken", "grip": 0.5, "upright": true},
 }
 
 static func weapon_color(id: String) -> Color:
@@ -441,6 +442,12 @@ static func weapon_grip(id: String, otherwise: float) -> float:
 static func weapon_upright(id: String) -> bool:
 	return bool(WEAPON.get(id, {}).get("upright", false))
 
+## The shuriken's tile for a star turned `angle` round: its points square to the
+## picture, or an eighth of a turn round from that, whichever is nearer. A
+## quarter turn is the same star again.
+static func shuriken_art(angle: float) -> String:
+	return "shuriken" if posmod(roundi(angle / (PI * 0.25)), 2) == 0 else "shuriken_x"
+
 ## Tiles the atlas has none of, drawn here a letter a pixel: the rock, which the
 ## pack has a mace and a morning star for and no stone. `Sprites.texture` makes
 ## each a tile like any of the atlas's, so whatever draws one does not know the
@@ -451,7 +458,44 @@ static func weapon_upright(id: String) -> bool:
 ## pack: a top it is lit across, a face under that, and the side turned away.
 ## The shovel points up like the pack's blades: a steel spade lit down its left
 ## edge, a socket, an ash handle and a crossbar grip at the foot.
+## The shuriken is a four-pointed star of steel round a hole, its points lit on
+## the arms towards the top left. It is drawn twice, its points square to the
+## picture and an eighth of a turn round from that, because a picture made of
+## whole pixels turned any other way is no longer one: it turns in the air by
+## going from the one to the other (`Style.shuriken_art`).
 const DRAWN_TILES := {
+	"shuriken": {
+		"rows": [
+			"...l...",
+			"...l...",
+			"..lmm..",
+			"lll.mdd",
+			"..mdd..",
+			"...d...",
+			"...d...",
+		],
+		"inks": {
+			"l": Color(0.88, 0.91, 0.95),
+			"m": Color(0.6, 0.65, 0.72),
+			"d": Color(0.34, 0.37, 0.43),
+		},
+	},
+	"shuriken_x": {
+		"rows": [
+			"l.....m",
+			".l...m.",
+			"..lmm..",
+			"..m.d..",
+			"..mdd..",
+			".m...d.",
+			"m.....d",
+		],
+		"inks": {
+			"l": Color(0.88, 0.91, 0.95),
+			"m": Color(0.6, 0.65, 0.72),
+			"d": Color(0.34, 0.37, 0.43),
+		},
+	},
 	"shovel": {
 		"rows": [
 			"..lll..",

@@ -21,6 +21,14 @@ extends RefCounted
 ## weapon casts nothing. See `Player.holding`, and `LooseRock` for the rock on
 ## the floor.
 ##
+## A weapon can be `stacked` instead: a stack of the same thing, spent one at a
+## time — the shuriken. A raid walks in with the whole stack (`stack_of`), and
+## every bolt its graph sends throws one, flat and straight, while there are
+## any left: a volley of three spends three. Each sticks where it strikes, in
+## a wall or in a monster, and is picked back up by walking over it; one left
+## behind in a room walked out of is gone. With none left the weapon casts
+## nothing. See `Player.stock`, and `StuckShuriken` for one where it struck.
+##
 ## Numbers only: the colour a weapon is named in, and the tile it is drawn
 ## with, are in `graphics/style.gd`.
 
@@ -78,6 +86,20 @@ const DEFS := {
 		"size_mul": 1.1,
 		"gravity_shots": false,
 		"digs": true,
+	},
+	"SHURIKEN": {
+		"name": "Shuriken",
+		"desc": "A stack of throwing stars, thrown with everything built into them. Each flies flat and true and sticks where it strikes; walk over one to take it back.",
+		"root": "PROJECTILE",
+		"board": "shuriken",
+		"base_damage": 8.0,
+		"melee_mul": 0.8,
+		"ranged_mul": 1.1,
+		"projectile_speed": 1.4,
+		"reach_mul": 1.2,
+		"size_mul": 0.85,
+		"gravity_shots": false,
+		"stack": 10,
 	},
 }
 
@@ -140,6 +162,15 @@ static func uses_gravity_shots(weapon_id: String) -> bool:
 ## been picked back up.
 static func is_thrown(weapon_id: String) -> bool:
 	return bool(get_def(weapon_id).get("thrown", false))
+
+## How many of the weapon a raid walks in with, when it is a stack of the same
+## thing spent a throw at a time — the shuriken — or 0 for any other weapon.
+static func stack_of(weapon_id: String) -> int:
+	return int(get_def(weapon_id).get("stack", 0))
+
+## Whether the weapon is a stack (`stack_of`).
+static func is_stacked(weapon_id: String) -> bool:
+	return stack_of(weapon_id) > 0
 
 ## Whether the weapon digs (`DigSpot`): the shovel, in hand on lit ground.
 static func digs(weapon_id: String) -> bool:

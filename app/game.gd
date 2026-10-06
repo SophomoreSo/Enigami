@@ -2,13 +2,14 @@ extends Node
 
 ## Top-level state machine: title → hideout → raid → results, with the opening
 ## scene in front of a new profile's first hideout, the sandbox (and the dragon
-## test off it), and the hideout's skill editor hanging off the side.
+## test off it), the map creator, and the hideout's skill editor hanging off
+## the side.
 ##
 ## The composition root, and the only script allowed to know both modules: it
 ## builds screens out of `graphics/` and drives them with `feature/`. Neither
 ## module reaches the other except through here and through `Cues`.
 
-enum State { TITLE, HIDEOUT, RAID, SANDBOX, RESULTS, DRAGON_TEST, INTRO, JEAN_GREY_TEST }
+enum State { TITLE, HIDEOUT, RAID, SANDBOX, RESULTS, DRAGON_TEST, INTRO, JEAN_GREY_TEST, MAP_MAKER }
 
 var state: int = State.TITLE
 var current: Node = null
@@ -238,6 +239,7 @@ func goto_title() -> void:
 	var t := TitleScreen.new()
 	t.start_requested.connect(_start_game)
 	t.sandbox_requested.connect(goto_sandbox)
+	t.map_maker_requested.connect(goto_map_maker)
 	ui_layer.add_child(t)
 	current = t
 
@@ -337,6 +339,17 @@ func goto_jean_grey_test() -> void:
 	j.exit_requested.connect(goto_sandbox)
 	add_child(j)
 	current = j
+
+## The map creator is opened from the title, like the bench beside it, and
+## hands back to it. What was on its table is kept for the next visit
+## (`MapMaker`), so leaving costs nothing.
+func goto_map_maker() -> void:
+	_clear()
+	state = State.MAP_MAKER
+	var m := MapMaker.new()
+	m.exit_requested.connect(goto_title)
+	add_child(m)
+	current = m
 
 ## Through the gate holding `weapon`, with the rest of the kit the rack was
 ## left carrying. A weapon that is not in that kit goes out on its own.
@@ -744,9 +757,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	# second one over the top of them. The workbench raised over the hideout
 	# needs no guard here: it answers ESC by closing, and marks the press
 	# handled, so this never sees the one that shut it.
+	#
+	# The map creator's table is one more. A map being played on it answers
+	# the key itself, by going back to the table, so that press never gets
+	# here either.
 	if get_tree().paused:
 		return      # the menu itself answers this one; see PauseMenu above
-	if state == State.RAID or state == State.SANDBOX or state == State.HIDEOUT:
+	if state == State.RAID or state == State.SANDBOX or state == State.HIDEOUT \
+			or state == State.MAP_MAKER:
 		_pause()
 		get_viewport().set_input_as_handled()
 

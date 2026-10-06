@@ -140,7 +140,8 @@ static func kit_label(weapon_id: String, slot: int, carried: int) -> String:
 ## The weapons carried, left to right in their slots, starting at `at`: the one
 ## in hand in its own colour and the rest dimmed. With one weapon carried it is
 ## that weapon's name, as it always was. A rock out of hand says so, dimmed as
-## well: it is in a slot and in no hand. Returns where the line goes on from.
+## well: it is in a slot and in no hand. A stack says how many are left in it,
+## dimmed with none. Returns where the line goes on from.
 func _draw_kit(at: Vector2) -> float:
 	var kit: Array = player.weapons if not player.weapons.is_empty() else [player.weapon_id]
 	for slot in kit.size():
@@ -152,6 +153,10 @@ func _draw_kit(at: Vector2) -> float:
 		if Weapons.is_thrown(id) and not player.holds(id):
 			label = Loc.t("hud.thrown", [label])
 			ink.a *= AWAY
+		if Weapons.is_stacked(id):
+			label = Loc.t("hud.stock", [label, player.stock_of(id)])
+			if player.stock_of(id) <= 0:
+				ink.a *= AWAY
 		_px.text(at, label, ink)
 		at.x += PixelDraw.text_width(label) + 16.0
 	return at.x

@@ -86,6 +86,8 @@ godot res://tests/mobile/talk_touch_test.tscn # a conversation on the glass: a t
 godot res://tests/mobile/menu_thumb_test.tscn # mobile mode's menus: every page a thumb's size, and a desk's with the mode off
 godot res://tests/mobile/editor_touch_test.tscn # mobile mode's assembly board: tabs, plates, TURN and REMOVE, worked with a thumb
 godot res://tests/feature/dragon_test.tscn  # one charged cast clears the whole tower
+godot res://tests/feature/map_maker_test.tscn # the map creator's rules: a map laid and taken back, kept as a scene, picked up as a room, played and set again
+godot res://tests/graphics/map_table_test.tscn # the map creator's table: in from the title, laid with the pointer, saved, found in the list, played and come back to
 godot res://tests/graphics/shots.tscn   # writes a screenshot of each screen to user://shots
 godot res://tests/graphics/dragon_shot.tscn  # ...and frames of the dragon test
 godot res://tests/graphics/rope_shot.tscn    # ...and frames of a cable dashed through
@@ -715,6 +717,59 @@ cells: `#` solid, `G` a guard's post, `P` the door. Moving a post or closing a
 stairwell can break the chain — `tests/feature/dragon_test.tscn` is what says
 whether one cast still clears it.
 
+## The map creator
+
+Title → **MAP CREATOR**, under SANDBOX. A grid of cells, laid a mark at a time
+out of what the game already has: rock in its region's tint, the player's
+start, a post for each of the monsters, a treasure box, ground to dig. What is
+laid is drawn the way the game draws it, and **PLAY** stands it up on the spot
+— the same room, the monsters at their posts, a kit off the bench in hand — so
+a map is tried the moment it is laid.
+
+| On the table | |
+|---|---|
+| Left button | lays what is in hand; dragged, a line of it |
+| Right button | erases |
+| `SHIFT` and a drag | a box, of either |
+| Middle button, the move keys, two fingers on a trackpad, or the MOVE tile | carries the map |
+| Wheel, a pinch, or ZOOM | a room's own size, or half of it |
+| `Ctrl`/`Cmd`+`Z`, and with `SHIFT` | a step back, and forward again |
+| `Ctrl`/`Cmd`+`S` | SAVE |
+| `ESC` | the pause menu, whose MAIN MENU is one way out; the arrow in the corner is the other |
+
+A map is between one screen and four each way — WIDTH and HEIGHT, a cell a
+press, ten with `SHIFT` held — and the brighter lines across it are where one
+screen ends and the next begins. ROCK picks which region's rock it is cut
+from, and WEAPON which weapon a played map starts in hand, the next two round
+the rack beside it.
+
+**SAVE** keeps the map as a scene, named for it: `data/maps/<name>.tscn` when
+the game is run from the project, where it is committed and ships with the
+game, and `user://maps/` in an exported game, which cannot write into itself.
+Under the name of a map kept already it asks first. **LOAD** lists what is
+kept, each with a DELETE that asks too. NEW and LOAD are steps like any other,
+and a step back brings back what they took off the table. The table itself is
+kept while the game runs, saved or not: leave for the title and come back, and
+the map is as it was left.
+
+In a played map `R` sets the floor again, `TAB` opens the board — parts are
+free and the graphs are copies of the profile's, as on the bench — and `ESC`
+goes back to the table. The body is the profile's own and can fall, and the
+floor is set again when it does.
+
+The scene is one node, a `MadeRoom` (`feature/world/made_room.gd`), and its
+rows of cells are a property of it, written the way the dragon test's tower is
+— so it reads in a diff, opens in Godot, and is picked up wherever a room is
+wanted:
+
+```gdscript
+var room := Maps.load_room("keep")   # or load("res://data/maps/keep.tscn").instantiate()
+add_child(room)
+room.stand()                         # the rock, and whatever its cells say is in it
+```
+
+What a cell can hold is in [data/maps/README.md](data/maps/README.md).
+
 ## Design decisions
 
 The PRD left eight questions open. This build answers them as follows.
@@ -807,6 +862,7 @@ data/enigami.db    the content database: conversations, the player's state machi
                    and the boards the game ships with, as tables
                    built from data/db/, see its README
 data/scenes/       directed scenes, one JSON file per scene — format in its README
+data/maps/         rooms made in the map creator, one scene per map — format in its README
 localization/      every word the game says: eng/ and kor/, a file per screen
                    plus dialogue/ and scenes/ — format in its README
                    kor/font.woff: the Korean pixel face, Silkscreen has no Hangul
@@ -819,6 +875,8 @@ feature/world/     room generation, raid map graph, raid loop, sandbox, pickups
                    lost kit: what a death leaves on the floor for the next run
                    loose rock: the rock, lying where it came down until it is picked up
                    dragon test: the hand-laid tower and its rules
+                   map maker: the map creator's rules; made room: a map as a room;
+                   maps: the files they are kept in
 story/rules/       conversations and directed scenes: what is said, and what follows
                    free talk: rules, the facts they are written against, and the ear
 story/view/        the dialogue box, the speech bubble, the cutscene box, the portraits, the camera
@@ -830,7 +888,8 @@ graphics/views/    one view per gameplay node: actors, attacks, rooms, loot
                    hideout_scenery: what the hideout's room is dressed in, drawn in
                    code — the ground its looks stand on; hideout_city, _keep, _grove,
                    _orbit and _brass are the looks, and hideout_themes which one is on
-graphics/ui/       skill editor, HUD, hideout, title, results, bench panel, logo card
+graphics/ui/       skill editor, HUD, hideout, title, results, bench panel, logo card,
+                   the map creator's table
                    ui_kit: one look for screens built of Controls
                    pixel_draw: the same look for screens that draw themselves
 graphics/skin/     characters drawn the map way: the map, the loader, the tool

@@ -20,11 +20,14 @@ INSERT INTO menus (id, name, note) VALUES
 
 -- The title: a column of lines, or in mobile mode a row of tiles. SETTINGS
 -- says the settings' own name; START keeps its word, and leads to the slots.
+-- MAP CREATOR stands under SANDBOX: both are places nothing is at stake, and
+-- neither asks for a save slot.
 INSERT INTO menu_items (menu_id, id, position, text, opens) VALUES
-	('title', 'start',    0, 'START',   'save_slots'),
-	('title', 'sandbox',  1, 'SANDBOX', NULL),
-	('title', 'settings', 2, NULL,      'settings'),
-	('title', 'quit',     3, 'QUIT',    NULL);
+	('title', 'start',     0, 'START',       'save_slots'),
+	('title', 'sandbox',   1, 'SANDBOX',     NULL),
+	('title', 'map_maker', 2, 'MAP CREATOR', NULL),
+	('title', 'settings',  3, NULL,          'settings'),
+	('title', 'quit',      4, 'QUIT',        NULL);
 
 -- The slots themselves are rows the screen lays out from the profiles on
 -- disk, one a slot; the menu holds only the way back under them.

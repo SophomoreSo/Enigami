@@ -70,7 +70,7 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 			# Dust off the floor, for a rock coming down hard enough to raise it.
 			if float(d.get("speed", 0.0)) > 260.0:
 				Fx.burst(pos, Style.WALL_DUST, 3, 60.0)
-		&"rock_back":
+		&"rock_back", &"shuriken_back":
 			Fx.burst(pos, Style.weapon_color(String(d.get("weapon", ""))), 6, 90.0)
 		&"possess":
 			# Into the monster: a ring closing on it, the colour of the part.

@@ -262,7 +262,9 @@ static func _schedule_spawn(seconds: float, p: Payload, ctx: Dictionary) -> void
 ##           the aim asks the attack to go; all of it when it is not said),
 ##           and for a thrown weapon's bolts thrown (the weapon id), thrower
 ##           (the Player whose it is) and ghost (bool — every one of them a
-##           copy, the weapon itself having gone already)
+##           copy, the weapon itself having gone already); for a stacked
+##           weapon's, sticks (the weapon id: every bolt is one of the stack,
+##           and sticks where it strikes) and thrower
 static func spawn(payload: Payload, ctx: Dictionary) -> void:
 	var w := container()
 	if w == null or not is_instance_valid(w):
@@ -296,9 +298,14 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 	# volley is the weapon, unless the flow says it is a copy, and the rest are
 	# copies of it.
 	var thrown := String(ctx.get("thrown", ""))
+	# A stacked weapon throws one of itself a bolt (`Weapons.is_stacked`), and
+	# each sticks where it strikes.
+	var sticks := String(ctx.get("sticks", ""))
 	# One announcement per cast, whatever the duplicate count: the form is what
-	# the moment sounds like, and three bolts are one volley.
-	Cues.at(&"attack", origin, {"form": payload.form, "payload": payload, "aim": aim, "thrown": thrown})
+	# the moment sounds like, and three bolts are one volley. A shuriken goes
+	# out of the hand the way the rock does, so it is heard as a throw too.
+	Cues.at(&"attack", origin, {"form": payload.form, "payload": payload, "aim": aim,
+		"thrown": thrown if thrown != "" else sticks})
 	match payload.form:
 		"PROJECTILE":
 			for i in count:
@@ -309,6 +316,9 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 					n.thrown = thrown
 					n.thrower = ctx.get("thrower", null)
 					n.ghost = i > 0 or bool(ctx.get("ghost", false))
+				elif sticks != "":
+					n.sticks = sticks
+					n.thrower = ctx.get("thrower", null)
 		"SLASH":
 			for i in count:
 				var delay := float(i) * 0.07

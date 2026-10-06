@@ -14,5 +14,9 @@
 	"SHOVEL": {
 		"name": "Shovel",
 		"desc": "A spade for a blade: it swings like anything heavy, and it digs. Hold the use key on lit ground to bring up what is buried there — loudly."
+	},
+	"SHURIKEN": {
+		"name": "Shuriken",
+		"desc": "A stack of throwing stars, thrown with everything built into them. Each flies flat and true and sticks where it strikes; walk over one to take it back."
 	}
 }

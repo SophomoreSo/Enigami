@@ -23,6 +23,11 @@ extends Actor
 ## sends throws it, and until it is picked back up (`LooseRock`) the weapon
 ## casts nothing; see `holders`.
 ##
+## A stacked weapon (`Weapons.is_stacked`) — the shuriken — is a count instead:
+## so many in hand, one spent on every bolt its graph sends, and one more for
+## every one picked back up where it struck (`StuckShuriken`). At none it
+## casts nothing; see `stock`.
+##
 ## A hit carrying POSSESS puts the player's hands into the monster it strikes
 ## (`possess`). The body stays where it was, standing still, and the monsters go
 ## on hunting it — it dies, and the raid is lost. The input line drives the
@@ -180,6 +185,9 @@ var _vessel_at: Vector2 = Vector2.ZERO
 ## no entry: it is in the air, or lying where it came down (`LooseRock`). A
 ## thrown weapon is cast only from the hands holding it.
 var holders: Dictionary = {}
+## The stacked weapons carried (`Weapons.is_stacked`) — the shuriken — and how
+## many of each are in hand: weapon id -> count, never more than its stack.
+var stock: Dictionary = {}
 ## Whether the attack button was down a frame ago, so a press on a rock that
 ## is not in the hand is answered once rather than every frame it is held.
 var _was_attacking: bool = false
@@ -337,20 +345,28 @@ func setup(weapon: String, board: SkillBoard) -> void:
 ## had it out of hand: the hideout and the bench hand the kit out again
 ## whenever a graph changes, and a rock lying on the floor is not also in the
 ## hand for it.
+##
+## A stacked weapon comes with its whole stack, and the same goes the other way:
+## one the kit before this one carried keeps what it had left, so a graph
+## changed at the bench does not fill a stack thrown half away.
 func setup_kit(ids: Array, boards: Array, in_hand: int = 0) -> void:
 	var out: Array = []
 	for w in weapons:
 		if Weapons.is_thrown(w) and not holds(w):
 			out.append(w)
+	var had := stock.duplicate()
 	weapons.clear()
 	runners.clear()
 	holders.clear()
+	stock.clear()
 	for i in mini(mini(ids.size(), boards.size()), MAX_WEAPONS):
 		var id := String(ids[i])
 		weapons.append(id)
 		runners.append(_make_runner(id, boards[i]))
 		if Weapons.is_thrown(id) and not out.has(id):
 			holders[id] = self
+		if Weapons.is_stacked(id):
+			stock[id] = int(had.get(id, Weapons.stack_of(id)))
 	charge = 0.0
 	cast_charge = 0.0
 	_cast_buffer = 0.0
@@ -413,14 +429,18 @@ func holds(id: String) -> bool:
 func can_cast() -> bool:
 	if Weapons.is_thrown(weapon_id):
 		return holds(weapon_id) and holders[weapon_id] == vessel()
+	if Weapons.is_stacked(weapon_id) and stock_of(weapon_id) <= 0:
+		return false
 	return possessing == null or vessel_armed
 
 ## The hands the weapon in hand is in, for whatever draws it there: the body,
 ## the monster the player is in once it holds it, or null — a thrown weapon out
-## of hand.
+## of hand, or a stack with none left in it.
 func weapon_hands() -> Actor:
 	if Weapons.is_thrown(weapon_id):
 		return holders[weapon_id] if holds(weapon_id) else null
+	if Weapons.is_stacked(weapon_id) and stock_of(weapon_id) <= 0:
+		return null
 	if possessing != null and vessel_armed and is_instance_valid(possessing):
 		return possessing
 	return self
@@ -435,6 +455,22 @@ func take_back(id: String, hands: Actor) -> void:
 ## the floor.
 func let_go(id: String) -> void:
 	holders.erase(id)
+
+## --- the shuriken -----------------------------------------------------------
+
+## How many of the stacked weapon `id` are in hand: 0 for one not carried, and
+## for one that is not a stack.
+func stock_of(id: String) -> int:
+	return int(stock.get(id, 0))
+
+## One of the stacked weapon `id` back in hand, picked up where it struck
+## (`StuckShuriken`). Whether there was room for it: not for a weapon not
+## carried, nor in a stack that is already whole.
+func take_one_back(id: String) -> bool:
+	if not stock.has(id) or stock_of(id) >= Weapons.stack_of(id):
+		return false
+	stock[id] = stock_of(id) + 1
+	return true
 
 ## --- possession -------------------------------------------------------------
 
@@ -645,6 +681,11 @@ func _on_cycle_started() -> void:
 ## that comes round once the rock has gone — throws copies of it, which are gone
 ## when they come down. A flow off the rock that is not a bolt does not throw
 ## it: it is struck with, or cast from, and stays in the hand.
+##
+## Off a stacked weapon every bolt is one of the stack, thrown: a volley of three
+## spends three, and one with fewer left throws what is left — none, when the
+## stack ran out while the cast was still going round. A flow that is not a bolt
+## spends nothing, as off the rock.
 func _on_fired(payload: Payload, weapon: String = "") -> void:
 	if weapon == "":
 		weapon = weapon_id
@@ -663,6 +704,14 @@ func _on_fired(payload: Payload, weapon: String = "") -> void:
 			_press_spent = true
 		else:
 			ctx["ghost"] = true
+	if Weapons.is_stacked(weapon) and p.form == "PROJECTILE":
+		var throwing := mini(clampi(p.duplicates, 1, 9), stock_of(weapon))
+		if throwing <= 0:
+			return
+		p.duplicates = throwing
+		stock[weapon] = stock_of(weapon) - throwing
+		ctx["sticks"] = weapon
+		ctx["thrower"] = self
 	Attacks.spawn(p, ctx)
 	cast_fired.emit()
 

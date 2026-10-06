@@ -7,6 +7,7 @@
 	"stunned": "STUNNED",
 	"possessing": "IN THE %s %ds",
 	"thrown": "%s (THROWN)",
+	"stock": "%s x%d",
 	"fx": {
 		"winded": "WINDED",
 		"parry": "PARRY",
@@ -67,6 +68,49 @@
 		"clear": "clear",
 		"leave": "leave",
 		"dps": "damage/sec (3s avg): %.1f"
+	},
+	"maker": {
+		"title": "MAP CREATOR",
+		"name": "MAP NAME",
+		"save": "SAVE",
+		"load": "LOAD",
+		"new": "NEW",
+		"undo": "UNDO",
+		"redo": "REDO",
+		"play": "PLAY",
+		"back": "BACK",
+		"tool": {
+			"move": "MOVE",
+			"erase": "ERASE"
+		},
+		"mark": {
+			"rock": "ROCK",
+			"start": "START",
+			"box": "TREASURE BOX",
+			"dig": "DIG SPOT"
+		},
+		"width": "WIDTH",
+		"height": "HEIGHT",
+		"region": "ROCK %d",
+		"weapon": "WEAPON: %s",
+		"zoom": "ZOOM %d%%",
+		"hint": "LMB LAY  RMB ERASE  SHIFT+DRAG BOX  MMB OR MOVE KEYS PAN  WHEEL ZOOM",
+		"hint_touch": "DRAG TO LAY  TAKE MOVE TO PAN",
+		"unsaved": "NOT SAVED",
+		"saved": "SAVED  %s",
+		"loaded": "LOADED %s",
+		"deleted": "%s THROWN AWAY",
+		"replace": "%s IS KEPT ALREADY. SAVE AGAIN TO REPLACE IT",
+		"refused": {
+			"name": "NAME THE MAP FIRST: LETTERS AND DIGITS",
+			"write": "THE MAP COULD NOT BE WRITTEN",
+			"read": "THE MAP COULD NOT BE READ"
+		},
+		"load_heading": "LOAD A MAP",
+		"none": "NO MAPS KEPT YET",
+		"delete": "DELETE",
+		"sure": "SURE?",
+		"keys": "R RESET  TAB SKILL BOARD  ESC BACK TO THE MAP"
 	},
 	"dragon": {
 		"play": "PLAY",

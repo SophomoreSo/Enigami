@@ -288,10 +288,6 @@ func _bolts() -> void:
 				hit += 1
 		check(hit == n + 1, "%d PIERCE pass through %d: %d enemies in a row are struck" % [n, n, hit])
 
-## --- HOMING finds the way round ---------------------------------------------------
-## A flat room with a wall standing in the middle of it, open over the top: the
-## bolt starts on one side at the foot of the wall and its target stands on the
-## other. Whether it got there is whether the target was struck.
 ## --- RANGE carries a lunge -----------------------------------------------------
 ## SWIFT STRIKE's lunge goes RANGE's own multiple further for each one stacked,
 ## up to the part's limit, and one an INVERT turns round goes shorter.
@@ -334,6 +330,10 @@ func lunge_of(caster: Actor, p: Payload) -> float:
 			c.queue_free()
 	return out
 
+## --- HOMING finds the way round ---------------------------------------------------
+## A flat room with a wall standing in the middle of it, open over the top: the
+## bolt starts on one side at the foot of the wall and its target stands on the
+## other. Whether it got there is whether the target was struck.
 func walled_room(at: Vector2) -> Room:
 	var r := Room.new()
 	add_child(r)

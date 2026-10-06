@@ -2,6 +2,7 @@
 	"title": {
 		"start": "START",
 		"sandbox": "SANDBOX",
+		"map_maker": "MAP CREATOR",
 		"quit": "QUIT"
 	},
 	"save_slots": {

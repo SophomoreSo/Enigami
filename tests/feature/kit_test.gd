@@ -338,6 +338,11 @@ func _at_the_bench() -> void:
 	bench.cycle_weapon()
 	check(bench.current_weapon() == String(all[3]) and bench.player.weapons.has(String(all[3])),
 		"and on past the kit to a weapon it did not have in it (%s)" % bench.current_weapon())
+	# On round whatever weapons there are after that one, to the last of them.
+	for i in range(4, all.size()):
+		bench.cycle_weapon()
+	check(bench.current_weapon() == String(all[all.size() - 1]),
+		"and on to the last weapon there is (%s)" % bench.current_weapon())
 	bench.cycle_weapon()
 	check(bench.current_weapon() == String(all[0]) and bench.player.hand == 0, "from the last back to the first")
 	bench.queue_free()
@@ -386,7 +391,7 @@ func _dying() -> void:
 		"the drop holds every weapon that can be lost (%s)" % str(dropped))
 	check((drop.get("boards", {}) as Dictionary).size() == 3, "and the graph of all three, the free one's included")
 	check(not GameState.owned_weapons.has("SWORD") and not GameState.owned_weapons.has("GUN")
-			and GameState.owned_weapons == [GameState.FREE_WEAPON, "SHOVEL"],
+			and GameState.owned_weapons == [GameState.FREE_WEAPON, "SHOVEL", "SHURIKEN"],
 		"the vault is left with the free weapon, and what was not carried (%s)" % str(GameState.owned_weapons))
 	check(GameState.graph_is_bare("ROCK") and GameState.graph_is_bare("SWORD"), "and every graph that went in is gone from it")
 	check(GameState.carried() == [GameState.FREE_WEAPON], "the kit is what is left to carry (%s)" % str(GameState.carried()))

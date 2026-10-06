@@ -38,7 +38,7 @@ var owned_weapons: Array[String] = []
 ## Weapons every profile is handed, once: a new one starts with them, and one
 ## saved before a weapon was in the game is given it the first time it loads
 ## (`_hand_out`). Once only, so a weapon lost to a death since is not given back.
-const HANDED_OUT := ["SHOVEL"]
+const HANDED_OUT := ["SHOVEL", "SHURIKEN"]
 ## Which of them this profile has been handed.
 var handed_out: Array[String] = []
 ## weapon id -> the graph on it. A weapon is its graph: the weapon's own part
@@ -195,7 +195,7 @@ func _new_profile() -> void:
 	records = {"raids": 0, "escapes": 0, "deaths": 0, "kills": 0, "best_haul": 0}
 	intro_seen = false
 	memory = {}
-	owned_weapons = ["ROCK", "SWORD", "GUN", "SHOVEL"]
+	owned_weapons = ["ROCK", "SWORD", "GUN", "SHOVEL", "SHURIKEN"]
 	handed_out.assign(HANDED_OUT)
 	loadout = []
 	weapon_boards.clear()

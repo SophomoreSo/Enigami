@@ -7,6 +7,7 @@
 	"stunned": "기절",
 	"possessing": "%s 빙의 %d초",
 	"thrown": "%s (던짐)",
+	"stock": "%s x%d",
 	"fx": {
 		"winded": "탈진",
 		"parry": "막아냄",
@@ -67,6 +68,49 @@
 		"clear": "비우기",
 		"leave": "나가기",
 		"dps": "초당 피해 (3초 평균): %.1f"
+	},
+	"maker": {
+		"title": "맵 제작",
+		"name": "맵 이름",
+		"save": "저장",
+		"load": "불러오기",
+		"new": "새 맵",
+		"undo": "되돌리기",
+		"redo": "다시 하기",
+		"play": "플레이",
+		"back": "뒤로",
+		"tool": {
+			"move": "이동",
+			"erase": "지우기"
+		},
+		"mark": {
+			"rock": "바위",
+			"start": "시작 지점",
+			"box": "보물 상자",
+			"dig": "파낼 땅"
+		},
+		"width": "너비",
+		"height": "높이",
+		"region": "바위 %d",
+		"weapon": "무기: %s",
+		"zoom": "배율 %d%%",
+		"hint": "좌클릭 놓기  우클릭 지우기  SHIFT+드래그 상자  휠 클릭 또는 이동 키로 화면 이동  휠 배율",
+		"hint_touch": "끌어서 놓기  이동을 고르면 화면 이동",
+		"unsaved": "저장 안 함",
+		"saved": "저장했습니다  %s",
+		"loaded": "%s 불러왔습니다",
+		"deleted": "%s 삭제했습니다",
+		"replace": "%s 맵이 이미 있습니다. 다시 저장하면 덮어씁니다",
+		"refused": {
+			"name": "먼저 맵 이름을 정하세요: 영문자와 숫자",
+			"write": "맵을 저장하지 못했습니다",
+			"read": "맵을 읽지 못했습니다"
+		},
+		"load_heading": "맵 불러오기",
+		"none": "저장한 맵이 없습니다",
+		"delete": "삭제",
+		"sure": "정말요?",
+		"keys": "R 초기화  TAB 스킬 보드  ESC 맵으로"
 	},
 	"dragon": {
 		"play": "재생",

@@ -38,9 +38,10 @@ signal weapon_changed(weapon: String)
 const COL_WEAPONS := 320.0
 const COL_FACILITIES := 348.0
 ## The least a weapon's plate is across on the rack in mobile mode, where they
-## stand in a row: four to a page's width — every weapon there is, the shovel
-## among them — and a word's room in each.
-const RACK_PLATE := 208.0
+## stand in a row: five to a page's width — every weapon there is, the shuriken
+## among them — and a word's room in each. A longer name than that takes what
+## it needs from the rest of the row.
+const RACK_PLATE := 160.0
 
 var weapon_id: String = ""
 ## Which of the two columns this screen is. "" builds both under a header and
@@ -223,9 +224,16 @@ func _weapons_column() -> Control:
 		var wc := Style.weapon_color(id)
 		var slot := kit.find(id)
 		# Two characters either way, for the mark and for the slot, so the name
-		# does not shift as either moves.
-		var b := _button(Loc.t("hideout.weapons.row", [
-			("> " if selected else "  ") + ("%d " % (slot + 1) if slot >= 0 else "  "),
+		# does not shift as either moves. Not on a plate, which is the name
+		# alone: there the weapon in hand is the plate lit in its colour, the
+		# rest of the kit is in theirs and what stays home is dimmed — and a
+		# phone draws the next weapon with one key rather than a slot's number.
+		# Five names with the mark and the number before them are wider than a
+		# phone's page.
+		var mark := ("> " if selected else "  ") + ("%d " % (slot + 1) if slot >= 0 else "  ")
+		if rack != v:
+			mark = ""
+		var b := _button(Loc.t("hideout.weapons.row", [mark,
 			Weapons.name_for(id), "" if owned else Loc.t("hideout.weapons.lost")]),
 			wc if selected or slot >= 0 else UiKit.DIM)
 		b.disabled = not owned

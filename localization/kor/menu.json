@@ -2,6 +2,7 @@
 	"title": {
 		"start": "시작",
 		"sandbox": "연습장",
+		"map_maker": "맵 제작",
 		"quit": "종료"
 	},
 	"save_slots": {

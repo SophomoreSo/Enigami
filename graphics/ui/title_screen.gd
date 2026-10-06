@@ -3,6 +3,7 @@ extends Control
 
 signal start_requested()
 signal sandbox_requested()
+signal map_maker_requested()
 
 ## The save slot picked on the way in, 1..SAVE_SLOTS, or -1 until one is.
 ##
@@ -56,7 +57,7 @@ const SETTLE_TOP := 452.0    ## where the board starts sinking into black
 ## ground, the way it always did at its edges.
 const BOARD_REACH := Vector2(400, 280)
 
-## Mobile mode's menu: the same four entries, as a row of big square tiles with
+## Mobile mode's menu: the same entries, as a row of big square tiles with
 ## a mark over each name. A line of text 24 pixels high is a small thing to land
 ## a thumb on, and on a phone a thumb is all there is to land. See `_tile`.
 const TILE := 152.0
@@ -107,6 +108,23 @@ const MARK_SANDBOX := [
 	"..##.....##..",
 	"....#####....",
 ]
+## The map creator lays a room a cell at a time, so its mark is a wall going up:
+## courses of blocks, each set half a block along from the one under it.
+const MARK_MAP_MAKER := [
+	"#############",
+	"#.....#.....#",
+	"#.....#.....#",
+	"#############",
+	"#..#.....#..#",
+	"#..#.....#..#",
+	"#############",
+	"#.....#.....#",
+	"#.....#.....#",
+	"#############",
+	"#..#.....#..#",
+	"#..#.....#..#",
+	"#############",
+]
 const MARK_SETTINGS := [
 	".....###.....",
 	".##..###..##.",
@@ -140,7 +158,7 @@ const MARK_QUIT := [
 ## Which mark stands over which tile, by the item's id in the `title` menu's
 ## rows — the look of an item is the screen's, the way a part's is `Style`'s.
 ## An item with none here gets a plate with only its name on it.
-const MARKS := {"start": MARK_START, "sandbox": MARK_SANDBOX,
+const MARKS := {"start": MARK_START, "sandbox": MARK_SANDBOX, "map_maker": MARK_MAP_MAKER,
 	"settings": MARK_SETTINGS, "quit": MARK_QUIT}
 ## The menus this screen shows, each as a page of its own: the title's, the
 ## save slots behind START, the settings and the two pages behind them. What
@@ -577,6 +595,7 @@ func acts_for(menu: String) -> Dictionary:
 	match menu:
 		"title":
 			return {"sandbox": func() -> void: sandbox_requested.emit(),
+				"map_maker": func() -> void: map_maker_requested.emit(),
 				"quit": func() -> void: get_tree().quit()}
 		"save_slots":
 			return {"back": _hide_save_slots}
@@ -600,10 +619,13 @@ func _tile_row() -> HBoxContainer:
 ## One of mobile mode's tiles: a square TILE across, the whole of it the thing
 ## to press. The button carries only the name, low in the square — the plate
 ## and the mark over the name are drawn under it by `_draw_tiles`, the way the
-## trashcans are, so they light with the name when the tile is pointed at.
+## trashcans are, so they light with the name when the tile is pointed at. A
+## name of two words too long for one line stands on two: the tile is the one
+## width it is, and its name has room under the mark for a second line.
 func _tile(text: String, mark: Array) -> Button:
 	var b := _bare_button(text, 16)
 	b.custom_minimum_size = Vector2(TILE, TILE)
+	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var box := StyleBoxEmpty.new()
 	box.content_margin_left = 6
 	box.content_margin_right = 6
