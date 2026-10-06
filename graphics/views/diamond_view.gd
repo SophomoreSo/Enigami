@@ -32,6 +32,7 @@ func _ready() -> void:
 	diamond = get_parent() as Diamond
 	# Over the room and whoever stands in it: it is the one thing to find.
 	z_index = 40
+	material = Lighting.glow()
 
 func _process(delta: float) -> void:
 	_t += delta

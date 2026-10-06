@@ -17,6 +17,11 @@ extends Node2D
 ##
 ## A bolt that is a thrown weapon — the rock — is drawn as the rock, turning
 ## over as it flies, with its trail faint behind it (`_draw_thrown`).
+##
+## A bolt is its own light, and a lamp: it lights the room it flies through in
+## its own colour, and whatever it passes throws a shadow that swings round as
+## it goes by. The rock is a rock, lit like one, and is a lamp only with
+## something built into it to burn.
 
 const TRAIL_LEN := 8
 ## The beam behind a bolt at laser speed: how solid it is at its far end and at
@@ -32,6 +37,11 @@ const BEAM_WIDTH_HEAD := 1.8
 const TUMBLE := 14.0
 const GHOST_ALPHA := 0.45
 const DUST := Color(0.78, 0.75, 0.68)
+## The light a bolt throws: how far it reaches in world units, how bright it
+## is, and how much of it hangs in the air.
+const LIGHT_REACH := 150.0
+const LIGHT := 1.8
+const LIGHT_AIR := 0.1
 
 var bolt: Projectile
 var color: Color = Style.NEUTRAL_ATTACK
@@ -40,6 +50,8 @@ var beam: bool = false
 var _trail: Array[Vector2] = []
 ## How far a thrown rock has turned over.
 var _spin: float = 0.0
+## The light it throws, or null for a rock with nothing built into it.
+var lamp: Lamp
 
 func _ready() -> void:
 	bolt = get_parent() as Projectile
@@ -56,12 +68,32 @@ func _process(delta: float) -> void:
 	if bolt == null or not is_instance_valid(bolt):
 		return
 	color = Style.element_color(bolt.payload)
+	_shine()
 	if bolt.thrown != "":
 		_spin += delta * TUMBLE * (1.0 if bolt.velocity.x >= 0.0 else -1.0)
 	_trail.append(bolt.global_position)
 	if _trail.size() > TRAIL_LEN:
 		_trail.pop_front()
 	queue_redraw()
+
+## What the bolt is to the light. A bolt is its own light, and a lamp in its
+## own colour. The rock is a rock, lit by whatever lamp is near it, and a lamp
+## only with something built into it to burn; a copy of it gives a copy's
+## share. Asked every frame rather than once: a bolt is told it is the rock
+## only after it has been put in the world (`Attacks.spawn`).
+func _shine() -> void:
+	var rock := bolt.thrown != ""
+	var lit := not rock or (bolt.payload != null and not bolt.payload.elements.is_empty())
+	material = null if rock else Lighting.glow()
+	if lamp == null:
+		if not lit:
+			return
+		lamp = Lamp.of(color, LIGHT_REACH)
+		lamp.volume = LIGHT_AIR
+		add_child(lamp)
+	lamp.visible = lit
+	lamp.color = color
+	lamp.energy = LIGHT * (GHOST_ALPHA if bolt.ghost else 1.0)
 
 ## How far along the trail sample `i` is, 0 at the oldest to just short of 1 at
 ## the bolt, and the bead drawn there: how big, and how solid.

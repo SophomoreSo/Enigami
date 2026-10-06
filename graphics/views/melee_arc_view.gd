@@ -9,6 +9,7 @@ var swing: MeleeArc
 func _ready() -> void:
 	swing = get_parent() as MeleeArc
 	z_index = 45
+	material = Lighting.glow()
 
 func _process(_delta: float) -> void:
 	queue_redraw()

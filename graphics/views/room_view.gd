@@ -5,6 +5,10 @@ extends Node2D
 ## holds, the cables hung from its rock and the foliage growing on its floors.
 ## Its gates are drawn by their own views (`GateView`).
 ##
+## And how it stands to the light (`Lighting`): which way its rock faces where
+## it meets the open air, the shadow that rock throws, and the light its way
+## out gives.
+##
 ## Tiles never change while a room is loaded, so they are drawn once onto their
 ## own layer the moment the room finishes building. The exit animates, the
 ## cables sway, and the grass bends where somebody walks through it.
@@ -30,9 +34,24 @@ const HANG_GAP := 3
 ## sees.
 const READOUT_COLS := 10
 const READOUT_ROWS := 8
+## How much the way the rock faces counts, a pixel of the picture at a time in
+## from where it meets the open air: its skin is lit only from its own side,
+## and by three pixels in it takes any light alike.
+const FACE := [1.0, 0.6, 0.3]
+## The light a way out gives: how far it reaches in world units, how bright it
+## is, and how much of it hangs in the air.
+const EXIT_REACH := 170.0
+const EXIT_LIGHT := 1.2
+const EXIT_AIR := 0.06
 
 var room: Room
 var _tiles: TileLayer
+## The tiles' twin, for the light: how the rock faces.
+var _faces: Faces
+## The rock's edges, for whatever lamp is near them to throw a shadow off.
+var shadow: ShadowCaster
+## The light of the way out, in a room that has one.
+var exit_lamp: Lamp
 ## The lines hung in this room, in the order they were hung.
 var ropes: Array = []
 ## The patches growing on this room's floors, in the order they were grown,
@@ -47,32 +66,67 @@ class TileLayer extends Node2D:
 		if view != null:
 			view.draw_static(self)
 
+## How the rock faces, for the light: the tiles' twin, drawn into the picture
+## of the world's normals and nowhere else (`Lighting.NORMAL_LAYER`), and as
+## often as the tiles are. The tiles themselves are the back of the picture
+## (`Lighting.BACKDROP_LAYER`) and are not drawn there at all: they are flat,
+## and they are most of what a frame costs to draw.
+class Faces extends Node2D:
+	var view: RoomView
+
+	func _draw() -> void:
+		if view != null:
+			view.draw_faces(self)
+
 func _ready() -> void:
 	room = get_parent() as Room
 	z_index = 0
+	# What is drawn here itself is the way out, which is its own light.
+	material = Lighting.glow()
+	# Behind the tiles, so whatever stands in front of them — a look the room
+	# is dressed in — is in front of this too.
+	_faces = Faces.new()
+	_faces.view = self
+	_faces.z_index = -1
+	_faces.visibility_layer = Lighting.NORMAL_LAYER
+	add_child(_faces)
 	_tiles = TileLayer.new()
 	_tiles.view = self
 	_tiles.z_index = -1
+	_tiles.visibility_layer = Lighting.BACKDROP_LAYER
 	add_child(_tiles)
+	shadow = ShadowCaster.new()
+	add_child(shadow)
 	if room != null:
 		room.built.connect(_on_built)
 	# The rock past the room is only as wide as the screen shows, so a screen
 	# that changes shape — a window dragged, a phone turned — has it drawn again.
-	get_viewport().size_changed.connect(_tiles.queue_redraw)
+	get_viewport().size_changed.connect(_on_reshaped)
 
 func _on_built() -> void:
-	_tiles.queue_redraw()
+	_on_reshaped()
 	_hang_lines()
 	_grow_foliage()
+	_light_exit()
+
+## The rock as far as the screen shows it: its picture, how it faces, and the
+## edges it throws shadows off.
+func _on_reshaped() -> void:
+	_tiles.queue_redraw()
+	_faces.queue_redraw()
+	_cast()
 
 ## Scenery of somebody else's making, stood in the room: in front of the tiles
 ## and behind everything that hangs, grows or moves. The hideout dresses its
 ## room this way, in whichever of its looks is on (`HideoutScenery`); the room
-## knows nothing of what it is given.
+## knows nothing of what it is given. A look is painted over the room's own
+## rock, edge and all, so how that rock faces goes with it: a dressed room is
+## as flat as the look painted on it.
 func dress(scenery: Node2D) -> void:
 	scenery.z_index = -1
 	add_child(scenery)
 	move_child(scenery, _tiles.get_index() + 1)
+	_faces.visible = false
 
 ## What hangs from the room's rock is the `hangings` rows of the content
 ## database: of each kind of line, how many and how long. Where each hangs is
@@ -220,6 +274,128 @@ func _rock(x: int, y: int) -> bool:
 func _process(_delta: float) -> void:
 	if room != null and not room.extraction.is_empty():
 		queue_redraw()
+		if exit_lamp != null:
+			exit_lamp.color = Style.EXIT_OPEN if room.extraction_blocked_reason() == "" else Style.EXIT_SEALED
+
+## A way out lights the room round it, in its own colour: open or sealed.
+func _light_exit() -> void:
+	if exit_lamp != null:
+		exit_lamp.queue_free()
+		exit_lamp = null
+	if room.extraction.is_empty():
+		return
+	exit_lamp = Lamp.of(Style.EXIT_OPEN, EXIT_REACH, EXIT_LIGHT)
+	exit_lamp.volume = EXIT_AIR
+	exit_lamp.position = room.extraction_rect().get_center()
+	add_child(exit_lamp)
+
+## Every line where the room's rock meets open air, out as far as the screen
+## shows: [from, to, the way the rock faces there], each as long a run as it
+## goes on for. Rock beside rock is no line. Both things the light wants of
+## the rock are read off these: where it faces (`draw_faces`), and what it
+## throws shadows off (`_cast`).
+func air_lines() -> Array:
+	var lines: Array = []
+	if room == null or not is_instance_valid(room) or room.solid.is_empty():
+		return lines
+	var cell := float(Room.CELL)
+	var out := reach(get_viewport())
+	# Floors and the undersides of things: along every line between two rows.
+	for y in range(-out.y + 1, room.rows + out.y):
+		var from := 0
+		var way := 0
+		for x in range(-out.x, room.cols + out.x + 1):
+			var now := 0
+			if x < room.cols + out.x:
+				var below := _rock(x, y)
+				var above := _rock(x, y - 1)
+				if below and not above:
+					now = -1
+				elif above and not below:
+					now = 1
+			if now != way:
+				if way != 0:
+					lines.append([Vector2(from, y) * cell, Vector2(x, y) * cell, Vector2(0, way)])
+				from = x
+				way = now
+	# Walls: along every line between two columns.
+	for x in range(-out.x + 1, room.cols + out.x):
+		var from := 0
+		var way := 0
+		for y in range(-out.y, room.rows + out.y + 1):
+			var now := 0
+			if y < room.rows + out.y:
+				var after := _rock(x, y)
+				var before := _rock(x - 1, y)
+				if after and not before:
+					now = -1
+				elif before and not after:
+					now = 1
+			if now != way:
+				if way != 0:
+					lines.append([Vector2(x, from) * cell, Vector2(x, y) * cell, Vector2(way, 0)])
+				from = y
+				way = now
+	return lines
+
+## Which way the rock faces, wherever it meets the open air: its skin, FACE
+## pixels deep, painted in the colour of the way out of it (`Lighting.faces`)
+## — up along a floor, down under a ledge, sideways on a wall, a strip the
+## length of each run — and both ways at once round a corner that stands out
+## into the air. The rest of the rock is left alone and is flat.
+func draw_faces(c: CanvasItem) -> void:
+	if room == null or not is_instance_valid(room):
+		return
+	var px := float(PixelCamera.SCALE)
+	var deep := FACE.size()
+	for line: Array in air_lines():
+		var from: Vector2 = line[0]
+		var to: Vector2 = line[1]
+		var way: Vector2 = line[2]
+		for k in deep:
+			# In from the line, the other way from the one the rock faces: a row
+			# of the picture, or a column, for each step.
+			var into := -way * float(k) * px
+			var strip := Rect2(from + into, (to - from) - way * px).abs()
+			c.draw_rect(strip, Lighting.faces(way, FACE[k]))
+	var cell := float(Room.CELL)
+	var out := reach(get_viewport())
+	for y in range(-out.y, room.rows + out.y):
+		for x in range(-out.x, room.cols + out.x):
+			if not _rock(x, y):
+				continue
+			var left := not _rock(x - 1, y)
+			var right := not _rock(x + 1, y)
+			var up := not _rock(x, y - 1)
+			var down := not _rock(x, y + 1)
+			if not ((left or right) and (up or down)):
+				continue
+			var at := Vector2(x, y) * cell
+			# A corner out in the open air faces both ways out of it: each of its
+			# pixels by how near either side it is.
+			for corner in [[left, up, -1, -1], [right, up, 1, -1], [left, down, -1, 1], [right, down, 1, 1]]:
+				if not (corner[0] and corner[1]):
+					continue
+				for i in deep:
+					for j in deep:
+						var both := Vector2(float(corner[2]) * float(FACE[i]), float(corner[3]) * float(FACE[j]))
+						var spot := Vector2(
+							i * px if corner[2] < 0 else cell - (i + 1) * px,
+							j * px if corner[3] < 0 else cell - (j + 1) * px)
+						c.draw_rect(Rect2(at + spot, Vector2(px, px)), Lighting.faces(both, maxf(FACE[i], FACE[j])))
+
+## The rock's edges, for a lamp to throw shadows off: every line where it
+## meets open air, each run of it one edge that faces the air. Rock beside
+## rock is no edge, so the rock is lit as far into itself as a lamp reaches,
+## and dark only behind another piece of it.
+func _cast() -> void:
+	var ends := PackedVector2Array()
+	var facings := PackedVector2Array()
+	for line: Array in air_lines():
+		ends.append(line[0])
+		ends.append(line[1])
+		facings.append(line[2])
+	shadow.edges(ends, facings)
 
 func draw_static(c: CanvasItem) -> void:
 	if room == null or not is_instance_valid(room):

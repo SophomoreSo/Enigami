@@ -75,17 +75,18 @@ func _ready() -> void:
 	_mist = _depth(-9, _paint_mist)
 	_mid = _depth(-8, _paint_mid)
 	_ground = _depth(-5, _paint_ground)
-	_life = _depth(-2, _paint_life)
+	_life = _depth(-2, _paint_life, PixelCamera.WORLD_LAYER)
 	if room != null:
 		room.built.connect(_on_built)
 
-func _depth(z: int, paint: Callable) -> Depth:
+## A depth of the picture at `z`. All but what is drawn again every frame are
+## the back of the picture (`Lighting.BACKDROP_LAYER`): flat to any lamp, and
+## not drawn a second time to say so.
+func _depth(z: int, paint: Callable, layer: int = Lighting.BACKDROP_LAYER) -> Depth:
 	var d := Depth.new()
 	d.paint = paint
 	d.z_index = z
-	# A view's own layer is set for it; a child of one is not, and anything
-	# left on the default layer is drawn a second time under the pixel picture.
-	d.visibility_layer = PixelCamera.WORLD_LAYER
+	d.visibility_layer = layer
 	add_child(d)
 	return d
 

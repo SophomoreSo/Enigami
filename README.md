@@ -63,6 +63,7 @@ godot res://tests/graphics/menus_test.tscn  # every menu's rows name an act its 
 godot res://tests/graphics/rope_test.tscn   # a cable's line of nodes: hung, pushed, settled, cut at, what rides one, and where a room hangs them
 godot res://tests/graphics/foliage_test.tscn # the grass, flowers and bushes a patch grows, its mask, and where a room grows them
 godot res://tests/graphics/velocity_test.tscn # the velocity buffer: what moving things push, how it springs back, and the foliage leaning for it
+godot res://tests/graphics/lighting_test.tscn # the light: the world drawn for its colours and for how it faces, a lamp added to it, what stands in one's light dark behind, and what the game lights
 godot res://tests/graphics/bolt_view_test.tscn # a bolt's trail: the gaps between its beads drawn in, and a laser's beam from the muzzle
 godot res://tests/graphics/rock_view_test.tscn # the rock, drawn: a stone of the game's own and not the pack's morning star, held upright, turning over in the air, and marked where it lies
 godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
@@ -89,6 +90,7 @@ godot res://tests/graphics/shots.tscn   # writes a screenshot of each screen to 
 godot res://tests/graphics/dragon_shot.tscn  # ...and frames of the dragon test
 godot res://tests/graphics/rope_shot.tscn    # ...and frames of a cable dashed through
 godot res://tests/graphics/foliage_shot.tscn # ...and frames of the grass run, dashed and blasted through
+godot res://tests/graphics/lighting_shot.tscn # ...and frames of the light: a bolt and a blast through the bench, a lamp hung in it, its normals and shadows, and the room gone dark
 SHOTS_DIR=/tmp/shots godot res://tests/graphics/shots.tscn   # ...or wherever you point it
 ```
 

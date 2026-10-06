@@ -111,10 +111,13 @@ func _build() -> void:
 func _slide(_across_the_room: float) -> void:
 	pass
 
-## A depth drawn once.
+## A depth drawn once. Like one that moves, it is the back of the picture
+## (`Lighting.BACKDROP_LAYER`): flat to any lamp, and thousands of boxes that
+## are not drawn a second time to say so.
 func still(paint: Callable) -> Layer:
 	var l := Layer.new()
 	l.paint = paint
+	l.visibility_layer = Lighting.BACKDROP_LAYER
 	add_child(l)
 	_still.append(l)
 	return l
@@ -123,6 +126,7 @@ func still(paint: Callable) -> Layer:
 func moving(paint: Callable) -> Layer:
 	var l := Layer.new()
 	l.paint = paint
+	l.visibility_layer = Lighting.BACKDROP_LAYER
 	add_child(l)
 	_moving.append(l)
 	return l

@@ -25,6 +25,8 @@ func _ready() -> void:
 	# Over the room and its loot, under the HUD: it is the most important thing
 	# on this floor and it is allowed to say so.
 	z_index = 40
+	# A beam and a ring are light already, and are drawn as their own.
+	material = Lighting.glow()
 
 func _process(delta: float) -> void:
 	_t += delta

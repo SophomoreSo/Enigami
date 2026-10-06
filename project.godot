@@ -193,3 +193,7 @@ velocity_time={
 "type": "float",
 "value": 0.0
 }
+normals_size={
+"type": "vec2",
+"value": Vector2(0, 0)
+}

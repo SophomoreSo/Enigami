@@ -5,6 +5,17 @@ extends Node2D
 ## status colours washed over it, and the numbers that float off it when it is
 ## hit. Subclasses choose the character and the animation; everything else is
 ## the same for the player and for every monster.
+##
+## And how a body stands to the light (`Lighting`): the sprite's shader says
+## which way its edge faces, the body throws a shadow the size of itself, what
+## is drawn round it to be read — a ring, a bar of health — is its own light,
+## and one on fire lights the room.
+
+## The light of a body on fire: how far it reaches in world units, how bright
+## it is, and how much of it hangs in the air.
+const BURN_REACH := 130.0
+const BURN_LIGHT := 1.6
+const BURN_AIR := 0.08
 
 ## Which atlas character this actor wears. Subclasses set it in `_configure`.
 var art: String = Style.PLAYER_ART
@@ -16,6 +27,11 @@ var sprite: AnimatedSprite2D
 ## Blows the silhouette out to white on a hit, then fades.
 var flash: float = 0.0
 
+## The shadow the body throws: a box the size of it.
+var caster: ShadowCaster
+## The light of it burning, once it has.
+var fire: Lamp
+
 var _mat: ShaderMaterial
 var _started: bool = false
 ## The size of the body the sprite was last stood on (`_stand_sprite`).
@@ -23,6 +39,9 @@ var _stood_on: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	actor = get_parent() as Actor
+	# What a view draws itself is what is read off the body, not the body: lit
+	# by nothing but itself.
+	material = Lighting.glow()
 	if actor != null:
 		actor.damaged.connect(_on_damaged)
 		actor.healed.connect(_on_healed)
@@ -54,6 +73,9 @@ func _build_sprite() -> void:
 	sprite.animation = "idle"
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	sprite.scale = Vector2(s, s)
+	caster = ShadowCaster.new()
+	caster.box(Rect2(-0.5, -0.5, 1.0, 1.0))
+	add_child(caster)
 	_stand_sprite()
 	_mat = Sprites.material_for(art)
 	sprite.material = _mat
@@ -69,6 +91,7 @@ func _stand_sprite() -> void:
 	var frame := Sprites.frame_size(art)
 	_stood_on = actor.body_size
 	sprite.position = Vector2(0, _stood_on.y * 0.5 + (frame.y * 0.5 - Sprites.art_rect(art).end.y) * s)
+	caster.scale = _stood_on
 
 func _process(delta: float) -> void:
 	if not _ensure():
@@ -80,6 +103,7 @@ func _process(delta: float) -> void:
 	sprite.flip_h = actor.facing < 0
 	_animate()
 	_update_status()
+	_burn_light()
 	_burn_sparks(delta)
 	_stun_stars(delta)
 	_wet_drips(delta)
@@ -143,6 +167,20 @@ func _update_status() -> void:
 ## has to show through it, like a monster's wind-up.
 func status_flash() -> float:
 	return flash
+
+## A body on fire is a lamp, for as long as it burns: a flame's light, never
+## still.
+func _burn_light() -> void:
+	if actor.burn_time <= 0.0:
+		if fire != null:
+			fire.visible = false
+		return
+	if fire == null:
+		fire = Lamp.of(Style.ELEMENT_COLOR["FIRE"], BURN_REACH)
+		fire.volume = BURN_AIR
+		add_child(fire)
+	fire.visible = true
+	fire.energy = BURN_LIGHT * HideoutScenery.flicker(float(Time.get_ticks_msec()) / 1000.0, int(get_instance_id() % 89))
 
 var _ember: float = 0.0
 
