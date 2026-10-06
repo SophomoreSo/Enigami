@@ -21,7 +21,8 @@ extends HandLaidRoom
 ##             its cell, on whatever is under it, and one that flies holds the
 ##             middle of it; the box and the ground to dig are put down on the
 ##             first floor under their cells, so neither is ever left hanging.
-##   back      what stands behind all of it: a wall, a column, a tree.
+##   back      what stands behind all of it: a wall, a column, a tree, a pane
+##             of glass.
 ##   dressing  what is put about it: a lantern, a patch of grass, a vine.
 ##
 ## The last two are the picture's, and nothing here reads them. Which marks

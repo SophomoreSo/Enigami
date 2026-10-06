@@ -193,7 +193,7 @@ func _the_table() -> void:
 		for entry: String in table._palette:
 			inside = inside and column.encloses(tile(entry).get_global_rect())
 			named = named and table.name_of(entry) != "" and table.name_of(entry) != entry
-	check(offered == [MadeRoom.GROUND.size(), GroveTiles.BACK.size(), MadeRoom.things().size(), MapTiles.PROPS.size()],
+	check(offered == [MadeRoom.GROUND.size(), GroveTiles.BACK.size() + MapTiles.GLASS.size(), MadeRoom.things().size(), MapTiles.PROPS.size()],
 		"every kind of ground, everything that can stand behind it, in it and about it (%s)" % str(offered))
 	check(inside, "every one of them in the column, none of them scrolled out of it")
 	check(named, "and every one with a name")

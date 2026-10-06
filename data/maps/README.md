@@ -52,7 +52,9 @@ outermost cell is, or bark where that cell is open; `rock` has the rock.
 
 A cell behind is drawn as it meets its neighbours: a column ends in a foot
 where it stops going down, and in a capital under what it carries — or broken
-off, carrying nothing.
+off, carrying nothing — and glass is framed wherever it meets anything but
+more of the same glass. Glass behind a cell of ground is hidden by it, as
+anything behind is.
 
 | Cell | In `grove` | In `rock` |
 |---|---|---|
@@ -62,6 +64,8 @@ off, carrying nothing.
 | `!` | A tree's trunk | |
 | `~` | Undergrowth | |
 | `=` | A rail, to hang lanterns from | |
+| `o` | A pane of clear glass: a window on what is out beyond | The same |
+| `@` | A mirror on the back wall, which shows whoever stands in front of it a little off | The same |
 
 ### What is put about
 

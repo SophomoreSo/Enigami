@@ -2,8 +2,9 @@ extends Node
 ## Glass, worked out after the light by the pixel camera's glazing: clear glass
 ## shows what is behind it, a little tinted; a mirror shows what is in front of
 ## it, turned over across its nearest face to the open air, less the deeper
-## into it; and what stands in front of either is neither seen through it nor
-## shown in it.
+## into it; a back mirror shows what stands in front of it its shift off, and
+## nothing of what is behind it; and what stands in front of any glass is
+## neither seen through it nor shown in it.
 ##
 ## With no glass on the screen nothing is worked out, and the camera shows the
 ## picture as the light left it. The glass is drawn into the glazing's marks
@@ -11,8 +12,10 @@ extends Node
 ## and what a mirror shows, is seen as lit.
 ##
 ## And the map creator's glass: a pane over every cell of it, clear glass and
-## mirrors apart, each mirror pane told where its faces to the air are; and
-## clear glass is no rock to the light, where a mirror is.
+## mirrors apart and the ground's apart from what stands behind, each mirror
+## pane of the ground told where its faces to the air are, and none behind
+## where ground stands in front; and clear glass is no rock to the light, where
+## a mirror is.
 ##
 ## Needs a real renderer, as the light's test does: every pass is drawn on the
 ## graphics card and read back, and `--headless` draws nothing. A window the
@@ -157,6 +160,7 @@ func _ready() -> void:
 	await _in_front()
 	await _a_mirror()
 	await _faces()
+	await _back_mirror()
 	await _lit()
 	await out([ground])
 	await _made_map()
@@ -303,6 +307,40 @@ func _faces() -> void:
 		"the face of a block of it can lie past a pane's edge: its first row then shows across it from 8 deep (%s)" % at(m, pixel_from(Vector2(900, 100), 4, 0)))
 	await out([corner, lower])
 
+## A mirror on the back wall, facing the eye: what stands in front of it shows
+## in it its shift off — over what it was drawn as, as clear glass shows that —
+## and what is behind it does not.
+func _back_mirror() -> void:
+	var behind := block(Rect2(860, 380, 60, 60), GREEN, -5)
+	var mirror := Glass.of(Glass.Kind.BACK_MIRROR)
+	mirror.shift = Vector2i(12, -6)
+	mirror.pane(Rect2(800, 300, 240, 220))
+	mirror.z_index = -3
+	stage.add_child(mirror)
+	var front := block(Rect2(880, 420, 40, 60), RED, 0)
+	var img := await shown()
+	var was := came()
+	var k := Glazing.BACK_SHOWS
+	# The right edge of the block in front, and where it shows: 12 pixels right
+	# of it and 6 up, past the block itself.
+	var edge := Vector2(919, 441)
+	var shows_at := pixel_from(edge, 12, -6)
+	var expect := tinted(GROUND, Glazing.CLEAR_TINT) * (1.0 - k) + tinted(RED, Glazing.MIRROR_TINT) * k
+	check(near(at(img, shows_at), Color(expect.r, expect.g, expect.b)),
+		"a back mirror shows what stands in front of it its shift off (%s)" % at(img, shows_at))
+	check(near(at(img, edge), RED, 0.005), "and what stands in front of it is shown as it is")
+	var m := marks()
+	check(at(m, shows_at).b > 200.0 and is_equal_approx(at(m, shows_at).r, -12.0 * 16.0) and is_equal_approx(at(m, shows_at).g, 6.0 * 16.0),
+		"its mark faces the eye, with the way to what it shows (%s)" % at(m, shows_at))
+	# Where what it would show is behind it: the green block, under the pane.
+	var over_green := pixel_from(Vector2(871, 391), 12, -6)
+	check(near(at(img, over_green), tinted(at(was, over_green), Glazing.CLEAR_TINT)),
+		"what is behind it is not in front of it, and is not shown (%s)" % at(img, over_green))
+	var on_green := Vector2(871, 391)
+	check(near(at(img, on_green), tinted(GREEN, Glazing.CLEAR_TINT)),
+		"and it is seen through, as clear glass sees it, where nothing shows over it (%s)" % at(img, on_green))
+	await out([behind, mirror, front])
+
 ## --- with the light ---------------------------------------------------------------
 
 func _lit() -> void:
@@ -328,8 +366,10 @@ func _lit() -> void:
 
 func _made_map() -> void:
 	var plan := PackedStringArray()
+	var back := PackedStringArray()
 	for y in Room.H:
 		var row := ""
+		var behind := ""
 		for x in Room.W:
 			var mark := MadeRoom.OPEN
 			if y >= 20:
@@ -341,21 +381,46 @@ func _made_map() -> void:
 			if x == 30 and y >= 15 and y < 20:
 				mark = "@"
 			row += mark
+			var hung := MadeRoom.OPEN
+			if x >= 4 and x < 7 and y >= 8 and y < 11:
+				hung = "o"
+			# A mirror on the back wall, its foot behind the floor.
+			if x >= 34 and x < 37 and y >= 15 and y < 21:
+				hung = "@"
+			behind += hung
 		plan.append(row)
+		back.append(behind)
 	var room := MadeRoom.new()
 	room.tileset = "grove"
 	room.plan = plan
+	room.back = back
 	stage.add_child(room)
 	room.stand()
 	await frames(4)
 	var view := Views.of(room) as MadeRoomView
-	check(view != null and view.glass.size() == 2, "a made map's glass stands in it, clear and mirror apart")
-	if view == null or view.glass.size() != 2:
+	check(view != null and view.glass.size() == 4, "a made map's glass stands in it, clear and mirror apart, the ground's and what stands behind")
+	if view == null or view.glass.size() != 4:
 		room.queue_free()
 		return
-	var clear := view.glass[0] if view.glass[0].kind == Glass.Kind.CLEAR else view.glass[1]
-	var mirror := view.glass[1] if clear == view.glass[0] else view.glass[0]
-	check(clear.panes() == 5 and mirror.panes() == 15, "a pane over every cell of it (%d clear, %d mirror)" % [clear.panes(), mirror.panes()])
+	var of := func(kind: Glass.Kind, z: int) -> Glass:
+		for g in view.glass:
+			if g.kind == kind and g.z_index == z:
+				return g
+		return null
+	var clear: Glass = of.call(Glass.Kind.CLEAR, -7)
+	var mirror: Glass = of.call(Glass.Kind.MIRROR, -7)
+	var window: Glass = of.call(Glass.Kind.CLEAR, -8)
+	var looking: Glass = of.call(Glass.Kind.BACK_MIRROR, -8)
+	check(clear != null and mirror != null and window != null and looking != null,
+		"the ground's in front of what stands behind, and a mirror behind is one that faces the eye")
+	if clear == null or mirror == null or window == null or looking == null:
+		room.queue_free()
+		return
+	check(clear.panes() == 5 and mirror.panes() == 15, "a pane over every cell of the ground's (%d clear, %d mirror)" % [clear.panes(), mirror.panes()])
+	check(window.panes() == 9 and looking.panes() == 15,
+		"and of what stands behind, but where ground stands in front of it (%d clear, %d mirror)" % [window.panes(), looking.panes()])
+	check(MapTiles.glass_pane(view.cells, 35, 17, true)[1] == Vector4(NONE, NONE, NONE, NONE) and looking.shift == Glazing.BACK_SHIFT,
+		"a pane of it has no faces, and shows what stands in front of it the glazing's way off")
 	var floor_pane := MapTiles.glass_pane(view.cells, 14, 20)
 	check(floor_pane[1] == Vector4(1, NONE, NONE, NONE),
 		"a mirror floor's face is the top of it, over the frame, and nothing else (%s)" % floor_pane[1])
@@ -363,11 +428,14 @@ func _made_map() -> void:
 	check(pillar[1] == Vector4(2 * MapTiles.C, NONE, 1, 1),
 		"a pillar of it faces up from its top, and either way from its sides (%s)" % pillar[1])
 	await settle()
-	check(glazing.working() and glazing.glass_shown == 2, "and the glazing works it out")
+	check(glazing.working() and glazing.glass_shown == 4, "and the glazing works it out")
 	var m := marks()
 	var on_floor := Vector2(14.5 * Room.CELL, 20.5 * Room.CELL)
 	check(at(m, on_floor).b < -200.0, "a pane of the floor is a mirror in the marks")
 	check(at(m, Vector2(25.5 * Room.CELL, 17.5 * Room.CELL)).b > 200.0, "and one of the clear pillar clear glass")
+	var on_back := at(m, Vector2(35.5 * Room.CELL, 17.5 * Room.CELL))
+	check(on_back.b > 200.0 and is_equal_approx(on_back.r, -Glazing.BACK_SHIFT.x * 16.0) and is_equal_approx(on_back.g, -Glazing.BACK_SHIFT.y * 16.0),
+		"and one of the mirror behind a back mirror (%s)" % on_back)
 	# The rock's edges, as the light has them: the mirror pillar's sides are
 	# edges, and the clear pillar's are not.
 	var along := func(x: float) -> bool:

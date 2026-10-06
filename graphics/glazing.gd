@@ -17,7 +17,10 @@ extends Node
 ##             clear glass, what is behind it, a little tinted. Under a mirror,
 ##             what is in front of it, read off the picture across the mirror's
 ##             face and fading the deeper into it the pixel lies, over what
-##             the mirror itself was drawn as.
+##             the mirror itself was drawn as. Under a back mirror — one that
+##             faces the eye — whatever stands in front of it, BACK_SHIFT off,
+##             read off the marks: what they have that is not glass is what
+##             the world draws in front of the back of the picture.
 ##
 ## It comes after the light, so what is seen through glass is lit as it is
 ## anywhere, and what a mirror shows is shown lit. A mirror shows the picture
@@ -26,9 +29,13 @@ extends Node
 ##
 ## The back of the picture (`Lighting.BACKDROP_LAYER`) is left out of the
 ## marks, as it is out of the normals: it is behind any glass put in the
-## world, and most of what a frame costs to draw. So glass stands in front of
-## a room's tile field — the tile field of a made map draws its glass blocks'
-## frames, and the room's view puts a pane over each (`MadeRoomView`).
+## world, and most of what a frame costs to draw. So nothing of a room's tile
+## field covers a pane, and a pane goes only where the tile field has nothing
+## in front of it: the tile field of a made map draws its glass's frames, and
+## the room's view puts a pane over each cell of glass that can be seen
+## (`MadeRoomView`). And what the world draws behind the glass that is not the
+## back of the picture — nothing, in a made map — is in the marks wherever no
+## pane covers it, where a back mirror would show it as standing in front.
 ##
 ## With no glass on the screen nothing is worked out, and nothing drawn: the
 ## camera shows the picture as it came.
@@ -49,6 +56,11 @@ const CLEAR_TINT := Color(0.84, 0.93, 0.97)
 const MIRROR_TINT := Color(0.78, 0.88, 0.96)
 const MIRROR_SHOWS := 0.72
 const MIRROR_DEEP := 40.0
+## How much a back mirror shows of what stands in front of it, and how far off
+## it shows it, in pixels of the buffer, across and down — a mirror hung a
+## little out of true (`Glass.shift`).
+const BACK_SHOWS := 0.5
+const BACK_SHIFT := Vector2i(10, -4)
 
 const MARK := preload("res://graphics/assets/shaders/glass.gdshader")
 const GLAZE := preload("res://graphics/assets/shaders/glazing.gdshader")
@@ -74,7 +86,7 @@ static func wear(kind: Glass.Kind) -> ShaderMaterial:
 	if not _worn.has(kind):
 		var m := ShaderMaterial.new()
 		m.shader = MARK
-		m.set_shader_parameter("mirror", kind == Glass.Kind.MIRROR)
+		m.set_shader_parameter("kind", int(kind))
 		_worn[kind] = m
 	return _worn[kind]
 
@@ -102,6 +114,7 @@ func _ready() -> void:
 	_glaze.set_shader_parameter("mirror_tint", Vector3(MIRROR_TINT.r, MIRROR_TINT.g, MIRROR_TINT.b))
 	_glaze.set_shader_parameter("mirror_shows", MIRROR_SHOWS)
 	_glaze.set_shader_parameter("mirror_deep", MIRROR_DEEP)
+	_glaze.set_shader_parameter("back_shows", BACK_SHOWS)
 	all.material = _glaze
 	over.add_child(all)
 

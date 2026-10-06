@@ -62,13 +62,13 @@ func title() -> String:
 func kind_marks() -> PackedStringArray:
 	return PackedStringArray(GROUND_MARKS)
 
-func back_marks() -> PackedStringArray:
+func back_kind_marks() -> PackedStringArray:
 	return PackedStringArray(BACK.keys())
 
 func kind_name(mark: String) -> String:
 	return Loc.t("hud.maker.tiles.grove.%s" % String(MadeRoom.GROUND.get(mark, "stone")))
 
-func back_name(mark: String) -> String:
+func back_kind_name(mark: String) -> String:
 	return Loc.t("hud.maker.tiles.grove.%s" % String(BACK.get(mark, "wall")))
 
 func open_colour() -> Color:
@@ -361,7 +361,7 @@ func _leaves(c: CanvasItem, x: int, y: int, open: int) -> void:
 
 ## --- what stands behind -----------------------------------------------------------
 
-func paint_back(c: CanvasItem, cells: MapCells, x: int, y: int) -> void:
+func paint_back_kind(c: CanvasItem, cells: MapCells, x: int, y: int) -> void:
 	match cells.back_at(x, y):
 		"#":
 			_wall(c, cells, x, y)
@@ -517,30 +517,39 @@ func _rail(c: CanvasItem, cells: MapCells, x: int, y: int) -> void:
 
 func depths() -> Array[Depth]:
 	var out: Array[Depth] = [
-		_depth(_sky, 1.0, -14, false, false),
-		_depth(_moon, 0.92, -13, true, false),
-		_depth(_far, 0.6, -12, false, false),
-		_depth(_falls, 0.6, -11, false, true),
-		_depth(_mist, 0.45, -10, false, true),
-		_depth(_mid, 0.25, -9, false, false),
+		_depth(_sky, 1.0, -14, false),
+		_depth(_moon, 0.92, -13, false),
+		_glowing(_moon, 0.92, -13),
+		_depth(_far, 0.6, -12, false),
+		_depth(_falls, 0.6, -11, true),
+		_depth(_mist, 0.45, -10, true),
+		_depth(_mid, 0.25, -9, false),
 	]
 	return out
 
-## A depth: what gives its own light — the moon — is drawn where the light
-## can see it (`Lighting.glow`), and the rest is the back of the picture, the
-## sky with it: a lantern lights the night round it, as the grove's are
-## painted doing.
-func _depth(paint: Callable, drift: float, z: int, glows: bool, moves: bool) -> Depth:
+## A depth: the back of the picture, the sky and the moon with the rest of it.
+## A lantern lights the night round it, as the grove's are painted doing; and
+## glass sees it all behind it, since none of it is ever in front of any.
+func _depth(paint: Callable, drift: float, z: int, moves: bool) -> Depth:
 	var d := Depth.new()
 	d.paint = paint
 	d.drift = drift
 	d.z_index = z
 	d.moves = moves
-	if glows:
-		d.material = Lighting.glow()
-		d.visibility_layer = PixelCamera.WORLD_LAYER
-	else:
-		d.visibility_layer = Lighting.BACKDROP_LAYER
+	d.visibility_layer = Lighting.BACKDROP_LAYER
+	return d
+
+## What of the depths gives its own light — the moon — said so to the light
+## alone: its twin in the normals (`Lighting.NORMAL_LAYER`), wearing the glow
+## (`Lighting.glow`), so no lamp makes it brighter and no dark dims it, while
+## the moon itself is the back of the picture like the rest.
+func _glowing(paint: Callable, drift: float, z: int) -> Depth:
+	var d := Depth.new()
+	d.paint = paint
+	d.drift = drift
+	d.z_index = z
+	d.material = Lighting.glow()
+	d.visibility_layer = Lighting.NORMAL_LAYER
 	return d
 
 ## A stretch of the world, in pixels of the buffer.

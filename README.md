@@ -94,7 +94,7 @@ godot res://tests/graphics/dragon_shot.tscn  # ...and frames of the dragon test
 godot res://tests/graphics/rope_shot.tscn    # ...and frames of a cable dashed through
 godot res://tests/graphics/foliage_shot.tscn # ...and frames of the grass run, dashed and blasted through
 godot res://tests/graphics/lighting_shot.tscn # ...and frames of the light: a bolt and a blast through the bench, a lamp hung in it, its normals and shadows, and the room gone dark
-godot res://tests/graphics/glass_shot.tscn    # ...and frames of glass: the grove with a floor of mirror and a pillar of clear glass, played, and where the glass is
+godot res://tests/graphics/glass_shot.tscn    # ...and frames of glass: the grove with a floor of mirror, a pillar of clear glass, a mirror on the back wall and a window in a ruin, played, and where the glass is
 SHOTS_DIR=/tmp/shots godot res://tests/graphics/shots.tscn   # ...or wherever you point it
 ```
 
@@ -736,7 +736,7 @@ under each tab are drawn by the tileset the map is in.
 | Tab | What it lays |
 |---|---|
 | GROUND | the ground, in the tileset's kinds of it, and glass. Every kind is as solid as the next: the kind is only how it looks |
-| BACK | what stands behind: a ruin's wall, a column, a stone lintel, a tree, the undergrowth, a rail to hang lanterns from |
+| BACK | what stands behind: a ruin's wall, a column, a stone lintel, a tree, the undergrowth, a rail to hang lanterns from, and glass |
 | THINGS | where the player starts, a post for each of the monsters, the treasure box, ground to dig — on the ground's layer |
 | PROPS | what is put about: a lantern, a campfire, glowing caps, fireflies, grass, flowers, a bush, a fern, a vine, a rope |
 
@@ -748,14 +748,24 @@ lean where somebody walks; a campfire, glowing caps and fireflies each give
 light of their own. A played grove is seen at night, by its lamps, and the
 table shows their light where it will fall.
 
-Glass is ground in every tileset, as solid as the rest, and of two kinds.
-TRANSPARENT GLASS shows what stands behind it — the ruin, the trees, the
-moon — a little tinted. REFLECTIVE GLASS shows what stands in front of it,
-turned over across its face to the open air: a floor of it shows whoever
-stands on it upside down, fading the deeper it goes, and a wall of it shows
-whoever comes up to it turned round. Neither is worked out until the map is
-played; on the table a mirror shows a sheen where it meets the air. Light
+Glass is in every tileset, of two kinds, under GROUND and under BACK alike.
+As ground it is as solid as the rest. TRANSPARENT GLASS shows what stands
+behind it — the ruin, the trees, the moon — a little tinted. REFLECTIVE GLASS
+shows what stands in front of it, turned over across its face to the open
+air: a floor of it shows whoever stands on it upside down, fading the deeper
+it goes, and a wall of it shows whoever comes up to it turned round. Light
 goes through clear glass, and a mirror throws a shadow as rock does.
+
+Behind the ground glass is a pane in the back wall, which nothing stands on.
+A clear one is a window on what is out beyond, the moon and the far wood. A
+mirror there faces the player, and shows whoever stands in front of it — the
+body, the monsters, the lanterns and the grass — a little to one side and up
+from where they stand, as a mirror hung a little out of true would: one hung
+true would show each of them right behind themselves, where nobody could see
+it. It shows nothing of what is behind it, nor of the ground in front of it.
+
+None of it is worked out until the map is played. On the table a mirror of
+the ground shows a sheen where it meets the air, and one behind its dark.
 
 | On the table | |
 |---|---|

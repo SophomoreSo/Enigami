@@ -19,13 +19,13 @@ func title() -> String:
 func kind_marks() -> PackedStringArray:
 	return PackedStringArray([MadeRoom.ROCK])
 
-func back_marks() -> PackedStringArray:
+func back_kind_marks() -> PackedStringArray:
 	return PackedStringArray(["#"])
 
 func kind_name(_mark: String) -> String:
 	return Loc.t("hud.maker.tiles.rock.rock")
 
-func back_name(_mark: String) -> String:
+func back_kind_name(_mark: String) -> String:
 	return Loc.t("hud.maker.tiles.rock.wall")
 
 func paint_kind(c: CanvasItem, cells: MapCells, x: int, y: int) -> void:
@@ -37,7 +37,7 @@ func paint_kind(c: CanvasItem, cells: MapCells, x: int, y: int) -> void:
 	c.draw_rect(r, Color(0, 0, 0, 0.22), false, 2.0)
 
 ## The same rock, set back in the dark: coursed, and darker.
-func paint_back(c: CanvasItem, cells: MapCells, x: int, y: int) -> void:
+func paint_back_kind(c: CanvasItem, cells: MapCells, x: int, y: int) -> void:
 	if cells.back_at(x, y) != "#":
 		return
 	var wall := Style.region_tint(cells.region).darkened(0.5)

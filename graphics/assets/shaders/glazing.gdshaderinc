@@ -4,11 +4,16 @@
 // The marks are the world drawn again, as the normals are, into a float
 // buffer that starts out empty. A pixel of it where a pane was drawn:
 //
-//   blue    that glass is there, GLASS_RELIEF times over — and which kind by
-//           its sign: clear glass above nothing, a mirror below.
-//   red     for a mirror, the way from the pixel to what it shows, in pixels
-//   green   of the picture, across and down, GLASS_STEP times over: always an
-//           odd number of pixels straight across the mirror's nearest face.
+//   blue    that glass is there, GLASS_RELIEF times over — and which way it
+//           faces by its sign: above nothing for glass that faces the eye,
+//           clear glass or a back mirror; below it for a mirror whose face
+//           meets the air across the picture.
+//   red     the way from the pixel to what it shows, in pixels of the
+//   green   picture, across and down, GLASS_STEP times over. For a mirror
+//           across the picture always an odd number of pixels straight across
+//           its nearest face; for a back mirror the same way for every pixel
+//           of it, to whatever stands in front of it there; nothing for clear
+//           glass.
 //
 // Everything else drawn into the marks draws its colours, as it would
 // anywhere, and a colour is never more than 1: against GLASS_RELIEF, nothing.
@@ -33,7 +38,9 @@ float glass_cover(vec4 mark) {
 	return clamp((abs(mark.b) - 1.0) / (GLASS_RELIEF - 1.0), 0.0, 1.0);
 }
 
-// Whether the glass there is a mirror.
+// Whether the glass there is a mirror whose face meets the air across the
+// picture. Glass that faces the eye is clear unless it has a way to what it
+// shows (glass_to): then it is a back mirror.
 bool glass_mirror(vec4 mark) {
 	return mark.b < 0.0;
 }

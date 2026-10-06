@@ -1,10 +1,12 @@
 extends Node
 ## Frames of glass, for looking at: the Moonlit Grove map on the creator's
-## table with a floor of mirror laid under the lintel and a pillar of clear
-## glass standing on it; the map played, with the body on the mirror and then
-## up against the pillar; each close up; and where the glass is, as the
-## glazing's marks have it — clear glass blue, a mirror red, the brighter the
-## further the pixel it shows.
+## table with a floor of mirror laid under the lintel, a pillar of clear glass
+## standing on it, a mirror on the back wall behind it, and a stretch of ruin
+## wall with a window of clear glass in it; the map played, with the body on
+## the floor in front of the back mirror and then up against the pillar; each
+## close up; and where the glass is, as the glazing's marks have it — clear
+## glass blue, a mirror across its faces red, the brighter the further the
+## pixel it shows, and a back mirror green.
 ##
 ## Needs a real renderer — `--headless` draws into a dummy and saves black.
 ## Writes to `user://shots` unless SHOTS_DIR names somewhere else. With
@@ -53,6 +55,8 @@ func marks_shot(shot_name: String, glazing: Glazing) -> void:
 			var m := marks.get_pixel(x, y)
 			if absf(m.b) < 128.0:
 				out.set_pixel(x, y, Color.BLACK)
+			elif m.b > 0.0 and absf(m.r) + absf(m.g) > 0.5:
+				out.set_pixel(x, y, Color(0.3, 0.85, 0.4))
 			elif m.b > 0.0:
 				out.set_pixel(x, y, Color(0.2, 0.6, 1.0))
 			else:
@@ -86,6 +90,14 @@ func _ready() -> void:
 	for y in range(14, 20):
 		maker.lay(Vector2i(28, y), "o")
 		maker.lay(Vector2i(29, y), "o")
+	# A mirror on the back wall under the lintel, down to the floor; and a
+	# stretch of ruin wall to the left with a window of clear glass in it.
+	for y in range(11, 20):
+		for x in range(20, 24):
+			maker.lay(Vector2i(x, y), "@", MapMaker.BACK)
+	for y in range(6, 14):
+		for x in range(2, 9):
+			maker.lay(Vector2i(x, y), "o" if x >= 4 and x < 7 and y >= 8 and y < 12 else "#", MapMaker.BACK)
 	table._changed_all()
 	table.take_tab(MapTable.Tab.GROUND)
 	await wait(0.3)
@@ -101,6 +113,10 @@ func _ready() -> void:
 	maker.player.global_position = Vector2(26.6, 19.5) * Room.CELL
 	await wait(0.6)
 	await shot("74_clear_close", Rect2i(700, 380, 340, 300))
+	maker.player.global_position = Vector2(21.0, 19.5) * Room.CELL
+	await wait(0.6)
+	await shot("75_back_mirror_close", Rect2i(560, 300, 300, 360))
+	await shot("76_window_close", Rect2i(40, 180, 300, 300))
 	maker.stop()
 	await wait(0.2)
 	get_tree().quit()

@@ -115,12 +115,17 @@ func _ready() -> void:
 	maker.begin_stroke()
 	for kind in ["%", "=", "*", "|"]:
 		maker.lay(Vector2i(34 + ["%", "=", "*", "|"].find(kind), 5), kind)
-	# And glass, clear and a mirror, beside them.
+	# And glass, clear and a mirror, beside them — and a pane of each behind,
+	# under them.
 	maker.lay(Vector2i(32, 5), "o")
 	maker.lay(Vector2i(33, 5), "@")
+	maker.lay(Vector2i(32, 7), "o", MapMaker.BACK)
+	maker.lay(Vector2i(33, 7), "@", MapMaker.BACK)
 	check(maker.mark_at(Vector2i(35, 5)) == "=" and maker.mark_at(Vector2i(37, 5)) == "|"
 			and maker.mark_at(Vector2i(32, 5)) == "o" and maker.mark_at(Vector2i(33, 5)) == "@",
 		"every kind of ground is laid the same way, glass too")
+	check(maker.mark_at(Vector2i(33, 7), MapMaker.BACK) == "@" and maker.mark_at(Vector2i(33, 7)) == MadeRoom.OPEN,
+		"and glass behind is laid behind, the ground there as it was")
 	# Another tileset, and back.
 	maker.set_tileset("rock")
 	check(maker.tileset == "rock" and maker.unsaved, "the map can be drawn in another tileset")
@@ -220,6 +225,8 @@ func _ready() -> void:
 			and room.is_solid(32, 5) and room.is_solid(33, 5)
 			and room.is_solid(0, 8) and room.is_solid(8, 0) and room.is_solid(8, Room.H - 1),
 		"solid wherever there is ground of any kind: earth, planks, leaves, bark, and glass of either kind")
+	check(not room.is_solid(32, 7) and not room.is_solid(33, 7) and room.back_at(32, 7) == "o" and room.back_at(33, 7) == "@",
+		"glass behind the ground is no ground: only there for the picture")
 	check(not room.is_solid(8, 12) and not room.is_solid(9, 12) and room.back_at(8, 12) == "|"
 			and room.dressing_at(9, 12) == "L" and room.tileset == MapMaker.NEW_TILESET,
 		"and what stands behind and what is put about it are no ground at all, only there for the picture")
