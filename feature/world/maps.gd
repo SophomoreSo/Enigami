@@ -84,18 +84,15 @@ static func path_of(id: String) -> String:
 static func exists(id: String) -> bool:
 	return path_of(id) != ""
 
-## Keeps a map as `id`: a scene whose one node is a `MadeRoom` carrying `plan`
-## and `region`, named for the map. Over whatever was kept under that name.
-static func save(id: String, plan: PackedStringArray, region: int = 0) -> Error:
-	if id == "" or id != id_for(id):
+## Keeps `room` as the map `id`: a scene whose one node is that `MadeRoom`,
+## carrying its layers and its tileset, named for the map. Over whatever was
+## kept under that name. The room is the caller's still, and out of the tree.
+static func save(id: String, room: MadeRoom) -> Error:
+	if id == "" or id != id_for(id) or room == null or room.is_inside_tree():
 		return ERR_INVALID_PARAMETER
-	var room := MadeRoom.new()
 	room.name = id.to_pascal_case()
-	room.plan = plan
-	room.region = region
 	var scene := PackedScene.new()
 	var err := scene.pack(room)
-	room.free()
 	if err != OK:
 		return err
 	err = DirAccess.make_dir_recursive_absolute(save_dir())

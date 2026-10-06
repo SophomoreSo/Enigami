@@ -72,6 +72,8 @@ func view_script_for(n: Node) -> GDScript:
 		return TowerView
 	if n is JeanGreyBase:
 		return GroveGroundView
+	if n is MadeRoom:
+		return MadeRoomView
 	if n is Room:
 		return RoomView
 	if n is Raid:

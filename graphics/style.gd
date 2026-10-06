@@ -785,6 +785,9 @@ const ROPE_LOOK := {
 	# look of the hideout hangs without a colour of its own for it. Something
 	# always rides the end of one, so its plug is never drawn.
 	"cord": {"line": Color(0.468, 0.416, 0.299), "end": Color(0.468, 0.416, 0.299)},
+	# A vine in the grove's greens, with a leaf for a tip: what the map
+	# creator hangs where one is put (`MadeRoomView`).
+	"vine": {"line": Color(0.19, 0.35, 0.18), "end": Color(0.42, 0.66, 0.30)},
 }
 
 static func rope_look(kind: String) -> Dictionary:

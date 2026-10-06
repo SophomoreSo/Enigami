@@ -1,30 +1,43 @@
 class_name MapTable
 extends Control
 
-## The table a map is laid on, in the map creator (`MapMaker`): the grid in the
-## middle; down the left what there is to lay, a tile each, and the map's own
-## numbers under them; and along the top the map's name and what is done with
-## it — SAVE, LOAD, NEW, a step back and forward, PLAY.
+## The table a map is laid on, in the map creator (`MapMaker`): the sheet in
+## the middle; down the left the two tools, the tabs, and what there is to lay
+## under the tab that is up, a tile each; and along the top the map's name and
+## what is done with it — SAVE, LOAD, NEW, MAP, a step back and forward, PLAY.
 ##
-## What is laid is drawn the way the game draws it, out of the game's own
-## pieces: rock in its region's tint with a lit top (`RoomView`), a monster as
-## the atlas character its kind wears and the player's start as the player
-## (`Sprites`), the box and the ground to dig in theirs (`TreasureBoxView`,
-## `DigSpotView`). They stand still here; PLAY is where they move.
+## A tab is a layer of the map (`MadeRoom`): GROUND and THINGS lay the plan —
+## the ground, and what stands on it — BACK what stands behind it, and PROPS
+## what is put about it. What is laid lays in the tab's layer, and ERASE, and
+## the right button, take away what is in it there and nothing else.
 ##
-## The sheet is drawn only when something on it changes — a map four screens
-## each way is fourteen thousand cells — and what follows the pointer is drawn
-## over it on a sheet of its own.
+## What is laid is drawn the way the game draws it, by the map's tileset
+## (`MapTiles`) — its ground and what stands behind, in its colours, the night
+## behind the grove's — and what stands in it out of the game's own pieces: a
+## monster as the atlas character its kind wears and the player's start as
+## the player (`Sprites`), the box and the ground to dig in theirs
+## (`TreasureBoxView`, `DigSpotView`), and what is put about it as it stands
+## (`MapTiles.paint_prop_still`). They stand still here; PLAY is where they
+## move, swing and light the room.
+##
+## The sheet is drawn in chunks of the map (`MapTiles.Chunk`), each drawn once
+## and again only when something in it changes, and laid over the screen at
+## the zoom it is seen at — so moving the map or bringing it nearer draws
+## nothing again, and a map four screens each way is drawn only where it is
+## seen. What follows the pointer is drawn over it on a sheet of its own.
 ##
 ## A pointer's screen: the left button lays what is in hand, the right one
 ## erases, SHIFT held drags a box of either, and the map is moved under the
 ## pointer by the middle button, the move keys or the MOVE tool, and brought
-## nearer or further by the wheel. A thumb has MOVE and ERASE among the tiles
-## for what it has no button for. Nothing here takes the keyboard but the
-## name, so the keys are the map's whenever the name is not being typed.
+## nearer or further by the wheel. A thumb has MOVE and ERASE for what it has
+## no button for. Nothing here takes the keyboard but the name, so the keys
+## are the map's whenever the name is not being typed.
 ##
 ## It makes no change of its own: everything it does is asked of the maker,
 ## which is what a test asks too.
+
+# Pixel art halves whole numbers on purpose, all the way down.
+@warning_ignore_start("integer_division")
 
 ## How wide the column down the left is, and how tall the line along the
 ## bottom.
@@ -47,12 +60,22 @@ const PAD_CELLS := 4
 ## How long a button that asks twice stays asked, and a line stays said.
 const ARM_TIME := 3.0
 const SAY_TIME := 4.0
-## The tool that lays nothing: the left button moves the map instead.
+## Cells to a chunk of the sheet, each way.
+const CHUNK := 8
+## The tools: MOVE lays nothing, and the left button carries the map with it;
+## ERASE lays nothing in the layer of the tab that is up.
 const MOVE := "move"
+const ERASE := "."
+## The tabs, each a layer of the map; and what each is called, by its key under
+## `hud.maker.tab`.
+enum Tab { GROUND, BACK, THINGS, PROPS }
+const TAB_KEYS := ["ground", "back", "things", "props"]
+## How far into what is put about a map a still picture of it has got: a flame
+## halfway up, a firefly lit.
+const STILL := 0.6
 
 const GRID := Color(1, 1, 1, 0.05)
 const SCREEN_LINE := Color(0.45, 0.85, 1.0, 0.22)
-const SEAM := Color(0, 0, 0, 0.22)
 const ICON_MOVE := [
 	"...#...",
 	"..###..",
@@ -73,8 +96,13 @@ const ICON_ERASE := [
 ]
 
 var maker: MapMaker
-## What is in hand: a mark (`MadeRoom`), or MOVE.
+## The tab that is up, and what is in hand: a mark of its layer, MOVE, or
+## ERASE. Each tab keeps the mark it was last left on.
+var tab: int = Tab.GROUND
 var brush: String = MadeRoom.ROCK
+var _brushes: Dictionary = {}
+## The map's tileset, which draws it.
+var tiles: MapTiles
 
 var _px := PixelDraw.new(self)
 var _zoom_at: int = ZOOMS.size() - 1
@@ -85,6 +113,7 @@ var _hover := Vector2i(-1, -1)
 ## The mark a stroke under way is laying, or "" between strokes, and the last
 ## cell it laid.
 var _stroke: String = ""
+var _laying := false
 var _last := Vector2i.ZERO
 ## A box being dragged: the corner it started from and what it will lay.
 var _boxing: bool = false
@@ -106,34 +135,50 @@ var _shown_id: String = ""
 ## Whether the chrome was built for a thumb.
 var _thumb: bool = false
 
+## The map's cells as they stand, for the chunks to draw from.
+var _cells: MapCells
+## chunk -> its three pieces: what stands behind, the ground, and what stands
+## in it and is put about it, each over the one before.
+var _chunks: Dictionary = {}
+
 var _sheet: Sheet
+var _canvas: Node2D
+var _backs: Node2D
+var _grounds: Node2D
+var _overlays: Node2D
 var _over: Over
 var _bar: PanelContainer
 var _side: PanelContainer
 var _name: LineEdit
 var _undo_button: Button
 var _redo_button: Button
+var _tools: Dictionary = {}
+var _tabs: Dictionary = {}
+var _grid: GridContainer
+## mark -> its tile, for the tab that is up.
+var _palette: Dictionary = {}
 ## The name of what is in hand, under the tiles.
 var _in_hand: Label
+var _zoom: Button
+## The tile the pointer is on, or "" for none: the foot says its name.
+var _over_tile: String = ""
+## What is up over the table — the list of kept maps, or MAP — or null.
+var _popup: Control = null
+## MAP's own rows, while it is up.
 var _wide: Label
 var _high: Label
 var _region: Button
 var _weapon: Button
-var _zoom: Button
-## mark or tool -> its tile.
-var _palette: Dictionary = {}
-## The tile the pointer is on, or "" for none: the foot says its name.
-var _over_tile: String = ""
-## The list of kept maps, while LOAD has it up.
-var _popup: Control = null
 
-## The map itself, drawn when it changes.
+## The open air of the map, and what is past its edge: the ground the chunks
+## are laid on.
 class Sheet extends Control:
 	var table: MapTable
 	func _draw() -> void:
 		table._paint_sheet(self)
 
-## What follows the pointer over it: the cell it is on, a box being dragged.
+## What follows the pointer over it: the grid, the cell it is on, a box being
+## dragged.
 class Over extends Control:
 	var table: MapTable
 	func _draw() -> void:
@@ -142,6 +187,7 @@ class Over extends Control:
 func _ready() -> void:
 	UiKit.fill_screen(self)
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	tiles = MapTiles.of(maker.tileset)
 	_build()
 	Loc.language_changed.connect(func(_lang: String) -> void: _build())
 
@@ -155,7 +201,7 @@ func _build() -> void:
 		remove_child(old)
 		old.queue_free()
 	_popup = null
-	_palette.clear()
+	_chunks.clear()
 	_thumb = UiKit.mobile()
 	_sheet = Sheet.new()
 	_sheet.table = self
@@ -163,6 +209,14 @@ func _build() -> void:
 	_sheet.gui_input.connect(_on_sheet_input)
 	_sheet.mouse_exited.connect(func() -> void: _point_at(Vector2i(-1, -1)))
 	add_child(_sheet)
+	_canvas = Node2D.new()
+	_sheet.add_child(_canvas)
+	for layer in 3:
+		var holder := Node2D.new()
+		_canvas.add_child(holder)
+	_backs = _canvas.get_child(0)
+	_grounds = _canvas.get_child(1)
+	_overlays = _canvas.get_child(2)
 	_over = Over.new()
 	_over.table = self
 	_over.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -170,7 +224,9 @@ func _build() -> void:
 	_build_bar(typed)
 	_build_side()
 	_shown_id = maker.map_id
+	_cells = MapCells.of_maker(maker)
 	_fit()
+	_moved()
 	_refresh()
 
 func _build_bar(typed: String) -> void:
@@ -188,7 +244,7 @@ func _build_bar(typed: String) -> void:
 	_name.text = typed
 	_name.placeholder_text = Loc.t("hud.maker.name")
 	_name.max_length = Maps.ID_LENGTH
-	_name.custom_minimum_size = Vector2(240.0, _plate())
+	_name.custom_minimum_size = Vector2(220.0, _plate())
 	_name.add_theme_font_override("font", UiKit.PIXEL_FONT)
 	_name.add_theme_font_size_override("font_size", UiKit.PIXEL_TEXT)
 	_name.add_theme_color_override("font_color", UiKit.TEXT)
@@ -200,6 +256,7 @@ func _build_bar(typed: String) -> void:
 	_bar_button(row, "hud.maker.save", UiKit.GOOD, _save)
 	_bar_button(row, "hud.maker.load", UiKit.ACCENT, _open_list)
 	_bar_button(row, "hud.maker.new", UiKit.ACCENT, _new)
+	_bar_button(row, "hud.maker.map", UiKit.ACCENT, _open_map)
 	var gap := Control.new()
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -221,31 +278,83 @@ func _build_side() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 6)
 	_side.add_child(column)
-	# What there is to lay: the two tools, then every mark a room can hold.
-	var tiles := GridContainer.new()
-	tiles.columns = TILES_ACROSS
-	tiles.add_theme_constant_override("h_separation", 4)
-	tiles.add_theme_constant_override("v_separation", 4)
-	column.add_child(tiles)
-	var entries := PackedStringArray([MOVE, MadeRoom.OPEN])
-	entries.append_array(MadeRoom.marks())
-	for entry in entries:
-		tiles.add_child(_tile(entry))
+	# The two tools, which lay in no layer of their own.
+	var tools := HBoxContainer.new()
+	tools.add_theme_constant_override("separation", 4)
+	column.add_child(tools)
+	_tools.clear()
+	for tool in [MOVE, ERASE]:
+		var b := _button(name_of(tool), UiKit.ACCENT)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.clip_text = true
+		for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+			(b.get_theme_stylebox(state) as StyleBoxFlat).content_margin_left = 28.0
+		_chosen_look(b)
+		b.pressed.connect(take.bind(tool))
+		b.draw.connect(func() -> void:
+			PixelDraw.new(b).icon_centered(Vector2(16.0, b.size.y * 0.5),
+				ICON_MOVE if tool == MOVE else ICON_ERASE, Color.WHITE if b.disabled or b.is_hovered() else UiKit.TEXT))
+		tools.add_child(b)
+		_tools[tool] = b
+	# The tabs, two by two.
+	var tabs := GridContainer.new()
+	tabs.columns = 2
+	tabs.add_theme_constant_override("h_separation", 4)
+	tabs.add_theme_constant_override("v_separation", 4)
+	column.add_child(tabs)
+	_tabs.clear()
+	for t in TAB_KEYS.size():
+		var b := _button(Loc.t("hud.maker.tab.%s" % TAB_KEYS[t]), UiKit.ACCENT)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.clip_text = true
+		_chosen_look(b)
+		b.pressed.connect(take_tab.bind(t))
+		tabs.add_child(b)
+		_tabs[t] = b
+	column.add_child(UiKit.hline(true))
+	# What there is to lay under the tab that is up.
+	_grid = GridContainer.new()
+	_grid.columns = TILES_ACROSS
+	_grid.add_theme_constant_override("h_separation", 4)
+	_grid.add_theme_constant_override("v_separation", 4)
+	column.add_child(_grid)
 	_in_hand = _word("", UiKit.ACCENT)
 	_in_hand.clip_text = true
 	column.add_child(_in_hand)
 	column.add_child(UiKit.hline(true))
-	# The map's own numbers, under them.
-	_wide = _stepper(column, Loc.t("hud.maker.width"), func(by: int) -> void: _resize(Vector2i(by, 0)))
-	_high = _stepper(column, Loc.t("hud.maker.height"), func(by: int) -> void: _resize(Vector2i(0, by)))
-	_region = _side_button(column, func() -> void:
-		maker.set_region((maker.region + 1) % Style.REGION_TINT.size())
-		_changed())
-	_weapon = _side_button(column, func() -> void:
-		maker.cycle_weapon()
-		_refresh())
 	_zoom = _side_button(column, func() -> void:
 		_zoom_to((_zoom_at + 1) % ZOOMS.size(), _sheet.size * 0.5))
+	_build_palette()
+
+## The tiles of the tab that is up.
+func _build_palette() -> void:
+	for old in _grid.get_children():
+		_grid.remove_child(old)
+		old.queue_free()
+	_palette.clear()
+	for entry in entries(tab):
+		_grid.add_child(_tile(entry))
+
+## What there is to lay under tab `t`, by mark, in order.
+func entries(t: int) -> PackedStringArray:
+	match t:
+		Tab.GROUND:
+			return tiles.ground_marks()
+		Tab.BACK:
+			return tiles.back_marks()
+		Tab.THINGS:
+			return MadeRoom.things()
+	return PackedStringArray(MapTiles.PROPS.keys())
+
+## The layer of the map tab `t` lays in.
+static func layer_of(t: int) -> int:
+	match t:
+		Tab.BACK:
+			return MapMaker.BACK
+		Tab.PROPS:
+			return MapMaker.DRESSING
+	return MapMaker.PLAN
 
 ## One thing to lay, as a tile with its picture on it. The one in hand is lit
 ## and cannot be pressed again; its name stands under the tiles, and the foot
@@ -254,17 +363,24 @@ func _tile(entry: String) -> Button:
 	var b := _button("", UiKit.ACCENT)
 	b.custom_minimum_size = Vector2(TILE_W, maxf(_plate(), 48.0))
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var chosen := b.get_theme_stylebox("disabled") as StyleBoxFlat
-	chosen.bg_color = Color(UiKit.ACCENT, 0.22)
-	chosen.border_color = UiKit.ACCENT
-	b.pressed.connect(func() -> void: take(entry))
-	b.draw.connect(func() -> void: _paint_tile(b, entry))
+	_chosen_look(b)
+	var in_tab := tab
+	b.pressed.connect(take.bind(entry))
+	b.draw.connect(func() -> void: _paint_tile(b, entry, in_tab))
 	b.mouse_entered.connect(func() -> void: _over_tile = entry)
 	b.mouse_exited.connect(func() -> void:
 		if _over_tile == entry:
 			_over_tile = "")
 	_palette[entry] = b
 	return b
+
+## A button that cannot be pressed because it is what is chosen: lit, not
+## greyed.
+static func _chosen_look(b: Button) -> void:
+	var chosen := b.get_theme_stylebox("disabled") as StyleBoxFlat
+	chosen.bg_color = Color(UiKit.ACCENT, 0.22)
+	chosen.border_color = UiKit.ACCENT
+	b.add_theme_color_override("font_disabled_color", Color.WHITE)
 
 ## A number with a way down and a way up either side of it. SHIFT takes ten.
 func _stepper(column: VBoxContainer, words: String, step: Callable) -> Label:
@@ -276,11 +392,11 @@ func _stepper(column: VBoxContainer, words: String, step: Callable) -> Label:
 	caption.clip_text = true
 	row.add_child(caption)
 	var value := _word("", UiKit.ACCENT)
-	value.custom_minimum_size.x = 44.0
+	value.custom_minimum_size.x = 56.0
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	for by: int in [-1, 1]:
 		var b := _button("-" if by < 0 else "+", UiKit.ACCENT)
-		b.custom_minimum_size.x = 34.0
+		b.custom_minimum_size.x = maxf(34.0, _plate())
 		b.pressed.connect(func() -> void: step.call(by * (10 if Input.is_key_pressed(KEY_SHIFT) else 1)))
 		row.add_child(b)
 		if by < 0:
@@ -331,15 +447,21 @@ func _panel() -> PanelContainer:
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
 	return p
 
-## What a mark or a tool is called, in the language being played.
-static func name_of(entry: String) -> String:
+## What a tool, or a mark of tab `in_tab`, is called, in the language being
+## played.
+func name_of(entry: String, in_tab: int = tab) -> String:
+	if entry == MOVE:
+		return Loc.t("hud.maker.tool.move")
+	if entry == ERASE:
+		return Loc.t("hud.maker.tool.erase")
+	match in_tab:
+		Tab.GROUND:
+			return tiles.ground_name(entry)
+		Tab.BACK:
+			return tiles.back_name(entry)
+		Tab.PROPS:
+			return MapTiles.prop_name(entry)
 	match entry:
-		MOVE:
-			return Loc.t("hud.maker.tool.move")
-		MadeRoom.OPEN:
-			return Loc.t("hud.maker.tool.erase")
-		MadeRoom.ROCK:
-			return Loc.t("hud.maker.mark.rock")
 		MadeRoom.START:
 			return Loc.t("hud.maker.mark.start")
 		MadeRoom.BOX:
@@ -349,23 +471,43 @@ static func name_of(entry: String) -> String:
 	var kind := MadeRoom.monster_of(entry)
 	return Monsters.name_for(kind).to_upper() if kind != "" else entry
 
-## Takes `entry` in hand: a mark, or MOVE.
+## Takes `entry` in hand: a mark of the tab that is up, MOVE, or ERASE.
 func take(entry: String) -> void:
 	brush = entry
+	if entry != MOVE and entry != ERASE:
+		_brushes[tab] = entry
+	_refresh()
+
+## Puts tab `t` up: its layer is the one laid in and erased from, and in hand
+## is what was last taken from it — or its first tile — unless a tool is.
+func take_tab(t: int) -> void:
+	tab = t
+	if brush != MOVE and brush != ERASE:
+		var marks := entries(t)
+		brush = String(_brushes.get(t, marks[0] if not marks.is_empty() else ERASE))
+	_build_palette()
 	_refresh()
 
 ## Puts on the chrome whatever the maker has that it shows.
 func _refresh() -> void:
 	for entry in _palette:
 		(_palette[entry] as Button).disabled = entry == brush
-		# Its picture is in the map's rock, which may just have changed.
+		# Its picture is in the map's tileset, which may just have changed.
 		(_palette[entry] as Button).queue_redraw()
+	for tool in _tools:
+		(_tools[tool] as Button).disabled = tool == brush
+	for t in _tabs:
+		(_tabs[t] as Button).disabled = t == tab
 	_in_hand.text = name_of(brush)
-	_wide.text = str(maker.cols)
-	_high.text = str(maker.rows)
-	_region.text = Loc.t("hud.maker.region", [maker.region + 1])
-	_weapon.text = Loc.t("hud.maker.weapon", [Weapons.name_for(maker.current_weapon()).to_upper()])
 	_zoom.text = Loc.t("hud.maker.zoom", [int(ZOOMS[_zoom_at] * 100.0)])
+	if is_instance_valid(_wide):
+		_wide.text = str(maker.cols)
+	if is_instance_valid(_high):
+		_high.text = str(maker.rows)
+	if is_instance_valid(_region):
+		_region.text = Loc.t("hud.maker.region", [maker.region + 1])
+	if is_instance_valid(_weapon):
+		_weapon.text = Loc.t("hud.maker.weapon", [Weapons.name_for(maker.current_weapon()).to_upper()])
 	if maker.map_id != _shown_id:
 		_shown_id = maker.map_id
 		_name.text = maker.map_id
@@ -387,7 +529,7 @@ func _fit() -> void:
 			_framed = true
 			_frame_map()
 		_keep_in_sight()
-		_sheet.queue_redraw()
+		_moved()
 
 func _process(delta: float) -> void:
 	UiKit.sync_screen(self)
@@ -409,7 +551,7 @@ func _process(delta: float) -> void:
 		if push != Vector2.ZERO:
 			_origin -= push * PAN_SPEED * delta
 			_keep_in_sight()
-			_sheet.queue_redraw()
+			_moved()
 	queue_redraw()
 
 ## --- the map on the sheet -----------------------------------------------------
@@ -451,53 +593,124 @@ func _zoom_to(level: int, about: Vector2) -> void:
 	_zoom_at = level
 	_origin = about - under * cell_size()
 	_keep_in_sight()
+	_moved()
 	_refresh()
-	_sheet.queue_redraw()
 
+## The map went somewhere else on the sheet, or nearer or further: the chunks
+## go with it, as they are, and any it has brought into sight are drawn.
+func _moved() -> void:
+	_canvas.position = _origin
+	_canvas.scale = Vector2.ONE * float(ZOOMS[_zoom_at])
+	_ensure_chunks()
+	_sheet.queue_redraw()
+	_over.queue_redraw()
+
+## Every chunk in sight, and one round it, made — and drawn the once — if it
+## was not there yet.
+func _ensure_chunks() -> void:
+	if _sheet.size.x <= 0.0 or _sheet.size.y <= 0.0:
+		return
+	var last := Vector2i(maker.cols, maker.rows) - Vector2i.ONE
+	var from := (cell_at(Vector2.ZERO) - Vector2i.ONE * CHUNK).clamp(Vector2i.ZERO, last) / CHUNK
+	var to := (cell_at(_sheet.size) + Vector2i.ONE * CHUNK).clamp(Vector2i.ZERO, last) / CHUNK
+	var whole := Rect2i(0, 0, maker.cols, maker.rows)
+	for cy in range(from.y, to.y + 1):
+		for cx in range(from.x, to.x + 1):
+			var key := Vector2i(cx, cy)
+			if _chunks.has(key):
+				continue
+			var area := Rect2i(key * CHUNK, Vector2i.ONE * CHUNK).intersection(whole)
+			_chunks[key] = [_chunk(_backs, area, _paint_backs), _chunk(_grounds, area, _paint_grounds),
+				_chunk(_overlays, area, _paint_overlays)]
+
+func _chunk(holder: Node2D, area: Rect2i, paint: Callable) -> MapTiles.Chunk:
+	var chunk := MapTiles.Chunk.new()
+	chunk.area = area
+	chunk.paint = paint
+	holder.add_child(chunk)
+	return chunk
+
+## Every chunk gone, to be made again as it comes into sight: for a map that is
+## another size, or another map.
+func _drop_chunks() -> void:
+	for key in _chunks:
+		for chunk: Node2D in _chunks[key]:
+			chunk.queue_free()
+	_chunks.clear()
+
+## Draws again every chunk the cells of `area` of `layer` could change the
+## look of. A cell of the plan or of what stands behind is drawn as it meets its
+## neighbours, so theirs are drawn again too, in both; and what is put about
+## the map hangs from what is over it, as far up as `MapTiles.HANG_REACH`, so
+## that is drawn again as far down. What is put about the map changes the look
+## of nothing but itself.
+func _touch(area: Rect2i, layer: int = MapMaker.PLAN) -> void:
+	var near := area.grow(1)
+	var under := area.grow_individual(1, 1, 1, MapTiles.HANG_REACH + 1)
+	if layer != MapMaker.DRESSING:
+		_redraw(near, 0 if layer == MapMaker.BACK else -1)
+	_redraw(under if layer != MapMaker.DRESSING else near, 2)
+
+## Draws again piece `piece` (0 behind, 1 the ground, 2 what stands and is put
+## about; -1 all three) of every chunk `area` touches.
+func _redraw(area: Rect2i, piece: int) -> void:
+	var from := area.position.max(Vector2i.ZERO) / CHUNK
+	var to := area.end.max(Vector2i.ZERO) / CHUNK
+	for cy in range(from.y, to.y + 1):
+		for cx in range(from.x, to.x + 1):
+			var pieces: Array = _chunks.get(Vector2i(cx, cy), [])
+			for i in pieces.size():
+				if piece < 0 or i == piece:
+					(pieces[i] as Node2D).queue_redraw()
+
+## The open air, and what is past the map's edge, under the chunks.
 func _paint_sheet(cv: CanvasItem) -> void:
+	cv.draw_rect(Rect2(Vector2.ZERO, _sheet.size), tiles.outside_colour())
+	tiles.paint_open(cv, Rect2(_origin, Vector2(maker.cols, maker.rows) * cell_size()))
+
+func _paint_backs(c: CanvasItem, area: Rect2i) -> void:
+	for y in range(area.position.y, area.end.y):
+		for x in range(area.position.x, area.end.x):
+			if _cells.back_at(x, y) != MadeRoom.OPEN:
+				tiles.paint_back(c, _cells, x, y)
+
+func _paint_grounds(c: CanvasItem, area: Rect2i) -> void:
+	for y in range(area.position.y, area.end.y):
+		for x in range(area.position.x, area.end.x):
+			if _cells.solid(x, y):
+				tiles.paint_ground(c, _cells, x, y)
+
+## What stands in the map, and what is put about it.
+func _paint_overlays(c: CanvasItem, area: Rect2i) -> void:
+	for y in range(area.position.y, area.end.y):
+		for x in range(area.position.x, area.end.x):
+			var mark := _cells.ground(x, y)
+			if mark != MadeRoom.OPEN and not MadeRoom.is_ground(mark):
+				paint_mark(c, mark, Rect2(Vector2(x, y) * Room.CELL, Vector2.ONE * Room.CELL))
+			if _cells.prop(x, y) != MadeRoom.OPEN:
+				tiles.paint_prop_still(c, _cells, x, y, STILL)
+
+func _paint_over(cv: CanvasItem) -> void:
 	var cs := cell_size()
-	var k := cs / float(Room.CELL)
-	var tint := Style.region_tint(maker.region)
 	var view := Rect2(Vector2.ZERO, _sheet.size)
 	var across := Vector2i(maker.cols, maker.rows)
 	var map := Rect2(_origin, Vector2(across) * cs)
-	# Past the map's edge there is rock, which is how the game draws it and how
-	# a made room is shut in (`MadeRoom`): darker here, so the edge reads.
-	cv.draw_rect(view, tint.darkened(0.4))
-	cv.draw_rect(map, Style.ROOM_BG)
+	# The grid, a line a cell and a brighter one a screen: a raid's room is one
+	# screen, and a camera follows the player past it.
 	var first := Vector2i(((view.position - _origin) / cs).floor()).clamp(Vector2i.ZERO, across)
 	var last := Vector2i(((view.end - _origin) / cs).ceil()).clamp(Vector2i.ZERO, across)
-	var plan := maker.plan()
-	for y in range(first.y, last.y):
-		var row := plan[y]
-		for x in range(first.x, last.x):
-			if row[x] == MadeRoom.ROCK:
-				paint_rock(cv, Rect2(_origin + Vector2(x, y) * cs, Vector2(cs, cs)), tint,
-					y > 0 and plan[y - 1][x] != MadeRoom.ROCK)
-	# The grid over the rock, a line a cell and a brighter one a screen: a
-	# raid's room is one screen, and a camera follows the player past it.
-	var line := maxf(1.0, UiKit.PIXEL * k)
+	var line := maxf(1.0, UiKit.PIXEL * cs / Room.CELL)
 	for x in range(first.x, last.x + 1):
 		cv.draw_rect(Rect2(_origin.x + x * cs, map.position.y, line, map.size.y),
 			SCREEN_LINE if x % Room.W == 0 else GRID)
 	for y in range(first.y, last.y + 1):
 		cv.draw_rect(Rect2(map.position.x, _origin.y + y * cs, map.size.x, line),
 			SCREEN_LINE if y % Room.H == 0 else GRID)
-	# Everything else that is laid, after the rock and from the top down: a
-	# tall one stands up past its own cell, over whatever is behind it. A few
-	# rows more than are in sight, for one whose feet are just under the sheet.
-	for y in range(first.y, mini(last.y + 3, across.y)):
-		var row := plan[y]
-		for x in range(maxi(first.x - 1, 0), mini(last.x + 1, across.x)):
-			if row[x] != MadeRoom.ROCK and row[x] != MadeRoom.OPEN:
-				paint_mark(cv, row[x], Rect2(_origin + Vector2(x, y) * cs, Vector2(cs, cs)), tint)
-
-func _paint_over(cv: CanvasItem) -> void:
 	if _popup != null or (brush == MOVE and not _boxing):
 		return
 	if _boxing:
-		var a := cell_rect(_box_from.clamp(Vector2i.ZERO, Vector2i(maker.cols - 1, maker.rows - 1)))
-		var b := cell_rect(_hover.clamp(Vector2i.ZERO, Vector2i(maker.cols - 1, maker.rows - 1)))
+		var a := cell_rect(_box_from.clamp(Vector2i.ZERO, across - Vector2i.ONE))
+		var b := cell_rect(_hover.clamp(Vector2i.ZERO, across - Vector2i.ONE))
 		var box := a.merge(b)
 		cv.draw_rect(box, Color(UiKit.ACCENT, 0.18))
 		_edge(cv, box, UiKit.ACCENT)
@@ -512,25 +725,14 @@ func _edge(cv: CanvasItem, r: Rect2, col: Color) -> void:
 	cv.draw_rect(Rect2(r.position.x, r.position.y + w, w, r.size.y - w * 2.0), col)
 	cv.draw_rect(Rect2(r.end.x - w, r.position.y + w, w, r.size.y - w * 2.0), col)
 
-## --- what is laid, drawn --------------------------------------------------------
+## --- what stands in the map, drawn ----------------------------------------------
 
-## A cell of rock, as `RoomView` draws one: the region's tint, a lit strip
-## along a top with nothing over it, and a dark seam to the next.
-static func paint_rock(cv: CanvasItem, r: Rect2, tint: Color, lit: bool) -> void:
-	var k := r.size.x / float(Room.CELL)
-	cv.draw_rect(r, tint)
-	if lit:
-		cv.draw_rect(Rect2(r.position, Vector2(r.size.x, 4.0 * k)), tint.lightened(0.35))
-	cv.draw_rect(Rect2(r.position, Vector2(r.size.x, 2.0 * k)), SEAM)
-	cv.draw_rect(Rect2(r.position, Vector2(2.0 * k, r.size.y)), SEAM)
-
-## Whatever `mark` stands for, drawn in the cell `r` as the game draws it —
+## What `mark` of the plan stands for — a monster's post, the player's start,
+## the box, the ground to dig — drawn in the cell `r` as the game draws it,
 ## smaller by as much as `r` is smaller than a room's cell.
-static func paint_mark(cv: CanvasItem, mark: String, r: Rect2, tint: Color) -> void:
+static func paint_mark(cv: CanvasItem, mark: String, r: Rect2) -> void:
 	var k := r.size.x / float(Room.CELL)
 	match mark:
-		MadeRoom.ROCK:
-			paint_rock(cv, r, tint, true)
 		MadeRoom.START:
 			_paint_body(cv, Style.PLAYER_ART, Color.WHITE, r, k, false)
 		MadeRoom.BOX:
@@ -597,35 +799,32 @@ static func _paint_dig(cv: CanvasItem, r: Rect2, k: float) -> void:
 	cv.draw_rect(Rect2(left + px * 2.0, ground - px * 2.0, px * 2.0, px), DigSpotView.EARTH_LIT)
 	cv.draw_rect(Rect2(r.get_center().x, ground - px * 4.0, px, px), Color(1.0, 0.95, 0.7))
 
-## A tile's picture: the thing itself in the middle of the tile, at the size
-## the game draws it where that fits the tile and at half that where it does
-## not — the Warden and the Arbiter are too big for one. A tool has a mark of
-## its own.
-func _paint_tile(b: Button, entry: String) -> void:
-	var ink := Color.WHITE if b.disabled or b.is_hovered() else UiKit.TEXT
+## A tile's picture: for the ground, what stands behind and what is put about,
+## the tileset's own (`MapTiles.icon`); for what stands in the map, the thing
+## itself in the middle of the tile, at the size the game draws it where that
+## fits the tile and at half that where it does not — the Warden and the
+## Arbiter are too big for one.
+func _paint_tile(b: Button, entry: String, in_tab: int) -> void:
 	var room := Rect2(Vector2.ZERO, b.size).grow(-4.0)
-	match entry:
-		MOVE:
-			PixelDraw.new(b).icon_centered(room.get_center(), ICON_MOVE, ink, 2)
-		MadeRoom.OPEN:
-			PixelDraw.new(b).icon_centered(room.get_center(), ICON_ERASE, ink, 2)
-		_:
-			var k := 1.0 if stands_in(entry).size.x <= room.size.x and stands_in(entry).size.y <= room.size.y else 0.5
-			var cs := Room.CELL * k
-			var tall := stands_in(entry).size.y * k
-			# In the middle of the tile, whatever its own shape: `stands_in` is
-			# measured from the middle of the cell's floor.
-			var foot := Vector2(room.get_center().x - stands_in(entry).get_center().x * k,
-				room.get_center().y + tall * 0.5 - stands_in(entry).end.y * k)
-			paint_mark(b, entry, Rect2(foot.x - cs * 0.5, foot.y - cs, cs, cs), Style.region_tint(maker.region))
+	if in_tab != Tab.THINGS:
+		tiles.icon(b, layer_of(in_tab), entry, room.get_center().round(), 1.0)
+		return
+	var stands := stands_in(entry)
+	var k := 1.0 if stands.size.x <= room.size.x and stands.size.y <= room.size.y else 0.5
+	var cs := Room.CELL * k
+	var tall := stands.size.y * k
+	# In the middle of the tile, whatever its own shape: `stands_in` is measured
+	# from the middle of the cell's floor.
+	var foot := Vector2(room.get_center().x - stands.get_center().x * k,
+		room.get_center().y + tall * 0.5 - stands.end.y * k)
+	paint_mark(b, entry, Rect2(foot.x - cs * 0.5, foot.y - cs, cs, cs))
 
-## The room what `mark` stands for takes up at the game's own size, measured
-## from the middle of its cell's floor: across from there, and up from it.
+## The room what `mark` of the plan stands for takes up at the game's own size,
+## measured from the middle of its cell's floor: across from there, and up
+## from it.
 static func stands_in(mark: String) -> Rect2:
 	var c := float(Room.CELL)
 	match mark:
-		MadeRoom.ROCK:
-			return Rect2(-c * 0.5, -c, c, c)
 		MadeRoom.BOX:
 			var high := TreasureBoxView.H + TreasureBoxView.LID_H
 			return Rect2(-TreasureBoxView.W * 0.5 - 1.0, -high, TreasureBoxView.W + 2.0, high)
@@ -656,9 +855,9 @@ func _on_sheet_input(event: InputEvent) -> void:
 						_begin_stroke(cell, brush)
 				MOUSE_BUTTON_RIGHT:
 					if click.shift_pressed:
-						_begin_box(cell, MadeRoom.OPEN)
+						_begin_box(cell, ERASE)
 					else:
-						_begin_stroke(cell, MadeRoom.OPEN)
+						_begin_stroke(cell, ERASE)
 				MOUSE_BUTTON_MIDDLE:
 					_begin_pan(click.position)
 				MOUSE_BUTTON_WHEEL_UP:
@@ -669,8 +868,9 @@ func _on_sheet_input(event: InputEvent) -> void:
 			if _boxing:
 				_boxing = false
 				maker.begin_stroke()
-				if maker.lay_box(_box_from, cell, _box_mark):
-					_changed()
+				if maker.lay_box(_box_from, cell, _box_mark, layer_of(tab)):
+					_changed(Rect2i(_box_from.min(cell), (_box_from - cell).abs() + Vector2i.ONE), _box_mark)
+			_laying = false
 			_stroke = ""
 			if click.button_index == MOUSE_BUTTON_LEFT:
 				_panning = false
@@ -687,10 +887,10 @@ func _on_sheet_input(event: InputEvent) -> void:
 			_origin += motion.position - _pan_at
 			_pan_at = motion.position
 			_keep_in_sight()
-			_sheet.queue_redraw()
-		elif _stroke != "":
-			if maker.lay_line(_last, cell, _stroke):
-				_changed()
+			_moved()
+		elif _laying:
+			if maker.lay_line(_last, cell, _stroke, layer_of(tab)):
+				_changed(Rect2i(_last.min(cell), (_last - cell).abs() + Vector2i.ONE), _stroke)
 			_last = cell
 		_point_at(cell)
 	elif event is InputEventPanGesture:
@@ -698,7 +898,7 @@ func _on_sheet_input(event: InputEvent) -> void:
 		# here, so that nothing further up the tree is handed the same gesture.
 		_origin -= (event as InputEventPanGesture).delta * 12.0
 		_keep_in_sight()
-		_sheet.queue_redraw()
+		_moved()
 		_sheet.accept_event()
 	elif event is InputEventMagnifyGesture:
 		var pinch := event as InputEventMagnifyGesture
@@ -706,12 +906,15 @@ func _on_sheet_input(event: InputEvent) -> void:
 			_zoom_to(_zoom_at - 1 if pinch.factor > 1.0 else _zoom_at + 1, pinch.position)
 		_sheet.accept_event()
 
+## Lays `mark` from `cell`, and on along the drag. ERASE is a mark too: it
+## lays nothing.
 func _begin_stroke(cell: Vector2i, mark: String) -> void:
 	maker.begin_stroke()
 	_stroke = mark
+	_laying = true
 	_last = cell
-	if maker.lay(cell, mark):
-		_changed()
+	if maker.lay(cell, mark, layer_of(tab)):
+		_changed(Rect2i(cell, Vector2i.ONE), mark)
 
 func _begin_box(cell: Vector2i, mark: String) -> void:
 	_boxing = true
@@ -727,11 +930,28 @@ func _point_at(cell: Vector2i) -> void:
 		_hover = cell
 		_over.queue_redraw()
 
-## The plan changed: the sheet is drawn again, and the chrome says what it is.
-func _changed() -> void:
+## The cells of `area` changed, laying `mark`: the chunks they could change the
+## look of are drawn again, and the chrome says what the map is now. A mark the
+## plan holds one of was moved from wherever it was, which could be anywhere.
+func _changed(area: Rect2i, mark: String = "") -> void:
+	_cells = MapCells.of_maker(maker)
+	var layer := layer_of(tab)
+	if layer == MapMaker.PLAN and MadeRoom.ONE_OF.has(mark):
+		_touch(Rect2i(0, 0, maker.cols, maker.rows), layer)
+	else:
+		_touch(area, layer)
 	_refresh()
-	_sheet.queue_redraw()
 	_over.queue_redraw()
+
+## Anything about the map may have changed — its size, its tileset, all of it:
+## every chunk is made again as it comes into sight.
+func _changed_all() -> void:
+	tiles = MapTiles.of(maker.tileset)
+	_cells = MapCells.of_maker(maker)
+	_drop_chunks()
+	_moved()
+	_build_palette()
+	_refresh()
 
 ## The keys that are the table's own: a step back and forward, and SAVE, the
 ## way they are everywhere. The name, while it is being typed, keeps its keys
@@ -756,11 +976,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			return
 	get_viewport().set_input_as_handled()
 
-## The cancel key puts the list of maps away, the way it closes every other
-## window here, before it would pause the table behind it.
+## The cancel key puts away what is up over the table, the way it closes every
+## other window here, before it would pause the table behind it.
 func _unhandled_input(event: InputEvent) -> void:
 	if _popup != null and is_visible_in_tree() and event.is_action_pressed("ui_cancel"):
-		_close_list()
+		_close_popup()
 		get_viewport().set_input_as_handled()
 
 ## --- what the bar does --------------------------------------------------------
@@ -776,8 +996,9 @@ func _arm(what: String) -> void:
 	_armed_left = ARM_TIME
 
 func _disarm() -> void:
+	var was := _armed
 	_armed = ""
-	if _popup != null:
+	if _popup != null and was.begins_with("delete:"):
 		_fill_list()
 
 ## SAVE: the map is kept under the name in the field. Under the name of another
@@ -802,59 +1023,88 @@ func _save() -> void:
 func _new() -> void:
 	maker.new_map()
 	_frame_map()
-	_changed()
+	_changed_all()
 	Audio.play("ui")
 
 func _undo() -> void:
 	if maker.undo():
 		_keep_in_sight()
-		_changed()
+		_changed_all()
 
 func _redo() -> void:
 	if maker.redo():
 		_keep_in_sight()
-		_changed()
+		_changed_all()
 
 func _resize(by: Vector2i) -> void:
 	if maker.resize(Vector2i(maker.cols, maker.rows) + by):
 		_keep_in_sight()
-		_changed()
+		_changed_all()
 
-## --- the list of kept maps ------------------------------------------------------
-
-## LOAD: every map that is kept, each a button that puts it on the table, with
-## a way to throw it away beside it that asks twice.
-func _open_list() -> void:
-	if _popup != null:
+## Draws the map in the tileset `id`.
+func _set_tileset(id: String) -> void:
+	if id == maker.tileset:
 		return
+	maker.set_tileset(id)
+	_changed_all()
+	# MAP is built again for it, once this press is over: what it offers
+	# depends on the tileset.
+	if _popup != null:
+		_fill_map.call_deferred()
+
+## --- what is put up over the table ------------------------------------------------
+
+func _open_popup() -> bool:
+	if _popup != null:
+		return false
+	_laying = false
 	_stroke = ""
 	_boxing = false
 	_popup = Control.new()
 	_popup.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_popup)
-	_fill_list()
 	_over.queue_redraw()
 	Audio.play("ui")
+	return true
 
-func _close_list() -> void:
+func _close_popup() -> void:
 	if _popup == null:
 		return
 	remove_child(_popup)
 	_popup.queue_free()
 	_popup = null
 	_armed = ""
+	_wide = null
+	_high = null
+	_region = null
+	_weapon = null
 	_over.queue_redraw()
 	Audio.play("ui")
 
-func _fill_list() -> void:
+## A frame over a shade, under `heading`, with the way back pinned at its foot.
+func _frame(heading: String) -> UiKit.ScreenFrame:
 	for old in _popup.get_children():
 		_popup.remove_child(old)
 		old.queue_free()
 	_popup.add_child(UiKit.shade())
 	var frame := UiKit.screen_frame(560.0, 56.0, 28.0, true)
 	_popup.add_child(frame)
-	frame.head.add_child(UiKit.title(Loc.t("hud.maker.load_heading"), UiKit.text(24), true))
+	frame.head.add_child(UiKit.title(heading, UiKit.text(24), true))
 	frame.head.add_child(UiKit.hline(true))
+	frame.foot.add_child(UiKit.spacer(8))
+	var back := UiKit.overlay_button(Loc.t("hud.maker.back"), UiKit.ACCENT, true)
+	back.pressed.connect(_close_popup)
+	frame.foot.add_child(back)
+	return frame
+
+## LOAD: every map that is kept, each a button that puts it on the table, with
+## a way to throw it away beside it that asks twice.
+func _open_list() -> void:
+	if _open_popup():
+		_fill_list()
+
+func _fill_list() -> void:
+	var frame := _frame(Loc.t("hud.maker.load_heading"))
 	var ids := Maps.ids()
 	if ids.is_empty():
 		frame.rows.add_child(UiKit.label(Loc.t("hud.maker.none"), UiKit.text(16), UiKit.DIM, true))
@@ -872,20 +1122,16 @@ func _fill_list() -> void:
 			UiKit.BAD if armed else UiKit.DIM, true)
 		bin.pressed.connect(func() -> void: _delete(id))
 		row.add_child(bin)
-	frame.foot.add_child(UiKit.spacer(8))
-	var back := UiKit.overlay_button(Loc.t("hud.maker.back"), UiKit.ACCENT, true)
-	back.pressed.connect(_close_list)
-	frame.foot.add_child(back)
 
 func _load(id: String) -> void:
 	if not maker.open(id):
 		_tell(Loc.t("hud.maker.refused.read"), UiKit.BAD)
 		Audio.play("deny")
 		return
-	_close_list()
+	_close_popup()
 	_frame_map()
 	_keep_in_sight()
-	_changed()
+	_changed_all()
 	_tell(Loc.t("hud.maker.loaded", [id.to_upper()]), UiKit.GOOD)
 
 ## Throwing a map away cannot be undone, so the first press only asks.
@@ -900,6 +1146,33 @@ func _delete(id: String) -> void:
 	_fill_list()
 	_tell(Loc.t("hud.maker.deleted", [id.to_upper()]), UiKit.WARN)
 	Audio.play("deny")
+
+## MAP: what the map is besides its cells — the tileset it is drawn in, how big
+## it is, the plain rock's tint, and the weapon a played map starts in hand.
+func _open_map() -> void:
+	if _open_popup():
+		_fill_map()
+
+func _fill_map() -> void:
+	if _popup == null:
+		return
+	var frame := _frame(Loc.t("hud.maker.map_heading"))
+	var titles := PackedStringArray()
+	for id in MapTiles.IDS:
+		titles.append(MapTiles.of(id).title())
+	frame.rows.add_child(UiKit.choice_row(Loc.t("hud.maker.tileset"), titles,
+		MapTiles.IDS.find(tiles.id()), func(i: int) -> void: _set_tileset(String(MapTiles.IDS[i]))))
+	_wide = _stepper(frame.rows, Loc.t("hud.maker.width"), func(by: int) -> void: _resize(Vector2i(by, 0)))
+	_high = _stepper(frame.rows, Loc.t("hud.maker.height"), func(by: int) -> void: _resize(Vector2i(0, by)))
+	_region = null
+	if tiles.id() == "rock":
+		_region = _side_button(frame.rows, func() -> void:
+			maker.set_region((maker.region + 1) % Style.REGION_TINT.size())
+			_changed_all())
+	_weapon = _side_button(frame.rows, func() -> void:
+		maker.cycle_weapon()
+		_refresh())
+	_refresh()
 
 ## --- the table itself -----------------------------------------------------------
 

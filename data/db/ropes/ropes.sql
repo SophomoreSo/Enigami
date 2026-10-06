@@ -27,6 +27,16 @@ INSERT INTO ropes (id, segment, stiffness, damping, gravity, give, push_most) VA
 INSERT INTO ropes (id, segment, stiffness, damping, gravity, give, push_most) VALUES
 	('cord', 400, 0, 1.2, 800, 0.25, 110);
 
+-- A vine is what the map creator hangs in a made room where one is put
+-- (graphics/views/made_room_view.gd), the length the run of it was laid: no
+-- room hangs one, so it has no row of `hangings` either. It is finer than a
+-- cable — a node every 16, so it bends where it is pushed rather than swinging
+-- whole — looser, and less damped, so a vine walked through sways a while;
+-- and it takes more than half the speed of whatever goes through it, of no
+-- more than 260 a second.
+INSERT INTO ropes (id, segment, stiffness, damping, gravity, give, push_most) VALUES
+	('vine', 16, 1, 2.5, 800, 0.6, 260);
+
 -- One to three cables a room, three to five cells long.
 INSERT INTO hangings (rope, fewest, most, shortest, longest) VALUES
 	('cable', 1, 3, 3, 5);

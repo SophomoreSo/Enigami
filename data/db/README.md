@@ -573,6 +573,13 @@ throws on the wall goes with it. Its `segment` is longer than any cord,
 which makes each one length, taut under its light and swinging from the top
 as a pendulum does.
 
+A `vine` is another: what a map made in the map creator hangs where a vine
+was put, the length of the run of it, with a leaf riding every node
+(`graphics/views/made_room_view.gd`). Finer and looser than a cable, it bends
+where it is pushed rather than swinging whole. A made map hangs its lanterns
+on cords and its ropes as cables the same way, and none of the three by
+`hangings`.
+
 ```sql
 INSERT INTO ropes (id, segment, stiffness, damping, gravity, give, push_most) VALUES
 	('chain', 16, 1, 0.5, 1200, 0.2, 180);

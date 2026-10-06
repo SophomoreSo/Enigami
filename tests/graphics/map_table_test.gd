@@ -1,7 +1,9 @@
 extends Node
 ## The map creator's screen, played the way a person plays it: in from the
-## title, a map laid with the pointer and taken back with the keys, saved under
-## a name, found again in the list, played, and come back to.
+## title, a map laid with the pointer and taken back with the keys — the
+## ground, what stands behind it and what is put about it, a tab each — drawn
+## in another tileset, saved under a name, found again in the list, played in
+## the light its tileset is drawn for with its lanterns lit, and come back to.
 ##
 ## What the creator's rules do is `tests/feature/map_maker_test`. This is the
 ## table over them — that every press gets to the rule it is for, that the
@@ -88,8 +90,30 @@ func action(which: String) -> void:
 func at_cell(c: Vector2i) -> Vector2:
 	return table._sheet.global_position + table.cell_rect(c).get_center()
 
+## Puts tab `t` up, and waits for its tiles to be laid out where a click finds
+## them.
+func tab_up(t: int) -> void:
+	table.take_tab(t)
+	await frames(3)
+
+## The tile of `entry` under the tab that is up.
 func tile(entry: String) -> Button:
 	return table._palette[entry]
+
+func tool(which: String) -> Button:
+	return table._tools[which]
+
+## The button on the bar that says `words`.
+func bar_button(words: String) -> Button:
+	return table._bar.find_children("*", "Button", true, false).filter(
+		func(b: Button) -> bool: return b.text == words).front()
+
+## Every button up over the table that says `words`.
+func popup_buttons(words: String) -> Array:
+	if table._popup == null:
+		return []
+	return table._popup.find_children("*", "Button", true, false).filter(
+		func(b: Button) -> bool: return b.text == words)
 
 func screen() -> Vector2:
 	return get_viewport().get_visible_rect().size
@@ -108,9 +132,10 @@ func _ready() -> void:
 	add_child(game)
 	await frames(6)
 	await _the_door()
-	_the_table()
+	await _the_table()
 	await _the_pointer()
 	await _the_keys()
+	await _the_layers()
 	await _keeping()
 	await _playing()
 	await _leaving()
@@ -152,26 +177,39 @@ func _the_table() -> void:
 		"the bar runs across the top of the screen (%s)" % str(table._bar.get_rect()))
 	check(is_equal_approx(table._side.size.x, MapTable.SIDE_W) and is_equal_approx(table._side.get_rect().end.y, s.y),
 		"and the column down the left, under it (%s)" % str(table._side.get_rect()))
-	var want := PackedStringArray([MapTable.MOVE, MadeRoom.OPEN])
-	want.append_array(MadeRoom.marks())
-	check(PackedStringArray(table._palette.keys()) == want, "there is a tile for the two tools and for every mark a room can hold (%d)" % table._palette.size())
+	check(table._tools.size() == 2 and table._tabs.size() == 4 and table.tab == MapTable.Tab.GROUND,
+		"the column has the two tools and four tabs, and opens on the ground's")
+	check(table.tiles.id() == MapMaker.NEW_TILESET, "drawn in the tileset a new map is (%s)" % table.tiles.id())
+	# Each tab offers its own, and all of it fits.
 	var inside := true
 	var named := true
+	var offered: Array = []
 	var column := Rect2(table._side.global_position, table._side.size)
-	for entry: String in table._palette:
-		inside = inside and column.encloses(tile(entry).get_global_rect())
-		named = named and MapTable.name_of(entry) != "" and MapTable.name_of(entry) != entry
+	for t in 4:
+		await tab_up(t)
+		check(PackedStringArray(table._palette.keys()) == table.entries(t),
+			"the %s tab has a tile for everything it offers (%d)" % [MapTable.TAB_KEYS[t], table._palette.size()])
+		offered.append(table._palette.size())
+		for entry: String in table._palette:
+			inside = inside and column.encloses(tile(entry).get_global_rect())
+			named = named and table.name_of(entry) != "" and table.name_of(entry) != entry
+	check(offered == [MadeRoom.GROUND.size(), GroveTiles.BACK.size(), MadeRoom.things().size(), MapTiles.PROPS.size()],
+		"every kind of ground, everything that can stand behind it, in it and about it (%s)" % str(offered))
 	check(inside, "every one of them in the column, none of them scrolled out of it")
 	check(named, "and every one with a name")
-	check(table.brush == MadeRoom.ROCK and tile(MadeRoom.ROCK).disabled and not tile("c").disabled
-			and table._in_hand.text == MapTable.name_of(MadeRoom.ROCK),
-		"it opens with rock in hand, its tile lit and its name under the tiles")
+	await tab_up(MapTable.Tab.GROUND)
+	check(table.brush == MadeRoom.ROCK and tile(MadeRoom.ROCK).disabled and not tile("%").disabled
+			and table._in_hand.text == table.name_of(MadeRoom.ROCK) and table._in_hand.text == Loc.t("hud.maker.tiles.grove.stone"),
+		"it opens with stone in hand, its tile lit and its name under the tiles")
 	var sheet := Rect2(Vector2.ZERO, table._sheet.size)
 	var whole := Rect2(table._origin, Vector2(maker.cols, maker.rows) * table.cell_size())
 	check(sheet.encloses(whole), "and with the whole of a new map in sight (%s in %s)" % [str(whole), str(sheet)])
 	check(table._bar.get_combined_minimum_size().x <= s.x and table._side.get_combined_minimum_size().x <= MapTable.SIDE_W
 			and table._side.get_combined_minimum_size().y <= table._side.size.y,
 		"nothing on it wants more room than it has")
+	var most := ceili(float(maker.cols) / MapTable.CHUNK) * ceili(float(maker.rows) / MapTable.CHUNK)
+	check(table._chunks.size() > 0 and table._chunks.size() <= most,
+		"the sheet is drawn in chunks, no more than the map is in (%d of %d)" % [table._chunks.size(), most])
 
 func _the_pointer() -> void:
 	# The left button lays what is in hand, a cell at a time along the drag.
@@ -198,14 +236,16 @@ func _the_pointer() -> void:
 	check(maker.mark_at(Vector2i(23, 7)) == MadeRoom.OPEN and maker.mark_at(Vector2i(24, 7)) == MadeRoom.OPEN
 			and maker.mark_at(Vector2i(22, 7)) == MadeRoom.ROCK, "and with the right button, erases one")
 	# A tile takes its mark in hand.
+	await tab_up(MapTable.Tab.THINGS)
 	await click(tile("c").get_global_rect().get_center())
-	check(table.brush == "c" and tile("c").disabled and not tile(MadeRoom.ROCK).disabled
+	check(table.brush == "c" and tile("c").disabled and not tile(MadeRoom.START).disabled
 			and table._in_hand.text == Monsters.name_for("CRAWLER").to_upper(),
 		"a click on a tile takes what is on it in hand (%s)" % table._in_hand.text)
 	await click(at_cell(Vector2i(30, 19)))
 	check(maker.mark_at(Vector2i(30, 19)) == "c", "and the next click on the map lays it")
 	# MOVE lays nothing: it carries the map.
-	await click(tile(MapTable.MOVE).get_global_rect().get_center())
+	await click(tool(MapTable.MOVE).get_global_rect().get_center())
+	check(table.brush == MapTable.MOVE and tool(MapTable.MOVE).disabled, "MOVE is a tool, lit while it is in hand")
 	var was := table._origin
 	var before := maker.plan()
 	await drag(at_cell(Vector2i(20, 12)), at_cell(Vector2i(20, 12)) + Vector2(48, 32))
@@ -217,10 +257,14 @@ func _the_pointer() -> void:
 	var under := Vector2i(20, 12)
 	var spot := at_cell(under)
 	await press(spot, true, MOUSE_BUTTON_WHEEL_UP)
+	await press(spot, false, MOUSE_BUTTON_WHEEL_UP)
 	check(is_equal_approx(table.cell_size(), float(Room.CELL)) and table.cell_at(spot - table._sheet.global_position) == under,
 		"the wheel brings the map to a room's own size, about the cell the pointer is on")
 	await press(spot, true, MOUSE_BUTTON_WHEEL_DOWN)
+	await press(spot, false, MOUSE_BUTTON_WHEEL_DOWN)
 	check(is_equal_approx(table.cell_size(), Room.CELL * 0.5), "and takes it back to half")
+	await tab_up(MapTable.Tab.GROUND)
+	check(table.brush == MapTable.MOVE, "a tool stays in hand from one tab to the next")
 	await click(tile(MadeRoom.ROCK).get_global_rect().get_center())
 
 func _the_keys() -> void:
@@ -253,12 +297,74 @@ func _the_keys() -> void:
 	await frames(2)
 	check(table._origin.x < origin.x, "and then they do (%.0f from %.0f)" % [table._origin.x, origin.x])
 
+## What stands behind the map and what is put about it are laid as the ground
+## is, each in a layer of its own: a tab's tiles lay in its layer, and the
+## right button and ERASE take away what is in it there and nothing else.
+func _the_layers() -> void:
+	await tab_up(MapTable.Tab.BACK)
+	await click(tile("|").get_global_rect().get_center())
+	await drag(at_cell(Vector2i(6, 12)), at_cell(Vector2i(6, 18)))
+	var stood := true
+	for y in range(12, 19):
+		stood = stood and maker.mark_at(Vector2i(6, y), MapMaker.BACK) == "|" and maker.mark_at(Vector2i(6, y)) == MadeRoom.OPEN
+	check(stood, "on the BACK tab a drag lays a column behind, and the ground there stays open")
+	await tab_up(MapTable.Tab.PROPS)
+	check(table.brush == "L" and tile("L").disabled and table._in_hand.text == MapTiles.prop_name("L"),
+		"the PROPS tab opens with its first in hand: a lantern (%s)" % table._in_hand.text)
+	await click(at_cell(Vector2i(8, 9)))
+	await click(tile("g").get_global_rect().get_center())
+	await drag(at_cell(Vector2i(2, 19)), at_cell(Vector2i(4, 19)))
+	check(maker.mark_at(Vector2i(8, 9), MapMaker.DRESSING) == "L" and maker.mark_at(Vector2i(3, 19), MapMaker.DRESSING) == "g"
+			and maker.mark_at(Vector2i(3, 19)) == MadeRoom.OPEN,
+		"and what it lays is put about the map, in a layer of its own")
+	await click(at_cell(Vector2i(6, 14)), MOUSE_BUTTON_RIGHT)
+	await click(at_cell(Vector2i(8, 9)), MOUSE_BUTTON_RIGHT)
+	check(maker.mark_at(Vector2i(8, 9), MapMaker.DRESSING) == MadeRoom.OPEN and maker.mark_at(Vector2i(6, 14), MapMaker.BACK) == "|",
+		"the right button takes away what is put about the map, and leaves what stands behind it")
+	await click(tool(MapTable.ERASE).get_global_rect().get_center())
+	await click(at_cell(Vector2i(3, 19)))
+	check(maker.mark_at(Vector2i(3, 19), MapMaker.DRESSING) == MadeRoom.OPEN and maker.mark_at(Vector2i(2, 19), MapMaker.DRESSING) == "g"
+			and maker.mark_at(Vector2i(3, 20)) == "%",
+		"and so does the left with ERASE in hand, and the ground under it is as it was")
+	await tab_up(MapTable.Tab.BACK)
+	await click(at_cell(Vector2i(6, 18)))
+	check(maker.mark_at(Vector2i(6, 18), MapMaker.BACK) == MadeRoom.OPEN and maker.mark_at(Vector2i(6, 17), MapMaker.BACK) == "|"
+			and maker.mark_at(Vector2i(2, 19), MapMaker.DRESSING) == "g",
+		"on the BACK tab it is what stands behind that goes, and nothing put about the map")
+	check(maker.undo() and maker.mark_at(Vector2i(6, 18), MapMaker.BACK) == "|", "and every one of those is a step to take back")
+	table._changed_all()
+	await tab_up(MapTable.Tab.GROUND)
+	await click(tile(MadeRoom.ROCK).get_global_rect().get_center())
+	check(table.brush == MadeRoom.ROCK, "and the ground's tab still has stone to lay")
+
 func _keeping() -> void:
-	# A size, from the column.
+	# MAP: what the map is besides its cells.
+	await click(bar_button(Loc.t("hud.maker.map")).get_global_rect().get_center())
+	await frames(2)
+	check(table._popup != null and is_instance_valid(table._wide) and table._wide.text == str(maker.cols)
+			and table._high.text == str(maker.rows) and not is_instance_valid(table._region),
+		"MAP puts up the map's own settings: its size, and no rock's tint for the grove")
+	var rock: Array = popup_buttons(MapTiles.of("rock").title())
+	check(rock.size() == 1, "with a way to draw it in each tileset (%d)" % rock.size())
+	if not rock.is_empty():
+		(rock[0] as Button).pressed.emit()
+	await frames(3)
+	check(maker.tileset == "rock" and table.tiles.id() == "rock" and table.entries(MapTable.Tab.GROUND) == PackedStringArray([MadeRoom.ROCK])
+			and is_instance_valid(table._region),
+		"pressed, the map is drawn in it, the tabs offer what it has, and the rock's tint is offered")
+	var grove: Array = popup_buttons(MapTiles.of("grove").title())
+	if not grove.is_empty():
+		(grove[0] as Button).pressed.emit()
+	await frames(3)
+	check(maker.tileset == "grove" and table.tiles.id() == "grove" and table.entries(MapTable.Tab.GROUND).size() == MadeRoom.GROUND.size(),
+		"and back in the grove")
+	# A size, from MAP.
 	table._resize(Vector2i(10, 0))
 	await frames(2)
 	check(maker.cols == Room.W + 10 and table._wide.text == str(Room.W + 10) and table._high.text == str(Room.H),
-		"the column's numbers are the map's, and change it (%s x %s)" % [table._wide.text, table._high.text])
+		"MAP's numbers are the map's, and change it (%s x %s)" % [table._wide.text, table._high.text])
+	await action("ui_cancel")
+	check(table._popup == null and not get_tree().paused, "the cancel key puts MAP away, and does not pause the table behind it")
 	# SAVE wants a name.
 	table._name.text = "   "
 	table._save()
@@ -320,7 +426,14 @@ func _keeping() -> void:
 func _playing() -> void:
 	maker.begin_stroke()
 	maker.lay(Vector2i(20, 19), "y")
-	table._changed()
+	maker.lay(Vector2i(6, 12), "|", MapMaker.BACK)
+	maker.lay(Vector2i(8, 9), "L", MapMaker.DRESSING)
+	maker.lay(Vector2i(2, 19), "g", MapMaker.DRESSING)
+	maker.lay(Vector2i(3, 19), "g", MapMaker.DRESSING)
+	maker.lay(Vector2i(12, 4), "v", MapMaker.DRESSING)
+	maker.lay(Vector2i(12, 5), "v", MapMaker.DRESSING)
+	maker.lay(Vector2i(16, 19), "F", MapMaker.DRESSING)
+	table._changed_all()
 	table._bar.find_children("*", "Button", true, false).filter(
 		func(b: Button) -> bool: return b.text == Loc.t("hud.maker.play"))[0].pressed.emit()
 	await frames(8)
@@ -329,6 +442,26 @@ func _playing() -> void:
 	check(view.hud.player == maker.player and Pointer.who() == Pointer.Who.HAND,
 		"the raid's own HUD over the body in it, and the pointer the player's to aim with")
 	check(get_tree().get_nodes_in_group("enemies").size() == 1, "and what was laid is standing in it")
+	var drawn := Views.of(maker.room) as MadeRoomView
+	check(drawn != null and drawn.tiles.id() == "grove" and drawn.chunks.size() > 0 and drawn.depths.size() > 0,
+		"drawn in its tileset, in chunks, with the grove's night out beyond it (%s)" % drawn)
+	if drawn != null:
+		var cam := drawn.get_viewport().get_camera_2d()
+		var seen := Rect2(cam.get_screen_center_position() - drawn.get_viewport().get_visible_rect().size * 0.5,
+			drawn.get_viewport().get_visible_rect().size)
+		var unseen := drawn.chunks.filter(func(ch: MapTiles.Chunk) -> bool:
+			return not ch.visible and seen.intersects(Rect2(Vector2(ch.area.position * Room.CELL), Vector2(ch.area.size * Room.CELL))))
+		check(unseen.is_empty(), "and every chunk of it the screen is on drawn (%d not)" % unseen.size())
+	if drawn != null:
+		check(drawn.lanterns.size() == 1 and drawn.ropes.size() == 2 and drawn.plants.size() == 1,
+			"the lantern hung on a cord, the vine hung beside it, and the grass a patch two cells long (%d, %d, %d)"
+				% [drawn.lanterns.size(), drawn.ropes.size(), drawn.plants.size()])
+		check(drawn.lamps.size() == 2 and drawn.lanterns[0].get_child_count() == 1 and drawn.lanterns[0].get_child(0) is Lamp,
+			"with a lamp in the lantern, and another in the fire (%d)" % drawn.lamps.size())
+		check((drawn.plants[0] as Foliage).kind == "grass" and (drawn.plants[0] as Foliage).span == 2 * MapTiles.C,
+			"the grass is the game's own foliage")
+	check(view.pixels.lighting.ambient == MapTiles.of("grove").ambient() and view.pixels.lighting.working(),
+		"and it is seen in the grove's night, with its lamps lit")
 	# The assembly board, on its key.
 	await action("open_editor")
 	check(maker.editing and view.editor.visible and not view.keys.visible, "the assembly key opens the board over it")
@@ -340,6 +473,8 @@ func _playing() -> void:
 		"the pause key on a played map goes back to the table")
 	check(maker.mark_at(Vector2i(20, 19)) == "y" and get_tree().get_nodes_in_group("enemies").is_empty(),
 		"with the plan as it was, and nothing left standing from the play")
+	check(view.pixels.lighting.ambient == Color.WHITE and get_tree().get_nodes_in_group(Lamp.GROUP).is_empty(),
+		"and the table is in no light of its own, its lamps gone with the room")
 
 	# A map wider than the screen: the camera goes along it, and stops at its ends.
 	maker.resize(Vector2i(Room.W * 2, Room.H * 2))
@@ -358,7 +493,7 @@ func _playing() -> void:
 	# The floor and the start, then the size: two steps back to the map as it was.
 	maker.undo()
 	maker.undo()
-	table._changed()
+	table._changed_all()
 	check(maker.cols == Room.W and maker.rows == Room.H and maker.mark_at(Vector2i(20, 19)) == "y",
 		"and the map is the size it was again")
 
@@ -392,6 +527,7 @@ func _leaving() -> void:
 ## fits: nothing wider than the bar, the column no wider than it was and no
 ## taller than the screen, and what is in hand still in hand.
 func _both_ways() -> void:
+	table.take_tab(MapTable.Tab.THINGS)
 	table.take("w")
 	for lang in Loc.languages():
 		for thumb in [false, true]:
@@ -407,8 +543,9 @@ func _both_ways() -> void:
 					% [how, str(table._side.size), str(table._side.get_combined_minimum_size())])
 			check(is_equal_approx(table._sheet.position.x, MapTable.SIDE_W) and table._sheet.size.x > 0.0 and table._sheet.size.y > 0.0,
 				"and the sheet has the rest (%s: %s)" % [how, str(table._sheet.get_rect())])
-			check(table.brush == "w" and tile("w").disabled and table._palette.size() == MadeRoom.marks().size() + 2,
-				"with what was in hand still in hand (%s)" % how)
+			check(table.brush == "w" and table.tab == MapTable.Tab.THINGS and tile("w").disabled
+					and table._palette.size() == MadeRoom.things().size(),
+				"with what was in hand still in hand, under its tab (%s)" % how)
 	Touch.set_mode(Touch.OFF)
 	Loc.set_language(Loc.DEFAULT)
 	await frames(4)
