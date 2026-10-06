@@ -24,6 +24,12 @@ extends RoomView
 ## room has what was put in it, and none of the cables and grass a raid's rooms
 ## are hung and grown with.
 ##
+## Its glass is glass (`Glass`): a pane over every cell of it, clear or a
+## mirror, which the pixel camera's glazing works from (`Glazing`) — what stands
+## behind clear glass is seen through it, and what stands in front of a mirror
+## is shown in it. Clear glass is no rock to the light: it throws no shadow,
+## and the rock beside it faces it as it would the open air.
+##
 ## The light the room is seen in is the world's to set — the map creator sets
 ## the tileset's own (`MapTiles.ambient`) — and how its rock faces, and the
 ## shadows it throws, are a room's like any other (`RoomView`).
@@ -60,6 +66,8 @@ var depths: Array[MapTiles.Depth] = []
 var lamps: Array[Lamp] = []
 ## The lanterns, each riding the end of its cord.
 var lanterns: Array[Lantern] = []
+## The glass among the ground, clear and mirror, a node of panes each.
+var glass: Array[Glass] = []
 var _cords: Array[Rope] = []
 ## Vines, for the air to lean on.
 var _vines: Array[Rope] = []
@@ -123,6 +131,7 @@ func _on_built() -> void:
 	cells = MapCells.of_room(made)
 	super._on_built()
 	_place()
+	_glaze()
 
 ## The tile field as far as the screen shows past the map, and the depths for
 ## a screen of the shape it now is.
@@ -380,6 +389,39 @@ func _paint_life(c: CanvasItem) -> void:
 				MapTiles.caps_glow(c, x * C + C / 2, (y + 1) * C, _t, x)
 			"*":
 				MapTiles.fireflies(c, x, y, _t)
+
+## --- glass -------------------------------------------------------------------------
+
+## A pane over every cell of glass (`MapTiles.glass_pane`), the clear in one node
+## and the mirrors in another: in front of the tile field it is part of, and
+## behind everything that stands in the room.
+func _glaze() -> void:
+	for old in glass:
+		if is_instance_valid(old):
+			old.queue_free()
+	glass.clear()
+	var kinds := {"clear": Glass.of(Glass.Kind.CLEAR), "mirror": Glass.of(Glass.Kind.MIRROR)}
+	for y in cells.rows:
+		for x in cells.cols:
+			var kind := String(MapTiles.GLASS.get(cells.ground(x, y), ""))
+			if kind != "":
+				var pane := MapTiles.glass_pane(cells, x, y)
+				(kinds[kind] as Glass).pane(pane[0], pane[1])
+	for pane: Glass in kinds.values():
+		if pane.panes() == 0:
+			pane.free()
+			continue
+		pane.z_index = -7
+		add_child(pane)
+		glass.append(pane)
+
+## Clear glass is no rock to the light. A lamp shines through it, so it throws
+## no shadow; and what is beside it faces it as it faces the open air, so a lamp
+## on the far side of it lights that face.
+func _rock(x: int, y: int) -> bool:
+	if cells != null and cells.holds(x, y) and MapTiles.GLASS.get(cells.ground(x, y), "") == "clear":
+		return false
+	return super._rock(x, y)
 
 ## --- moving ------------------------------------------------------------------------
 

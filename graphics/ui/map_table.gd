@@ -679,6 +679,8 @@ func _paint_grounds(c: CanvasItem, area: Rect2i) -> void:
 		for x in range(area.position.x, area.end.x):
 			if _cells.solid(x, y):
 				tiles.paint_ground(c, _cells, x, y)
+				# The table works out nothing a mirror shows, so it shows its sheen.
+				tiles.paint_mirror_sheen(c, _cells, x, y)
 
 ## What stands in the map, and what is put about it.
 func _paint_overlays(c: CanvasItem, area: Rect2i) -> void:

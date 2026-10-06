@@ -13,7 +13,9 @@ extends RefCounted
 ## extends this one, and says so: `GroveTiles` is the hideout's Moonlit Grove
 ## made into one, and `RockTiles` the plain rock a raid's rooms are cut from.
 ## Which there are is `IDS`; another is its script, its id there and in `of`,
-## and its words under `hud.maker.tiles` in `localization/`.
+## and its words under `hud.maker.tiles` in `localization/`. The kinds of
+## ground a tileset draws are its own (`kind_marks`, `paint_kind`); glass is
+## ground in every tileset, and is drawn here (`GLASS`).
 ##
 ## What is put about a map — a lantern, a fire, the grass, a vine — is the
 ## same in every tileset, and is here: the marks (`PROPS`), and the pictures
@@ -106,18 +108,33 @@ func id() -> String:
 func title() -> String:
 	return id().to_upper()
 
-## The kinds of ground it offers, by mark, in the order offered.
+## The ground it offers, by mark, in the order offered: its own kinds, and then
+## the glass every tileset has.
 func ground_marks() -> PackedStringArray:
+	var marks := kind_marks()
+	for mark: String in GLASS:
+		marks.append(mark)
+	return marks
+
+## Its own kinds of ground, by mark.
+func kind_marks() -> PackedStringArray:
 	return PackedStringArray([MadeRoom.ROCK])
 
 ## What can stand behind the ground, by mark, in the order offered.
 func back_marks() -> PackedStringArray:
 	return PackedStringArray()
 
-## What a mark of its ground, or of what stands behind, is called.
+## What a mark of its ground is called: glass alike in every tileset, and its
+## own kinds as it calls them.
 func ground_name(mark: String) -> String:
+	if GLASS.has(mark):
+		return Loc.t("hud.maker.glass.%s" % String(GLASS[mark]))
+	return kind_name(mark)
+
+func kind_name(mark: String) -> String:
 	return mark
 
+## What a mark of what stands behind is called.
 func back_name(_mark: String) -> String:
 	return ""
 
@@ -150,8 +167,16 @@ func hangs_from(_mark: String) -> int:
 ## Every painter paints cell (x, y) in the world's units, its corner at
 ## (x, y) × `Room.CELL`, out of whatever it reads off `cells`.
 
-## Cell (x, y)'s ground, whatever kind it is.
-func paint_ground(_c: CanvasItem, _cells: MapCells, _x: int, _y: int) -> void:
+## Cell (x, y)'s ground, whatever kind it is: glass as every tileset has it,
+## and its own kinds as it draws them (`paint_kind`).
+func paint_ground(c: CanvasItem, cells: MapCells, x: int, y: int) -> void:
+	if GLASS.has(cells.ground(x, y)):
+		paint_glass(c, cells, x, y)
+	else:
+		paint_kind(c, cells, x, y)
+
+## Cell (x, y)'s ground, of one of the tileset's own kinds.
+func paint_kind(_c: CanvasItem, _cells: MapCells, _x: int, _y: int) -> void:
 	pass
 
 ## What stands behind cell (x, y).
@@ -195,6 +220,116 @@ class Chunk extends Node2D:
 	func _draw() -> void:
 		if paint.is_valid():
 			paint.call(self, area)
+
+## --- glass -----------------------------------------------------------------------
+
+## Glass is ground like any other, as solid, and the same in every tileset:
+## clear glass, which shows what stands behind it, and a mirror, which shows
+## what stands in front of it (`Glass`). What it shows is worked out after the
+## picture is drawn, by the pixel camera's glazing (`Glazing`), over a pane
+## that a room's view puts on each cell of it (`glass_pane`, `MadeRoomView`).
+## What is drawn of it here is what it is before that, on the creator's table
+## as in a room: its frame, a pixel wide, wherever it meets anything but more
+## of the same glass, lit along its top and its left; streaks of light across
+## it, rising to the right, that run on from one cell into the next; and
+## behind a mirror, its dark.
+const GLASS := {"o": "clear", "@": "mirror"}
+const GLASS_LIT := Color(0.80, 0.94, 0.97)
+const GLASS_SHADE := Color(0.42, 0.58, 0.64)
+const GLASS_SHINE := Color(0.88, 0.98, 1.0, 0.30)
+const MIRROR_DARK := Color(0.08, 0.11, 0.14)
+## How far apart the streaks of light are, in pixels along a row, and where in
+## that each one lies: a broad one and, a little after it, a fine one.
+const STREAK_EVERY := 40
+const STREAKS := [0, 1, 6]
+## How far into a mirror, in pixels, its sheen goes where nothing works out
+## what it shows (`paint_mirror_sheen`).
+const SHEEN := 6
+
+## Cell (x, y), of glass: its dark if it is a mirror, the streaks across it,
+## and its frame.
+func paint_glass(c: CanvasItem, cells: MapCells, x: int, y: int) -> void:
+	var mark := cells.ground(x, y)
+	var px := x * C
+	var py := y * C
+	if GLASS.get(mark, "") == "mirror":
+		box(c, px, py, C, C, MIRROR_DARK)
+	for i in C:
+		for o: int in STREAKS:
+			var j := posmod(o - px - i - py, STREAK_EVERY)
+			if j < C:
+				box(c, px + i, py + j, 1, 1, GLASS_SHINE)
+	var up := cells.ground(x, y - 1) != mark
+	var left := cells.ground(x - 1, y) != mark
+	if cells.ground(x, y + 1) != mark:
+		box(c, px, py + C - 1, C, 1, GLASS_SHADE)
+	if cells.ground(x + 1, y) != mark:
+		box(c, px + C - 1, py, 1, C, GLASS_SHADE)
+	if up:
+		box(c, px, py, C, 1, GLASS_LIT)
+	if left:
+		box(c, px, py, 1, C, GLASS_LIT)
+	if up and left:
+		# Where the light comes over the corner.
+		box(c, px + 1, py + 1, 2, 1, GLASS_LIT)
+		box(c, px + 1, py + 2, 1, 1, GLASS_LIT)
+
+## A mirror where nothing works out what it shows — on the creator's table, and
+## in its list of what there is to lay — as the light it would catch: a sheen
+## along each face of it that meets the open air, brightest at the face and gone
+## SHEEN pixels in. A room shows what the mirror does show instead, and draws
+## none of this.
+func paint_mirror_sheen(c: CanvasItem, cells: MapCells, x: int, y: int) -> void:
+	if GLASS.get(cells.ground(x, y), "") != "mirror":
+		return
+	var pane := glass_pane(cells, x, y)
+	var r := Rect2i(Vector2i((pane[0] as Rect2).position) / S, Vector2i((pane[0] as Rect2).size) / S)
+	var faces: Vector4 = pane[1]
+	var lit := func(far: float) -> Color:
+		return HideoutScenery.faded(GLASS_LIT, 0.24 * (1.0 - far / SHEEN))
+	for k in SHEEN:
+		if faces.x >= 0.0 and faces.x + k < SHEEN and k < r.size.y:
+			box(c, r.position.x, r.position.y + k, r.size.x, 1, lit.call(faces.x + k))
+		if faces.y >= 0.0 and faces.y + k < SHEEN and k < r.size.y:
+			box(c, r.position.x, r.end.y - 1 - k, r.size.x, 1, lit.call(faces.y + k))
+		if faces.z >= 0.0 and faces.z + k < SHEEN and k < r.size.x:
+			box(c, r.position.x + k, r.position.y, 1, r.size.y, lit.call(faces.z + k))
+		if faces.w >= 0.0 and faces.w + k < SHEEN and k < r.size.x:
+			box(c, r.end.x - 1 - k, r.position.y, 1, r.size.y, lit.call(faces.w + k))
+
+## The pane over cell (x, y) of glass, for a room's view to put there
+## (`Glass.pane`): [the cell inside its frame, in the world's units; and for a
+## mirror, how far past each edge of the pane — up, down, left, right — the
+## face of its glass lies that meets the open air, in pixels of the buffer, or
+## `Glass.NONE` that way].
+static func glass_pane(cells: MapCells, x: int, y: int) -> Array:
+	var mark := cells.ground(x, y)
+	var top := 1 if cells.ground(x, y - 1) != mark else 0
+	var bottom := 1 if cells.ground(x, y + 1) != mark else 0
+	var left := 1 if cells.ground(x - 1, y) != mark else 0
+	var right := 1 if cells.ground(x + 1, y) != mark else 0
+	var rect := Rect2(Vector2(x * C + left, y * C + top) * S, Vector2(C - left - right, C - top - bottom) * S)
+	var faces := Vector4(Glass.NONE, Glass.NONE, Glass.NONE, Glass.NONE)
+	if GLASS.get(mark, "") == "mirror":
+		faces = Vector4(_face(cells, x, y, Vector2i.UP, top), _face(cells, x, y, Vector2i.DOWN, bottom),
+			_face(cells, x, y, Vector2i.LEFT, left), _face(cells, x, y, Vector2i.RIGHT, right))
+	return [rect, faces]
+
+## How far past the edge of the pane over cell (x, y), going `way`, the face
+## of its glass lies — the far edge of the last cell of the same glass that
+## way — in pixels of the buffer, when what is past that face is open air;
+## `Glass.NONE` when it is any other ground, or the map's edge. `inset` is how
+## far in from its cell's own edge the pane stops that way.
+static func _face(cells: MapCells, x: int, y: int, way: Vector2i, inset: int) -> float:
+	var mark := cells.ground(x, y)
+	var through := 0
+	var at := Vector2i(x, y) + way
+	while cells.ground(at.x, at.y) == mark:
+		through += 1
+		at += way
+	if not cells.holds(at.x, at.y) or cells.solid(at.x, at.y):
+		return Glass.NONE
+	return float(through * C + inset)
 
 ## --- what is put about a map ------------------------------------------------------
 
@@ -435,6 +570,7 @@ func icon(c: CanvasItem, layer: int, mark: String, middle: Vector2, k: float) ->
 			paint_prop_still(c, cells, 1, 1, 0.6)
 		_:
 			paint_ground(c, cells, 1, 1)
+			paint_mirror_sheen(c, cells, 1, 1)
 	c.draw_set_transform(Vector2.ZERO)
 
 ## --- brushes ------------------------------------------------------------------

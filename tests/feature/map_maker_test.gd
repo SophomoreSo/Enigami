@@ -48,7 +48,7 @@ func _ready() -> void:
 			and maker.mark_at(Vector2i(5, 0)) == "*" and maker.mark_at(Vector2i(5, Room.H - 1)) == "%"
 			and maker.mark_at(Vector2i(5, 5)) == MadeRoom.OPEN,
 		"a clearing: a tree either side, leaves overhead, earth underfoot, and open between")
-	check(["|", "*", "%", MadeRoom.ROCK, "="].all(func(m: String) -> bool: return MadeRoom.is_ground(m))
+	check(["|", "*", "%", MadeRoom.ROCK, "=", "o", "@"].all(func(m: String) -> bool: return MadeRoom.is_ground(m))
 			and not MadeRoom.is_ground(MadeRoom.OPEN) and not MadeRoom.is_ground(MadeRoom.START),
 		"every kind of ground is ground, and nothing else is")
 	check(maker.mark_at(Vector2i(-1, 5)) == MadeRoom.ROCK and maker.mark_at(Vector2i(5, 999)) == MadeRoom.ROCK,
@@ -115,7 +115,12 @@ func _ready() -> void:
 	maker.begin_stroke()
 	for kind in ["%", "=", "*", "|"]:
 		maker.lay(Vector2i(34 + ["%", "=", "*", "|"].find(kind), 5), kind)
-	check(maker.mark_at(Vector2i(35, 5)) == "=" and maker.mark_at(Vector2i(37, 5)) == "|", "every kind of ground is laid the same way")
+	# And glass, clear and a mirror, beside them.
+	maker.lay(Vector2i(32, 5), "o")
+	maker.lay(Vector2i(33, 5), "@")
+	check(maker.mark_at(Vector2i(35, 5)) == "=" and maker.mark_at(Vector2i(37, 5)) == "|"
+			and maker.mark_at(Vector2i(32, 5)) == "o" and maker.mark_at(Vector2i(33, 5)) == "@",
+		"every kind of ground is laid the same way, glass too")
 	# Another tileset, and back.
 	maker.set_tileset("rock")
 	check(maker.tileset == "rock" and maker.unsaved, "the map can be drawn in another tileset")
@@ -212,8 +217,9 @@ func _ready() -> void:
 			and int(room.data.get("region", -1)) == 2,
 		"the room is the plan, cell for cell, in its region's rock")
 	check(room.is_solid(34, 5) and room.is_solid(35, 5) and room.is_solid(36, 5) and room.is_solid(37, 5)
+			and room.is_solid(32, 5) and room.is_solid(33, 5)
 			and room.is_solid(0, 8) and room.is_solid(8, 0) and room.is_solid(8, Room.H - 1),
-		"solid wherever there is ground of any kind: earth, planks, leaves, bark")
+		"solid wherever there is ground of any kind: earth, planks, leaves, bark, and glass of either kind")
 	check(not room.is_solid(8, 12) and not room.is_solid(9, 12) and room.back_at(8, 12) == "|"
 			and room.dressing_at(9, 12) == "L" and room.tileset == MapMaker.NEW_TILESET,
 		"and what stands behind and what is put about it are no ground at all, only there for the picture")

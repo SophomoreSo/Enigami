@@ -64,6 +64,7 @@ godot res://tests/graphics/rope_test.tscn   # a cable's line of nodes: hung, pus
 godot res://tests/graphics/foliage_test.tscn # the grass, flowers and bushes a patch grows, its mask, and where a room grows them
 godot res://tests/graphics/velocity_test.tscn # the velocity buffer: what moving things push, how it springs back, and the foliage leaning for it
 godot res://tests/graphics/lighting_test.tscn # the light: the world drawn for its colours and for how it faces, a lamp added to it, what stands in one's light dark behind, and what the game lights
+godot res://tests/graphics/glass_test.tscn  # glass: what is behind clear glass seen through it, what is in front of a mirror shown in it, upside down or turned round, and the map creator's
 godot res://tests/graphics/bolt_view_test.tscn # a bolt's trail: the gaps between its beads drawn in, and a laser's beam from the muzzle
 godot res://tests/graphics/rock_view_test.tscn # the rock, drawn: a stone of the game's own and not the pack's morning star, held upright, turning over in the air, and marked where it lies
 godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
@@ -93,6 +94,7 @@ godot res://tests/graphics/dragon_shot.tscn  # ...and frames of the dragon test
 godot res://tests/graphics/rope_shot.tscn    # ...and frames of a cable dashed through
 godot res://tests/graphics/foliage_shot.tscn # ...and frames of the grass run, dashed and blasted through
 godot res://tests/graphics/lighting_shot.tscn # ...and frames of the light: a bolt and a blast through the bench, a lamp hung in it, its normals and shadows, and the room gone dark
+godot res://tests/graphics/glass_shot.tscn    # ...and frames of glass: the grove with a floor of mirror and a pillar of clear glass, played, and where the glass is
 SHOTS_DIR=/tmp/shots godot res://tests/graphics/shots.tscn   # ...or wherever you point it
 ```
 
@@ -733,7 +735,7 @@ under each tab are drawn by the tileset the map is in.
 
 | Tab | What it lays |
 |---|---|
-| GROUND | the ground, in the tileset's kinds of it. Every kind is as solid as the next: the kind is only how it looks |
+| GROUND | the ground, in the tileset's kinds of it, and glass. Every kind is as solid as the next: the kind is only how it looks |
 | BACK | what stands behind: a ruin's wall, a column, a stone lintel, a tree, the undergrowth, a rail to hang lanterns from |
 | THINGS | where the player starts, a post for each of the monsters, the treasure box, ground to dig — on the ground's layer |
 | PROPS | what is put about: a lantern, a campfire, glowing caps, fireflies, grass, flowers, a bush, a fern, a vine, a rope |
@@ -745,6 +747,15 @@ swings the same way; grass, flowers and a bush are the floor's foliage, and
 lean where somebody walks; a campfire, glowing caps and fireflies each give
 light of their own. A played grove is seen at night, by its lamps, and the
 table shows their light where it will fall.
+
+Glass is ground in every tileset, as solid as the rest, and of two kinds.
+TRANSPARENT GLASS shows what stands behind it — the ruin, the trees, the
+moon — a little tinted. REFLECTIVE GLASS shows what stands in front of it,
+turned over across its face to the open air: a floor of it shows whoever
+stands on it upside down, fading the deeper it goes, and a wall of it shows
+whoever comes up to it turned round. Neither is worked out until the map is
+played; on the table a mirror shows a sheen where it meets the air. Light
+goes through clear glass, and a mirror throws a shadow as rock does.
 
 | On the table | |
 |---|---|
@@ -915,6 +926,7 @@ mobile/input/      whether the console is on the glass, and what a key on it pre
 mobile/view/       the two-thumb console drawn on the glass, and the screen that
                    moves its buttons (SET BUTTON POSITIONS)
 graphics/          the atlas, screen effects, the pixel camera, the palette, view attachment
+                   lighting and lamps; glazing and glass: the passes the picture goes through
 graphics/views/    one view per gameplay node: actors, attacks, rooms, loot
                    made_room_view: a map from the map creator, in its tileset
                    hideout_scenery: what the hideout's room is dressed in, drawn in

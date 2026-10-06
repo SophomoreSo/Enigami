@@ -32,6 +32,7 @@ is, with its rows in the scene rather than in a script. Its properties:
 | Cell | Meaning |
 |---|---|
 | `#` `%` `\|` `=` `*` | Ground: stone, earth, bark, planks, leaves. Every kind is as solid as the next; the kind is how it looks. In `rock` every kind is the rock. |
+| `o` `@` | Glass, in every tileset and as solid: clear glass, which shows what stands behind it, and a mirror, which shows what stands in front of it across its face to the open air. |
 | `P` | Where the player starts. One a map. With none, the floor nearest the middle. |
 | `T` | The room's treasure box. One a map. It is put down on the first floor under its cell. |
 | `x` | Ground worth digging, put down the same way. |

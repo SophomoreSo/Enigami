@@ -41,8 +41,11 @@ const OPEN := "."
 const START := "P"
 const BOX := "T"
 const DIG := "x"
-## The kinds of ground, by the mark that lays each. All of them are solid.
-const GROUND := {"#": "stone", "%": "earth", "|": "bark", "=": "wood", "*": "leaves"}
+## The kinds of ground, by the mark that lays each. All of them are solid,
+## glass as much as stone: clear glass and a mirror are ground a body stands on
+## and cannot go through, and what either shows is the picture's.
+const GROUND := {"#": "stone", "%": "earth", "|": "bark", "=": "wood", "*": "leaves",
+	"o": "glass", "@": "mirror"}
 ## A monster's post, by the letter that marks it.
 const MONSTERS := {
 	"c": "CRAWLER", "s": "SENTRY", "l": "LOBBER", "h": "HOPPER", "d": "DRIFTER",

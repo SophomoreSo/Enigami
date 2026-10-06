@@ -2,10 +2,10 @@ class_name RockTiles
 extends MapTiles
 
 ## The plain rock a raid's rooms are cut from (`RoomView`), as a tileset: every
-## kind of ground drawn as that rock, in its region's tint, lit along its tops;
-## a darker stretch of it behind, for a wall; and past the map's edge, the
-## same rock. Out beyond it there is nothing but the room's own dark, with the
-## grid on it every room has.
+## kind of ground but glass drawn as that rock, in its region's tint, lit along
+## its tops; a darker stretch of it behind, for a wall; and past the map's
+## edge, the same rock. Out beyond it there is nothing but the room's own dark,
+## with the grid on it every room has.
 
 # Pixel art halves whole numbers on purpose.
 @warning_ignore_start("integer_division")
@@ -16,19 +16,19 @@ func id() -> String:
 func title() -> String:
 	return Loc.t("hud.maker.tiles.rock.title")
 
-func ground_marks() -> PackedStringArray:
+func kind_marks() -> PackedStringArray:
 	return PackedStringArray([MadeRoom.ROCK])
 
 func back_marks() -> PackedStringArray:
 	return PackedStringArray(["#"])
 
-func ground_name(_mark: String) -> String:
+func kind_name(_mark: String) -> String:
 	return Loc.t("hud.maker.tiles.rock.rock")
 
 func back_name(_mark: String) -> String:
 	return Loc.t("hud.maker.tiles.rock.wall")
 
-func paint_ground(c: CanvasItem, cells: MapCells, x: int, y: int) -> void:
+func paint_kind(c: CanvasItem, cells: MapCells, x: int, y: int) -> void:
 	var tint := Style.region_tint(cells.region)
 	var r := Rect2(x * Room.CELL, y * Room.CELL, Room.CELL, Room.CELL)
 	c.draw_rect(r, tint)

@@ -349,9 +349,10 @@ func _keeping() -> void:
 	if not rock.is_empty():
 		(rock[0] as Button).pressed.emit()
 	await frames(3)
-	check(maker.tileset == "rock" and table.tiles.id() == "rock" and table.entries(MapTable.Tab.GROUND) == PackedStringArray([MadeRoom.ROCK])
+	check(maker.tileset == "rock" and table.tiles.id() == "rock"
+			and table.entries(MapTable.Tab.GROUND) == PackedStringArray([MadeRoom.ROCK] + MapTiles.GLASS.keys())
 			and is_instance_valid(table._region),
-		"pressed, the map is drawn in it, the tabs offer what it has, and the rock's tint is offered")
+		"pressed, the map is drawn in it, the tabs offer what it has — its rock, and glass — and the rock's tint is offered")
 	var grove: Array = popup_buttons(MapTiles.of("grove").title())
 	if not grove.is_empty():
 		(grove[0] as Button).pressed.emit()
@@ -433,6 +434,10 @@ func _playing() -> void:
 	maker.lay(Vector2i(12, 4), "v", MapMaker.DRESSING)
 	maker.lay(Vector2i(12, 5), "v", MapMaker.DRESSING)
 	maker.lay(Vector2i(16, 19), "F", MapMaker.DRESSING)
+	# A stretch of mirror in the floor, and a block of clear glass on it.
+	maker.lay(Vector2i(24, 20), "@")
+	maker.lay(Vector2i(25, 20), "@")
+	maker.lay(Vector2i(30, 19), "o")
 	table._changed_all()
 	table._bar.find_children("*", "Button", true, false).filter(
 		func(b: Button) -> bool: return b.text == Loc.t("hud.maker.play"))[0].pressed.emit()
@@ -462,6 +467,10 @@ func _playing() -> void:
 			"the grass is the game's own foliage")
 	check(view.pixels.lighting.ambient == MapTiles.of("grove").ambient() and view.pixels.lighting.working(),
 		"and it is seen in the grove's night, with its lamps lit")
+	if drawn != null:
+		check(drawn.glass.size() == 2 and drawn.glass.map(func(g: Glass) -> int: return g.panes()) in [[1, 2], [2, 1]]
+				and view.pixels.glazing.working(),
+			"its glass is glass: a pane over each cell of it, worked out by the glazing")
 	# The assembly board, on its key.
 	await action("open_editor")
 	check(maker.editing and view.editor.visible and not view.keys.visible, "the assembly key opens the board over it")
@@ -475,6 +484,8 @@ func _playing() -> void:
 		"with the plan as it was, and nothing left standing from the play")
 	check(view.pixels.lighting.ambient == Color.WHITE and get_tree().get_nodes_in_group(Lamp.GROUP).is_empty(),
 		"and the table is in no light of its own, its lamps gone with the room")
+	check(get_tree().get_nodes_in_group(Glass.GROUP).is_empty() and not view.pixels.glazing.working(),
+		"and no glass, its panes gone with it")
 
 	# A map wider than the screen: the camera goes along it, and stops at its ends.
 	maker.resize(Vector2i(Room.W * 2, Room.H * 2))

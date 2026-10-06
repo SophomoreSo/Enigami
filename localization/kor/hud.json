@@ -115,6 +115,10 @@
 				"wall": "바위 벽"
 			}
 		},
+		"glass": {
+			"clear": "투명 유리",
+			"mirror": "반사 유리"
+		},
 		"prop": {
 			"lantern": "랜턴",
 			"fire": "모닥불",

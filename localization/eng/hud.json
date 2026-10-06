@@ -115,6 +115,10 @@
 				"wall": "ROCK WALL"
 			}
 		},
+		"glass": {
+			"clear": "TRANSPARENT GLASS",
+			"mirror": "REFLECTIVE GLASS"
+		},
 		"prop": {
 			"lantern": "LANTERN",
 			"fire": "CAMPFIRE",

@@ -59,13 +59,13 @@ func id() -> String:
 func title() -> String:
 	return Loc.t("hideout.theme.look.grove")
 
-func ground_marks() -> PackedStringArray:
+func kind_marks() -> PackedStringArray:
 	return PackedStringArray(GROUND_MARKS)
 
 func back_marks() -> PackedStringArray:
 	return PackedStringArray(BACK.keys())
 
-func ground_name(mark: String) -> String:
+func kind_name(mark: String) -> String:
 	return Loc.t("hud.maker.tiles.grove.%s" % String(MadeRoom.GROUND.get(mark, "stone")))
 
 func back_name(mark: String) -> String:
@@ -100,12 +100,12 @@ func hangs_from(mark: String) -> int:
 
 ## --- the ground ---------------------------------------------------------------
 
-func paint_ground(c: CanvasItem, cells: MapCells, x: int, y: int) -> void:
+func paint_kind(c: CanvasItem, cells: MapCells, x: int, y: int) -> void:
 	_kind(c, cells, x, y, String(MadeRoom.GROUND.get(cells.ground(x, y), "stone")))
 
 ## Past the map's edge: the canopy overhead, the earth underfoot, and either
 ## side whatever the map's own edge is made of in that row — or a great trunk,
-## where its edge is open.
+## where its edge is open, or glass.
 func paint_beyond(c: CanvasItem, cells: MapCells, x: int, y: int) -> void:
 	var kind := "bark"
 	if y < 0:
@@ -114,7 +114,7 @@ func paint_beyond(c: CanvasItem, cells: MapCells, x: int, y: int) -> void:
 		kind = "earth"
 	else:
 		var edge := cells.ground(clampi(x, 0, cells.cols - 1), y)
-		if MadeRoom.is_ground(edge):
+		if MadeRoom.is_ground(edge) and not GLASS.has(edge):
 			kind = String(MadeRoom.GROUND[edge])
 	_kind(c, cells, x, y, kind)
 

@@ -51,6 +51,10 @@ extends Node
 ## were drawn, and the world is drawn once. So a screen nobody has lit costs
 ## what it did before any of this.
 ##
+## Glass is worked out after all of this, in the picture it comes to, by a pass
+## of its own (`Glazing`): what is seen through glass is seen lit, and what a
+## mirror shows is shown lit.
+##
 ## And a lit one little more, as long as the back of the picture stays out of
 ## the normals: a room's tile field is most of what a frame costs to draw, it
 ## is flat, and the normals start out flat — so what is on BACKDROP_LAYER is
@@ -151,7 +155,8 @@ func _ready() -> void:
 	_normals = _viewport(true)
 	_normals.world_2d = get_viewport().world_2d
 	_normals.snap_2d_transforms_to_pixel = true
-	_normals.canvas_cull_mask = 0xFFFFFFFF & ~BACKDROP_LAYER
+	# The back of the picture is flat, and the glass is the glazing's.
+	_normals.canvas_cull_mask = 0xFFFFFFFF & ~(BACKDROP_LAYER | Glazing.LAYER)
 	for i in MASKS:
 		var mask := _viewport(false)
 		# Nothing but black where no shadow is, whatever the project clears to.
