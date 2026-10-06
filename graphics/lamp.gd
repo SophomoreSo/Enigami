@@ -53,6 +53,28 @@ static func of(colour: Color, reach: float, bright: float = 1.0) -> Lamp:
 func _enter_tree() -> void:
 	add_to_group(GROUP)
 
+## Its light as a `Shine`, the way every other is drawn: a point's, or a
+## spot's for one that does not shine all round, pointing along its own x.
+var _shine: Shine = null
+
+func as_shine() -> Shine:
+	if _shine == null:
+		_shine = Shine.new()
+		_shine.id = "lamp"
+	var inside := clampf(inner, 0.0, 0.999)
+	_shine.type = Shine.Type.POINT if spread >= PI else Shine.Type.SPOT
+	_shine.color = Color(color.r, color.g, color.b)
+	_shine.power = energy * color.a
+	_shine.radius = radius * inside
+	_shine.reach = radius * (1.0 - inside)
+	_shine.falloff = falloff
+	_shine.direction = 0.0
+	_shine.spot_size = rad_to_deg(spread) * 2.0
+	_shine.spot_blend = soft
+	_shine.volume = volume
+	_shine.shadows = shadows
+	return _shine
+
 ## Whether it is giving any light at all.
 func lit() -> bool:
 	return is_visible_in_tree() and energy > 0.0 and radius > 0.0 and color.a > 0.0

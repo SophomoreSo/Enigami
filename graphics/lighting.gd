@@ -20,8 +20,11 @@ extends Node
 ##             over what it can reach, reading the first two under each of
 ##             its pixels and leaving out what the third marks.
 ##
-## A lamp is a `Lamp` and what throws a shadow a `ShadowCaster`, both nodes
-## put wherever the thing itself is, and both asked for here every frame the
+## A light is the property of whatever gives it — a lantern, a fire, a strip
+## of neon — given it as a `Shine`, of one of Blender's four types: a point, a
+## sun, a spot or an area. A `Lamp` is a light of the older kind, a node put
+## where the light is, which the fight still lights with. What throws a
+## shadow is a `ShadowCaster`. All of them are asked for here every frame the
 ## way the velocity buffer asks what is moving. All of it is on the pixel
 ## camera's grid, a pixel of every buffer to a pixel of the picture, so light
 ## falls in the same pixels the world is drawn in.
@@ -45,6 +48,10 @@ extends Node
 ## And one thing the video's picture has no place for: what gives its own
 ## light. A bolt in a dark room is not dark. Whatever wears `glow()` is left
 ## as it was drawn, by the lamps and by the dark alike.
+## And what is seen out past a room — the sky through its arches — which is
+## lit by nothing in the room and dimmed by nothing in it: a room marks it
+## (`HideoutScenery.room`), and only a light out there with it
+## (`Shine.out_there`) lights it.
 ##
 ## With no lamp on the screen and the room as light as it ever was there is
 ## nothing to work out, and nothing is: the camera shows the colours as they
@@ -110,10 +117,12 @@ var size := Vector2i.ZERO
 ## The world's colours: the pixel camera's own buffer, handed over before
 ## this is put in the tree.
 var colour: SubViewport
-## How many lamps reach the screen this frame, and how many of them throw
-## shadows.
+## How many lights reach the screen this frame — shining things' and lamps'
+## alike — and how many of them throw shadows.
 var lamps_lit := 0
 var lamps_shadowed := 0
+## The world's clock, in seconds, for what flickers.
+var _t := 0.0
 
 var _normals: SubViewport
 var _masks: Array[SubViewport] = []
@@ -237,9 +246,10 @@ func follow(at: Vector2, texels: Vector2i, view: Transform2D) -> void:
 		_lit.size = size
 		for mask in _masks:
 			mask.size = size
-	var lamps := _lamps()
-	lamps_lit = lamps.size()
-	_working = not lamps.is_empty() or ambient.r < 1.0 or ambient.g < 1.0 or ambient.b < 1.0
+	_t += get_process_delta_time()
+	var lights := _lights()
+	lamps_lit = lights.size()
+	_working = not lights.is_empty() or ambient.r < 1.0 or ambient.g < 1.0 or ambient.b < 1.0
 	var mode := SubViewport.UPDATE_ALWAYS if _working else SubViewport.UPDATE_DISABLED
 	_normals.render_target_update_mode = mode
 	_lit.render_target_update_mode = mode
@@ -255,30 +265,70 @@ func follow(at: Vector2, texels: Vector2i, view: Transform2D) -> void:
 	if _up.back() == self:
 		RenderingServer.global_shader_parameter_set(&"normals_size", Vector2(_normals.size))
 	_all.set_shader_parameter("ambient", Vector3(ambient.r, ambient.g, ambient.b))
-	_draw_lamps(lamps, _draw_shadows(lamps))
+	_draw_lights(lights, _draw_shadows(lights))
 
-## The lamps that reach the screen this frame.
-func _lamps() -> Array[Lamp]:
+## The lights that reach the screen this frame: every shining thing's that is
+## to be seen, and every lamp's.
+func _lights() -> Array[Lit]:
 	var shown := area()
-	var lamps: Array[Lamp] = []
+	var out: Array[Lit] = []
 	for n in get_tree().get_nodes_in_group(Lamp.GROUP):
 		var lamp := n as Lamp
-		if lamp != null and lamp.lit() and shown.intersects(_square(lamp)):
-			lamps.append(lamp)
-	return lamps
+		if lamp != null and lamp.lit():
+			_take(out, lamp.as_shine(), lamp.get_global_transform(), shown)
+	for n in get_tree().get_nodes_in_group(Shine.GROUP):
+		var thing := n as CanvasItem
+		if thing == null or not thing.is_visible_in_tree():
+			continue
+		var xf := thing.get_global_transform()
+		for shine in Shine.on(thing):
+			_take(out, shine as Shine, xf, shown)
+	return out
 
-## The shadows of the lamps that throw them — the widest and brightest first,
-## as far as the masks go round — each given a colour of a mask and the edges
-## near it to draw there. Which colour each lamp got, by lamp: its number
-## among all the masks' colours.
-func _draw_shadows(lamps: Array[Lamp]) -> Dictionary:
-	var throwing: Array[Lamp] = []
-	for lamp in lamps:
-		if lamp.shadows:
-			throwing.append(lamp)
+## `shine`, given by something placed at `xf`, if it reaches `shown`: where it
+## is in the world, which way it shines there, how bright it is this moment,
+## and the mesh it is drawn with. Where it is on the thing is in world units,
+## however the thing is scaled.
+func _take(out: Array[Lit], shine: Shine, xf: Transform2D, shown: Rect2) -> void:
+	var power := shine.strength(_t)
+	if power <= 0.0:
+		return
+	var lit := Lit.new()
+	lit.shine = shine
+	lit.power = power
+	lit.at = xf.origin + shine.position.rotated(xf.get_rotation())
+	lit.aim = Vector2.from_angle(deg_to_rad(shine.direction) + xf.get_rotation())
+	match shine.type:
+		Shine.Type.SUN:
+			# Over the whole picture, and a pixel past it.
+			lit.middle = shown.get_center()
+			lit.half = shown.size * 0.5 + Vector2.ONE * S
+		Shine.Type.AREA:
+			# The shape and its reach all round, turned to shine down its own y.
+			lit.middle = lit.at
+			lit.half = shine.size * 0.5 + Vector2.ONE * shine.reach
+			lit.turn = lit.aim.angle() - PI * 0.5
+		_:
+			lit.middle = lit.at
+			lit.half = Vector2.ONE * (shine.radius + shine.reach)
+	var x := Vector2.from_angle(lit.turn) * lit.half.x
+	var y := Vector2.from_angle(lit.turn + PI * 0.5) * lit.half.y
+	var spans := x.abs() + y.abs()
+	lit.bounds = Rect2(lit.middle - spans, spans * 2.0)
+	if shown.intersects(lit.bounds):
+		out.append(lit)
+
+## The shadows of the lights that throw them — a sun's first, then the widest
+## and brightest, as far as the masks go round — each given a colour of a mask
+## and the edges near it to draw there. Which colour each light got, by light:
+## its number among all the masks' colours.
+func _draw_shadows(lights: Array[Lit]) -> Dictionary:
+	var throwing: Array[Lit] = []
+	for lit in lights:
+		if lit.shine.shadows:
+			throwing.append(lit)
 	if throwing.size() > SHADOWS:
-		throwing.sort_custom(func(a: Lamp, b: Lamp) -> bool:
-			return a.radius * a.energy > b.radius * b.energy)
+		throwing.sort_custom(func(a: Lit, b: Lit) -> bool: return a.weight() > b.weight())
 		throwing.resize(SHADOWS)
 	lamps_shadowed = throwing.size()
 	var casters: Array[ShadowCaster] = []
@@ -293,19 +343,20 @@ func _draw_shadows(lamps: Array[Lamp]) -> Dictionary:
 		if i >= throwing.size():
 			shade.visible = false
 			continue
-		var lamp := throwing[i]
-		given[lamp] = i
-		var at := lamp.global_position
-		var reach := _square(lamp)
+		var lit := throwing[i]
+		given[lit] = i
+		var sun := lit.shine.type == Shine.Type.SUN
 		shade.visible = true
-		shade.position = reach.position
-		shade.size = reach.size
+		shade.position = lit.bounds.position
+		shade.size = lit.bounds.size
 		var m := shade.material as ShaderMaterial
-		m.set_shader_parameter("light", at)
-		m.set_shader_parameter("reach", lamp.radius * THROW)
+		m.set_shader_parameter("light", lit.at)
+		m.set_shader_parameter("parallel", sun)
+		m.set_shader_parameter("aim", lit.aim)
+		m.set_shader_parameter("reach", lit.bounds.size.length() * 2.0 if sun else lit.half.length() * THROW)
 		shade.thrown.clear()
 		for caster in casters:
-			if caster.covers().intersects(reach) and not caster.holds(at):
+			if caster.covers().intersects(lit.bounds) and (sun or not caster.holds(lit.at)):
 				shade.thrown.append([caster.mesh, caster.global_transform])
 		shade.queue_redraw()
 	for i in MASKS:
@@ -313,40 +364,45 @@ func _draw_shadows(lamps: Array[Lamp]) -> Dictionary:
 			if i * PER_MASK < throwing.size() else SubViewport.UPDATE_DISABLED
 	return given
 
-## Every lamp's mesh in the picture, told what its lamp is like and which
+## Every light's mesh in the picture, told what its light is like and which
 ## colour of which mask its shadows are in.
-func _draw_lamps(lamps: Array[Lamp], given: Dictionary) -> void:
-	while _beams.size() < lamps.size():
+func _draw_lights(lights: Array[Lit], given: Dictionary) -> void:
+	while _beams.size() < lights.size():
 		_beams.append(_beam())
 	for i in _beams.size():
 		var beam := _beams[i]
-		if i >= lamps.size():
+		if i >= lights.size():
 			beam.visible = false
 			continue
-		var lamp := lamps[i]
+		var lit := lights[i]
+		var shine := lit.shine
 		beam.visible = true
-		beam.position = lamp.global_position
-		beam.scale = Vector2.ONE * lamp.radius
+		beam.position = lit.middle
+		beam.rotation = lit.turn
+		beam.scale = lit.half
 		var m := beam.material as ShaderMaterial
-		var slot := int(given.get(lamp, -1))
+		var slot := int(given.get(lit, -1))
 		var k := slot % PER_MASK if slot >= 0 else -1
 		@warning_ignore("integer_division")
 		m.set_shader_parameter("shade", _masks[maxi(slot, 0) / PER_MASK].get_texture())
 		m.set_shader_parameter("channel", Vector3(float(k == 0), float(k == 1), float(k == 2)))
-		m.set_shader_parameter("tint", Vector3(lamp.color.r, lamp.color.g, lamp.color.b))
-		m.set_shader_parameter("energy", lamp.energy * lamp.color.a)
-		m.set_shader_parameter("inner", clampf(lamp.inner, 0.0, 0.999))
-		m.set_shader_parameter("falloff", lamp.falloff)
-		m.set_shader_parameter("aim", lamp.aim())
-		m.set_shader_parameter("spread", lamp.spread)
-		m.set_shader_parameter("soft", clampf(lamp.soft, 0.001, 1.0))
-		m.set_shader_parameter("volume", lamp.volume)
-		m.set_shader_parameter("close", CLOSE / lamp.radius)
-
-## The square round a lamp's reach, in the world: what its mesh covers.
-func _square(lamp: Lamp) -> Rect2:
-	var r := Vector2.ONE * lamp.radius
-	return Rect2(lamp.global_position - r, r * 2.0)
+		m.set_shader_parameter("type", int(shine.type))
+		m.set_shader_parameter("tint", Vector3(shine.color.r, shine.color.g, shine.color.b))
+		m.set_shader_parameter("power", lit.power)
+		m.set_shader_parameter("half_size", lit.half)
+		m.set_shader_parameter("turn", Vector2.from_angle(lit.turn))
+		m.set_shader_parameter("radius", shine.radius)
+		m.set_shader_parameter("reach", shine.reach)
+		m.set_shader_parameter("falloff", shine.falloff)
+		m.set_shader_parameter("aim", lit.aim)
+		m.set_shader_parameter("cone", deg_to_rad(shine.spot_size) * 0.5)
+		m.set_shader_parameter("blend", clampf(shine.spot_blend, 0.0, 1.0))
+		m.set_shader_parameter("shape", int(shine.shape))
+		m.set_shader_parameter("extent", shine.size * 0.5)
+		m.set_shader_parameter("spread", deg_to_rad(shine.spread) * 0.5)
+		m.set_shader_parameter("volume", shine.volume)
+		m.set_shader_parameter("close", CLOSE)
+		m.set_shader_parameter("beyond", shine.out_there)
 
 func _beam() -> Beam:
 	var beam := Beam.new()
@@ -358,18 +414,42 @@ func _beam() -> Beam:
 	_lit.add_child(beam)
 	return beam
 
-## A lamp's mesh: the square round its reach, 1 from its middle to its edge,
-## which is what `light.gdshader` measures in.
+## A light, this frame: whose it is, where it is in the world and which way
+## it shines there, how bright it is, and its mesh — its middle, how far it is
+## turned, half of it each way in its own frame, and what it covers in the
+## world.
+class Lit extends RefCounted:
+	var shine: Shine
+	var at := Vector2.ZERO
+	var aim := Vector2.DOWN
+	var power := 0.0
+	var middle := Vector2.ZERO
+	var turn := 0.0
+	var half := Vector2.ONE
+	var bounds := Rect2()
+
+	## How much it matters that it throws a shadow: a sun most, then the
+	## widest and brightest.
+	func weight() -> float:
+		if shine.type == Shine.Type.SUN:
+			return INF
+		var big := shine.radius + shine.reach
+		if shine.type == Shine.Type.AREA:
+			big += shine.size.length() * 0.5
+		return big * power
+
+## A light's mesh: a square from -1 to 1, which the light's own size, how far
+## it is turned and where it is put over everything it can reach.
 class Beam extends Node2D:
 	func _draw() -> void:
 		draw_rect(Rect2(-1.0, -1.0, 2.0, 2.0), Color.WHITE)
 
-## What one lamp's shadows are drawn by: a box the size of its reach, which
-## nothing is drawn outside of, and inside it every caster's edges, each
-## where the caster is in the world. Its material is the lamp's own
-## `shadow.gdshader`, told where the lamp is.
+## What one light's shadows are drawn by: a box over everything it reaches,
+## which nothing is drawn outside of, and inside it every caster's edges,
+## each where the caster is in the world. Its material is the light's own
+## `shadow.gdshader`, told where the light is and which way it shines.
 class Shade extends Control:
-	## What throws a shadow in this lamp's light: [mesh, where in the world].
+	## What throws a shadow in this light: [mesh, where in the world].
 	var thrown: Array = []
 
 	func _draw() -> void:

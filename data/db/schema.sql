@@ -22,7 +22,7 @@ CREATE TABLE meta (
 );
 -- `Db.SCHEMA_VERSION` in app/db.gd is the same number: bump both when a
 -- change is one older code could not read. build.sh adds `source_hash`.
-INSERT INTO meta (key, value) VALUES ('schema_version', '13');
+INSERT INTO meta (key, value) VALUES ('schema_version', '14');
 
 -- How a portrait and the letters behave while a line is said: the ids
 -- `Style.EMOTIONS` (graphics/style.gd) draws. A line naming one not here
@@ -607,4 +607,49 @@ CREATE TABLE growths (
 	most     INTEGER NOT NULL CHECK (most >= fewest),
 	shortest INTEGER NOT NULL CHECK (shortest >= 1),
 	longest  INTEGER NOT NULL CHECK (longest >= shortest)
+);
+
+-- ---- lights ----------------------------------------------------------------
+--
+-- The light a shining thing gives — a lantern, a fire, a lightbulb, a torch,
+-- a strip of neon — as the deferred lights (graphics/lighting.gd) add it to
+-- the picture. A light is not a thing of its own in the world: it is a
+-- property of whatever gives it (`Shine`, graphics/shine.gd), and a kind of
+-- shining thing is a row here, which every thing of that kind gives. The
+-- types are Blender's:
+--
+--   point   light every way from a point, as bright as it gets over `radius`
+--           and dimming to nothing at `reach` past it
+--   sun     the same light over everything, from one way and no distance at
+--           all: `direction` is the way it travels
+--   spot    a point's light in a cone `spot_size` wide, pointing
+--           `direction`, fading to its edge over `spot_blend` of it
+--   area    light from the whole of a shape — a rectangle or an ellipse
+--           `size_x` across the way it points and `size_y` along it —
+--           dimming to nothing at `reach` from its edge, and leaving it
+--           `spread` wide about `direction`: 180 its face, 360 all round
+--
+-- A column a type has no use for is left as its default.
+
+CREATE TABLE lights (
+	id         TEXT PRIMARY KEY CHECK (id <> '' AND id = lower(id)),
+	type       TEXT NOT NULL CHECK (type IN ('point', 'sun', 'spot', 'area')),
+	color      TEXT NOT NULL DEFAULT '#ffffff'
+	           CHECK (length(color) = 7 AND color GLOB '#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]'),
+	power      REAL NOT NULL DEFAULT 1 CHECK (power >= 0),                          -- 1 shows what it lights twice as bright as the room's own light would
+	radius     REAL NOT NULL DEFAULT 0 CHECK (radius >= 0),                         -- point, spot: how big what gives it is, in world units
+	reach      REAL NOT NULL DEFAULT 160 CHECK (reach > 0),                         -- point, spot, area: how far it goes past that, in world units
+	falloff    REAL NOT NULL DEFAULT 2 CHECK (falloff > 0),                         -- how it dims over its reach: 1 in a straight line, 2 easing into nothing
+	direction  REAL NOT NULL DEFAULT 90,                                            -- sun, spot, area: the way it shines, in degrees: 0 right, 90 down, 270 up
+	spot_size  REAL NOT NULL DEFAULT 45 CHECK (spot_size > 0 AND spot_size <= 360),  -- spot: how wide its cone is, in degrees
+	spot_blend REAL NOT NULL DEFAULT 0.15 CHECK (spot_blend BETWEEN 0 AND 1),        -- spot: the share of the cone it fades to its edge over
+	shape      TEXT NOT NULL DEFAULT 'rectangle' CHECK (shape IN ('rectangle', 'ellipse')),  -- area
+	size_x     REAL NOT NULL DEFAULT 32 CHECK (size_x >= 0),                        -- area: across the way it shines, in world units
+	size_y     REAL NOT NULL DEFAULT 4 CHECK (size_y >= 0),                         -- area: along the way it shines
+	spread     REAL NOT NULL DEFAULT 180 CHECK (spread > 0 AND spread <= 360),      -- area: how wide it leaves the shape, in degrees
+	volume     REAL NOT NULL DEFAULT 0 CHECK (volume >= 0),                         -- how much of it the air in front of the picture catches
+	shadows    INTEGER NOT NULL DEFAULT 1 CHECK (shadows IN (0, 1)),                -- whether what stands in it throws a shadow
+	flicker    REAL NOT NULL DEFAULT 0 CHECK (flicker BETWEEN 0 AND 1),             -- how much it wavers, the way a flame does: 0 steady
+	x          REAL NOT NULL DEFAULT 0,                                             -- where it is from the thing that gives it, in world units
+	y          REAL NOT NULL DEFAULT 0
 );

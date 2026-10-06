@@ -87,6 +87,16 @@ var _drops: Array = []
 ## `{x, y, speed}`.
 var _beads: Array = []
 var _runs: Array = []
+## The light it gives (`shine`): the tubes, the signs out on the towers, their
+## screens, the strip along the foot of the wall, the light over the rack, the
+## one under the counter's awning and the machine's, and the gate's.
+var _tube_lights: Array[Shine] = []
+var _sign_lights: Array[Shine] = []
+var _strip_light: Shine
+var _rack_light: Shine
+var _awning_light: Shine
+var _machine_light: Shine
+var _gate_light: Shine
 
 func _build() -> void:
 	var rng := RandomNumberGenerator.new()
@@ -125,10 +135,67 @@ func _build() -> void:
 	_near = still(_paint_near)
 	_signs = moving(_paint_signs)
 	_rain = moving(_paint_rain)
-	_wall = still(_paint_wall)
+	_wall = room(_paint_wall)
 	_wall_life = moving(_paint_wall_life)
 	_fittings = still(_paint_fittings)
 	_life = moving(_paint_life)
+	_give_light()
+
+## Every light it paints, giving light where it is painted: the tubes down from
+## the ceiling, the signs and their screens all round from out on the towers —
+## sliding as the towers do — the strip along the foot of the wall, the light
+## over the rack and the one under the counter's awning down onto them, the
+## machine by the counter, and the gate's.
+func _give_light() -> void:
+	for x: int in TUBES:
+		_tube_lights.append(shine(_wall_life, "ceiling_tube", x, 42.5, Style.HIDEOUT_TUBE, 18, 1))
+	var neon := {"pink": Style.NEON_PINK, "cyan": Style.NEON_CYAN, "amber": Style.NEON_AMBER}
+	for board: Dictionary in SIGNS:
+		var at: Vector2i = board["at"]
+		var size: Vector2i = board["size"]
+		_sign_lights.append(shine(_signs, "neon_sign", at.x + size.x * 0.5, at.y + size.y * 0.5,
+			neon[board["light"]], size.x, size.y))
+	for i in SCREENS.size():
+		var at: Vector2i = SCREENS[i]["at"]
+		var size: Vector2i = SCREENS[i]["size"]
+		shine(_signs, "screen", at.x + size.x * 0.5, at.y + size.y * 0.5,
+			Style.NEON_CYAN if i == 0 else Style.NEON_PINK, size.x, size.y)
+	_strip_light = shine(_wall_life, "neon_strip", (LEFT + BAY_LEFT) * 0.5, FLOOR - 11.5, Style.NEON_VIOLET,
+		BAY_LEFT - LEFT, 1)
+	var rack: Vector2i = _at["weapons"]
+	_rack_light = shine(_life, "neon_strip", rack.x, rack.y - 53.5, Style.NEON_CYAN, 48, 1)
+	_rack_light.spread = 180.0
+	var shop: Vector2i = _at["shop"]
+	_awning_light = shine(_life, "neon_strip", shop.x, shop.y - 57.5, Style.NEON_PINK, 68, 1)
+	_awning_light.spread = 180.0
+	_machine_light = shine(_life, "screen", shop.x + 51, shop.y - 44.5, Style.NEON_PINK, 18, 3)
+	var g: Vector2i = _at["gate"]
+	_gate_light = shine(_life, "gate_light", g.x, g.y - TALLEST + 30)
+
+## How lit each is this moment, as its picture is: the tube on its way out, a
+## sign's weak letter, the strip breathing, the station lights brighter for
+## somebody standing at them, the machine humming, and the gate the colour of
+## whether it would take you.
+func _shine_now() -> void:
+	_tube_lights[1].level = stutter(_t, 6.5, 5)
+	for i in SIGNS.size():
+		var board: Dictionary = SIGNS[i]
+		var weak := int(board["weak"])
+		if weak < 0:
+			continue
+		var on := stutter(_t, float(board["every"]), 3 + i * 4)
+		if board["down"]:
+			if board["gone"]:
+				on = 0.3 if on < 1.0 else 1.0
+			var letters := String(board["says"]).length()
+			_sign_lights[i].level = (float(letters - 1) + on) / float(letters)
+	_strip_light.level = 0.75 + 0.25 * sin(_t * 1.4)
+	_rack_light.level = 0.55 + 0.45 * float(_lit.get("weapons", 0.0))
+	_awning_light.level = 0.6 + 0.4 * float(_lit.get("shop", 0.0))
+	_machine_light.level = stutter(_t, 11.0, 2)
+	var open := _gate_open()
+	_gate_light.color = Style.NEON_GREEN if open else Style.NEON_RED
+	_gate_light.level = (0.6 + 0.4 * float(_lit.get("gate", 0.0))) * (1.0 if open else 0.6)
 
 ## The city slides a little against the glass as the player walks the room,
 ## the near towers furthest: whole pixels of the buffer, and never more than

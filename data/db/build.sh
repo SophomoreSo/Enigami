@@ -90,3 +90,4 @@ echo "Built $(basename "$OUT") from ${#rels[@]} file(s) — $(du -h "$OUT" | cut
 "$SQLITE" "$OUT" "SELECT '  ' || (SELECT count(*) FROM menus) || ' menus, ' || (SELECT count(*) FROM menu_items) || ' items on them';"
 "$SQLITE" "$OUT" "SELECT '  ' || (SELECT count(*) FROM ropes) || ' kinds of line, ' || (SELECT count(*) FROM hangings) || ' hung in the rooms';"
 "$SQLITE" "$OUT" "SELECT '  ' || (SELECT count(*) FROM foliage) || ' kinds of foliage, ' || (SELECT count(*) FROM growths) || ' grown in the rooms';"
+"$SQLITE" "$OUT" "SELECT '  ' || (SELECT count(*) FROM lights) || ' kinds of light: ' || group_concat(n || ' ' || type, ', ') FROM (SELECT type, count(*) AS n FROM lights GROUP BY type ORDER BY type);"

@@ -9,6 +9,10 @@ extends Node2D
 ## the room has been built. Only the light moves: the neon buzzes, the sign
 ## stutters, and rain runs down the glass.
 ##
+## And what is painted lit gives light (`Shine`): every lamp a cone down out of
+## its shade, the neon along every storey's ceiling, and the sign over the way
+## out — each the light of its kind, a row of `lights`.
+##
 ## Its concrete goes on past its walls, out to wherever the screen does, for the
 ## same reason the rock does round a raid's room (`RoomView`): a screen longer or
 ## squarer than 16:9 shows more than the building, and that is more building.
@@ -43,6 +47,8 @@ var _floors: Array[int] = []
 var _panes: Array[Rect2] = []
 var _strips: Array = []
 var _rain: Array = []
+## The light of the neon along each storey's ceiling, and the phase it buzzes at.
+var _neon: Array = []
 
 ## The half that never moves, painted once.
 class Still extends Node2D:
@@ -71,13 +77,44 @@ func _ready() -> void:
 
 func _on_built() -> void:
 	_find_floors()
+	_give_light()
 	_still.queue_redraw()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1515
 	for i in 70:
 		_rain.append(Vector2(rng.randf() * Room.W * C, rng.randf() * Room.H * C))
 
+## The light the building gives, where it is painted: a lamp everywhere one is
+## hung (`_paint_storey`), down to the floor under it; the neon along each
+## storey's ceiling in that storey's colour; and the sign over the way out.
+func _give_light() -> void:
+	Shine.put_out(self)
+	_neon.clear()
+	for i in range(_floors.size() - 1):
+		var ceiling := _floors[i]
+		var top := float(ceiling + 1) * C
+		var high := float(_floors[i + 1]) * C - top
+		var lx := 3
+		while lx < Room.W - 3:
+			if tower.is_solid(lx, ceiling) and tower.is_solid(lx + 1, ceiling):
+				var lamp := Shine.give(self, "ceiling_lamp", Vector2(float(lx + 1) * C, top + 8.0))
+				lamp.reach = maxf(lamp.reach, high)
+			lx += 7
+		var neon := Shine.give(self, "neon_strip", Vector2(Room.W * C * 0.5, top + 2.0))
+		neon.color = PINK if i % 2 == 0 else CYAN
+		neon.size = Vector2(Room.W * C - 2.0 * C, 4.0)
+		_neon.append([neon, float(i) * 1.7])
+	for d in tower.cells_marked("P"):
+		Shine.give(self, "exit_sign", Vector2((float(d.x) + 0.5) * C, float(d.y + 1) * C - 89.0))
+
 func _process(delta: float) -> void:
+	# The neon's light buzzes with it, and drops out when it stutters.
+	var t := float(Time.get_ticks_msec()) / 1000.0
+	for strip: Array in _neon:
+		var buzz := 0.75 + 0.25 * sin(t * 9.0 + float(strip[1]))
+		if fmod(t * 0.37 + float(strip[1]), 7.0) < 0.12:
+			buzz *= 0.3
+		(strip[0] as Shine).level = buzz
 	for i in _rain.size():
 		var p: Vector2 = _rain[i] + Vector2(-60.0, 420.0) * delta
 		if p.y > Room.H * C:

@@ -3,8 +3,8 @@
 `data/enigami.db` is what the game reads and never writes, kept as tables:
 the conversations, the player's state machine, the parts a skill board is
 built from, the boards the game ships with, the menus, the lines that hang
-in the rooms and what grows on their floors, today, and whatever else is
-better kept as rows than as a file tomorrow. The game reaches it through `Db`
+in the rooms, what grows on their floors and the light shining things give,
+today, and whatever else is better kept as rows than as a file tomorrow. The game reaches it through `Db`
 (`app/db.gd`), and it is built from the SQL in this folder:
 
 ```
@@ -30,6 +30,8 @@ data/
     │   └── ropes.sql
     ├── foliage/      what grows on the rooms' floors, and how much of each a room grows
     │   └── foliage.sql
+    ├── lights/       the light each kind of shining thing gives
+    │   └── lights.sql
     └── parts/        every part a board is built from, and its number in a shared code
         └── parts.sql
 ```
@@ -658,6 +660,69 @@ look yet grows in grass's colours. `tests/graphics/foliage_test.tscn` reads
 the tables, grows a patch of each kind, and tries what the schema refuses;
 `tests/graphics/velocity_test.tscn` pushes them.
 
+## A light
+
+What a shining thing gives — a lantern, a fire, a lightbulb, a strip of neon
+— is a `Shine` (`graphics/shine.gd`): a property of the thing, and not a
+thing in the world of its own. The thing is given its light
+(`Shine.give(thing, "lantern")`) and goes on being what it was; the light is
+where the thing is, turns and swings with it, and goes out when it is hidden
+or put out. The picture is lit by every shining thing's light, a pass each
+(`graphics/lighting.gd`). A **kind** of shining thing is a row of `lights`,
+and every thing of the kind gives that light: change a number in
+`lights/lights.sql` and rebuild, and every lantern lights its room that way.
+
+A light is one of Blender's four types:
+
+- `point` — every way from a point: at its brightest all over `radius`, the
+  size of what gives it, and dimming to nothing `reach` past that.
+- `spot` — a point's light in a cone `spot_size` degrees wide about
+  `direction`, fading toward the cone's edge over `spot_blend` of it.
+- `area` — light from the whole of a shape, a `rectangle` or an `ellipse`
+  `size_x` across the way it shines and `size_y` along it, dimming to nothing
+  `reach` from its edge, and leaving it `spread` degrees wide about
+  `direction`: 180 its face alone, 360 all round.
+- `sun` — the same light all over the picture, from no distance at all,
+  travelling `direction`. A surface is lit as far as it faces back up it,
+  and shadows are thrown all one way.
+
+```sql
+INSERT INTO lights (id, type, color, power, radius, reach, direction, spot_size, spot_blend, volume, shadows, y) VALUES
+	('lightbulb', 'spot', '#ffe9bd', 2.2, 2, 220, 90, 110, 0.35, 0.1, 1, 12);
+```
+
+| Table · column | Meaning |
+|---|---|
+| `lights.type` | `point`, `spot`, `area` or `sun`, as above. |
+| `lights.color` | Its colour, `#rrggbb`. A thing may tint its own: a gate's is the colour of whether it would let you through. |
+| `lights.power` | How bright: 1 shows what it lights twice as bright as the room's own light alone would. |
+| `lights.radius` | Point, spot: how big what gives it is, in world units — two to a pixel of the picture. All of it is as bright as the light gets. |
+| `lights.reach` | Point, spot, area: how far it goes past that, in world units. |
+| `lights.falloff` | How it dims over its reach: 1 in a straight line, 2 easing into nothing. |
+| `lights.direction` | Spot, area, sun: the way it shines, in degrees off the thing's own way across — 0 right, 90 down, 270 up — and turned as the thing is. |
+| `lights.spot_size` `spot_blend` | Spot: how wide its cone is, in degrees, and the share of it it fades to its edge over. |
+| `lights.shape` `size_x` `size_y` | Area: a `rectangle` or an `ellipse`, so many world units across the way it shines and along it. |
+| `lights.spread` | Area: how wide the light leaves the shape, in degrees. |
+| `lights.volume` | How much of it the air in front of the picture catches: what shows a light where there is nothing behind it to light. |
+| `lights.shadows` | 1 if what stands in it throws a shadow. Only so many lights throw one at once (`Lighting.SHADOWS`): a sun first, then the widest and brightest. |
+| `lights.flicker` | How much it wavers, the way a flame does: 0 steady, 1 out and twice as bright by turns. |
+| `lights.x` `y` | Where it is from the thing that gives it, in world units: a lantern's flame a little under the pixel it hangs by. |
+
+What one thing does with its own light from moment to moment is the thing's,
+and no row's: a sign that stutters, a lamp brighter for somebody at its
+station, set the light's `level`, and where on the thing it is, besides `x`
+and `y`, is said as it is given. The map creator's props give theirs
+(`graphics/views/made_room_view.gd`); so does whatever a look of the hideout
+paints glowing (`HideoutScenery.shine`), and the dragon test's tower's lamps,
+neon and exit sign (`graphics/views/tower_view.gd`). What a look shows out
+past its room — the sky through its arches, the city through its glass — is
+lit by nothing in the room and dimmed by nothing in it, and only by a light
+out there with it, a sign across the street (`HideoutScenery.room`). The
+fight lights with `Lamp` (`graphics/lamp.gd`): a bolt, a blast, a body
+burning and the way out are each a light made in code, a point or a spot.
+`tests/graphics/lighting_test.tscn` makes a light of a kind and finds its
+row's numbers in it, and lights a picture with each type.
+
 ## Reading it from code
 
 ```gdscript
@@ -673,7 +738,8 @@ reads the parts, `Boards` (`feature/core/boards.gd`) builds a shipped board
 into the `SkillBoard` the circuit runs, `Menus` (`graphics/ui/menus.gd`)
 hands a screen its menus' items, in the language being played, `Rope.of`
 (`graphics/rope.gd`) makes a line of a kind with its row's numbers, and
-`Foliage.of` (`graphics/foliage.gd`) a patch of a kind; nothing else needs
+`Foliage.of` (`graphics/foliage.gd`) a patch of a kind, and `Shine.of`
+(`graphics/shine.gd`) the light of a kind; nothing else needs
 to know any of it came from a table. `Dialogue.reload()` and `Components.reload()` pick up
 a rebuilt file without a restart.
 

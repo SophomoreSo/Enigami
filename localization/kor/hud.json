@@ -121,7 +121,9 @@
 		},
 		"prop": {
 			"lantern": "랜턴",
+			"lightbulb": "전구",
 			"fire": "모닥불",
+			"fireplace": "벽난로",
 			"mushrooms": "빛나는 버섯",
 			"fireflies": "반딧불이",
 			"grass": "풀",

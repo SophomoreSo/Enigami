@@ -98,6 +98,13 @@ var _wall: Layer
 var _wall_life: Layer
 var _fittings: Layer
 var _life: Layer
+## The light it gives (`shine`) that is brightened and dimmed as it is painted:
+## the panels in the ceiling, the light over the cabinet and the one under the
+## booth's canopy, and the gate's.
+var _panel_lights: Array[Shine] = []
+var _cabinet_light: Shine
+var _booth_light: Shine
+var _gate_light: Shine
 
 ## The stars, `{x, y, a, tone}`, and the ones that twinkle, `{x, y, every, from}`.
 var _stars: Array = []
@@ -147,10 +154,38 @@ func _build() -> void:
 	_globe = still(_paint_world)
 	_near = still(_paint_near)
 	_traffic = moving(_paint_traffic)
-	_wall = still(_paint_wall)
+	_wall = room(_paint_wall)
 	_wall_life = moving(_paint_wall_life)
 	_fittings = still(_paint_fittings)
 	_life = moving(_paint_life)
+	_give_light()
+
+## What it paints lit, giving light where it is painted: the panels in the
+## ceiling down onto the deck, the light over the cabinet and the one under the
+## booth's canopy down onto them, and the gate's.
+func _give_light() -> void:
+	for x: int in STRIPS:
+		_panel_lights.append(shine(_wall_life, "light_panel", x, 34, LIGHT, 44, 4))
+	var cabinet: Vector2i = _at["weapons"]
+	_cabinet_light = shine(_life, "neon_strip", cabinet.x, cabinet.y - 52.5, LIGHT, 48, 1)
+	_cabinet_light.spread = 180.0
+	var booth: Vector2i = _at["shop"]
+	_booth_light = shine(_life, "neon_strip", booth.x, booth.y - 57.5, LIGHT, 68, 1)
+	_booth_light.spread = 180.0
+	var g: Vector2i = _at["gate"]
+	_gate_light = shine(_life, "gate_light", g.x, g.y - TALLEST + 30)
+
+## How lit each is this moment, as its picture is: the panels never quite
+## steady, the station lights brighter for somebody standing at them, and the
+## gate the colour of whether it would take you.
+func _shine_now() -> void:
+	for i in _panel_lights.size():
+		_panel_lights[i].level = 0.92 + 0.08 * sin(_t * 0.9 + i)
+	_cabinet_light.level = 0.55 + 0.45 * float(_lit.get("weapons", 0.0))
+	_booth_light.level = 0.6 + 0.4 * float(_lit.get("shop", 0.0))
+	var open := _gate_open()
+	_gate_light.color = OPEN if open else SHUT
+	_gate_light.level = (0.6 + 0.4 * float(_lit.get("gate", 0.0))) * (1.0 if open else 0.6)
 
 ## What is outside slides a little against the window as the player walks the
 ## room, the station's own arm furthest and the stars hardly at all: whole

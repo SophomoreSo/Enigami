@@ -13,16 +13,17 @@ extends RoomView
 ## only there, so a map four screens each way costs a frame not much more than
 ## the stretch of it the screen shows (`_wake`).
 ##
-## What was put about the map is made of the game's own things. A lantern
-## hangs on a cord (`Rope`) from whatever is over it, with a lamp in it
-## (`Lamp`): it swings when somebody goes through it, and its light swings with
-## it. A vine and a rope are lines of their own, the length of their run, that
-## anything moving through them sets swinging. Grass, flowers and a bush are
-## patches of foliage (`Foliage`) that lean where somebody walks. A fire burns
-## and lights the room round it, glowing caps and fireflies give a little light
-## of their own, and a fern stands where it was put. Nothing is rolled: a made
-## room has what was put in it, and none of the cables and grass a raid's rooms
-## are hung and grown with.
+## What was put about the map is made of the game's own things. A lantern and
+## a lightbulb hang on cords (`Rope`) from whatever is over them, each giving
+## its own light (`Shine`): it swings when somebody goes through it, and its
+## light swings with it. A vine and a rope are lines of their own, the length
+## of their run, that anything moving through them sets swinging. Grass,
+## flowers and a bush are patches of foliage (`Foliage`) that lean where
+## somebody walks. A fire and a fireplace burn and light the room round them,
+## glowing caps and fireflies give a little light of their own, and a fern
+## stands where it was put. What light each gives is its kind's row of
+## `lights`. Nothing is rolled: a made room has what was put in it, and none of
+## the cables and grass a raid's rooms are hung and grown with.
 ##
 ## Its glass is glass (`Glass`): a pane over every cell of it, clear or a
 ## mirror, which the pixel camera's glazing works from (`Glazing`) — what stands
@@ -65,9 +66,7 @@ var cells: MapCells
 var chunks: Array[MapTiles.Chunk] = []
 ## The depths out beyond the map, back to front.
 var depths: Array[MapTiles.Depth] = []
-## Every lamp what was put about the room lights it with.
-var lamps: Array[Lamp] = []
-## The lanterns, each riding the end of its cord.
+## The lanterns and the lightbulbs, each riding the end of its cord.
 var lanterns: Array[Lantern] = []
 ## The glass, a node of panes to each kind of it: the ground's, clear and
 ## mirror, and what stands behind, clear and mirror.
@@ -83,8 +82,6 @@ var _seen := Rect2()
 ## and what moves — the flames, the glow, the fireflies — drawn again.
 var _still: Node2D
 var _life: Node2D
-## A fire's lamp, flickering, and what puts it out of step: [lamp, salt].
-var _fires: Array = []
 ## What was put about the room that is drawn by `_still` and by `_life`, each
 ## [mark, x, y]: found once, so a big map is not read through for it every
 ## time what moves is drawn again.
@@ -103,6 +100,12 @@ class Lantern extends Node2D:
 	var t := 0.0
 	func _draw() -> void:
 		MapTiles.lantern(self, 0, 0, HideoutScenery.flicker(t, salt))
+
+## A lightbulb on the end of its cord, under its shade: lit, and hung and
+## swung as a lantern is.
+class Bulb extends Lantern:
+	func _draw() -> void:
+		MapTiles.lightbulb(self, 0, 0)
 
 ## A leaf on a vine, riding the node it hangs from.
 class Leaf extends Node2D:
@@ -225,10 +228,11 @@ func _follow() -> void:
 
 ## --- what was put about it -------------------------------------------------------
 
-## The lanterns, on their cords, and the vines and ropes, each the length of
-## its run — in place of the cables a raid's rooms are hung with. Each is hung
-## straight down from where it hangs, which is where it would settle, so none
-## is settled: a line hung so does not move until something moves it.
+## The lanterns and the lightbulbs, on their cords, and the vines and ropes,
+## each the length of its run — in place of the cables a raid's rooms are hung
+## with. Each is hung straight down from where it hangs, which is where it
+## would settle, so none is settled: a line hung so does not move until
+## something moves it.
 func _hang_lines() -> void:
 	for r in ropes:
 		if is_instance_valid(r):
@@ -236,8 +240,6 @@ func _hang_lines() -> void:
 	for l in lanterns:
 		if is_instance_valid(l):
 			l.queue_free()
-	# And the lamps in the lanterns with them.
-	lamps = lamps.filter(func(l: Lamp) -> bool: return is_instance_valid(l) and not (l.get_parent() is Lantern))
 	ropes.clear()
 	_spans.clear()
 	lanterns.clear()
@@ -247,11 +249,15 @@ func _hang_lines() -> void:
 		for x in cells.cols:
 			var mark := cells.prop(x, y)
 			if mark == "L":
-				_hang_lantern(x, y)
+				_hang_light(x, y, Lantern.new(), "lantern", MapTiles.LANTERN_BODY)
+			elif mark == "B":
+				_hang_light(x, y, Bulb.new(), "lightbulb", MapTiles.LIGHTBULB_BODY)
 			elif MapTiles.LINES.has(mark):
 				_hang_line(x, y, mark)
 
-func _hang_lantern(x: int, y: int) -> void:
+## `light`, a lantern or a lightbulb, hung on a cord of its own from over cell
+## (x, y), giving the light of `kind`; `body` the room it takes up.
+func _hang_light(x: int, y: int, light: Lantern, kind: String, body: Rect2i) -> void:
 	var top := tiles.anchor(cells, x, y)
 	var hangs := tiles.lantern_top(cells, x, y)
 	var cord := Rope.of("cord")
@@ -261,21 +267,17 @@ func _hang_lantern(x: int, y: int) -> void:
 	cord.z_index = -1
 	cord.visibility_layer = PixelCamera.WORLD_LAYER
 	add_child(cord)
-	var lantern := Lantern.new()
-	lantern.salt = x * 7 + y * 3
-	lantern.z_index = -1
-	lantern.visibility_layer = PixelCamera.WORLD_LAYER
-	lantern.material = Lighting.glow()
-	add_child(lantern)
-	var lamp := _lamp(MapTiles.LANTERN_LIGHT)
-	lamp.position = Vector2(0, 5 * S)
-	lantern.add_child(lamp)
-	var body := MapTiles.LANTERN_BODY
-	cord.attach(lantern, cord.nodes.size() - 1, Vector2.ZERO, Rect2(Vector2(body.position) * S, Vector2(body.size) * S))
+	light.salt = x * 7 + y * 3
+	light.z_index = -1
+	light.visibility_layer = PixelCamera.WORLD_LAYER
+	light.material = Lighting.glow()
+	add_child(light)
+	Shine.give(light, kind)
+	cord.attach(light, cord.nodes.size() - 1, Vector2.ZERO, Rect2(Vector2(body.position) * S, Vector2(body.size) * S))
 	ropes.append(cord)
 	_spans.append(Rect2(Vector2(x * C + C / 2, top) * S, Vector2.ZERO).grow(length + body.end.y * S))
 	_cords.append(cord)
-	lanterns.append(lantern)
+	lanterns.append(light)
 
 func _hang_line(x: int, y: int, mark: String) -> void:
 	var last := MapTiles.run_down(cells, x, y, mark)
@@ -326,47 +328,32 @@ func _grow_foliage() -> void:
 			add_child(patch)
 			plants.append(patch)
 
-## The lamps of the fires, the caps and the fireflies.
+## The light of the fires, the fireplaces, the caps and the fireflies: given
+## by what draws them burning and glowing (`_life`), each where it stands.
 func _place() -> void:
-	for lamp in lamps:
-		if is_instance_valid(lamp) and not (lamp.get_parent() is Lantern):
-			lamp.queue_free()
-	lamps = lamps.filter(func(l: Lamp) -> bool: return is_instance_valid(l) and l.get_parent() is Lantern)
-	_fires.clear()
+	Shine.put_out(_life)
 	_stills.clear()
 	_alive.clear()
 	for y in cells.rows:
 		var row := cells.dressing[y] if y < cells.dressing.size() else ""
 		for x in mini(row.length(), cells.cols):
 			var mark := row[x]
-			if mark == "F" or mark == "m" or mark == "n":
+			if mark in ["F", "H", "m", "n"]:
 				_stills.append([mark, x, y])
-			if mark == "F" or mark == "m" or mark == "*":
+			if mark in ["F", "H", "m", "*"]:
 				_alive.append([mark, x, y])
-			var at := Vector2(x * C + C / 2, (y + 1) * C - 6) * S
+			var ground := Vector2(x * C + C / 2, (y + 1) * C) * S
 			match mark:
 				"F":
-					var fire := _lamp(MapTiles.FIRE_LIGHT)
-					fire.position = at
-					add_child(fire)
-					_fires.append([fire, x + y])
+					Shine.give(_life, "fire", ground - Vector2(0, 6 * S))
+				"H":
+					Shine.give(_life, "fireplace", ground)
 				"m":
-					var caps := _lamp(MapTiles.CAPS_LIGHT)
-					caps.position = at
-					add_child(caps)
+					Shine.give(_life, "mushrooms", ground - Vector2(0, 6 * S))
 				"*":
-					var flies := _lamp(MapTiles.FLIES_LIGHT)
-					flies.position = Vector2(x * C + C / 2, y * C + C / 2) * S
-					add_child(flies)
+					Shine.give(_life, "fireflies", Vector2(x * C + C / 2, y * C + C / 2) * S)
 	_still.queue_redraw()
 	_life.queue_redraw()
-
-func _lamp(light: Dictionary) -> Lamp:
-	var lamp := Lamp.of(light["color"], float(light["reach"]), float(light["energy"]))
-	lamp.volume = float(light["volume"])
-	lamp.shadows = bool(light["shadows"])
-	lamps.append(lamp)
-	return lamp
 
 func _paint_still(c: CanvasItem) -> void:
 	for prop: Array in _stills:
@@ -375,6 +362,8 @@ func _paint_still(c: CanvasItem) -> void:
 		match String(prop[0]):
 			"F":
 				MapTiles.fire_ring(c, x * C + C / 2, (y + 1) * C)
+			"H":
+				MapTiles.fireplace(c, x * C + C / 2, (y + 1) * C)
 			"m":
 				MapTiles.caps(c, x * C + C / 2, (y + 1) * C)
 			"n":
@@ -389,6 +378,8 @@ func _paint_life(c: CanvasItem) -> void:
 		match String(prop[0]):
 			"F":
 				MapTiles.fire_flames(c, x * C + C / 2, (y + 1) * C, _t, x + y)
+			"H":
+				MapTiles.fireplace_flames(c, x * C + C / 2, (y + 1) * C, _t, x + y)
 			"m":
 				MapTiles.caps_glow(c, x * C + C / 2, (y + 1) * C, _t, x)
 			"*":
@@ -442,8 +433,6 @@ func _process(delta: float) -> void:
 	_t += delta
 	_follow()
 	_wake()
-	for fire: Array in _fires:
-		(fire[0] as Lamp).energy = float(MapTiles.FIRE_LIGHT["energy"]) * (0.75 + 0.35 * HideoutScenery.flicker(_t, int(fire[1])))
 	_due -= delta
 	if _due > 0.0:
 		return

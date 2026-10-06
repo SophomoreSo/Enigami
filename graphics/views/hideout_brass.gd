@@ -126,6 +126,12 @@ var _room: Layer
 var _room_life: Layer
 var _fittings: Layer
 var _life: Layer
+## The light it gives (`shine`) that is brightened and dimmed as it is painted:
+## the lamps under the arches, by the station each hangs over; the crystal in
+## the rack; and the gate's.
+var _lamp_lights: Dictionary = {}
+var _crystal_light: Shine
+var _gate_light: Shine
 
 ## The heaped cloud along the horizon, as the rounds it is made of:
 ## `{x, y, r}`. And the clouds going over, each `{y, speed, from, wide,
@@ -167,11 +173,34 @@ func _build() -> void:
 	_far = still(_paint_far)
 	_near = still(_paint_near)
 	_drift = moving(_paint_drift)
-	_room = still(_paint_room)
+	_room = room(_paint_room)
 	_hang_lamps()
 	_room_life = moving(_paint_room_life)
 	_fittings = still(_paint_fittings)
 	_life = moving(_paint_life)
+	_give_light()
+
+## What it paints lit, giving light where it is painted: the crystal in the
+## rack, the fire under the boiler by the gate, and the gate's own. The lamps
+## under the arches give theirs as they are hung, and swing with it.
+func _give_light() -> void:
+	var rack: Vector2i = _at["weapons"]
+	_crystal_light = shine(_life, "crystal", rack.x + 5.5, rack.y - 46.5)
+	shine(_room_life, "fire", 463.5, 298).level = 0.5
+	var g: Vector2i = _at["gate"]
+	_gate_light = shine(_life, "gate_light", g.x, g.y - 36)
+
+## How lit each is this moment, as its picture is: a lamp lit for somebody at
+## the station under it, the crystal pulsing, and the gate the colour of
+## whether it would take you.
+func _shine_now() -> void:
+	for station: String in _lamp_lights:
+		(_lamp_lights[station] as Shine).level = 0.1 + 0.9 * float(_lit.get(station, 0.0))
+	var lit := float(_lit.get("weapons", 0.0))
+	_crystal_light.level = (0.6 + 0.4 * sin(_t * 2.3)) * (0.6 + 0.4 * lit)
+	var open := _gate_open()
+	_gate_light.color = CRYSTAL if open else SHUT
+	_gate_light.level = (0.6 + 0.4 * float(_lit.get("gate", 0.0))) * (1.0 if open else 0.6)
 
 ## What is out past the arches slides a little as the player walks the room,
 ## the nearer of the city furthest and the sky not at all: whole pixels of
@@ -515,8 +544,9 @@ func _paint_arches(c: CanvasItem) -> void:
 ## through it — a bolt, a blade: they hang over anybody's head.
 func _hang_lamps() -> void:
 	for lamp: Array in LAMPS:
-		ride(cord(Vector2i(lamp[0], lamp[1]), lamp[2], UMBER),
-			hung(_paint_lamp.bind(String(lamp[3])), true), LAMP_BODY)
+		var lit := hung(_paint_lamp.bind(String(lamp[3])), true)
+		_lamp_lights[String(lamp[3])] = shine(lit, "lamp", 0, 0)
+		ride(cord(Vector2i(lamp[0], lamp[1]), lamp[2], UMBER), lit, LAMP_BODY)
 
 ## A lamp on the end of its chain, about the pixel it hangs by: lit when the
 ## `station` under it would answer.

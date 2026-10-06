@@ -20,6 +20,13 @@ extends Node2D
 ## player is at one and whether the gate would open, and changes nothing; with
 ## it gone the hideout is the bare room it was. So it goes on moving while the
 ## game is stopped: it is weather, and a menu does not stop the rain.
+##
+## What a look paints glowing gives light as well (`shine`): a torch, a tube,
+## a sign, each the light of its kind (`Shine`, a row of `lights`), put where
+## it is painted and brightened and dimmed as the picture is (`_shine_now`).
+## What is seen out past the room — the sky, the city, the wood — is lit as it
+## is painted, and by nothing in the room: the room's own depth (`room`) says
+## what of it is open.
 
 const S := PixelCamera.SCALE
 
@@ -38,6 +45,8 @@ const TALLEST := 68
 ## is pixel art, moving a pixel at a time, and a screen drawing a hundred and
 ## twenty frames a second would have it all drawn four times for one picture.
 const REDRAWS := 30.0
+## What marks what is seen out past the room as out there (`room`).
+const OUT_THERE := preload("res://graphics/assets/shaders/out_there.gdshader")
 
 ## A depth of the picture: drawn once, by whatever it was given, and again
 ## only when it is asked to be. It keeps count, so a test can see that what
@@ -45,6 +54,9 @@ const REDRAWS := 30.0
 class Layer extends Node2D:
 	var paint: Callable
 	var painted := 0
+	## Whether it is out past the room (`room`): every depth made before the
+	## room is.
+	var out_there := false
 
 	func _draw() -> void:
 		painted += 1
@@ -122,6 +134,52 @@ func still(paint: Callable) -> Layer:
 	_still.append(l)
 	return l
 
+## The room itself: a depth drawn once, as any `still` is, that is the room's
+## walls and floor and what is built into them, and not what is seen out past
+## them. Every depth before it is out there, and whatever it leaves open of
+## them is marked so in the picture of the world's normals
+## (`out_there.gdshader`): no lamp in the room lights the sky through its
+## arches, and no darkness in the room dims it. Only what gives light out
+## there with it does (`shine`).
+func room(paint: Callable) -> Layer:
+	for depth in _still + _moving:
+		depth.out_there = true
+	var l := still(paint)
+	_mark_out_there(paint)
+	return l
+
+## The room's walls drawn once more, alone, into a picture of their own the
+## size of the room, and that picture drawn over the room in the normals and
+## nowhere else. It is the first of the look's drawn there, so whatever hangs
+## in the room, and whoever stands in it, is drawn over the mark as it is over
+## the walls, and is in the room.
+func _mark_out_there(paint: Callable) -> void:
+	var size := Vector2i(RIGHT - LEFT, FLOOR - TOP)
+	var walls := SubViewport.new()
+	walls.disable_3d = true
+	walls.transparent_bg = true
+	walls.size = size
+	walls.render_target_update_mode = SubViewport.UPDATE_ONCE
+	add_child(walls)
+	walls.canvas_transform = Transform2D(0.0, Vector2.ONE / S, 0.0, -Vector2(LEFT, TOP))
+	var alone := Layer.new()
+	alone.paint = paint
+	walls.add_child(alone)
+	var mark := Layer.new()
+	mark.visibility_layer = Lighting.NORMAL_LAYER
+	mark.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	mark.material = ShaderMaterial.new()
+	(mark.material as ShaderMaterial).shader = OUT_THERE
+	var drawn := walls.get_texture()
+	mark.paint = func(c: CanvasItem) -> void:
+		c.draw_texture_rect(drawn, Rect2(Vector2(LEFT, TOP) * S, Vector2(size) * S), false)
+	# Not before the walls have been drawn into their picture: an empty one
+	# would mark the whole room out there.
+	mark.visible = false
+	RenderingServer.frame_post_draw.connect(mark.show, CONNECT_ONE_SHOT)
+	add_child(mark)
+	move_child(mark, 0)
+
 ## A depth that moves: drawn again REDRAWS times a second.
 func moving(paint: Callable) -> Layer:
 	var l := Layer.new()
@@ -179,6 +237,7 @@ func _process(delta: float) -> void:
 			_lit[id] = move_toward(float(_lit.get(id, 0.0)), want, delta * 5.0)
 	if _watched():
 		_slide(_walked())
+	_shine_now()
 	_due -= delta
 	if _due <= 0.0:
 		_due = maxf(_due + 1.0 / REDRAWS, 0.0)
@@ -186,6 +245,31 @@ func _process(delta: float) -> void:
 			l.queue_redraw()
 		for l in _hung:
 			l.queue_redraw()
+
+## --- what gives light ------------------------------------------------------
+
+## `layer` — a depth, or something hung — gives the light of the kind `kind`
+## (`Shine`, a row of `lights`) at the pixel (x, y) of the buffer: of the room,
+## or, on something hung, about the pixel it hangs by. The light is where the
+## layer is, and slides or swings with it; on a depth out past the room
+## (`room`) it is out there too, and lights what is. In `colour`, for one a
+## look tints its own way; and `wide` by `tall` pixels, for an area a look
+## sizes its own way. Answers it, for the look to brighten and dim
+## (`_shine_now`).
+func shine(layer: Node2D, kind: String, x: float, y: float, colour: Color = Color(0, 0, 0, 0),
+		wide: int = 0, tall: int = 0) -> Shine:
+	var s := Shine.give(layer, kind, Vector2(x, y) * S)
+	s.out_there = layer is Layer and (layer as Layer).out_there
+	if colour.a > 0.0:
+		s.color = Color(colour.r, colour.g, colour.b)
+	if wide > 0:
+		s.size = Vector2(wide, maxi(tall, 1)) * S
+	return s
+
+## A look's own: how lit each of its lights is this moment, as its picture
+## is. Every frame.
+func _shine_now() -> void:
+	pass
 
 ## Whether there is a player in the room to move the depths for.
 func _watched() -> bool:

@@ -1,13 +1,14 @@
 shader_type canvas_item;
 render_mode unshaded, blend_add, skip_vertex_transform;
 
-// The shadow one lamp throws off the edges of what stands in its light
+// The shadow one light throws off the edges of what stands in it
 // (graphics/shadow_caster.gd), after aarthificial's deferred lights and the
 // shadow meshes of Unity's 2D renderer it takes them from: every edge is a
 // strip with no width, two of its corners on the edge and two more on top of
 // them, and all four know which way the edge faces. Here, for an edge that
-// faces away from the lamp, the second two are pushed out from the lamp
-// further than it reaches — and the strip is the shadow that edge throws.
+// faces away from the light, the second two are pushed out from the light
+// further than it reaches — and the strip is the shadow that edge throws. A
+// sun's light comes all one way, so its shadows are thrown all that way.
 //
 // The video draws each caster's whole mesh, counts in the stencil buffer how
 // many cover a pixel, and takes the caster's own sprite away again, so a
@@ -20,8 +21,10 @@ render_mode unshaded, blend_add, skip_vertex_transform;
 // picture of its own (`Lighting`): one of its three to a lamp, added, so
 // three lamps share a picture and none touches another's.
 
-uniform vec2 light;                 // where the lamp is, in the world
-uniform float reach = 4096.0;       // how far an edge's shadow is thrown: past anything the lamp could light
+uniform vec2 light;                 // where the light is, in the world
+uniform bool parallel = false;      // a sun's: thrown `aim`, wherever the edge is
+uniform vec2 aim = vec2(0.0, 1.0);
+uniform float reach = 4096.0;       // how far an edge's shadow is thrown: past anything the light could light
 uniform vec3 channel = vec3(1.0, 0.0, 0.0);
 
 void vertex() {
@@ -31,8 +34,9 @@ void vertex() {
 	// one of the two that go.
 	vec2 facing = normalize(mat2(MODEL_MATRIX[0].xy, MODEL_MATRIX[1].xy) * UV);
 	vec2 from = at - light;
-	if (COLOR.r > 0.5 && dot(-from, facing) < 0.0) {
-		at += from / max(length(from), 0.0001) * reach;
+	vec2 way = parallel ? aim : from / max(length(from), 0.0001);
+	if (COLOR.r > 0.5 && dot(way, facing) > 0.0) {
+		at += way * reach;
 	}
 	VERTEX = at;
 }
