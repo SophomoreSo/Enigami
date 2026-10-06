@@ -3,11 +3,16 @@ extends Node
 ## left over. Checked across shake offsets, in a raid and on the bench: the
 ## picture covers the screen, a world point lands where the real camera puts it
 ## (to the half pixel the slide is rounded to), the slide is whole pixels, and
-## what reaches the screen really is 2× pixels.
+## what reaches the screen really is 2× pixels. And the picture is drawn in a
+## few dozen draws, not one or two for every cell of rock in the room.
 ##
 ## Needs a real renderer: the block check reads the frame back.
 
 const GameScript := preload("res://app/game.gd")
+## The most draws the world's picture may take on either screen. It takes a
+## few dozen; when every cell of rock was edged with an unfilled rect, which
+## the renderer draws on its own, it took over a thousand.
+const DRAWS := 200
 
 var game: Node
 var fails := 0
@@ -138,6 +143,12 @@ func blocks(name: String, pixels: PixelCamera, hud_layer: CanvasLayer) -> void:
 	check(parities.size() == 4, "%s: and that held at every parity of the slide (%s)"
 		% [name, ", ".join(slides)])
 
+## How many draws the world's picture took on the last frame drawn.
+func draws(screen: String, pixels: PixelCamera) -> void:
+	await frames(2)
+	var n := pixels._view.get_render_info(Viewport.RENDER_INFO_TYPE_CANVAS, Viewport.RENDER_INFO_DRAW_CALLS_IN_FRAME)
+	check(n > 0 and n <= DRAWS, "%s: the world's picture is drawn in %d draws, of the %d it may" % [screen, n, DRAWS])
+
 func frame_ms(n: int = 240) -> float:
 	await frames(30)
 	var t0 := Time.get_ticks_usec()
@@ -166,6 +177,7 @@ func _ready() -> void:
 	var rv: RaidView = Views.of(raid)
 	await audit("raid", rv.pixels)
 	await blocks("raid", rv.pixels, rv.hud.get_parent() as CanvasLayer)
+	await draws("raid", rv.pixels)
 
 	# The bench never ends on its own, so the timing runs there.
 	game.goto_sandbox()
@@ -177,6 +189,7 @@ func _ready() -> void:
 	var sv: SandboxView = Views.of(sb)
 	await audit("sandbox", sv.pixels)
 	await blocks("sandbox", sv.pixels, sv.panel.get_parent() as CanvasLayer)
+	await draws("sandbox", sv.pixels)
 
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	var through: float = await frame_ms()

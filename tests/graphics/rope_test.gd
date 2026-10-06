@@ -1,7 +1,7 @@
 extends Node
 ## A rope: the line of nodes from aarthificial's Legacy devlog #21, the
-## tables its kinds and their numbers are read from, and the cables a room
-## hangs from it.
+## tables its kinds and their numbers are read from, the cables a room
+## hangs from it, and the cords the Jean Grey test's lanterns hang on.
 ##
 ## A kind of line is made with its row's numbers, and a kind that is not
 ## there is said and hangs as a cable. Bresenham's line comes out whole and
@@ -60,6 +60,7 @@ func _ready() -> void:
 	_movers()
 	_cut_through()
 	_rooms()
+	_grove()
 	_refusals()
 	print("[ROPE] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)
@@ -663,6 +664,44 @@ func _anchors(view: RoomView) -> Array:
 	for rope: Rope in view.ropes:
 		out.append(rope.point_of(0))
 	return out
+
+## The lanterns under the Jean Grey test's roofs hang on cords, where they
+## were painted when they hung still, and swing when a body goes through one.
+func _grove() -> void:
+	var ground := JeanGreyBase.new()
+	add_child(ground)
+	ground.build(Vector2i.ZERO, {"kind": "entry", "danger": 1, "region": 0, "variant": 0, "enemies": [], "loot": []}, {}, 0)
+	var view := Views.of(ground) as GroveGroundView
+	check(view != null and not view.cords.is_empty() and view.cords.size() == view._lanterns.size(),
+		"every lantern under a roof of the Jean Grey test hangs on a cord of its own (%d)" % (0 if view == null else view.cords.size()))
+	if view == null or view.cords.is_empty():
+		ground.free()
+		return
+	var placed := true
+	for i in view.cords.size():
+		var cord: Rope = view.cords[i]
+		var cell: Vector2i = view._lanterns[i]
+		var end := cord.nodes.size() - 1
+		var c := GroveGroundView.C
+		@warning_ignore("integer_division")
+		var hangs_by := Vector2(cell.x * c + c / 2, (cell.y + 1) * c + 10 + (cell.x * 7) % 12) * Rope.S
+		var rider := cord._riders[0]["node"] as Node2D if not cord._riders.is_empty() else null
+		if cord.kind != "cord" or not cord.ridden(end) or rider == null or rider.global_position != hangs_by \
+				or not ground.is_solid_at(cord.point_of(0) - Vector2(0, Rope.S)):
+			placed = false
+	check(placed, "each a cord, hung from under its roof, with the lantern riding its end where it was painted")
+	var walker := Actor.new()
+	add_child(walker)
+	var swung: Rope = view.cords[0]
+	swung.set_physics_process(false)
+	var lamp := swung._riders[0]["node"] as Node2D
+	walker.global_position = lamp.global_position + Vector2(-4, 6) * Rope.S
+	walker.velocity = Vector2(250, 0)
+	swung.step(DT)
+	check((swung.nodes[swung.nodes.size() - 1]["vel"] as Vector2).x > 5.0,
+		"and a body going through one swings it (%s)" % str(swung.nodes[swung.nodes.size() - 1]["vel"]))
+	walker.free()
+	ground.free()
 
 func _rooms() -> void:
 	var record := {"kind": "entry", "danger": 1, "region": 0, "variant": 7, "enemies": [], "loot": []}

@@ -417,7 +417,7 @@ func draw_static(c: CanvasItem) -> void:
 			c.draw_rect(r, tint)
 			if not room.is_solid(x, y - 1):
 				c.draw_rect(Rect2(r.position, Vector2(Room.CELL, 4)), tint.lightened(0.35))
-			c.draw_rect(r, Color(0, 0, 0, 0.22), false, 2.0)
+			_outline(c, r, Color(0, 0, 0, 0.22))
 
 	# The rock past the room, tiled the way the room's own is, and the tunnels
 	# its doors open into.
@@ -433,12 +433,24 @@ func draw_static(c: CanvasItem) -> void:
 			c.draw_rect(r, tint)
 			if not _rock(x, y - 1):
 				c.draw_rect(Rect2(r.position, Vector2(Room.CELL, 4)), tint.lightened(0.35))
-			c.draw_rect(r, Color(0, 0, 0, 0.22), false, 2.0)
+			_outline(c, r, Color(0, 0, 0, 0.22))
 
 	for dir in room.doors:
 		var dr := room.door_rect(int(dir))
 		c.draw_rect(dr, Style.DOOR_FILL)
-		c.draw_rect(dr, Style.DOOR_EDGE, false, 2.0)
+		_outline(c, dr, Style.DOOR_EDGE)
+
+## A rect's edge, as an unfilled `draw_rect` two units wide draws it, out of
+## four filled rects. An unfilled rect is a polygon of its own, which the
+## renderer draws on its own and which cuts the run of rects either side of it
+## in two: round every cell of rock in the field, that was two draws a cell —
+## a thousand a frame for the bench, and most of what its frame cost. Filled,
+## every rect in the field is drawn together, to the same pixels.
+static func _outline(c: CanvasItem, r: Rect2, col: Color) -> void:
+	c.draw_rect(Rect2(r.position.x - 1.0, r.position.y - 1.0, r.size.x + 2.0, 2.0), col)
+	c.draw_rect(Rect2(r.position.x - 1.0, r.end.y - 1.0, r.size.x + 2.0, 2.0), col)
+	c.draw_rect(Rect2(r.position.x - 1.0, r.position.y + 1.0, 2.0, r.size.y - 2.0), col)
+	c.draw_rect(Rect2(r.end.x - 1.0, r.position.y + 1.0, 2.0, r.size.y - 2.0), col)
 
 func _draw() -> void:
 	if room == null or not is_instance_valid(room) or room.extraction.is_empty():

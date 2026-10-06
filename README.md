@@ -60,7 +60,7 @@ godot res://tests/circuit/parts_test.tscn   # every part's rows fit, and the run
 godot res://tests/circuit/invert_test.tscn  # INVERT turns round the one part before it, by that part's opposites
 godot res://tests/feature/boards_test.tscn  # every board the game ships builds whole and gets all its flow out
 godot res://tests/graphics/menus_test.tscn  # every menu's rows name an act its screen has, in every language
-godot res://tests/graphics/rope_test.tscn   # a cable's line of nodes: hung, pushed, settled, cut at, what rides one, and where a room hangs them
+godot res://tests/graphics/rope_test.tscn   # a cable's line of nodes: hung, pushed, settled, cut at, what rides one, where a room hangs them, and the Jean Grey test's lanterns swinging on theirs
 godot res://tests/graphics/foliage_test.tscn # the grass, flowers and bushes a patch grows, its mask, and where a room grows them
 godot res://tests/graphics/velocity_test.tscn # the velocity buffer: what moving things push, how it springs back, and the foliage leaning for it
 godot res://tests/graphics/lighting_test.tscn # the light: the world drawn for its colours and for how it faces, a lamp added to it, what stands in one's light dark behind, and what the game lights
