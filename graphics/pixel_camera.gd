@@ -35,6 +35,12 @@ extends CanvasLayer
 ## size of its own buffer and on the same grid, which the foliage reads to
 ## bend where something moves through it — the way the package that buffer
 ## comes from hangs it on the camera.
+##
+## And the light it is shown in: a `Lighting`, which takes this buffer as the
+## world's colours, draws the world a second time for how it faces, and adds
+## every lamp there is to it, a pass each — on the same grid again, so light
+## falls in the pixels the world is drawn in. What is laid over the screen is
+## the picture that comes to; with nothing lit, it is this buffer as it was.
 
 const SCALE := int(Sprites.PIXEL_SCALE)
 const BORDER := 1
@@ -59,6 +65,8 @@ var _view: SubViewport
 var _image: Sprite2D
 ## What everything moving does to the air in the picture, on its grid.
 var velocity: VelocityBuffer
+## The light the picture is shown in, on its grid.
+var lighting: Lighting
 
 ## Draws text into the world, centred on `at`, `size` in buffer pixels.
 ##
@@ -82,12 +90,12 @@ static func draw_text(c: CanvasItem, at: Vector2, text: String, color: Color,
 
 func _enter_tree() -> void:
 	_live += 1
-	get_viewport().canvas_cull_mask &= ~WORLD_LAYER
+	get_viewport().canvas_cull_mask &= ~(WORLD_LAYER | Lighting.NORMAL_LAYER | Lighting.BACKDROP_LAYER)
 
 func _exit_tree() -> void:
 	_live -= 1
 	if _live == 0:
-		get_viewport().canvas_cull_mask |= WORLD_LAYER
+		get_viewport().canvas_cull_mask |= WORLD_LAYER | Lighting.NORMAL_LAYER | Lighting.BACKDROP_LAYER
 		# Nothing is drawing the world any more, so the grid left for whatever is
 		# drawn over it is the screen's own.
 		if is_instance_valid(Pointer):
@@ -107,7 +115,13 @@ func _ready() -> void:
 	_view.disable_3d = true
 	_view.snap_2d_transforms_to_pixel = true
 	_view.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	# How the world faces is drawn for the light alone, never into the picture.
+	_view.canvas_cull_mask = 0xFFFFFFFF & ~Lighting.NORMAL_LAYER
 	add_child(_view)
+	# After the buffer it lights, so its passes are drawn after it each frame.
+	lighting = Lighting.new()
+	lighting.colour = _view
+	add_child(lighting)
 	_image = Sprite2D.new()
 	_image.centered = false
 	_image.texture = _view.get_texture()
@@ -134,6 +148,8 @@ func _follow() -> void:
 	_image.position = -Vector2.ONE * BORDER * SCALE * zoom - (leftover * zoom).round()
 	# The buffer's first pixel is this one's, BORDER pixels out from the grid.
 	velocity.follow(grid - Vector2.ONE * BORDER * SCALE, want)
+	lighting.follow(grid - Vector2.ONE * BORDER * SCALE, want, _view.canvas_transform)
+	_image.texture = lighting.picture()
 	# The crosshair is drawn over this picture, at this picture's scale, by the
 	# shell — which has no other way to learn where this grid starts. Handed over
 	# rather than fetched: `PixelCamera` is a graphics class and the pointer is

@@ -1,6 +1,8 @@
 shader_type canvas_item;
 render_mode unshaded;
 
+#include "res://graphics/assets/shaders/lighting.gdshaderinc"
+
 // A sprite whose frames are painted in coordinates rather than colours.
 //
 // Each frame pixel's red and green are the column and row of a pixel in the
@@ -10,7 +12,10 @@ render_mode unshaded;
 // all — see `graphics/skin/pixel_map.gd`, after aarthificial's technique.
 //
 // The status uniforms are the same as `actor_sprite.gdshader`'s, so an actor
-// view drives both shaders the same way.
+// view drives both shaders the same way — and so is what it draws into the
+// picture of the world's normals: the frame's own edge, facing out. A frame
+// says which of its pixels are drawn the way any sprite does, whatever it
+// says of their colour.
 
 uniform sampler2D skin : filter_nearest, repeat_disable;
 uniform vec4 tint : source_color = vec4(1.0, 1.0, 1.0, 1.0);
@@ -28,5 +33,11 @@ void fragment() {
 	c.rgb *= tint.rgb;
 	c.a *= tint.a;
 	c.rgb = mix(c.rgb, flash_color.rgb, flash);
-	COLOR = c;
+	if (drawing_normals(SCREEN_PIXEL_SIZE)) {
+		vec2 facing;
+		EDGE_FACING(TEXTURE, UV, REGION_RECT, facing)
+		COLOR = normal_pixel(facing, flash, c.a);
+	} else {
+		COLOR = c;
+	}
 }

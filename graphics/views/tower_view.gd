@@ -56,12 +56,14 @@ func _ready() -> void:
 	_still = Still.new()
 	_still.view = self
 	_still.z_index = -1
-	# A view's own layer is set for it, but a child of one is not, and anything
-	# left on the default layer is drawn a second time under the pixel picture.
-	_still.visibility_layer = PixelCamera.WORLD_LAYER
+	# The back of the picture: drawn into it, and left out of how it faces,
+	# which is flat (`Lighting.BACKDROP_LAYER`).
+	_still.visibility_layer = Lighting.BACKDROP_LAYER
 	add_child(_still)
 	# The live light goes over the building and under everyone standing in it.
 	z_index = 1
+	# And is light: the neon is as bright as it is whatever lamp is near it.
+	material = Lighting.glow()
 	if tower != null:
 		tower.built.connect(_on_built)
 	# The concrete past the walls is only as wide as the screen shows.

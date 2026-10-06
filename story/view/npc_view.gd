@@ -72,6 +72,11 @@ func _build_sprite() -> void:
 	sprite.position = Vector2(0, npc.body_size.y * 0.5 + (frame.y * 0.5 - art_rect.end.y) * s)
 	add_child(sprite)
 	sprite.play("idle")
+	# Somebody standing in a lamp's light throws a shadow the size of
+	# themselves, as every body in a fight does (`ShadowCaster`).
+	var caster := ShadowCaster.new()
+	caster.box(Rect2(-npc.body_size * 0.5, npc.body_size))
+	add_child(caster)
 	_head_y = sprite.position.y + (art_rect.position.y - frame.y * 0.5) * s
 	bubble.npc_head = _head_y
 

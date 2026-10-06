@@ -138,11 +138,17 @@ func text(pos: Vector2, s: String, color: Color = Color(1, 1, 1)) -> void:
 ## Each is set up afresh every time it is lent, and let go of the moment it is:
 ## `_disposed` is a primitive saying it has a little left to play, and it hands
 ## itself back to its pool once it has played it.
+##
+## All three are their own light (`Lighting.glow`): a spark is as bright in a
+## dark room, and no lamp makes a number brighter.
 class Spark extends Node2D:
 	var pool: Pool = null
 	var parts: Array = []
 	var life: float = 0.45
 	var color: Color = Color.WHITE
+
+	func _init() -> void:
+		material = Lighting.glow()
 
 	func setup(pos: Vector2, c: Color, count: int, power: float) -> void:
 		position = pos
@@ -187,6 +193,9 @@ class Ring extends Node2D:
 	var color: Color = Color.WHITE
 	var radius: float = 30.0
 
+	func _init() -> void:
+		material = Lighting.glow()
+
 	func setup(pos: Vector2, c: Color, r: float) -> void:
 		position = pos
 		color = c
@@ -216,6 +225,9 @@ class FloatText extends Node2D:
 	var life: float = 0.8
 	var label: String = ""
 	var color: Color = Color.WHITE
+
+	func _init() -> void:
+		material = Lighting.glow()
 
 	func setup(pos: Vector2, s: String, c: Color) -> void:
 		position = pos + Vector2(randf_range(-6, 6), -8)

@@ -8,6 +8,7 @@ var cut: DashSlash
 func _ready() -> void:
 	cut = get_parent() as DashSlash
 	z_index = 46
+	material = Lighting.glow()
 
 func _process(_delta: float) -> void:
 	queue_redraw()

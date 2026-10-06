@@ -5,14 +5,31 @@ extends Node2D
 ## where it landed. It has already struck by the time it is first drawn, so
 ## this is the afterimage of a strike, thinning out over a few frames, and not
 ## a thing travelling.
+##
+## Where it landed is lit for as long: a lamp at the flare, going out with it.
+
+## How far the flare's light reaches in world units, how bright it is as it
+## lands, and how much of it hangs in the air.
+const FLARE_REACH := 140.0
+const FLARE := 2.2
+const FLARE_AIR := 0.12
 
 var beam: Zap
+var lamp: Lamp
 
 func _ready() -> void:
 	beam = get_parent() as Zap
 	z_index = 47
+	material = Lighting.glow()
+	lamp = Lamp.of(Style.NEUTRAL_ATTACK, FLARE_REACH, 0.0)
+	lamp.volume = FLARE_AIR
+	add_child(lamp)
 
 func _process(_delta: float) -> void:
+	if beam != null and is_instance_valid(beam):
+		lamp.position = beam.to
+		lamp.color = Style.element_color(beam.payload)
+		lamp.energy = FLARE * clampf(beam.life / beam.max_life, 0.0, 1.0)
 	queue_redraw()
 
 func _draw() -> void:

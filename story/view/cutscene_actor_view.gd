@@ -34,6 +34,11 @@ func _build_sprite() -> void:
 	sprite.position = Vector2(0, who.body_size.y * 0.5 + (frame.y * 0.5 - art_rect.end.y) * s)
 	add_child(sprite)
 	sprite.play("idle")
+	# Somebody standing in a lamp's light throws a shadow the size of
+	# themselves, as every body in a fight does (`ShadowCaster`).
+	var caster := ShadowCaster.new()
+	caster.box(Rect2(-who.body_size * 0.5, who.body_size))
+	add_child(caster)
 
 func _process(_delta: float) -> void:
 	if who == null or not is_instance_valid(who):

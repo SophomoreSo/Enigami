@@ -10,6 +10,8 @@ var _t: float = 0.0
 func _ready() -> void:
 	pickup = get_parent() as Pickup
 	z_index = 35
+	# Loot is drawn to be found, in a dark room as much as a light one.
+	material = Lighting.glow()
 
 func _process(delta: float) -> void:
 	_t += delta
