@@ -2,33 +2,51 @@ class_name MadeRoom
 extends HandLaidRoom
 
 ## A room made in the map creator (`MapMaker`) and kept as a scene under
-## `data/maps/` (`Maps`). The scene is this node and nothing else, and `plan` —
-## its rows of cells, written the way every hand-laid room is — is a property
-## the file carries, so the file is the room. Anywhere a room is wanted, one is
-## picked up and stood:
+## `data/maps/` (`Maps`). The scene is this node and nothing else, and its
+## layers — rows of cells, written the way every hand-laid room is — are
+## properties the file carries, so the file is the room. Anywhere a room is
+## wanted, one is picked up and stood:
 ##
 ##     var room := Maps.load_room("keep")      # or load(path).instantiate()
 ##     add_child(room)
 ##     room.stand()
 ##
-## A cell is one mark (`HandLaidRoom`): `#` is rock, `.` is open, `P` is where
-## the player starts, `T` is the room's treasure box, `x` is ground worth
-## digging, and a letter of `MONSTERS` is a monster's post — it stands in that
-## cell, on whatever is under it, and one that flies holds the middle of it. The
-## box and the ground to dig are put down on the first floor under their cell,
-## so neither is ever left hanging. Anything else is open.
+## Three layers, each one string a row and a character a cell, `.` for none:
+##
+##   plan      the ground, and what stands on it: the one layer the rules
+##             read. A cell of it is open, or ground (`GROUND`), which is solid
+##             whatever kind it is; or what is put in it — `P` where the player
+##             starts, `T` the room's treasure box, `x` ground worth digging,
+##             and a letter of `MONSTERS` a monster's post. A monster stands in
+##             its cell, on whatever is under it, and one that flies holds the
+##             middle of it; the box and the ground to dig are put down on the
+##             first floor under their cells, so neither is ever left hanging.
+##   back      what stands behind all of it: a wall, a column, a tree, a pane
+##             of glass.
+##   dressing  what is put about it: a lantern, a patch of grass, a vine.
+##
+## The last two are the picture's, and nothing here reads them. Which marks
+## they hold, and what each looks like, is the tileset's — `tileset`, by id —
+## which draws the ground as well: every kind of ground is as solid as the
+## next, and what kind it is says only how it looks.
 ##
 ## The rock goes on past the plan's edge, as it is drawn to (`RoomView`): the
 ## room is shut in on every side whatever its outermost cells hold, so a gap in
 ## a wall is an alcove and never a way to fall out of the world.
 ##
-## Nothing here draws. A made room is a `Room`, and is drawn as one.
+## Nothing here draws.
 
+## The ground every hand-laid room is cut from: stone.
 const ROCK := "#"
 const OPEN := "."
 const START := "P"
 const BOX := "T"
 const DIG := "x"
+## The kinds of ground, by the mark that lays each. All of them are solid,
+## glass as much as stone: clear glass and a mirror are ground a body stands on
+## and cannot go through, and what either shows is the picture's.
+const GROUND := {"#": "stone", "%": "earth", "|": "bark", "=": "wood", "*": "leaves",
+	"o": "glass", "@": "mirror"}
 ## A monster's post, by the letter that marks it.
 const MONSTERS := {
 	"c": "CRAWLER", "s": "SENTRY", "l": "LOBBER", "h": "HOPPER", "d": "DRIFTER",
@@ -40,13 +58,22 @@ const ONE_OF := [START, BOX]
 ## How far past the plan's edge the rock nothing leaves through goes, in cells.
 const BEYOND := 4
 
-## The rows of cells, top to bottom, all the same length.
+## The ground, and what stands on it: the rows of cells, top to bottom, all
+## the same length.
 @export var plan: PackedStringArray = PackedStringArray():
 	set(value):
 		plan = value
 		_measure()
-## Which region's rock it is cut from: the tint a raid's rooms take from how
-## deep they lie.
+## What stands behind it, a row to each of the plan's. A row it does not have
+## is nothing.
+@export var back: PackedStringArray = PackedStringArray()
+## What is put about it, the same way.
+@export var dressing: PackedStringArray = PackedStringArray()
+## Which tileset draws it, by id: "" for the plain rock a raid's rooms are cut
+## from. Which there are is the picture's (`graphics/tiles/`).
+@export var tileset: String = ""
+## Which region's rock the plain rock is: the tint a raid's rooms take from
+## how deep they lie.
 @export_range(0, 3) var region: int = 0
 
 func layout() -> Array:
@@ -59,10 +86,28 @@ func mark_at(x: int, y: int) -> String:
 	var row := plan[y]
 	return row[x] if x >= 0 and x < row.length() else ROCK
 
-## Every mark there is to lay, in the order the map creator offers them: the
-## rock, the player's start, each monster, the box and the ground to dig.
-static func marks() -> PackedStringArray:
-	var out := PackedStringArray([ROCK, START])
+## What stands behind cell (x, y), and what is put about it: `.` for nothing,
+## and off the map.
+func back_at(x: int, y: int) -> String:
+	return _in(back, x, y)
+
+func dressing_at(x: int, y: int) -> String:
+	return _in(dressing, x, y)
+
+static func _in(layer: PackedStringArray, x: int, y: int) -> String:
+	if y < 0 or y >= layer.size() or x < 0 or x >= layer[y].length():
+		return OPEN
+	return layer[y][x]
+
+## Whether `mark` is ground: solid, whatever kind it is.
+static func is_ground(mark: String) -> bool:
+	return GROUND.has(mark)
+
+## Everything that can be put in a cell of the plan that is not ground, in the
+## order the map creator offers it: the player's start, each monster, the box
+## and the ground to dig.
+static func things() -> PackedStringArray:
+	var out := PackedStringArray([START])
 	for mark in MONSTERS:
 		out.append(String(mark))
 	out.append(BOX)
@@ -72,6 +117,17 @@ static func marks() -> PackedStringArray:
 ## The monster `mark` posts, or "" for a mark that is not a monster's.
 static func monster_of(mark: String) -> String:
 	return String(MONSTERS.get(mark, ""))
+
+## Solid wherever the plan has ground of any kind, and off the end of a row.
+func _generate() -> void:
+	_measure()
+	solid.resize(cols * rows)
+	solid.fill(0)
+	for y in rows:
+		var row := plan[y] if y < plan.size() else ""
+		for x in cols:
+			if x >= row.length() or GROUND.has(row[x]):
+				solid[_idx(x, y)] = 1
 
 ## Stands the room up out of its own plan: the grid, the rock, and whatever
 ## the marks say is in it.
@@ -134,9 +190,9 @@ func spawn_point() -> Vector2:
 	return stand_point(best, Player.BODY.y * 0.5)
 
 ## The middle of the cell a thing laid in `c` comes to rest in: `c` itself, or
-## the first one under it with rock beneath.
+## the first one under it with ground beneath.
 func _put_down(c: Vector2i) -> Vector2:
-	while mark_at(c.x, c.y + 1) != ROCK:
+	while not GROUND.has(mark_at(c.x, c.y + 1)):
 		c.y += 1
 	return cell_center(c.x, c.y)
 

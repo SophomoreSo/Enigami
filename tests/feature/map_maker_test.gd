@@ -1,9 +1,11 @@
 extends Node2D
-## The map creator's rules: a map is laid a mark at a time and every stroke can
-## be taken back; SAVE keeps it as a scene Godot loads and anything can pick up
-## as a room; and PLAY stands that room up with a body in it — shut in on every
-## side, with the monsters at their posts and the box where it was laid — and
-## sets it again when the body falls.
+## The map creator's rules: a map is laid a mark at a time, in three layers —
+## the ground and what stands on it, what stands behind, what is put about it —
+## and every stroke can be taken back; SAVE keeps it as a scene Godot loads and
+## anything can pick up as a room, layers, tileset and all; and PLAY stands
+## that room up with a body in it — solid wherever there is ground of any kind,
+## shut in on every side, with the monsters at their posts and the box where
+## it was laid — and sets it again when the body falls.
 ##
 ## No renderer needed: nothing here draws. Maps are kept in a scratch folder
 ## for the length of the test, never in the project's own.
@@ -42,11 +44,17 @@ func _ready() -> void:
 	# --- a new map ------------------------------------------------------------
 	check(maker.cols == Room.W and maker.rows == Room.H, "a new map is a raid's room across and down (%dx%d)" % [maker.cols, maker.rows])
 	check(maker.cells_marked(MadeRoom.START).size() == 1, "with one place for the player to start")
-	check(maker.mark_at(Vector2i(0, 5)) == MadeRoom.ROCK and maker.mark_at(Vector2i(5, 5)) == MadeRoom.OPEN
-			and maker.mark_at(Vector2i(5, Room.H - 1)) == MadeRoom.ROCK,
-		"walled either side and floored, and open between")
+	check(maker.mark_at(Vector2i(0, 5)) == "|" and maker.mark_at(Vector2i(Room.W - 1, 5)) == "|"
+			and maker.mark_at(Vector2i(5, 0)) == "*" and maker.mark_at(Vector2i(5, Room.H - 1)) == "%"
+			and maker.mark_at(Vector2i(5, 5)) == MadeRoom.OPEN,
+		"a clearing: a tree either side, leaves overhead, earth underfoot, and open between")
+	check(["|", "*", "%", MadeRoom.ROCK, "=", "o", "@"].all(func(m: String) -> bool: return MadeRoom.is_ground(m))
+			and not MadeRoom.is_ground(MadeRoom.OPEN) and not MadeRoom.is_ground(MadeRoom.START),
+		"every kind of ground is ground, and nothing else is")
 	check(maker.mark_at(Vector2i(-1, 5)) == MadeRoom.ROCK and maker.mark_at(Vector2i(5, 999)) == MadeRoom.ROCK,
 		"and off the plan there is only rock")
+	check(maker.tileset == MapMaker.NEW_TILESET and maker.back().size() == Room.H and maker.dressing()[0] == MadeRoom.OPEN.repeat(Room.W),
+		"drawn in the tileset a new map is, with nothing behind it and nothing put about it")
 	check(not maker.unsaved and not maker.can_undo(), "nothing to save yet and nothing to take back")
 
 	# --- laying, and taking it back -----------------------------------------------
@@ -84,6 +92,46 @@ func _ready() -> void:
 	maker.lay(Vector2i(34, 19), MadeRoom.DIG)
 	check(maker.cells_marked("c").size() == 2, "but a monster can be posted as often as it is laid")
 
+	# --- the other two layers -------------------------------------------------------
+	maker.begin_stroke()
+	check(maker.lay(Vector2i(8, 12), "|", MapMaker.BACK) and maker.mark_at(Vector2i(8, 12)) == MadeRoom.OPEN
+			and maker.mark_at(Vector2i(8, 12), MapMaker.BACK) == "|",
+		"what stands behind is laid in a layer of its own, and the ground there is as it was")
+	check(maker.lay(Vector2i(9, 12), "L", MapMaker.DRESSING) and maker.mark_at(Vector2i(9, 12), MapMaker.DRESSING) == "L"
+			and maker.mark_at(Vector2i(9, 12), MapMaker.BACK) == MadeRoom.OPEN,
+		"and what is put about it in another")
+	check(maker.lay(Vector2i(31, 19), MadeRoom.START, MapMaker.DRESSING) and maker.cells_marked(MadeRoom.START).size() == 1
+			and maker.mark_at(Vector2i(30, 19)) == MadeRoom.START,
+		"a mark the plan holds one of is held to one in the plan alone")
+	maker.lay(Vector2i(31, 19), MadeRoom.OPEN, MapMaker.DRESSING)
+	check(maker.mark_at(Vector2i(-1, 5), MapMaker.BACK) == MadeRoom.OPEN and maker.mark_at(Vector2i(5, 99), MapMaker.DRESSING) == MadeRoom.OPEN,
+		"off the map neither has anything in it")
+	check(maker.undo() and maker.mark_at(Vector2i(8, 12), MapMaker.BACK) == MadeRoom.OPEN
+			and maker.mark_at(Vector2i(9, 12), MapMaker.DRESSING) == MadeRoom.OPEN,
+		"a stroke across layers is one step to take back")
+	check(maker.redo() and maker.mark_at(Vector2i(8, 12), MapMaker.BACK) == "|"
+			and maker.mark_at(Vector2i(9, 12), MapMaker.DRESSING) == "L", "and to lay again")
+	# Ground of every kind, in a row up by the right wall.
+	maker.begin_stroke()
+	for kind in ["%", "=", "*", "|"]:
+		maker.lay(Vector2i(34 + ["%", "=", "*", "|"].find(kind), 5), kind)
+	# And glass, clear and a mirror, beside them — and a pane of each behind,
+	# under them.
+	maker.lay(Vector2i(32, 5), "o")
+	maker.lay(Vector2i(33, 5), "@")
+	maker.lay(Vector2i(32, 7), "o", MapMaker.BACK)
+	maker.lay(Vector2i(33, 7), "@", MapMaker.BACK)
+	check(maker.mark_at(Vector2i(35, 5)) == "=" and maker.mark_at(Vector2i(37, 5)) == "|"
+			and maker.mark_at(Vector2i(32, 5)) == "o" and maker.mark_at(Vector2i(33, 5)) == "@",
+		"every kind of ground is laid the same way, glass too")
+	check(maker.mark_at(Vector2i(33, 7), MapMaker.BACK) == "@" and maker.mark_at(Vector2i(33, 7)) == MadeRoom.OPEN,
+		"and glass behind is laid behind, the ground there as it was")
+	# Another tileset, and back.
+	maker.set_tileset("rock")
+	check(maker.tileset == "rock" and maker.unsaved, "the map can be drawn in another tileset")
+	check(maker.undo() and maker.tileset == MapMaker.NEW_TILESET and maker.mark_at(Vector2i(35, 5)) == "=",
+		"and that is a step to take back like any other")
+
 	# --- growing and cutting ------------------------------------------------------
 	check(maker.resize(Vector2i(Room.W + 6, Room.H + 3)) and maker.cols == Room.W + 6 and maker.rows == Room.H + 3,
 		"a map grows to its right and under it")
@@ -91,6 +139,10 @@ func _ready() -> void:
 		"with open cells")
 	check(maker.plan().size() == maker.rows and maker.plan()[0].length() == maker.cols
 			and maker.plan()[maker.rows - 1].length() == maker.cols, "and every row the same length")
+	check(maker.back().size() == maker.rows and maker.back()[maker.rows - 1].length() == maker.cols
+			and maker.dressing().size() == maker.rows and maker.dressing()[0].length() == maker.cols
+			and maker.mark_at(Vector2i(8, 12), MapMaker.BACK) == "|",
+		"in every layer, and what was in them stays")
 	check(not maker.resize(Vector2i(2, 2)) or (maker.cols == Room.W and maker.rows == Room.H),
 		"it is cut no smaller than a raid's room")
 	check(maker.undo() and maker.cols == Room.W + 6, "and a change of size is a step to take back too")
@@ -112,6 +164,9 @@ func _ready() -> void:
 	var text := FileAccess.get_file_as_string(path)
 	check(text.begins_with("[gd_scene") and text.contains("res://feature/world/made_room.gd") and text.contains("plan = PackedStringArray("),
 		"a text scene, of one node, carrying its rows of cells")
+	check(text.contains("back = PackedStringArray(") and text.contains("dressing = PackedStringArray(")
+			and text.contains('tileset = "%s"' % MapMaker.NEW_TILESET),
+		"in all three layers, and the tileset it is drawn in")
 
 	# Picked up the way anything in Godot picks a scene up.
 	var scene := ResourceLoader.load(path, "PackedScene", ResourceLoader.CACHE_MODE_IGNORE) as PackedScene
@@ -119,6 +174,10 @@ func _ready() -> void:
 	var picked := scene.instantiate() if scene != null else null
 	check(picked is MadeRoom and (picked as MadeRoom).plan == laid and picked.name == "TestKeep",
 		"and instancing it is the room that was laid, named for the map")
+	check(picked is MadeRoom and (picked as MadeRoom).back == maker.back() and (picked as MadeRoom).dressing == maker.dressing()
+			and (picked as MadeRoom).tileset == MapMaker.NEW_TILESET and (picked as MadeRoom).back_at(8, 12) == "|"
+			and (picked as MadeRoom).dressing_at(9, 12) == "L" and (picked as MadeRoom).dressing_at(-1, 0) == MadeRoom.OPEN,
+		"what stands behind it, what is put about it and its tileset with it")
 	if picked != null:
 		var made := picked as MadeRoom
 		check(made.cols == Room.W + 6 and made.rows == Room.H and made.cells_marked("c").size() == 2,
@@ -142,8 +201,9 @@ func _ready() -> void:
 		"NEW clears the table")
 	check(maker.save_as("other") == "" and Maps.ids() == PackedStringArray(["other", "test_keep"]), "a second map is kept beside the first")
 	check(maker.open("test_keep") and maker.cols == Room.W + 6 and maker.region == 2 and maker.cells_marked("c").size() == 2
-			and maker.map_id == "test_keep" and not maker.unsaved,
-		"LOAD puts a kept map back on the table as it was saved")
+			and maker.map_id == "test_keep" and not maker.unsaved and maker.mark_at(Vector2i(8, 12), MapMaker.BACK) == "|"
+			and maker.mark_at(Vector2i(9, 12), MapMaker.DRESSING) == "L" and maker.tileset == MapMaker.NEW_TILESET,
+		"LOAD puts a kept map back on the table as it was saved, every layer of it")
 	check(maker.undo() and maker.cols == Room.W and maker.map_id == "other" and maker.cells_marked("c").is_empty(),
 		"and a step back is the map that was on the table before, under its own name")
 	check(maker.redo() and maker.cols == Room.W + 6 and maker.map_id == "test_keep", "and a step forward the one that was loaded")
@@ -161,6 +221,15 @@ func _ready() -> void:
 	check(room.cols == maker.cols and room.rows == maker.rows and room.is_solid(3, 3) and not room.is_solid(5, 5)
 			and int(room.data.get("region", -1)) == 2,
 		"the room is the plan, cell for cell, in its region's rock")
+	check(room.is_solid(34, 5) and room.is_solid(35, 5) and room.is_solid(36, 5) and room.is_solid(37, 5)
+			and room.is_solid(32, 5) and room.is_solid(33, 5)
+			and room.is_solid(0, 8) and room.is_solid(8, 0) and room.is_solid(8, Room.H - 1),
+		"solid wherever there is ground of any kind: earth, planks, leaves, bark, and glass of either kind")
+	check(not room.is_solid(32, 7) and not room.is_solid(33, 7) and room.back_at(32, 7) == "o" and room.back_at(33, 7) == "@",
+		"glass behind the ground is no ground: only there for the picture")
+	check(not room.is_solid(8, 12) and not room.is_solid(9, 12) and room.back_at(8, 12) == "|"
+			and room.dressing_at(9, 12) == "L" and room.tileset == MapMaker.NEW_TILESET,
+		"and what stands behind and what is put about it are no ground at all, only there for the picture")
 	var start := maker.cells_marked(MadeRoom.START)[0]
 	var p := maker.player
 	check(absf(p.global_position.x - (start.x + 0.5) * Room.CELL) < 1.0

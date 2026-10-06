@@ -64,6 +64,7 @@ godot res://tests/graphics/rope_test.tscn   # a cable's line of nodes: hung, pus
 godot res://tests/graphics/foliage_test.tscn # the grass, flowers and bushes a patch grows, its mask, and where a room grows them
 godot res://tests/graphics/velocity_test.tscn # the velocity buffer: what moving things push, how it springs back, and the foliage leaning for it
 godot res://tests/graphics/lighting_test.tscn # the light: the world drawn for its colours and for how it faces, a lamp added to it, what stands in one's light dark behind, and what the game lights
+godot res://tests/graphics/glass_test.tscn  # glass: what is behind clear glass seen through it, what is in front of a mirror shown in it, upside down or turned round, and the map creator's
 godot res://tests/graphics/bolt_view_test.tscn # a bolt's trail: the gaps between its beads drawn in, and a laser's beam from the muzzle
 godot res://tests/graphics/rock_view_test.tscn # the rock, drawn: a stone of the game's own and not the pack's morning star, held upright, turning over in the air, and marked where it lies
 godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
@@ -93,6 +94,7 @@ godot res://tests/graphics/dragon_shot.tscn  # ...and frames of the dragon test
 godot res://tests/graphics/rope_shot.tscn    # ...and frames of a cable dashed through
 godot res://tests/graphics/foliage_shot.tscn # ...and frames of the grass run, dashed and blasted through
 godot res://tests/graphics/lighting_shot.tscn # ...and frames of the light: a bolt and a blast through the bench, a lamp hung in it, its normals and shadows, and the room gone dark
+godot res://tests/graphics/glass_shot.tscn    # ...and frames of glass: the grove with a floor of mirror, a pillar of clear glass, a mirror on the back wall and a window in a ruin, played, and where the glass is
 SHOTS_DIR=/tmp/shots godot res://tests/graphics/shots.tscn   # ...or wherever you point it
 ```
 
@@ -720,28 +722,69 @@ whether one cast still clears it.
 ## The map creator
 
 Title → **MAP CREATOR**, under SANDBOX. A grid of cells, laid a mark at a time
-out of what the game already has: rock in its region's tint, the player's
-start, a post for each of the monsters, a treasure box, ground to dig. What is
-laid is drawn the way the game draws it, and **PLAY** stands it up on the spot
-— the same room, the monsters at their posts, a kit off the bench in hand — so
-a map is tried the moment it is laid.
+out of what the game already has, in a tileset: the **Moonlit Grove** — the
+hideout's grove, its stone, earth, bark, planks and leaves, the ruin standing
+behind them and the night out past it all — or the plain **Rock** a raid's
+rooms are cut from. What is laid is drawn the way the game draws it, and
+**PLAY** stands it up on the spot — the same room, the monsters at their
+posts, a kit off the bench in hand, its lanterns lit — so a map is tried the
+moment it is laid.
+
+A map is three layers, and the tabs beside the sheet lay one each. The tiles
+under each tab are drawn by the tileset the map is in.
+
+| Tab | What it lays |
+|---|---|
+| GROUND | the ground, in the tileset's kinds of it, and glass. Every kind is as solid as the next: the kind is only how it looks |
+| BACK | what stands behind: a ruin's wall, a column, a stone lintel, a tree, the undergrowth, a rail to hang lanterns from, and glass |
+| THINGS | where the player starts, a post for each of the monsters, the treasure box, ground to dig — on the ground's layer |
+| PROPS | what is put about: a lantern, a campfire, glowing caps, fireflies, grass, flowers, a bush, a fern, a vine, a rope |
+
+The props are the game's own things. A lantern hangs on a cord from the
+ground, the rail or the lintel over it, with a lamp in it, and swings when
+somebody goes through it; a vine or a rope hangs the length of its run, and
+swings the same way; grass, flowers and a bush are the floor's foliage, and
+lean where somebody walks; a campfire, glowing caps and fireflies each give
+light of their own. A played grove is seen at night, by its lamps, and the
+table shows their light where it will fall.
+
+Glass is in every tileset, of two kinds, under GROUND and under BACK alike.
+As ground it is as solid as the rest. TRANSPARENT GLASS shows what stands
+behind it — the ruin, the trees, the moon — a little tinted. REFLECTIVE GLASS
+shows what stands in front of it, turned over across its face to the open
+air: a floor of it shows whoever stands on it upside down, fading the deeper
+it goes, and a wall of it shows whoever comes up to it turned round. Light
+goes through clear glass, and a mirror throws a shadow as rock does.
+
+Behind the ground glass is a pane in the back wall, which nothing stands on.
+A clear one is a window on what is out beyond, the moon and the far wood. A
+mirror there faces the player, and shows whoever stands in front of it — the
+body, the monsters, the lanterns and the grass — a little to one side and up
+from where they stand, as a mirror hung a little out of true would: one hung
+true would show each of them right behind themselves, where nobody could see
+it. It shows nothing of what is behind it, nor of the ground in front of it.
+
+None of it is worked out until the map is played. On the table a mirror of
+the ground shows a sheen where it meets the air, and one behind its dark.
 
 | On the table | |
 |---|---|
 | Left button | lays what is in hand; dragged, a line of it |
-| Right button | erases |
+| Right button, or the ERASE tool | erases, in the layer of the tab that is up |
 | `SHIFT` and a drag | a box, of either |
-| Middle button, the move keys, two fingers on a trackpad, or the MOVE tile | carries the map |
+| Middle button, the move keys, two fingers on a trackpad, or the MOVE tool | carries the map |
 | Wheel, a pinch, or ZOOM | a room's own size, or half of it |
 | `Ctrl`/`Cmd`+`Z`, and with `SHIFT` | a step back, and forward again |
 | `Ctrl`/`Cmd`+`S` | SAVE |
 | `ESC` | the pause menu, whose MAIN MENU is one way out; the arrow in the corner is the other |
 
-A map is between one screen and four each way — WIDTH and HEIGHT, a cell a
-press, ten with `SHIFT` held — and the brighter lines across it are where one
-screen ends and the next begins. ROCK picks which region's rock it is cut
-from, and WEAPON which weapon a played map starts in hand, the next two round
-the rack beside it.
+**MAP** holds the rest of what a map is. TILESET changes the one it is drawn
+in, whenever, and a step back changes it back. WIDTH and HEIGHT keep it
+between one screen and four each way, a cell a press and ten with `SHIFT`
+held; the brighter lines across the sheet are where one screen ends and the
+next begins. In Rock, ROCK picks which region's rock it is cut from. WEAPON
+picks which weapon a played map starts in hand, the next two round the rack
+beside it.
 
 **SAVE** keeps the map as a scene, named for it: `data/maps/<name>.tscn` when
 the game is run from the project, where it is committed and ships with the
@@ -750,7 +793,14 @@ Under the name of a map kept already it asks first. **LOAD** lists what is
 kept, each with a DELETE that asks too. NEW and LOAD are steps like any other,
 and a step back brings back what they took off the table. The table itself is
 kept while the game runs, saved or not: leave for the title and come back, and
-the map is as it was left.
+the map is as it was left. The first map is in the Moonlit Grove, and NEW
+clears the table to a clearing in whichever tileset is chosen: earth
+underfoot, a tree either side and leaves overhead.
+
+One map comes with the game: `moonlit_grove`, the hideout's grove laid in its
+own tileset — the broken column and the two under the lintel, the rail of
+lanterns, the great tree, the campfire, the grass along the floor — to play,
+or to start from.
 
 In a played map `R` sets the floor again, `TAB` opens the board — parts are
 free and the graphs are copies of the profile's, as on the bench — and `ESC`
@@ -758,17 +808,19 @@ goes back to the table. The body is the profile's own and can fall, and the
 floor is set again when it does.
 
 The scene is one node, a `MadeRoom` (`feature/world/made_room.gd`), and its
-rows of cells are a property of it, written the way the dragon test's tower is
-— so it reads in a diff, opens in Godot, and is picked up wherever a room is
-wanted:
+layers are properties of it, rows of cells written the way the dragon test's
+tower is — so it reads in a diff, opens in Godot, and is picked up wherever a
+room is wanted:
 
 ```gdscript
-var room := Maps.load_room("keep")   # or load("res://data/maps/keep.tscn").instantiate()
+var room := Maps.load_room("moonlit_grove")   # or load("res://data/maps/moonlit_grove.tscn").instantiate()
 add_child(room)
-room.stand()                         # the rock, and whatever its cells say is in it
+room.stand()                                  # the ground, and whatever its cells say is in it
 ```
 
-What a cell can hold is in [data/maps/README.md](data/maps/README.md).
+Stood up anywhere, it is drawn in its tileset, hung with its props and lit by
+their lamps (`graphics/views/made_room_view.gd`). What a cell of each layer can
+hold is in [data/maps/README.md](data/maps/README.md).
 
 ## Design decisions
 
@@ -884,7 +936,9 @@ mobile/input/      whether the console is on the glass, and what a key on it pre
 mobile/view/       the two-thumb console drawn on the glass, and the screen that
                    moves its buttons (SET BUTTON POSITIONS)
 graphics/          the atlas, screen effects, the pixel camera, the palette, view attachment
+                   lighting and lamps; glazing and glass: the passes the picture goes through
 graphics/views/    one view per gameplay node: actors, attacks, rooms, loot
+                   made_room_view: a map from the map creator, in its tileset
                    hideout_scenery: what the hideout's room is dressed in, drawn in
                    code — the ground its looks stand on; hideout_city, _keep, _grove,
                    _orbit and _brass are the looks, and hideout_themes which one is on
@@ -892,6 +946,8 @@ graphics/ui/       skill editor, HUD, hideout, title, results, bench panel, logo
                    the map creator's table
                    ui_kit: one look for screens built of Controls
                    pixel_draw: the same look for screens that draw themselves
+graphics/tiles/    the map creator's tilesets, drawn in code: the Moonlit Grove's and
+                   the plain rock's; map cells: a map's layers as a tileset reads them
 graphics/skin/     characters drawn the map way: the map, the loader, the tool
 graphics/assets/   the sprite atlas, the two actor shaders, two OFL fonts, the logo
                    pool, and the white the iOS launch screen shows

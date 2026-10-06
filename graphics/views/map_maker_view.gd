@@ -5,7 +5,9 @@ extends Node2D
 ## table (`MapTable`), and nothing else. While one is being played it is what a
 ## raid's screen is: a camera on whoever the player is in, the raid's own HUD,
 ## and the assembly overlay the bench uses — with a line saying which keys set
-## the floor again and go back to the table.
+## the floor again and go back to the table. And it is seen in the light its
+## tileset is drawn for (`MapTiles.ambient`): the Moonlit Grove at night, by
+## its lanterns and its fires.
 ##
 ## A made map can be bigger than the screen either way, so the camera goes
 ## after the player both ways, easing after them, and never past the map's
@@ -133,6 +135,7 @@ func _on_playing(on: bool) -> void:
 	table.visible = not on
 	hud.visible = on
 	keys.visible = on
+	pixels.lighting.ambient = MapTiles.of(maker.tileset).ambient() if on else Color.WHITE
 	if on:
 		follow(0.0, true)
 

@@ -39,8 +39,13 @@ extends CanvasLayer
 ## And the light it is shown in: a `Lighting`, which takes this buffer as the
 ## world's colours, draws the world a second time for how it faces, and adds
 ## every lamp there is to it, a pass each — on the same grid again, so light
-## falls in the pixels the world is drawn in. What is laid over the screen is
-## the picture that comes to; with nothing lit, it is this buffer as it was.
+## falls in the pixels the world is drawn in.
+##
+## And the glass in it: a `Glazing`, which draws the world once more for where
+## the glass is and puts the glass into the lit picture — what is behind clear
+## glass seen through it, what is in front of a mirror shown in it. What is
+## laid over the screen is the picture that comes to; with nothing lit and no
+## glass on the screen, it is this buffer as it was.
 
 const SCALE := int(Sprites.PIXEL_SCALE)
 const BORDER := 1
@@ -67,6 +72,8 @@ var _image: Sprite2D
 var velocity: VelocityBuffer
 ## The light the picture is shown in, on its grid.
 var lighting: Lighting
+## The glass in the picture, worked out after the light.
+var glazing: Glazing
 
 ## Draws text into the world, centred on `at`, `size` in buffer pixels.
 ##
@@ -90,12 +97,12 @@ static func draw_text(c: CanvasItem, at: Vector2, text: String, color: Color,
 
 func _enter_tree() -> void:
 	_live += 1
-	get_viewport().canvas_cull_mask &= ~(WORLD_LAYER | Lighting.NORMAL_LAYER | Lighting.BACKDROP_LAYER)
+	get_viewport().canvas_cull_mask &= ~(WORLD_LAYER | Lighting.NORMAL_LAYER | Lighting.BACKDROP_LAYER | Glazing.LAYER)
 
 func _exit_tree() -> void:
 	_live -= 1
 	if _live == 0:
-		get_viewport().canvas_cull_mask |= WORLD_LAYER | Lighting.NORMAL_LAYER | Lighting.BACKDROP_LAYER
+		get_viewport().canvas_cull_mask |= WORLD_LAYER | Lighting.NORMAL_LAYER | Lighting.BACKDROP_LAYER | Glazing.LAYER
 		# Nothing is drawing the world any more, so the grid left for whatever is
 		# drawn over it is the screen's own.
 		if is_instance_valid(Pointer):
@@ -115,13 +122,17 @@ func _ready() -> void:
 	_view.disable_3d = true
 	_view.snap_2d_transforms_to_pixel = true
 	_view.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	# How the world faces is drawn for the light alone, never into the picture.
-	_view.canvas_cull_mask = 0xFFFFFFFF & ~Lighting.NORMAL_LAYER
+	# How the world faces is drawn for the light alone, and where the glass is
+	# for the glazing alone: neither ever into the picture.
+	_view.canvas_cull_mask = 0xFFFFFFFF & ~(Lighting.NORMAL_LAYER | Glazing.LAYER)
 	add_child(_view)
 	# After the buffer it lights, so its passes are drawn after it each frame.
 	lighting = Lighting.new()
 	lighting.colour = _view
 	add_child(lighting)
+	# After the light, so the glass is worked out in the picture it comes to.
+	glazing = Glazing.new()
+	add_child(glazing)
 	_image = Sprite2D.new()
 	_image.centered = false
 	_image.texture = _view.get_texture()
@@ -149,7 +160,8 @@ func _follow() -> void:
 	# The buffer's first pixel is this one's, BORDER pixels out from the grid.
 	velocity.follow(grid - Vector2.ONE * BORDER * SCALE, want)
 	lighting.follow(grid - Vector2.ONE * BORDER * SCALE, want, _view.canvas_transform)
-	_image.texture = lighting.picture()
+	glazing.follow(grid - Vector2.ONE * BORDER * SCALE, want, _view.canvas_transform, lighting.picture())
+	_image.texture = glazing.picture()
 	# The crosshair is drawn over this picture, at this picture's scale, by the
 	# shell — which has no other way to learn where this grid starts. Handed over
 	# rather than fetched: `PixelCamera` is a graphics class and the pointer is

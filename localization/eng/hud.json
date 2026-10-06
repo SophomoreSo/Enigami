@@ -75,6 +75,7 @@
 		"save": "SAVE",
 		"load": "LOAD",
 		"new": "NEW",
+		"map": "MAP",
 		"undo": "UNDO",
 		"redo": "REDO",
 		"play": "PLAY",
@@ -83,11 +84,52 @@
 			"move": "MOVE",
 			"erase": "ERASE"
 		},
+		"tab": {
+			"ground": "GROUND",
+			"back": "BACK",
+			"things": "THINGS",
+			"props": "PROPS"
+		},
 		"mark": {
-			"rock": "ROCK",
 			"start": "START",
 			"box": "TREASURE BOX",
 			"dig": "DIG SPOT"
+		},
+		"tiles": {
+			"grove": {
+				"stone": "STONE",
+				"earth": "EARTH",
+				"bark": "BARK",
+				"wood": "PLANKS",
+				"leaves": "LEAVES",
+				"wall": "RUIN WALL",
+				"column": "COLUMN",
+				"lintel": "LINTEL",
+				"tree": "TREE",
+				"brush": "UNDERGROWTH",
+				"rail": "RAIL"
+			},
+			"rock": {
+				"title": "ROCK",
+				"rock": "ROCK",
+				"wall": "ROCK WALL"
+			}
+		},
+		"glass": {
+			"clear": "TRANSPARENT GLASS",
+			"mirror": "REFLECTIVE GLASS"
+		},
+		"prop": {
+			"lantern": "LANTERN",
+			"fire": "CAMPFIRE",
+			"mushrooms": "GLOWING CAPS",
+			"fireflies": "FIREFLIES",
+			"grass": "GRASS",
+			"flowers": "FLOWERS",
+			"bush": "BUSH",
+			"fern": "FERN",
+			"vine": "VINE",
+			"rope": "ROPE"
 		},
 		"width": "WIDTH",
 		"height": "HEIGHT",
@@ -107,6 +149,8 @@
 			"read": "THE MAP COULD NOT BE READ"
 		},
 		"load_heading": "LOAD A MAP",
+		"map_heading": "MAP SETTINGS",
+		"tileset": "TILESET",
 		"none": "NO MAPS KEPT YET",
 		"delete": "DELETE",
 		"sure": "SURE?",

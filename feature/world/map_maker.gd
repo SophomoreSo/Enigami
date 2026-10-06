@@ -1,24 +1,27 @@
 class_name MapMaker
 extends World
 
-## The map creator: a grid of cells laid a mark at a time — rock, the player's
-## start, a monster's post, a treasure box, ground to dig (`MadeRoom`) — which
-## SAVE keeps as a scene (`Maps`) and PLAY stands up on the spot, to be walked
-## and fought through with a kit off the bench.
+## The map creator: a grid of cells laid a mark at a time, in three layers
+## (`MadeRoom`) — the ground and what stands on it, what stands behind it,
+## and what is put about it — which SAVE keeps as a scene (`Maps`) and PLAY
+## stands up on the spot, to be walked and fought through with a kit off the
+## bench. What the marks of the last two layers are, and how all three look,
+## is the map's tileset's: the picture's, by id.
 ##
 ## Two things happen here, one at a time. A map is **laid**: `lay` and its kin
-## change the plan, a stroke at a time, and every stroke can be taken back. Or
-## it is **played**: the plan is stood up as a room with a player in it, parts
-## are free and the graphs are copies of the profile's, as on the bench, but
-## the body is the profile's own and can fall — and when it does, or R is
+## change one layer, a stroke at a time, and every stroke can be taken back.
+## Or it is **played**: the map is stood up as a room with a player in it,
+## parts are free and the graphs are copies of the profile's, as on the bench,
+## but the body is the profile's own and can fall — and when it does, or R is
 ## pressed, the floor is set again as it was laid. Leaving play goes back to
-## laying, with the plan as it was.
+## laying, with the map as it was.
 ##
 ## The map on the table is kept while the game runs: left for the title and
 ## come back to, it is as it was left, saved or not.
 ##
 ## Nothing here draws. `graphics/views/map_maker_view.gd` attaches itself to
-## this node; the table the map is laid on is `graphics/ui/map_table.gd`.
+## this node; the table the map is laid on is `graphics/ui/map_table.gd`, and
+## a map stood up is drawn by its tileset (`graphics/tiles/`).
 
 signal exit_requested()
 ## The assembly board went up over a map being played, or came down.
@@ -28,6 +31,8 @@ signal playing_changed(on: bool)
 ## A map being played was set again as it was laid, with a fresh body in it.
 signal floor_reset()
 
+## The layers, as `MadeRoom` has them.
+enum { PLAN, BACK, DRESSING }
 ## The least a map can be is a raid's room, one screen; the most, four of them
 ## each way.
 const MIN_SIZE := Vector2i(Room.W, Room.H)
@@ -36,6 +41,8 @@ const MAX_SIZE := Vector2i(Room.W * 4, Room.H * 4)
 const UNDO_STEPS := 100
 ## Seconds between the body falling and the floor being set again.
 const RESET_DELAY := 2.4
+## The tileset a map nobody has chosen one for is drawn in, by id.
+const NEW_TILESET := "grove"
 
 ## The map on the table from one visit to the next — see `_exit_tree`.
 static var _kept: Dictionary = {}
@@ -44,13 +51,15 @@ static var _kept: Dictionary = {}
 var map_id: String = ""
 var cols: int = MIN_SIZE.x
 var rows: int = MIN_SIZE.y
-## Which region's rock it is cut from (`MadeRoom.region`).
+## Which tileset draws it, and which region's rock the plain rock is
+## (`MadeRoom.tileset`, `MadeRoom.region`).
+var tileset: String = NEW_TILESET
 var region: int = 0
-## Whether the plan has changed since it was last saved or opened.
+## Whether the map has changed since it was last saved or opened.
 var unsaved: bool = false
 
 var playing: bool = false
-## The plan stood up, and the body in it, while it is being played.
+## The map stood up, and the body in it, while it is being played.
 var room: MadeRoom = null
 ## Null between a body falling and the floor being set again.
 var player: Player = null
@@ -64,6 +73,8 @@ var inventory: Dictionary = {}
 var reset_in: float = 0.0
 
 var _plan: PackedStringArray = PackedStringArray()
+var _back: PackedStringArray = PackedStringArray()
+var _dressing: PackedStringArray = PackedStringArray()
 var _undo: Array = []
 var _redo: Array = []
 ## Whether the stroke being made has been remembered yet: its first change is
@@ -93,31 +104,53 @@ func _exit_tree() -> void:
 static func forget() -> void:
 	_kept = {}
 
-## --- the plan ---------------------------------------------------------------
+## --- the map ----------------------------------------------------------------
 
-## The rows of cells as they stand: what a save writes and a play stands up.
+## The rows of each layer as they stand: what a save writes and a play stands up.
 func plan() -> PackedStringArray:
 	return _plan.duplicate()
+
+func back() -> PackedStringArray:
+	return _back.duplicate()
+
+func dressing() -> PackedStringArray:
+	return _dressing.duplicate()
 
 func holds(cell: Vector2i) -> bool:
 	return cell.x >= 0 and cell.y >= 0 and cell.x < cols and cell.y < rows
 
-## The mark in `cell`. Off the plan there is only rock.
-func mark_at(cell: Vector2i) -> String:
-	return _plan[cell.y][cell.x] if holds(cell) else MadeRoom.ROCK
+## The mark in `cell` of `layer`. Off the map the plan is all rock, and the
+## other two are nothing.
+func mark_at(cell: Vector2i, layer: int = PLAN) -> String:
+	if not holds(cell):
+		return MadeRoom.ROCK if layer == PLAN else MadeRoom.OPEN
+	return _rows(layer)[cell.y][cell.x]
 
-func cells_marked(mark: String) -> Array[Vector2i]:
+func cells_marked(mark: String, layer: int = PLAN) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
+	var laid := _rows(layer)
 	for y in rows:
-		var x := _plan[y].find(mark)
+		var x := laid[y].find(mark)
 		while x >= 0:
 			out.append(Vector2i(x, y))
-			x = _plan[y].find(mark, x + 1)
+			x = laid[y].find(mark, x + 1)
 	return out
 
-## A map nobody has laid anything on: a raid's room with nothing in it — a wall
-## either side, a ceiling, two rows of floor — and the player's start on it. It
-## takes the place of the one on the table, which a step back brings back.
+## The map as a room, out of the tree and not stood up: what SAVE keeps and
+## PLAY stands.
+func made() -> MadeRoom:
+	var r := MadeRoom.new()
+	r.plan = _plan.duplicate()
+	r.back = _back.duplicate()
+	r.dressing = _dressing.duplicate()
+	r.tileset = tileset
+	r.region = region
+	return r
+
+## A map nobody has laid anything on: a clearing — leaves overhead, a tree
+## either side and earth underfoot — with the player's start on the earth. It
+## takes the place of the one on the table, which a step back brings back; the
+## tileset stays the one chosen.
 func new_map() -> void:
 	begin_stroke()
 	if not _plan.is_empty():
@@ -126,14 +159,25 @@ func new_map() -> void:
 	rows = MIN_SIZE.y
 	_plan = PackedStringArray()
 	for y in rows:
-		var edge := y == 0 or y >= rows - 2
-		_plan.append(MadeRoom.ROCK.repeat(cols) if edge
-			else MadeRoom.ROCK + MadeRoom.OPEN.repeat(cols - 2) + MadeRoom.ROCK)
-	_write(Vector2i(4, rows - 3), MadeRoom.START)
+		if y == 0:
+			_plan.append("*".repeat(cols))
+		elif y >= rows - 2:
+			_plan.append("%".repeat(cols))
+		else:
+			_plan.append("|" + MadeRoom.OPEN.repeat(cols - 2) + "|")
+	_back = _blank(cols, rows)
+	_dressing = _blank(cols, rows)
+	_write(PLAN, Vector2i(4, rows - 3), MadeRoom.START)
 	begin_stroke()
 	region = 0
 	map_id = ""
 	unsaved = false
+
+static func _blank(wide: int, high: int) -> PackedStringArray:
+	var out := PackedStringArray()
+	for y in high:
+		out.append(MadeRoom.OPEN.repeat(wide))
+	return out
 
 ## --- laying -----------------------------------------------------------------
 
@@ -141,55 +185,72 @@ func new_map() -> void:
 func begin_stroke() -> void:
 	_remembered = false
 
-## Lays `mark` in `cell`. A mark a room holds one of is moved rather than laid
-## twice. Whether the plan changed.
-func lay(cell: Vector2i, mark: String) -> bool:
-	if not holds(cell) or mark_at(cell) == mark:
+## Lays `mark` in `cell` of `layer`. A mark the plan holds one of is moved
+## rather than laid twice. Whether the map changed.
+func lay(cell: Vector2i, mark: String, layer: int = PLAN) -> bool:
+	if not holds(cell) or mark_at(cell, layer) == mark:
 		return false
 	_remember()
-	if MadeRoom.ONE_OF.has(mark):
+	if layer == PLAN and MadeRoom.ONE_OF.has(mark):
 		for c in cells_marked(mark):
-			_write(c, MadeRoom.OPEN)
-	_write(cell, mark)
+			_write(PLAN, c, MadeRoom.OPEN)
+	_write(layer, cell, mark)
 	unsaved = true
 	return true
 
 ## Lays `mark` in every cell from `from` to `to`, in a straight line: what a
 ## pointer dragged faster than a cell a frame leaves behind it.
-func lay_line(from: Vector2i, to: Vector2i, mark: String) -> bool:
+func lay_line(from: Vector2i, to: Vector2i, mark: String, layer: int = PLAN) -> bool:
 	var changed := false
 	var steps := maxi(absi(to.x - from.x), absi(to.y - from.y))
 	for i in steps + 1:
 		var t := float(i) / float(maxi(steps, 1))
-		changed = lay(Vector2i(Vector2(from).lerp(Vector2(to), t).round()), mark) or changed
+		changed = lay(Vector2i(Vector2(from).lerp(Vector2(to), t).round()), mark, layer) or changed
 	return changed
 
 ## Lays `mark` in every cell of the box with `a` and `b` at opposite corners.
-func lay_box(a: Vector2i, b: Vector2i, mark: String) -> bool:
+func lay_box(a: Vector2i, b: Vector2i, mark: String, layer: int = PLAN) -> bool:
 	var changed := false
 	for y in range(mini(a.y, b.y), maxi(a.y, b.y) + 1):
 		for x in range(mini(a.x, b.x), maxi(a.x, b.x) + 1):
-			changed = lay(Vector2i(x, y), mark) or changed
+			changed = lay(Vector2i(x, y), mark, layer) or changed
 	return changed
 
-## Makes the map `to` cells across and down, within what a map may be: grown
-## with open cells to its right and under it, cut from there. Whether it changed.
+## Makes the map `to` cells across and down, within what a map may be: every
+## layer grown with nothing to its right and under it, or cut from there.
+## Whether it changed.
 func resize(to: Vector2i) -> bool:
 	to = to.clamp(MIN_SIZE, MAX_SIZE)
 	if to == Vector2i(cols, rows):
 		return false
 	begin_stroke()
 	_remember()
-	var out := PackedStringArray()
-	for y in to.y:
-		var row := _plan[y] if y < rows else ""
-		out.append(row.left(to.x).rpad(to.x, MadeRoom.OPEN))
-	_plan = out
+	_plan = _sized(_plan, to)
+	_back = _sized(_back, to)
+	_dressing = _sized(_dressing, to)
 	cols = to.x
 	rows = to.y
 	begin_stroke()
 	unsaved = true
 	return true
+
+## `laid`, `to` cells across and down: cut, or grown with nothing.
+static func _sized(laid: PackedStringArray, to: Vector2i) -> PackedStringArray:
+	var out := PackedStringArray()
+	for y in to.y:
+		var row := laid[y] if y < laid.size() else ""
+		out.append(row.left(to.x).rpad(to.x, MadeRoom.OPEN))
+	return out
+
+## Draws the map in another tileset: a step to take back, like a stroke.
+func set_tileset(id: String) -> void:
+	if id == tileset:
+		return
+	begin_stroke()
+	_remember()
+	tileset = id
+	begin_stroke()
+	unsaved = true
 
 func set_region(to: int) -> void:
 	if to != region:
@@ -220,19 +281,40 @@ func redo() -> bool:
 	unsaved = true
 	return true
 
-func _write(cell: Vector2i, mark: String) -> void:
-	var row := _plan[cell.y]
-	_plan[cell.y] = row.left(cell.x) + mark + row.substr(cell.x + 1)
+func _rows(layer: int) -> PackedStringArray:
+	match layer:
+		BACK:
+			return _back
+		DRESSING:
+			return _dressing
+	return _plan
 
-## The map as it stands, to go back to: its plan, and the name it goes by — a
-## step back over NEW or LOAD is the map that was there, under its own name.
+func _write(layer: int, cell: Vector2i, mark: String) -> void:
+	match layer:
+		BACK:
+			_back[cell.y] = _swap(_back[cell.y], cell.x, mark)
+		DRESSING:
+			_dressing[cell.y] = _swap(_dressing[cell.y], cell.x, mark)
+		_:
+			_plan[cell.y] = _swap(_plan[cell.y], cell.x, mark)
+
+static func _swap(row: String, x: int, mark: String) -> String:
+	return row.left(x) + mark + row.substr(x + 1)
+
+## The map as it stands, to go back to: its layers, its tileset, and the name
+## it goes by — a step back over NEW or LOAD is the map that was there, under
+## its own name.
 func _shot() -> Dictionary:
-	return {"plan": _plan.duplicate(), "cols": cols, "rows": rows, "region": region, "map_id": map_id}
+	return {"plan": _plan.duplicate(), "back": _back.duplicate(), "dressing": _dressing.duplicate(),
+		"cols": cols, "rows": rows, "tileset": tileset, "region": region, "map_id": map_id}
 
 func _take(shot: Dictionary) -> void:
-	_plan = (shot["plan"] as PackedStringArray).duplicate()
 	cols = int(shot["cols"])
 	rows = int(shot["rows"])
+	_plan = (shot["plan"] as PackedStringArray).duplicate()
+	_back = _sized(shot.get("back", PackedStringArray()), Vector2i(cols, rows))
+	_dressing = _sized(shot.get("dressing", PackedStringArray()), Vector2i(cols, rows))
+	tileset = String(shot.get("tileset", NEW_TILESET))
 	region = int(shot["region"])
 	map_id = String(shot["map_id"])
 	_remembered = false
@@ -256,7 +338,10 @@ func save_as(called: String) -> String:
 	var id := Maps.id_for(called)
 	if id == "":
 		return "name"
-	if Maps.save(id, _plan, region) != OK:
+	var kept := made()
+	var err := Maps.save(id, kept)
+	kept.free()
+	if err != OK:
 		return "write"
 	map_id = id
 	unsaved = false
@@ -264,27 +349,26 @@ func save_as(called: String) -> String:
 
 ## Puts the map `id` on the table in place of the one there, which a step back
 ## brings back. Whether there was such a map. One laid by hand in the file is
-## taken as it is, squared off: its rows made one length, and the whole kept
-## within what a map may be.
+## taken as it is, squared off: its rows made one length, every layer the
+## plan's size, and the whole kept within what a map may be.
 func open(id: String) -> bool:
-	var made := Maps.load_room(id)
-	if made == null:
+	var found := Maps.load_room(id)
+	if found == null:
 		return false
 	begin_stroke()
 	_remember()
 	var wide := MIN_SIZE.x
-	for row in made.plan:
+	for row in found.plan:
 		wide = maxi(wide, row.length())
-	wide = mini(wide, MAX_SIZE.x)
-	var high := clampi(made.plan.size(), MIN_SIZE.y, MAX_SIZE.y)
-	_plan = PackedStringArray()
-	for y in high:
-		var row := made.plan[y] if y < made.plan.size() else ""
-		_plan.append(row.left(wide).rpad(wide, MadeRoom.OPEN))
-	cols = wide
-	rows = high
-	region = made.region
-	made.free()
+	var size := Vector2i(wide, found.plan.size()).clamp(MIN_SIZE, MAX_SIZE)
+	_plan = _sized(found.plan, size)
+	_back = _sized(found.back, size)
+	_dressing = _sized(found.dressing, size)
+	cols = size.x
+	rows = size.y
+	tileset = found.tileset
+	region = found.region
+	found.free()
 	begin_stroke()
 	map_id = id
 	unsaved = false
@@ -292,7 +376,7 @@ func open(id: String) -> bool:
 
 ## --- playing ----------------------------------------------------------------
 
-## Stands the plan up and puts a body in it.
+## Stands the map up and puts a body in it.
 func play() -> void:
 	if playing:
 		return
@@ -300,7 +384,7 @@ func play() -> void:
 	_stand()
 	playing_changed.emit(true)
 
-## Back to laying: the room and everything in it goes, and the plan is as it was.
+## Back to laying: the room and everything in it goes, and the map is as it was.
 func stop() -> void:
 	if not playing:
 		return
@@ -342,9 +426,7 @@ func _stand() -> void:
 	_arm()
 	player.died.connect(_on_player_died)
 
-	room = MadeRoom.new()
-	room.plan = _plan.duplicate()
-	room.region = region
+	room = made()
 	# Before it is stood: what the room puts down is told who to answer to.
 	room.player = player
 	add_child(room)

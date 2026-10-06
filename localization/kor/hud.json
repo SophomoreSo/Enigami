@@ -75,6 +75,7 @@
 		"save": "저장",
 		"load": "불러오기",
 		"new": "새 맵",
+		"map": "맵",
 		"undo": "되돌리기",
 		"redo": "다시 하기",
 		"play": "플레이",
@@ -83,11 +84,52 @@
 			"move": "이동",
 			"erase": "지우기"
 		},
+		"tab": {
+			"ground": "지형",
+			"back": "배경",
+			"things": "개체",
+			"props": "소품"
+		},
 		"mark": {
-			"rock": "바위",
 			"start": "시작 지점",
 			"box": "보물 상자",
 			"dig": "파낼 땅"
+		},
+		"tiles": {
+			"grove": {
+				"stone": "돌",
+				"earth": "흙",
+				"bark": "나무껍질",
+				"wood": "판자",
+				"leaves": "나뭇잎",
+				"wall": "폐허 벽",
+				"column": "기둥",
+				"lintel": "돌 들보",
+				"tree": "나무",
+				"brush": "수풀",
+				"rail": "가로대"
+			},
+			"rock": {
+				"title": "바위",
+				"rock": "바위",
+				"wall": "바위 벽"
+			}
+		},
+		"glass": {
+			"clear": "투명 유리",
+			"mirror": "반사 유리"
+		},
+		"prop": {
+			"lantern": "랜턴",
+			"fire": "모닥불",
+			"mushrooms": "빛나는 버섯",
+			"fireflies": "반딧불이",
+			"grass": "풀",
+			"flowers": "꽃",
+			"bush": "덤불",
+			"fern": "고사리",
+			"vine": "덩굴",
+			"rope": "밧줄"
 		},
 		"width": "너비",
 		"height": "높이",
@@ -107,6 +149,8 @@
 			"read": "맵을 읽지 못했습니다"
 		},
 		"load_heading": "맵 불러오기",
+		"map_heading": "맵 설정",
+		"tileset": "타일셋",
 		"none": "저장한 맵이 없습니다",
 		"delete": "삭제",
 		"sure": "정말요?",
