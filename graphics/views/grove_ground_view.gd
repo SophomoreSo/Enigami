@@ -10,7 +10,9 @@ extends Node2D
 ## far things go along slower than the ground: the moon hardly moves, the far
 ## wood a little more, the near trunks more again. Everything that stands still
 ## is drawn once, when the room is built; only the lanterns and the fireflies
-## are drawn again every frame.
+## are drawn again every frame. The lanterns hang on cords, as the hideout's
+## do (`Rope`), and swing when anything goes through one: a body, the player
+## or a guard they are in, or an attack.
 ##
 ## Drawn in pixels of the buffer the world is drawn into (`HideoutScenery.S`
 ## world units each), with `HideoutScenery`'s brushes; a cell is `C` of them.
@@ -42,6 +44,9 @@ const EARTH_SPECK := Color(0.12, 0.105, 0.085)
 ## fireflies are out.
 const LANTERN_EVERY := 9
 const FIREFLIES := 44
+## The room a lantern takes up, from the pixel it hangs by: what has to go
+## through it to swing it.
+const LANTERN_BODY := Rect2i(-2, 0, 5, 7)
 
 var room: JeanGreyBase
 var _t: float = 0.0
@@ -59,6 +64,10 @@ var _front: int = 0
 ## place it wanders round and the beat it wanders at.
 var _lanterns: Array[Vector2i] = []
 var _flies: Array = []
+## The cord each lantern hangs on, in the order of `_lanterns`, and the
+## lantern riding the end of each.
+var cords: Array[Rope] = []
+var _hung: Array[Depth] = []
 
 ## One depth of the picture, painted by the view that owns it.
 class Depth extends Node2D:
@@ -103,6 +112,7 @@ func _on_built() -> void:
 		var roof := _roof_over(x)
 		if roof >= 0 and not room.is_solid(x, roof + 1) and not room.is_solid(x, roof + 2):
 			_lanterns.append(Vector2i(x, roof))
+	_hang_lanterns()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1984
 	_flies.clear()
@@ -123,6 +133,40 @@ func _process(delta: float) -> void:
 	_mist.position.x = _snap(x * MIST_DRIFT)
 	_mid.position.x = _snap(x * MID_DRIFT)
 	_life.queue_redraw()
+	for lantern in _hung:
+		lantern.queue_redraw()
+
+## Every lantern on a cord of its own — the kind of line a light hangs on —
+## from under its roof, with the lantern riding the end, hung in front of the
+## ground and behind the fireflies, where it was painted when it hung still.
+## Hung again from nothing whenever the ground is built.
+func _hang_lanterns() -> void:
+	for cord in cords:
+		if is_instance_valid(cord):
+			cord.queue_free()
+	for lantern in _hung:
+		if is_instance_valid(lantern):
+			lantern.queue_free()
+	cords.clear()
+	_hung.clear()
+	for cell in _lanterns:
+		var at := Vector2(cell.x * C + C / 2, (cell.y + 1) * C)
+		var drop := float((10 + (cell.x * 7) % 12) * S)
+		var cord := Rope.of("cord")
+		cord.color = HideoutGrove.ROPE.darkened(0.3)
+		cord.z_index = _life.z_index
+		cord.hang((at + Vector2(0.5, 0.5)) * S, drop, drop)
+		add_child(cord)
+		move_child(cord, _life.get_index())
+		var lantern := Depth.new()
+		lantern.paint = _paint_lantern.bind(cell.x)
+		lantern.z_index = _life.z_index
+		add_child(lantern)
+		move_child(lantern, _life.get_index())
+		cord.attach(lantern, cord.nodes.size() - 1, Vector2.ZERO,
+			Rect2(Vector2(LANTERN_BODY.position) * S, Vector2(LANTERN_BODY.size) * S))
+		cords.append(cord)
+		_hung.append(lantern)
 
 func _snap(v: float) -> float:
 	return roundf(v / S) * S
@@ -288,8 +332,6 @@ func _paint_solid(c: CanvasItem, x: int, y: int) -> void:
 
 ## --- what moves -----------------------------------------------------------------
 func _paint_life(c: CanvasItem) -> void:
-	for at in _lanterns:
-		_paint_lantern(c, at)
 	for f in _flies:
 		var home: Vector2 = f[0]
 		var beat: float = f[2]
@@ -301,15 +343,13 @@ func _paint_life(c: CanvasItem) -> void:
 		HideoutScenery.box(c, int(p.x), int(p.y), 1, 1, HideoutScenery.faded(HideoutGrove.FIREFLY, on))
 		HideoutScenery.box(c, int(p.x) - 1, int(p.y), 3, 1, HideoutScenery.faded(HideoutGrove.FIREFLY, on * 0.25))
 
-## A lantern on a cord from under the roof, its light on the wall behind it.
-func _paint_lantern(c: CanvasItem, cell: Vector2i) -> void:
-	var x := cell.x * C + C / 2
-	var y := (cell.y + 1) * C
-	var drop := 10 + (cell.x * 7) % 12
-	var k := HideoutScenery.flicker(_t, cell.x)
-	HideoutScenery.box(c, x, y, 1, drop, HideoutGrove.ROPE.darkened(0.3))
-	HideoutScenery.halo(c, x - 2, y + drop, 5, 6, HideoutGrove.LAMP, 9, 0.07 * k)
-	HideoutScenery.box(c, x - 2, y + drop, 5, 1, HideoutGrove.WOOD_DARK)
-	HideoutScenery.box(c, x - 2, y + drop + 1, 5, 5, HideoutScenery.faded(HideoutGrove.LAMP, 0.55 + 0.4 * k))
-	HideoutScenery.box(c, x - 1, y + drop + 2, 3, 3, HideoutScenery.faded(HideoutGrove.FLAME_CORE, 0.6 + 0.4 * k))
-	HideoutScenery.box(c, x - 2, y + drop + 6, 5, 1, HideoutGrove.WOOD_DARK)
+## A lantern, about the pixel it hangs by on the end of its cord, and its
+## light on whatever is behind it. `salt` puts its flame out of step with the
+## others'.
+func _paint_lantern(c: CanvasItem, salt: int) -> void:
+	var k := HideoutScenery.flicker(_t, salt)
+	HideoutScenery.halo(c, -2, 0, 5, 6, HideoutGrove.LAMP, 9, 0.07 * k)
+	HideoutScenery.box(c, -2, 0, 5, 1, HideoutGrove.WOOD_DARK)
+	HideoutScenery.box(c, -2, 1, 5, 5, HideoutScenery.faded(HideoutGrove.LAMP, 0.55 + 0.4 * k))
+	HideoutScenery.box(c, -1, 2, 3, 3, HideoutScenery.faded(HideoutGrove.FLAME_CORE, 0.6 + 0.4 * k))
+	HideoutScenery.box(c, -2, 6, 5, 1, HideoutGrove.WOOD_DARK)
