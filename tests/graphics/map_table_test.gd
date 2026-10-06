@@ -429,6 +429,8 @@ func _playing() -> void:
 	maker.lay(Vector2i(20, 19), "y")
 	maker.lay(Vector2i(6, 12), "|", MapMaker.BACK)
 	maker.lay(Vector2i(8, 9), "L", MapMaker.DRESSING)
+	# Something for the lantern to hang from, five cells over it.
+	maker.lay(Vector2i(8, 4), MadeRoom.ROCK)
 	maker.lay(Vector2i(2, 19), "g", MapMaker.DRESSING)
 	maker.lay(Vector2i(3, 19), "g", MapMaker.DRESSING)
 	maker.lay(Vector2i(12, 4), "v", MapMaker.DRESSING)
@@ -465,6 +467,25 @@ func _playing() -> void:
 			"with a lamp in the lantern, and another in the fire (%d)" % drawn.lamps.size())
 		check((drawn.plants[0] as Foliage).kind == "grass" and (drawn.plants[0] as Foliage).span == 2 * MapTiles.C,
 			"the grass is the game's own foliage")
+		var line: Rope = drawn._cords[0]
+		check(line.kind == MapTiles.LANTERN_LINE and line.nodes.size() > 3 and line.color == Style.rope_look("cord")["line"],
+			"the lantern hangs on a line like a rope's, a node all along it, in a cord's colour (%d nodes)" % line.nodes.size())
+		# Somebody going through the middle of the line, and nowhere near the
+		# lantern: the line moves where it is touched, as a rope does.
+		@warning_ignore("integer_division")
+		var middle := line.nodes.size() / 2
+		var was := line.point_of(middle)
+		var walker := CharacterBody2D.new()
+		walker.add_to_group("actors")
+		walker.velocity = Vector2(150, 0)
+		walker.global_position = line.to_global(was) + Vector2(-30, 0)
+		maker.room.add_child(walker)
+		for i in 12:
+			await get_tree().physics_frame
+			walker.global_position += walker.velocity / float(Engine.physics_ticks_per_second)
+		var moved := line.point_of(middle).x - was.x
+		walker.queue_free()
+		check(moved > 2.0, "and somebody going through the middle of it moves it there (%.1f)" % moved)
 	check(view.pixels.lighting.ambient == MapTiles.of("grove").ambient() and view.pixels.lighting.working(),
 		"and it is seen in the grove's night, with its lamps lit")
 	if drawn != null:

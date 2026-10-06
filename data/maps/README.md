@@ -76,7 +76,7 @@ own cell.
 
 | Cell | Meaning |
 |---|---|
-| `L` | A lantern on its cord, with a lamp in it. |
+| `L` | A lantern with a lamp in it, on a line that moves like a rope's wherever it is touched. |
 | `F` | A campfire, and its light. |
 | `m` | Glowing caps, and their light. |
 | `*` | Fireflies, and their light. |

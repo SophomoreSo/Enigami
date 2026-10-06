@@ -14,10 +14,12 @@ extends RoomView
 ## the stretch of it the screen shows (`_wake`).
 ##
 ## What was put about the map is made of the game's own things. A lantern
-## hangs on a cord (`Rope`) from whatever is over it, with a lamp in it
-## (`Lamp`): it swings when somebody goes through it, and its light swings with
-## it. A vine and a rope are lines of their own, the length of their run, that
-## anything moving through them sets swinging. Grass, flowers and a bush are
+## hangs from whatever is over it on a line like a rope's (`Rope`,
+## `MapTiles.LANTERN_LINE`), with a lamp in it (`Lamp`): anything going through
+## the line, anywhere along it, moves it where it touches and swings the lantern
+## on its end, as anything going through the lantern does, and the light swings
+## with it. A vine and a rope are lines of their own, the length of their run,
+## that anything moving through them sets swinging. Grass, flowers and a bush are
 ## patches of foliage (`Foliage`) that lean where somebody walks. A fire burns
 ## and lights the room round it, glowing caps and fireflies give a little light
 ## of their own, and a fern stands where it was put. Nothing is rolled: a made
@@ -50,6 +52,11 @@ const REDRAWS := 30.0
 ## How hard the air leans on what hangs, in pixels a second squared at its
 ## strongest (`HideoutGrove.BREEZE`).
 const BREEZE := 10.0
+## And on a lantern, which hangs on a line as hard to sway as a rope: ten times
+## as hard, which drifts one on a long line a pixel either way and back — as
+## the hideout's are drifted on their cords — and one on a short line not at
+## all.
+const LANTERN_BREEZE := BREEZE * 10.0
 ## How near the screen, in world units, a line has to be to swing, a chunk to
 ## be drawn, and what flickers to be drawn again: far enough that the screen
 ## never comes on any of it before it is.
@@ -254,10 +261,10 @@ func _hang_lines() -> void:
 func _hang_lantern(x: int, y: int) -> void:
 	var top := tiles.anchor(cells, x, y)
 	var hangs := tiles.lantern_top(cells, x, y)
-	var cord := Rope.of("cord")
+	var cord := Rope.of(MapTiles.LANTERN_LINE)
+	cord.color = Style.rope_look("cord")["line"]
 	var length := float((hangs - top) * S)
-	cord.hang((Vector2(x * C + C / 2, top) + Vector2(0.5, 0.5)) * S, length,
-		length / float(maxi(1, roundi(length / cord.segment))))
+	cord.hang((Vector2(x * C + C / 2, top) + Vector2(0.5, 0.5)) * S, length)
 	cord.z_index = -1
 	cord.visibility_layer = PixelCamera.WORLD_LAYER
 	add_child(cord)
@@ -491,7 +498,7 @@ func _wake() -> void:
 func _physics_process(delta: float) -> void:
 	for i in _cords.size():
 		if _cords[i].is_physics_processing():
-			_cords[i].nudge(_cords[i].nodes.size() - 1, Vector2(sin(_t * 0.9 + i * 2.3) * BREEZE * delta, 0.0))
+			_cords[i].nudge(_cords[i].nodes.size() - 1, Vector2(sin(_t * 0.9 + i * 2.3) * LANTERN_BREEZE * delta, 0.0))
 	for i in _vines.size():
 		if _vines[i].is_physics_processing():
 			var tip := _vines[i].nodes.size() - 1

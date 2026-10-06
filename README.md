@@ -740,10 +740,11 @@ under each tab are drawn by the tileset the map is in.
 | THINGS | where the player starts, a post for each of the monsters, the treasure box, ground to dig — on the ground's layer |
 | PROPS | what is put about: a lantern, a campfire, glowing caps, fireflies, grass, flowers, a bush, a fern, a vine, a rope |
 
-The props are the game's own things. A lantern hangs on a cord from the
-ground, the rail or the lintel over it, with a lamp in it, and swings when
-somebody goes through it; a vine or a rope hangs the length of its run, and
-swings the same way; grass, flowers and a bush are the floor's foliage, and
+The props are the game's own things. A lantern hangs from the ground, the
+rail or the lintel over it, with a lamp in it, on a line that is a rope like
+the ROPE: somebody going through it anywhere moves it there and swings the
+lantern on its end, as going through the lantern does. A vine or a rope hangs
+the length of its run, and swings the same way; grass, flowers and a bush are the floor's foliage, and
 lean where somebody walks; a campfire, glowing caps and fireflies each give
 light of their own. A played grove is seen at night, by its lamps, and the
 table shows their light where it will fall.
