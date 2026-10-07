@@ -7,7 +7,11 @@ extends Node2D
 ##
 ## What happens here is the sequencing and the staging: whose turn it is to
 ## speak, how far the line has typed, who is walking where, and when a beat is
-## done with. What any of it looks or sounds like is not decided here.
+## done with. A beat may lead on to another by its `id` (`next`), or ask a
+## question whose `choices` each lead somewhere — the story maker's novels
+## branch that way; the prologue's beats go one after the other, as beats
+## naming no `next` do. What any of it looks or sounds like is not decided
+## here.
 ## Directions this module has no use for — `anim`, `sfx`, `camera`, `fade` — go
 ## out untouched on the `scene_direction` cue for the picture and the sound bank
 ## to answer, which is what lets a writer add a new kind of direction without a
@@ -49,6 +53,10 @@ var floor_y: float = CutsceneScript.DEFAULT_FLOOR
 
 ## Which beat is playing, -1 before the first and beats.size() once it is over.
 var index: int = -1
+## Which answer is highlighted while a question is open.
+var selected: int = 0
+## beat id -> its place in `beats`, for a beat that leads on by id.
+var _by_id: Dictionary = {}
 ## How much of the current beat's line has been typed.
 var revealed: float = 0.0
 var done: bool = false
@@ -73,6 +81,9 @@ func _ready() -> void:
 	floor_y = float(def.get("floor", CutsceneScript.DEFAULT_FLOOR))
 	marks = def.get("marks", {})
 	beats = def.get("beats", [])
+	for i in beats.size():
+		if beats[i] is Dictionary and (beats[i] as Dictionary).has("id"):
+			_by_id[String(beats[i]["id"])] = i
 	if own_floor:
 		_build_floor()
 	_build_cast(def.get("cast", {}))
@@ -129,8 +140,9 @@ func _process(delta: float) -> void:
 		_wait_left = maxf(0.0, _wait_left - delta)
 	_type(delta)
 	# A beat with a line waits to be read; one without is over as soon as its
-	# directions are, so a scene can move somebody without asking for a press.
-	if _directions_done() and line() == "":
+	# directions are, so a scene can move somebody without asking for a press
+	# — unless it asks a question, which waits for its answer.
+	if _directions_done() and line() == "" and choices().is_empty():
 		_next_beat()
 
 func _type(delta: float) -> void:
@@ -144,9 +156,27 @@ func _type(delta: float) -> void:
 			Cues.emit_cue(&"scene_letter", {"scene": scene_id, "beat": beat(), "index": i})
 			break
 
+## On from the beat running now: to the beat its `next` names — none being
+## the end — or, for one naming none, the beat after it in the file.
 func _next_beat() -> void:
-	index += 1
+	var b := beat()
+	if index >= 0 and b.has("next"):
+		_go_to(String(b["next"]))
+	else:
+		_start_beat(index + 1)
+
+## To the beat called `id`. A name no beat has, or none, is the end.
+func _go_to(id: String) -> void:
+	if id == "" or not _by_id.has(id):
+		index = beats.size()
+		_finish()
+		return
+	_start_beat(int(_by_id[id]))
+
+func _start_beat(i: int) -> void:
+	index = i
 	revealed = 0.0
+	selected = 0
 	_moving.clear()
 	_wait_left = 0.0
 	if index >= beats.size():
@@ -168,7 +198,7 @@ func _direct(d: Dictionary) -> void:
 		var who := _who(d["move"])
 		if who != null:
 			who.on_stage = true
-			who.walk_to(_place(d.get("to", null)).x, float(d.get("speed", CutsceneActor.WALK_SPEED)))
+			who.walk_to(_walk_target(who, d), float(d.get("speed", CutsceneActor.WALK_SPEED)))
 			_moving.append(who)
 		return
 	if d.has("place"):
@@ -195,7 +225,10 @@ func _direct(d: Dictionary) -> void:
 	if d.has("face"):
 		var who := _who(d["face"])
 		if who != null:
-			who.face(-1 if String(d.get("dir", "right")) == "left" else 1)
+			if d.has("toward"):
+				who.face(int(signf(point_of(d["toward"]).x - who.global_position.x)))
+			else:
+				who.face(-1 if String(d.get("dir", "right")) == "left" else 1)
 		return
 	if d.has("wait"):
 		_wait_left = maxf(_wait_left, float(d["wait"]))
@@ -218,6 +251,20 @@ func _who(value) -> CutsceneActor:
 	var a = cast.get(String(value), null)
 	return a if a is CutsceneActor else null
 
+## Where a `move` goes: `to` a place; `near` somebody, stopping `gap` short
+## of them on the side it comes from; or `by` so far along from where they
+## stand, left for less than nothing.
+func _walk_target(who: CutsceneActor, d: Dictionary) -> float:
+	if d.has("near"):
+		var other := point_of(d["near"]).x
+		var side := signf(other - who.global_position.x)
+		if side == 0.0:
+			side = -float(who.facing)
+		return other - side * float(d.get("gap", 0.0))
+	if d.has("by"):
+		return who.global_position.x + float(d["by"])
+	return _place(d.get("to", null)).x
+
 func _directions_done() -> bool:
 	if _wait_left > 0.0:
 		return false
@@ -228,20 +275,51 @@ func _directions_done() -> bool:
 
 ## --- what a press does ------------------------------------------------------
 
-## One press: finish the typing if it is still running, otherwise cut short
-## whatever the beat is still doing and move on. A press always makes something
-## happen, so a scene can never be sat in front of waiting.
+## One press: finish the typing if it is still running, otherwise give the
+## answer picked to a question, or else cut short whatever the beat is still
+## doing and move on. A press always makes something happen, so a scene can
+## never be sat in front of waiting.
 func press() -> void:
 	if done:
 		return
 	if line() != "" and not line_finished():
 		revealed = float(line().length())
 		return
+	if is_choosing():
+		choose(selected)
+		return
+	_cut_short()
+	_next_beat()
+
+func _cut_short() -> void:
 	for a in _moving:
 		if is_instance_valid(a):
 			a.finish_walk()
 	_wait_left = 0.0
-	_next_beat()
+
+## The answers the beat running now offers; empty when it is not a question.
+func choices() -> Array:
+	var c = beat().get("choices", [])
+	return c if c is Array else []
+
+## True once a question has been asked in full and is waiting for an answer.
+func is_choosing() -> bool:
+	return not done and line_finished() and not choices().is_empty()
+
+## Moves the highlight, wrapping at either end.
+func move_selection(step: int) -> void:
+	if not is_choosing():
+		return
+	selected = wrapi(selected + step, 0, choices().size())
+	Cues.emit_cue(&"ui", {"kind": "arm"})
+
+## Gives answer `index` to the question now open: on to where it leads.
+func choose(index: int) -> void:
+	if not is_choosing() or index < 0 or index >= choices().size():
+		return
+	var c = choices()[index]
+	_cut_short()
+	_go_to(String(c.get("next", "")) if c is Dictionary else "")
 
 ## Out of the whole scene, however far through it is.
 func skip() -> void:
@@ -262,6 +340,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed("ui_cancel"):
 		skip()
+		get_viewport().set_input_as_handled()
+	elif is_choosing() and (event.is_action_pressed("move_up") or event.is_action_pressed("ui_up")):
+		move_selection(-1)
+		get_viewport().set_input_as_handled()
+	elif is_choosing() and (event.is_action_pressed("move_down") or event.is_action_pressed("ui_down")):
+		move_selection(1)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_accept") or event.is_action_pressed("interact"):
 		press()

@@ -56,6 +56,9 @@ A beat is one press of the key. It can say something, do things, or both.
 | Key | Values | Meaning |
 |---|---|---|
 | `text` | string | What is on screen for this beat. A beat with text waits for a press; one without moves on as soon as its directions finish. |
+| `id` | string | A name for the beat, for another to lead to. |
+| `next` | a beat's `id` | Where the beat leads once it is read. Leave it out to go on to the beat after it in the file; `""` ends the scene. |
+| `choices` | list of `{"text", "next"}` | A question's answers, picked with up and down and given with the press. Where each leads is its `next`; one leading nowhere ends the scene. |
 | `say` | a cast name | Who is saying it — puts their name on the tab. Leave it out for narration with nobody behind it. |
 | `name` | string | Overrides the name on the tab for this beat. |
 | `speed` | letters per second | How fast it types. Default 34. |
@@ -77,11 +80,11 @@ about, so `{"move": "you", "to": "bench"}` reads as "move you to bench".
 
 | Direction | Keys | What it does |
 |---|---|---|
-| `move` | `to` (a place), `speed` (px/s, default 70) | Walks them there along the floor, facing the way they go. The beat waits until they arrive. |
+| `move` | `to` (a place), or `near` (a cast name) with `gap` (px short of them), or `by` (px along, left for less than nothing); `speed` (px/s, default 70) | Walks them there along the floor, facing the way they go. The beat waits until they arrive. |
 | `place` | `at` (a place) | Puts them there at once, no walking. |
 | `enter` | `at` (a place), and optionally `to` and `speed` | Brings someone on stage at `at`. With `to` they walk on from there. |
 | `exit` | — | Takes them off stage. They stop being drawn. |
-| `face` | `dir`: `left` · `right` | Turns them. |
+| `face` | `dir`: `left` · `right`, or `toward` (a cast name) | Turns them. |
 | `anim` | `play`: `idle` · `run` · `hit` | Holds them in an animation until something else is asked for. `""` hands them back to walking and standing on their own. |
 | `wait` | seconds, as the value | Holds the beat open this long. |
 | `sfx` | a sound id, as the value | Plays it once. |

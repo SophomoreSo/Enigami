@@ -50,7 +50,10 @@ func _build_sprite() -> void:
 ## is cut from the atlas and has only the three, so each airborne case falls
 ## back to holding the stride that reads as rising or falling.
 func _animate() -> void:
-	if flash > 0.55:
+	if player.forced_anim != "" and has_anim(player.forced_anim):
+		# A pose a story's line holds them in, over whatever the body is doing.
+		play(player.forced_anim)
+	elif flash > 0.55:
 		# The recoil pose, held for the front of the flash.
 		play("hit", 1.0, 0)
 	elif player.is_dashing():

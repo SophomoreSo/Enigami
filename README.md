@@ -89,8 +89,8 @@ godot res://tests/mobile/editor_touch_test.tscn # mobile mode's assembly board: 
 godot res://tests/feature/dragon_test.tscn  # one charged cast clears the whole tower
 godot res://tests/feature/map_maker_test.tscn # the map creator's rules: a map laid and taken back, kept as a scene, picked up as a room, played and set again
 godot res://tests/graphics/map_table_test.tscn # the map creator's table: in from the title, laid with the pointer, saved, found in the list, played and come back to
-godot res://tests/story/story_maker_test.tscn # the story maker's rules: a conversation written a line at a time, kept as a file, handed to a character and to a scene, and played each of its three ways
-godot res://tests/graphics/story_desk_test.tscn # the story maker's desk: in from the title, lines typed and moved, a map imported, saved, found in the list, played each way and come back from
+godot res://tests/story/story_maker_test.tscn # the story maker's rules: a conversation written as a graph of nodes — lines, expressions, letters, actions, questions — kept as a file, handed to a character and to a scene, and played each of its three ways
+godot res://tests/graphics/story_desk_test.tscn # the story maker's desk: in from the title, nodes put in, typed, dragged and linked on the sheet, written up in the inspector, a map imported, saved, found in the list, played each way and come back from
 godot res://tests/graphics/shots.tscn   # writes a screenshot of each screen to user://shots
 godot res://tests/graphics/dragon_shot.tscn  # ...and frames of the dragon test
 godot res://tests/graphics/rope_shot.tscn    # ...and frames of a cable dashed through
@@ -838,25 +838,36 @@ hold is in [data/maps/README.md](data/maps/README.md).
 ## The story maker
 
 Title → **STORY MAKER**, under MAP CREATOR. A desk a conversation is written
-at, a line at a time: who says it — the character, or the player — and what.
-Lines are typed where they stand, `Enter` goes on to the next line or to a
-new one after the last, the arrows move a line up or down and the cross takes
-it away, asking first. Down the left is what the story is set on and how it
-plays: **MAP** imports a map made in the map creator — the story is played on
-it, stood up empty, with no monster at its post and nothing to dig —
-**PLAYED AS** picks one of three ways, and under them who the character is,
-what they look like and what the player is called.
+at as a graph of nodes on a sheet. A node is one beat of the story: who says
+what — the character, or the player — with what expression and what motion in
+the letters; what anyone on stage does as it starts — a walk or a run toward
+the other or a few cells along, a pose held, a turn; and where it leads: the
+next node, or a question whose answers each lead somewhere, or nowhere, which
+is the end. A node with nothing to say and something to do is a beat of
+staging. **+ NODE** puts a node in after the one picked and leads to it, so a
+conversation is written straight on, `Enter` a node; a double click on the
+sheet puts one in there. A node is dragged to move it, and the port on its
+right — or on each of its answers — is dragged onto another node to lead
+there, or onto nothing to lead nowhere. The sheet is carried by a drag on it
+or the move keys and brought nearer by the wheel. Down the right is the node
+picked: its words, its expression and letters, its answers, what it does as
+it starts, whether the story starts there, and a way off the desk that asks
+twice. Down the left is what the story is set on and how it plays: **MAP**
+imports a map made in the map creator — the story is played on it, stood up
+empty, with no monster at its post and nothing to dig — **PLAYED AS** picks
+one of three ways, and under them who the character is, what they look like
+and what the player is called.
 
 | Played as | What happens |
 |---|---|
-| **FREE MOVEMENT** | The player goes on playing. The character talks free: a press up close starts the story, and each line comes out in a bubble over whoever says it, moving on by itself once it has been read. |
-| **FROZEN MOVEMENT** | The player walks up and presses to talk, is walked the last step over and held still, and the story runs in the box at the top of the screen, a press a line. |
-| **NOVEL** | Nobody plays. The two of them stand facing each other on the map, and the story is read like a scene, a press a line, in the panel along the foot of the screen. `Esc` skips it. |
+| **FREE MOVEMENT** | The player goes on playing. The character talks free: a press up close starts the story, and each line comes out in a bubble over whoever says it, moving on by itself once it has been read. A question is asked in the box — the player walked over and held for the answer — and the story goes on free after it. |
+| **FROZEN MOVEMENT** | The player walks up and presses to talk, is walked the last step over and held still, and the story runs in the box at the top of the screen, a press a line, the answers to a question picked with up and down. |
+| **NOVEL** | Nobody plays. The two of them stand facing each other on the map, and the story is read like a scene, a press a line, in the panel along the foot of the screen, the answers picked there. `Esc` skips it. |
 
 **PLAY** sets the story going whichever way is picked, and `ESC` comes back
 to the desk with the story as it was — in a novel, by skipping to its end.
-The story is told the same way in all three, so one written for the box reads
-the same as bubbles or as a novel.
+The story is told the same way in all three — its nodes, along its links —
+so one written for the box reads the same as bubbles or as a novel.
 
 **SAVE** keeps the story as a file, named for it: `data/stories/<name>.json`
 when the game is run from the project, where it is committed and ships with
@@ -864,8 +875,8 @@ the game, and `user://stories/` in an exported game. Under the name of a story
 kept already it asks first. **LOAD** lists what is kept, each with a DELETE
 that asks too. The desk is kept while the game runs, saved or not: leave for
 the title and come back, and the story is as it was left. One story comes with
-the game, `first_meeting`, the Old Tinker met in the Moonlit Grove. What a
-file holds is in [data/stories/README.md](data/stories/README.md).
+the game, `first_meeting`, the Old Tinker met in the Moonlit Grove, with a
+question in it. What a file holds is in [data/stories/README.md](data/stories/README.md).
 
 ## Design decisions
 
@@ -977,10 +988,10 @@ feature/world/     room generation, raid map graph, raid loop, sandbox, pickups
                    maps: the files they are kept in
 story/rules/       conversations and directed scenes: what is said, and what follows
                    free talk: rules, the facts they are written against, and the ear
-                   story maker: a story written a line at a time and played on a map;
+                   story maker: a story written as a graph of nodes and played on a map;
                    stories: the files they are kept in
 story/view/        the dialogue box, the speech bubble, the cutscene box, the portraits, the camera
-                   story desk: the story maker's screen, and the view that puts it up
+                   story desk: the story maker's sheet of nodes and its inspector, and the view that puts it up
 mobile/input/      whether the console is on the glass, and what a key on it presses
 mobile/view/       the two-thumb console drawn on the glass, and the screen that
                    moves its buttons (SET BUTTON POSITIONS)

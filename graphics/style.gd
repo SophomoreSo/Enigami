@@ -763,6 +763,43 @@ const EMOTE_COLORS := {
 static func emotion(id: String) -> Dictionary:
 	return EMOTIONS.get(id, EMOTIONS["neutral"])
 
+## How a line's letters move beyond what its emotion does to them, by the
+## `effect` a line names — the story maker's `StoryMaker.EFFECTS`, drawn here:
+## `none` holds them still whatever the emotion, `bounce` hops them in turn.
+const TEXT_EFFECTS := {
+	"none": {},
+	"wave": {"wave": 1.5},
+	"shake": {"jitter": 1.2},
+	"bounce": {"bounce": 3.0},
+}
+
+## What moves the letters of `line`: its `effect`, when it names one, and
+## otherwise its emotion's own — the way a line of the database's has always
+## moved, since none of those names an effect.
+static func letter_motion(line: Dictionary) -> Dictionary:
+	var effect := String(line.get("effect", ""))
+	if TEXT_EFFECTS.has(effect):
+		return TEXT_EFFECTS[effect]
+	return emotion(String(line.get("emotion", "neutral")))
+
+## Where letter `i` stands at `t` seconds, off its place, for `motion`: a
+## tremble (`jitter`), a ripple (`wave`), a hop in turn (`bounce`). On whole
+## pixels, so a letter is never drawn between two. Deterministic noise rather
+## than randf, so a line never draws from the random numbers the fight uses.
+static func letter_offset(motion: Dictionary, i: int, t: float) -> Vector2:
+	var off := Vector2.ZERO
+	var jitter := float(motion.get("jitter", 0.0))
+	if jitter > 0.0:
+		var noise := float(i) * 12.9898 + floorf(t * 20.0) * 78.233
+		off += Vector2(sin(noise), cos(noise * 1.3)) * jitter
+	var wave := float(motion.get("wave", 0.0))
+	if wave > 0.0:
+		off.y += sin(t * 6.0 + float(i) * 0.5) * wave
+	var bounce := float(motion.get("bounce", 0.0))
+	if bounce > 0.0:
+		off.y -= maxf(0.0, sin(t * 7.0 - float(i) * 0.7)) * bounce
+	return off.round()
+
 ## --- the world --------------------------------------------------------------
 const ROOM_BG := Color(0.075, 0.085, 0.11)
 const ROOM_GRID := Color(1, 1, 1, 0.022)

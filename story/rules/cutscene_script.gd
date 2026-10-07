@@ -4,9 +4,10 @@ extends RefCounted
 ## A directed scene, read from `data/scenes/<id>.json`. The format is written
 ## out for whoever writes one in `data/scenes/README.md`.
 ##
-## Divided the way a dialogue file is divided. The rules read a beat's `text`
-## and the directions that move something — `move`, `place`, `face`, `enter`,
-## `exit`, `wait` — along with the cast and the marks those directions name.
+## Divided the way a dialogue file is divided. The rules read a beat's `text`,
+## where it leads (`next`, `choices`) and the directions that move something —
+## `move`, `place`, `face`, `enter`, `exit`, `wait` — along with the cast and
+## the marks those directions name.
 ## Everything else a direction carries (`anim`, `sfx`, `camera`, `fade`) belongs
 ## to the picture and the sound bank: it is handed out untouched on the
 ## `scene_direction` cue and never read here. A new kind of direction is a new
@@ -132,6 +133,14 @@ static func problems_in(def: Dictionary) -> Array:
 	var beats = def.get("beats", [])
 	if not beats is Array or beats.is_empty():
 		return found + ["no beats"]
+	# The beats' ids, for the ones that lead on by them.
+	var ids := {}
+	for i in beats.size():
+		if beats[i] is Dictionary and (beats[i] as Dictionary).has("id"):
+			var id := String(beats[i]["id"])
+			if ids.has(id):
+				found.append("beat %d has the id '%s', which beat %d has already" % [i + 1, id, int(ids[id]) + 1])
+			ids[id] = i
 	for i in beats.size():
 		var beat = beats[i]
 		var at := "beat %d" % (i + 1)
@@ -142,14 +151,27 @@ static func problems_in(def: Dictionary) -> Array:
 		if not directions is Array:
 			found.append("%s has a 'do' that is not a list" % at)
 			directions = []
+		var choices = beat.get("choices", [])
+		if not choices is Array:
+			found.append("%s has 'choices' that are not a list" % at)
+			choices = []
 		if String(beat.get("text", "")) == "" and directions.is_empty() \
-				and not beat.has("hold"):
+				and not beat.has("hold") and choices.is_empty():
 			found.append("%s has no text, no directions and no hold — it does nothing" % at)
 		for d in directions:
 			if not d is Dictionary:
 				found.append("%s has a direction that is not an object" % at)
 				continue
 			found.append_array(_direction_problems(d, at, cast, marks))
+		if beat.has("next") and String(beat["next"]) != "" and not ids.has(String(beat["next"])):
+			found.append("%s leads to '%s', which no beat is called" % [at, beat["next"]])
+		for c in choices:
+			if not c is Dictionary or String((c as Dictionary).get("text", "")) == "":
+				found.append("%s has an answer with no text" % at)
+				continue
+			var to := String((c as Dictionary).get("next", ""))
+			if to != "" and not ids.has(to):
+				found.append("%s has an answer leading to '%s', which no beat is called" % [at, to])
 	return found
 
 ## --- reading ----------------------------------------------------------------
@@ -171,12 +193,15 @@ static func _direction_problems(d: Dictionary, at: String, cast: Dictionary,
 		var who := String(d[verb])
 		if not cast.has(who):
 			found.append("%s directs '%s', who is not in the cast" % [at, who])
-	if verb == "move" and not _is_place(d.get("to", null), marks):
-		found.append("%s moves to '%s', which is not a mark" % [at, d.get("to", "")])
+	if verb == "move" and not _is_place(d.get("to", null), marks) \
+			and not (d.has("near") and cast.has(String(d["near"]))) \
+			and not (d.has("by") and (d["by"] is float or d["by"] is int)):
+		found.append("%s moves to '%s', which is not a mark — and near nobody in the cast, by nothing" % [at, d.get("to", "")])
 	if (verb == "place" or verb == "enter") and not _is_place(d.get("at", null), marks):
 		found.append("%s puts someone at '%s', which is not a mark" % [at, d.get("at", "")])
-	if verb == "face" and not ["left", "right"].has(String(d.get("dir", ""))):
-		found.append("%s faces '%s' — it is left or right" % [at, d.get("dir", "")])
+	if verb == "face" and not ["left", "right"].has(String(d.get("dir", ""))) \
+			and not (d.has("toward") and cast.has(String(d["toward"]))):
+		found.append("%s faces '%s' — it is left or right, or toward someone in the cast" % [at, d.get("dir", "")])
 	return found
 
 ## A place is either the name of a mark or a pair of numbers written out.
