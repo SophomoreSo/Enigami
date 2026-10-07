@@ -2,8 +2,10 @@ class_name CutsceneBox
 extends Control
 
 ## The narration under a directed scene: what is being said now, typed a letter
-## at a time, with the name of whoever is saying it when anyone is. It reads the
-## `Cutscene` every frame and never writes to it.
+## at a time, with the name of whoever is saying it when anyone is, and under a
+## question its answers, the one picked marked. It reads the `Cutscene` every
+## frame and never writes to it. The letters move as the beat's emotion or its
+## own effect asks (`Style.letter_motion`).
 ##
 ## Deliberately its own panel rather than the `DialogueBox`: a conversation is
 ## framed around two portraits facing each other, and a prologue is a voice over
@@ -36,6 +38,10 @@ const TAB_HEIGHT := 24.0
 const ROWS_SHOWN := 3       ## the panel is this tall whatever the line, so it never jumps
 const OPEN_TIME := 0.18
 const MARK_INSET := Vector2(16.0, 16.0)
+## How far an answer sits in from the line, to leave room for the marker, and
+## the space between the line and the first answer, and after the last.
+const CHOICE_INDENT := 22.0
+const CHOICE_GAP := 8.0
 ## Mobile mode's panel: as wide as THUMB_WIDTH where the screen has it, clear of
 ## its edges by THUMB_SIDE, and nearer the bottom, the hint under it being one
 ## short line.
@@ -80,14 +86,32 @@ func _line_h() -> float:
 func _tab_h() -> float:
 	return TAB_HEIGHT * 2.0 - 4.0 if thumb() else TAB_HEIGHT
 
-## Where the panel stands: `ROWS_SHOWN` rows of the size it is written at.
+## Where the panel stands: `ROWS_SHOWN` rows of the size it is written at —
+## and under a question, its answers and the hint for picking one.
 func box_rect() -> Rect2:
 	var w := clampf(size.x - SIDE_CLEAR * 2.0, MIN_WIDTH, MAX_WIDTH)
 	if thumb():
 		w = clampf(size.x - THUMB_SIDE * 2.0, MIN_WIDTH, THUMB_WIDTH)
-	var h := PAD * 2.0 + _line_h() * float(ROWS_SHOWN)
+	var rows := _line_h() * float(ROWS_SHOWN)
+	var answers := _answers(w)
+	if not answers.is_empty():
+		rows += CHOICE_GAP * 2.0 + _line_h()
+		for opt in answers:
+			rows += _line_h() * (opt as PackedStringArray).size()
+	var h := PAD * 2.0 + rows
 	return Rect2(Vector2((size.x - w) * 0.5, size.y - (THUMB_BOTTOM if thumb() else BOTTOM) - h),
 		Vector2(w, h))
+
+## The answers the beat offers, each wrapped to fit beside the marker; none
+## for a beat that asks nothing.
+func _answers(w: float) -> Array:
+	var out: Array = []
+	if cut == null or not is_instance_valid(cut):
+		return out
+	for c in cut.choices():
+		if c is Dictionary:
+			out.append(_wrap(String((c as Dictionary).get("text", "")), w - PAD * 2.0 - CHOICE_INDENT, _text_size()))
+	return out
 
 func _draw() -> void:
 	if _open <= 0.0:
@@ -111,21 +135,60 @@ func _draw() -> void:
 	# Wrapped from the whole line rather than the part typed so far, so a word
 	# never jumps down a row halfway through arriving.
 	var rows := _wrap(cut.line(), text_w, _text_size())
-	var shown := int(cut.revealed)
 	var pen := box.position + Vector2(PAD, PAD)
-	var used := 0
 	var ink := Color(UiKit.TEXT.r, UiKit.TEXT.g, UiKit.TEXT.b, _open)
-	for row in rows:
-		var left := shown - used
-		if left <= 0:
-			break
-		_text(pen, row.left(left), _text_size(), ink)
-		used += row.length() + 1   # the space the wrap ate
-		pen.y += line_h
+	_draw_letters(pen, rows, line_h, ink)
+	pen.y += line_h * rows.size()
 
-	if cut.waiting_for_press() and cut.line_finished():
+	if cut.is_choosing():
+		# The answers under the line, the one picked marked, and how to pick.
+		var answers := _answers(w)
+		pen.y += CHOICE_GAP
+		for i in answers.size():
+			var opt: PackedStringArray = answers[i]
+			var chosen := i == cut.selected
+			if chosen:
+				var mid := pen.y + line_h * 0.5
+				var nudge := roundf(absf(sin(_t * 6.0)) * 3.0)
+				draw_colored_polygon(PackedVector2Array([
+					Vector2(pen.x + 2.0 + nudge, mid - 6.0), Vector2(pen.x + 11.0 + nudge, mid),
+					Vector2(pen.x + 2.0 + nudge, mid + 6.0),
+				]), Color(UiKit.ACCENT.r, UiKit.ACCENT.g, UiKit.ACCENT.b, _open))
+			for row in opt:
+				_text(pen + Vector2(CHOICE_INDENT, 0), row, _text_size(),
+					ink if chosen else Color(UiKit.DIM.r, UiKit.DIM.g, UiKit.DIM.b, _open))
+				pen.y += line_h
+		pen.y += CHOICE_GAP
+		_text(pen, _choice_hint(), HINT_SIZE, Color(UiKit.DIM.r, UiKit.DIM.g, UiKit.DIM.b, 0.8 * _open))
+	elif cut.waiting_for_press() and cut.line_finished():
 		_draw_mark(box)
 	_draw_hint(box)
+
+## The line so far, a letter at a time, each moved as the beat's emotion or
+## its own effect asks.
+func _draw_letters(pen: Vector2, rows: PackedStringArray, line_h: float, ink: Color) -> void:
+	var motion := Style.letter_motion(cut.beat())
+	var shown := int(cut.revealed)
+	var ascent := roundf(_font.get_ascent(_text_size()))
+	var i := 0
+	for row in rows:
+		var x := pen.x
+		for k in row.length():
+			if i >= shown:
+				return
+			x += _font.draw_char(get_canvas_item(), (Vector2(x, pen.y + ascent)).round() + Style.letter_offset(motion, i, _t),
+				row.unicode_at(k), _text_size(), ink)
+			i += 1
+		i += 1   # the space the wrap swallowed
+		pen.y += line_h
+
+## How to answer, in whatever the player has the keys bound to — the words
+## the conversation's box uses, since it is the same question.
+func _choice_hint() -> String:
+	if thumb() or Controls.on_glass():
+		return Loc.t("hud.dialogue.choose_touch")
+	return Loc.t("hud.dialogue.choose", [Controls.short_label_for("move_up"),
+		Controls.short_label_for("move_down"), Controls.short_label_for("interact")])
 
 ## The speaker's name on a tab over the top-left corner. Narration has no
 ## speaker and so gets no tab — which is how the two read apart.

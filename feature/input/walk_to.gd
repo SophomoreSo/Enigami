@@ -40,6 +40,9 @@ var face: int = 0
 ## How it ended: there, or taken back by the player. Neither while it walks.
 var arrived: bool = false
 var refused: bool = false
+## How hard it pushes, 0..1: the body's whole run, or less of it for a stroll
+## a story asks for. A push that refuses it is measured against REFUSE still.
+var pace: float = 1.0
 
 var _begun: bool = false
 ## The push the hands were already holding when the walk began, until it is
@@ -79,7 +82,7 @@ func process(s: InputState) -> InputState:
 		s.move = 0.0
 		s.turn = face
 	else:
-		s.move = clampf(gap / EASE, -1.0, 1.0)
+		s.move = clampf(gap / EASE, -pace, pace)
 	return s
 
 ## A physics frame of it: whether the player has taken the body back, and

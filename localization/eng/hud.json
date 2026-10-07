@@ -167,6 +167,7 @@
 		"new": "NEW",
 		"play": "PLAY",
 		"back": "BACK",
+		"add_node": "+ NODE",
 		"map": "MAP",
 		"no_map": "NO MAP",
 		"mode": "PLAYED AS",
@@ -176,7 +177,7 @@
 			"novel": "NOVEL"
 		},
 		"modes_hint": {
-			"free": "FREE MOVEMENT: THE PLAYER GOES ON PLAYING, AND EACH LINE GOES IN A BUBBLE OVER WHOEVER SAYS IT",
+			"free": "FREE MOVEMENT: THE PLAYER GOES ON PLAYING, EACH LINE IN A BUBBLE; A QUESTION IS ASKED IN THE BOX",
 			"frozen": "FROZEN MOVEMENT: THE PLAYER WALKS UP, PRESSES TO TALK, AND IS HELD STILL WHILE THE BOX RUNS",
 			"novel": "NOVEL: NOBODY PLAYS. THE STORY IS READ A PRESS AT A TIME, LIKE A SCENE"
 		},
@@ -185,11 +186,67 @@
 		"player": "PLAYER",
 		"npc": "CHARACTER",
 		"you": "YOU",
+		"node": "NODE %s",
+		"nothing_picked": "PICK A NODE ON THE SHEET, OR PRESS + NODE",
+		"start_here": "START HERE",
+		"is_start": "START",
 		"line": "WHAT IS SAID",
-		"add": "+ ADD A LINE",
+		"emotion": {
+			"neutral": "NEUTRAL",
+			"happy": "HAPPY",
+			"sad": "SAD",
+			"angry": "ANGRY",
+			"surprised": "SURPRISED",
+			"thinking": "THINKING",
+			"scared": "SCARED"
+		},
+		"effect": {
+			"none": "STILL",
+			"wave": "WAVE",
+			"shake": "SHAKE",
+			"bounce": "BOUNCE"
+		},
+		"leads_to": "LEADS TO NODE %s",
+		"leads_end": "LEADS TO THE END",
+		"unlink": "CUT",
+		"answer": "AN ANSWER",
+		"add_answer": "+ ANSWER",
+		"action_count_one": "%d ACTION",
+		"action_count": "%d ACTIONS",
+		"do": {
+			"walk": "WALKS",
+			"run": "RUNS",
+			"pose": "POSES",
+			"face": "TURNS"
+		},
+		"to_whom": "TO %s",
+		"to": {
+			"left": "LEFT",
+			"right": "RIGHT"
+		},
+		"steps": "%d CELLS",
+		"dir": {
+			"left": "LEFT",
+			"right": "RIGHT",
+			"toward": "TOWARD THE OTHER"
+		},
+		"pose": {
+			"idle": "STANDING",
+			"run": "RUNNING",
+			"crouch": "CROUCHING",
+			"hit": "STRUCK",
+			"rise": "RISING",
+			"fall": "FALLING",
+			"wall_slide": "WALL SLIDE",
+			"dash": "DASHING"
+		},
+		"delete_node": "DELETE NODE",
+		"remove_asks": "DELETE AGAIN TO TAKE NODE %s OFF THE DESK",
 		"sure": "SURE?",
-		"count_one": "%d LINE",
-		"count_many": "%d LINES",
+		"count_one": "%d NODE",
+		"count_many": "%d NODES",
+		"hint": "DRAG A NODE TO MOVE IT  DRAG A PORT ONTO A NODE TO LEAD THERE  DOUBLE-CLICK TO ADD  DEL REMOVES",
+		"hint_touch": "DRAG A NODE TO MOVE IT  DRAG A PORT ONTO A NODE TO LEAD THERE  DOUBLE-TAP TO ADD",
 		"unsaved": "NOT SAVED",
 		"saved": "SAVED  %s",
 		"loaded": "LOADED %s",
@@ -199,7 +256,7 @@
 			"name": "NAME THE STORY FIRST: LETTERS AND DIGITS",
 			"write": "THE STORY COULD NOT BE WRITTEN",
 			"read": "THE STORY COULD NOT BE READ",
-			"empty": "WRITE A LINE FIRST",
+			"empty": "WRITE A LINE FIRST, AND LEAD THE START TO IT",
 			"map": "THERE IS NO MAP TO PLAY IT ON: MAKE ONE IN THE MAP CREATOR"
 		},
 		"load_heading": "LOAD A STORY",
@@ -207,7 +264,18 @@
 		"none": "NO STORIES KEPT YET",
 		"no_maps": "NO MAPS KEPT YET",
 		"delete": "DELETE",
-		"keys": "F TALK  ESC BACK TO THE DESK"
+		"keys": "F TALK  ESC BACK TO THE DESK",
+		"end": "END",
+		"add_property": "+ PROPERTY",
+		"property": {
+			"line": "LINE",
+			"emotion": "EXPRESSION",
+			"effect": "LETTERS",
+			"action": "ACTION",
+			"choices": "ANSWERS"
+		},
+		"action_n": "ACTION %d",
+		"empty": "NO PROPERTIES"
 	},
 	"dragon": {
 		"play": "PLAY",

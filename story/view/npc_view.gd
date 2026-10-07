@@ -98,6 +98,13 @@ func _process(delta: float) -> void:
 		_build_sprite()
 	_t += delta
 	sprite.flip_h = npc.facing < 0
+	# A pose a line holds them in, or else the truth about whether they are
+	# walking: a line can send them across the room.
+	var anim := npc.forced_anim
+	if anim == "" or not sprite.sprite_frames.has_animation(anim):
+		anim = "run" if absf(npc.velocity.x) > 4.0 else "idle"
+	if sprite.animation != anim or not sprite.is_playing():
+		sprite.play(anim)
 	# On whole world pixels, the grid the NPC is drawn on, so the cap's blocks
 	# line up with theirs.
 	prompt.position = (global_position / PixelCamera.SCALE).round() * PixelCamera.SCALE

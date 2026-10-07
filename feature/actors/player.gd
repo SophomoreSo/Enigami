@@ -264,6 +264,11 @@ var _asked := InputState.new()
 ## Whether the body is low: crouched, as it stands. Read rather than announced,
 ## like `charging` — it is a state that lasts.
 var crouched: bool = false
+## What the view must play regardless of what the body is doing — a pose a
+## story's line holds the player in (`Npc.direct`) — or "" to let the view
+## choose from the body's own motion. The body itself is not held: that is
+## the conversation's to do.
+var forced_anim: String = ""
 ## Whether the state the body is in ducked this frame (`_action_duck`). A state
 ## that does not stands the body back up, so being low is one more thing a
 ## state's steps say and nothing has to remember to undo it.

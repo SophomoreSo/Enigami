@@ -9,7 +9,8 @@ extends Control
 ## How a line looks comes from its row in the database: `speaker` puts the portrait on
 ## the left (the NPC) or the right (the player), `sprite` swaps its art, and
 ## `emotion` tints, trembles or hops the portrait, gives it a mark, and trembles
-## or ripples the letters (see `Style.EMOTIONS`).
+## or ripples the letters (see `Style.EMOTIONS`) — unless the line names an
+## `effect` of its own for them (`Style.TEXT_EFFECTS`).
 ##
 ## Screen space, at the screen's resolution: this is reading text, and the pixel
 ## camera would blur it. The portrait is the one piece of pixel art in it, blown
@@ -329,7 +330,7 @@ func _draw() -> void:
 
 	var pen := Vector2(full.position.x + PAD if on_right else portrait.end.x + PAD, full.position.y + PAD)
 	var text_right := portrait.position.x - PAD if on_right else full.end.x - PAD
-	_draw_line(pen, rows, line_h, mood)
+	_draw_line(pen, rows, line_h, Style.letter_motion(node))
 	pen.y += line_h * rows.size()
 
 	if npc.is_choosing():
@@ -381,7 +382,7 @@ func _draw_for_a_thumb() -> void:
 	var pen := Vector2(full.position.x + THUMB_PAD if on_right else portrait.end.x + THUMB_PAD,
 		full.position.y + THUMB_PAD)
 	var text_right := portrait.position.x - THUMB_PAD if on_right else full.end.x - THUMB_PAD
-	_draw_line(pen, rows, _line_h(), mood)
+	_draw_line(pen, rows, _line_h(), Style.letter_motion(node))
 
 	if npc.is_choosing():
 		var plates: Array = l["plates"]
@@ -506,12 +507,11 @@ func _draw_mark(kind: String, at: Vector2) -> void:
 				draw_line(p + dir * 3.0 * pulse, p + dir * 9.0 * pulse, col, 3.0)
 
 ## The line so far, a letter at a time, each rising into place from when it came
-## out (see `_track_arrivals`), trembling or rippling as the emotion asks.
-func _draw_line(pen: Vector2, rows: PackedStringArray, line_h: float, mood: Dictionary) -> void:
+## out (see `_track_arrivals`), trembling, rippling or hopping as `motion` asks
+## (`Style.letter_offset`).
+func _draw_line(pen: Vector2, rows: PackedStringArray, line_h: float, motion: Dictionary) -> void:
 	var shown := mini(int(npc.revealed), _arrived.size())
 	var ascent := roundf(_font.get_ascent(_text_size()))
-	var jitter := float(mood.get("jitter", 0.0))
-	var wave := float(mood.get("wave", 0.0))
 	var i := 0
 	for row in rows:
 		var x := pen.x
@@ -521,13 +521,8 @@ func _draw_line(pen: Vector2, rows: PackedStringArray, line_h: float, mood: Dict
 			var p := clampf((_t - _arrived[i]) / POP_TIME, 0.0, 1.0)
 			var col := Style.DIALOGUE_TEXT
 			col.a *= p
-			var off := Vector2(0, POP_RISE * (1.0 - p))
-			if jitter > 0.0:
-				var noise := float(i) * 12.9898 + floorf(_t * 20.0) * 78.233
-				off += Vector2(sin(noise), cos(noise * 1.3)) * jitter
-			if wave > 0.0:
-				off.y += sin(_t * 6.0 + float(i) * 0.5) * wave
-			x += _font.draw_char(get_canvas_item(), Vector2(x, pen.y + ascent) + off.round(),
+			var off := Vector2(0, POP_RISE * (1.0 - p)).round() + Style.letter_offset(motion, i, _t)
+			x += _font.draw_char(get_canvas_item(), Vector2(x, pen.y + ascent) + off,
 				row.unicode_at(k), _text_size(), col)
 			i += 1
 		i += 1   # the space the wrap swallowed

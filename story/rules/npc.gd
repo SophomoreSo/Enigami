@@ -26,6 +26,10 @@ extends CharacterBody2D
 ## whenever their rules have something to say about it. Nothing here is drawn:
 ## `story/view/npc_view.gd`, `dialogue_box.gd` and `speech_bubble.gd` show it.
 ##
+## A line may direct the stage as it starts (`actions`, see `direct`): a walk
+## or a run of theirs or the player's, a pose held until the talk is over, a
+## turn. The story maker writes those; a line of the database's has none.
+##
 ## What each NPC says lives in the content database, as rows under their id
 ## (see `Dialogue`, and `data/db/README.md`) — or is handed in, written
 ## somewhere else, in the same shape (`setup_with`).
@@ -60,6 +64,14 @@ const EARSHOT := 256.0
 const REVEAL_RATE := 45.0
 ## Letters that make no sound as they type.
 const QUIET := " .,!?;:'\"-…()"
+## How fast a walk and a run a line asks of them go, in pixels a second, and
+## how near where it is going is there — wider than a pixel, since a walk is
+## stepped in whole frames.
+const WALK_SPEED := 70.0
+const RUN_SPEED := 150.0
+const ARRIVE := 3.0
+## How hard a walk pushes the player's body: a stroll, against a run's whole push.
+const WALK_PACE := 0.45
 
 var npc_id: String = "SAGE"
 var display_name: String = ""
@@ -86,11 +98,29 @@ var in_earshot: bool = false
 var mode: int = Mode.FREEZE
 ## Their free talk, in either mode: see `FreeTalk`.
 var free_talk: FreeTalk
+## What the view must play regardless of motion — a pose a line holds them in
+## (`direct`) — or "" to let the view choose from how fast they are moving.
+var forced_anim: String = ""
+## Whether a story told free asks its questions in the box: a line with
+## answers walks the player over and opens there, and the answer given, the
+## talk goes on free from where it leads. The story maker sets it.
+var free_story: bool = false
+## Which way a line turned them, or 0 for none: while one holds they do not
+## turn back to the player of their own accord.
+var _faced: int = 0
+## A walk a line asked of them: where to, how fast, and whether it is under way.
+var _walk_to: float = 0.0
+var _walk_speed: float = 0.0
+var _walking: bool = false
+## A walk a line asked of the player, on the player's own line; null between.
+var _story_walk: WalkTo = null
 ## The player being talked to, held still until the conversation ends.
 var _listener: Player = null
 ## The walk bringing the player over to talk, from the press until they get
-## here or change their mind; null the rest of the time.
+## here or change their mind; null the rest of the time. And the line it
+## opens on once they are here: the start, or a question asked mid free talk.
 var _approach: WalkTo = null
+var _approach_to: String = ""
 
 func setup(id: String) -> void:
 	npc_id = id
@@ -125,6 +155,7 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	velocity.y = minf(velocity.y + GRAVITY * delta, MAX_FALL)
+	_walk()
 	move_and_slide()
 
 	var player := _player()
@@ -133,12 +164,16 @@ func _physics_process(delta: float) -> void:
 	var was_in_earshot := in_earshot
 	in_range = away <= TALK_RANGE
 	in_earshot = away <= EARSHOT
-	if in_range or (free_talk.is_talking() and in_earshot):
+	if _faced == 0 and not _walking and (in_range or (free_talk.is_talking() and in_earshot)):
 		face(int(signf(player.vessel().global_position.x - global_position.x)))
 	if is_talking():
-		# Walking off mid-sentence is how a player says they are done listening.
-		if not in_range:
+		# Walking off mid-sentence is how a player says they are done listening
+		# — unless it is the line walking one of them, which is not that.
+		if not in_range and not _walking and not _player_walking():
 			end_conversation()
+		elif current_line() == "" and not is_choosing() and not _walking and not _player_walking():
+			# Nothing to read: a beat of staging is over once what it does is done.
+			_go(String(current_node().get("next", "")))
 		else:
 			var before := int(revealed)
 			revealed = minf(revealed + reveal_rate() * delta, float(current_line().length()))
@@ -182,6 +217,9 @@ func _talk_free(delta: float, player: Player, was_in_earshot: bool) -> void:
 	if saying != "" and free_talk.line_id == saying:
 		_blip(free_talk.current_line(), free_talk.current_rule(), before, int(free_talk.revealed),
 			free_speaker().global_position)
+	elif saying != "" and free_talk.line_id == "" and _approach == null and not is_talking():
+		# The talk is over: a pose it held them in, and a turn, are let go of.
+		_clear_directions()
 
 ## Whether a press of interact here would get an answer: in the box, always;
 ## free, while a line is being said, or while there is something to say.
@@ -201,10 +239,17 @@ func free_speaker() -> Node2D:
 	return self
 
 ## A free line starting. The cue carries the whole rule, the way the box's
-## carries its line, so the sound bank plays what the rule names.
+## carries its line, so the sound bank plays what the rule names. A line of
+## a story told free that asks a question is not said free at all: the
+## player is walked over, and it opens in the box, where answers are picked.
 func _on_free_line(rule_id: String) -> void:
-	Cues.at(&"talk", free_speaker().global_position,
-		{"npc": npc_id, "rule": rule_id, "line": free_talk.current_rule()})
+	var rule := free_talk.current_rule()
+	if free_story and not (rule.get("choices", []) as Array).is_empty():
+		free_talk.cut()
+		_come_over(rule_id)
+		return
+	direct(rule.get("actions", []))
+	Cues.at(&"talk", free_speaker().global_position, {"npc": npc_id, "rule": rule_id, "line": rule})
 
 ## Two NPCs in reach of the player: the nearer one hears the press.
 func _nearest(player: Player) -> bool:
@@ -231,13 +276,19 @@ func interact() -> void:
 		return
 	_go(String(current_node().get("next", "")))
 
-## Gives answer `index` to the question now open.
+## Gives answer `index` to the question now open. In a story told free, the
+## answer given, the talk goes on free from where it leads.
 func choose(index: int) -> void:
 	if not is_choosing() or index < 0 or index >= choices().size():
 		return
 	var from := node_id
 	var to := String(choices()[index].get("next", ""))
 	choice_made.emit(self, from, index)
+	if free_story:
+		end_conversation()
+		if to != "" and free_talk.rules.has(to):
+			free_talk.say(to)
+		return
 	_go(to)
 
 ## Moves the highlight, wrapping at either end so the last answer is one press
@@ -259,14 +310,16 @@ func select(index: int) -> void:
 
 ## A press to talk. The player is walked over to where people stand to talk,
 ## `TALK_SPOT` out on the side they are on, and turned to face them, and the
-## conversation opens once they are there; for one standing there already it
-## opens at once. The walk goes on the player's own input line, after anything
-## that holds them, and it is theirs to refuse: a push the other way takes the
-## body back, and nothing opens.
-func _come_over() -> void:
+## conversation opens once they are there — on `start`, or on the line `to`
+## names; for one standing there already it opens at once. The walk goes on
+## the player's own input line, after anything that holds them, and it is
+## theirs to refuse: a push the other way takes the body back, and nothing
+## opens.
+func _come_over(to: String = "") -> void:
 	var player := _player()
 	if player == null or _approach != null:
 		return
+	_approach_to = to if to != "" else start
 	# The walk goes on the player's line, which drives whichever body their
 	# hands are in, so it is that body that is walked over.
 	var body := player.vessel()
@@ -276,7 +329,7 @@ func _come_over() -> void:
 		side = -float(body.facing)
 	var spot := global_position.x + side * TALK_SPOT
 	if absf(body.global_position.x - spot) <= WalkTo.THERE:
-		_go(start)
+		_go(_approach_to)
 		return
 	_approach = WalkTo.new(spot, -int(side))
 	player.input.add(_approach)
@@ -287,10 +340,117 @@ func _come_over() -> void:
 func _mind_approach(player: Player) -> void:
 	if _approach.arrived and player != null and in_range:
 		_approach = null
-		_go(start)
+		_go(_approach_to)
 	elif _approach.done or player == null or not in_range or player.input_locked:
 		_approach.cancel()
 		_approach = null
+
+## --- what a line directs ----------------------------------------------------
+
+## Carries out a line's `actions` as it starts: each `who` — `npc`, them, or
+## `player` — does `do`. A `walk` or a `run` goes `to` the other, stopping
+## `TALK_SPOT` short of them on the side it comes from, or `left` or `right`
+## so many `steps` of the room's cells; theirs is their own, the player's goes
+## on the player's line (`WalkTo`), as the walk over to talk does, and is theirs
+## to refuse. A `pose` is held until the talk is over (`forced_anim`). A
+## `face` turns them `left`, `right` or `toward` the other, and they stay
+## turned. The story maker writes these (`StoryMaker.DO`).
+func direct(actions: Array) -> void:
+	var player := _player()
+	for a in actions:
+		if not a is Dictionary:
+			continue
+		var mine := String(a.get("who", "npc")) != "player"
+		var theirs: Node2D = player.vessel() if player != null else null
+		var body: Node2D = self if mine else theirs
+		var other: Node2D = theirs if mine else self
+		if body == null:
+			continue
+		match String(a.get("do", "")):
+			"walk", "run":
+				var run := String(a["do"]) == "run"
+				var x := body.global_position.x
+				var to := String(a.get("to", "player"))
+				if to == "left" or to == "right":
+					x += (-1.0 if to == "left" else 1.0) * float(maxi(int(a.get("steps", 1)), 1)) * Room.CELL
+				elif other != null:
+					var side := signf(other.global_position.x - body.global_position.x)
+					x = other.global_position.x - (side if side != 0.0 else 1.0) * TALK_SPOT
+				if mine:
+					walk_to(x, RUN_SPEED if run else WALK_SPEED)
+				else:
+					_walk_player(player, x, run)
+			"pose":
+				if mine:
+					forced_anim = String(a.get("pose", ""))
+				else:
+					player.forced_anim = String(a.get("pose", ""))
+			"face":
+				var way := 0
+				match String(a.get("dir", "toward")):
+					"left":
+						way = -1
+					"right":
+						way = 1
+					_:
+						if other != null:
+							way = int(signf(other.global_position.x - body.global_position.x))
+				if way != 0:
+					body.face(way)
+					if mine:
+						_faced = way
+
+## Walks them to `x`, at `speed`, facing the way they go.
+func walk_to(x: float, speed: float = WALK_SPEED) -> void:
+	_walk_to = x
+	_walk_speed = maxf(speed, 1.0)
+	_walking = true
+
+func stop_walk() -> void:
+	_walking = false
+	velocity.x = 0.0
+
+func walking() -> bool:
+	return _walking
+
+## A step of a walk a line asked of them, before the body moves.
+func _walk() -> void:
+	if not _walking:
+		velocity.x = 0.0
+		return
+	var gap := _walk_to - global_position.x
+	if absf(gap) <= ARRIVE:
+		# Right where it was going, not near it, so a walk lands the same every time.
+		global_position.x = _walk_to
+		stop_walk()
+	else:
+		velocity.x = signf(gap) * _walk_speed
+		face(int(signf(gap)))
+
+## The player walked to `x` for a line: a stroll, or a run's whole push.
+func _walk_player(player: Player, x: float, run: bool) -> void:
+	_cancel_story_walk()
+	_story_walk = WalkTo.new(x, 0)
+	_story_walk.pace = 1.0 if run else WALK_PACE
+	player.input.add(_story_walk)
+
+func _player_walking() -> bool:
+	return _story_walk != null and not _story_walk.done
+
+func _cancel_story_walk() -> void:
+	if _story_walk != null and not _story_walk.done:
+		_story_walk.cancel()
+	_story_walk = null
+
+## Lets go of everything a line directed: the pose, the turn, a walk still under way.
+func _clear_directions() -> void:
+	forced_anim = ""
+	_faced = 0
+	stop_walk()
+	_cancel_story_walk()
+	var player := _player()
+	if player != null:
+		player.forced_anim = ""
 
 ## Whether the player is being walked over to talk.
 func approaching() -> bool:
@@ -300,6 +460,7 @@ func end_conversation() -> void:
 	if not is_talking():
 		return
 	_release_listener()
+	_clear_directions()
 	node_id = ""
 	revealed = 0.0
 	selected = 0
@@ -326,6 +487,7 @@ func _go(to: String) -> void:
 			# body.
 			var body := _listener.vessel()
 			body.face(int(signf(global_position.x - body.global_position.x)))
+	direct(current_node().get("actions", []))
 	Cues.at(&"talk", global_position, {"npc": npc_id, "node": to, "line": current_node()})
 	line_started.emit(self, node_id)
 
@@ -335,6 +497,7 @@ func _exit_tree() -> void:
 	if _approach != null:
 		_approach.cancel()
 		_approach = null
+	_cancel_story_walk()
 	_release_listener()
 
 func _release_listener() -> void:

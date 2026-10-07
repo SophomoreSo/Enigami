@@ -56,7 +56,8 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	var talk := _talk()
-	var saying := talk != null and talk.is_talking()
+	# A line with nothing in it — a beat of staging — gets no bubble.
+	var saying := talk != null and talk.is_talking() and talk.current_line() != ""
 	var who := talk.speaker() if saying else ""
 	if who != _speaker:
 		_speaker = who
@@ -143,12 +144,11 @@ func _draw_tail(full: Rect2) -> void:
 		if half > PX:
 			_px.rect(Rect2(tip.x - half + PX, y, half * 2.0 - PX * 2, PX), Style.DIALOGUE_FILL)
 
-## The line so far, a letter at a time, trembling or rippling as its emotion
-## asks — the same treatment the box gives its letters.
+## The line so far, a letter at a time, trembling, rippling or hopping as its
+## emotion or its own effect asks — the same treatment the box gives its
+## letters (`Style.letter_offset`).
 func _draw_words(full: Rect2, rows: PackedStringArray, talk: FreeTalk) -> void:
-	var mood := Style.emotion(String(talk.current_rule().get("emotion", "neutral")))
-	var jitter := float(mood.get("jitter", 0.0))
-	var wave := float(mood.get("wave", 0.0))
+	var motion := Style.letter_motion(talk.current_rule())
 	var shown := int(talk.revealed)
 	var ascent := roundf(FONT.get_ascent(SIZE))
 	var pen := full.position + PAD
@@ -158,13 +158,7 @@ func _draw_words(full: Rect2, rows: PackedStringArray, talk: FreeTalk) -> void:
 		for k in row.length():
 			if i >= shown:
 				return
-			var off := Vector2.ZERO
-			if jitter > 0.0:
-				var noise := float(i) * 12.9898 + floorf(_t * 20.0) * 78.233
-				off += Vector2(sin(noise), cos(noise * 1.3)) * jitter
-			if wave > 0.0:
-				off.y += sin(_t * 6.0 + float(i) * 0.5) * wave
-			x += FONT.draw_char(get_canvas_item(), Vector2(x, pen.y + ascent) + off.round(),
+			x += FONT.draw_char(get_canvas_item(), Vector2(x, pen.y + ascent) + Style.letter_offset(motion, i, _t),
 				row.unicode_at(k), SIZE, Style.DIALOGUE_TEXT)
 			i += 1
 		i += 1   # the space the wrap swallowed

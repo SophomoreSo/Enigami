@@ -133,6 +133,15 @@ func press() -> void:
 		_done()
 	_go_on()
 
+## Says rule `id` now, as talk the player asked for — for a conversation
+## handed back to free talk by whatever had it: the box, after a question.
+## Whatever was being said is cut off for it.
+func say(id: String) -> void:
+	if not rules.has(id):
+		return
+	cut()
+	_say(id, true)
+
 func step(delta: float) -> void:
 	if line_id == "":
 		return
