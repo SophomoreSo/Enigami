@@ -4,8 +4,9 @@ extends Node2D
 ## A bystander: their character from the atlas, a prompt over their head while
 ## the player is close enough to talk and a press would get an answer, and —
 ## once they are talking in the box — the dialogue box at the top of the screen
-## (see `DialogueBox`) and the camera each line of their dialogue file asks for.
-## What they say free goes in a bubble over whoever says it (`SpeechBubble`).
+## (see `DialogueBox`), the screen gone wide around it (`Letterbox`), and the
+## camera each line of their dialogue file asks for. What they say free goes in
+## a bubble over whoever says it (`SpeechBubble`).
 
 ## The prompt is a keycap with the interact key on it, pressing itself, so it
 ## reads as "press this" rather than as a label (`PixelDraw.key_cap`).
@@ -24,6 +25,9 @@ var sprite: AnimatedSprite2D
 var prompt_layer: CanvasLayer
 var prompt: Node2D
 var dialogue: DialogueBox
+## The bars over the top and the bottom of the picture while the box has the
+## screen, on a layer of their own under the box's.
+var letterbox: Letterbox
 ## On the prompt's layer, for the prompt's reasons: free talk is reading text.
 var bubble: SpeechBubble
 var _px: PixelDraw
@@ -48,6 +52,13 @@ func _ready() -> void:
 	bubble = SpeechBubble.new()
 	bubble.npc = npc
 	prompt_layer.add_child(bubble)
+
+	var bars_layer := CanvasLayer.new()
+	bars_layer.layer = Letterbox.LAYER
+	add_child(bars_layer)
+	letterbox = Letterbox.new()
+	letterbox.npc = npc
+	bars_layer.add_child(letterbox)
 
 	var dialogue_layer := CanvasLayer.new()
 	dialogue_layer.layer = DialogueBox.LAYER
@@ -99,26 +110,39 @@ func _exit_tree() -> void:
 		Fx.release()
 
 ## Carries out a line's `camera` once, as the line starts. A line with none
-## leaves the camera where the last one put it; the conversation ending, or
-## `"reset"`, hands it back to the screen.
+## leaves the camera where the last one put it; the conversation ending hands
+## it back to the screen, as the bars go back out.
+##
+## The box opening brings the bars in (`Letterbox`) and leaves less of the
+## screen to see — and somebody standing on a room's floor stands where the
+## bottom bar comes. So the camera takes the two of them into what the bars
+## leave as they come in, at the screen's own zoom; the bars let it go further
+## up or down than the screen's own framing would (`Fx.bars`). `"reset"` goes
+## back to that.
 func _direct_camera() -> void:
 	if not npc.is_talking():
 		if _directed != "":
-			Fx.release()
+			Fx.release(Letterbox.TIME)
 			_directed = ""
 		return
 	if npc.node_id == _directed:
 		return
+	if _directed == "":
+		_frame(Letterbox.TIME)
 	_directed = npc.node_id
 	var cam = npc.current_node().get("camera", null)
 	if cam is String and cam == "reset":
-		Fx.release()
+		_frame(0.4)
 	elif cam is Dictionary:
 		var time := float(cam.get("time", 0.4))
 		if cam.has("focus") or cam.has("zoom"):
 			Fx.direct(_focus_point(String(cam.get("focus", "both"))), float(cam.get("zoom", 1.0)), time)
 		if cam.has("shake"):
 			Fx.shake(float(cam["shake"]))
+
+## The two of them, at the screen's own zoom, in what the bars leave.
+func _frame(time: float) -> void:
+	Fx.direct(_focus_point("both"), 1.0, time)
 
 func _focus_point(focus: String) -> Vector2:
 	var me := npc.global_position + FACE_LIFT
