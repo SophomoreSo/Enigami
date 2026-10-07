@@ -12,12 +12,20 @@ var camera: Camera2D = null
 var _shake: float = 0.0
 var _shake_decay: float = 7.0
 
+## How deep the bars over the top and the bottom of the screen stand, in
+## screen pixels: a conversation in the box brings them in, and says how deep
+## they are as they come and go (`Letterbox`). Nothing under them is seen, so
+## a camera taken while they are there may go that much further up or down —
+## see `direct`.
+var bars: float = 0.0
+
 ## The camera while something has taken it — see `direct`.
 var _directing := false
 var _releasing := false
 var _home_pos := Vector2.ZERO
 var _home_zoom := Vector2.ONE
-var _want_pos := Vector2.ZERO
+## What it was asked to centre on, framed afresh every frame (`_framed`).
+var _focus := Vector2.ZERO
 var _want_zoom := Vector2.ONE
 var _move_time: float = 0.4
 
@@ -54,7 +62,9 @@ func shake(amount: float) -> void:
 ##
 ## It never zooms out past the screen's own framing, and never shows anything
 ## that framing did not: a close-up by a wall slides along rather than reveal the
-## dark past the room.
+## dark past the room. What is under the `bars` is not shown, so while there are
+## any it goes as much further up or down as they are deep — as deep as they
+## are at the moment, coming in or going out.
 func direct(focus: Vector2, zoom: float = 1.0, time: float = 0.4) -> void:
 	if camera == null or not is_instance_valid(camera):
 		return
@@ -64,9 +74,7 @@ func direct(focus: Vector2, zoom: float = 1.0, time: float = 0.4) -> void:
 		_home_zoom = camera.zoom
 	_releasing = false
 	_want_zoom = _home_zoom * maxf(zoom, 1.0)
-	var screen := camera.get_viewport_rect().size
-	var slack := screen / _home_zoom * 0.5 - screen / _want_zoom * 0.5
-	_want_pos = focus.clamp(_home_pos - slack, _home_pos + slack)
+	_focus = focus
 	_move_time = maxf(time, 0.0)
 
 ## Eases the camera back to where the screen had it, over `time` seconds.
@@ -74,23 +82,40 @@ func release(time: float = 0.4) -> void:
 	if not _directing:
 		return
 	_releasing = true
-	_want_pos = _home_pos
+	_focus = _home_pos
 	_want_zoom = _home_zoom
 	_move_time = maxf(time, 0.0)
+
+## Whether something has the camera. A screen that moves its own camera leaves
+## it be until it is handed back.
+func directing() -> bool:
+	return _directing
 
 func _steer(d: float) -> void:
 	if not _directing:
 		return
 	# Covers 99% of the way in `_move_time`, whatever the frame rate.
 	var k := 1.0 if _move_time <= 0.0 else 1.0 - exp(-d * 4.6 / _move_time)
-	camera.global_position = camera.global_position.lerp(_want_pos, k)
 	camera.zoom = camera.zoom.lerp(_want_zoom, k)
+	# Where it is going, and where that has brought it, are framed afresh every
+	# frame, at the zoom it has come to and as deep as the bars stand now.
+	var going := _framed(_focus, _want_zoom)
+	camera.global_position = _framed(camera.global_position.lerp(going, k), camera.zoom)
 	if _releasing and camera.global_position.distance_to(_home_pos) < 0.5 \
 			and camera.zoom.distance_to(_home_zoom) < 0.002:
 		camera.global_position = _home_pos
 		camera.zoom = _home_zoom
 		_directing = false
 		_releasing = false
+
+## `at`, moved no further than it must be for a camera there at `zoom` to show
+## nothing the screen's own framing did not, but what is under the bars.
+func _framed(at: Vector2, zoom: Vector2) -> Vector2:
+	var screen := camera.get_viewport_rect().size
+	var slack := screen / _home_zoom * 0.5 - screen / zoom * 0.5
+	slack.y += bars / zoom.y
+	slack = slack.max(Vector2.ZERO)
+	return at.clamp(_home_pos - slack, _home_pos + slack)
 
 ## --- spawned visuals --------------------------------------------------------
 ## Loose visuals are lent to whatever screen is running rather than made for

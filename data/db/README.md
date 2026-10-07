@@ -157,9 +157,13 @@ line's portrait uses it instead of the plain sprite.
 | `time` | seconds | How long the move takes. 0 cuts. Default 0.4. |
 
 A line without a `camera` leaves the camera where the last line put it.
-`'reset'` eases it back to the screen's own framing, and so does the
-conversation ending. The camera never shows past the edges the screen itself
-frames.
+The box opening brings black bars in over the top and the bottom of the screen
+(`story/view/letterbox.gd`), and the camera takes the two of them into what the
+bars leave as they come in, at the screen's own zoom. `'reset'` eases it back to
+that; the conversation ending eases it back to the screen's own framing as the
+bars go out. The camera never shows past the edges the screen itself frames,
+except under the bars: there it can go as much further up or down as they are
+deep, since nothing under them is seen.
 
 ### Sounds
 

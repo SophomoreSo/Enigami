@@ -7,7 +7,9 @@ extends Node2D
 ## them along a map bigger than the screen and never past its edge, the raid's
 ## own HUD — which steps aside while they are talked to — and a line saying
 ## which keys talk and go back to the desk. The character's own picture, the
-## prompt over their head, the box and the bubble are their view's (`NpcView`).
+## prompt over their head, the box, the bars FROZEN brings in over the top and
+## the bottom of the screen while it runs (`Letterbox`), and the bubble are
+## their view's (`NpcView`).
 ## A NOVEL brings its own camera and its panel along the foot of the screen
 ## (`CutsceneView`), and this puts nothing over it. Either way the map is seen
 ## in the light its tileset is drawn for (`MapTiles.ambient`).
@@ -79,7 +81,10 @@ func _process(delta: float) -> void:
 	if maker == null or not is_instance_valid(maker):
 		return
 	hud.player = maker.player
-	follow(delta, false)
+	# A conversation framing the two of them has the camera until it hands it
+	# back (`Fx.direct`), and going after the player would pull against it.
+	if not Fx.directing():
+		follow(delta, false)
 
 ## Takes the camera towards whoever the player is in, by `delta`'s worth of
 ## `FOLLOW` — or all the way, with `snap`.
