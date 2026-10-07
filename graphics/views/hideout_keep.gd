@@ -145,6 +145,12 @@ var _twinkles: Array = []
 var _flakes: Array = []
 ## The dust in the moonlight: `{pane, along, across, speed, phase}`.
 var _motes: Array = []
+## The light it gives (`shine`): the stall's lantern, the braziers at the gate
+## and the stone in its keystone, which are brightened and dimmed as they are
+## painted.
+var _stall_lamp: Shine
+var _braziers: Array[Shine] = []
+var _keystone: Shine
 
 func _build() -> void:
 	plate = Color(0.105, 0.07, 0.055)
@@ -172,12 +178,43 @@ func _build() -> void:
 	_hills = still(_paint_hills)
 	_near = still(_paint_near)
 	_out = moving(_paint_out)
-	_wall = still(_paint_wall)
+	_wall = room(_paint_wall)
 	_hang_candles()
 	_wall_life = moving(_paint_wall_life)
 	_fittings = still(_paint_fittings)
 	_hang_stall_lantern()
 	_life = moving(_paint_life)
+	_give_light()
+
+## Every fire it paints, giving light where it is painted — the torches, the
+## candle on the bench, the stall's pot, the braziers at the gate — and the
+## stone in the gate's keystone, and the moon down through each window the
+## way its shafts lean. The ring of candles and the stall's lantern give theirs
+## as they are hung, and swing with it.
+func _give_light() -> void:
+	for x: int in TORCHES:
+		shine(_wall_life, "torch", x, TORCH - 6)
+	for cx: int in WINDOWS:
+		shine(_wall, "moonlight", cx, FOOT + 1, MOONLIGHT, WIDE, 2)
+	shine(_life, "candle", 218.5, FLOOR - 19)
+	var shop: Vector2i = _at["shop"]
+	shine(_life, "fire", shop.x + 56, shop.y - 6).level = 0.5
+	var g: Vector2i = _at["gate"]
+	for side: int in [-1, 1]:
+		_braziers.append(shine(_life, "brazier", g.x + side * 44.5, g.y - 36))
+	_keystone = shine(_life, "gate_light", g.x + 0.5, g.y - 64)
+
+## How lit each is this moment, as its picture is: the stall's lantern
+## brighter for somebody at the counter, the braziers up for a gate that is
+## open and down to embers for one that is not, and the keystone the colour of
+## whether it would take you.
+func _shine_now() -> void:
+	_stall_lamp.level = 0.5 + 0.3 * float(_lit.get("shop", 0.0))
+	var open := _gate_open()
+	for brazier in _braziers:
+		brazier.level = (0.8 + 0.3 * float(_lit.get("gate", 0.0))) if open else 0.12
+	_keystone.color = OPEN if open else SHUT
+	_keystone.level = (0.7 + 0.3 * sin(_t * 2.0)) * 0.5
 
 ## What is out of the windows slides a little as the player walks the room,
 ## the wall-walk under them furthest and the sky hardly at all: whole pixels
@@ -662,7 +699,9 @@ func _hang_candles() -> void:
 	var chain := cord(Vector2i(g.x, BEAM), CANDLES_DROP, IRON_LIT.lightened(0.1))
 	ride(chain, hung(_paint_candle_ring), CANDLES_BODY)
 	ride(chain, hung(_paint_candlelight))
-	ride(chain, hung(_paint_candle_flames, true))
+	var flames := hung(_paint_candle_flames, true)
+	shine(flames, "candles", 0, 5)
+	ride(chain, flames)
 
 ## The ring itself, about the pixel its chain ends on: two chains down to it,
 ## the iron, a cup for each candle and the candles.
@@ -703,7 +742,9 @@ func _hang_stall_lantern() -> void:
 	var at: Vector2i = _at["shop"]
 	var link := cord(Vector2i(at.x + 27, at.y - 60), 5, IRON_LIT)
 	ride(link, hung(_paint_stall_lantern), STALL_LANTERN_BODY)
-	ride(link, hung(_paint_stall_flame, true))
+	var flame := hung(_paint_stall_flame, true)
+	_stall_lamp = shine(flame, "lantern", 0, 0)
+	ride(link, flame)
 
 ## The lantern's iron, about the pixel it hangs by.
 func _paint_stall_lantern(c: CanvasItem) -> void:

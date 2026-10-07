@@ -138,6 +138,13 @@ var _flies: Array = []
 ## The leaves coming down: `{x, y, speed, sway}`.
 var _leaves: Array = []
 
+## The light it gives (`shine`) that is brightened and dimmed as it is painted:
+## the caps glowing on the shelves in the tree, breathing, each out of step;
+## the lamps at the stations, by station; and the gate's.
+var _shelf_lights: Array[Shine] = []
+var _station_lamps: Dictionary = {}
+var _gate_light: Shine
+
 func _build() -> void:
 	plate = Color(0.085, 0.072, 0.05)
 	ink = Color(0.56, 0.66, 0.42)
@@ -161,12 +168,40 @@ func _build() -> void:
 	_far = still(_paint_far)
 	_mist = moving(_paint_mist)
 	_mid = still(_paint_mid)
-	_room = still(_paint_room)
+	_room = room(_paint_room)
 	_hang_lanterns()
 	_room_life = moving(_paint_room_life)
 	_fittings = still(_paint_fittings)
 	_life = moving(_paint_life)
 	_hang_station_lamps()
+	_give_light()
+
+## What it paints glowing, giving light where it is painted: the caps on the
+## shelves in the tree and the ones by the log, the windows of whoever lives in
+## the trunk, the fire under the tent's pot, and the gate's. The lanterns and
+## the stations' lamps give theirs as they are hung, and swing with it.
+func _give_light() -> void:
+	for shelf: Array in [[TREE - 4, 204, 10], [TREE + 2, 252, 8], [TREE - 2, 176, 7], [LEFT + 16, 200, 9], [LEFT + 14, 236, 7]]:
+		_shelf_lights.append(shine(_room_life, "mushrooms", int(shelf[0]) + int(shelf[2]) * 0.5, int(shelf[1]) + 1))
+	shine(_room_life, "mushrooms", 222, FLOOR - 24)
+	for win: Array in [[606, 168], [588, 132]]:
+		shine(_room_life, "lit_window", win[0] + 0.5, win[1] + 0.5)
+	var tent: Vector2i = _at["shop"]
+	shine(_life, "fire", tent.x + 56, tent.y - 6).level = 0.6
+	var g: Vector2i = _at["gate"]
+	_gate_light = shine(_life, "gate_light", g.x, g.y - 36)
+
+## How lit each is this moment, as its picture is: the caps breathing, the
+## stations' lamps brighter for somebody the station would answer, and the
+## gate the colour of whether it would take you.
+func _shine_now() -> void:
+	for i in _shelf_lights.size():
+		_shelf_lights[i].level = 0.55 + 0.45 * sin(_t * 1.1 + i * 1.7)
+	for station: String in _station_lamps:
+		(_station_lamps[station] as Shine).level = 0.6 + 0.4 * float(_lit.get(station, 0.0))
+	var open := _gate_open()
+	_gate_light.color = OPEN if open else SHUT
+	_gate_light.level = (0.5 + 0.4 * float(_lit.get("gate", 0.0))) * (1.0 if open else 0.6)
 
 ## The lanterns, each hung on a cord of its own (`cord`) where LANTERNS says,
 ## with what it throws on the wood behind it and then the lantern itself
@@ -181,7 +216,9 @@ func _hang_lanterns() -> void:
 	for each in strung:
 		ride(each, hung(_paint_lamplight))
 	for i in strung.size():
-		ride(strung[i], hung(_paint_lamp.bind(_salt(i), ""), true), LANTERN_BODY)
+		var lamp := hung(_paint_lamp.bind(_salt(i), ""), true)
+		shine(lamp, "lantern", 0, 0)
+		ride(strung[i], lamp, LANTERN_BODY)
 
 ## The lamps at the stations — on the rack's pole, and under the tent's ridge —
 ## each on a cord of its own like the lanterns overhead, where somebody
@@ -192,7 +229,9 @@ func _hang_station_lamps() -> void:
 	var rack: Vector2i = _at["weapons"]
 	var tent: Vector2i = _at["shop"]
 	for lamp in [[Vector2i(rack.x - 30, rack.y - 43), 51, "weapons"], [Vector2i(tent.x + 8, tent.y - 46), 67, "shop"]]:
-		ride(cord(lamp[0], 3), hung(_paint_lamp.bind(lamp[1], lamp[2]), true), LANTERN_BODY)
+		var lit := hung(_paint_lamp.bind(lamp[1], lamp[2]), true)
+		_station_lamps[lamp[2]] = shine(lit, "lantern", 0, 0)
+		ride(cord(lamp[0], 3), lit, LANTERN_BODY)
 
 ## What puts lantern `i` out of step with the rest: its flame, and the air on
 ## it.

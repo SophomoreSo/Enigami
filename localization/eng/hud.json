@@ -121,7 +121,9 @@
 		},
 		"prop": {
 			"lantern": "LANTERN",
+			"lightbulb": "LIGHTBULB",
 			"fire": "CAMPFIRE",
+			"fireplace": "FIREPLACE",
 			"mushrooms": "GLOWING CAPS",
 			"fireflies": "FIREFLIES",
 			"grass": "GRASS",

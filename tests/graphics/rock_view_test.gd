@@ -55,6 +55,23 @@ func frame() -> Image:
 		t += get_process_delta_time()
 	return get_viewport().get_texture().get_image()
 
+## The frame on screen with every light in the world put out for it: the
+## colours as they are drawn, before the lamps and shining things add theirs
+## (`Lighting`). What is checked against it is a palette, or what is drawn
+## where, and not how any of it is lit.
+func unlit_frame() -> Image:
+	var out: Array = []
+	for group: StringName in [Shine.GROUP, Lamp.GROUP]:
+		for n in get_tree().get_nodes_in_group(group):
+			n.remove_from_group(group)
+			out.append([n, group])
+	await frame()
+	var im := await frame()
+	for o: Array in out:
+		if is_instance_valid(o[0]):
+			(o[0] as Node).add_to_group(o[1])
+	return im
+
 ## Where a point of the world lands on the screen.
 func on_screen(at: Vector2) -> Vector2i:
 	return Vector2i((get_viewport().get_final_transform() * get_viewport().get_canvas_transform() * at).round())
@@ -128,7 +145,7 @@ func _held() -> void:
 		"the rock is in the hand")
 	check(tilts.all(func(r: float) -> bool: return is_zero_approx(r)),
 		"held the right way up however it is aimed (%s)" % str(tilts))
-	var im := await frame()
+	var im := await unlit_frame()
 	var hand := on_screen(view.weapon_sprite.global_position)
 	check(rock_pixels(im, hand, 14) >= 6, "and drawn there (%d of its pixels)" % rock_pixels(im, hand, 14))
 
@@ -143,7 +160,7 @@ func _thrown() -> void:
 	check(flying != null, "(a rock in the air)")
 	if flying == null:
 		return
-	var im := await frame()
+	var im := await unlit_frame()
 	check(view.weapon_sprite.self_modulate.a == 0.0, "the hand is empty once it is thrown")
 	var at := on_screen(flying.global_position)
 	check(rock_pixels(im, at, 14) >= 6, "and it is the rock that flies (%d of its pixels)" % rock_pixels(im, at, 14))
@@ -179,7 +196,7 @@ func _lying() -> void:
 	check(r != null, "(a rock on the floor)")
 	if r == null:
 		return
-	var im := await frame()
+	var im := await unlit_frame()
 	var at := on_screen(r.global_position)
 	check(rock_pixels(im, at, 14) >= 6, "lying on the floor, it is the rock (%d of its pixels)" % rock_pixels(im, at, 14))
 	var mark := Style.weapon_color("ROCK")

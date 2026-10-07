@@ -18,8 +18,22 @@ extends Node
 ## dark alike.
 ##
 ## Shadows: what stands in a lamp's light is dark behind and lit across its
-## own face; each lamp's shadows are its own; a lamp inside a body takes none
-## from it; and only so many lamps throw them at once.
+## own face; each lamp's shadows are its own; a lamp inside a body still has
+## it throw one, as from the edge the lamp is nearest, and a body's own light
+## inside it takes none from it; and only so many lamps throw them at once.
+##
+## A light as the property of what gives it (`Shine`): made from its kind's
+## row, giving its light where the thing is, going with it, and out when it is
+## hidden or put out. Each of Blender's four types: a point, bright all over
+## its radius; a spot, its cone turned with the thing; a sun, the same light
+## everywhere, lighting what faces back up its way and throwing its shadows
+## all one way; an area, light from the edge of its shape, its face alone or
+## all round, a rectangle or an ellipse. And a flame's wavering, and a thing's
+## own say in how lit it is.
+##
+## What is seen out past a room — the sky through its arches — is lit by
+## nothing in the room, dimmed by nothing in it, and lit by a light out there
+## with it.
 ##
 ## And the game's own: a room's rock faces the air and stops the light, a
 ## body throws a shadow and lights the room while it burns, a bolt is a lamp
@@ -179,6 +193,9 @@ func _ready() -> void:
 	await _sprites()
 	await _shadows()
 	await _only_so_many()
+	await _shining()
+	await _spot_sun_area()
+	await _out_there()
 	await out([ground])
 	await _the_room()
 	print("[LIGHTING] ---- %d failures ----" % fails)
@@ -425,10 +442,14 @@ func _sprites() -> void:
 
 func _shadows() -> void:
 	var here := Vector2(950, 450)
+	# A body, as a view puts one: the box it throws its shadow by, and anything
+	# of its own beside it.
+	var body := Node2D.new()
+	stage.add_child(body)
 	var box := ShadowCaster.new()
 	box.box(Rect2(-10, -10, 20, 20))
 	box.position = here
-	stage.add_child(box)
+	body.add_child(box)
 	var left := lamp_at(here + Vector2(-60, 0), 160.0)
 	var behind := here + Vector2(50, 0)
 	var beside := here + Vector2(0, 50)
@@ -454,10 +475,30 @@ func _shadows() -> void:
 	check(lighting.lamps_shadowed == 0 and near(at(img, behind), times(GROUND, 1.0 + share(left, behind))),
 		"a lamp told to throw none shines through (%s)" % at(img, behind))
 	left.shadows = true
-	left.position = here
+	# Inside the body, nearer its right edge than any other: it throws the
+	# shadow it threw as the lamp came in over that edge.
+	left.position = here + Vector2(6, 0)
 	img = await shown()
-	check(near(at(img, behind), times(GROUND, 1.0 + share(left, behind))),
-		"and a lamp inside a body takes no shadow from it (%s)" % at(img, behind))
+	check(near(at(img, before), GROUND) and near(at(img, behind), times(GROUND, 1.0 + share(left, behind))),
+		"a lamp inside a body still has it throw a shadow, away from the edge it is nearest (%s, %s)" % [at(img, before), at(img, behind)])
+	check(near(at(img, here), times(GROUND, 1.0 + share(left, here))), "with the body lit across its own face (%s)" % at(img, here))
+	left.position = here + Vector2(-6, 0)
+	img = await shown()
+	check(near(at(img, behind), GROUND) and near(at(img, before), times(GROUND, 1.0 + share(left, before))),
+		"and past its middle, the other way (%s, %s)" % [at(img, behind), at(img, before)])
+	# The body's own light, inside it — a body on fire — lights the room round it.
+	left.visible = false
+	var own := Lamp.of(Color.WHITE, 160.0)
+	own.position = here
+	body.add_child(own)
+	img = await shown()
+	var round_it := true
+	for spot: Vector2 in [behind, before, beside, here + Vector2(0, -50)]:
+		if not near(at(img, spot), times(GROUND, 1.0 + share(own, spot))):
+			round_it = false
+	check(round_it, "and a body's own light inside it takes no shadow from it, any way round (%s, %s)" % [at(img, beside), at(img, behind)])
+	await out([own])
+	left.visible = true
 
 	# Loose edges, as a room's rock is: one wall, facing left, and a lamp either side.
 	left.position = here + Vector2(-60, 0)
@@ -472,7 +513,7 @@ func _shadows() -> void:
 	box.visible = false
 	img = await shown()
 	check(near(at(img, before), times(GROUND, 1.0 + share(left, before))), "a caster that is hidden throws none")
-	await out([left, box])
+	await out([left, body])
 
 func _only_so_many() -> void:
 	var lamps: Array = []
@@ -492,6 +533,230 @@ func _only_so_many() -> void:
 	await out(lamps)
 	await settle()
 	check(not lighting.working(), "with the last lamp out, nothing is worked out again")
+
+## --- what shines -------------------------------------------------------------
+
+## Something put at `where` that gives `shine`, as a property of its own.
+func shining_at(where: Vector2, shine: Shine) -> Node2D:
+	var thing := Node2D.new()
+	thing.position = where
+	stage.add_child(thing)
+	Shine.give(thing, shine)
+	return thing
+
+## A light of `type` made by hand, throwing no shadow.
+func made_light(type: Shine.Type, power: float = 1.0, reach: float = 100.0) -> Shine:
+	var s := Shine.new()
+	s.type = type
+	s.power = power
+	s.reach = reach
+	s.shadows = false
+	return s
+
+## How bright a point `s` at `from` is at the middle of the pixel `world` is in.
+func point_share(s: Shine, from: Vector2, world: Vector2) -> float:
+	var middle := lighting.origin + (Vector2(texel(world)) + Vector2(0.5, 0.5)) * S
+	var away := maxf(middle.distance_to(from) - s.radius, 0.0) / s.reach
+	return s.power * pow(clampf(1.0 - away, 0.0, 1.0), s.falloff)
+
+func _shining() -> void:
+	var row := Shine.source("lantern")
+	var lantern := Shine.of("lantern")
+	check(not row.is_empty() and lantern.type == Shine.Type.POINT and lantern.color == Color.html(String(row["color"]))
+			and is_equal_approx(lantern.power, float(row["power"])) and is_equal_approx(lantern.reach, float(row["reach"]))
+			and lantern.position == Vector2(float(row["x"]), float(row["y"])),
+		"a kind of light is made with its row's numbers (%s)" % str(row))
+	check(Shine.of("lightbulb").type == Shine.Type.SPOT and Shine.of("fireplace").type == Shine.Type.AREA
+			and Shine.of("fireplace").size == Vector2(float(Shine.source("fireplace")["size_x"]), float(Shine.source("fireplace")["size_y"])),
+		"and its type and shape are its row's")
+	check(Shine.of("lantern") != lantern, "each thing of a kind gives a light of its own, to change as it likes")
+
+	var here := Vector2(200, 150)
+	var s := made_light(Shine.Type.POINT)
+	var thing := shining_at(here, s)
+	var img := await shown()
+	check(lighting.working() and lighting.lamps_lit == 1, "something given a light lights the picture")
+	check(near(at(img, here), times(GROUND, 1.0 + point_share(s, here, here))) and point_share(s, here, here) > 0.9,
+		"a point is brightest where the thing is (%s)" % at(img, here))
+	check(near(at(img, here + Vector2(50, 0)), times(GROUND, 1.0 + point_share(s, here, here + Vector2(50, 0)))),
+		"dims away from it as a lamp does (%s)" % at(img, here + Vector2(50, 0)))
+	check(near(at(img, here + Vector2(101, 0)), GROUND), "and gives nothing past its reach")
+	s.radius = 30.0
+	img = await shown()
+	check(near(at(img, here + Vector2(26, 0)), times(GROUND, 1.0 + s.power)),
+		"a point with a radius is at its brightest all over it (%s)" % at(img, here + Vector2(26, 0)))
+	s.radius = 0.0
+	s.position = Vector2(0, 20)
+	thing.position = here + Vector2(60, 0)
+	img = await shown()
+	var lit_at := here + Vector2(60, 20)
+	check(near(at(img, lit_at), times(GROUND, 1.0 + point_share(s, lit_at, lit_at))),
+		"it is where the thing is, and as far from its origin as it is put (%s)" % at(img, lit_at))
+	s.level = 0.5
+	img = await shown()
+	check(near(at(img, lit_at), times(GROUND, 1.0 + point_share(s, lit_at, lit_at) * 0.5)),
+		"half as lit as the thing says, half as bright (%s)" % at(img, lit_at))
+	s.level = 1.0
+	thing.visible = false
+	await settle()
+	check(lighting.lamps_lit == 0 and not lighting.working(), "a thing hidden gives no light")
+	thing.visible = true
+	Shine.put_out(thing)
+	await settle()
+	check(not lighting.working() and Shine.on(thing).is_empty(), "and nor does one put out")
+	var two := Node2D.new()
+	two.position = here
+	stage.add_child(two)
+	Shine.give(two, made_light(Shine.Type.POINT), Vector2(-40, 0))
+	Shine.give(two, made_light(Shine.Type.POINT), Vector2(40, 0))
+	await settle()
+	check(lighting.lamps_lit == 2 and Shine.on(two).size() == 2, "a thing can give more than one")
+	await out([thing, two])
+
+	# A flame's wavering.
+	var fire := made_light(Shine.Type.POINT)
+	fire.flicker = 0.5
+	var seen := {}
+	var lowest := INF
+	var highest := 0.0
+	for k in 40:
+		var p := fire.strength(float(k) * 0.07)
+		seen[snappedf(p, 0.001)] = true
+		lowest = minf(lowest, p)
+		highest = maxf(highest, p)
+	check(seen.size() > 10 and lowest >= 0.5 - 0.001 and highest <= 1.5 + 0.001,
+		"a light that flickers wavers, as far either way as it is told (%.2f to %.2f)" % [lowest, highest])
+	fire.flicker = 0.0
+	check(fire.strength(1.0) == fire.strength(2.0), "and one that does not holds steady")
+
+func _spot_sun_area() -> void:
+	# A spot, pointing right, its cone sixty degrees wide.
+	var here := Vector2(650, 150)
+	var cone := made_light(Shine.Type.SPOT)
+	cone.direction = 0.0
+	cone.spot_size = 60.0
+	cone.spot_blend = 0.0
+	var torch := shining_at(here, cone)
+	var img := await shown()
+	var ahead := here + Vector2(50, 0)
+	check(near(at(img, ahead), times(GROUND, 1.0 + point_share(cone, here, ahead))),
+		"a spot lights what it points at (%s)" % at(img, ahead))
+	check(near(at(img, here + Vector2(-50, 0)), GROUND) and near(at(img, here + Vector2(0, 50)), GROUND)
+			and near(at(img, here + Vector2(50, 0).rotated(deg_to_rad(40.0))), GROUND),
+		"and nothing behind it, beside it, or past its cone")
+	torch.rotation = PI * 0.5
+	img = await shown()
+	check(near(at(img, here + Vector2(0, 50)), times(GROUND, 1.0 + point_share(cone, here, here + Vector2(0, 50))))
+			and near(at(img, ahead), GROUND),
+		"turned with the thing, it points down instead")
+	torch.rotation = 0.0
+	cone.spot_blend = 1.0
+	img = await shown()
+	var off := here + Vector2(50, 0).rotated(deg_to_rad(20.0))
+	var part := at(img, off).r - GROUND.r
+	check(part > 0.005 and part < GROUND.r * point_share(cone, here, off) - 0.005,
+		"blended, it dims toward the edge of its cone (%.3f of %.3f)" % [part, GROUND.r * point_share(cone, here, off)])
+	await out([torch])
+
+	# A sun, travelling right.
+	var sun := made_light(Shine.Type.SUN, 0.5)
+	sun.direction = 0.0
+	var sky := shining_at(Vector2(640, 360), sun)
+	var paint_faces := func(c: CanvasItem) -> void:
+		c.draw_rect(Rect2(Vector2(200, 560), Vector2(20, 20)), Lighting.faces(Vector2.LEFT))
+		c.draw_rect(Rect2(Vector2(260, 560), Vector2(20, 20)), Lighting.faces(Vector2.RIGHT))
+	var faces := painted(paint_faces, Lighting.NORMAL_LAYER)
+	img = await shown()
+	var everywhere := true
+	for spot: Vector2 in [Vector2(20, 20), Vector2(1260, 20), Vector2(640, 360), Vector2(20, 700), Vector2(1260, 700)]:
+		if not near(at(img, spot), times(GROUND, 1.5)):
+			everywhere = false
+	check(everywhere, "a sun gives the same light all over the picture, however far (%s)" % at(img, Vector2(1260, 700)))
+	check(near(at(img, Vector2(210, 570)), times(GROUND, 1.5)) and near(at(img, Vector2(270, 570)), GROUND),
+		"lighting what faces back up its way, and not what faces along it (%s, %s)" % [at(img, Vector2(210, 570)), at(img, Vector2(270, 570))])
+	await out([faces])
+	sun.shadows = true
+	var box := ShadowCaster.new()
+	box.box(Rect2(-10, -10, 20, 20))
+	box.position = Vector2(400, 500)
+	stage.add_child(box)
+	img = await shown()
+	check(lighting.lamps_shadowed == 1, "a sun that throws shadows is given a mask")
+	var dark := true
+	for x: float in [430.0, 600.0, 1000.0, 1250.0]:
+		if not near(at(img, Vector2(x, 500)), GROUND):
+			dark = false
+	check(dark, "and what stands in it throws one all its way, as wide as itself and as far as the picture goes")
+	check(near(at(img, Vector2(360, 500)), times(GROUND, 1.5)) and near(at(img, Vector2(600, 470)), times(GROUND, 1.5)),
+		"and nothing on the side it comes from, or past its edges (%s, %s)" % [at(img, Vector2(360, 500)), at(img, Vector2(600, 470))])
+	await out([sky, box])
+
+	# An area: a bar 120 across, shining down.
+	var middle := Vector2(900, 420)
+	var bar := made_light(Shine.Type.AREA, 1.0, 60.0)
+	bar.size = Vector2(120, 4)
+	bar.direction = 90.0
+	bar.spread = 180.0
+	bar.falloff = 1.0
+	var tube := shining_at(middle, bar)
+	img = await shown()
+	var under_middle := at(img, middle + Vector2(0, 31))
+	var under_end := at(img, middle + Vector2(55, 31))
+	var below := times(GROUND, 1.0 + (1.0 - (31.0 - 2.0 + 1.0) / 60.0))
+	check(near(under_middle, under_end) and under_middle.r > GROUND.r + 0.05,
+		"an area lights the same from all along it: under its end as under its middle (%s, %s)" % [under_middle, under_end])
+	check(near(under_middle, below, 0.03), "by how far it is from its edge (%s for %s)" % [under_middle, below])
+	check(near(at(img, middle + Vector2(0, -31)), GROUND), "with nothing behind its face")
+	bar.spread = 360.0
+	img = await shown()
+	check(near(at(img, middle + Vector2(0, -31)), under_middle), "and as much there, shining all round")
+	var corner := middle + Vector2(60 + 20, 2 + 20)
+	var as_box := at(img, corner).r
+	bar.shape = Shine.Shape.ELLIPSE
+	img = await shown()
+	check(at(img, corner).r < as_box - 0.005, "an ellipse lights less past its ends than a rectangle (%.3f, %.3f)" % [at(img, corner).r, as_box])
+	bar.shape = Shine.Shape.RECTANGLE
+	bar.spread = 180.0
+	tube.rotation = PI * 0.5
+	img = await shown()
+	check(at(img, middle + Vector2(-31, 0)).r > GROUND.r + 0.05 and near(at(img, middle + Vector2(31, 0)), GROUND)
+			and at(img, middle + Vector2(-31, 50)).r > GROUND.r + 0.05,
+		"turned with the thing, it shines left, all along its length")
+	await out([tube])
+
+## --- out past a room ----------------------------------------------------------
+
+func _out_there() -> void:
+	# A patch of what is seen out past a room, marked as a look's room marks it
+	# (`HideoutScenery.room`): with a picture of the room that has nothing in
+	# it, so the whole patch is open.
+	var here := Vector2(1000, 150)
+	var empty := ImageTexture.create_from_image(Image.create(1, 1, false, Image.FORMAT_RGBA8))
+	var paint_open := func(c: CanvasItem) -> void:
+		c.draw_texture_rect(empty, Rect2(here - Vector2(40, 40), Vector2(80, 80)), false)
+	var sky := painted(paint_open, Lighting.NORMAL_LAYER)
+	sky.material = ShaderMaterial.new()
+	(sky.material as ShaderMaterial).shader = HideoutScenery.OUT_THERE
+	var from := here + Vector2(0, 30)
+	var s := made_light(Shine.Type.POINT)
+	var lamp := shining_at(from, s)
+	var img := await shown()
+	check(at(normals(), here).b > 1.5 * Lighting.RELIEF, "what is out past a room says so in the normals")
+	check(near(at(img, here), GROUND), "and no light in the room lights it (%s)" % at(img, here))
+	var under := here + Vector2(0, 60)
+	check(near(at(img, under), times(GROUND, 1.0 + point_share(s, from, under))) and point_share(s, from, under) > 0.3,
+		"while the room under it is lit as ever (%s)" % at(img, under))
+	lighting.ambient = Color(0.2, 0.2, 0.2)
+	img = await shown()
+	check(near(at(img, here), GROUND) and near(at(img, here + Vector2(0, -80)), times(GROUND, 0.2)),
+		"nor does a darker room dim it (%s)" % at(img, here))
+	lighting.ambient = Color.WHITE
+	s.out_there = true
+	img = await shown()
+	check(near(at(img, here), times(GROUND, 1.0 + point_share(s, from, here))),
+		"a light out there with it lights it as it lights anything (%s)" % at(img, here))
+	check(near(at(img, under), times(GROUND, 1.0 + point_share(s, from, under))), "and the room as well")
+	await out([sky, lamp])
 
 ## --- the game's own ----------------------------------------------------------
 

@@ -64,6 +64,23 @@ func frame() -> Image:
 		t += get_process_delta_time()
 	return get_viewport().get_texture().get_image()
 
+## The frame on screen with every light in the world put out for it: the
+## colours as they are drawn, before the lamps and shining things add theirs
+## (`Lighting`). What is checked against it is a palette, or what is drawn
+## where, and not how any of it is lit.
+func unlit_frame() -> Image:
+	var out: Array = []
+	for group: StringName in [Shine.GROUP, Lamp.GROUP]:
+		for n in get_tree().get_nodes_in_group(group):
+			n.remove_from_group(group)
+			out.append([n, group])
+	await frame()
+	var im := await frame()
+	for o: Array in out:
+		if is_instance_valid(o[0]):
+			(o[0] as Node).add_to_group(o[1])
+	return im
+
 func press(action: String) -> void:
 	for down in [true, false]:
 		var e := InputEventAction.new()
@@ -243,7 +260,7 @@ func _picking() -> void:
 			% [id, moving.painted - painted])
 		var onto := get_viewport().get_final_transform() * get_viewport().get_canvas_transform() * view.global_transform
 		var gate := view._plate(world.stations["gate"] as Station)
-		var ground := (await frame()).get_pixelv(Vector2i(onto * (gate.position + Vector2(6.0, 6.0))))
+		var ground := (await unlit_frame()).get_pixelv(Vector2i(onto * (gate.position + Vector2(6.0, 6.0))))
 		var plate := view.scenery.plate
 		check(absf(ground.r - plate.r) < 0.02 and absf(ground.g - plate.g) < 0.02 and absf(ground.b - plate.b) < 0.02,
 			"%s: with the stations' signs in its colours" % id)

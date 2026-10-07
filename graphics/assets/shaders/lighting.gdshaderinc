@@ -62,6 +62,21 @@ float glow_of(vec4 pixel) {
 	return clamp((pixel.b - 1.0) / (RELIEF - 1.0), 0.0, 1.0);
 }
 
+// A pixel of the normals for what is seen out past a room — the sky through
+// its arches (out_there.gdshader). To whatever is in the room it gives its
+// own light, all of it: no lamp in the room lights it and no darkness in the
+// room dims it. It says so twice over, which nothing else does, so a light
+// that is out there with it can tell it from what gives its own light
+// anywhere, and light it.
+vec4 out_there_pixel() {
+	return vec4(0.0, 0.0, 2.0 * RELIEF, 1.0);
+}
+
+// Whether a pixel of the normals is out past a room.
+bool is_out_there(vec4 pixel) {
+	return pixel.b > 1.5 * RELIEF;
+}
+
 // The way a sprite faces at `uv` of `picture`, as the video's meshes do with
 // no normal map of their own: outward, as if the sprite were a slice of
 // something round. Out is wherever nothing is drawn within two pixels — out

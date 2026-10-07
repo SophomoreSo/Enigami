@@ -29,7 +29,7 @@ const PATH := "res://data/enigami.db"
 ## same number into `meta`, and `tests/story/dialogue_test` holds the two
 ## together, so a schema changed on one side is a failing test and not a
 ## conversation that reads as empty.
-const SCHEMA_VERSION := 13
+const SCHEMA_VERSION := 14
 
 enum State { CLOSED, OPEN, FAILED }
 

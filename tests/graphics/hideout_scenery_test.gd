@@ -82,6 +82,23 @@ func frame() -> Image:
 		t += get_process_delta_time()
 	return get_viewport().get_texture().get_image()
 
+## The frame on screen with every light in the world put out for it: the
+## colours as they are drawn, before the lamps and shining things add theirs
+## (`Lighting`). What is checked against it is a palette, or what is drawn
+## where, and not how any of it is lit.
+func unlit_frame() -> Image:
+	var out: Array = []
+	for group: StringName in [Shine.GROUP, Lamp.GROUP]:
+		for n in get_tree().get_nodes_in_group(group):
+			n.remove_from_group(group)
+			out.append([n, group])
+	await frame()
+	var im := await frame()
+	for o: Array in out:
+		if is_instance_valid(o[0]):
+			(o[0] as Node).add_to_group(o[1])
+	return im
+
 ## Where a rect of the room's buffer pixels lands on the screen.
 func on_screen(x: int, y: int, w: int, h: int) -> Rect2i:
 	var onto := get_viewport().get_final_transform() * get_viewport().get_canvas_transform() \
@@ -318,7 +335,7 @@ func _laid_out() -> void:
 func _signs() -> void:
 	stand(480.0)
 	await wait(0.3)
-	var im := await frame()
+	var im := await unlit_frame()
 	var onto := get_viewport().get_final_transform() * get_viewport().get_canvas_transform() * view.global_transform
 	var ground := true
 	var edged := true
@@ -535,10 +552,12 @@ func _stays_in_the_room() -> void:
 	for spot in [60.0, 640.0, 1220.0]:
 		stand(spot)
 		await wait(0.5)
-		var with := await frame()
+		# Unlit, both: the look's own lamps light the room, and are meant to —
+		# what is asked here is that nothing of it is drawn past the walls.
+		var with := await unlit_frame()
 		scenery.visible = false
 		await wait(0.1)
-		var without := await frame()
+		var without := await unlit_frame()
 		scenery.visible = true
 		var leaked := 0
 		for y in with.get_height():

@@ -461,8 +461,14 @@ func _playing() -> void:
 		check(drawn.lanterns.size() == 1 and drawn.ropes.size() == 2 and drawn.plants.size() == 1,
 			"the lantern hung on a cord, the vine hung beside it, and the grass a patch two cells long (%d, %d, %d)"
 				% [drawn.lanterns.size(), drawn.ropes.size(), drawn.plants.size()])
-		check(drawn.lamps.size() == 2 and drawn.lanterns[0].get_child_count() == 1 and drawn.lanterns[0].get_child(0) is Lamp,
-			"with a lamp in the lantern, and another in the fire (%d)" % drawn.lamps.size())
+		var given: Array = []
+		for n in get_tree().get_nodes_in_group(Shine.GROUP):
+			if drawn.is_ancestor_of(n):
+				for shine in Shine.on(n):
+					given.append((shine as Shine).id)
+		given.sort()
+		check(given == ["fire", "lantern"] and Shine.on(drawn.lanterns[0]).size() == 1,
+			"with the lantern giving a lantern's light, and the fire a fire's (%s)" % str(given))
 		check((drawn.plants[0] as Foliage).kind == "grass" and (drawn.plants[0] as Foliage).span == 2 * MapTiles.C,
 			"the grass is the game's own foliage")
 	check(view.pixels.lighting.ambient == MapTiles.of("grove").ambient() and view.pixels.lighting.working(),
