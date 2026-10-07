@@ -191,7 +191,6 @@
 		"start_here": "START HERE",
 		"is_start": "START",
 		"line": "WHAT IS SAID",
-		"expression": "EXPRESSION",
 		"emotion": {
 			"neutral": "NEUTRAL",
 			"happy": "HAPPY",
@@ -201,9 +200,7 @@
 			"thinking": "THINKING",
 			"scared": "SCARED"
 		},
-		"effect_heading": "LETTERS",
 		"effect": {
-			"own": "AS THE FACE",
 			"none": "STILL",
 			"wave": "WAVE",
 			"shake": "SHAKE",
@@ -212,12 +209,8 @@
 		"leads_to": "LEADS TO NODE %s",
 		"leads_end": "LEADS TO THE END",
 		"unlink": "CUT",
-		"answers_lead": "THE ANSWERS LEAD ON",
-		"answers": "ANSWERS",
 		"answer": "AN ANSWER",
 		"add_answer": "+ ANSWER",
-		"actions": "AS IT STARTS",
-		"add_action": "+ ACTION",
 		"action_count_one": "%d ACTION",
 		"action_count": "%d ACTIONS",
 		"do": {
@@ -272,7 +265,17 @@
 		"no_maps": "NO MAPS KEPT YET",
 		"delete": "DELETE",
 		"keys": "F TALK  ESC BACK TO THE DESK",
-		"end": "END"
+		"end": "END",
+		"add_property": "+ PROPERTY",
+		"property": {
+			"line": "LINE",
+			"emotion": "EXPRESSION",
+			"effect": "LETTERS",
+			"action": "ACTION",
+			"choices": "ANSWERS"
+		},
+		"action_n": "ACTION %d",
+		"empty": "NO PROPERTIES"
 	},
 	"dragon": {
 		"play": "PLAY",

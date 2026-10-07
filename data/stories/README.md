@@ -49,16 +49,23 @@ going along the links.
 
 ### A node
 
+Every key but `at` is a property, and a node starts with none of them: on
+the desk they are added one at a time under **+ PROPERTY** — the line
+(`speaker` and `text`), the expression (`emotion`), the letters (`effect`),
+an action (`actions`, as many as it takes), the answers (`choices`) — and
+`next` is made by dragging a port. A node with none of them says nothing and
+does nothing, and is passed straight through.
+
 | Key | Meaning |
 |---|---|
 | `at` | Where it stands on the desk, `[x, y]`. Only the desk reads it. |
-| `speaker` | Who says it: `npc`, the character, or `player`. |
-| `text` | What is said. A node with nothing to say and something to do is a beat of staging, over as soon as it is done. |
+| `speaker` | Who says its line: `npc`, the character, or `player`. With `text`, the line. |
+| `text` | What is said. A node with no line, or nothing in it, and something to do is a beat of staging, over as soon as it is done. |
 | `emotion` | The expression: `neutral`, `happy`, `sad`, `angry`, `surprised`, `thinking`, `scared` — what the portrait does, and how the letters move. Leave it out for neutral. |
 | `effect` | How the letters move, in place of what the expression does to them: `none` holds them still, `wave` ripples them, `shake` trembles them, `bounce` hops them in turn. Leave it out to let the expression move them. |
 | `actions` | What anyone on stage does as the node starts, a list — see below. |
 | `next` | The node it leads to. Leave it out, or `""`, to end the story there. |
-| `choices` | A question's answers, each `text` and where it leads, `next`. A node with answers leads by them and has no `next`. An answer leading nowhere ends the story. |
+| `choices` | A question's answers, each `text` and where it leads, `next`. A node with answers leads by them and has no `next`. An answer leading nowhere ends the story. An empty list is answers added with none written yet: no question, and it leads by `next`. |
 
 Whatever else a node carries goes with it as a row of the conversation
 tables would — a `camera`, a `sprite`, a `voice`, an `sfx` — read by the

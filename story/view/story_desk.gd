@@ -2,13 +2,14 @@ class_name StoryDesk
 extends Control
 
 ## The desk a story is written at, in the story maker (`StoryMaker`): the
-## story's nodes on a sheet in the middle, each a box saying who says what,
+## story's nodes on a sheet in the middle, each a box showing what it holds,
 ## with a port on its right that leads on, or one on each of its answers;
-## down the right what the node picked says and does — who says it, the
-## words, its expression, the motion in its letters, its answers and what
-## anyone on stage does as it starts; down the left what the story is set on
-## and how it is played; and along the top the story's name and what is done
-## with it — SAVE, LOAD, NEW, a node put in, PLAY.
+## down the right the node picked, after Blender's properties — it starts
+## with nothing, + PROPERTY adds what it needs (a line, an expression, a
+## motion for its letters, an action, answers), and each is a panel that
+## folds shut by its head and comes off by its cross; down the left what the
+## story is set on and how it is played; and along the top the story's name
+## and what is done with it — SAVE, LOAD, NEW, a node put in, PLAY.
 ##
 ## A pointer's sheet: a node is picked up and carried, a port is dragged onto
 ## another node to lead there — or onto nothing, to lead nowhere — a double
@@ -54,6 +55,29 @@ const SAY_TIME := 4.0
 const CAST := ["wizzard_m", "wizzard_f", "knight_m", "knight_f", "elf_m", "elf_f",
 	"dwarf_m", "dwarf_f", "lizard_m", "lizard_f", "angel", "doc", "player"]
 const DOTS := Color(1, 1, 1, 0.06)
+## The room a property's panel keeps inside its edge, and the room left at a
+## panel head's left for the mark that says whether it is open.
+const PROP_PAD := 6.0
+const FOLD_ROOM := 26.0
+## A property's panel open, and folded shut.
+const ICON_OPEN := [
+	".......",
+	".......",
+	"#######",
+	".#####.",
+	"..###..",
+	"...#...",
+	".......",
+]
+const ICON_SHUT := [
+	"..#....",
+	"..##...",
+	"..###..",
+	"..####.",
+	"..###..",
+	"..##...",
+	"..#....",
+]
 const ICON_OUT := [
 	"#.....#",
 	".#...#.",
@@ -79,6 +103,11 @@ var _inspect_scroll: ScrollContainer
 ## words.
 var _text: LineEdit = null
 var _answer_edits: Array = []
+## The properties folded shut, by "<node>:<kind>" — an action's by
+## "<node>:action:<place>". The desk's own, and no part of the story.
+var _folded: Dictionary = {}
+## Whether the list of properties to add is open under + PROPERTY.
+var _adding: bool = false
 var _name: LineEdit
 var _map: Button
 ## Mode -> its button.
@@ -236,9 +265,13 @@ func _build_inspect() -> void:
 	_inspect_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_inspect_scroll.add_child(_inspect_rows)
 
-## What the node picked says and does, a row each — built again whenever the
-## node changes shape: an answer or an action put in or taken away, a link
-## made. The words are typed straight into the maker, and never rebuild it.
+## The node picked, after Blender's properties: its head — which node, whether
+## the story starts there, where it leads — then + PROPERTY, which opens the
+## list of what can be added, and under it a panel for each property the node
+## has, in the order the list offers them. A node starts with none. Built
+## again whenever the node changes shape — a property, an answer or an action
+## put in or taken away, a panel folded, a link made; the words are typed
+## straight into the maker, and never rebuild it.
 func _fill_inspect() -> void:
 	for old in _inspect_rows.get_children():
 		_inspect_rows.remove_child(old)
@@ -251,7 +284,7 @@ func _fill_inspect() -> void:
 		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_inspect_rows.add_child(none)
 		return
-	# The head: which node, and whether the story starts here.
+	# The head: which node, whether the story starts here, and where it leads.
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 6)
 	_inspect_rows.add_child(head)
@@ -264,70 +297,15 @@ func _fill_inspect() -> void:
 	starts.pressed.connect(func() -> void:
 		maker.set_start(id)
 		_fill_inspect()
+		_sheet.queue_redraw()
 		Audio.play("ui"))
 	head.add_child(starts)
-	# Who says it, and what.
-	var who := _button(_who(maker.speaker_of(id)), UiKit.ACCENT)
-	who.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	who.pressed.connect(func() -> void:
-		if maker.toggle_speaker(id):
-			_say_on(who, _who(maker.speaker_of(id)))
-			_sheet.queue_redraw()
-			Audio.play("ui"))
-	_inspect_rows.add_child(who)
-	_text = _edit(maker.text_of(id), Loc.t("hud.story.line"))
-	_text.text_changed.connect(func(text: String) -> void:
-		maker.set_text(id, text)
-		_sheet.queue_redraw())
-	_text.text_submitted.connect(func(_text: String) -> void: _add_node())
-	_inspect_rows.add_child(_text)
-	# The expression, and the motion in the letters.
-	_inspect_rows.add_child(_word(Loc.t("hud.story.expression"), UiKit.DIM))
-	var moods := GridContainer.new()
-	moods.columns = 2
-	moods.add_theme_constant_override("h_separation", 4)
-	moods.add_theme_constant_override("v_separation", 4)
-	_inspect_rows.add_child(moods)
-	for emotion in StoryMaker.emotions():
-		var b := _button(Loc.opt("hud.story.emotion.%s" % emotion, emotion.to_upper()), UiKit.ACCENT)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.clip_text = true
-		_chosen_look(b)
-		b.disabled = maker.emotion_of(id) == emotion
-		b.pressed.connect(func() -> void:
-			maker.set_emotion(id, emotion)
-			_fill_inspect()
-			_sheet.queue_redraw()
-			Audio.play("ui"))
-		moods.add_child(b)
-	_inspect_rows.add_child(_word(Loc.t("hud.story.effect_heading"), UiKit.DIM))
-	var effects := GridContainer.new()
-	effects.columns = 2
-	effects.add_theme_constant_override("h_separation", 4)
-	effects.add_theme_constant_override("v_separation", 4)
-	_inspect_rows.add_child(effects)
-	for effect in [""] + StoryMaker.EFFECTS:
-		var b := _button(Loc.t("hud.story.effect.%s" % (effect if effect != "" else "own")), UiKit.ACCENT)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.clip_text = true
-		_chosen_look(b)
-		b.disabled = maker.effect_of(id) == effect
-		b.pressed.connect(func() -> void:
-			maker.set_effect(id, effect)
-			_fill_inspect()
-			_sheet.queue_redraw()
-			Audio.play("ui"))
-		effects.add_child(b)
-	# Where it leads: on to a node, or its answers.
-	_inspect_rows.add_child(UiKit.hline(true))
-	if maker.asks(id):
-		_inspect_rows.add_child(_word(Loc.t("hud.story.answers_lead"), UiKit.DIM))
-	else:
+	if not maker.asks(id):
 		var leads := HBoxContainer.new()
 		leads.add_theme_constant_override("separation", 4)
 		_inspect_rows.add_child(leads)
 		var to := maker.next_of(id)
-		var where := _word(Loc.t("hud.story.leads_to", [to]) if to != "" else Loc.t("hud.story.leads_end"), UiKit.TEXT)
+		var where := _word(Loc.t("hud.story.leads_to", [to]) if to != "" else Loc.t("hud.story.leads_end"), UiKit.DIM)
 		where.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		where.clip_text = true
 		leads.add_child(where)
@@ -339,65 +317,200 @@ func _fill_inspect() -> void:
 				_sheet.queue_redraw()
 				Audio.play("ui"))
 			leads.add_child(cut)
-	_inspect_rows.add_child(_word(Loc.t("hud.story.answers"), UiKit.DIM))
-	var answers := maker.choices_of(id)
-	for i in answers.size():
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 4)
-		_inspect_rows.add_child(row)
-		var edit := _edit(String((answers[i] as Dictionary).get("text", "")), Loc.t("hud.story.answer"))
-		edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		edit.text_changed.connect(func(text: String) -> void:
-			maker.set_choice_text(id, i, text)
-			_sheet.queue_redraw())
-		row.add_child(edit)
-		_answer_edits.append(edit)
-		var to := String((answers[i] as Dictionary).get("next", ""))
-		var where := _word("#" + to if to != "" else Loc.t("hud.story.end"), UiKit.DIM)
-		where.custom_minimum_size.x = 48.0
-		where.clip_text = true
-		row.add_child(where)
-		var bin := _icon_button(ICON_OUT, func() -> void:
-			maker.remove_choice(id, i)
-			_fill_inspect()
-			_sheet.queue_redraw()
-			Audio.play("deny"))
-		row.add_child(bin)
-	var add_answer := _button(Loc.t("hud.story.add_answer"), UiKit.ACCENT)
-	add_answer.pressed.connect(func() -> void:
-		var i := maker.add_choice(id)
+	# What can be added, and the list it opens.
+	var add := _button(Loc.t("hud.story.add_property"), UiKit.GOOD)
+	add.pressed.connect(func() -> void:
+		_adding = not _adding
 		_fill_inspect()
-		_sheet.queue_redraw()
-		if i >= 0 and i < _answer_edits.size():
-			(_answer_edits[i] as LineEdit).grab_focus()
 		Audio.play("ui"))
-	_inspect_rows.add_child(add_answer)
-	# What anyone on stage does as it starts.
+	_inspect_rows.add_child(add)
+	if _adding:
+		for kind in StoryMaker.PROPERTIES:
+			if not maker.can_add(id, kind):
+				continue
+			var b := _button(Loc.t("hud.story.property.%s" % kind), UiKit.ACCENT)
+			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+				(b.get_theme_stylebox(state) as StyleBoxFlat).content_margin_left = FOLD_ROOM
+			b.pressed.connect(func() -> void: _add_property(id, kind))
+			_inspect_rows.add_child(b)
 	_inspect_rows.add_child(UiKit.hline(true))
-	_inspect_rows.add_child(_word(Loc.t("hud.story.actions"), UiKit.DIM))
-	var actions := maker.actions_of(id)
-	for i in actions.size():
-		_fill_action(id, i, actions[i])
-	var add_action := _button(Loc.t("hud.story.add_action"), UiKit.ACCENT)
-	add_action.pressed.connect(func() -> void:
-		maker.add_action(id)
-		_fill_inspect()
-		_sheet.queue_redraw()
-		Audio.play("ui"))
-	_inspect_rows.add_child(add_action)
+	# The properties it has.
+	for kind in maker.properties_of(id):
+		match kind:
+			"line":
+				_line_panel(id)
+			"emotion":
+				_emotion_panel(id)
+			"effect":
+				_effect_panel(id)
+			"action":
+				for i in maker.actions_of(id).size():
+					_action_panel(id, i)
+			"choices":
+				_choices_panel(id)
+	if not maker.properties_of(id).is_empty():
+		_inspect_rows.add_child(UiKit.hline(true))
 	# And the way off the desk.
-	_inspect_rows.add_child(UiKit.hline(true))
 	var remove := _button(Loc.t("hud.story.sure" if _armed == "remove:" + id else "hud.story.delete_node"), UiKit.BAD)
 	remove.pressed.connect(func() -> void: _remove(id))
 	_inspect_rows.add_child(remove)
 
-## One action, on two rows: who does it and what, and the cross that takes it
-## away; then what that kind of doing takes — where a walk goes and how far, a
-## pose of the ones who has, a way to turn.
-func _fill_action(id: String, i: int, a: Dictionary) -> void:
+## A property's panel: a head that folds it shut or open, with its name on it,
+## and a cross that takes it off the node — at once, or, where `has_words`
+## says it holds words that would go with it, on the second press. Under the
+## head, what it holds: the column returned, or null while it is folded shut.
+func _property(key: String, title: String, remove: Callable, has_words: Callable = Callable()) -> VBoxContainer:
+	var box := PanelContainer.new()
+	var look := UiKit.style(UiKit.BG, UiKit.LINE, 1, 0, true)
+	for side in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
+		look.set_content_margin(side, PROP_PAD)
+	box.add_theme_stylebox_override("panel", look)
+	box.mouse_filter = Control.MOUSE_FILTER_PASS
+	_inspect_rows.add_child(box)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 4)
+	box.add_child(column)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 4)
+	column.add_child(head)
+	var shut := _folded.has(key)
+	var fold := _button(title, UiKit.ACCENT)
+	fold.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	fold.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fold.clip_text = true
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		(fold.get_theme_stylebox(state) as StyleBoxFlat).content_margin_left = FOLD_ROOM
+	fold.draw.connect(func() -> void:
+		PixelDraw.new(fold).icon_centered(Vector2(14.0, fold.size.y * 0.5).floor(), ICON_SHUT if shut else ICON_OPEN,
+			Color.WHITE if fold.is_hovered() else UiKit.TEXT))
+	fold.pressed.connect(func() -> void:
+		if shut:
+			_folded.erase(key)
+		else:
+			_folded[key] = true
+		_fill_inspect()
+		Audio.play("ui"))
+	head.add_child(fold)
+	var cross := _icon_button(ICON_OUT, func() -> void: _drop(key, remove, has_words))
+	if _armed == "drop:" + key:
+		_say_on(cross, Loc.t("hud.story.sure"))
+		cross.add_theme_color_override("font_color", UiKit.BAD)
+	head.add_child(cross)
+	return null if shut else column
+
+## A property's cross: off the node at once — or, where it holds words that
+## would go with it, on the second press.
+func _drop(key: String, remove: Callable, has_words: Callable) -> void:
+	if has_words.is_valid() and bool(has_words.call()) and _armed != "drop:" + key:
+		_arm("drop:" + key)
+		_fill_inspect()
+		Audio.play("ui")
+		return
+	_armed = ""
+	_folded.erase(key)
+	remove.call()
+	_fill_inspect()
+	_sheet.queue_redraw()
+	Audio.play("deny")
+
+## + PROPERTY's list, picked from: the property added, open, and the list
+## shut; the keyboard on the words a line or answers bring.
+func _add_property(id: String, kind: String) -> void:
+	var at := maker.add_property(id, kind)
+	_adding = false
+	if at < 0:
+		return
+	_folded.erase("%s:action:%d" % [id, at] if kind == "action" else "%s:%s" % [id, kind])
+	_fill_inspect()
+	_sheet.queue_redraw()
+	var typed: Control = null
+	if kind == "line":
+		typed = _text
+	elif kind == "choices" and not _answer_edits.is_empty():
+		typed = _answer_edits[0]
+	if typed != null:
+		typed.grab_focus()
+		_inspect_scroll.ensure_control_visible.call_deferred(typed)
+	Audio.play("ui")
+
+## Two columns of buttons, an option each, the one in force lit: an
+## expression, a motion of the letters.
+func _grid(options: Array, picked: String, name_of: Callable, pick: Callable) -> GridContainer:
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 4)
+	grid.add_theme_constant_override("v_separation", 4)
+	for option in options:
+		var b := _button(String(name_of.call(option)), UiKit.ACCENT)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.clip_text = true
+		_chosen_look(b)
+		b.disabled = String(option) == picked
+		b.pressed.connect(func() -> void:
+			pick.call(option)
+			_fill_inspect()
+			_sheet.queue_redraw()
+			Audio.play("ui"))
+		grid.add_child(b)
+	return grid
+
+## LINE: who says it — pressed, the other of the two — and the words, where
+## the return key puts in the next line.
+func _line_panel(id: String) -> void:
+	var body := _property(id + ":line", Loc.t("hud.story.property.line"),
+		func() -> void: maker.remove_property(id, "line"),
+		func() -> bool: return maker.text_of(id).strip_edges() != "")
+	if body == null:
+		return
+	var who := _button(_who(maker.speaker_of(id)), UiKit.ACCENT)
+	who.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	who.pressed.connect(func() -> void:
+		if maker.toggle_speaker(id):
+			_say_on(who, _who(maker.speaker_of(id)))
+			_sheet.queue_redraw()
+			Audio.play("ui"))
+	body.add_child(who)
+	_text = _edit(maker.text_of(id), Loc.t("hud.story.line"))
+	_text.text_changed.connect(func(text: String) -> void:
+		maker.set_text(id, text)
+		_sheet.queue_redraw())
+	_text.text_submitted.connect(func(_typed: String) -> void: _next_line())
+	body.add_child(_text)
+
+## EXPRESSION: one of the faces the picture draws.
+func _emotion_panel(id: String) -> void:
+	var body := _property(id + ":emotion", Loc.t("hud.story.property.emotion"),
+		func() -> void: maker.remove_property(id, "emotion"))
+	if body == null:
+		return
+	body.add_child(_grid(Array(StoryMaker.emotions()), maker.emotion_of(id),
+		func(e) -> String: return Loc.opt("hud.story.emotion.%s" % e, String(e).to_upper()),
+		func(e) -> void: maker.set_emotion(id, String(e))))
+
+## LETTERS: how the letters move, in place of what the expression does to them.
+func _effect_panel(id: String) -> void:
+	var body := _property(id + ":effect", Loc.t("hud.story.property.effect"),
+		func() -> void: maker.remove_property(id, "effect"))
+	if body == null:
+		return
+	body.add_child(_grid(StoryMaker.EFFECTS, maker.effect_of(id),
+		func(e) -> String: return Loc.t("hud.story.effect.%s" % e),
+		func(e) -> void: maker.set_effect(id, String(e))))
+
+## An ACTION, a panel each, numbered when there is more than one: who does it
+## and what, then what that kind of doing takes — where a walk goes and how
+## far, a pose of the ones who has, a way to turn.
+func _action_panel(id: String, i: int) -> void:
+	var many := maker.actions_of(id).size() > 1
+	var title := Loc.t("hud.story.action_n", [i + 1]) if many else Loc.t("hud.story.property.action")
+	var body := _property("%s:action:%d" % [id, i], title, func() -> void: _drop_action(id, i))
+	if body == null:
+		return
+	var a: Dictionary = maker.actions_of(id)[i]
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
-	_inspect_rows.add_child(row)
+	body.add_child(row)
 	var who := String(a.get("who", StoryMaker.NPC))
 	var who_button := _button(_who(who), UiKit.ACCENT)
 	who_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -412,16 +525,9 @@ func _fill_action(id: String, i: int, a: Dictionary) -> void:
 	do_button.pressed.connect(func() -> void:
 		_set_action(id, i, "do", StoryMaker.DO[(StoryMaker.DO.find(do) + 1) % StoryMaker.DO.size()]))
 	row.add_child(do_button)
-	var bin := _icon_button(ICON_OUT, func() -> void:
-		maker.remove_action(id, i)
-		_fill_inspect()
-		_sheet.queue_redraw()
-		Audio.play("deny"))
-	row.add_child(bin)
 	var what := HBoxContainer.new()
 	what.add_theme_constant_override("separation", 4)
-	_inspect_rows.add_child(what)
-	what.add_child(_word("", UiKit.DIM))
+	body.add_child(what)
 	match do:
 		"walk", "run":
 			var to := String(a.get("to", "player"))
@@ -460,6 +566,58 @@ func _fill_action(id: String, i: int, a: Dictionary) -> void:
 			dir_button.pressed.connect(func() -> void:
 				_set_action(id, i, "dir", StoryMaker.DIRS[(StoryMaker.DIRS.find(dir) + 1) % StoryMaker.DIRS.size()]))
 			what.add_child(dir_button)
+
+## Takes action `i` off node `id`, and moves the folds of those after it down
+## a place with them.
+func _drop_action(id: String, i: int) -> void:
+	var n := maker.actions_of(id).size()
+	maker.remove_action(id, i)
+	for j in range(i + 1, n):
+		if _folded.has("%s:action:%d" % [id, j]):
+			_folded.erase("%s:action:%d" % [id, j])
+			_folded["%s:action:%d" % [id, j - 1]] = true
+
+## ANSWERS: each answer's words, where it leads, and a cross for that one; and
+## a way to give the question another.
+func _choices_panel(id: String) -> void:
+	var body := _property(id + ":choices", Loc.t("hud.story.property.choices"),
+		func() -> void: maker.remove_property(id, "choices"),
+		func() -> bool: return maker.choices_of(id).any(func(c) -> bool:
+			return String((c as Dictionary).get("text", "")).strip_edges() != ""))
+	if body == null:
+		return
+	var answers := maker.choices_of(id)
+	for i in answers.size():
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 4)
+		body.add_child(row)
+		var edit := _edit(String((answers[i] as Dictionary).get("text", "")), Loc.t("hud.story.answer"))
+		edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		edit.text_changed.connect(func(text: String) -> void:
+			maker.set_choice_text(id, i, text)
+			_sheet.queue_redraw())
+		row.add_child(edit)
+		_answer_edits.append(edit)
+		var to := String((answers[i] as Dictionary).get("next", ""))
+		var where := _word("#" + to if to != "" else Loc.t("hud.story.end"), UiKit.DIM)
+		where.custom_minimum_size.x = 40.0
+		where.clip_text = true
+		row.add_child(where)
+		var bin := _icon_button(ICON_OUT, func() -> void:
+			maker.remove_choice(id, i)
+			_fill_inspect()
+			_sheet.queue_redraw()
+			Audio.play("deny"))
+		row.add_child(bin)
+	var add_answer := _button(Loc.t("hud.story.add_answer"), UiKit.ACCENT)
+	add_answer.pressed.connect(func() -> void:
+		var i := maker.add_choice(id)
+		_fill_inspect()
+		_sheet.queue_redraw()
+		if i >= 0 and i < _answer_edits.size():
+			(_answer_edits[i] as LineEdit).grab_focus()
+		Audio.play("ui"))
+	body.add_child(add_answer)
 
 func _set_action(id: String, i: int, key: String, value) -> void:
 	if maker.set_action(id, i, key, value):
@@ -603,6 +761,8 @@ func _took() -> void:
 	_player_name.text = maker.player_name
 	selected = maker.start
 	_armed = ""
+	_adding = false
+	_folded.clear()
 	_frame_nodes()
 	_refresh()
 	_fill_inspect()
@@ -658,14 +818,22 @@ func desk_point(at: Vector2) -> Vector2i:
 func node_rect(id: String) -> Rect2:
 	return Rect2(_origin + Vector2(maker.at_of(id)) * zoom(), Vector2(NODE_W, node_height(id)) * zoom())
 
-## How tall node `id` is, at its own size: its head, its words, a row for what
-## it wears and does when it wears or does anything, and a row an answer.
+## How tall node `id` is, at its own size: its head, and a row for each of
+## what it holds — or one, saying it holds nothing.
 func node_height(id: String) -> float:
-	var h := NODE_PAD * 2.0 + HEAD_H + ROW_H * float(maxi(_text_rows(id).size(), 1))
+	var rows := _rows_above(id) + maker.choices_of(id).size()
+	return NODE_PAD * 2.0 + HEAD_H + ROW_H * float(maxi(rows, 1))
+
+## How many rows node `id` shows above its answers: its words, where it has a
+## line — one at least, for the room to write them — and a row for what it
+## wears and does, where it wears or does anything.
+func _rows_above(id: String) -> int:
+	var n := 0
+	if maker.has_line(id):
+		n += maxi(_text_rows(id).size(), 1)
 	if _chips(id) != "":
-		h += ROW_H
-	h += ROW_H * float(maker.choices_of(id).size())
-	return h
+		n += 1
+	return n
 
 ## The rows of node `id`'s words, as many as it shows.
 func _text_rows(id: String) -> PackedStringArray:
@@ -674,17 +842,15 @@ func _text_rows(id: String) -> PackedStringArray:
 		return PackedStringArray()
 	return PixelDraw.wrap(text, NODE_W - NODE_PAD * 2.0 - PORT, TEXT_ROWS)
 
-## What node `id` wears and does, in a few words: its expression when it is
-## not neutral, the motion in its letters when it has one of its own, and how
-## much it does.
+## What node `id` wears and does, in a few words: its expression and the
+## motion in its letters, where it has been given them, and how much it does.
 func _chips(id: String) -> String:
 	var bits := PackedStringArray()
-	var emotion := maker.emotion_of(id)
-	if emotion != StoryMaker.LINE_EMOTION:
+	if maker.has_property(id, "emotion"):
+		var emotion := maker.emotion_of(id)
 		bits.append(Loc.opt("hud.story.emotion.%s" % emotion, emotion.to_upper()))
-	var effect := maker.effect_of(id)
-	if effect != "":
-		bits.append(Loc.t("hud.story.effect.%s" % effect))
+	if maker.has_property(id, "effect"):
+		bits.append(Loc.t("hud.story.effect.%s" % maker.effect_of(id)))
 	var n := maker.actions_of(id).size()
 	if n > 0:
 		bits.append(Loc.t("hud.story.action_count_one" if n == 1 else "hud.story.action_count", [n]))
@@ -697,8 +863,7 @@ func port_rect(id: String, choice: int = -1) -> Rect2:
 	var z := zoom()
 	var y := r.position.y + (NODE_PAD + HEAD_H * 0.5) * z
 	if choice >= 0:
-		var rows := maxi(_text_rows(id).size(), 1) + (1 if _chips(id) != "" else 0)
-		y = r.position.y + (NODE_PAD + HEAD_H + ROW_H * float(rows) + ROW_H * (float(choice) + 0.5)) * z
+		y = r.position.y + (NODE_PAD + HEAD_H + ROW_H * (float(_rows_above(id)) + float(choice) + 0.5)) * z
 	return Rect2(Vector2(r.end.x - PORT * z * 0.5, y - PORT * z * 0.5), Vector2.ONE * PORT * z)
 
 ## The node under `at` on the sheet, or "": the one picked first, since it is
@@ -827,6 +992,7 @@ func _pick(id: String) -> void:
 		return
 	selected = id
 	_armed = ""
+	_adding = false
 	_fill_inspect()
 	_sheet.queue_redraw()
 
@@ -895,47 +1061,54 @@ func _paint_link(cv: CanvasItem, from: Vector2, to_rect: Rect2, lit: bool) -> vo
 	cv.draw_colored_polygon(PackedVector2Array([to, to + Vector2(-6.0, -4.0) * z, to + Vector2(-6.0, 4.0) * z]), col)
 
 ## One node: its box, its head — a diamond where the story starts, who says
-## it, and its number — its words, what it wears and does, its answers, and
-## the ports that lead on.
+## its line where it has one, and its number — then what it holds: its words,
+## what it wears and does, its answers, or a word saying it holds nothing;
+## and the ports that lead on.
 func _paint_node(cv: CanvasItem, id: String) -> void:
 	var z := zoom()
 	var r := node_rect(id)
 	var px := PixelDraw.new(cv)
 	var font := int(UiKit.PIXEL_TEXT * z)
+	# A row is drawn from its top, and a line of text from its baseline.
+	var lift := Vector2(0.0, roundf(PixelDraw.FONT.get_ascent(font)))
 	var picked := id == selected
 	px.rect(r, UiKit.PANEL)
 	px.frame(r, UiKit.ACCENT if picked else UiKit.LINE)
 	var pen := r.position + Vector2(NODE_PAD, NODE_PAD) * z
 	var wide := (NODE_W - NODE_PAD * 2.0 - PORT) * z
-	# The head: the start's diamond, who says it, and the number.
-	var head_y := pen.y + (HEAD_H - ROW_H) * 0.5 * z
+	# The head: the start's diamond, who says its line where it has one, and the number.
+	var head := Vector2(pen.x, pen.y + (HEAD_H - ROW_H) * 0.5 * z)
 	var name_x := pen.x
 	if maker.start == id:
-		px.diamond(Vector2(pen.x + 5.0 * z, head_y + ROW_H * 0.5 * z), maxi(int(4.0 * z), 2), UiKit.GOOD)
-		name_x += 14.0 * z
-	var who := _who(maker.speaker_of(id))
+		px.diamond(Vector2(pen.x + 6.0 * z, head.y + ROW_H * 0.5 * z), maxi(int(3.0 * z), 1), UiKit.GOOD)
+		name_x += 20.0 * z
 	var number := "#" + id
-	px.text(Vector2(name_x, head_y), who, UiKit.ACCENT if maker.speaker_of(id) == StoryMaker.NPC else UiKit.GOOD,
-		pen.x + wide - PixelDraw.text_width(number, font) - 8.0 * z - name_x, font)
-	px.text(Vector2(pen.x + wide - PixelDraw.text_width(number, font), head_y), number, UiKit.DIM, -1.0, font)
+	var number_x := pen.x + wide - PixelDraw.text_width(number, font)
+	if maker.has_line(id):
+		px.text(Vector2(name_x, head.y) + lift, _who(maker.speaker_of(id)),
+			UiKit.ACCENT if maker.speaker_of(id) == StoryMaker.NPC else UiKit.GOOD, number_x - 8.0 * z - name_x, font)
+	px.text(Vector2(number_x, head.y) + lift, number, UiKit.DIM, -1.0, font)
 	pen.y += HEAD_H * z
-	# The words, or the room for them.
-	var rows := _text_rows(id)
-	if rows.is_empty():
-		px.text(pen, Loc.t("hud.story.line"), UiKit.DIM, wide, font)
-		pen.y += ROW_H * z
-	for row in rows:
-		px.text(pen, row, UiKit.TEXT, wide, font)
-		pen.y += ROW_H * z
+	# The words, or the room for them, where it has a line.
+	if maker.has_line(id):
+		var rows := _text_rows(id)
+		if rows.is_empty():
+			px.text(pen + lift, Loc.t("hud.story.line"), UiKit.DIM, wide, font)
+			pen.y += ROW_H * z
+		for row in rows:
+			px.text(pen + lift, row, UiKit.TEXT, wide, font)
+			pen.y += ROW_H * z
 	var chips := _chips(id)
 	if chips != "":
-		px.text(pen, chips, UiKit.WARN, wide, font)
+		px.text(pen + lift, chips, UiKit.WARN, wide, font)
 		pen.y += ROW_H * z
+	if _rows_above(id) == 0 and not maker.has_property(id, "choices"):
+		px.text(pen + lift, Loc.t("hud.story.empty"), UiKit.DIM, wide, font)
 	# The answers, a port each.
 	var answers := maker.choices_of(id)
 	for i in answers.size():
 		var text := String((answers[i] as Dictionary).get("text", ""))
-		px.text(pen, "> " + (text if text != "" else Loc.t("hud.story.answer")), UiKit.TEXT if text != "" else UiKit.DIM, wide, font)
+		px.text(pen + lift, "> " + (text if text != "" else Loc.t("hud.story.answer")), UiKit.TEXT if text != "" else UiKit.DIM, wide, font)
 		_paint_port(cv, port_rect(id, i), String((answers[i] as Dictionary).get("next", "")) != "")
 		pen.y += ROW_H * z
 	if not maker.asks(id):
@@ -972,6 +1145,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		_linking = {}
 		_sheet.queue_redraw()
 		get_viewport().set_input_as_handled()
+	elif _adding and is_visible_in_tree() and event.is_action_pressed("ui_cancel"):
+		# The list + PROPERTY opened goes before the desk would pause.
+		_adding = false
+		_fill_inspect()
+		get_viewport().set_input_as_handled()
 
 ## --- what the bar does --------------------------------------------------------
 
@@ -990,13 +1168,23 @@ func _disarm() -> void:
 	_armed = ""
 	if _popup != null and was.begins_with("delete:"):
 		_fill_list()
-	elif was.begins_with("remove:"):
+	elif was.begins_with("remove:") or was.begins_with("drop:"):
 		_fill_inspect()
 
-## A node put in after the one picked, along from it and led on to, and
-## picked in its turn with the keyboard on its words — so a conversation is
-## written straight on, a return a node. With nothing picked it goes in the
-## middle of the sheet; the first of all where a story starts on the desk.
+## The return key on a line's words: the next node, with a line said by
+## whoever's turn it is, put in after it and led to, picked, and the keyboard
+## on its words — so a conversation is written straight on, a return a line.
+func _next_line() -> void:
+	var id := maker.add_node_after(selected, true)
+	_pick(id)
+	_show(id)
+	if _text != null:
+		_text.grab_focus()
+	Audio.play("ui")
+
+## + NODE: a node with nothing in it, put in after the one picked, along from
+## it and led on to, and picked in its turn. With nothing picked it goes in
+## the middle of the sheet; the first of all where a story starts on the desk.
 func _add_node() -> void:
 	var id: String
 	if maker.holds(selected):

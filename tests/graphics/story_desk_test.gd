@@ -143,6 +143,32 @@ func inspect_last(words: String) -> Button:
 		func(b: Button) -> bool: return b.text == words)
 	return found.back() if not found.is_empty() else null
 
+## The property panels in the inspector, in order.
+func panels() -> Array:
+	return desk._inspect_rows.get_children().filter(func(c: Node) -> bool: return c is PanelContainer)
+
+## The cross on the head of the panel called `title`, or null.
+func cross_of(title: String) -> Button:
+	for p in panels():
+		var head: HBoxContainer = (p as Node).get_child(0).get_child(0)
+		if (head.get_child(0) as Button).text == title:
+			return head.get_child(1)
+	return null
+
+## The entry for `kind` in the list + PROPERTY opens, or null: a button in
+## the inspector's own column — where a panel's head, which may say the same,
+## stands inside its panel.
+func list_entry(kind: String) -> Button:
+	for c in desk._inspect_rows.get_children():
+		if c is Button and (c as Button).text == Loc.t("hud.story.property.%s" % kind):
+			return c
+	return null
+
+## + PROPERTY pressed, and `kind` picked from the list it opens.
+func add_property(kind: String) -> void:
+	await click_on_scrolled(inspect_button(Loc.t("hud.story.add_property")))
+	await click_on_scrolled(list_entry(kind))
+
 ## The inspector's buttons with no word on them — the crosses — in order.
 func crosses() -> Array:
 	return desk._inspect_rows.find_children("*", "Button", true, false).filter(
@@ -268,34 +294,53 @@ func _the_desk() -> void:
 			and desk._side.get_combined_minimum_size().y <= desk._side.size.y,
 		"nothing on it wants more room than it has")
 
-## Nodes put in, typed, dragged about and led one to another on the sheet.
+## Nodes put in, given a line, typed, dragged about and led one to another.
 func _the_sheet() -> void:
 	await click_on(bar_button(Loc.t("hud.story.add_node")))
 	check(maker.node_count() == 1 and maker.holds("1") and desk.selected == "1" and maker.start == "1"
-			and maker.at_of("1") == StoryMaker.FIRST_AT and desk._text != null and focus_owner() == desk._text,
-		"+ NODE puts a node in where a story starts on the desk, picks it, and puts the keyboard on its words")
+			and maker.at_of("1") == StoryMaker.FIRST_AT and maker.properties_of("1").is_empty(),
+		"+ NODE puts a node in where a story starts on the desk, with no properties, and picks it")
+	check(panels().is_empty() and desk._text == null and inspect_button(Loc.t("hud.story.add_property")) != null
+			and is_equal_approx(desk.node_height("1"), StoryDesk.NODE_PAD * 2.0 + StoryDesk.HEAD_H + StoryDesk.ROW_H),
+		"its inspector has no panels, only + PROPERTY; on the sheet it is a head and a row saying it holds nothing")
+	await click_on(inspect_button(Loc.t("hud.story.add_property")))
+	var offered: Array = StoryMaker.PROPERTIES.filter(func(k: String) -> bool: return list_entry(k) != null)
+	check(desk._adding and offered.size() == StoryMaker.PROPERTIES.size(),
+		"+ PROPERTY opens the list of every kind there is to add (%s)" % str(offered))
+	await click_on(list_entry("line"))
+	check(maker.has_line("1") and maker.speaker_of("1") == StoryMaker.NPC and not desk._adding and panels().size() == 1
+			and desk._text != null and focus_owner() == desk._text,
+		"LINE picked from it: a panel of its own, the list shut, the keyboard on its words")
+	await click_on(inspect_button(Loc.t("hud.story.add_property")))
+	check(list_entry("line") == null and list_entry("action") != null and list_entry("emotion") != null,
+		"the list offers no second line; an action it always offers")
+	await click_on(inspect_button(Loc.t("hud.story.add_property")))
+	check(not desk._adding, "pressed again, the list shuts")
+	await click_on(desk._text)
 	await type_in("Ah a new face.")
 	check(maker.text_of("1") == "Ah a new face." and desk._text.text == maker.text_of("1"),
 		"what is typed is the node's words, as they are typed (%s)" % maker.text_of("1"))
 	check(inspect_button(StoryMaker.NEW_NAME.to_upper()) != null, "said by the character, by name")
 	await key(KEY_ENTER)
 	await frames(2)
-	check(maker.node_count() == 2 and desk.selected == "2" and maker.next_of("1") == "2" and maker.speaker_of("2") == StoryMaker.PLAYER
-			and focus_owner() == desk._text and maker.at_of("2") == maker.at_of("1") + StoryMaker.ALONG,
-		"the return key on a node's words is a node after it, the player's, led to, along from it, with the keyboard on it")
+	check(maker.node_count() == 2 and desk.selected == "2" and maker.next_of("1") == "2" and maker.has_line("2")
+			and maker.speaker_of("2") == StoryMaker.PLAYER and focus_owner() == desk._text
+			and maker.at_of("2") == maker.at_of("1") + StoryMaker.ALONG and maker.properties_of("2") == PackedStringArray(["line"]),
+		"the return key on a line's words is the next node, with a line of the player's and nothing else, led to, with the keyboard on it")
 	await type_in("Who are you.")
 	var who := inspect_button(StoryMaker.NEW_PLAYER_NAME.to_upper())
-	check(who != null, "the inspector says the player says it")
+	check(who != null, "the line's panel says the player says it")
 	await click_on(who)
 	check(maker.speaker_of("2") == StoryMaker.NPC and inspect_button(StoryMaker.NEW_NAME.to_upper()) != null,
 		"a press on who says it gives it to the other")
 	await click_on(inspect_button(StoryMaker.NEW_NAME.to_upper()))
 	check(maker.speaker_of("2") == StoryMaker.PLAYER, "and back")
-	# A double click on open sheet puts a node in there.
+	# A double click on open sheet puts an empty node in there.
 	var open := Vector2(80.0, desk._sheet.size.y - 120.0)
 	await double_click(on_sheet(open))
-	check(maker.node_count() == 3 and desk.selected == "3" and maker.at_of("3") == desk.desk_point(open) and focus_owner() == desk._text,
-		"a double click on open sheet puts a node in there, and picks it (%s)" % str(maker.at_of("3")))
+	check(maker.node_count() == 3 and desk.selected == "3" and maker.at_of("3") == desk.desk_point(open)
+			and maker.properties_of("3").is_empty() and desk._text == null,
+		"a double click on open sheet puts an empty node in there, and picks it (%s)" % str(maker.at_of("3")))
 	# Dragged, it moves, on the grid.
 	var was := maker.at_of("3")
 	await drag(node_centre("3"), node_centre("3") + Vector2(80.0, -40.0))
@@ -315,27 +360,51 @@ func _the_sheet() -> void:
 	check(desk.selected == "1" and desk._text != null and desk._text.text == maker.text_of("1"), "a click on a node picks it, and its words are up")
 	check(maker.unsaved, "and the story has something to save")
 
-## The node picked, written up in the inspector.
+## The node picked, given properties one at a time in the inspector: added,
+## set, folded shut and open, taken off.
 func _the_inspector() -> void:
 	await click(node_centre("3"))
-	check(desk.selected == "3", "node 3 is picked")
-	await click_on(inspect_button(Loc.t("hud.story.emotion.happy")))
+	check(desk.selected == "3" and panels().is_empty(), "node 3 is picked, with no properties")
+	await add_property("emotion")
+	check(maker.has_property("3", "emotion") and maker.emotion_of("3") == StoryMaker.NEW_EMOTION and panels().size() == 1
+			and inspect_button(Loc.t("hud.story.emotion.neutral")).disabled,
+		"EXPRESSION added, as no face yet, in a panel")
+	await click_on_scrolled(inspect_button(Loc.t("hud.story.emotion.happy")))
 	check(maker.emotion_of("3") == "happy" and inspect_button(Loc.t("hud.story.emotion.happy")).disabled,
 		"an expression is picked with its button, and lit")
-	await click_on(inspect_button(Loc.t("hud.story.effect.wave")))
-	check(maker.effect_of("3") == "wave" and inspect_button(Loc.t("hud.story.effect.wave")).disabled, "and so is the motion in the letters")
-	await click_on(inspect_button(Loc.t("hud.story.effect.own")))
-	check(maker.effect_of("3") == "", "or the expression's own")
-	await click_on(inspect_button(Loc.t("hud.story.add_answer")))
+	await add_property("effect")
+	check(maker.effect_of("3") == StoryMaker.NEW_EFFECT and panels().size() == 2, "LETTERS added, waving")
+	await click_on_scrolled(inspect_button(Loc.t("hud.story.effect.shake")))
+	check(maker.effect_of("3") == "shake" and inspect_button(Loc.t("hud.story.effect.shake")).disabled, "and the motion picked")
+	# Folded shut by its head, and open again.
+	await click_on_scrolled(inspect_button(Loc.t("hud.story.property.effect")))
+	check(desk._folded.has("3:effect") and inspect_button(Loc.t("hud.story.effect.shake")) == null and maker.effect_of("3") == "shake"
+			and panels().size() == 2,
+		"a panel's head folds it shut, and what it holds is kept")
+	await click_on_scrolled(inspect_button(Loc.t("hud.story.property.effect")))
+	check(not desk._folded.has("3:effect") and inspect_button(Loc.t("hud.story.effect.shake")) != null, "and open again")
+	# Its cross takes it off at once: it holds no words.
+	await click_on_scrolled(cross_of(Loc.t("hud.story.property.effect")))
+	check(not maker.has_property("3", "effect") and panels().size() == 1, "the cross on its head takes it off the node, at once")
+	# Answers make it a question.
+	await add_property("choices")
 	check(maker.asks("3") and maker.choices_of("3").size() == 1 and desk._answer_edits.size() == 1 and focus_owner() == desk._answer_edits[0],
-		"+ ANSWER makes the node a question, with the keyboard on the answer")
+		"ANSWERS added make it a question, the keyboard on the first answer")
 	await type_in("Yes.")
 	check(String(maker.choices_of("3")[0]["text"]) == "Yes.", "what is typed is the answer")
 	await drag(port("3", 0), node_centre("1"))
 	check(String(maker.choices_of("3")[0].get("next", "")) == "1", "an answer's port dragged onto a node leads there")
-	await click_on_scrolled(inspect_button(Loc.t("hud.story.add_action")))
-	check(maker.actions_of("3").size() == 1 and maker.actions_of("3")[0] == {"who": StoryMaker.NPC, "do": "walk", "to": StoryMaker.PLAYER},
-		"+ ACTION gives it something to do: the character walks toward the player")
+	await click_on_scrolled(cross_of(Loc.t("hud.story.property.choices")))
+	check(maker.asks("3") and desk._armed == "drop:3:choices" and cross_of(Loc.t("hud.story.property.choices")).text == Loc.t("hud.story.sure"),
+		"the cross on answers with words in them only asks, the first time")
+	# Two actions, a panel each, numbered.
+	await add_property("action")
+	await add_property("action")
+	check(maker.actions_of("3").size() == 2 and cross_of(Loc.t("hud.story.action_n", [1])) != null
+			and cross_of(Loc.t("hud.story.action_n", [2])) != null,
+		"ACTION added twice is two panels, numbered")
+	check(maker.actions_of("3")[0] == {"who": StoryMaker.NPC, "do": "walk", "to": StoryMaker.PLAYER},
+		"each starting as the character walking toward the player")
 	await click_on_scrolled(inspect_button(Loc.t("hud.story.do.walk")))
 	check(String(maker.actions_of("3")[0]["do"]) == "run", "a press on what it does goes on to the next doing")
 	await click_on_scrolled(inspect_button(Loc.t("hud.story.to_whom", [StoryMaker.NEW_PLAYER_NAME.to_upper()])))
@@ -345,16 +414,36 @@ func _the_inspector() -> void:
 		"left, so many cells")
 	await click_on_scrolled(inspect_button("+"))
 	check(int(maker.actions_of("3")[0]["steps"]) == StoryMaker.NEW_STEPS + 1, "which a press on + makes one more")
-	await click_on_scrolled(inspect_last(StoryMaker.NEW_NAME.to_upper()))
-	check(String(maker.actions_of("3")[0]["who"]) == StoryMaker.PLAYER and maker.speaker_of("3") == StoryMaker.NPC,
-		"and a press on who does it gives it to the other, and the node to nobody else")
-	await click_on_scrolled(crosses().back())
-	check(maker.actions_of("3").is_empty(), "the cross takes the action away")
+	await click_on_scrolled(inspect_button(StoryMaker.NEW_NAME.to_upper()))
+	check(String(maker.actions_of("3")[0]["who"]) == StoryMaker.PLAYER and String(maker.actions_of("3")[1]["who"]) == StoryMaker.NPC,
+		"and a press on who does it gives it to the other, and the other action to nobody else")
+	await click_on_scrolled(cross_of(Loc.t("hud.story.action_n", [2])))
+	check(maker.actions_of("3").size() == 1 and String(maker.actions_of("3")[0]["do"]) == "run"
+			and cross_of(Loc.t("hud.story.property.action")) != null,
+		"the cross on the second takes that one off, and the first is ACTION again")
+	await click_on_scrolled(cross_of(Loc.t("hud.story.property.action")))
+	check(maker.actions_of("3").is_empty() and not maker.has_property("3", "action"), "and on the last, the last")
+	check(maker.properties_of("3") == PackedStringArray(["emotion", "choices"])
+			and panels().size() == 2 and (panels()[0].get_child(0).get_child(0).get_child(0) as Button).text == Loc.t("hud.story.property.emotion"),
+		"what it has is shown in one order, whatever order it came in")
 	await click_on_scrolled(inspect_button(Loc.t("hud.story.start_here")))
 	check(maker.start == "3" and inspect_button(Loc.t("hud.story.is_start")) != null, "START HERE moves the start")
 	await click(node_centre("1"))
 	await click_on_scrolled(inspect_button(Loc.t("hud.story.start_here")))
 	check(maker.start == "1", "and back")
+	# A line with words in it asks before it goes, and comes back the other's.
+	await click(node_centre("2"))
+	check(desk.selected == "2" and maker.has_line("2"), "node 2 is picked, with its line")
+	await click_on_scrolled(cross_of(Loc.t("hud.story.property.line")))
+	check(maker.has_line("2") and desk._armed == "drop:2:line" and cross_of(Loc.t("hud.story.property.line")).text == Loc.t("hud.story.sure"),
+		"the cross on a line with words in it only asks, the first time")
+	await click_on_scrolled(cross_of(Loc.t("hud.story.property.line")))
+	check(not maker.has_line("2") and maker.properties_of("2").is_empty() and panels().is_empty(),
+		"and takes the line off the second, words and all")
+	await add_property("line")
+	check(maker.has_line("2") and maker.speaker_of("2") == StoryMaker.PLAYER and focus_owner() == desk._text,
+		"a line added again is the player's turn, the character's line leading to it")
+	await type_in("Who are you.")
 	await click(node_centre("3"))
 	await click_on_scrolled(inspect_button(Loc.t("hud.story.delete_node")))
 	check(maker.holds("3") and desk._armed == "remove:3" and inspect_button(Loc.t("hud.story.sure")) != null,

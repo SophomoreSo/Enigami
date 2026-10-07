@@ -191,7 +191,6 @@
 		"start_here": "여기서 시작",
 		"is_start": "시작",
 		"line": "대사",
-		"expression": "표정",
 		"emotion": {
 			"neutral": "보통",
 			"happy": "기쁨",
@@ -201,9 +200,7 @@
 			"thinking": "생각",
 			"scared": "두려움"
 		},
-		"effect_heading": "글자 효과",
 		"effect": {
-			"own": "표정대로",
 			"none": "정지",
 			"wave": "물결",
 			"shake": "흔들림",
@@ -212,12 +209,8 @@
 		"leads_to": "노드 %s(으)로",
 		"leads_end": "끝으로",
 		"unlink": "끊기",
-		"answers_lead": "선택지가 이어집니다",
-		"answers": "선택지",
 		"answer": "선택지",
 		"add_answer": "+ 선택지",
-		"actions": "시작할 때",
-		"add_action": "+ 동작",
 		"action_count_one": "동작 %d",
 		"action_count": "동작 %d",
 		"do": {
@@ -272,7 +265,17 @@
 		"no_maps": "저장한 맵이 없습니다",
 		"delete": "삭제",
 		"keys": "F 대화  ESC 책상으로",
-		"end": "끝"
+		"end": "끝",
+		"add_property": "+ 속성",
+		"property": {
+			"line": "대사",
+			"emotion": "표정",
+			"effect": "글자 효과",
+			"action": "동작",
+			"choices": "선택지"
+		},
+		"action_n": "동작 %d",
+		"empty": "속성 없음"
 	},
 	"dragon": {
 		"play": "재생",

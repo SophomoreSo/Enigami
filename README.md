@@ -844,15 +844,20 @@ the letters; what anyone on stage does as it starts — a walk or a run toward
 the other or a few cells along, a pose held, a turn; and where it leads: the
 next node, or a question whose answers each lead somewhere, or nowhere, which
 is the end. A node with nothing to say and something to do is a beat of
-staging. **+ NODE** puts a node in after the one picked and leads to it, so a
-conversation is written straight on, `Enter` a node; a double click on the
-sheet puts one in there. A node is dragged to move it, and the port on its
-right — or on each of its answers — is dragged onto another node to lead
-there, or onto nothing to lead nowhere. The sheet is carried by a drag on it
-or the move keys and brought nearer by the wheel. Down the right is the node
-picked: its words, its expression and letters, its answers, what it does as
-it starts, whether the story starts there, and a way off the desk that asks
-twice. Down the left is what the story is set on and how it plays: **MAP**
+staging. **+ NODE** puts an empty node in after the one picked and leads to
+it, and a double click on the sheet puts one in there; `Enter` in a line's
+words puts in the next with a line of its own, the other's turn, so a
+conversation is written straight on. A node is dragged to move it, and the
+port on its right — or on each of its answers — is dragged onto another node
+to lead there, or onto nothing to lead nowhere. The sheet is carried by a drag
+on it or the move keys and brought nearer by the wheel. Down the right is the
+node picked, after Blender's properties: it starts with nothing, and
+**+ PROPERTY** adds what it needs — a LINE, an EXPRESSION, LETTERS, an ACTION
+(as many as it takes) and ANSWERS — each a panel that folds shut by its head
+and comes off by its cross, asking first where it would take words with it.
+Over them are whether the story starts there and where it leads, and under
+them a way off the desk that asks twice. Down the left is what the story is
+set on and how it plays: **MAP**
 imports a map made in the map creator — the story is played on it, stood up
 empty, with no monster at its post and nothing to dig — **PLAYED AS** picks
 one of three ways, and under them who the character is, what they look like

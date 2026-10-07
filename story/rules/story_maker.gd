@@ -5,15 +5,18 @@ extends World
 ## made in the map creator (`Maps`), and played on the spot in one of three
 ## ways (`Mode`).
 ##
-## A node is one beat of the story: who says what — the character or the
-## player — with what expression (`emotion`) and what motion in the letters
-## (`effect`); what anyone on stage does as it starts (`actions`: a walk or a
-## run toward the other or a few cells along, a pose held, a turn); and where
-## it leads — the `next` node, or a question whose `choices` each lead
-## somewhere, or nowhere, which is the end. A node with nothing to say and
-## something to do is a beat of staging, over as soon as it is done. The
-## story starts at `start` and plays along the links; a node nothing leads to
-## is kept on the desk and never played.
+## A node is one beat of the story, and starts with nothing: what it holds
+## are properties (`PROPERTIES`), added one at a time and taken away the same
+## way — a `line`, who says what, the character or the player; an `emotion`,
+## the expression it is said with; an `effect`, a motion of the letters' own;
+## any number of `action`s, what anyone on stage does as it starts (a walk or
+## a run toward the other or a few cells along, a pose held, a turn); and
+## `choices`, the answers that make it a question. Where it leads is no
+## property: the `next` node, or where each answer goes, or nowhere, which is
+## the end. A node with nothing to say and something to do is a beat of
+## staging, over as soon as it is done; one with nothing at all is passed
+## straight through. The story starts at `start` and plays along the links; a
+## node nothing leads to is kept on the desk and never played.
 ##
 ## The three ways it is played:
 ##
@@ -70,6 +73,15 @@ const DIRS := ["left", "right", "toward"]
 ## its expression does. The picture draws each (`Style.TEXT_EFFECTS`).
 const EFFECTS := ["none", "wave", "shake", "bounce"]
 const NEW_STEPS := 2
+## What a node may be given, in the order the desk offers them and shows them:
+## a `line`, an `emotion`, an `effect`, any number of `action`s, and
+## `choices`. A node starts with none of them.
+const PROPERTIES := ["line", "emotion", "effect", "action", "choices"]
+## What a property starts as once it is added: a face that is no face yet,
+## letters that wave — a walk toward the other, and one answer with nothing in
+## it yet, are `add_action`'s and `add_choice`'s own.
+const NEW_EMOTION := "neutral"
+const NEW_EFFECT := "wave"
 ## How fast a walk and a run go, in pixels a second, for a novel's cast.
 const WALK_SPEED := 70.0
 const RUN_SPEED := 150.0
@@ -199,15 +211,111 @@ func ids() -> PackedStringArray:
 func text_of(id: String) -> String:
 	return String(node(id).get("text", ""))
 
+## Who says the node's line — the character's, for a node with none.
 func speaker_of(id: String) -> String:
 	return String(node(id).get("speaker", NPC))
 
+## The node's expression — neutral, for a node that wears none.
 func emotion_of(id: String) -> String:
 	return String(node(id).get("emotion", LINE_EMOTION))
 
 ## The motion in the node's letters, or "" for its expression's own.
 func effect_of(id: String) -> String:
 	return String(node(id).get("effect", ""))
+
+## Whether node `id` has a line: who says what, if only nothing yet.
+func has_line(id: String) -> bool:
+	return node(id).has("text")
+
+## Whether node `id` has been given property `kind` (`PROPERTIES`). Answers
+## are there once added, whether or not any is left to lead anywhere.
+func has_property(id: String, kind: String) -> bool:
+	var n := node(id)
+	match kind:
+		"line":
+			return n.has("text")
+		"emotion":
+			return n.has("emotion")
+		"effect":
+			return n.has("effect")
+		"action":
+			return not (n.get("actions", []) as Array).is_empty()
+		"choices":
+			return n.has("choices")
+	return false
+
+## The properties node `id` has, in the order `PROPERTIES` tells them,
+## whatever order they were added in; an action once, however many there are.
+func properties_of(id: String) -> PackedStringArray:
+	var out := PackedStringArray()
+	for kind in PROPERTIES:
+		if has_property(id, kind):
+			out.append(kind)
+	return out
+
+## Whether property `kind` can be added to node `id`: one it does not have yet
+## — or an action, of which it may have any number.
+func can_add(id: String, kind: String) -> bool:
+	return holds(id) and PROPERTIES.has(kind) and (kind == "action" or not has_property(id, kind))
+
+## Adds property `kind` to node `id`, as it starts: a line said by whoever's
+## turn it is (`_speaker_for`) with nothing said yet, a face that is none yet,
+## letters that wave, a walk toward the other, one answer to write. Its place
+## — an action's or an answer's among the node's, 0 for the rest — or -1 for
+## one that cannot be added.
+func add_property(id: String, kind: String) -> int:
+	if not can_add(id, kind):
+		return -1
+	match kind:
+		"line":
+			nodes[id]["speaker"] = _speaker_for(id)
+			nodes[id]["text"] = ""
+		"emotion":
+			nodes[id]["emotion"] = NEW_EMOTION
+		"effect":
+			nodes[id]["effect"] = NEW_EFFECT
+		"action":
+			return add_action(id)
+		"choices":
+			return add_choice(id)
+	unsaved = true
+	return 0
+
+## Takes property `kind` off node `id`, whole: every action, every answer.
+## Whether it had it.
+func remove_property(id: String, kind: String) -> bool:
+	if not has_property(id, kind):
+		return false
+	var n: Dictionary = nodes[id]
+	match kind:
+		"line":
+			n.erase("speaker")
+			n.erase("text")
+		"emotion":
+			n.erase("emotion")
+		"effect":
+			n.erase("effect")
+		"action":
+			n.erase("actions")
+		"choices":
+			n.erase("choices")
+	unsaved = true
+	return true
+
+## Who a line put on node `id` is said by: the other of whoever says the line
+## of the node that leads on to it, so a conversation goes turn and turn about
+## — or whoever asked, for a node one of their answers leads to, since the
+## answer was the other's; the character, with neither.
+func _speaker_for(id: String) -> String:
+	for other in ids():
+		if not has_line(other):
+			continue
+		if next_of(other) == id:
+			return PLAYER if speaker_of(other) == NPC else NPC
+		for c in choices_of(other):
+			if String((c as Dictionary).get("next", "")) == id:
+				return speaker_of(other)
+	return NPC
 
 func at_of(id: String) -> Vector2i:
 	var at = node(id).get("at", [0, 0])
@@ -226,27 +334,32 @@ func actions_of(id: String) -> Array:
 func asks(id: String) -> bool:
 	return not choices_of(id).is_empty()
 
-## Puts a node in at `at` on the desk, said by `speaker`, and says its id. The
-## first node put in is where the story starts.
-func add_node(at: Vector2i, speaker: String = NPC, text: String = "") -> String:
+## Puts a node in at `at` on the desk, and says its id: with no properties
+## at all — or, given a `speaker` or a `text`, with a line, which a story
+## written the old way, or by a test, comes with. The first node put in is
+## where the story starts.
+func add_node(at: Vector2i, speaker: String = "", text: String = "") -> String:
 	var id := str(_next_id)
 	_next_id += 1
-	nodes[id] = {"at": [at.x, at.y], "speaker": PLAYER if speaker == PLAYER else NPC, "text": text}
+	nodes[id] = {"at": [at.x, at.y]}
+	if speaker != "" or text != "":
+		nodes[id]["speaker"] = PLAYER if speaker == PLAYER else NPC
+		nodes[id]["text"] = text
 	if start == "":
 		start = id
 	unsaved = true
 	return id
 
-## Puts a node in after `after`, along from it on the desk, said by the other
-## of the two, and leads `after` on to it where `after` led nowhere yet — so a
-## conversation written straight on goes turn and turn about. The new node's id.
-func add_node_after(after: String) -> String:
-	if not holds(after):
-		return add_node(FIRST_AT)
-	var speaker := PLAYER if speaker_of(after) == NPC else NPC
-	var id := add_node(at_of(after) + ALONG, speaker)
-	if not asks(after) and next_of(after) == "":
+## Puts a node in after `after`, along from it on the desk, and leads `after`
+## on to it where `after` led nowhere yet. With `with_line` it has a line, said
+## by whoever's turn it is, so a conversation written straight on goes turn and
+## turn about; without, nothing. The new node's id.
+func add_node_after(after: String, with_line: bool = false) -> String:
+	var id := add_node(at_of(after) + ALONG if holds(after) else FIRST_AT)
+	if holds(after) and not asks(after) and next_of(after) == "":
 		link(after, id)
+	if with_line:
+		add_property(id, "line")
 	return id
 
 ## Takes node `id` off the desk, and off every link that led to it. Whether
@@ -275,16 +388,20 @@ func move_node(id: String, at: Vector2i) -> bool:
 		unsaved = true
 	return true
 
+## Changes what node `id` says, giving it a line first where it has none.
 func set_text(id: String, text: String) -> bool:
 	if not holds(id):
 		return false
+	if not has_line(id):
+		add_property(id, "line")
 	if text_of(id) != text:
 		nodes[id]["text"] = text
 		unsaved = true
 	return true
 
+## Gives node `id`'s line to `speaker`. A node with no line has nobody to give.
 func set_speaker(id: String, speaker: String) -> bool:
-	if not holds(id) or (speaker != NPC and speaker != PLAYER):
+	if not holds(id) or not has_line(id) or (speaker != NPC and speaker != PLAYER):
 		return false
 	if speaker_of(id) != speaker:
 		nodes[id]["speaker"] = speaker
@@ -296,17 +413,19 @@ func toggle_speaker(id: String) -> bool:
 	return set_speaker(id, PLAYER if speaker_of(id) == NPC else NPC)
 
 ## The node's expression: one of the emotions the picture draws, which the
-## database declares (`emotions`). "" is neutral.
+## database declares (`emotions`) — neutral among them. Set where it has none,
+## it is added; `remove_property` takes it away.
 func set_emotion(id: String, emotion: String) -> bool:
-	if not holds(id) or (emotion != "" and not emotions().has(emotion)):
+	if not holds(id) or not emotions().has(emotion):
 		return false
-	_set_or_clear(id, "emotion", emotion if emotion != LINE_EMOTION else "")
+	_set_or_clear(id, "emotion", emotion)
 	return true
 
-## The motion in the node's letters: one of `EFFECTS`, or "" for its
-## expression's own.
+## The motion in the node's letters: one of `EFFECTS`. Set where it has none,
+## it is added; `remove_property` takes it away, and the letters move as the
+## expression asks.
 func set_effect(id: String, effect: String) -> bool:
-	if not holds(id) or (effect != "" and not EFFECTS.has(effect)):
+	if not holds(id) or not EFFECTS.has(effect):
 		return false
 	_set_or_clear(id, "effect", effect)
 	return true
@@ -364,14 +483,14 @@ func link_choice(id: String, i: int, to: String) -> bool:
 		unsaved = true
 	return true
 
-## Takes answer `i` off node `id`. With no answer left it is no question.
+## Takes answer `i` off node `id`. With no answer left it is no question,
+## and leads on by its `next` again; its answers are still there to write,
+## until `remove_property` takes them away.
 func remove_choice(id: String, i: int) -> bool:
 	if _choice(id, i).is_empty():
 		return false
 	var all: Array = nodes[id]["choices"]
 	all.remove_at(i)
-	if all.is_empty():
-		nodes[id].erase("choices")
 	unsaved = true
 	return true
 
@@ -633,29 +752,36 @@ static func _squared(given: Dictionary) -> Dictionary:
 	var n := given.duplicate(true)
 	var at = n.get("at", [0, 0])
 	n["at"] = [int(at[0]), int(at[1])] if at is Array and (at as Array).size() == 2 else [0, 0]
-	n["speaker"] = PLAYER if String(n.get("speaker", NPC)) == PLAYER else NPC
-	n["text"] = String(n.get("text", ""))
+	# A line is a speaker and words: either one there is the line, the other
+	# filled; neither, no line.
+	if n.has("text") or n.has("speaker"):
+		n["speaker"] = PLAYER if String(n.get("speaker", NPC)) == PLAYER else NPC
+		n["text"] = String(n.get("text", ""))
 	if n.has("next"):
 		n["next"] = String(n["next"])
-	if String(n.get("emotion", "")) == "" or String(n.get("emotion", "")) == LINE_EMOTION:
+	if String(n.get("emotion", "")) == "":
 		n.erase("emotion")
+	elif n.has("emotion"):
+		n["emotion"] = String(n["emotion"])
 	if not EFFECTS.has(String(n.get("effect", ""))):
 		n.erase("effect")
-	var choices: Array = []
-	var given_choices = n.get("choices", [])
-	for c in (given_choices if given_choices is Array else []):
-		if c is Dictionary:
-			var kept := {"text": String(c.get("text", ""))}
-			if String(c.get("next", "")) != "":
-				kept["next"] = String(c["next"])
-			choices.append(kept)
-		elif c is String:
-			choices.append({"text": String(c)})
-	if choices.is_empty():
-		n.erase("choices")
-	else:
+	var given_choices = n.get("choices", null)
+	if given_choices is Array:
+		var choices: Array = []
+		for c in given_choices:
+			if c is Dictionary:
+				var kept := {"text": String(c.get("text", ""))}
+				if String(c.get("next", "")) != "":
+					kept["next"] = String(c["next"])
+				choices.append(kept)
+			elif c is String:
+				choices.append({"text": String(c)})
+		# Answers added are kept with none left in them: the property is there.
 		n["choices"] = choices
-		n.erase("next")
+		if not choices.is_empty():
+			n.erase("next")
+	else:
+		n.erase("choices")
 	var actions: Array = []
 	var given_actions = n.get("actions", [])
 	for a in (given_actions if given_actions is Array else []):
@@ -746,7 +872,9 @@ static func problems_in(s: Dictionary) -> Array:
 		var actions = n.get("actions", [])
 		if not actions is Array:
 			actions = []
-		if String(n.get("text", "")).strip_edges() == "" and (actions as Array).is_empty():
+		var asked = n.get("choices", [])
+		if String(n.get("text", "")).strip_edges() == "" and (actions as Array).is_empty() \
+				and not (asked is Array and not (asked as Array).is_empty()):
 			found.append("%s says nothing and does nothing" % at)
 		if n.has("emotion") and not moods.has(String(n["emotion"])):
 			found.append("%s wears '%s', which nobody draws" % [at, n["emotion"]])

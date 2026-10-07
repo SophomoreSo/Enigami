@@ -107,24 +107,41 @@ func _ready() -> void:
 	check(maker.map_id == "" and maker.map_to_play() == "stage", "set on whichever map there is (%s)" % maker.map_to_play())
 	check(not maker.has_lines() and maker.play() == "empty" and not maker.playing, "and with nothing to say it cannot be played, and says why")
 
-	# --- writing it: nodes, and the links between them --------------------------
+	# --- writing it: nodes, their properties, and the links between them ----------
 	var a := maker.add_node(StoryMaker.FIRST_AT)
-	check(a == "1" and maker.node_count() == 1 and maker.start == a and maker.speaker_of(a) == npc
-			and maker.at_of(a) == StoryMaker.FIRST_AT and maker.text_of(a) == "" and maker.unsaved,
-		"the first node put in is the character's, with nothing said yet, and is where the story starts")
+	check(a == "1" and maker.node_count() == 1 and maker.start == a and maker.at_of(a) == StoryMaker.FIRST_AT
+			and maker.properties_of(a).is_empty() and not maker.has_line(a) and maker.text_of(a) == "" and maker.unsaved,
+		"the first node put in has no properties at all, and is where the story starts")
+	check(StoryMaker.PROPERTIES.all(func(k: String) -> bool: return maker.can_add(a, k)) and not maker.can_add(a, "hat")
+			and not maker.can_add("9", "line"),
+		"every kind of property can be added to it, and nothing that is none, and to no node that is not there")
+	check(maker.add_property(a, "line") == 0 and maker.has_line(a) and maker.speaker_of(a) == npc and maker.text_of(a) == ""
+			and maker.properties_of(a) == PackedStringArray(["line"]),
+		"a line added is the character's, with nothing said yet")
+	check(not maker.can_add(a, "line") and maker.add_property(a, "line") < 0 and maker.add_property(a, "hat") < 0,
+		"a node has one line at most")
 	check(maker.set_text(a, "Ah. A new face.") and maker.text_of(a) == "Ah. A new face." and not maker.set_text("9", "x"),
 		"a node's words are changed, and no other's")
-	var b := maker.add_node_after(a)
-	check(b == "2" and maker.speaker_of(b) == player and maker.at_of(b) == StoryMaker.FIRST_AT + StoryMaker.ALONG
+	var b := maker.add_node_after(a, true)
+	check(b == "2" and maker.has_line(b) and maker.speaker_of(b) == player and maker.at_of(b) == StoryMaker.FIRST_AT + StoryMaker.ALONG
 			and maker.next_of(a) == b,
-		"a node put in after another is the other's, stands along from it, and is led to")
+		"a node put in after another with a line of its own is the other's turn, stands along from it, and is led to")
 	maker.set_text(b, "Through? I walked in the front.")
-	var c := maker.add_node_after(b)
+	var c := maker.add_node_after(b, true)
 	check(c == "3" and maker.speaker_of(c) == npc and maker.next_of(b) == c, "turn and turn about")
 	maker.set_text(c, "What would you like to know?")
 	check(maker.toggle_speaker(b) and maker.speaker_of(b) == npc and maker.toggle_speaker(b) and maker.speaker_of(b) == player
 			and not maker.set_speaker(b, "cat"),
-		"a node is given to the other of the two, and back, and to nobody else")
+		"a line is given to the other of the two, and back, and to nobody else")
+	var bare := maker.add_node_after(c)
+	check(maker.properties_of(bare).is_empty() and maker.next_of(c) == bare and not maker.toggle_speaker(bare),
+		"a node put in after another without a line has nothing, and is led to; with no line it has nobody to give one to")
+	check(maker.set_text(bare, "Hm.") and maker.has_line(bare) and maker.speaker_of(bare) == player and maker.text_of(bare) == "Hm.",
+		"words set on a node with no line give it one, said by whoever's turn it is")
+	check(maker.add_property(bare, "emotion") == 0 and maker.remove_property(bare, "line") and not maker.has_line(bare)
+			and maker.text_of(bare) == "" and maker.properties_of(bare) == PackedStringArray(["emotion"]) and not maker.remove_property(bare, "line"),
+		"a line taken away goes with its words, and leaves the rest")
+	maker.remove_node(bare)
 	check(maker.link(a, c) and maker.next_of(a) == c and maker.link(a, b) and maker.next_of(a) == b,
 		"a node is led elsewhere, and back")
 	check(not maker.link(a, a) and not maker.link(a, "9") and maker.next_of(a) == b,
@@ -134,28 +151,37 @@ func _ready() -> void:
 		"a node is moved about the desk")
 
 	# --- a question ---------------------------------------------------------------
-	check(maker.add_choice(c, "Who are you?") == 0 and maker.asks(c) and maker.choices_of(c).size() == 1,
-		"an answer makes a node a question")
-	check(not maker.link(c, a) and maker.next_of(c) == "", "which leads nowhere but by its answers")
+	check(maker.add_property(c, "choices") == 0 and maker.asks(c) and maker.choices_of(c).size() == 1
+			and String(maker.choices_of(c)[0]["text"]) == "" and not maker.can_add(c, "choices"),
+		"answers added make a node a question, with one answer to write")
+	check(maker.set_choice_text(c, 0, "Who are you?") and not maker.link(c, a) and maker.next_of(c) == "",
+		"which leads nowhere but by its answers")
 	check(maker.add_choice(c, "Nothing. Bye.") == 1 and maker.set_choice_text(c, 1, "Nothing. Goodbye.")
 			and String(maker.choices_of(c)[1]["text"]) == "Nothing. Goodbye.",
 		"and another, whose words are changed")
-	var d := maker.add_node(Vector2i(900, 20), npc, "I tinker. Mostly with things that explode.")
-	check(d == "4" and maker.link_choice(c, 0, d) and String(maker.choices_of(c)[0]["next"]) == d, "an answer is led to a node")
+	var d := maker.add_node(Vector2i(900, 20))
+	check(maker.link_choice(c, 0, d) and String(maker.choices_of(c)[0]["next"]) == d, "an answer is led to a node")
+	check(maker.add_property(d, "line") == 0 and maker.speaker_of(d) == npc,
+		"a line on a node an answer leads to is said by whoever asked, the answer having been the other's")
+	maker.set_text(d, "I tinker. Mostly with things that explode.")
 	check(maker.link(d, c) and maker.next_of(d) == c, "which may lead back to the question")
 	check(not maker.link_choice(c, 5, d) and not maker.link_choice(c, 0, "9") and maker.link_choice(c, 1, "")
 			and not maker.choices_of(c)[1].has("next"),
 		"an answer that is not there, or a node that is not, is refused; an answer led nowhere ends the story")
 	var e := maker.add_node(Vector2i(900, 200), npc, "Go on, then.")
-	check(maker.link_choice(c, 1, e) and maker.remove_node(e) and not maker.holds(e) and not maker.choices_of(c)[1].has("next")
-			and not maker.remove_node(e),
+	check(maker.has_line(e) and maker.link_choice(c, 1, e) and maker.remove_node(e) and not maker.holds(e)
+			and not maker.choices_of(c)[1].has("next") and not maker.remove_node(e),
 		"a node taken off the desk is off every link that led to it")
 	var f := maker.add_node(Vector2i(900, 300), npc, "Nobody comes here.")
 	check(maker.reachable() == PackedStringArray([a, b, c, d]),
 		"the story reaches its nodes along its links from the start, and not one nothing leads to (%s)" % str(maker.reachable()))
 	check(maker.remove_choice(c, 1) and maker.choices_of(c).size() == 1 and maker.remove_choice(c, 0) and not maker.asks(c)
-			and not maker.remove_choice(c, 0),
-		"answers are taken away, and with the last gone the node is no question")
+			and maker.has_property(c, "choices") and not maker.remove_choice(c, 0),
+		"answers are taken away one at a time, and with the last gone the node is no question, its answers still there to write")
+	check(maker.link(c, d) and maker.next_of(c) == d and maker.remove_property(c, "choices") and not maker.has_property(c, "choices")
+			and maker.next_of(c) == d and not maker.remove_property(c, "choices"),
+		"so it leads on again; and the property is taken away whole")
+	maker.link(c, "")
 	maker.add_choice(c, "Who are you?")
 	maker.link_choice(c, 0, d)
 	maker.add_choice(c, "Nothing. Bye.")
@@ -165,16 +191,25 @@ func _ready() -> void:
 	maker.remove_node(f)
 
 	# --- what a node wears and does ---------------------------------------------------
+	check(maker.add_property(a, "emotion") == 0 and maker.emotion_of(a) == StoryMaker.NEW_EMOTION and maker.has_property(a, "emotion")
+			and not maker.can_add(a, "emotion"),
+		"an expression added starts as no face at all, and a node has one at most")
 	check(maker.set_emotion(a, "happy") and maker.emotion_of(a) == "happy" and not maker.set_emotion(a, "furious")
-			and maker.emotion_of(a) == "happy",
-		"a node wears an expression the picture draws, and no other")
-	check(maker.set_emotion(a, "neutral") and not maker.node(a).has("emotion") and maker.set_emotion(a, "happy"), "neutral is none at all")
-	check(maker.set_effect(d, "shake") and maker.effect_of(d) == "shake" and not maker.set_effect(d, "zoom")
-			and maker.set_effect(d, "") and maker.effect_of(d) == "" and not maker.node(d).has("effect"),
-		"its letters move one of the ways there are, or as its expression moves them")
+			and not maker.set_emotion(a, "") and maker.emotion_of(a) == "happy",
+		"it wears one the picture draws, and no other")
+	check(maker.set_emotion(a, "neutral") and maker.has_property(a, "emotion") and maker.remove_property(a, "emotion")
+			and not maker.node(a).has("emotion") and maker.emotion_of(a) == StoryMaker.LINE_EMOTION,
+		"neutral is a face like any other; taken away, the node wears none")
+	check(maker.set_emotion(a, "happy") and maker.has_property(a, "emotion"), "and set where there is none, it is added")
+	check(maker.add_property(d, "effect") == 0 and maker.effect_of(d) == StoryMaker.NEW_EFFECT and not maker.can_add(d, "effect"),
+		"letters added start waving")
+	check(maker.set_effect(d, "shake") and maker.effect_of(d) == "shake" and not maker.set_effect(d, "zoom") and not maker.set_effect(d, "")
+			and maker.remove_property(d, "effect") and maker.effect_of(d) == "" and not maker.node(d).has("effect"),
+		"they move one of the ways there are; taken away, as the expression moves them")
 	maker.set_effect(d, "shake")
-	check(maker.add_action(a, npc, "walk") == 0 and maker.actions_of(a)[0] == {"who": npc, "do": "walk", "to": player},
-		"an action: the character walks toward the player")
+	check(maker.add_property(a, "action") == 0 and maker.actions_of(a)[0] == {"who": npc, "do": "walk", "to": player}
+			and maker.can_add(a, "action"),
+		"an action added: the character walks toward the player — and a node may have any number")
 	check(maker.add_action(b, player, "walk") == 0 and maker.set_action(b, 0, "to", "left")
 			and maker.actions_of(b)[0] == {"who": player, "do": "walk", "to": "left", "steps": StoryMaker.NEW_STEPS},
 		"a walk left goes so many cells")
@@ -189,19 +224,24 @@ func _ready() -> void:
 	check(maker.set_action(b, 0, "pose", "crouch") and not maker.set_action(b, 0, "pose", "") and not maker.set_action(b, 0, "hat", "x")
 			and maker.add_action(b, npc, "sing") < 0 and maker.actions_of(b).size() == 1,
 		"a pose is any the sprite may have; a key that is none, and a doing that is none, are refused")
-	check(maker.add_action(d, npc, "pose") == 0 and maker.set_action(d, 0, "pose", "hit") and maker.remove_action(d, 0)
+	check(maker.add_action(d, npc, "pose") == 0 and maker.add_property(d, "action") == 1 and maker.remove_property(d, "action")
 			and not maker.node(d).has("actions") and not maker.remove_action(d, 0),
-		"an action is taken away, and with the last gone the node does nothing")
-	maker.add_action(d, npc, "pose")
-	maker.set_action(d, 0, "pose", "hit")
+		"actions are any number, and taken away whole")
+	check(maker.add_action(d, npc, "pose") == 0 and maker.set_action(d, 0, "pose", "hit") and maker.add_action(d) == 1
+			and maker.remove_action(d, 1) and maker.actions_of(d).size() == 1,
+		"or one at a time")
 	# A beat of staging between the first two lines: the character turns away.
-	var g := maker.add_node(Vector2i(180, 200), npc)
+	var g := maker.add_node(Vector2i(180, 200))
 	maker.add_action(g, npc, "face")
 	maker.set_action(g, 0, "dir", "left")
 	maker.link(a, g)
 	maker.link(g, b)
-	check(maker.reachable() == PackedStringArray([a, g, b, c, d]) and maker.has_lines(),
+	check(maker.properties_of(g) == PackedStringArray(["action"]) and maker.reachable() == PackedStringArray([a, g, b, c, d])
+			and maker.has_lines(),
 		"a node with nothing to say and something to do is in the story like any other")
+	check(maker.properties_of(d) == PackedStringArray(["line", "effect", "action"])
+			and maker.properties_of(a) == PackedStringArray(["line", "emotion", "action"]),
+		"and what a node has is told in one order, whatever order it came in")
 
 	# --- the checker -----------------------------------------------------------------
 	check(maker.problems().is_empty(), "the story reads clean (%s)" % str(maker.problems()))
@@ -217,6 +257,9 @@ func _ready() -> void:
 			and StoryMaker.problems_in({"start": "1", "nodes": {"1": {"text": "x", "effect": "zoom"}}}).size() == 1
 			and StoryMaker.problems_in({"start": "1", "nodes": {"1": {"text": "x", "actions": [{"do": "sing"}]}}}).size() == 1,
 		"a node said by nobody, an expression nobody draws, a motion that is none, a doing that is none")
+	check(StoryMaker.problems_in({"start": "1", "nodes": {"1": {"choices": [{"text": "Yes."}]}}}).is_empty()
+			and StoryMaker.problems_in({"start": "1", "nodes": {"1": {}}}).size() == 1,
+		"answers with no words before them ask nothing wrong; a node with nothing at all says and does nothing")
 	check(StoryMaker.problems_in({"start": "1", "nodes": {"1": {"text": "x", "next": "9"}}}).size() == 1
 			and StoryMaker.problems_in({"start": "1", "nodes": {"1": {"text": "x", "choices": [{"text": "a", "next": "9"}, {"text": ""}]}}}).size() == 2
 			and StoryMaker.problems_in({"start": "1", "nodes": {"1": {"text": "x"}, "2": {"text": "y"}}}).size() == 1
@@ -306,6 +349,7 @@ func _ready() -> void:
 	check(maker.save_as("other") == "" and Stories.ids() == PackedStringArray(["other", "test_story"]),
 		"a second story is kept beside the first")
 	check(maker.open("test_story") and maker.node_count() == 5 and maker.start == a and maker.story_id == "test_story"
+			and maker.properties_of(g) == PackedStringArray(["action"]) and maker.properties_of(d) == PackedStringArray(["line", "effect", "action"])
 			and maker.map_id == "stage" and maker.spot == Vector2i(12, Room.H - 3) and not maker.unsaved
 			and maker.add_node(Vector2i.ZERO) == str(int(g) + 1),
 		"LOAD puts a kept story back on the desk as it was saved, and the next node put in is past every id")
@@ -326,6 +370,13 @@ func _ready() -> void:
 			and maker.effect_of("2") == "" and not maker.asks("2") and maker.actions_of("2").size() == 1
 			and maker.actions_of("2")[0] == {"who": player, "do": "walk", "to": "left", "steps": StoryMaker.NEW_STEPS},
 		"and a file written badly by hand is squared off: a start that is nowhere is the first node, a link to nowhere no link, a doing that is none dropped")
+	hand = FileAccess.open(SCRATCH.path_join("by_hand.json"), FileAccess.WRITE)
+	hand.store_string('{"start": "1", "nodes": {"1": {"actions": [{"do": "face"}], "next": "2"}, "2": {"text": "x", "emotion": "neutral", "choices": []}}}')
+	hand.close()
+	check(maker.open("by_hand") and not maker.has_line("1") and maker.properties_of("1") == PackedStringArray(["action"])
+			and maker.has_property("2", "emotion") and maker.emotion_of("2") == "neutral"
+			and maker.has_property("2", "choices") and not maker.asks("2") and maker.properties_of("2") == PackedStringArray(["line", "emotion", "choices"]),
+		"a node in a file has the properties it is written with and no others: no line where it has no words, a neutral face, answers with none in them yet")
 	Stories.remove("by_hand")
 	maker.open("test_story")
 
