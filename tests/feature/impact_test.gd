@@ -1,8 +1,9 @@
 extends Node
 ## The parts that act at the moment a hit lands, rather than on the way to it:
 ## GRAVITY drags the room in, KNOCKBACK throws the enemy struck on the way the
-## attack was going, SHATTER punishes an enemy frost has already slowed, and
-## MANA DRAIN pays the caster back for connecting.
+## attack was going, EXPLODE bursts the hit on everything round it, SHATTER
+## punishes an enemy frost has already slowed, and MANA DRAIN pays the caster
+## back for connecting.
 ##
 ## Driven through `Attacks.resolve_hit`, which is the one door every attack form
 ## goes through — so what is checked here holds for a bolt, an arc, a burst and
@@ -20,6 +21,18 @@ func check(ok: bool, what: String) -> void:
 func frames(n: int) -> void:
 	for i in n:
 		await get_tree().process_frame
+
+## Until every burst in the air has opened all the way and gone, at whatever
+## pace the frames come: a burst's hits land as its edge passes them.
+func bursts_done() -> void:
+	for i in 1000:
+		var open := false
+		for c in get_children():
+			if c is AreaBurst:
+				open = true
+		if not open:
+			return
+		await frames(1)
 
 ## A dummy that stands still and takes damage, at `at`.
 func dummy(at: Vector2) -> Actor:
@@ -282,6 +295,81 @@ func _ready() -> void:
 	check(is_equal_approx(caster.health, caster.max_health), "and never past a full bar (%.1f)" % caster.health)
 	check(Attacks.summary(leech).contains(Loc.t("editor.payload.health_drain", [20])),
 		"and the preview says how much (%s)" % Attacks.summary(leech))
+
+	# --- EXPLODE ------------------------------------------------------------
+	# The attack stays what it was, and every hit of it bursts: everything round
+	# the enemy struck takes the hit as well, and that enemy does not take it a
+	# second time. Laid out well clear of everything above, which is still
+	# standing and would be in the burst's way.
+	var boom := payload_of(["SLASH", "EXPLODE"])
+	check(boom != null and boom.form == "SLASH" and boom.explode == 1
+			and Attacks.summary(boom).contains(Loc.t("editor.payload.explode")),
+		"a board with EXPLODE keeps its attack and bursts it, and the workbench preview says so (%s)"
+			% (Attacks.summary(boom) if boom != null else "nothing"))
+	var centre := dummy(Vector2(3000, 3000))
+	var beside := dummy(Vector2(3040, 3000))
+	var past := dummy(Vector2(3000.0 + Attacks.burst_radius(boom) * 2.0, 3000))
+	var hp_centre := centre.health
+	var hp_beside := beside.health
+	var hp_past := past.health
+	Attacks.resolve_hit(boom, centre, centre.global_position, Vector2.RIGHT, null, null, 0)
+	await bursts_done()
+	check(is_equal_approx(hp_centre - centre.health, boom.damage),
+		"the enemy struck takes the hit once, and nothing more from the burst (%.1f of %.1f)"
+			% [hp_centre - centre.health, boom.damage])
+	check(is_equal_approx(hp_beside - beside.health, boom.damage),
+		"the one beside it takes the same hit from the burst (%.1f)" % (hp_beside - beside.health))
+	check(is_equal_approx(hp_past, past.health), "and nothing past the burst's reach is touched")
+	var alone := dummy(Vector2(3000, 3400))
+	var near_alone := dummy(Vector2(3040, 3400))
+	var hp_near_alone := near_alone.health
+	Attacks.resolve_hit(plain, alone, alone.global_position, Vector2.RIGHT, null, null, 0)
+	await bursts_done()
+	check(is_equal_approx(hp_near_alone, near_alone.health), "a board without EXPLODE hits only what it strikes")
+	# What the burst lands is the hit, not what the hit sets off: the hit's own
+	# ON HIT goes off once, and the burst neither bursts again nor takes a
+	# monster over.
+	var armed := boom.clone()
+	armed.on_hit = Payload.new()
+	armed.on_kill = Payload.new()
+	armed.possess = 5.0
+	var host := dummy(Vector2(3000, 3800))
+	Attacks.resolve_hit(armed, host, host.global_position, Vector2.RIGHT, null, null, 0)
+	var opened: AreaBurst = null
+	for c in get_children():
+		if c is AreaBurst:
+			opened = c
+	check(opened != null and opened.position == host.global_position
+			and opened.payload.explode == 0 and opened.payload.on_hit == null
+			and opened.payload.on_kill == null and opened.payload.possess == 0.0
+			and is_equal_approx(opened.payload.damage, armed.damage),
+		"the burst opens on the enemy struck with the hit, but not its EXPLODE, its triggers or its POSSESS")
+	await bursts_done()
+	# Every one stacked bursts wider.
+	var wider := payload_of(["SLASH", "EXPLODE", "EXPLODE"])
+	check(wider != null and wider.explode == 2 and is_equal_approx(Attacks.burst_radius(wider),
+			Attacks.burst_radius(boom) * (1.0 + Attacks.BURST_WIDER)),
+		"a second EXPLODE makes the burst wider (%.0f against %.0f)"
+			% [Attacks.burst_radius(wider) if wider != null else 0.0, Attacks.burst_radius(boom)])
+	# With no form there is no attack to burst the hits of, and the EXPLODE is
+	# the attack: a burst where the flow is cast — the Hopper's, the Arbiter's
+	# second form's, a trigger's branch with one on it. Its hits are its own,
+	# and burst nothing further: of the two caught in it, the nearer would take
+	# the farther one's burst as well.
+	var bare := Payload.new()
+	bare.explode = 1
+	check(bare.is_productive(), "a flow with no form but an EXPLODE does something as it leaves the board")
+	var ringed := dummy(Vector2(3030, 4200))
+	var ringed_far := dummy(Vector2(3060, 4200))
+	var hp_ringed := ringed.health
+	var hp_ringed_far := ringed_far.health
+	Attacks.spawn(bare, {"attacker": null, "room": null, "team": 0, "aim": Vector2.RIGHT,
+		"origin": Vector2(3000, 4200)})
+	await bursts_done()
+	check(is_equal_approx(hp_ringed - ringed.health, bare.damage)
+			and is_equal_approx(hp_ringed_far - ringed_far.health, bare.damage),
+		"and bursts where it is cast, each caught in it hit once (%.1f and %.1f of %.1f)"
+			% [hp_ringed - ringed.health, hp_ringed_far - ringed_far.health, bare.damage])
 
 	# --- the three of them together -----------------------------------------
 	var all_cold := dummy(Vector2(0, 1400))

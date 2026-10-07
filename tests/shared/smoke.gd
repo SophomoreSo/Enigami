@@ -110,17 +110,20 @@ func _run() -> void:
 	if fire_count[0] <= 0:
 		fail("casting produced no output")
 
-	# Every attack form, straight through the spawner.
-	for form in ["PROJECTILE", "SLASH", "EXPLODE", "DASHSLASH"]:
+	# Every attack form, straight through the spawner, bursting what it hits —
+	# and none, where the EXPLODE is the attack: a burst of its own, as a
+	# trigger's follow-up is here.
+	for form in ["PROJECTILE", "SLASH", "DASHSLASH", ""]:
 		var p := Payload.new()
 		p.form = form
+		p.explode = 1
 		p.damage = 5.0
 		p.duplicates = 3
 		p.elements = ["FIRE", "ICE"] as Array[String]
 		p.pierce = 2
 		p.homing = 1
 		var trig := Payload.new()
-		trig.form = "EXPLODE"
+		trig.explode = 1
 		trig.damage = 3.0
 		p.on_hit = trig
 		p.on_kill = trig

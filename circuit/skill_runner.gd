@@ -400,10 +400,14 @@ func _exit(p: Pulse) -> Array[Pulse]:
 	var pay_dir := Components.world_payload_out(id, rot)
 	if pay_dir >= 0:
 		# A trigger's branch starts a flow of its own: it inherits the numbers
-		# but not the attack form, so the branch defines its own payload.
+		# but not the attack form, so the branch defines its own payload. Nor
+		# an EXPLODE, which on a flow with no form is an attack of its own: kept,
+		# it would make every branch after one a burst, as the form would make
+		# it that form.
 		var bp := p.payload.clone()
 		bp.branch = id
 		bp.form = ""
+		bp.explode = 0
 		bp.duplicates = 1
 		_send(ex, pay_dir, bp, result, p.ttl, p.undo)
 

@@ -96,16 +96,14 @@ INSERT INTO renamed_parts (old_id, new_id) VALUES ('AREA', 'EXPLODE'), ('DASHSLA
 INSERT INTO parts (id, name, category, heat, cells, tag, description) VALUES
 	('PROJECTILE', 'PROJECTILE', 'form', 0.6, 1, 'ranged', 'Fires a bolt along the aim direction. The standard ranged form.'),
 	('SLASH', 'SLASH', 'form', 0.5, 1, 'melee', 'An instant short arc at the aim direction. Fast, but reach is short.'),
-	('EXPLODE', 'EXPLODE', 'form', 1.2, 1, 'area', 'Damages everything inside a burst radius.'),
 	('DASHSLASH', 'SWIFT STRIKE', 'form', 1.0, 1, 'melee', 'Lunges along the aim direction, cutting everything on the path.');
 
 INSERT INTO ports (part_id, side) VALUES
-	('PROJECTILE', 'E'), ('SLASH', 'E'), ('EXPLODE', 'E'), ('DASHSLASH', 'E');
+	('PROJECTILE', 'E'), ('SLASH', 'E'), ('DASHSLASH', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('PROJECTILE', 0, 'form', 'set', 'PROJECTILE'),
 	('SLASH', 0, 'form', 'set', 'SLASH'),
-	('EXPLODE', 0, 'form', 'set', 'EXPLODE'),
 	('DASHSLASH', 0, 'form', 'set', 'DASHSLASH');
 
 
@@ -191,10 +189,22 @@ INSERT INTO parts (id, name, category, heat, description) VALUES
 	('POSSESS', 'POSSESS', 'behavior', 0.9, 'Takes over the monster struck for 5 seconds, unharmed, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, left behind and still hunted. Bosses resist it.'),
 	('AUTO_AIM', 'AUTO-AIM', 'behavior', 0.4, 'Aims the attack at the nearest enemy, wherever you point: bolts go straight at it and SWIFT STRIKE lunges through it, as far as each reaches, and a swing turns to it. Each one stacked looks further for one.');
 
+-- EXPLODE was a form, an attack of its own — a burst round the caster — and a
+-- flow it was placed on was that burst instead of whatever its form had made
+-- it. Now it keeps the attack and bursts every hit of it (`Attacks._explode`).
+-- A flow with no form has no attack to keep, and there EXPLODE is still the
+-- burst it was, where the flow goes off: the Hopper's board, the Arbiter's
+-- second, a trigger's branch with one on it. A branch starts without the one
+-- before its trigger, as it starts without the form (`SkillRunner._exit`).
+-- Its tag and its heat are the form's: whatever the attack, a board with it
+-- strikes an area.
+INSERT INTO parts (id, name, category, heat, tag, description) VALUES
+	('EXPLODE', 'EXPLODE', 'behavior', 1.2, 'area', 'Every enemy the attack hits bursts, and everything round it takes the hit too. Each one stacked bursts wider. A trigger''s branch starts without it, and one with no form but an EXPLODE on it bursts where it goes off.');
+
 INSERT INTO ports (part_id, side) VALUES
 	('PIERCE', 'E'), ('HOMING', 'E'),
 	('GRAVITY', 'E'), ('KNOCKBACK', 'E'), ('MANA_DRAIN', 'E'), ('HEALTH_DRAIN', 'E'),
-	('STUN', 'E'), ('POSSESS', 'E'), ('AUTO_AIM', 'E');
+	('STUN', 'E'), ('POSSESS', 'E'), ('AUTO_AIM', 'E'), ('EXPLODE', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('PIERCE', 0, 'pierce', 'add', 1),
@@ -205,7 +215,8 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('HEALTH_DRAIN', 0, 'health_drain', 'add', 1),
 	('STUN', 0, 'stun', 'add', 0.8),
 	('POSSESS', 0, 'possess', 'add', 5),
-	('AUTO_AIM', 0, 'auto_aim', 'add', 1);
+	('AUTO_AIM', 0, 'auto_aim', 'add', 1),
+	('EXPLODE', 0, 'explode', 'add', 1);
 
 
 -- ---- flow ---------------------------------------------------------------------

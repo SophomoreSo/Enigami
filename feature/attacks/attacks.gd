@@ -143,6 +143,13 @@ const PULL_REACH_PER := 0.25
 ## KNOCKBACK stacked pushes as hard again.
 const KNOCKBACK_FORCE := 300.0
 
+## EXPLODE. How far a burst reaches at size 1, and how much further every
+## EXPLODE stacked past the first carries it: the burst is what the part is
+## for, so a wider one is what stacking it buys. A hit's burst and the one a
+## flow with no form goes off as are the same blast (`burst_radius`).
+const BURST_RADIUS := 90.0
+const BURST_WIDER := 0.5
+
 ## SHATTER. What a hit is worth against an enemy frost has already slowed: the
 ## frost breaks, the hit lands this much harder for every SHATTER stacked, and
 ## the enemy thaws. Breaking it is what pays, so there is one break to a chill —
@@ -167,6 +174,10 @@ static func shatter_mul(stacked: int) -> float:
 ## How far a pull or a push carrying `stacked` of its part reaches, at `size`.
 static func pull_radius(stacked: int, size: float) -> float:
 	return PULL_RADIUS * size * (1.0 + PULL_REACH_PER * float(maxi(stacked - 1, 0)))
+
+## How far a burst off `p` reaches: its size, and every EXPLODE stacked on it.
+static func burst_radius(p: Payload) -> float:
+	return BURST_RADIUS * p.size * (1.0 + BURST_WIDER * float(maxi(p.explode - 1, 0)))
 
 ## Staggered follow-ups (DUPLICATE, multi-hit forms, triggers) are scheduled by
 ## a small node rather than a captured lambda: an attacker can die between the
@@ -317,13 +328,18 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 					_melee(payload, aim.rotated(off), team, attacker, room)
 				else:
 					_schedule(delay, "melee", payload, aim.rotated(off), origin, team, attacker, room)
-		"EXPLODE":
-			for i in count:
-				var pos: Vector2 = origin + (Vector2.ZERO if i == 0 else Vector2(randf_range(-70, 70), randf_range(-40, 40)))
-				if i == 0:
-					_burst(payload, pos, team, attacker, room)
-				else:
-					_schedule(float(i) * 0.1, "burst", payload, aim, pos, team, attacker, room)
+		"":
+			# No form, so no attack to burst the hits of: an EXPLODE on the flow
+			# is the attack, a burst where it is cast — a monster's board that is
+			# one, a trigger's branch with one on it, at the hit that set it off.
+			# A volley scatters round the point. Without one, nothing goes off.
+			if payload.explode > 0:
+				for i in count:
+					var pos: Vector2 = origin + (Vector2.ZERO if i == 0 else Vector2(randf_range(-70, 70), randf_range(-40, 40)))
+					if i == 0:
+						_burst(payload, pos, team, attacker, room)
+					else:
+						_schedule(float(i) * 0.1, "burst", payload, aim, pos, team, attacker, room)
 		"DASHSLASH":
 			for i in count:
 				if i == 0:
@@ -358,14 +374,46 @@ static func _melee(p: Payload, dir: Vector2, team: int, atk: Actor, room) -> voi
 	container().add_child(n)
 	Cues.at(&"melee_arc", n.global_position, {"payload": p})
 
+## An EXPLODE on a flow with no form: the burst is the attack, and its every hit
+## is the attack's, triggers and all. It lands the flow but for the EXPLODE,
+## which it is — a hit of it bursting again would set off the next, and the next.
 static func _burst(p: Payload, pos: Vector2, team: int, atk: Actor, room) -> void:
+	var blast := p.clone()
+	blast.explode = 0
+	_go_off(blast, pos, burst_radius(p), team, atk, room)
+
+## EXPLODE on a hit: the enemy `struck` at `pos` is the middle of a burst that
+## lands the hit again on everything round it — and not on the enemy itself,
+## which has just taken it. The burst carries what the hit did but for what was
+## that one hit's alone: the EXPLODE, or every hit of the burst would burst
+## again; its triggers, since the hit's own ON HIT has gone off, and a burst's
+## every hit setting off another would multiply a chain by the crowd at every
+## link; and POSSESS, since the hands go into one monster. It is the blow that
+## struck, landing wider, so its hits stop the clock as lightly as a chain's.
+static func _explode(p: Payload, struck: Actor, pos: Vector2, atk: Actor, room, team: int) -> void:
+	var blast := p.clone()
+	blast.explode = 0
+	blast.on_hit = null
+	blast.on_kill = null
+	blast.on_parry = null
+	blast.possess = 0.0
+	blast.follow_up = true
+	_go_off(blast, pos, burst_radius(p), team, atk, room, struck)
+
+## A burst of `p` opening at `pos` out to `radius`, round `spared` if it is
+## given one.
+static func _go_off(p: Payload, pos: Vector2, radius: float, team: int, atk: Actor, room,
+		spared: Actor = null) -> void:
+	var w := container()
+	if w == null or not is_instance_valid(w):
+		return
 	if atk != null and not is_instance_valid(atk):
 		atk = null
 	if room != null and not is_instance_valid(room):
 		room = null
 	var n := AreaBurst.new()
-	n.setup(p, pos, team, atk, room)
-	container().add_child(n)
+	n.setup(p, pos, team, atk, room, radius, spared)
+	w.add_child(n)
 	Cues.at(&"area_blast", pos, {"payload": p})
 
 static func _dash_slash(p: Payload, aim: Vector2, team: int, atk: Actor, room, far: float = 1.0) -> void:
@@ -413,7 +461,13 @@ static func _dash_slash(p: Payload, aim: Vector2, team: int, atk: Actor, room, f
 ## nothing of what happens at the moment a hit lands.
 static func summary(p: Payload) -> String:
 	var parts: Array[String] = []
-	parts.append(Components.name_for(p.form) if p.form != "" else Loc.t("editor.payload.no_form"))
+	# With no form an EXPLODE is the attack, and is named where the form would be.
+	if p.form != "":
+		parts.append(Components.name_for(p.form))
+	elif p.explode:
+		parts.append(_stacked(Components.name_for("EXPLODE"), p.explode))
+	else:
+		parts.append(Loc.t("editor.payload.no_form"))
 	parts.append(Loc.t("editor.payload.damage", [p.damage]))
 	if p.size != 1.0:
 		parts.append(Loc.t("editor.payload.size", [p.size]))
@@ -431,6 +485,8 @@ static func summary(p: Payload) -> String:
 		parts.append(_stacked(Loc.t("editor.payload.pull"), p.pull))
 	if p.knockback:
 		parts.append(_stacked(Loc.t("editor.payload.knockback"), p.knockback))
+	if p.explode and p.form != "":
+		parts.append(_stacked(Loc.t("editor.payload.explode"), p.explode))
 	if p.shatter:
 		parts.append(Loc.t("editor.payload.shatter", [shatter_mul(p.shatter)]))
 	if p.mana_drain:
@@ -534,6 +590,10 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 	# And of GRAVITY: everything round the impact is driven off it.
 	if p.repel:
 		_repel(p, target, pos, team)
+	# EXPLODE: the hit bursts, and lands again on everything round the enemy it
+	# struck.
+	if p.explode:
+		_explode(p, target, pos, atk, room, team)
 	if p.stun > 0.0 and target.stun(p.stun):
 		Cues.at(&"stun", target.global_position, {"seconds": p.stun, "target_team": target.team})
 	if p.mana_drain and atk != null and atk.has_method("gain_mana"):

@@ -7,10 +7,6 @@
 		"name": "SLASH",
 		"desc": "An instant short arc at the aim direction. Fast, but reach is short."
 	},
-	"EXPLODE": {
-		"name": "EXPLODE",
-		"desc": "Damages everything inside a burst radius."
-	},
 	"DASHSLASH": {
 		"name": "SWIFT STRIKE",
 		"desc": "Lunges along the aim direction, cutting everything on the path."
@@ -82,6 +78,10 @@
 	"AUTO_AIM": {
 		"name": "AUTO-AIM",
 		"desc": "Aims the attack at the nearest enemy, wherever you point: bolts go straight at it and SWIFT STRIKE lunges through it, as far as each reaches, and a swing turns to it. Each one stacked looks further for one."
+	},
+	"EXPLODE": {
+		"name": "EXPLODE",
+		"desc": "Every enemy the attack hits bursts, and everything round it takes the hit too. Each one stacked bursts wider. A trigger's branch starts without it, and one with no form but an EXPLODE on it bursts where it goes off."
 	},
 	"DUPLICATE": {
 		"name": "DUPLICATE x3",

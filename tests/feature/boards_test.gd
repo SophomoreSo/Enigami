@@ -138,8 +138,9 @@ func _ready() -> void:
 			and p.duplicates == 3 and is_equal_approx(p.damage, whole)
 	check(frost, "the Warden's frost bolt leaves the board once, three times over at full damage (%d)" % volley.size())
 	# The Arbiter's second form is an explosion whose every hit sends a bolt
-	# three times over: one attack out of the board, and one follow-up hung off
-	# its ON HIT.
+	# three times over: one attack out of the board — an EXPLODE with no form
+	# under it, which is a burst of its own — and one follow-up hung off its ON
+	# HIT. The bolts burst nothing: the branch starts without the EXPLODE.
 	var rage_run := SkillRunner.new(rage).simulate()
 	var blasts: Array = rage_run["outputs"]
 	var after: Array = []
@@ -149,8 +150,10 @@ func _ready() -> void:
 		link = link.on_hit
 	var bolts := after.size() == 1
 	for bolt: Payload in after:
-		bolts = bolts and bolt.form == "PROJECTILE" and bolt.duplicates == 3 and is_equal_approx(bolt.damage, whole)
-	check(blasts.size() == 1 and (blasts[0] as Payload).form == "EXPLODE" and bolts,
+		bolts = bolts and bolt.form == "PROJECTILE" and bolt.duplicates == 3 and is_equal_approx(bolt.damage, whole) \
+			and bolt.explode == 0
+	var blast: Payload = blasts[0] if blasts.size() == 1 else null
+	check(blast != null and blast.form == "" and blast.explode == 1 and bolts,
 		"the Arbiter's second form explodes, and each hit of it sends a bolt three times over (%d and %d)"
 			% [blasts.size(), after.size()])
 

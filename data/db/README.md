@@ -432,7 +432,7 @@ An `add` or a `multiply` may also carry a `per_stack`: what is added to its
 one is worth more than the last. DAMAGE adds 8, then 12, then 16.
 
 The fields are the payload's: `damage` `size` `speed` `range_px` `lunge` `stun`
-`heal` (numbers), `pierce` `duplicates` `homing` `pull` `knockback` `shatter`
+`heal` (numbers), `pierce` `duplicates` `homing` `pull` `knockback` `explode` `shatter`
 `mana_drain` `repel` `hook` (whole numbers — the behaviours are counts, one
 for every part of the kind stacked), `cleanse` (a flag), `form` (a word) and `elements` (a list). `value` is read as
 JSON — `8`, `1.6`, `'true'` — and a word may go without its quotes: `'FIRE'`.

@@ -44,6 +44,7 @@
 		"auto_aim": "auto-aims",
 		"pull": "pulls in",
 		"knockback": "knocks back",
+		"explode": "explodes",
 		"shatter": "x%.1f on chilled",
 		"mana_drain": "+%.0f mana a hit",
 		"health_drain": "heals %d%% of damage",

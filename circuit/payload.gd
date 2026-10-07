@@ -24,7 +24,7 @@ var range_px: float = BASE_RANGE
 ## is a distance of the attack's own rather than a range a shot flies to — see
 ## `Attacks.DASH_SLASH_REACH`. RANGE is what changes it.
 var lunge: float = 1.0
-var form: String = ""              ## "", PROJECTILE, SLASH, EXPLODE, DASHSLASH
+var form: String = ""              ## "", PROJECTILE, SLASH, DASHSLASH
 var elements: Array[String] = []   ## FIRE / ICE
 var pierce: int = 0                ## extra targets an attack passes through
 ## The behaviours below are counts, not flags: 0 is without, and every part of
@@ -37,6 +37,11 @@ var auto_aim: int = 0              ## goes at the nearest enemy, wherever it was
 ## bolt: that one is a property of the weapon and rides in the spawn context.
 var pull: int = 0
 var knockback: int = 0             ## the struck enemy is thrown on along the attack
+## Every enemy the attack hits bursts, the hit landing again on everything round
+## it, wider for each one stacked (`Attacks._explode`). With no form there is no
+## attack to burst the hits of, and the EXPLODE is the attack: a burst where the
+## flow goes off.
+var explode: int = 0
 var shatter: int = 0               ## breaks the frost on a slowed enemy, for far more damage
 var mana_drain: int = 0            ## every connection pays the caster back
 var health_drain: int = 0          ## every hit that hurts heals the caster a share of it
@@ -84,6 +89,7 @@ func clone() -> Payload:
 	p.auto_aim = auto_aim
 	p.pull = pull
 	p.knockback = knockback
+	p.explode = explode
 	p.shatter = shatter
 	p.mana_drain = mana_drain
 	p.health_drain = health_drain
@@ -115,6 +121,7 @@ func at_limit(id: String) -> bool:
 	var limit := Components.limit_of(id)
 	return limit > 0 and stack(id) >= limit
 
-## Does this payload do anything at all when it leaves the board?
+## Does this payload do anything at all when it leaves the board? An attack, or
+## with no form an EXPLODE, which is a burst of its own.
 func is_productive() -> bool:
-	return form != ""
+	return form != "" or explode > 0
