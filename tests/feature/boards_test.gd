@@ -198,15 +198,15 @@ func _ready() -> void:
 	else:
 		var parts := [
 			"INSERT INTO categories (id) VALUES ('form')",
-			"INSERT INTO codes (code, id) VALUES (5, 'SLASH'), (33, 'ZAP')",
-			"INSERT INTO parts (id, name, category, description) VALUES ('SLASH', 'SLASH', 'form', 'Cut.'), ('ZAP', 'ZAP', 'form', 'Beam.')"]
+			"INSERT INTO codes (code, id) VALUES (5, 'SLASH'), (4, 'PROJECTILE')",
+			"INSERT INTO parts (id, name, category, description) VALUES ('SLASH', 'SLASH', 'form', 'Cut.'), ('PROJECTILE', 'PROJECTILE', 'form', 'Bolt.')"]
 		var board := "INSERT INTO boards (id) VALUES ('b')"
-		var laid := "INSERT INTO board_parts (board_id, x, y, part, facing) VALUES ('b', 0, 2, 'SLASH', 'E'), ('b', 1, 2, 'ZAP', 'E')"
+		var laid := "INSERT INTO board_parts (board_id, x, y, part, facing) VALUES ('b', 0, 2, 'SLASH', 'E'), ('b', 1, 2, 'PROJECTILE', 'E')"
 		check(_accepted(db, parts + [board, laid]), "a sound board is accepted (%s)" % db.error_message)
 		check(_accepted(db, [board, laid] + parts), "and it may be laid out before its parts are written")
-		check(not _accepted(db, parts + [board, laid.replace("'ZAP', 'E')", "'FIRE', 'E')")]),
+		check(not _accepted(db, parts + [board, laid.replace("'PROJECTILE', 'E')", "'FIRE', 'E')")]),
 			"a board carrying a part that is not one is refused when the build commits")
-		check(not _accepted(db, parts + [board, laid.replace("'ZAP', 'E')", "'ZAP', 'U')")]),
+		check(not _accepted(db, parts + [board, laid.replace("'PROJECTILE', 'E')", "'PROJECTILE', 'U')")]),
 			"a part facing no way at all is refused")
 		check(not _accepted(db, parts + [board, laid.replace("('b', 1, 2", "('b', 0, 2")]),
 			"two parts in one cell are refused")
@@ -216,7 +216,7 @@ func _ready() -> void:
 			"a board id that is not lower case is refused")
 		check(not _accepted(db, parts + [laid]), "parts laid on a board nobody wrote are refused")
 		check(not _accepted(db, parts + [board,
-				"INSERT INTO board_parts (board_id, x, y, part, root) VALUES ('b', 0, 2, 'SLASH', 1), ('b', 1, 2, 'ZAP', 1)"]),
+				"INSERT INTO board_parts (board_id, x, y, part, root) VALUES ('b', 0, 2, 'SLASH', 1), ('b', 1, 2, 'PROJECTILE', 1)"]),
 			"a board with two roots is refused")
 		db.close_db()
 		DirAccess.remove_absolute(SCRATCH)

@@ -85,7 +85,8 @@ func stop_music() -> void:
 ## --- synthesis --------------------------------------------------------------
 func _build_library() -> void:
 	_sfx["shoot"] = _tone(620.0, 240.0, 0.12, "square", 0.35, 0.10)
-	# A beam: higher and sharper than a shot, and over sooner, because it is.
+	# A crackle, higher and sharper than a shot and over sooner: a stun, played
+	# low.
 	_sfx["zap"] = _tone(1500.0, 260.0, 0.10, "saw", 0.28, 0.08)
 	_sfx["slash"] = _noise(0.14, 0.5, 0.55)
 	_sfx["hit"] = _tone(300.0, 120.0, 0.09, "square", 0.4, 0.35)

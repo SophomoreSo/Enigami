@@ -20,8 +20,7 @@ extends Node
 ## comes up under it, and never carried over what it hangs from; and a body
 ## the game has stopped moves nothing. An attack that goes through a line
 ## swings it as a body does: a bolt, however fast; a blast, outward as its
-## ring passes; and a lunge, a beam and a slash, for the moment after each is
-## made. A room hangs what the
+## ring passes; and a lunge and a slash, for the moment after each is made. A room hangs what the
 ## `hangings` rows say, as many and as long, from rock with open air under
 ## them, the same ones every time it is built — and no cords, which are the
 ## grove's to hang. And what the schema promises to refuse is tried against a
@@ -595,17 +594,8 @@ func _cut_through() -> void:
 		"and only for the moment after it is made: its picture hanging in the air moves nothing")
 	lunge.free()
 
-	# A beam, down its length; and a slash, across what it swept.
-	var zapped := _hung_here(at)
-	var beam := Zap.new()
-	beam.setup(Payload.new(), zapped.point_of(3) + Vector2(-90, 0), zapped.point_of(3) + Vector2(90, 0), 0, null, null)
-	world.add_child(beam)
-	beam.set_process(false)
-	zapped.step(DT)
-	check((zapped.nodes[3]["vel"] as Vector2).x > 20.0, "a beam through the line swings it down the beam (%s)" % str(zapped.nodes[3]["vel"]))
-	beam.free()
-	# What hangs below a push is drawn after it in the same step, so what was
-	# not reached is asked of a node above.
+	# A slash, across what it swept. What hangs below a push is drawn after it
+	# in the same step, so what was not reached is asked of a node above.
 	var slashed := _hung_here(at)
 	var slash := MeleeArc.new()
 	slash.setup(Payload.new(), Vector2.RIGHT, 0, null, null)
@@ -644,7 +634,7 @@ func _cut_through() -> void:
 		"a bolt through a lantern swings the cord it hangs on (%s)" % str(hung.nodes[1]["vel"]))
 	shot.free()
 
-	for r: Rope in [rope, fast, paused, lunged, late, zapped, slashed, blown]:
+	for r: Rope in [rope, fast, paused, lunged, late, slashed, blown]:
 		r.free()
 	(hung._riders[0]["node"] as Node2D).free()
 	hung.free()

@@ -39,12 +39,6 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 			Fx.shake(6.0)
 		&"lunge_cut":
 			Fx.shake(4.0)
-		&"zap":
-			# The beam is drawn by its own view; this is the kick of firing it,
-			# and the scorch where it landed — a wall, the cursor, or the last
-			# thing it struck.
-			Fx.shake(2.0)
-			Fx.burst(d.get("to", pos), Style.element_color(d.get("payload")), 5, 90.0)
 		&"death":
 			Fx.burst(pos, _death_color(d.get("actor")), 14, 230.0)
 		&"jump":

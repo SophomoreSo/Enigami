@@ -34,7 +34,7 @@ static func auto_target(p: Payload, from: Vector2, team: int) -> Actor:
 
 static func auto_aim_sight(p: Payload) -> float:
 	var sight := AUTO_AIM_SIGHT * (1.0 + AUTO_AIM_FURTHER * float(maxi(p.auto_aim - 1, 0)))
-	if p.form == "PROJECTILE" or p.form == "ZAP":
+	if p.form == "PROJECTILE":
 		sight = maxf(sight, p.range_px)
 	elif p.form == "DASHSLASH":
 		sight = maxf(sight, dash_slash_reach(p))
@@ -63,7 +63,7 @@ static func clear_in_flight(w: Node = null) -> void:
 	if host == null or not is_instance_valid(host):
 		return
 	for c in host.get_children():
-		if c is Projectile or c is MeleeArc or c is DashSlash or c is AreaBurst or c is Zap or c is Deferred:
+		if c is Projectile or c is MeleeArc or c is DashSlash or c is AreaBurst or c is Deferred:
 			# Silenced as well as freed. A node queued for deletion still runs
 			# out the frame it was queued in, and one of these taking a last
 			# turn is not harmless: a follow-up coming due in those milliseconds
@@ -104,16 +104,11 @@ const DASH_SLASH_REACH := 85.0
 
 ## AUTO-AIM. How far one looks for something to go at, and how much further
 ## each one stacked looks: the first looks as far as SWIFT STRIKE+ used to,
-## which was SWIFT STRIKE with this built in. A bolt or a beam looks as far as
-## it carries, and a lunge as far as it lunges, if that is further, so one with
+## which was SWIFT STRIKE with this built in. A bolt looks as far as it
+## carries, and a lunge as far as it lunges, if that is further, so one with
 ## RANGE on it goes at anything it can reach (`auto_aim_sight`).
 const AUTO_AIM_SIGHT := 520.0
 const AUTO_AIM_FURTHER := 0.5
-
-## A cursor closer than this to where a beam starts is not aiming it anywhere:
-## the beam goes down the aim instead, its whole reach, rather than being a
-## strike of no length on the caster's own feet.
-const ZAP_MIN_AIM := 8.0
 
 ## How much of its own distance an attack aimed at the shortest reach still
 ## covers. The right stick says how far a cast goes (`Player.aim_reach`, the
@@ -203,11 +198,6 @@ class Deferred extends Node:
 				Attacks._burst(payload, pos, team, atk, room)
 			"dash":
 				Attacks._dash_slash(payload, aim, team, atk, room, far)
-			"zap":
-				# From where the caster stands now, at what they point at now: a
-				# beam is instant, so each of a volley goes where the cursor is
-				# the moment it fires.
-				Attacks._zap(payload, atk.global_position if atk != null else pos, aim, team, atk, room, far)
 			"spawn":
 				# The full spawn path, so a trigger's attack behaves exactly as
 				# it would fired straight off the board.
@@ -279,9 +269,9 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 	var origin: Vector2 = ctx.get("origin", attacker.global_position if attacker != null else Vector2.ZERO)
 	var far := distance_for(float(ctx.get("reach", 1.0)))
 
-	# AUTO-AIM: at the nearest enemy, whatever the aim said. A lunge and a beam
-	# look for it again as they go off (`_dash_slash`, `_zap`), which a
-	# volley's later ones do a moment after this one.
+	# AUTO-AIM: at the nearest enemy, whatever the aim said. A lunge looks for
+	# it again as it goes off (`_dash_slash`), which a volley's later ones do a
+	# moment after this one.
 	var locked := auto_target(payload, origin, team)
 	if locked != null:
 		var at := locked.global_position
@@ -340,14 +330,6 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 					_dash_slash(payload, aim, team, attacker, room, far)
 				else:
 					_schedule(float(i) * 0.12, "dash", payload, aim, origin, team, attacker, room, far)
-		"ZAP":
-			# A volley lands one beam after another on the same point rather
-			# than fanning out: the point is what the form is for.
-			for i in count:
-				if i == 0:
-					_zap(payload, origin, aim, team, attacker, room, far)
-				else:
-					_schedule(float(i) * 0.07, "zap", payload, aim, origin, team, attacker, room, far)
 		_:
 			pass
 
@@ -424,38 +406,6 @@ static func _dash_slash(p: Payload, aim: Vector2, team: int, atk: Actor, room, f
 	n.setup(p, start, dest, team, atk, room)
 	container().add_child(n)
 	Cues.at(&"lunge_cut", start, {"payload": p, "to": dest})
-
-## A beam from `origin` to what the attacker is pointing at, landing at once.
-##
-## It goes to the cursor the way a lunge does, and no further than its reach —
-## a bolt's range, which is what the weapon, RANGE and the stick all set — so
-## past the reach it stops at the reach, down the same line. An attacker with
-## nothing to point at, every monster, fires down its aim; so does one whose
-## cursor is on top of it. The first wall on the way ends it, by the same
-## march that stops a lunge. What it strikes on the line is the beam's own
-## business (`Zap._strike`), and where it actually ended is what the cue says.
-static func _zap(p: Payload, origin: Vector2, aim: Vector2, team: int, atk: Actor, room, far: float = 1.0) -> void:
-	if atk != null and not is_instance_valid(atk):
-		atk = null
-	if room != null and not is_instance_valid(room):
-		room = null
-	var reach := p.range_px * far
-	var end := origin + aim * reach
-	var pt = atk.get("aim_point") if atk != null else null
-	# AUTO-AIM points it at the nearest enemy instead of where the cursor is.
-	var t := auto_target(p, origin, team)
-	if t != null:
-		pt = t.global_position
-	if pt is Vector2:
-		var to_pt: Vector2 = (pt as Vector2) - origin
-		if to_pt.length() >= ZAP_MIN_AIM:
-			end = origin + to_pt.limit_length(reach)
-	if room != null and room.has_method("clamp_dash"):
-		end = room.clamp_dash(origin, end)
-	var n := Zap.new()
-	n.setup(p, origin, end, team, atk, room)
-	container().add_child(n)
-	Cues.at(&"zap", origin, {"payload": p, "to": n.to})
 
 ## A payload in words: its form, what it carries, and what it does when it
 ## lands, SHATTER's and MANA DRAIN's numbers included — which are this file's.

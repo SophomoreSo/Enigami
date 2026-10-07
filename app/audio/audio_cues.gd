@@ -23,7 +23,6 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 					else:
 						Audio.play("shoot")
 				"SLASH": Audio.play("slash")
-				"ZAP": Audio.play("zap")
 		&"rock_down":
 			# A thud, for a rock coming down hard enough to be heard.
 			if float(d.get("speed", 0.0)) > 260.0:

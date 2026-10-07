@@ -50,8 +50,6 @@ func view_script_for(n: Node) -> GDScript:
 		return AreaBurstView
 	if n is DashSlash:
 		return DashSlashView
-	if n is Zap:
-		return ZapView
 	if n is Pickup:
 		return PickupView
 	if n is LostKit:

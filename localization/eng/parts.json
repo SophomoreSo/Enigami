@@ -15,10 +15,6 @@
 		"name": "SWIFT STRIKE",
 		"desc": "Lunges along the aim direction, cutting everything on the path."
 	},
-	"ZAP": {
-		"name": "ZAP",
-		"desc": "A beam to where the cursor points, striking the instant it is cast. Stops at the first wall, and at the first enemy unless PIERCE carries it on."
-	},
 	"FIRE": {
 		"name": "FIRE",
 		"desc": "Adds flame. Struck enemies burn for damage over time; a wet one is only dried."
@@ -41,11 +37,11 @@
 	},
 	"SPEED": {
 		"name": "SPEED x",
-		"desc": "Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. A beam reaches a little further too. Does nothing to a flow with neither. Stacks up to 4, and at 4 a bolt flies at laser speed."
+		"desc": "Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. Does nothing to any other attack. Stacks up to 4, and at 4 a bolt flies at laser speed."
 	},
 	"RANGE": {
 		"name": "RANGE x",
-		"desc": "Bolts carry 1.75x as far before they fade, a beam reaches 1.75x as far, and SWIFT STRIKE lunges 1.75x as far. Does nothing to any other attack. Stacks up to 3, which is the most range there is."
+		"desc": "Bolts carry 1.75x as far before they fade, and SWIFT STRIKE lunges 1.75x as far. Does nothing to any other attack. Stacks up to 3, which is the most range there is."
 	},
 	"SHATTER": {
 		"name": "SHATTER",
@@ -85,7 +81,7 @@
 	},
 	"AUTO_AIM": {
 		"name": "AUTO-AIM",
-		"desc": "Aims the attack at the nearest enemy, wherever you point: bolts and beams go straight at it and SWIFT STRIKE lunges through it, as far as each reaches, and a swing turns to it. Each one stacked looks further for one."
+		"desc": "Aims the attack at the nearest enemy, wherever you point: bolts go straight at it and SWIFT STRIKE lunges through it, as far as each reaches, and a swing turns to it. Each one stacked looks further for one."
 	},
 	"DUPLICATE": {
 		"name": "DUPLICATE x3",

@@ -563,7 +563,7 @@ a part's look is `Style`'s.
 The lines that hang in the rooms — cables today — are `Rope`
 (`graphics/rope.gd`): a line of nodes, hung from a point, swinging from it
 when somebody walks through any part of it — or an attack goes through it: a
-bolt, a blast, a lunge, a beam, a slash — drawn pixel by pixel. A
+bolt, a blast, a lunge, a slash — drawn pixel by pixel. A
 **kind** of line is a row of `ropes`, the numbers the simulation shares
 along one, and what a room hangs of each kind is a row of `hangings`.
 Change a number in `ropes/ropes.sql` and rebuild, and every line of that
