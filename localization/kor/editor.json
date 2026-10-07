@@ -44,6 +44,7 @@
 		"auto_aim": "자동 조준",
 		"pull": "끌어당김",
 		"knockback": "밀쳐냄",
+		"explode": "폭발",
 		"shatter": "냉각 대상에 x%.1f",
 		"mana_drain": "적중당 마나 +%.0f",
 		"health_drain": "피해의 %d%% 흡수",

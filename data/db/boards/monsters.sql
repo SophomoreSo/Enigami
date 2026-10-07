@@ -5,9 +5,11 @@
 -- code, after the monster. The Test Dummy and the dragon test's Grunts have
 -- none, and attack with nothing.
 --
--- Laid out like every board: the monster's own form is the root (`root` 1),
+-- Laid out like every board: the monster's own part is the root (`root` 1),
 -- where the flow starts, and the chain runs from it into the middle of the
--- right edge, (6, 2), which is where its flow leaves as the attack.
+-- right edge, (6, 2), which is where its flow leaves as the attack. That part
+-- is its form, or an EXPLODE: with no form under it, an EXPLODE is the attack
+-- itself, a burst where the monster stands (data/db/parts/parts.sql).
 
 INSERT INTO boards (id) VALUES
 	('crawler'), ('sentry'), ('lobber'), ('hopper'), ('drifter'), ('warden'), ('arbiter'), ('arbiter_phase2'),
@@ -33,7 +35,8 @@ INSERT INTO board_parts (board_id, x, y, part, facing, root) VALUES
 
 	-- An explosion whose every hit sends a bolt, three times over. The ON HIT's
 	-- branch drops to the row below, and the DUPLICATE turns it back up into
-	-- the explosion's line to leave the way it does.
+	-- the explosion's line to leave the way it does. The bolts burst nothing:
+	-- a branch starts without the EXPLODE before its trigger.
 	('arbiter_phase2', 3, 2, 'EXPLODE', 'E', 1), ('arbiter_phase2', 4, 2, 'ON_HIT', 'E', 0),
 	('arbiter_phase2', 5, 2, 'DELAY', 'E', 0), ('arbiter_phase2', 6, 2, 'DELAY', 'E', 0),
 	('arbiter_phase2', 4, 3, 'PROJECTILE', 'E', 0), ('arbiter_phase2', 5, 3, 'DUPLICATE', 'N', 0),

@@ -245,8 +245,8 @@ never learn what a finger is. What changes while it is up:
   still a tap. The crosshair and the pointer setting stand down.
 * **How far is how far the thumb drags.** A cast dragged just past the dead
   zone goes a third of its distance, and one dragged out to the ring goes all
-  of it — a bolt's range, a thrown shot's arc, a lunge; a burst or a
-  swing happens where the player stands either way. It rides on the same right
+  of it — a bolt's range, a thrown shot's arc, a lunge; a swing happens
+  where the player stands either way. It rides on the same right
   stick, so a gamepad's push says the same thing; the mouse always asks for all
   of it (see `Player.aim_reach`). A cast keeps the aim and the distance it was
   let go with until it has gone off, whatever the left thumb does meanwhile.
@@ -470,8 +470,9 @@ what lets `DELAY` hold a trigger's branch back behind the attack it follows.
   the way and flies wide of the corners; every one stacked turns as hard again,
   and several take them. Melee forms re-aim themselves at the nearest enemy.
 - Triggers (`ON HIT`, `ON KILL`, `ON PARRY`) grow a second flow out of their
-  side port. That branch inherits the numbers but not the attack form, so it
-  defines its own payload, and it attaches to the attacks the skill fires. A
+  side port. That branch inherits the numbers but not the attack form, nor an
+  `EXPLODE` (below), so it defines its own payload, and it attaches to the
+  attacks the skill fires. A
   board has one way out, so a branch is only a follow-up once it has been
   turned back round to it: one left running off another edge is lost, and the
   board shows where. Walked round a ring and back into its trigger, it adds a
@@ -514,6 +515,19 @@ what lets `DELAY` hold a trigger's branch back behind the attack it follows.
   and can just as easily put it out of reach. Every one stacked throws as hard
   again. With `GRAVITY` on the same board the struck enemy still flies, out of
   the crowd being dragged in.
+- `EXPLODE` bursts every hit. The enemy an attack strikes is the middle of a
+  blast that lands the same hit on everything round it — its damage, its
+  elements, its `STUN`, a `KNOCKBACK` out from the middle — though not on that
+  enemy again, which has just taken it. The blast does not set off the hit's
+  triggers: its `ON HIT` goes off once, on the hit itself. Every one stacked
+  makes the blast wider: two reach half as far again as one, three twice as
+  far.
+  It was a form until it was made a behaviour — an attack of its own, a burst
+  round the caster — and on a flow with no form it still is: the Hopper's
+  attack, the Arbiter's second form, and a trigger's branch with an `EXPLODE`
+  on it and no form, which bursts where the hit that set it off landed. A
+  branch starts without the `EXPLODE` before its trigger, so a follow-up
+  bursts only with one of its own.
 - `SHATTER` breaks the frost on an enemy already slowed by it: the hit lands
   far harder — x2.5 for one `SHATTER`, x4 for two, x5.5 for three — and the
   enemy thaws, so there is one break to a chill. It never shatters the chill

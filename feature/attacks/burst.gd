@@ -7,18 +7,24 @@ var payload: Payload
 var team: int = 0
 var attacker: Actor = null
 var room = null
-var radius: float = 90.0
+var radius: float = Attacks.BURST_RADIUS
 var life: float = 0.28
 var max_life: float = 0.28
 var _hit: Array = []
 
-func setup(p: Payload, pos: Vector2, t: int, atk: Actor, rm) -> void:
+## `reach` is how far the ring opens, and `p`'s own size of a burst when it is
+## not said (`Attacks.burst_radius`). `spared` counts as struck already: the
+## enemy an EXPLODE hit bursts on, which has taken that hit.
+func setup(p: Payload, pos: Vector2, t: int, atk: Actor, rm, reach: float = -1.0,
+		spared: Actor = null) -> void:
 	payload = p
 	position = pos
 	team = t
 	attacker = atk
 	room = rm
-	radius = 90.0 * p.size
+	radius = reach if reach >= 0.0 else Attacks.burst_radius(p)
+	if spared != null:
+		_hit.append(spared)
 
 func _process(delta: float) -> void:
 	life -= delta

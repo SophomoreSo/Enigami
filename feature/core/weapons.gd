@@ -150,8 +150,12 @@ static func finalize(weapon_id: String, p: Payload) -> Payload:
 			# gun some seven cells, one off a thrown rock five.
 			p.damage *= float(d["ranged_mul"])
 			p.range_px *= float(d["reach_mul"])
-		"EXPLODE":
-			p.damage *= float(d["ranged_mul"])
+		"":
+			# With no form, what goes off is an EXPLODE's burst — a parry's
+			# riposte with nothing but one on its branch — weighed as the burst
+			# was when EXPLODE was a form.
+			if p.explode > 0:
+				p.damage *= float(d["ranged_mul"])
 	return p
 
 static func uses_gravity_shots(weapon_id: String) -> bool:
