@@ -67,7 +67,7 @@ func _ready() -> void:
 	# --- read the way the screens read them -----------------------------------
 	Loc.set_language(Loc.DEFAULT)
 	var items := Menus.items("title")
-	check(items.size() == 5 and String(items[0]["id"]) == "start" and String(items[0]["text"]) == "START"
+	check(items.size() == 6 and String(items[0]["id"]) == "start" and String(items[0]["text"]) == "START"
 			and String(items[0].get("opens", "")) == "save_slots",
 		"the title's items come out in order, START first, and START leads to the save slots (%s)" % str(items))
 	check(not items[1].has("opens") and not bool(items[1]["exit"]),
@@ -75,8 +75,11 @@ func _ready() -> void:
 	check(String(items[2]["id"]) == "map_maker" and String(items[2]["text"]) == "MAP CREATOR"
 			and not items[2].has("opens") and not bool(items[2]["exit"]),
 		"and so is MAP CREATOR, under it (%s)" % str(items[2]))
-	check(Menus.name_for("settings") == "SETTINGS" and String(items[3]["text"]) == "SETTINGS",
-		"an item with no text of its own says the name of the menu it opens (%s)" % str(items[3]))
+	check(String(items[3]["id"]) == "story_maker" and String(items[3]["text"]) == "STORY MAKER"
+			and not items[3].has("opens") and not bool(items[3]["exit"]),
+		"and STORY MAKER, under that (%s)" % str(items[3]))
+	check(Menus.name_for("settings") == "SETTINGS" and String(items[4]["text"]) == "SETTINGS",
+		"an item with no text of its own says the name of the menu it opens (%s)" % str(items[4]))
 	check(Menus.name_for("title") == "", "the title has no heading")
 	check(Menus.name_for("nowhere") == "" and Menus.items("nowhere").is_empty()
 			and Menus.text_for("title", "nowhere") == "" and not Menus.exists("nowhere"),
@@ -106,7 +109,7 @@ func _ready() -> void:
 	var open := func(menu: String) -> void: opened.append(menu)
 	var acts := {"quit": func() -> void: acted.append("quit")}
 	Menus.press("title", items[0], acts, open).call()
-	Menus.press("title", items[4], acts, open).call()
+	Menus.press("title", items[5], acts, open).call()
 	check(opened == ["save_slots"] and acted == ["quit"],
 		"a door opens what it names, an act runs what the screen gave it (%s, %s)" % [str(opened), str(acted)])
 	Menus.press("title", {"id": "nowhere"}, acts, open).call()

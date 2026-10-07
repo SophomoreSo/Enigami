@@ -143,12 +143,21 @@ func _ready() -> void:
 			and maker.dressing().size() == maker.rows and maker.dressing()[0].length() == maker.cols
 			and maker.mark_at(Vector2i(8, 12), MapMaker.BACK) == "|",
 		"in every layer, and what was in them stays")
-	check(not maker.resize(Vector2i(2, 2)) or (maker.cols == Room.W and maker.rows == Room.H),
-		"it is cut no smaller than a raid's room")
+	check(maker.resize(Vector2i(2, 2)) and maker.cols == MapMaker.MIN_SIZE.x and maker.rows == MapMaker.MIN_SIZE.y
+			and MapMaker.MIN_SIZE.x < Room.W and MapMaker.MIN_SIZE.y < Room.H,
+		"it can be cut smaller than a screen, but no smaller than the least a map may be (%dx%d)" % [maker.cols, maker.rows])
 	check(maker.undo() and maker.cols == Room.W + 6, "and a change of size is a step to take back too")
 	maker.resize(Vector2i(9999, 9999))
 	check(maker.cols == MapMaker.MAX_SIZE.x and maker.rows == MapMaker.MAX_SIZE.y, "nor grown past the most a map may be")
 	maker.resize(Vector2i(Room.W + 6, Room.H))
+	# Grown at its left and its top: what is on it moves along with them.
+	check(maker.resize(Vector2i(maker.cols + 3, maker.rows + 2), Vector2i(3, 2)) and maker.cols == Room.W + 9 and maker.rows == Room.H + 2
+			and maker.mark_at(Vector2i(11, 14), MapMaker.BACK) == "|" and maker.mark_at(Vector2i(38, 7)) == "="
+			and maker.mark_at(Vector2i(1, 1)) == MadeRoom.OPEN and maker.mark_at(Vector2i(1, 1), MapMaker.BACK) == MadeRoom.OPEN,
+		"a map grows at its left and its top too, with open cells there and what was on it moved over")
+	check(maker.resize(Vector2i(maker.cols - 3, maker.rows - 2), Vector2i(-3, -2)) and maker.cols == Room.W + 6 and maker.rows == Room.H
+			and maker.mark_at(Vector2i(8, 12), MapMaker.BACK) == "|" and maker.mark_at(Vector2i(35, 5)) == "=",
+		"and is cut there, what was on it moved back")
 
 	# --- keeping it -----------------------------------------------------------------
 	check(Maps.id_for("  Ice Keep!! ") == "ice_keep" and Maps.id_for("a--b  c") == "a_b_c" and Maps.id_for("...") == ""

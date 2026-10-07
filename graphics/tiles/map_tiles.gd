@@ -51,6 +51,11 @@ const FOLIAGE := {"g": "grass", "f": "flowers", "b": "bush"}
 ## them down a column is one, hung from the top of the run.
 const HANGING := ["L", "B", "v", "r"]
 const LINES := {"v": "vine", "r": "cable"}
+## The kind of line a lantern hangs on: a rope's, with a node all along it, so
+## whatever goes through any of it moves it there and swings the lantern on
+## its end, as a rope moves. It is drawn in a cord's colour (`Style.ROPE_LOOK`),
+## as what a light hangs on is.
+const LANTERN_LINE := "cable"
 ## Those that stand on the floor of their cell.
 const STANDING := ["F", "H", "m", "g", "f", "b", "n"]
 ## How far up a lantern, a vine or a rope looks for something to hang from,

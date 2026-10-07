@@ -578,9 +578,11 @@ as a pendulum does.
 A `vine` is another: what a map made in the map creator hangs where a vine
 was put, the length of the run of it, with a leaf riding every node
 (`graphics/views/made_room_view.gd`). Finer and looser than a cable, it bends
-where it is pushed rather than swinging whole. A made map hangs its lanterns
-on cords and its ropes as cables the same way, and none of the three by
-`hangings`.
+where it is pushed rather than swinging whole. A made map hangs its ropes as
+cables the same way, and its lanterns on cables too, in a cord's colour
+(`MapTiles.LANTERN_LINE`): the hideout's cords are one length and swing from
+the top, which a lantern hung low in a map would not do when somebody went
+through its line. None of them is hung by `hangings`.
 
 ```sql
 INSERT INTO ropes (id, segment, stiffness, damping, gravity, give, push_most) VALUES

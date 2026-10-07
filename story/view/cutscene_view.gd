@@ -172,6 +172,10 @@ func _on_finished() -> void:
 ## --- the room ---------------------------------------------------------------
 
 func _draw() -> void:
+	# A scene staged on a map's floor is drawn by the map; the room here is
+	# the stage a scene of its own stands in.
+	if not cut.own_floor:
+		return
 	var y := cut.floor_y
 	# Around the stage, not around the camera: a room that slid with every
 	# camera move would be a painted backdrop rather than a place.

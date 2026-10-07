@@ -89,6 +89,8 @@ godot res://tests/mobile/editor_touch_test.tscn # mobile mode's assembly board: 
 godot res://tests/feature/dragon_test.tscn  # one charged cast clears the whole tower
 godot res://tests/feature/map_maker_test.tscn # the map creator's rules: a map laid and taken back, kept as a scene, picked up as a room, played and set again
 godot res://tests/graphics/map_table_test.tscn # the map creator's table: in from the title, laid with the pointer, saved, found in the list, played and come back to
+godot res://tests/story/story_maker_test.tscn # the story maker's rules: a conversation written a line at a time, kept as a file, handed to a character and to a scene, and played each of its three ways
+godot res://tests/graphics/story_desk_test.tscn # the story maker's desk: in from the title, lines typed and moved, a map imported, saved, found in the list, played each way and come back from
 godot res://tests/graphics/shots.tscn   # writes a screenshot of each screen to user://shots
 godot res://tests/graphics/dragon_shot.tscn  # ...and frames of the dragon test
 godot res://tests/graphics/rope_shot.tscn    # ...and frames of a cable dashed through
@@ -740,10 +742,11 @@ under each tab are drawn by the tileset the map is in.
 | THINGS | where the player starts, a post for each of the monsters, the treasure box, ground to dig — on the ground's layer |
 | PROPS | what is put about: a lantern, a campfire, glowing caps, fireflies, grass, flowers, a bush, a fern, a vine, a rope |
 
-The props are the game's own things. A lantern hangs on a cord from the
-ground, the rail or the lintel over it, with a lamp in it, and swings when
-somebody goes through it; a vine or a rope hangs the length of its run, and
-swings the same way; grass, flowers and a bush are the floor's foliage, and
+The props are the game's own things. A lantern hangs from the ground, the
+rail or the lintel over it, with a lamp in it, on a line that is a rope like
+the ROPE: somebody going through it anywhere moves it there and swings the
+lantern on its end, as going through the lantern does. A vine or a rope hangs
+the length of its run, and swings the same way; grass, flowers and a bush are the floor's foliage, and
 lean where somebody walks; a campfire, glowing caps and fireflies each give
 light of their own. A played grove is seen at night, by its lamps, and the
 table shows their light where it will fall.
@@ -774,17 +777,27 @@ the ground shows a sheen where it meets the air, and one behind its dark.
 | `SHIFT` and a drag | a box, of either |
 | Middle button, the move keys, two fingers on a trackpad, or the MOVE tool | carries the map |
 | Wheel, a pinch, or ZOOM | a room's own size, or half of it |
+| A grip on the map's edge, dragged | the map bigger or smaller on that side |
 | `Ctrl`/`Cmd`+`Z`, and with `SHIFT` | a step back, and forward again |
 | `Ctrl`/`Cmd`+`S` | SAVE |
 | `ESC` | the pause menu, whose MAIN MENU is one way out; the arrow in the corner is the other |
 
+A map is no set size. It is made bigger or smaller by its own edges: a grip
+stands just outside each side and corner of it, and one dragged takes that
+side with it, a cell at a time, while the foot says what size the map is
+coming to — the left and the top as well as the right and the foot, what is on
+the map staying where it is, and whatever is cut off gone until a step back
+brings it back. A new map is one screen; any map can be anything from 8 cells
+by 6, a nook played in the middle of the screen with the ground all round it,
+to four screens each way. The brighter lines across the sheet are where one
+screen ends and the next begins.
+
 **MAP** holds the rest of what a map is. TILESET changes the one it is drawn
-in, whenever, and a step back changes it back. WIDTH and HEIGHT keep it
-between one screen and four each way, a cell a press and ten with `SHIFT`
-held; the brighter lines across the sheet are where one screen ends and the
-next begins. In Rock, ROCK picks which region's rock it is cut from. WEAPON
-picks which weapon a played map starts in hand, the next two round the rack
-beside it.
+in, whenever, and a step back changes it back. WIDTH and HEIGHT change its
+size too, at its right and its foot, a cell a press and ten with `SHIFT`
+held. In Rock, ROCK picks which region's rock it is cut from. WEAPON picks
+which weapon a played map starts in hand, the next two round the rack beside
+it.
 
 **SAVE** keeps the map as a scene, named for it: `data/maps/<name>.tscn` when
 the game is run from the project, where it is committed and ships with the
@@ -821,6 +834,38 @@ room.stand()                                  # the ground, and whatever its cel
 Stood up anywhere, it is drawn in its tileset, hung with its props and lit by
 their lamps (`graphics/views/made_room_view.gd`). What a cell of each layer can
 hold is in [data/maps/README.md](data/maps/README.md).
+
+## The story maker
+
+Title → **STORY MAKER**, under MAP CREATOR. A desk a conversation is written
+at, a line at a time: who says it — the character, or the player — and what.
+Lines are typed where they stand, `Enter` goes on to the next line or to a
+new one after the last, the arrows move a line up or down and the cross takes
+it away, asking first. Down the left is what the story is set on and how it
+plays: **MAP** imports a map made in the map creator — the story is played on
+it, stood up empty, with no monster at its post and nothing to dig —
+**PLAYED AS** picks one of three ways, and under them who the character is,
+what they look like and what the player is called.
+
+| Played as | What happens |
+|---|---|
+| **FREE MOVEMENT** | The player goes on playing. The character talks free: a press up close starts the story, and each line comes out in a bubble over whoever says it, moving on by itself once it has been read. |
+| **FROZEN MOVEMENT** | The player walks up and presses to talk, is walked the last step over and held still, and the story runs in the box at the top of the screen, a press a line. |
+| **NOVEL** | Nobody plays. The two of them stand facing each other on the map, and the story is read like a scene, a press a line, in the panel along the foot of the screen. `Esc` skips it. |
+
+**PLAY** sets the story going whichever way is picked, and `ESC` comes back
+to the desk with the story as it was — in a novel, by skipping to its end.
+The story is told the same way in all three, so one written for the box reads
+the same as bubbles or as a novel.
+
+**SAVE** keeps the story as a file, named for it: `data/stories/<name>.json`
+when the game is run from the project, where it is committed and ships with
+the game, and `user://stories/` in an exported game. Under the name of a story
+kept already it asks first. **LOAD** lists what is kept, each with a DELETE
+that asks too. The desk is kept while the game runs, saved or not: leave for
+the title and come back, and the story is as it was left. One story comes with
+the game, `first_meeting`, the Old Tinker met in the Moonlit Grove. What a
+file holds is in [data/stories/README.md](data/stories/README.md).
 
 ## Design decisions
 
@@ -915,6 +960,7 @@ data/enigami.db    the content database: conversations, the player's state machi
                    built from data/db/, see its README
 data/scenes/       directed scenes, one JSON file per scene — format in its README
 data/maps/         rooms made in the map creator, one scene per map — format in its README
+data/stories/      conversations written in the story maker, one JSON file per story — format in its README
 localization/      every word the game says: eng/ and kor/, a file per screen
                    plus dialogue/ and scenes/ — format in its README
                    kor/font.woff: the Korean pixel face, Silkscreen has no Hangul
@@ -931,7 +977,10 @@ feature/world/     room generation, raid map graph, raid loop, sandbox, pickups
                    maps: the files they are kept in
 story/rules/       conversations and directed scenes: what is said, and what follows
                    free talk: rules, the facts they are written against, and the ear
+                   story maker: a story written a line at a time and played on a map;
+                   stories: the files they are kept in
 story/view/        the dialogue box, the speech bubble, the cutscene box, the portraits, the camera
+                   story desk: the story maker's screen, and the view that puts it up
 mobile/input/      whether the console is on the glass, and what a key on it presses
 mobile/view/       the two-thumb console drawn on the glass, and the screen that
                    moves its buttons (SET BUTTON POSITIONS)

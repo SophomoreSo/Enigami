@@ -29,6 +29,14 @@ const QUIET := " .,!?;:'\"-…()"
 const STAGE_WIDTH := 2400.0
 
 var scene_id: String = "intro"
+## A scene handed in rather than read: set before the node enters the tree,
+## in the shape `CutsceneScript.scene` reads a file into, and played in place
+## of `scene_id`'s file — the story maker's, written at its desk.
+var handed: Dictionary = {}
+## Whether the scene stands a floor of its own under the cast. One staged on
+## a floor that is there already — a made map's — brings none, and its cast
+## stand on that.
+var own_floor: bool = true
 ## The whole file, kept for the picture to read its own keys out of, exactly as
 ## an `Npc` keeps its dialogue file. The rules take `floor`, `marks`, `cast` and
 ## `beats` out of it below and never look at the rest.
@@ -55,7 +63,7 @@ var _floor: StaticBody2D
 
 func _ready() -> void:
 	Arena.register(self)
-	var def := CutsceneScript.scene(scene_id)
+	var def := handed if not handed.is_empty() else CutsceneScript.scene(scene_id)
 	data = def
 	if def.is_empty():
 		# A missing file must not strand the player on a black screen with
@@ -65,7 +73,8 @@ func _ready() -> void:
 	floor_y = float(def.get("floor", CutsceneScript.DEFAULT_FLOOR))
 	marks = def.get("marks", {})
 	beats = def.get("beats", [])
-	_build_floor()
+	if own_floor:
+		_build_floor()
 	_build_cast(def.get("cast", {}))
 	# The stage is standing but no beat has run yet. A view is attached as this
 	# node enters the tree — before this `_ready` — so it has not had a chance

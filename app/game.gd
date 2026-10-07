@@ -2,14 +2,14 @@ extends Node
 
 ## Top-level state machine: title → hideout → raid → results, with the opening
 ## scene in front of a new profile's first hideout, the sandbox (and the dragon
-## test off it), the map creator, and the hideout's skill editor hanging off
-## the side.
+## test off it), the map creator, the story maker, and the hideout's skill
+## editor hanging off the side.
 ##
 ## The composition root, and the only script allowed to know both modules: it
 ## builds screens out of `graphics/` and drives them with `feature/`. Neither
 ## module reaches the other except through here and through `Cues`.
 
-enum State { TITLE, HIDEOUT, RAID, SANDBOX, RESULTS, DRAGON_TEST, INTRO, JEAN_GREY_TEST, MAP_MAKER }
+enum State { TITLE, HIDEOUT, RAID, SANDBOX, RESULTS, DRAGON_TEST, INTRO, JEAN_GREY_TEST, MAP_MAKER, STORY_MAKER }
 
 var state: int = State.TITLE
 var current: Node = null
@@ -162,7 +162,8 @@ func _process(_delta: float) -> void:
 ##
 ## A scene has no player to ask — the prologue is a cast and a camera — and it
 ## turns its own pages on `interact`, so it wears the same face a conversation
-## does. A screen that has taken the controls keeps only the keys that close it
+## does; so does a story read as a novel in the story maker, which is a scene
+## too. A screen that has taken the controls keeps only the keys that close it
 ## again: the map is opened and shut with the same key, and on a phone that key
 ## is on the pad or it is nowhere.
 ##
@@ -177,7 +178,7 @@ func _process(_delta: float) -> void:
 ## out in each corner a thumb might look, and the three keys would stand on its
 ## heading.
 func _touch_face() -> int:
-	if state == State.INTRO:
+	if state == State.INTRO or _reading():
 		return TouchPad.Face.TALK
 	if _assembling() or _paneled():
 		return TouchPad.Face.CLEAR
@@ -186,6 +187,12 @@ func _touch_face() -> int:
 			return TouchPad.Face.PLAY
 		return TouchPad.Face.TALK if p.talk_locked else TouchPad.Face.SCREEN
 	return TouchPad.Face.NONE
+
+## Whether a story is being read as a novel in the story maker: a scene with
+## no player in it, turning its pages on a tap.
+func _reading() -> bool:
+	return state == State.STORY_MAKER and current != null and is_instance_valid(current) \
+		and current is StoryMaker and (current as StoryMaker).reading()
 
 ## Whether a press of `interact` would do something where the player stands.
 ## The console's HIT button turns into USE while this holds. Each world answers
@@ -240,6 +247,7 @@ func goto_title() -> void:
 	t.start_requested.connect(_start_game)
 	t.sandbox_requested.connect(goto_sandbox)
 	t.map_maker_requested.connect(goto_map_maker)
+	t.story_maker_requested.connect(goto_story_maker)
 	ui_layer.add_child(t)
 	current = t
 
@@ -350,6 +358,16 @@ func goto_map_maker() -> void:
 	m.exit_requested.connect(goto_title)
 	add_child(m)
 	current = m
+
+## The story maker is opened from the title too, and hands back to it. What
+## was on its desk is kept for the next visit (`StoryMaker`), like a map.
+func goto_story_maker() -> void:
+	_clear()
+	state = State.STORY_MAKER
+	var s := StoryMaker.new()
+	s.exit_requested.connect(goto_title)
+	add_child(s)
+	current = s
 
 ## Through the gate holding `weapon`, with the rest of the kit the rack was
 ## left carrying. A weapon that is not in that kit goes out on its own.
@@ -758,13 +776,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	# needs no guard here: it answers ESC by closing, and marks the press
 	# handled, so this never sees the one that shut it.
 	#
-	# The map creator's table is one more. A map being played on it answers
-	# the key itself, by going back to the table, so that press never gets
-	# here either.
+	# The map creator's table is one more, and the story maker's desk. A map
+	# or a story being played answers the key itself, by going back to the
+	# table or the desk, so that press never gets here either.
 	if get_tree().paused:
 		return      # the menu itself answers this one; see PauseMenu above
 	if state == State.RAID or state == State.SANDBOX or state == State.HIDEOUT \
-			or state == State.MAP_MAKER:
+			or state == State.MAP_MAKER or state == State.STORY_MAKER:
 		_pause()
 		get_viewport().set_input_as_handled()
 
