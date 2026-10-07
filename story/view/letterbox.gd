@@ -2,9 +2,9 @@ class_name Letterbox
 extends Control
 
 ## The screen gone wide while a conversation in the box has it: black bars
-## come in over the top and the bottom of the picture, darkening as they come,
-## until what is left between them is as wide for its height as a film in
-## scope (`ASPECT`) — and go back out the same way once the conversation is
+## come in over the top and the bottom of the picture, solid from the first
+## pixel, until what is left between them is as wide for its height as a film
+## in scope (`ASPECT`) — and go back out the same way once the conversation is
 ## over. A conversation in the box holds the player still and has the screen
 ## (`Npc`, in the box; FROZEN MOVEMENT in the story maker), and this is the
 ## picture saying so. Free talk leaves the screen as it is: the player goes on
@@ -70,11 +70,11 @@ func drawn() -> float:
 	var px := float(UiKit.PIXEL)
 	return roundf(depth() * smoothstep(0.0, 1.0, shown) / px) * px
 
-## Both bars, as far in as they have come and as dark.
+## Both bars, as far in as they have come, and opaque however far that is:
+## the edges of the picture closing in, never a shade over it.
 func _draw() -> void:
 	var h := drawn()
 	if h <= 0.0:
 		return
-	var c := Color(BAR, smoothstep(0.0, 1.0, shown))
-	draw_rect(Rect2(0.0, 0.0, size.x, h), c)
-	draw_rect(Rect2(0.0, size.y - h, size.x, h), c)
+	draw_rect(Rect2(0.0, 0.0, size.x, h), BAR)
+	draw_rect(Rect2(0.0, size.y - h, size.x, h), BAR)
