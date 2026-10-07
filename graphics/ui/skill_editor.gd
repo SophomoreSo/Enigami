@@ -22,7 +22,8 @@ extends Control
 ## PIXELs laid on the PIXEL grid, so the board reads as the same pixel art as the
 ## world under it. All of it goes through `PixelDraw`, which snaps to that grid.
 ## The pixel face has almost none of the symbols in `Style`'s part glyphs, so
-## parts are drawn as their `Style.component_icon` instead.
+## parts are drawn as their `Style.component_icon` instead — moving through
+## its film while the parts are let move (`Video.icon_motion`, `_icon`).
 ##
 ## The parts on the right are grouped by the category the rules give them —
 ## forms, elements, stats and the rest — each block named down the gutter beside
@@ -1094,6 +1095,13 @@ func _draw() -> void:
 ## at a desk's cell, and more as a thumb's cell has the room.
 func _icon_zoom() -> int:
 	return maxi(ICON_ZOOM, int(cell_size() / 25.0))
+
+## A part's icon as it is drawn now: where its film has got to on the screen's
+## own clock while the parts are let move (`Video.icon_motion`), and its icon
+## at rest while they are kept still — which is its film's first frame, so
+## turning them off stops every part on the picture it starts from.
+func _icon(id: String) -> Array:
+	return Style.component_icon_at(id, _flow_time) if Video.icon_motion else Style.component_icon(id)
 
 ## The same for a port's arrow, which at a thumb's cell is a speck at one.
 func _port_zoom() -> int:
@@ -2486,7 +2494,7 @@ func _draw_part(id: String, origin: Vector2i, rot: int, cut: int, look: Array,
 	# part names it on a card instead. The icon is drawn at ICON_ZOOM here — a
 	# cell is wide enough for it, and at palette size it was lost in the middle
 	# of one.
-	_px.icon_centered(r.get_center(), Style.component_icon(id), look[2], _icon_zoom())
+	_px.icon_centered(r.get_center(), _icon(id), look[2], _icon_zoom())
 	var ex := Components.exit_cell(id, origin, rot)
 	for d in Components.world_outputs(id, rot):
 		_draw_port_arrow(ex, d, look[3])
@@ -2639,7 +2647,7 @@ func _draw_palette() -> void:
 			bg = Color(c.r, c.g, c.b, 0.42)
 		_px.rect(r, bg)
 		_px.frame(r, c if have else Color(0.3, 0.32, 0.36))
-		_px.icon(r.position + Vector2(8, 4), Style.component_icon(id), c)
+		_px.icon(r.position + Vector2(8, 4), _icon(id), c)
 		_draw_count(r.end - Vector2(8, 6), id)
 		_px.text(r.position + Vector2(30, PAL_TEXT_Y), Components.name_for(id),
 			Color(0.92, 0.95, 1.0) if have else Color(0.45, 0.48, 0.52), _pal_name_width(i))
@@ -2734,7 +2742,7 @@ func _draw_thumb_parts() -> void:
 		_px.frame(r, c if have else Color(0.3, 0.32, 0.36))
 		if id == selected:
 			_px.frame(r.grow(-PX), c)
-		var icon := Style.component_icon(id)
+		var icon := _icon(id)
 		_px.icon(Vector2(r.position.x + 14.0, r.position.y + (r.size.y - icon.size() * PX * 2) * 0.5), icon, c, 2)
 		# The count on the right, at the plate's own size; the name has the rest.
 		var counted := _draw_thumb_count(Vector2(r.end.x - 14.0, r.position.y + (r.size.y + 20.0) * 0.5), id)
