@@ -1,0 +1,25 @@
+{
+	"map": "moonlit_grove",
+	"mode": "frozen",
+	"name": "Old Tinker",
+	"sprite": "wizzard_m",
+	"player_name": "Knight",
+	"lines": [
+		{
+			"speaker": "npc",
+			"text": "So the seal let somebody through after all."
+		},
+		{
+			"speaker": "player",
+			"text": "Through? I walked in the front."
+		},
+		{
+			"speaker": "npc",
+			"text": "That is what it wants you to think. Mind the lanterns; they swing."
+		},
+		{
+			"speaker": "player",
+			"text": "Noted."
+		}
+	]
+}

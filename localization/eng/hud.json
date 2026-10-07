@@ -157,6 +157,56 @@
 		"sure": "SURE?",
 		"keys": "R RESET  TAB SKILL BOARD  ESC BACK TO THE MAP"
 	},
+	"story": {
+		"title": "STORY MAKER",
+		"name": "STORY NAME",
+		"save": "SAVE",
+		"load": "LOAD",
+		"new": "NEW",
+		"play": "PLAY",
+		"back": "BACK",
+		"map": "MAP",
+		"no_map": "NO MAP",
+		"mode": "PLAYED AS",
+		"modes": {
+			"free": "FREE MOVEMENT",
+			"frozen": "FROZEN MOVEMENT",
+			"novel": "NOVEL"
+		},
+		"modes_hint": {
+			"free": "FREE MOVEMENT: THE PLAYER GOES ON PLAYING, AND EACH LINE GOES IN A BUBBLE OVER WHOEVER SAYS IT",
+			"frozen": "FROZEN MOVEMENT: THE PLAYER WALKS UP, PRESSES TO TALK, AND IS HELD STILL WHILE THE BOX RUNS",
+			"novel": "NOVEL: NOBODY PLAYS. THE STORY IS READ A PRESS AT A TIME, LIKE A SCENE"
+		},
+		"character": "CHARACTER",
+		"sprite": "LOOKS LIKE",
+		"player": "PLAYER",
+		"npc": "CHARACTER",
+		"you": "YOU",
+		"line": "WHAT IS SAID",
+		"add": "+ ADD A LINE",
+		"sure": "SURE?",
+		"count_one": "%d LINE",
+		"count_many": "%d LINES",
+		"unsaved": "NOT SAVED",
+		"saved": "SAVED  %s",
+		"loaded": "LOADED %s",
+		"deleted": "%s THROWN AWAY",
+		"replace": "%s IS KEPT ALREADY. SAVE AGAIN TO REPLACE IT",
+		"refused": {
+			"name": "NAME THE STORY FIRST: LETTERS AND DIGITS",
+			"write": "THE STORY COULD NOT BE WRITTEN",
+			"read": "THE STORY COULD NOT BE READ",
+			"empty": "WRITE A LINE FIRST",
+			"map": "THERE IS NO MAP TO PLAY IT ON: MAKE ONE IN THE MAP CREATOR"
+		},
+		"load_heading": "LOAD A STORY",
+		"map_heading": "IMPORT A MAP",
+		"none": "NO STORIES KEPT YET",
+		"no_maps": "NO MAPS KEPT YET",
+		"delete": "DELETE",
+		"keys": "F TALK  ESC BACK TO THE DESK"
+	},
 	"dragon": {
 		"play": "PLAY",
 		"guards": "GUARDS",

@@ -27,7 +27,8 @@ extends CharacterBody2D
 ## `story/view/npc_view.gd`, `dialogue_box.gd` and `speech_bubble.gd` show it.
 ##
 ## What each NPC says lives in the content database, as rows under their id
-## (see `Dialogue`, and `data/db/README.md`).
+## (see `Dialogue`, and `data/db/README.md`) — or is handed in, written
+## somewhere else, in the same shape (`setup_with`).
 ##
 ## An NPC is deliberately not an Actor. Attacks find their targets through the
 ## "actors" group, so a bystander outside it can stand in the line of fire
@@ -93,12 +94,23 @@ var _approach: WalkTo = null
 
 func setup(id: String) -> void:
 	npc_id = id
-	data = Dialogue.character(id)
-	display_name = String(data.get("name", id))
+	_take(Dialogue.character(id))
+
+## Someone handed their conversation rather than reading it: `def` in the
+## shape `Dialogue.character` reads one into — their name and sprite, `nodes`
+## and a `start` for the box, `rules` for free talk — for a character written
+## somewhere other than the database: the story maker's.
+func setup_with(def: Dictionary) -> void:
+	npc_id = String(def.get("id", npc_id))
+	_take(def)
+
+func _take(def: Dictionary) -> void:
+	data = def
+	display_name = String(data.get("name", npc_id))
 	nodes = data.get("nodes", {})
 	start = String(data.get("start", ""))
 	mode = Mode.FREEZE if start != "" else Mode.FREE
-	free_talk = FreeTalk.new(id, data)
+	free_talk = FreeTalk.new(npc_id, data)
 	free_talk.started.connect(_on_free_line)
 
 func _ready() -> void:

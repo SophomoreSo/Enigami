@@ -3,6 +3,7 @@
 		"start": "START",
 		"sandbox": "SANDBOX",
 		"map_maker": "MAP CREATOR",
+		"story_maker": "STORY MAKER",
 		"quit": "QUIT"
 	},
 	"save_slots": {

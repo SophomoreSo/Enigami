@@ -106,7 +106,11 @@ path nothing in that section touches.
 on the bench to talk to. A world that stages a character has to name one, the
 same way `app/game.gd` names `Cutscene` to play the intro. It spawns one and
 says who it is; it reaches into nothing else, and it is the only file in
-`feature/` that mentions `story/`.
+`feature/` that mentions `story/`. The other way round needs no exception: the
+story maker (`story/rules/story_maker.gd`) is a `World` that stands a made map
+up with a player in it and a character on it, and `story/rules/` may read
+`feature/` — so a screen of the telling's own, opened from the title, is
+written inside `story/` and the shell only opens it.
 
 ## How the modules talk
 
@@ -377,6 +381,9 @@ has to hear about it.
 | Retune a part — its heat, what it adds or multiplies, how long it slows the fight | `data/db/parts/parts.sql`, then `data/db/build.sh` |
 | Retune a board's timing — ticks, cooldowns, a pulse's life | `circuit/skill_runner.gd` |
 | The dragon test's tower — where the guards stand, where the stairwells are | `LAYOUT` in `feature/world/dragon_tower.gd`; how it is lit and dressed, `graphics/views/tower_view.gd` |
+| A story written in the story maker — what a line is, how the lines are put in, changed, moved and taken away, how a story is handed to a character in the box or free and to a scene as a novel, what PLAY stands up and where the character stands | `story/rules/story_maker.gd`, a `World` like the map creator's: it writes and it plays, one at a time, and keeps the story on its desk between visits. The three ways it plays are the game's own — `Npc` in the box or free, given the story in the shape `Dialogue.character` reads one (`Npc.setup_with`), and `Cutscene` handed the story as a scene (`Cutscene.handed`), standing no floor of its own on a map's (`own_floor`). `tests/story/story_maker_test` |
+| Where stories are kept, and what one is called | `story/rules/stories.gd`: `data/stories/` in the project when the game is run from it, `user://stories/` in an exported game; a story's id is its file's name, filed as a map's is. The files are content like the rest of `data/`, and a format note is beside them |
+| The story maker's desk — the bar, the column of what the story is set on and how it plays, the lines one a row, what the keys do on it, what a played story's screen is | `story/view/story_desk.gd`, a screen that asks the maker for every change; `story/view/story_maker_view.gd` puts it up, and for a story played with a body in it the camera, the raid's HUD and the map's light (`MapTiles.ambient`) — a novel brings its own camera and panel (`CutsceneView`). Its words are `hud.story` in `localization/`; the door to it is a row of the `title` menu and an act of the title's. `tests/graphics/story_desk_test` |
 | A map made in the map creator — what a cell of one can hold, what stands where it says, and how one is picked up as a room | `feature/world/made_room.gd`: a `MadeRoom` is a hand-laid room whose layers are properties of it — `plan`, the ground and what stands on it, the one layer the rules read; `back` and `dressing`, the picture's — with the `tileset` that draws them, so a scene holding one is the room. A new thing to lay in the plan is a mark there — a monster's is a letter in `MONSTERS` — and what `record` makes of it; then its picture on the table, `MapTable.paint_mark`, and its name under `hud.maker.mark` in `localization/`. A new kind of ground is a mark in `GROUND`, as solid as the rest, and its look in every tileset. Shut in past its edge on every side (`_build_collision`), where every tileset draws ground on. It is a `Room`, drawn by a view of its own (below) |
 | Where maps are kept, and what one is called | `feature/world/maps.gd`: `data/maps/` in the project when the game is run from it, `user://maps/` in an exported game; a map's id is its file's name (`Maps.id_for`). The scenes are content like the rest of `data/`, and a format note is beside them |
 | The map creator — what laying is, a step back, a map's least, greatest and new size, what PLAY stands up and with what kit, what a fall does | `feature/world/map_maker.gd`, a `World` like the bench (`MIN_SIZE`, `MAX_SIZE`, `NEW_SIZE`). It lays and it plays, one at a time, and keeps the map on its table between visits. `tests/feature/map_maker_test` |
@@ -396,7 +403,7 @@ has to hear about it.
 | A control on the on-screen console — where it sits, whether it is a key or a stick, what it says | `CONTROLS` in `mobile/view/touch_pad.gd`, and its word in `controls.pad` in `localization/`. What pressing it does to the game is `mobile/input/touch.gd`, which sends the action a keyboard would and is the only thing that knows a finger from a key |
 | Where a player may move a console button, and what is kept of it | `mobile/view/touch_layout_editor.gd`; the arrangement itself, `TouchPad.layout` in `mobile/view/touch_pad.gd` |
 | A new screen | `app/game.gd`, plus its Control in `graphics/ui/` |
-| A new place to stand a player, opened from the title | a `World` in `feature/world/`, its view in `graphics/views/` and a case for it in `Views.view_script_for`, a state and a `goto_` in `app/game.gd`, and its door: a row of the `title` menu in `data/db/menus/menus.sql` and an act in `TitleScreen.acts_for`, with a mark for its tile in `TitleScreen.MARKS`. The map creator is one made this way |
+| A new place to stand a player, opened from the title | a `World` in `feature/world/`, its view in `graphics/views/` and a case for it in `Views.view_script_for`, a state and a `goto_` in `app/game.gd`, and its door: a row of the `title` menu in `data/db/menus/menus.sql` and an act in `TitleScreen.acts_for`, with a mark for its tile in `TitleScreen.MARKS`. The map creator is one made this way. One that is the telling's — the story maker — lives in `story/rules/` with its view in `story/view/` and its case in `StoryViews.view_script_for`, and the rest is the same |
 
 ### The one thing that looks like a picture but is not
 

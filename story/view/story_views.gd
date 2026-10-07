@@ -18,4 +18,6 @@ static func view_script_for(n: Node) -> GDScript:
 		return CutsceneActorView
 	if n is Cutscene:
 		return CutsceneView
+	if n is StoryMaker:
+		return StoryMakerView
 	return null

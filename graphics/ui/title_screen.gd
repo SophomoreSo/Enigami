@@ -4,6 +4,7 @@ extends Control
 signal start_requested()
 signal sandbox_requested()
 signal map_maker_requested()
+signal story_maker_requested()
 
 ## The save slot picked on the way in, 1..SAVE_SLOTS, or -1 until one is.
 ##
@@ -125,6 +126,23 @@ const MARK_MAP_MAKER := [
 	"#..#.....#..#",
 	"#############",
 ]
+## The story maker writes what somebody says, so its mark is a speech bubble
+## with lines of it inside.
+const MARK_STORY_MAKER := [
+	"#############",
+	"#...........#",
+	"#.#########.#",
+	"#...........#",
+	"#.#########.#",
+	"#...........#",
+	"#.######....#",
+	"#...........#",
+	"#############",
+	"....#........",
+	"...#.........",
+	"..#..........",
+	".#...........",
+]
 const MARK_SETTINGS := [
 	".....###.....",
 	".##..###..##.",
@@ -159,7 +177,7 @@ const MARK_QUIT := [
 ## rows — the look of an item is the screen's, the way a part's is `Style`'s.
 ## An item with none here gets a plate with only its name on it.
 const MARKS := {"start": MARK_START, "sandbox": MARK_SANDBOX, "map_maker": MARK_MAP_MAKER,
-	"settings": MARK_SETTINGS, "quit": MARK_QUIT}
+	"story_maker": MARK_STORY_MAKER, "settings": MARK_SETTINGS, "quit": MARK_QUIT}
 ## The menus this screen shows, each as a page of its own: the title's, the
 ## save slots behind START, the settings and the two pages behind them. What
 ## is on each is its rows (`Menus`); `_open` knows which page each is, and
@@ -215,6 +233,11 @@ var _fitted := Vector2(-1, -1)
 var _shown := PackedInt32Array()
 var _seal_painter: Node2D
 var _menu_font: FontVariation
+## The same face for the column's lines, set tighter than its own leading:
+## Silkscreen carries ten pixels of air over its capitals at this size, and
+## six lines at its own height would run off the foot of the design. Set
+## this way, six stand as tall as five did at its own.
+var _column_font: FontVariation
 ## The main menu: a column of lines, or in mobile mode a row of tiles.
 var _menu_root: BoxContainer
 ## Whether the menu was laid out for mobile mode, and its tiles, each against
@@ -276,6 +299,11 @@ func _ready() -> void:
 	_menu_font = FontVariation.new()
 	_menu_font.base_font = PIXEL
 	_menu_font.spacing_glyph = 3
+	_column_font = FontVariation.new()
+	_column_font.base_font = PIXEL
+	_column_font.spacing_glyph = 3
+	_column_font.spacing_top = -4
+	_column_font.spacing_bottom = -2
 	_stage = Control.new()
 	_stage.size = DESIGN
 	_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -596,6 +624,7 @@ func acts_for(menu: String) -> Dictionary:
 		"title":
 			return {"sandbox": func() -> void: sandbox_requested.emit(),
 				"map_maker": func() -> void: map_maker_requested.emit(),
+				"story_maker": func() -> void: story_maker_requested.emit(),
 				"quit": func() -> void: get_tree().quit()}
 		"save_slots":
 			return {"back": _hide_save_slots}
@@ -842,6 +871,7 @@ func _hide_save_slots() -> void:
 ## are drawn by `_draw_focus_marks` so a gamepad player can see where they are.
 func _menu_button(text: String, parent: VBoxContainer) -> Button:
 	var b := _bare_button(text, 24)
+	b.add_theme_font_override("font", _column_font)
 	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	parent.add_child(b)
 	return b

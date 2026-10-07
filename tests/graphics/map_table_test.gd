@@ -158,9 +158,9 @@ func _the_door() -> void:
 	for b in title._menu_root.get_children():
 		if (b as Button).text == Loc.t("menu.title.map_maker"):
 			door = b
-	check(door != null and title._menu_root.get_child_count() == 5
+	check(door != null and title._menu_root.get_child_count() == 6
 			and title._menu_root.get_global_rect().end.y <= title._stage.global_position.y + TitleScreen.DESIGN.y,
-		"as a line of its own, and the column it makes five of still ends on the design (%.0f of %.0f)"
+		"as a line of its own, and the column it is one of six in still ends on the design (%.0f of %.0f)"
 			% [title._menu_root.get_global_rect().end.y - title._stage.global_position.y, TitleScreen.DESIGN.y])
 	if door != null:
 		door.pressed.emit()
