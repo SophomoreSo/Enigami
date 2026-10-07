@@ -13,9 +13,10 @@ extends Node
 ## Each button and its page are checked too: one page at a time is on screen,
 ## the button leads to it and BACK leads out of it.
 ##
-## And the two settings that are about the machine rather than the game — the
-## screen mode and whether an impact may move the camera — which both screens
-## carry and which have to agree with `Video` about what is set. Camera shake is
+## And the three settings that are about the machine rather than the game —
+## the screen mode, whether an impact may move the camera and whether the
+## parts' icons move — which both screens carry and which have to agree with
+## `Video` about what is set. Camera shake is
 ## pressed and followed all the way down to `Fx`; the screen mode is not, since
 ## a test that took the whole display twice a run is a test that gets switched
 ## off. See the note where it is checked.
@@ -61,26 +62,36 @@ func find_under(root: Node, pick: Callable) -> Node:
 func button_named(root: Node, text: String) -> Button:
 	return find_under(root, func(c: Node) -> bool: return c is Button and (c as Button).text == text) as Button
 
-## The two rows that answer to `Video`, checked wherever settings are shown.
+## The row a setting named `name` stands in: the one its name is written in.
+func row_named(page: Node, name: String) -> Node:
+	var label := find_under(page, func(c: Node) -> bool:
+		return c is Label and (c as Label).text == name)
+	return label.get_parent() if label != null else null
+
+## The rows that answer to `Video`, checked wherever settings are shown.
 ## Both screens build them from `VideoRows`, so a page missing one is a page
 ## that forgot to ask rather than a row that was written differently.
 ##
 ## The answer in force is the button that cannot be pressed, which is the whole
 ## of how these rows say what is set: `Video` is read for what it should be and
-## the page for what it is showing.
+## the page for what it is showing. Two of the rows answer OFF and ON, so each
+## row's answers are looked for in the row its name is in.
 func video_rows(page: Node, where: String) -> void:
 	for named in [
 			[Loc.t("menu.video.screen"), Loc.t("menu.video.windowed"),
 				Loc.t("menu.video.fullscreen"), Video.fullscreen],
 			[Loc.t("menu.video.shake"), Loc.t("menu.video.off"),
-				Loc.t("menu.video.on"), Video.screen_shake]]:
+				Loc.t("menu.video.on"), Video.screen_shake],
+			[Loc.t("menu.video.icons"), Loc.t("menu.video.off"),
+				Loc.t("menu.video.on"), Video.icon_motion]]:
 		var name := String(named[0])
-		var off := button_named(page, String(named[1]))
-		var on := button_named(page, String(named[2]))
+		var row := row_named(page, name)
+		check(row != null, "%s carries '%s'" % [where, name])
+		if row == null:
+			continue
+		var off := button_named(row, String(named[1]))
+		var on := button_named(row, String(named[2]))
 		var set_on: bool = bool(named[3])
-		check(find_under(page, func(c: Node) -> bool:
-				return c is Label and (c as Label).text == name) != null,
-			"%s carries '%s'" % [where, name])
 		check(off != null and on != null, "%s: with both answers on it" % where)
 		if off == null or on == null:
 			continue
@@ -234,7 +245,8 @@ func _ready() -> void:
 	Fx.shake(6.0)
 	check(is_equal_approx(Fx._shake, 0.0),
 		"with camera shake off, a hit that asks for one does not get it (%.1f)" % Fx._shake)
-	var shake_on := button_named(title._general, Loc.t("menu.video.on"))
+	var shake_row := row_named(title._general, Loc.t("menu.video.shake"))
+	var shake_on := button_named(shake_row, Loc.t("menu.video.on")) if shake_row != null else null
 	check(shake_on != null and not shake_on.disabled,
 		"the page offers '%s' while it is off" % Loc.t("menu.video.on"))
 	if shake_on != null:

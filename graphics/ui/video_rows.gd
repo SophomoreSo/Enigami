@@ -1,8 +1,8 @@
 class_name VideoRows
 
 ## The settings that are about the machine rather than the game: whether the
-## window takes the whole display, and whether an impact is allowed to move the
-## camera. Both are `Video`'s.
+## window takes the whole display, whether an impact is allowed to move the
+## camera, and whether the parts' icons move. All three are `Video`'s.
 ##
 ## Two screens carry settings — the title's and the pause menu's — and they are
 ## built by different files. A setting written out in both would become two
@@ -27,4 +27,8 @@ static func rows() -> Array:
 		PackedStringArray([Loc.t("menu.video.off"), Loc.t("menu.video.on")]),
 		1 if Video.screen_shake else 0,
 		func(i: int) -> void: Video.set_screen_shake(i == 1)))
+	out.append(UiKit.choice_row(Loc.t("menu.video.icons"),
+		PackedStringArray([Loc.t("menu.video.off"), Loc.t("menu.video.on")]),
+		1 if Video.icon_motion else 0,
+		func(i: int) -> void: Video.set_icon_motion(i == 1)))
 	return out

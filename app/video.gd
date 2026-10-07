@@ -1,7 +1,8 @@
 extends Node
 
 ## What the game looks like on the machine it is running on: whether the window
-## fills the screen, and whether an impact is allowed to move the camera.
+## fills the screen, whether an impact is allowed to move the camera, and
+## whether the parts' icons move.
 ##
 ## Its own file beside the language, the key bindings and the pointer speed, and
 ## for the same reason: these are properties of the desk the game is sitting on,
@@ -26,6 +27,14 @@ var fullscreen: bool = false
 ## wrong way round. Nothing about the fight changes either way — see `Fx`.
 var screen_shake: bool = false
 
+## Whether the parts' icons move on the assembly screen, each through its film
+## (`Style.COMPONENT_MOTION`). `SkillEditor` is what reads it.
+##
+## On to start with: the moving icon is how a part shows what it does at a
+## glance. Off, every part stands still on its icon at rest, for anyone who
+## would rather a board of thirty parts did not move.
+var icon_motion: bool = true
+
 func _ready() -> void:
 	_load()
 	apply()
@@ -41,6 +50,12 @@ func set_screen_shake(on: bool) -> void:
 	if screen_shake == on:
 		return
 	screen_shake = on
+	_save()
+
+func set_icon_motion(on: bool) -> void:
+	if icon_motion == on:
+		return
+	icon_motion = on
 	_save()
 
 ## How long the window is kept being asked, and how often. The mode is a
@@ -101,10 +116,12 @@ func _load() -> void:
 	var d: Dictionary = parsed
 	fullscreen = bool(d.get("fullscreen", fullscreen))
 	screen_shake = bool(d.get("screen_shake", screen_shake))
+	icon_motion = bool(d.get("icon_motion", icon_motion))
 
 func _save() -> void:
 	var f := FileAccess.open(PATH, FileAccess.WRITE)
 	if f == null:
 		return
-	f.store_string(JSON.stringify({"fullscreen": fullscreen, "screen_shake": screen_shake}))
+	f.store_string(JSON.stringify({"fullscreen": fullscreen, "screen_shake": screen_shake,
+		"icon_motion": icon_motion}))
 	f.close()

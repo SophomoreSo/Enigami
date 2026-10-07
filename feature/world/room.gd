@@ -198,7 +198,7 @@ func path_between(from: Vector2, to: Vector2) -> PackedVector2Array:
 		out.append(to)
 	return out
 
-## Stops a lunge — or a beam — at the first wall on the way.
+## Stops a lunge at the first wall on the way.
 func clamp_dash(from: Vector2, to: Vector2) -> Vector2:
 	var steps := int(from.distance_to(to) / 8.0) + 1
 	var last := from

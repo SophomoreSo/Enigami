@@ -19,7 +19,7 @@ extends Node2D
 ## it, and what is above is drawn after it too, all the way up to the anchor.
 ## A body moving through it — the player, a monster — hands it some of its
 ## speed, and so does an attack that goes through it: a bolt, a blast's ring,
-## and what a lunge, a beam or a slash cut. That is the video's velocity
+## and what a lunge or a slash cut. That is the video's velocity
 ## buffer done by asking the bodies directly: not a collision, but the good
 ## enough reaction it describes.
 ##
@@ -101,8 +101,8 @@ const PUSH_REACH := float(S)
 const SETTLE_STEPS := 240
 ## A body with no size of its own is taken to be about the player's.
 const BODY_GUESS := Vector2(20.0, 30.0)
-## How long an attack that is over the moment it is made — a lunge, a beam, a
-## slash — goes on handing its speed to what it went through: three frames at
+## How long an attack that is over the moment it is made — a lunge, a slash —
+## goes on handing its speed to what it went through: three frames at
 ## sixty, which is about what a dash through a line gets. Its picture hangs in
 ## the air longer than that, and is not what pushes.
 const CUT_FOR := 0.05
@@ -448,8 +448,8 @@ func _movers() -> Array:
 ##   * a blast, as a ring opening from its centre and pushing outward, hardest
 ##     as it leaves;
 ##   * and what is over the moment it is made, for CUT_FOR from then: a lunge,
-##     as whoever made it going down the path it cut; a beam, down its length;
-##     a slash, across what it swept, the way it was aimed.
+##     as whoever made it going down the path it cut; a slash, across what it
+##     swept, the way it was aimed.
 ##
 ## Each at the kind's `push_most` and no more, as a body is. One the game has
 ## stopped is not moving, as a body is not.
@@ -480,11 +480,6 @@ func _attacks() -> Array:
 					out.append_array(_along(to_local(lunge.from), to_local(lunge.to),
 						(size as Vector2 if size is Vector2 else BODY_GUESS) * 0.5 + Vector2.ONE * PUSH_REACH,
 						(lunge.to - lunge.from).normalized() * push_most, whose))
-			elif n is Zap:
-				var beam := n as Zap
-				if beam.max_life - beam.life <= CUT_FOR:
-					out.append_array(_along(to_local(beam.from), to_local(beam.to),
-						Vector2.ONE * (beam.half_width + PUSH_REACH), (beam.to - beam.from).normalized() * push_most, whose))
 			elif n is MeleeArc:
 				var slash := n as MeleeArc
 				if slash.max_life - slash.life <= CUT_FOR:

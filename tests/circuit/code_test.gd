@@ -5,8 +5,8 @@ extends Node
 ## code is spelled in, and the numbers parts are known by inside one — the
 ## `codes` table in the content database — and what a code or a save written
 ## while OUTPUT, WIRE, BEND and INPUT were parts, while a root could not move,
-## while EXPLODE was called AREA, while SWIFT STRIKE+ was a part of its own, or
-## while SWIFT STRIKE and EXPLODE covered two cells, reads back as.
+## while EXPLODE was called AREA, while SWIFT STRIKE+ or ZAP was a part of its
+## own, or while SWIFT STRIKE and EXPLODE covered two cells, reads back as.
 
 ## Every number already given out, in order, as it was given. A code written
 ## down with any of these in it has to go on reading as the board it was, so
@@ -393,6 +393,16 @@ func _ready() -> void:
 		"a board saved with SWIFT STRIKE+ on it reads back with SWIFT STRIKE in its place")
 	check(Components.current_id(Components.part_for_code(8)) == "DASHSLASH",
 		"and the number SWIFT STRIKE+ had reads as SWIFT STRIKE")
+
+	# --- a board from before ZAP was made PROJECTILE ---------------------------
+	# Its beam was a bolt at laser speed, which PROJECTILE and four SPEEDs make.
+	# A save that spells it reads back with a PROJECTILE in its cell, so the
+	# flow through it still goes on; its number, 33, reads as PROJECTILE too.
+	check(same_parts(_saved([["ZAP", 1, 2, 0], ["FIRE", 2, 2, 0]]),
+			_board([["PROJECTILE", 1, 2, 0], ["FIRE", 2, 2, 0]])),
+		"a board saved with ZAP on it reads back with PROJECTILE in its place")
+	check(Components.current_id(Components.part_for_code(33)) == "PROJECTILE",
+		"and the number ZAP had reads as PROJECTILE")
 
 	# --- a board from before every part covered one cell ---------------------
 	# SWIFT STRIKE and EXPLODE covered two cells then, and let their flow out of

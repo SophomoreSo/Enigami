@@ -33,6 +33,7 @@
 		"windowed": "WINDOWED",
 		"fullscreen": "FULL SCREEN",
 		"shake": "Camera shake",
+		"icons": "Icon animation",
 		"on": "ON",
 		"off": "OFF"
 	},

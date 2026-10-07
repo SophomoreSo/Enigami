@@ -76,7 +76,15 @@ INSERT INTO retired_parts (id) VALUES ('WIRE'), ('BEND'), ('INPUT'), ('OUTPUT'),
 -- board, a stash, a drop — and AUTO-AIM is placed beside it. It keeps its own
 -- number, since SWIFT STRIKE has one already; a code that says 8 reads as
 -- SWIFT STRIKE through the rename (`BoardCode.decode`).
-INSERT INTO renamed_parts (old_id, new_id) VALUES ('AREA', 'EXPLODE'), ('DASHSLASH_AUTO', 'DASHSLASH');
+--
+-- ZAP was a beam to where the cursor pointed, landing the instant it was cast.
+-- A bolt whose SPEED is stacked to its limit crosses a room in a tenth of a
+-- second (`Projectile.LASER_SPEED`), so ZAP was PROJECTILE and SPEED doing
+-- what they do already, and it is PROJECTILE now wherever it was — a board, a
+-- stash, a drop. It keeps its number, 33, since PROJECTILE has one already;
+-- a code that says 33 reads as PROJECTILE.
+INSERT INTO renamed_parts (old_id, new_id) VALUES ('AREA', 'EXPLODE'), ('DASHSLASH_AUTO', 'DASHSLASH'),
+	('ZAP', 'PROJECTILE');
 
 
 -- ---- form: what the attack is ------------------------------------------------
@@ -89,19 +97,16 @@ INSERT INTO parts (id, name, category, heat, cells, tag, description) VALUES
 	('PROJECTILE', 'PROJECTILE', 'form', 0.6, 1, 'ranged', 'Fires a bolt along the aim direction. The standard ranged form.'),
 	('SLASH', 'SLASH', 'form', 0.5, 1, 'melee', 'An instant short arc at the aim direction. Fast, but reach is short.'),
 	('EXPLODE', 'EXPLODE', 'form', 1.2, 1, 'area', 'Damages everything inside a burst radius.'),
-	('DASHSLASH', 'SWIFT STRIKE', 'form', 1.0, 1, 'melee', 'Lunges along the aim direction, cutting everything on the path.'),
-	('ZAP', 'ZAP', 'form', 0.7, 1, 'ranged', 'A beam to where the cursor points, striking the instant it is cast. Stops at the first wall, and at the first enemy unless PIERCE carries it on.');
+	('DASHSLASH', 'SWIFT STRIKE', 'form', 1.0, 1, 'melee', 'Lunges along the aim direction, cutting everything on the path.');
 
 INSERT INTO ports (part_id, side) VALUES
-	('PROJECTILE', 'E'), ('SLASH', 'E'), ('EXPLODE', 'E'), ('DASHSLASH', 'E'),
-	('ZAP', 'E');
+	('PROJECTILE', 'E'), ('SLASH', 'E'), ('EXPLODE', 'E'), ('DASHSLASH', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('PROJECTILE', 0, 'form', 'set', 'PROJECTILE'),
 	('SLASH', 0, 'form', 'set', 'SLASH'),
 	('EXPLODE', 0, 'form', 'set', 'EXPLODE'),
-	('DASHSLASH', 0, 'form', 'set', 'DASHSLASH'),
-	('ZAP', 0, 'form', 'set', 'ZAP');
+	('DASHSLASH', 0, 'form', 'set', 'DASHSLASH');
 
 
 -- ---- element ----------------------------------------------------------------
@@ -133,8 +138,8 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 INSERT INTO parts (id, name, category, heat, stack_limit, description) VALUES
 	('DAMAGE', 'DAMAGE +', 'stat', 0.3, NULL, 'Raises damage, and each one stacked raises it by more than the last. Stable and simple, but interacts with little else.'),
 	('SIZE', 'SIZE x', 'stat', 0.4, 3, 'Scales the attack by 1.6. Melee arcs widen and reach further. Stacks up to 3.'),
-	('SPEED', 'SPEED x', 'stat', 0.35, 4, 'Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. A beam reaches a little further too. Does nothing to a flow with neither. Stacks up to 4, and at 4 a bolt flies at laser speed.'),
-	('RANGE', 'RANGE x', 'stat', 0.35, 3, 'Bolts carry 1.75x as far before they fade, a beam reaches 1.75x as far, and SWIFT STRIKE lunges 1.75x as far. Does nothing to any other attack. Stacks up to 3, which is the most range there is.'),
+	('SPEED', 'SPEED x', 'stat', 0.35, 4, 'Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. Does nothing to any other attack. Stacks up to 4, and at 4 a bolt flies at laser speed.'),
+	('RANGE', 'RANGE x', 'stat', 0.35, 3, 'Bolts carry 1.75x as far before they fade, and SWIFT STRIKE lunges 1.75x as far. Does nothing to any other attack. Stacks up to 3, which is the most range there is.'),
 	('SHATTER', 'SHATTER', 'stat', 0.45, NULL, 'Breaks the frost on an enemy slowed by it: the hit lands far harder, and the enemy thaws. Each one stacked breaks harder still. Worth nothing on its own — pair it with ICE, or with a board that lands twice.');
 
 INSERT INTO ports (part_id, side) VALUES
@@ -184,7 +189,7 @@ INSERT INTO parts (id, name, category, heat, description) VALUES
 	('HEALTH_DRAIN', 'HEALTH DRAIN', 'behavior', 0.6, 'Every enemy this attack hurts gives health back to the caster: a fifth of the damage dealt, and a fifth more for each one stacked. What keeps you standing is landing hits.'),
 	('STUN', 'STUN', 'behavior', 0.6, 'Struck enemies are stunned: for a moment they stand where they are and cannot attack. Each one stacked holds them longer. Once it wears off, an enemy shrugs off the next stun for a while.'),
 	('POSSESS', 'POSSESS', 'behavior', 0.9, 'Takes over the monster struck for 5 seconds, unharmed, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, left behind and still hunted. Bosses resist it.'),
-	('AUTO_AIM', 'AUTO-AIM', 'behavior', 0.4, 'Aims the attack at the nearest enemy, wherever you point: bolts and beams go straight at it and SWIFT STRIKE lunges through it, as far as each reaches, and a swing turns to it. Each one stacked looks further for one.');
+	('AUTO_AIM', 'AUTO-AIM', 'behavior', 0.4, 'Aims the attack at the nearest enemy, wherever you point: bolts go straight at it and SWIFT STRIKE lunges through it, as far as each reaches, and a swing turns to it. Each one stacked looks further for one.');
 
 INSERT INTO ports (part_id, side) VALUES
 	('PIERCE', 'E'), ('HOMING', 'E'),
