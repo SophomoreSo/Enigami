@@ -301,8 +301,8 @@ has a second layout (`UiKit.mobile`), and at a desk each is exactly as it was:
   bigger. A desk's is worked with a wheel to turn a part, a second button to
   take one off, and thirty-six parts in rows 20 high; a thumb has none of
   those. So the board is as big as the screen lets it be — a first workbench's
-  cells are 82 across where a desk's are 50, and the biggest grid still fits
-  at 50 — the parts come a category at a time, on tabs, each a plate with its
+  cells are 82 across where a desk's are 78, and the biggest grid still fits
+  at 50, a desk's least — the parts come a category at a time, on tabs, each a plate with its
   name written big, and under them are TURN and REMOVE. The weapons whose
   graphs it opens stand under the X, a plate each. A touch on a plate
   takes the part in hand and a touch on an empty cell sets it down; a touch on

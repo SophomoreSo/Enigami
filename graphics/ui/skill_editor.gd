@@ -60,7 +60,13 @@ extends Control
 signal board_changed()
 signal closed()
 
+## The least a desk's cell is across. A desk's board grows its cells past it to
+## stand as tall as the parts beside it (`_desk_layout`), and a thumb's to fill
+## its room; neither ever shrinks one under it.
 const CELL := 50
+## The least room a desk's layout leaves at either side of the screen, where the
+## weapons, the board and the parts take all the rest.
+const EDGE_LEAST := 8.0
 ## How far apart a desk's board and parts stand, from the board's frame to the
 ## parts' panel. See `_desk_layout`.
 const BOARD_TO_PARTS := 48.0
@@ -116,9 +122,10 @@ const NOWHERE := Vector2i(-1, -1)
 ##     plate of its own; under it, where there are weapons to choose between,
 ##     a plate each, THUMB_BTN square, their pictures on them;
 ##   * the board, in the room under the X and left of the parts, its cells as big
-##     as that room lets them be: at a desk a cell is 50 across whatever the
-##     grid, and here a first workbench's seven by five stands at 90 — 82
-##     beside the weapons — a thumb's width. Under it, COPY and PASTE, each THUMB_BTN tall;
+##     as that room lets them be: at a desk a cell is as big as stands the
+##     board as tall as the parts, 78 on a first workbench's seven by five,
+##     and here that grid stands at 90 — 82 beside the weapons — a thumb's
+##     width. Under it, COPY and PASTE, each THUMB_BTN tall;
 ##   * down the right, THUMB_PARTS wide and the screen's height, the parts: a
 ##     tab a category, and beside them the picked category's parts, a plate
 ##     each, with the name written at the size a thumb's page writes at. A
@@ -251,6 +258,9 @@ var _flow_key: Array = []
 ## Mobile mode's layout, and what it was worked out for. See `_thumb_layout`.
 var _thumb_rects: Dictionary = {}
 var _thumb_key: Array = []
+## A desk's layout, kept for the screen, grid and weapons it was worked out for.
+var _desk_rects: Dictionary = {}
+var _desk_key: Array = []
 ## The parts in their blocks, worked out on first use and kept. See `_pal_groups`.
 var _groups: Array = []
 ## Whether a draw is under way, and the cell's size and the board's corner as it
@@ -268,12 +278,13 @@ var _px := PixelDraw.new(self)
 func thumb() -> bool:
 	return UiKit.mobile()
 
-## How big a cell of the board is drawn: CELL at a desk, and for a thumb as big
-## as the room beside the parts allows.
+## How big a cell of the board is drawn: at a desk big enough for the board to
+## stand as tall as the parts, and for a thumb as big as the room beside the
+## parts allows — never under CELL either way.
 func cell_size() -> float:
 	if _drawing:
 		return _drawn_cell
-	return float(_thumb_layout()["cell"]) if thumb() else float(CELL)
+	return float(_thumb_layout()["cell"]) if thumb() else float(_desk_layout()["cell"])
 
 ## The top-left corner of the board's first cell.
 func board_origin() -> Vector2:
@@ -563,34 +574,64 @@ const BTN_W := 92.0
 const BTN_GAP := 8.0
 
 ## Where a desk's board and parts stand: side by side in the middle of the
-## screen, BOARD_TO_PARTS apart, the pair halfway across it and each halfway
-## down it — the board with COPY and PASTE under it, which go where it goes.
-## `board` is the top-left of its first cell and `parts` that of the first row,
-## the gutter the category names sit in included: what `board_origin` and the
-## palette's rows are laid out from. A board a Workbench has grown takes more
-## of the middle, and the parts stand further over for it. The X stays in the
-## screen's own corner.
+## screen, BOARD_TO_PARTS apart, the pair halfway across it — the board with
+## COPY and PASTE under it, which go where it goes. `board` is the top-left of
+## its first cell and `parts` that of the first row, the gutter the category
+## names sit in included: what `board_origin` and the palette's rows are laid
+## out from; `cell` is how big a cell is drawn, and `tall` how tall the two
+## stand. The X stays in the screen's own corner.
+##
+## The board and the parts stand on the same lines, top and foot. The board's
+## cells grow until it stands, COPY and PASTE and all, as tall as the parts'
+## panel — on the PIXEL grid, an odd number of PIXELs so an icon lands in the
+## middle of one, never under CELL and no wider than the screen has room for —
+## and a board a Workbench has grown that already stands taller at CELL has
+## the panel stretched down to its foot (`_pal_panel`). Both are halfway down.
 ##
 ## The weapons down the board's left go with it, and the three are in the
-## middle together. Where they do not fit BOARD_TO_PARTS apart — the biggest
-## board, beside the weapons, on a screen 1280 across — the room before the
-## parts is what gives, down to BOARD_TO_PARTS_LEAST.
+## middle together. Where they do not fit BOARD_TO_PARTS apart — the first
+## board at a cell grown that big, or the biggest, beside the weapons, on a
+## screen 1280 across — the room before the parts is what gives, down to
+## BOARD_TO_PARTS_LEAST.
 func _desk_layout() -> Dictionary:
 	var vp := get_viewport_rect().size
 	var b := current_board()
 	var grid := Vector2(b.width, b.height) if b != null else Vector2(7, 5)
-	var frame := grid * float(CELL) + Vector2(20, 20)
+	var key := [vp, grid, shelf.size()]
+	if not _desk_rects.is_empty() and _desk_key == key:
+		return _desk_rects
+	_desk_key = key
 	var panel := _pal_panel_size()
 	var weapons := SHELF_W + SHELF_AWAY if not shelf.is_empty() else 0.0
+	var foot := BTN_GAP + BTN_H
+	var cell := _odd_up(maxf(float(CELL), (panel.y - foot - 20.0) / grid.y))
+	var most := (vp.x - EDGE_LEAST * 2.0 - weapons - BOARD_TO_PARTS_LEAST - panel.x - 20.0) / grid.x
+	if cell > most:
+		cell = maxf(float(CELL), _odd_down(most))
+	var frame := grid * cell + Vector2(20, 20)
+	var tall := maxf(frame.y + foot, panel.y)
 	var gap := BOARD_TO_PARTS
 	var over := weapons + frame.x + gap + panel.x - (vp.x - CORNER.x * 2.0)
 	if over > 0.0:
 		gap = maxf(BOARD_TO_PARTS_LEAST, gap - over)
 	var left := _halfway(vp.x, weapons + frame.x + gap + panel.x) + weapons
-	return {
-		"board": Vector2(left, _halfway(vp.y, frame.y + BTN_GAP + BTN_H)) + Vector2(10, 10),
-		"parts": Vector2(left + frame.x + gap, _halfway(vp.y, panel.y)) + Vector2(10, 10),
+	var top := _halfway(vp.y, tall)
+	_desk_rects = {
+		"board": Vector2(left, top) + Vector2(10, 10),
+		"parts": Vector2(left + frame.x + gap, top) + Vector2(10, 10),
+		"cell": cell,
+		"tall": tall,
 	}
+	return _desk_rects
+
+## The least size at or over `across` that is a whole, odd number of PIXELs —
+## 50, 54, 58 — so an icon centred in a cell that size lands on the grid.
+static func _odd_up(across: float) -> float:
+	return ceilf((across - PX) / (PX * 2.0)) * PX * 2.0 + PX
+
+## The most at or under `across` that is a whole, odd number of PIXELs.
+static func _odd_down(across: float) -> float:
+	return floorf((across - PX) / (PX * 2.0)) * PX * 2.0 + PX
 
 ## Where the plate of the weapon at `i` on the shelf stands: down the left of a
 ## desk's board from the top of its frame, and under the X for a thumb.
@@ -1140,8 +1181,8 @@ const FLOW_TRACK := Color(0.3, 0.5, 0.43)
 const COND_EDGE := Color(0.82, 0.84, 0.88)
 const COND_TRACK := Color(0.36, 0.38, 0.42)
 const FLOW_RATE := 0.8
-## At a desk's cell. A thumb's is bigger, and the dots keep their two to an edge:
-## see `_flow_dot_span`.
+## At the least cell. A bigger one — a desk's grown as tall as the parts, or a
+## thumb's — keeps the dots two to an edge: see `_flow_dot_span`.
 const FLOW_DOT_SPAN := float(CELL) * 0.5
 ## A dot is a length of the edge itself rather than a mark sitting on top of
 ## one: this many PIXELs of it, a PIXEL thick like the edge it replaces, so it
@@ -1219,7 +1260,7 @@ func _draw() -> void:
 	_drawing = false
 
 ## How many PIXELs a pixel of a part's icon is drawn at on the board: ICON_ZOOM
-## at a desk's cell, and more as a thumb's cell has the room.
+## at the least cell, and more as a bigger one has the room.
 func _icon_zoom() -> int:
 	return maxi(ICON_ZOOM, int(cell_size() / 25.0))
 
@@ -2824,8 +2865,9 @@ func _pal_panel() -> Rect2:
 	if thumb():
 		return _thumb_layout()["column"]
 	_pal_list()   # for _pal_height and _pal_origin, which the layout works out
+	# Down to the board's foot where the board stands taller than the rows.
 	return Rect2(_pal_origin - Vector2(10, 10),
-		Vector2(PAL_GUTTER + PAL_COLS * PAL_W - 4 + 20, _pal_height + 20))
+		Vector2(PAL_GUTTER + PAL_COLS * PAL_W - 4 + 20, maxf(_pal_height + 20, float(_desk_layout()["tall"]))))
 
 ## How big a desk's parts panel stands: 10 clear of its rows on every side, the
 ## gutter included. Counted off the blocks rather than off the rows, since

@@ -461,9 +461,9 @@ func _copy_and_paste() -> void:
 func _at_a_desk() -> void:
 	Touch.set_mode(Touch.OFF)
 	await frames(4)
-	check(not ed.thumb() and ed.cell_size() == float(SkillEditor.CELL)
-			and ed.board_origin() == ed._desk_layout()["board"],
-		"at a desk the board is a desk's: the same cell, in the same place")
+	check(not ed.thumb() and ed.cell_size() == float(ed._desk_layout()["cell"])
+			and ed.cell_size() >= float(SkillEditor.CELL) and ed.board_origin() == ed._desk_layout()["board"],
+		"at a desk the board is a desk's: its cell, in its place")
 	check(ed._palette_ids().size() == ed._pool_ids().size(), "with every part in its rows at once")
 	check(ed._close_rect() == Rect2(SkillEditor.CORNER, Vector2.ONE * SkillEditor.CLOSE_SIDE),
 		"and the X a desk's, in its corner")

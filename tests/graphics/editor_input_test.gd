@@ -45,7 +45,7 @@ func button(p: Vector2, idx: int, pressed: bool) -> void:
 	await get_tree().process_frame
 
 func cell_pos(c: Vector2i) -> Vector2:
-	return ed.board_origin() + Vector2(c.x * SkillEditor.CELL, c.y * SkillEditor.CELL) + Vector2(25, 25)
+	return ed._cell_center(c)
 
 func pal_pos(id: String) -> Vector2:
 	return ed._pal_rect(ed._palette_ids().find(id)).get_center()
