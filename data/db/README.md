@@ -482,7 +482,7 @@ INSERT INTO boards (id) VALUES ('arbiter_phase2');
 
 INSERT INTO board_parts (board_id, x, y, part, facing, root) VALUES
 	('arbiter_phase2', 3, 2, 'EXPLODE', 'E', 1), ('arbiter_phase2', 4, 2, 'ON_HIT', 'E', 0),
-	('arbiter_phase2', 5, 2, 'DELAY', 'E', 0), ('arbiter_phase2', 6, 2, 'DELAY', 'E', 0),
+	('arbiter_phase2', 5, 2, 'BRIDGE', 'E', 0), ('arbiter_phase2', 6, 2, 'BRIDGE', 'E', 0),
 	('arbiter_phase2', 4, 3, 'PROJECTILE', 'E', 0), ('arbiter_phase2', 5, 3, 'DUPLICATE', 'N', 0);
 ```
 
@@ -494,7 +494,7 @@ board by the middle of its right edge — past `(6, 2)`, heading east, on a 7×5
 — and only what leaves there is an attack. So a board is a chain of parts
 touching from its root to that cell, and every branch on it is walked back
 round to it: above, the ON HIT's branch drops a row, and the DUPLICATE facing
-north turns it home into the DELAYs the explosion leaves by.
+north turns it home into the BRIDGEs the explosion leaves by.
 
 | Column | Meaning |
 |---|---|

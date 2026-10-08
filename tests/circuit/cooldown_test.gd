@@ -55,7 +55,7 @@ func cast_at(r: SkillRunner, bonus: int) -> Dictionary:
 			break
 	return {"wipe": wipe, "seconds": secs}
 
-## A straight board: a DELAY on the root and the listed parts in a row after
+## A straight board: a BRIDGE on the root and the listed parts in a row after
 ## it, on a board exactly as long, so the last of them is against the way out.
 ## Returns how many ticks one whole cycle of it takes.
 func ticks_of(ids: Array) -> int:
@@ -63,7 +63,7 @@ func ticks_of(ids: Array) -> int:
 	for id in ids:
 		long += int(Components.get_def(id)["cells"])
 	var b := SkillBoard.new(long, 5, "chain")
-	b.set_root("DELAY")
+	b.set_root("BRIDGE")
 	var x := 1
 	for id in ids:
 		b.place(String(id), Vector2i(x, 2), 0)
@@ -136,12 +136,12 @@ func _ready() -> void:
 	# against the cast actually running: a charged cast followed by an uncharged
 	# one had the slot reading four tenths full at the instant it was castable.
 	var ring := SkillBoard.new(7, 5, "ring")
-	ring.set_root("DELAY", Vector2i(3, 2))
-	ring.place("DELAY", Vector2i(4, 2), 0)
+	ring.set_root("BRIDGE", Vector2i(3, 2))
+	ring.place("BRIDGE", Vector2i(4, 2), 0)
 	ring.place("ON_HIT", Vector2i(5, 2), 0)     # on through the SLASH and out, and its branch round
 	ring.place("SLASH", Vector2i(6, 2), 0)
-	ring.place("DELAY", Vector2i(5, 3), 2)
-	ring.place("DELAY", Vector2i(4, 3), 3)      # back into the first DELAY
+	ring.place("BRIDGE", Vector2i(5, 3), 2)
+	ring.place("BRIDGE", Vector2i(4, 3), 3)     # back into the first BRIDGE
 	var lr := SkillRunner.new(ring)
 	lr.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
 	var charged := cast_at(lr, SkillRunner.MAX_TTL_BONUS)
@@ -169,15 +169,20 @@ func _ready() -> void:
 			wide.append(id)
 	check(wide.is_empty(), "and every part is one cell, so one tick (%s)" % str(wide))
 	# And the board agrees: every cell added to the path is one more tick,
-	# whichever part it belongs to. DELAY, which used to hold a flow for twelve
-	# ticks of its own, is now a cell like any other.
-	var one := ticks_of(["DELAY"])
-	check(ticks_of(["DELAY", "DELAY"]) - one == 1,
-		"a second DELAY costs one tick (%d)" % (ticks_of(["DELAY", "DELAY"]) - one))
+	# whichever part it belongs to.
+	var one := ticks_of(["BRIDGE"])
+	check(ticks_of(["BRIDGE", "BRIDGE"]) - one == 1,
+		"a second BRIDGE costs one tick (%d)" % (ticks_of(["BRIDGE", "BRIDGE"]) - one))
 	# And a board is its parts and the wait every cast has: going out of it
 	# costs nothing.
 	check(one == 2 + SkillRunner.BASE_COOLDOWN_TICKS,
-		"a board of two DELAYs is two ticks and the wait (%d)" % one)
+		"a board of two BRIDGEs is two ticks and the wait (%d)" % one)
+	# DELAY, which used to hold a flow for twelve ticks of its own, is a cell
+	# like any other: what it adds is its heat, to the wait after the walk.
+	var held := ticks_of(["DELAY"]) - one
+	var heat_ticks := int(round(float(Components.get_def("DELAY")["heat"]) * SkillRunner.HEAT_TO_TICKS))
+	check(heat_ticks > 0 and held == heat_ticks,
+		"a DELAY where a BRIDGE was adds its heat to the wait, %d ticks of it (%d)" % [heat_ticks, held])
 
 	print("[CD] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)

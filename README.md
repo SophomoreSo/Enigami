@@ -444,7 +444,8 @@ first attack leaving the board is spent the moment you press, so the attack
 lands on the press, and those ticks are charged back onto the cooldown instead.
 A long board makes you wait for the *next* shot, never for this one. Everything
 the board does after that first attack still plays out in real time, which is
-what lets `DELAY` hold a trigger's branch back behind the attack it follows.
+what lets a trigger's branch be held back behind the attack it follows, by
+giving it further to walk.
 
 - Nothing forks a flow, so a cast is one attack; `DUPLICATE x3` is how it
   becomes three. `SPLIT` and `TEE` used to fork it, and are retired.
@@ -489,10 +490,14 @@ what lets `DELAY` hold a trigger's branch back behind the attack it follows.
   and a wall of them is far worse than none. The delay is measured in real
   seconds rather than ticks on purpose: a tick-denominated cost would be shrunk
   by the very speed-up it pays for, and the two would cancel.
-- `DELAY` is a cell of waiting and nothing more: it turns a flow and leaves it
-  as it was, which makes it the part for steering a branch round to the way
-  out — and, since every part is a tick, for staggering one branch against
-  another by giving it further to walk.
+- `BRIDGE` carries a flow one cell and does nothing else: it turns the flow
+  and leaves it as it was, which makes it the part for steering a branch round
+  to the way out — and, since every part is a tick, for staggering one branch
+  against another by giving it further to walk. It is what WIRE and BEND were.
+- `DELAY` makes every cast that passes through it wait longer before the next,
+  and two of them twice as long: its heat is all it does, and it does nothing
+  to the flow itself. On a weapon each one adds about a quarter of a second to
+  the wait between casts.
 - A bolt carries a fixed distance and then fades — a quarter of a room as
   standard, and the weapon scales it: a good third of a room off the Gun, a
   quarter off the Rock, a sixth off the Sword. You fight inside a part of a

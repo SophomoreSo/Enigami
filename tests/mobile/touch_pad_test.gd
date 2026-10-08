@@ -937,12 +937,12 @@ func _the_reach() -> void:
 	touch(1, landed + Vector2(radius * 2.0, 0.0), false)
 	await frames(2)
 
-## A DELAY on the root in the bottom corner, and the flow walks the rest of the
+## A BRIDGE on the root in the bottom corner, and the flow walks the rest of the
 ## board — round the bottom, up the left side and along the top — down into a
 ## SLASH against the way out, and leaves eighteen ticks after the cast.
 func one_later() -> SkillBoard:
 	var b := SkillBoard.new(7, 5, "one later")
-	b.set_root("DELAY", Vector2i(5, 4), 2)
+	b.set_root("BRIDGE", Vector2i(5, 4), 2)
 	b.place("SLASH", Vector2i(6, 2), 0)
 	var walk: Array = []
 	for x in range(4, 0, -1):
@@ -954,7 +954,7 @@ func one_later() -> SkillBoard:
 	walk.append([Vector2i(6, 0), 1])
 	walk.append([Vector2i(6, 1), 1])
 	for step in walk:
-		b.place("DELAY", step[0], step[1])
+		b.place("BRIDGE", step[0], step[1])
 	return b
 
 func _cast_done() -> void:

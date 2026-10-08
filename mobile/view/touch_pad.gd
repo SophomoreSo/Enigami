@@ -333,8 +333,8 @@ var _aim_off: Vector2 = Vector2.ZERO
 ## thumb that aims it is the thumb that casts it, so the stick would drop back
 ## to the left thumb's aim in the very moment of the cast — and while a cast's
 ## first attack goes off at once, everything the board does after that plays
-## out in real time: a second branch, a staggered DELAY. It is held up until
-## the cast has gone off (`Player.casting`) — see `_keep_throw`.
+## out in real time: a second branch, one held back by a longer walk. It is
+## held up until the cast has gone off (`Player.casting`) — see `_keep_throw`.
 var _held_throw: Dictionary = {}
 ## Fingers that were down when the face changed under them, until they lift.
 ## What a thumb was doing belonged to the face it did it on. The one that tapped

@@ -363,8 +363,8 @@ func _arm_triggers(life: int) -> void:
 ## those ticks the instant it starts so the attack lands on the press, then
 ## charges exactly the same number back onto the cooldown when the cycle ends.
 ## The cadence is therefore untouched, and whatever the board does *after* that
-## first effect still plays out in real time — DELAY goes on staggering
-## branches and triggers against each other exactly as before.
+## first effect still plays out in real time — the parts a branch walks go on
+## staggering it against the rest exactly as before.
 ##
 ## A board no flow gets out of has no cast to bring forward, and running it
 ## dry here would collapse a whole circulating cycle into one frame, so it is

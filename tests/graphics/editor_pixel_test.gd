@@ -345,10 +345,10 @@ func _ready() -> void:
 	big.place("DAMAGE", Vector2i(2, 1), 1)
 	big.place("FIRE", Vector2i(2, 2), 2)        # closing the ring
 	big.place("SLASH", Vector2i(3, 2), 0)       # stranded, and drawn faint
-	big.place("DELAY", Vector2i(5, 1), 0)
-	big.place("DELAY", Vector2i(6, 1), 1)
-	big.place("DELAY", Vector2i(6, 2), 2)
-	big.place("DELAY", Vector2i(5, 2), 3)       # a ring with nothing feeding it
+	big.place("BRIDGE", Vector2i(5, 1), 0)
+	big.place("BRIDGE", Vector2i(6, 1), 1)
+	big.place("BRIDGE", Vector2i(6, 2), 2)
+	big.place("BRIDGE", Vector2i(5, 2), 3)      # a ring with nothing feeding it
 	wb._sim_dirty = true
 	wb._update_hover(wb._cell_center(Vector2i(2, 1)))
 	wb._mouse_pos = wb._cell_center(Vector2i(2, 1))
@@ -386,7 +386,7 @@ func _ready() -> void:
 			big.erase_at(bc)
 		big.move_root(Vector2i(0, 2) + o, 0)
 		big.place("DASHSLASH", Vector2i(1, 2) + o, 0)    # out east, off the root
-		big.place("DELAY", Vector2i(2, 2) + o, 0)
+		big.place("BRIDGE", Vector2i(2, 2) + o, 0)
 		big.place("ON_HIT", Vector2i(3, 2) + o, 0)       # out east to the way out, branch south
 		big.place("OVERCLOCK", Vector2i(3, 3) + o, 2)    # the branch, running west
 		big.place("OVERCLOCK", Vector2i(2, 3) + o, 2)
@@ -458,7 +458,7 @@ func _ready() -> void:
 	big.move_root(Vector2i(6, 4), 0)
 	big.place("FIRE", Vector2i(7, 4), 0)
 	big.place("DAMAGE", Vector2i(8, 4), 0)
-	big.place("DELAY", Vector2i(9, 4), 0)
+	big.place("BRIDGE", Vector2i(9, 4), 0)
 	big.place("SLASH", Vector2i(10, 4), 0)       # against the way out
 	wb._sim_dirty = true
 	await frames(2)
@@ -564,10 +564,10 @@ func _ready() -> void:
 	for mc in big.cells.keys().duplicate():
 		big.erase_at(mc)
 	big.move_root(Vector2i(7, 4), 0)
-	big.place("ON_HIT", Vector2i(8, 4), 0)       # on east, and its branch south into a DELAY facing back
+	big.place("ON_HIT", Vector2i(8, 4), 0)       # on east, and its branch south into a BRIDGE facing back
 	big.place("ON_HIT", Vector2i(9, 4), 0)       # on east, and its branch south into nothing
 	big.place("SLASH", Vector2i(10, 4), 0)       # and out
-	big.place("DELAY", Vector2i(8, 5), 3)
+	big.place("BRIDGE", Vector2i(8, 5), 3)
 	wb._sim_dirty = true
 	wb._update_hover(Vector2(-1, -1))
 	await frames(2)

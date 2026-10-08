@@ -151,12 +151,12 @@ func _ready() -> void:
 	# A looping board is what has somewhere to spend it: an ON HIT whose branch
 	# goes round a ring, a follow-up a lap.
 	var loop := SkillBoard.new(7, 5, "Winding Blade")
-	loop.set_root("DELAY", Vector2i(3, 2))
+	loop.set_root("BRIDGE", Vector2i(3, 2))
 	loop.place("DAMAGE", Vector2i(4, 2), 0)
 	loop.place("ON_HIT", Vector2i(5, 2), 0)     # on through the SLASH and out, and its branch round
 	loop.place("SLASH", Vector2i(6, 2), 0)
 	loop.place("DAMAGE", Vector2i(5, 3), 2)
-	loop.place("DELAY", Vector2i(4, 3), 3)      # back into the first DAMAGE
+	loop.place("BRIDGE", Vector2i(4, 3), 3)     # back into the first DAMAGE
 	sb.graphs[sb.current_weapon()] = loop
 	sb._apply_weapon()
 	p.runner.fired.connect(func(_x: Payload) -> void: shots += 1)

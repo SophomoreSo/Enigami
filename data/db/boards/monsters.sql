@@ -35,10 +35,11 @@ INSERT INTO board_parts (board_id, x, y, part, facing, root) VALUES
 
 	-- An explosion whose every hit sends a bolt, three times over. The ON HIT's
 	-- branch drops to the row below, and the DUPLICATE turns it back up into
-	-- the explosion's line to leave the way it does. The bolts burst nothing:
-	-- a branch starts without the EXPLODE before its trigger.
+	-- the explosion's line to leave the way it does, over two BRIDGEs that add
+	-- nothing to the wait. The bolts burst nothing: a branch starts without the
+	-- EXPLODE before its trigger.
 	('arbiter_phase2', 3, 2, 'EXPLODE', 'E', 1), ('arbiter_phase2', 4, 2, 'ON_HIT', 'E', 0),
-	('arbiter_phase2', 5, 2, 'DELAY', 'E', 0), ('arbiter_phase2', 6, 2, 'DELAY', 'E', 0),
+	('arbiter_phase2', 5, 2, 'BRIDGE', 'E', 0), ('arbiter_phase2', 6, 2, 'BRIDGE', 'E', 0),
 	('arbiter_phase2', 4, 3, 'PROJECTILE', 'E', 0), ('arbiter_phase2', 5, 3, 'DUPLICATE', 'N', 0),
 
 	-- The Jean Grey test's rifle: one bolt, which the Gunman's kind makes

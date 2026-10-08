@@ -42,11 +42,13 @@ INSERT INTO codes (code, id) VALUES
 	(36, 'POSSESS'),
 	(37, 'AUTO_AIM'),
 	(38, 'HEALTH_DRAIN'),
-	(39, 'WATER');
+	(39, 'WATER'),
+	(40, 'BRIDGE');
 
 -- WIRE and BEND carried a flow one cell and did nothing else to it, which
 -- every part already does: any part takes flow on any side and sends it where
--- it points. INPUT was where a flow started; a board's root is that now, the
+-- it points. (BRIDGE is that part again, with a number of its own: see the
+-- flow block.) INPUT was where a flow started; a board's root is that now, the
 -- weapon's own part (`SkillBoard.root`). OUTPUT was where a flow became an
 -- attack; the middle of the board's right edge is that now
 -- (`SkillBoard.way_out`). A board that still has any of them reads with the
@@ -222,17 +224,25 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 -- ---- flow ---------------------------------------------------------------------
 -- OVERCLOCK does nothing to a flow: it runs the whole board on a faster clock,
 -- which `SkillBoard.analyze` counts off the grid.
+--
+-- Nor does DELAY: what it does is its heat, the wait it adds to every cast
+-- that passes through it (`SkillRunner.HEAT_TO_TICKS`), as much again for each
+-- one. It used to be the part a flow was steered round with, at no heat, and
+-- that is BRIDGE's job now. BRIDGE does nothing at all: it carries a flow one
+-- cell, a tick as every part is, and that is all it is for — what WIRE and
+-- BEND were, a part again.
 
 INSERT INTO parts (id, name, category, heat, description) VALUES
 	('DUPLICATE', 'DUPLICATE x3', 'flow', 3.0, 'Produces the same result three times at full damage. Generates a lot of heat.'),
 	('OVERCLOCK', 'OVERCLOCK', 'flow', 0.0, 'Runs the whole board on a faster clock, at the price of a settling delay between cycles. Each one adds less speed than the last while the delay grows faster, so a few pay off and a wall of them does not.'),
-	('DELAY', 'DELAY', 'flow', 0.0, 'One cell of waiting and nothing more: it turns a flow and leaves it as it was. Steer a flow round to the way out with it, or walk a trigger''s branch round a ring and back.'),
+	('DELAY', 'DELAY', 'flow', 2.0, 'Makes every cast that passes through it wait longer before the next, and each one more adds as much again. It does nothing else: it turns a flow and leaves it as it was.'),
 	('TIME_DILATION', 'TIME DILATION', 'flow', 2.0, 'Slows the world and the board alike. Not a speed buff — a change in the pace of the fight.'),
-	('INVERT', 'INVERT', 'flow', 0.4, 'Turns the part right before it inside out: DAMAGE heals what it strikes, FIRE, ICE and STUN cleanse it, GRAVITY pushes away, KNOCKBACK pulls in, and SIZE, SPEED and RANGE shrink. After anything else it does nothing.');
+	('INVERT', 'INVERT', 'flow', 0.4, 'Turns the part right before it inside out: DAMAGE heals what it strikes, FIRE, ICE and STUN cleanse it, GRAVITY pushes away, KNOCKBACK pulls in, and SIZE, SPEED and RANGE shrink. After anything else it does nothing.'),
+	('BRIDGE', 'BRIDGE', 'flow', 0.0, 'Carries a flow one cell and does nothing else: it turns the flow and leaves it as it was. Steer a flow round to the way out with it, or walk a trigger''s branch round a ring and back.');
 
 INSERT INTO ports (part_id, side) VALUES
 	('DUPLICATE', 'E'), ('OVERCLOCK', 'E'), ('DELAY', 'E'), ('TIME_DILATION', 'E'),
-	('INVERT', 'E');
+	('INVERT', 'E'), ('BRIDGE', 'E');
 
 -- INVERT does whatever the part before it has rows of `inversions` for: see
 -- the foot of the file.
