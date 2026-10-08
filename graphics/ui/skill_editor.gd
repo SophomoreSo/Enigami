@@ -15,7 +15,9 @@ extends Control
 ## part, and nothing is placed there — it is lit while a flow reaches it, and in
 ## the faults' red while none does, which is a board that casts nothing. A flow
 ## only goes from a part into the one beside it, so what reaches the arrow is a
-## chain of parts touching, from the root to the cell against it.
+## chain of parts touching, from the root to the cell against it. It bobs out
+## of the board and back, pointing at the end a board's flow has to get to
+## (`_way_out_bob`).
 ##
 ## Drawn in UiKit's pixel look, like the title and its settings: text is the
 ## pixel face at PIXEL_TEXT, and every fill, border, arrow and icon is whole
@@ -1067,6 +1069,11 @@ const INFINITY := [".##...##.", "#..#.#..#", "#...#...#", "#..#.#..#", ".##...##
 ## a desk the board stands BOARD_TO_PARTS from them.
 const WAY_OUT_DEEP := 8
 const WAY_OUT_DEEP_THUMB := 12
+## How far out of the board the way out bobs and back, in PIXELs, and how long
+## one bob takes. It goes no further than the room before the parts allows: on
+## a phone's widest board, next to none.
+const WAY_OUT_BOB := 2
+const WAY_OUT_BOB_TIME := 0.9
 
 func _draw() -> void:
 	# The cell's size and the board's corner, asked the once for the whole of
@@ -2297,10 +2304,12 @@ func _rebuild_way_out(b: SkillBoard) -> void:
 
 ## The way out, drawn on the frame in the middle of the right edge: an arrowhead
 ## with its back against the last cell and its tip outside the board, in the
-## colour of what reaches it (`_rebuild_way_out`). A column of it at a time,
-## each a PIXEL shorter at either end than the one before, centred on the row.
+## colour of what reaches it (`_rebuild_way_out`), bobbing out and back. A
+## column of it at a time, each a PIXEL shorter at either end than the one
+## before, centred on the row.
 func _draw_way_out(b: SkillBoard) -> void:
 	var r := _way_out_rect(b)
+	r.position.x += _way_out_bob(_pal_panel().position.x - r.end.x)
 	var deep := int(r.size.x / float(PX))
 	for i in deep:
 		var half := float(deep - 1 - i) * float(PX)
@@ -2313,6 +2322,19 @@ func _way_out_rect(b: SkillBoard) -> Rect2:
 	var deep := WAY_OUT_DEEP_THUMB if cell_size() >= 80.0 else WAY_OUT_DEEP
 	var extent := Vector2(deep, deep * 2 - 1) * float(PX)
 	return Rect2(_cell_center(b.way_out()) + Vector2(cell_size() * 0.5, -extent.y * 0.5), extent)
+
+## How far out of the board the way out is drawn now, in screen pixels, with
+## `room` of them between its tip at rest and the parts: out and back by whole
+## PIXELs, eased at both ends, as far as WAY_OUT_BOB and a PIXEL short of the
+## parts — and not at all while the screen keeps still (`Video.icon_motion`).
+func _way_out_bob(room: float) -> float:
+	if not Video.icon_motion:
+		return 0.0
+	var most := mini(WAY_OUT_BOB, int(room / float(PX)) - 1)
+	if most <= 0:
+		return 0.0
+	var out := 0.5 - 0.5 * cos(TAU * _flow_time / WAY_OUT_BOB_TIME)
+	return roundf(out * float(most)) * float(PX)
 
 ## A two-cell part is one box across both of its cells rather than two boxes
 ## side by side: the seam between them would otherwise read as two parts, and

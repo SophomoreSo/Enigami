@@ -1,7 +1,7 @@
 extends Node
 ## The part under the pointer moves on the assembly screen, through a film of
-## its own (`Style.COMPONENT_MOTION`), the rest stand still, and a setting
-## stops it (`Video.icon_motion`).
+## its own (`Style.COMPONENT_MOTION`), the rest stand still, the way out bobs
+## out of the board and back, and a setting stops both (`Video.icon_motion`).
 ##
 ## Every part has a film, cut into frames seven pixels square, the first being
 ## its icon at rest — so a board whose parts are kept still shows the icons it
@@ -11,9 +11,10 @@ extends Node
 ## first again. The screen moves the one part under the pointer — the part in
 ## hand, the board's part, or the parts' row — from the moment the pointer
 ## comes onto it, starting on its icon at rest, and keeps every other part on
-## its icon at rest; with the setting off, that one too. And the setting is
-## kept where the screen mode and the camera shake are, and is on where
-## nobody has set it.
+## its icon at rest; with the setting off, that one too. The way out goes out
+## and back by whole PIXELs, never closer than a PIXEL to the parts, and stands
+## still with the setting off. And the setting is kept where the screen mode
+## and the camera shake are, and is on where nobody has set it.
 ##
 ## No renderer needed: the films are pictures in a table, and which one the
 ## screen draws is a question it answers.
@@ -32,6 +33,7 @@ func _ready() -> void:
 	_round()
 	_pointer()
 	_screen()
+	_way_out()
 	_kept()
 	print("[MOTION] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)
@@ -163,6 +165,38 @@ func _screen() -> void:
 			ed._flow_time = came_on + float(tick) * 0.05
 			still = still and ed._icon(id, true) == Style.component_icon(id)
 	check(still, "with the setting off, the part under the pointer is its icon at rest too")
+	ed.free()
+	Video.icon_motion = was
+
+## The way out bobs out of the board and back, by whole PIXELs, out to
+## WAY_OUT_BOB of them where there is the room and short of the parts where
+## there is not — and with the setting off, not at all. A bob is sampled
+## thirty times over, so every place it stops at is seen.
+func _way_out() -> void:
+	var was := Video.icon_motion
+	var ed := SkillEditor.new()
+	var px := float(UiKit.PIXEL)
+	Video.icon_motion = true
+	var seen := {}
+	var whole := true
+	var short := true
+	for tick in 60:
+		ed._flow_time = float(tick) * SkillEditor.WAY_OUT_BOB_TIME / 30.0
+		var bob := ed._way_out_bob(200.0)
+		seen[bob] = true
+		whole = whole and is_equal_approx(fposmod(bob, px), 0.0)
+		short = short and ed._way_out_bob(px * 2.0) <= px
+	check(whole and seen.size() == SkillEditor.WAY_OUT_BOB + 1 and seen.has(0.0)
+			and seen.has(float(SkillEditor.WAY_OUT_BOB) * px),
+		"the way out bobs from where it rests out to WAY_OUT_BOB PIXELs and back, a PIXEL at a time (%s)"
+			% str(seen.keys()))
+	check(short, "and stops a PIXEL short of the parts where they stand near")
+	Video.icon_motion = false
+	var still := true
+	for tick in 60:
+		ed._flow_time = float(tick) * SkillEditor.WAY_OUT_BOB_TIME / 30.0
+		still = still and ed._way_out_bob(200.0) == 0.0
+	check(still, "with the setting off, the way out stands still")
 	ed.free()
 	Video.icon_motion = was
 

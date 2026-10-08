@@ -2,8 +2,8 @@ class_name VideoRows
 
 ## The settings that are about the machine rather than the game: whether the
 ## window takes the whole display, whether an impact is allowed to move the
-## camera, and whether the part under the pointer moves. All three are
-## `Video`'s.
+## camera, and whether the assembly screen moves its hints — the part under
+## the pointer, and the way out. All three are `Video`'s.
 ##
 ## Two screens carry settings — the title's and the pause menu's — and they are
 ## built by different files. A setting written out in both would become two
