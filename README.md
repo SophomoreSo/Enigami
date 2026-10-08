@@ -403,7 +403,8 @@ on every one.
 it: it is cast into it. A bolt off the rock is the rock itself, carrying
 whatever was built into the graph, and it leaves your hand empty — until you
 walk over it where it came down and pick it back up, the rock casts nothing,
-charges nothing, and says NO ROCK when you reach for it. A copy of it that the
+charges nothing, and says NO ROCK when you reach for it — unless its graph does
+nothing but headbutt (below), which needs no rock. A copy of it that the
 same cast sends — the rest of a `DUPLICATE` volley, a lap that comes round
 after it has gone — strikes as it does and is gone when it lands. A rock left
 in a room stays in that room, and is there when you come back for it. Your
@@ -411,6 +412,15 @@ hands in a monster (`POSSESS`) pick it up and throw it as your own do;
 stepping out, the monster lets it fall where it stands. A monster with its own
 mind never touches it. The pack has no stone, so the rock is drawn in code, a
 letter a pixel (`Style.DRAWN_TILES`).
+
+**A headbutt needs no weapon.** `HEADBUTT` is the one form with nothing in the
+hand: a short lunge along the aim that drives the head into the first enemy in
+the way and stops against it — `PIERCE` carries it on into the next. A graph
+whose every attack is a headbutt goes off whether its weapon is in hand or not:
+the rock lying across the room, every shuriken thrown, your hands in a monster
+that has not taken the weapon, which then headbutts with your graph instead of
+using its own attack. None of the weapon's multipliers weigh it. A graph that
+fires anything else as well still wants the weapon in hand.
 
 A board is a circuit. A pulse leaves the root, spends **one tick in every
 part** it enters, and mutates a payload on the way through — every part takes

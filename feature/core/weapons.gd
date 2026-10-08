@@ -131,10 +131,22 @@ static func base_payload(weapon_id: String) -> Payload:
 	p.speed = float(d["projectile_speed"])
 	return p
 
+## The forms the body makes with nothing in its hands: the head's. A graph whose
+## every attack is one of them goes off whether its weapon is in hand or not
+## (`Player.can_cast`), and the weapon's multipliers do not weigh it (`finalize`).
+const BARE_FORMS := ["HEADBUTT"]
+
+## Whether an attack of `form` is made with the weapon, so has to have it in hand.
+static func needs_weapon(form: String) -> bool:
+	return not BARE_FORMS.has(form)
+
 ## Weapon traits applied once the flow has resolved into an attack.
 static func finalize(weapon_id: String, p: Payload) -> Payload:
 	var d := get_def(weapon_id)
 	match p.form:
+		"HEADBUTT":
+			# The head strikes, not the weapon: none of its multipliers.
+			pass
 		"SLASH", "DASHSLASH":
 			p.damage *= float(d["melee_mul"])
 		"PROJECTILE":

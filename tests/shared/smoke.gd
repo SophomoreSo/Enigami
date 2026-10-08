@@ -113,7 +113,7 @@ func _run() -> void:
 	# Every attack form, straight through the spawner, bursting what it hits —
 	# and none, where the EXPLODE is the attack: a burst of its own, as a
 	# trigger's follow-up is here.
-	for form in ["PROJECTILE", "SLASH", "DASHSLASH", ""]:
+	for form in ["PROJECTILE", "SLASH", "DASHSLASH", "HEADBUTT", ""]:
 		var p := Payload.new()
 		p.form = form
 		p.explode = 1

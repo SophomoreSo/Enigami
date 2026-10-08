@@ -24,7 +24,7 @@ var range_px: float = BASE_RANGE
 ## is a distance of the attack's own rather than a range a shot flies to — see
 ## `Attacks.DASH_SLASH_REACH`. RANGE is what changes it.
 var lunge: float = 1.0
-var form: String = ""              ## "", PROJECTILE, SLASH, DASHSLASH
+var form: String = ""              ## "", PROJECTILE, SLASH, DASHSLASH, HEADBUTT
 var elements: Array[String] = []   ## FIRE / ICE
 var pierce: int = 0                ## extra targets an attack passes through
 ## The behaviours below are counts, not flags: 0 is without, and every part of

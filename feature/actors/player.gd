@@ -199,6 +199,9 @@ var _press_spent: bool = false
 ## Whether the monster has taken the weapon out of the body's hands. While it
 ## has, the weapon's graph is cast from the monster, and the body holds nothing.
 var vessel_armed: bool = false
+## Runner -> whether every attack its graph fires is a HEADBUTT (`bare_handed`),
+## walked once a graph and thrown away whenever a graph or the kit changes.
+var _bare: Dictionary = {}
 var room = null
 var aim: Vector2 = Vector2.RIGHT
 ## Where the player is pointing, in world space, as opposed to `aim` which is
@@ -362,6 +365,7 @@ func setup_kit(ids: Array, boards: Array, in_hand: int = 0) -> void:
 	var had := stock.duplicate()
 	weapons.clear()
 	runners.clear()
+	_bare.clear()
 	holders.clear()
 	stock.clear()
 	for i in mini(mini(ids.size(), boards.size()), MAX_WEAPONS):
@@ -430,13 +434,35 @@ func holds(id: String) -> bool:
 
 ## Whether the weapon in hand can go off from the hands the player is in: a
 ## thrown weapon only from the hands holding it; any other from the body, and
-## from a monster once it has taken it.
+## from a monster once it has taken it. A graph that only ever headbutts needs
+## none of that (`bare_handed`): the head is always there.
 func can_cast() -> bool:
 	if Weapons.is_thrown(weapon_id):
-		return holds(weapon_id) and holders[weapon_id] == vessel()
+		return (holds(weapon_id) and holders[weapon_id] == vessel()) or bare_handed()
 	if Weapons.is_stacked(weapon_id) and stock_of(weapon_id) <= 0:
+		return bare_handed()
+	return possessing == null or vessel_armed or bare_handed()
+
+## Whether every attack the graph in hand fires is one the body makes with
+## nothing in its hands — a HEADBUTT (`Weapons.BARE_FORMS`) — so that it goes
+## off whether the weapon is in hand or not: the rock lying elsewhere, every
+## shuriken thrown, the hands in a monster that has not taken the weapon. A
+## graph that fires nothing is not: it has nothing to go off with. Walked
+## offline, uncharged, the first time it is asked, and kept until a graph is
+## edited (`rebuild_runner`) or the kit handed out again (`setup_kit`).
+func bare_handed() -> bool:
+	if runner == null:
 		return false
-	return possessing == null or vessel_armed
+	var key := runner.get_instance_id()
+	if not _bare.has(key):
+		var dry := SkillRunner.new(runner.board)
+		dry.base_payload_provider = runner.base_payload_provider
+		var outs: Array = dry.simulate()["outputs"]
+		var bare := not outs.is_empty()
+		for p: Payload in outs:
+			bare = bare and not Weapons.needs_weapon(p.form)
+		_bare[key] = bare
+	return bool(_bare[key])
 
 ## The hands the weapon in hand is in, for whatever draws it there: the body,
 ## the monster the player is in once it holds it, or null — a thrown weapon out
@@ -651,7 +677,7 @@ func can_dash() -> bool:
 ## the moment the graph comes free.
 ##
 ## Nor can a rock that is not in the hand: there is nothing to throw at the end
-## of the hold.
+## of the hold — unless the graph only headbutts, which needs no rock to.
 func can_charge() -> bool:
 	return runner != null and runner.is_ready() and can_cast()
 
@@ -659,6 +685,7 @@ func can_charge() -> bool:
 ## again. Assembly only ever opens the one in hand, and the rest cost nothing
 ## to be sure of.
 func rebuild_runner() -> void:
+	_bare.clear()
 	for r in runners:
 		r.refresh()
 
@@ -782,6 +809,10 @@ func _process(delta: float) -> void:
 	if possessing != null and not castable:
 		_attack_as_monster(delta, s)
 		return
+	# A monster the player's graph goes off from — it took the weapon, or the
+	# graph only headbutts — does not go on with its own attack beside it.
+	if possessing != null:
+		possessing.attacking = false
 	# The body's hand is empty — the rock is out — and nothing goes off. Said
 	# once a press, so it does not read as a dropped input.
 	if not castable and (pressed or s.cast_released):

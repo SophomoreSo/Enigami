@@ -29,6 +29,7 @@ const GIVEN := [
 	"HEALTH_DRAIN",
 	"WATER",
 	"BRIDGE",
+	"HEADBUTT",
 ]
 
 var fails := 0

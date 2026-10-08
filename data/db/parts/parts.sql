@@ -43,7 +43,8 @@ INSERT INTO codes (code, id) VALUES
 	(37, 'AUTO_AIM'),
 	(38, 'HEALTH_DRAIN'),
 	(39, 'WATER'),
-	(40, 'BRIDGE');
+	(40, 'BRIDGE'),
+	(41, 'HEADBUTT');
 
 -- WIRE and BEND carried a flow one cell and did nothing else to it, which
 -- every part already does: any part takes flow on any side and sends it where
@@ -94,19 +95,27 @@ INSERT INTO renamed_parts (old_id, new_id) VALUES ('AREA', 'EXPLODE'), ('DASHSLA
 -- each by its id, and `Weapons.finalize` weighs it. A weapon's own form is the
 -- root of its graph, so every cast off it starts as that form; a form placed
 -- after it makes the flow that instead.
+--
+-- HEADBUTT is the one form with no weapon in it: the head does the striking. A
+-- graph whose every attack is a HEADBUTT goes off whether its weapon is in hand
+-- or not — the rock lying elsewhere, every shuriken thrown, the hands in a
+-- monster that has not taken the weapon (`Player.can_cast`) — and none of the
+-- weapon's multipliers weigh it (`Weapons.BARE_FORMS`).
 
 INSERT INTO parts (id, name, category, heat, cells, tag, description) VALUES
 	('PROJECTILE', 'PROJECTILE', 'form', 0.6, 1, 'ranged', 'Fires a bolt along the aim direction. The standard ranged form.'),
 	('SLASH', 'SLASH', 'form', 0.5, 1, 'melee', 'An instant short arc at the aim direction. Fast, but reach is short.'),
-	('DASHSLASH', 'SWIFT STRIKE', 'form', 1.0, 1, 'melee', 'Lunges along the aim direction, cutting everything on the path.');
+	('DASHSLASH', 'SWIFT STRIKE', 'form', 1.0, 1, 'melee', 'Lunges along the aim direction, cutting everything on the path.'),
+	('HEADBUTT', 'HEADBUTT', 'form', 0.5, 1, 'melee', 'A short lunge along the aim that drives the head into the first enemy in the way, and stops there. It needs no weapon: it goes off with the weapon in hand or without it.');
 
 INSERT INTO ports (part_id, side) VALUES
-	('PROJECTILE', 'E'), ('SLASH', 'E'), ('DASHSLASH', 'E');
+	('PROJECTILE', 'E'), ('SLASH', 'E'), ('DASHSLASH', 'E'), ('HEADBUTT', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('PROJECTILE', 0, 'form', 'set', 'PROJECTILE'),
 	('SLASH', 0, 'form', 'set', 'SLASH'),
-	('DASHSLASH', 0, 'form', 'set', 'DASHSLASH');
+	('DASHSLASH', 0, 'form', 'set', 'DASHSLASH'),
+	('HEADBUTT', 0, 'form', 'set', 'HEADBUTT');
 
 
 -- ---- element ----------------------------------------------------------------
