@@ -397,17 +397,27 @@ func _raid_finished(result: String, payload: Dictionary) -> void:
 ## The graph on the weapon the rack was left on, opened off the rack's BUILD
 ## button or with the key a raid opens assembly with — the same board however
 ## it is reached, and the profile's own, so what is built is what the gate
-## carries.
+## carries. Every weapon the vault holds stands down the board's left, its own
+## graph a press away: the workbench builds onto any of them, carried or not —
+## and onto the one the rack is on even where the vault has lost it.
 func _edit_weapon_graph() -> void:
 	if hideout_ref == null or not is_instance_valid(hideout_ref):
 		return
-	_open_board(hideout_ref.armed_board())
+	var on := hideout_ref.weapon_id
+	var ids: Array = GameState.owned_weapons.duplicate()
+	if not ids.has(on):
+		ids.push_front(on)
+	var shelf: Array = []
+	for w in ids:
+		shelf.append({"id": String(w), "board": GameState.weapon_board(String(w)), "runner": null})
+	_open_graphs(shelf, on)
 
-## The workbench editor over the board it is given, spending the stash.
-func _open_board(board: SkillBoard) -> void:
+## The workbench editor over the weapons' graphs it is given, the one `open`
+## open (`SkillEditor.configure_shelf`), spending the stash.
+func _open_graphs(shelf: Array, open: String) -> void:
 	_close_editor()
 	editor = SkillEditor.new()
-	editor.configure(board, GameState.stash, false, null)
+	editor.configure_shelf(shelf, open, GameState.stash, false)
 	editor.closed.connect(_close_editor)
 	editor.board_changed.connect(func() -> void: GameState.save_game())
 	window_layer.add_child(editor)

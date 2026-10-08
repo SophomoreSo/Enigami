@@ -10,6 +10,13 @@ extends Control
 ## leaves the board and nothing is dropped on it: it is the weapon's, not the
 ## bag's.
 ##
+## Down the left of the board stand the weapons whose graphs it opens (`shelf`),
+## a plate each with the weapon's own picture on it at the PIXEL grid's two: the
+## one open lit in the weapon's colour, and a press on another opening that
+## one's graph instead. The weapon in hand stays in hand — every carried weapon
+## has a graph and a runner of its own, and this only shows another of them —
+## and with one weapon, or one board, nothing stands there at all.
+##
 ## In the middle of the board's right edge is the way out: an arrowhead through
 ## the frame, where a flow leaves the board and becomes an attack. It is not a
 ## part, and nothing is placed there — it is lit while a flow reaches it, and in
@@ -55,6 +62,18 @@ const CELL := 50
 ## How far apart a desk's board and parts stand, from the board's frame to the
 ## parts' panel. See `_desk_layout`.
 const BOARD_TO_PARTS := 48.0
+## How near the parts a desk's board may come once the screen is too narrow to
+## stand the weapons, the board and the parts BOARD_TO_PARTS apart: the biggest
+## board a Workbench grows, beside the weapons, at 1280 across. The way out
+## still has room between them.
+const BOARD_TO_PARTS_LEAST := 16.0
+## The weapons down the left of a desk's board (`shelf`): a plate each, SHELF_W
+## by SHELF_H — the tallest weapon's tile, the bow's, at the PIXEL grid's two,
+## with room round it — SHELF_GAP apart, SHELF_AWAY from the board's frame.
+const SHELF_W := 44.0
+const SHELF_H := 60.0
+const SHELF_GAP := 8.0
+const SHELF_AWAY := 12.0
 ## Two wide columns of one-line rows rather than four of two-line tiles: the
 ## pixel face runs up to twice as wide as the one the palette was laid out for,
 ## and the longest part name takes 130 of a row.
@@ -89,11 +108,12 @@ const NOWHERE := Vector2i(-1, -1)
 ##
 ##   * in the top-left corner the X that closes it, THUMB_BTN square, and beside
 ##     it, for the moment one lasts, a refusal or what COPY and PASTE did, on a
-##     plate of its own;
+##     plate of its own; under it, where there are weapons to choose between,
+##     a plate each, THUMB_BTN square, their pictures on them;
 ##   * the board, in the room under the X and left of the parts, its cells as big
 ##     as that room lets them be: at a desk a cell is 50 across whatever the
-##     grid, and here a first workbench's seven by five stands at 90, a thumb's
-##     width. Under it, COPY and PASTE, each THUMB_BTN tall;
+##     grid, and here a first workbench's seven by five stands at 90 — 82
+##     beside the weapons — a thumb's width. Under it, COPY and PASTE, each THUMB_BTN tall;
 ##   * down the right, THUMB_PARTS wide and the screen's height, the parts: a
 ##     tab a category, and beside them the picked category's parts, a plate
 ##     each, with the name written at the size a thumb's page writes at. A
@@ -132,11 +152,19 @@ var board: SkillBoard = null
 var inventory: Dictionary = {}       ## component id -> count (the live pool)
 var unlimited: bool = false          ## sandbox
 var runner: SkillRunner = null       ## the graph running live, for the flow display
+## The weapons whose graphs this screen opens, down the left of the board
+## (`configure_shelf`): each `{id, board, runner}`, the runner the one showing
+## that board live or null, in the order their plates stand. Empty — and nothing
+## stands down the board's left — with one weapon or one board to show.
+var shelf: Array = []
+## Which of them is open: the one `board` and `runner` are.
+var shelf_open: int = -1
 
 var selected: String = ""
 var rotation_step: int = 0
 var _hover_cell: Vector2i = Vector2i(-1, -1)
 var _hover_pal: int = -1
+var _hover_shelf: int = -1
 var _hover_close: bool = false
 var _hover_copy: bool = false
 var _hover_paste: bool = false
@@ -249,13 +277,13 @@ func board_origin() -> Vector2:
 	return _thumb_layout()["origin"] if thumb() else _desk_layout()["board"]
 
 ## Everything the layout in force is worked out from: the mode, the screen, the
-## grid and the tab. What is kept in the screen's coordinates — the palette's
-## rows, the wiring's outline — is kept against this and worked out again when
-## it changes.
+## grid, the weapons down its left and the tab. What is kept in the screen's
+## coordinates — the palette's rows, the wiring's outline — is kept against
+## this and worked out again when it changes.
 func _layout_key() -> Array:
 	var b := current_board()
 	return [thumb(), get_viewport_rect().size,
-		Vector2i(b.width, b.height) if b != null else Vector2i.ZERO, _tab]
+		Vector2i(b.width, b.height) if b != null else Vector2i.ZERO, shelf.size(), _tab]
 
 ## Where everything on mobile mode's screen stands, for a screen of this shape
 ## and a grid of this size: `close` in the top-left corner and `message` beside
@@ -268,7 +296,7 @@ func _thumb_layout() -> Dictionary:
 	var grid := Vector2i(b.width, b.height) if b != null else Vector2i(7, 5)
 	var vp := get_viewport_rect().size
 	var groups := _pal_groups().size()
-	var key := [vp, grid, groups, Loc.language]
+	var key := [vp, grid, groups, Loc.language, shelf.size()]
 	if not _thumb_rects.is_empty() and _thumb_key == key:
 		return _thumb_rects
 	_thumb_key = key
@@ -299,7 +327,10 @@ func _thumb_layout() -> Dictionary:
 	# big as fits, a cell an odd number of PIXELs so an icon still lands in the
 	# middle of one (see `_cell_center`).
 	var under := corner.end.y + 12.0
-	var space := Rect2(THUMB_EDGE, under, column.position.x - 16.0 - THUMB_EDGE,
+	# The weapons, where there are any to choose between, stand under the X
+	# (`_shelf_rect`), and the board's room starts past them.
+	var from := THUMB_EDGE + (THUMB_BTN + 12.0 if not shelf.is_empty() else 0.0)
+	var space := Rect2(from, under, column.position.x - 16.0 - from,
 		vp.y - THUMB_EDGE - THUMB_BTN - 12.0 - under)
 	var most := mini(int((space.size.x - 20.0) / float(grid.x)), int((space.size.y - 20.0) / float(grid.y)))
 	most = clampi(most, THUMB_CELL_LEAST, THUMB_CELL_MOST)
@@ -392,6 +423,50 @@ func _ready() -> void:
 	set_process(true)
 
 func configure(b: SkillBoard, inv: Dictionary, unlim: bool, r: SkillRunner = null) -> void:
+	shelf = []
+	shelf_open = -1
+	_put(b, inv, unlim, r)
+
+## Opens the screen on several weapons' graphs, one at a time: `entries` each
+## `{id, board, runner}` — the runner the one running that board live, or null
+## — in the order their plates stand down the left, and `open` the id of the
+## one shown first, or the first if it is none of them. The parts are `inv`'s,
+## as `configure` has them. With fewer than two there is nothing to choose
+## between, and no plate stands there.
+func configure_shelf(entries: Array, open: String, inv: Dictionary, unlim: bool) -> void:
+	if entries.is_empty():
+		return
+	var at := 0
+	for k in entries.size():
+		if String(entries[k]["id"]) == open:
+			at = k
+	var e: Dictionary = entries[at]
+	_put(e["board"], inv, unlim, e.get("runner", null))
+	shelf = entries if entries.size() > 1 else []
+	shelf_open = at if entries.size() > 1 else -1
+
+## A player's kit as a shelf: the weapons they carry, in slot order, the graph
+## on each and the runner running it live.
+static func shelf_of(p: Player) -> Array:
+	var out: Array = []
+	for i in mini(p.weapons.size(), p.runners.size()):
+		var r: SkillRunner = p.runners[i]
+		out.append({"id": p.weapons[i], "board": r.board, "runner": r})
+	return out
+
+## Opens the graph of the weapon at `i` on the shelf, with the parts as they
+## are. The hand is not the screen's to change: the weapon in hand stays.
+func _open_shelf(i: int) -> void:
+	if i < 0 or i >= shelf.size() or i == shelf_open:
+		return
+	Audio.play("ui")
+	var e: Dictionary = shelf[i]
+	_put(e["board"], inventory, unlimited, e.get("runner", null))
+	shelf_open = i
+
+## The board, the parts and the runner the screen is on, with nothing it had
+## worked out about another board kept.
+func _put(b: SkillBoard, inv: Dictionary, unlim: bool, r: SkillRunner) -> void:
 	board = b
 	inventory = inv
 	unlimited = unlim
@@ -489,17 +564,38 @@ const BTN_GAP := 8.0
 ## palette's rows are laid out from. A board a Workbench has grown takes more
 ## of the middle, and the parts stand further over for it. The X stays in the
 ## screen's own corner.
+##
+## The weapons down the board's left go with it, and the three are in the
+## middle together. Where they do not fit BOARD_TO_PARTS apart — the biggest
+## board, beside the weapons, on a screen 1280 across — the room before the
+## parts is what gives, down to BOARD_TO_PARTS_LEAST.
 func _desk_layout() -> Dictionary:
 	var vp := get_viewport_rect().size
 	var b := current_board()
 	var grid := Vector2(b.width, b.height) if b != null else Vector2(7, 5)
 	var frame := grid * float(CELL) + Vector2(20, 20)
 	var panel := _pal_panel_size()
-	var left := _halfway(vp.x, frame.x + BOARD_TO_PARTS + panel.x)
+	var weapons := SHELF_W + SHELF_AWAY if not shelf.is_empty() else 0.0
+	var gap := BOARD_TO_PARTS
+	var over := weapons + frame.x + gap + panel.x - (vp.x - CORNER.x * 2.0)
+	if over > 0.0:
+		gap = maxf(BOARD_TO_PARTS_LEAST, gap - over)
+	var left := _halfway(vp.x, weapons + frame.x + gap + panel.x) + weapons
 	return {
 		"board": Vector2(left, _halfway(vp.y, frame.y + BTN_GAP + BTN_H)) + Vector2(10, 10),
-		"parts": Vector2(left + frame.x + BOARD_TO_PARTS, _halfway(vp.y, panel.y)) + Vector2(10, 10),
+		"parts": Vector2(left + frame.x + gap, _halfway(vp.y, panel.y)) + Vector2(10, 10),
 	}
+
+## Where the plate of the weapon at `i` on the shelf stands: down the left of a
+## desk's board from the top of its frame, and under the X for a thumb.
+func _shelf_rect(i: int) -> Rect2:
+	if thumb():
+		var under := (_thumb_layout()["close"] as Rect2).end.y + 12.0
+		return Rect2(Vector2(THUMB_EDGE, under + float(i) * (THUMB_BTN + THUMB_GAP)),
+			Vector2(THUMB_BTN, THUMB_BTN))
+	var frame := _board_frame()
+	return Rect2(Vector2(frame.position.x - SHELF_AWAY - SHELF_W,
+		frame.position.y + float(i) * (SHELF_H + SHELF_GAP)), Vector2(SHELF_W, SHELF_H))
 
 ## Where a thing `long` across starts, to stand halfway along `room`: on the
 ## PIXEL grid, and never before the start of it.
@@ -543,6 +639,7 @@ func _board_frame() -> Rect2:
 func _clear_hover() -> void:
 	_hover_cell = Vector2i(-1, -1)
 	_hover_pal = -1
+	_hover_shelf = -1
 	_hover_close = false
 	_hover_copy = false
 	_hover_paste = false
@@ -557,6 +654,10 @@ func _update_hover(pos: Vector2) -> void:
 	_hover_paste = _paste_rect().has_point(pos)
 	if _hover_close or _hover_copy or _hover_paste:
 		return
+	for i in shelf.size():
+		if _shelf_rect(i).has_point(pos):
+			_hover_shelf = i
+			return
 	if thumb():
 		var l := _thumb_layout()
 		var tabs: Array = l["tabs"]
@@ -671,6 +772,9 @@ func _press_left() -> void:
 		return
 	if _hover_paste:
 		_paste()
+		return
+	if _hover_shelf >= 0 and _drag_id == "":
+		_open_shelf(_hover_shelf)
 		return
 	if _hover_tab >= 0:
 		_show_tab(_hover_tab)
@@ -1090,12 +1194,13 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, vp), Color(0.04, 0.05, 0.07, 0.62))
 	# The wiring's outline is kept where the board stood when it was worked out.
 	# A screen that has changed shape, or mode, has the board somewhere else.
-	var laid := _layout_key().slice(0, 3)
+	var laid := _layout_key().slice(0, 4)
 	if laid != _flow_key:
 		_flow_key = laid
 		_sim_dirty = true
 	_draw_board()
 	_draw_copy_paste()
+	_draw_shelf()
 	if thumb():
 		_draw_thumb_parts()
 		_draw_thumb_message()
@@ -1166,6 +1271,43 @@ func _draw_close() -> void:
 	_px.rect(r, Color(0.45, 0.18, 0.2, 0.9) if _hover_close else Color(0.14, 0.12, 0.14, 0.9))
 	_px.frame(r, Color(1.0, 0.55, 0.55) if _hover_close else Color(0.45, 0.4, 0.44))
 	_px.icon_centered(r.get_center(), CROSS, ink)
+
+## The weapons down the left: a plate each, the weapon's own tile on it at the
+## PIXEL grid's two, standing up as the tiles do — the open one lit in its
+## colour and drawn whole, the rest dim until the pointer is on one.
+func _draw_shelf() -> void:
+	for i in shelf.size():
+		var r := _shelf_rect(i)
+		var id := String(shelf[i]["id"])
+		var c := Style.weapon_color(id)
+		var open := i == shelf_open
+		var hot := i == _hover_shelf
+		if thumb():
+			_draw_thumb_plate(r, "", c, hot, open)
+		else:
+			_px.rect(r, Color(c.r, c.g, c.b, 0.42 if open else (0.18 if hot else 0.06)))
+			_px.frame(r, c if open else (Color(1, 1, 1, 0.5) if hot else Color(0.3, 0.32, 0.36)))
+		var tex := Sprites.texture(Style.weapon_art(id))
+		if tex == null:
+			continue
+		var drawn := tex.get_size() * float(PX)
+		draw_texture_rect(tex, Rect2(_px.snap(r.get_center() - drawn * 0.5), drawn), false,
+			Color(1, 1, 1, 1.0 if open or hot else 0.55))
+
+## The name of the weapon whose plate is under the pointer, on a card hung off
+## the plate's side: a picture says less than a name, the GUN's being a bow.
+func _draw_shelf_hint(vp: Vector2) -> void:
+	var id := String(shelf[_hover_shelf]["id"])
+	var named := Weapons.name_for(id).to_upper()
+	var on := _shelf_rect(_hover_shelf)
+	var w := ceilf((PixelDraw.text_width(named) + HINT_PAD * 2.0) / PX) * PX
+	var box := Rect2(_px.snap(Vector2(clampf(on.end.x + HINT_GAP, HINT_PAD, vp.x - w - HINT_PAD),
+		on.position.y)), Vector2(w, 28.0))
+	var c := Style.weapon_color(id)
+	_px.rect(box, Color(0.07, 0.08, 0.11))
+	_px.rect(box, Color(c.r, c.g, c.b, 0.12))
+	_px.frame(box, c)
+	_px.text(box.position + Vector2(HINT_PAD, 20.0), named, c)
 
 ## COPY and PASTE under the board: a desk's buttons, or a thumb's plates.
 func _draw_copy_paste() -> void:
@@ -1288,6 +1430,9 @@ func _draw_hint(vp: Vector2) -> void:
 	# Never with a part in hand, which is already saying something under the
 	# cursor.
 	if _drag_id != "":
+		return
+	if _hover_shelf >= 0:
+		_draw_shelf_hint(vp)
 		return
 	var id := ""
 	var on := Rect2()

@@ -72,7 +72,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_editing(on: bool) -> void:
 	if on:
-		editor.configure(GameState.raid_board, GameState.raid_bag, false, raid.player.runner)
+		# The kit carried, the raid's own copy of the graph on each, down the
+		# board's left — the one in hand open, as it always was.
+		editor.configure_shelf(SkillEditor.shelf_of(raid.player), raid.player.weapon_id,
+			GameState.raid_bag, false)
 		editor.visible = true
 		editor.grab_focus()
 	else:

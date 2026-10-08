@@ -141,8 +141,11 @@ func _on_playing(on: bool) -> void:
 
 func _on_editing(on: bool) -> void:
 	if on:
-		editor.configure(maker.board(), maker.inventory, true,
-			maker.player.runner if maker.player != null and is_instance_valid(maker.player) else null)
+		if maker.player != null and is_instance_valid(maker.player):
+			editor.configure_shelf(SkillEditor.shelf_of(maker.player), maker.player.weapon_id,
+				maker.inventory, true)
+		else:
+			editor.configure(maker.board(), maker.inventory, true, null)
 		editor.visible = true
 		editor.grab_focus()
 	else:

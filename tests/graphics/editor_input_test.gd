@@ -163,6 +163,39 @@ func _ready() -> void:
 	await button(pal_pos("ICE"), MOUSE_BUTTON_LEFT, false)
 	check(board.comp_at(moved_to).is_empty(), "dropping on the palette removes the part")
 
+	# --- the weapons down the board's left ----------------------------------
+	# The bench's kit stands there, the weapon in hand open. A press on another
+	# opens its graph and its runner, and leaves the hand where it was; a part
+	# set down then goes onto the graph open. A press back opens the hand's.
+	var hand := sb.player.weapon_id
+	check(ed.shelf.size() == sb.player.weapons.size() and ed.shelf.size() > 1
+			and String(ed.shelf[ed.shelf_open]["id"]) == hand,
+		"the bench's kit stands down the board's left, the one in hand open (%d)" % ed.shelf.size())
+	var other := (ed.shelf_open + 1) % ed.shelf.size()
+	var other_id := String(ed.shelf[other]["id"])
+	var slot := sb.player.weapons.find(other_id)
+	var plate := ed._shelf_rect(other).get_center()
+	await move_to(plate)
+	await button(plate, MOUSE_BUTTON_LEFT, true)
+	await button(plate, MOUSE_BUTTON_LEFT, false)
+	check(ed.shelf_open == other and ed.current_board() == sb.player.runners[slot].board
+			and ed.runner == sb.player.runners[slot],
+		"a press on %s's plate opens its graph and its runner" % other_id)
+	check(sb.player.weapon_id == hand, "and the weapon in hand stays in hand (%s)" % sb.player.weapon_id)
+	var there := Vector2i(4, 4)
+	ed.current_board().erase_at(there)
+	await move_to(pal_pos("FIRE"))
+	await button(pal_pos("FIRE"), MOUSE_BUTTON_LEFT, true)
+	await move_to(cell_pos(there))
+	await button(cell_pos(there), MOUSE_BUTTON_LEFT, false)
+	check(String(ed.current_board().comp_at(there).get("id", "")) == "FIRE" and board.comp_at(there).is_empty(),
+		"a part set down goes onto the graph open, not the hand's")
+	var back := ed._shelf_rect(ed.shelf.map(func(e: Dictionary) -> String: return String(e["id"])).find(hand))
+	await move_to(back.get_center())
+	await button(back.get_center(), MOUSE_BUTTON_LEFT, true)
+	await button(back.get_center(), MOUSE_BUTTON_LEFT, false)
+	check(ed.current_board() == board, "and the hand's plate opens the hand's graph again")
+
 	# --- inventory accounting in a real (limited) pool ----------------------
 	sb.set_editing(false)
 	game.goto_hideout()

@@ -591,13 +591,27 @@ func _ready() -> void:
 	check(biggest.position.x >= 0.0 and biggest.position.y >= 0.0 and foot <= vp.y,
 		"the biggest board (%dx%d) is inside the screen, COPY and PASTE with it (%s, %.0f of %.0f)"
 			% [most.x, most.y, str(biggest), foot, vp.y])
-	check(is_equal_approx(biggest.end.x + SkillEditor.BOARD_TO_PARTS, panel.position.x),
-		"and the palette stands BOARD_TO_PARTS beside it (%.0f and %.0f)" % [biggest.end.x, panel.position.x])
+	# Every weapon the vault holds stands down the board's left, the GUN's graph
+	# open; beside the biggest board, on a screen this narrow, the room before
+	# the parts is what gives.
+	var weapons := wb._shelf_rect(0)
+	for i in wb.shelf.size():
+		weapons = weapons.merge(wb._shelf_rect(i))
+	var shelved := wb.shelf.map(func(e: Dictionary) -> String: return String(e["id"]))
+	check(wb.shelf.size() == GameState.owned_weapons.size() and wb.shelf_open == shelved.find("GUN"),
+		"the vault's weapons stand down its left, the GUN's graph open (%s)" % str(shelved))
+	check(weapons.position.x >= 0.0 and weapons.end.y <= vp.y and weapons.end.x <= biggest.position.x
+			and not weapons.intersects(wb._close_rect()),
+		"on the screen, clear of the board and of the X (%s)" % str(weapons))
+	var gap := panel.position.x - biggest.end.x
+	check(gap >= SkillEditor.BOARD_TO_PARTS_LEAST and gap <= SkillEditor.BOARD_TO_PARTS,
+		"and the palette stands beside it, BOARD_TO_PARTS apart or no nearer than BOARD_TO_PARTS_LEAST (%.0f)"
+			% gap)
 	check(panel.end.x <= vp.x and panel.end.y <= vp.y, "the palette is inside the screen (%s of %s)"
 		% [str(panel), str(vp)])
-	check(absf(biggest.position.x - (vp.x - panel.end.x)) <= SkillEditor.PX,
-		"the pair is in the middle, as far from either side (%.0f and %.0f)"
-			% [biggest.position.x, vp.x - panel.end.x])
+	check(absf(weapons.position.x - (vp.x - panel.end.x)) <= SkillEditor.PX,
+		"the weapons, the board and the parts are in the middle, as far from either side (%.0f and %.0f)"
+			% [weapons.position.x, vp.x - panel.end.x])
 	check(absf(biggest.position.y - (vp.y - foot)) <= SkillEditor.PX
 			and absf(panel.position.y - (vp.y - panel.end.y)) <= SkillEditor.PX,
 		"and each is halfway down (the board %.0f over and %.0f under, the palette %.0f and %.0f)"
