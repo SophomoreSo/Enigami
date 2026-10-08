@@ -160,9 +160,10 @@ func _the_layout() -> void:
 	var tabs: Array = l["tabs"]
 	for i in tabs.size():
 		named["tab %d" % i] = tabs[i]
-	# The bench's kit, a plate a weapon under the X, a thumb's size.
-	check(ed.shelf.size() == bench.player.weapons.size() and ed.shelf.size() > 1,
-		"the weapons of the bench's kit stand under the X (%d)" % ed.shelf.size())
+	# The bench's kit, a plate a weapon under the X, a thumb's size, and the
+	# empty hand's after them.
+	check(ed.shelf.size() == bench.player.weapons.size() + 1 and bench.player.weapons.size() > 1,
+		"the weapons of the bench's kit stand under the X, the empty hand last (%d)" % ed.shelf.size())
 	for i in ed.shelf.size():
 		var plate := ed._shelf_rect(i)
 		named["weapon %d" % i] = plate

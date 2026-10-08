@@ -137,7 +137,7 @@ not a thing to reach for once it errors.
 | mouse wheel | the next weapon in hand, a notch down, or the one before, a notch up; round from the last to the first |
 | Q | leave the monster you are possessing, back into your own body |
 | mouse / right stick | aim, and where a lunge lands. A stick's aim is bent toward a monster it is near — never snapped, and never the mouse's; how much is AIM ASSIST in the control settings |
-| TAB | open assembly — **the raid keeps running**; the weapons carried stand down the board's left, and a click on one opens its graph, the weapon in hand staying in hand; TAB, ESC or the X in its corner leaves it |
+| TAB | open assembly — **the raid keeps running**; the weapons carried stand down the board's left, and a click on one opens its graph, the weapon in hand staying in hand — the empty hand's plate after them opens nothing yet; TAB, ESC or the X in its corner leaves it |
 | Ctrl+C / Ctrl+V (⌘ on a Mac) | in assembly: COPY and PASTE — the board onto the clipboard as a share code, or someone else's board built from theirs |
 | F | interact: talk to an NPC — the last step over to them is walked for you, and pushing the other way on it changes your mind — (again for the next line), go through a gate to the room above or below, and hold to extract. Someone who talks free goes on by themselves; F only hurries their line |
 | W / S, ↑ / ↓ | when an NPC asks a question, move between answers; F gives the highlighted one |

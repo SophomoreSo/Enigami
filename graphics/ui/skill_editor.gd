@@ -15,7 +15,9 @@ extends Control
 ## one open lit in the weapon's colour, and a press on another opening that
 ## one's graph instead. The weapon in hand stays in hand — every carried weapon
 ## has a graph and a runner of its own, and this only shows another of them —
-## and with one weapon, or one board, nothing stands there at all.
+## and with one weapon, or one board, nothing stands there at all. Last of them
+## stands the empty hand (`EMPTY_HAND`): a plate with nothing on it, for a hand
+## with nothing in it, which has no graph to open yet.
 ##
 ## In the middle of the board's right edge is the way out: an arrowhead through
 ## the frame, where a flow leaves the board and becomes an attack. It is not a
@@ -74,6 +76,9 @@ const SHELF_W := 44.0
 const SHELF_H := 60.0
 const SHELF_GAP := 8.0
 const SHELF_AWAY := 12.0
+## The plate that stands last on every shelf: the empty hand. No weapon, and so
+## no picture and, for now, no graph — a press on it opens nothing.
+const EMPTY_HAND := {"id": "", "board": null, "runner": null}
 ## Two wide columns of one-line rows rather than four of two-line tiles: the
 ## pixel face runs up to twice as wide as the one the palette was laid out for,
 ## and the longest part name takes 130 of a row.
@@ -432,7 +437,8 @@ func configure(b: SkillBoard, inv: Dictionary, unlim: bool, r: SkillRunner = nul
 ## — in the order their plates stand down the left, and `open` the id of the
 ## one shown first, or the first if it is none of them. The parts are `inv`'s,
 ## as `configure` has them. With fewer than two there is nothing to choose
-## between, and no plate stands there.
+## between, and no plate stands there; with two or more, the empty hand stands
+## after them.
 func configure_shelf(entries: Array, open: String, inv: Dictionary, unlim: bool) -> void:
 	if entries.is_empty():
 		return
@@ -442,7 +448,7 @@ func configure_shelf(entries: Array, open: String, inv: Dictionary, unlim: bool)
 			at = k
 	var e: Dictionary = entries[at]
 	_put(e["board"], inv, unlim, e.get("runner", null))
-	shelf = entries if entries.size() > 1 else []
+	shelf = entries + [EMPTY_HAND] if entries.size() > 1 else []
 	shelf_open = at if entries.size() > 1 else -1
 
 ## A player's kit as a shelf: the weapons they carry, in slot order, the graph
@@ -457,7 +463,7 @@ static func shelf_of(p: Player) -> Array:
 ## Opens the graph of the weapon at `i` on the shelf, with the parts as they
 ## are. The hand is not the screen's to change: the weapon in hand stays.
 func _open_shelf(i: int) -> void:
-	if i < 0 or i >= shelf.size() or i == shelf_open:
+	if i < 0 or i >= shelf.size() or i == shelf_open or shelf[i].get("board", null) == null:
 		return
 	Audio.play("ui")
 	var e: Dictionary = shelf[i]
@@ -1274,19 +1280,23 @@ func _draw_close() -> void:
 
 ## The weapons down the left: a plate each, the weapon's own tile on it at the
 ## PIXEL grid's two, standing up as the tiles do — the open one lit in its
-## colour and drawn whole, the rest dim until the pointer is on one.
+## colour and drawn whole, the rest dim until the pointer is on one. The empty
+## hand's plate is bare, and does not light under the pointer: nothing opens
+## from it yet.
 func _draw_shelf() -> void:
 	for i in shelf.size():
 		var r := _shelf_rect(i)
 		var id := String(shelf[i]["id"])
 		var c := Style.weapon_color(id)
 		var open := i == shelf_open
-		var hot := i == _hover_shelf
+		var hot := i == _hover_shelf and id != ""
 		if thumb():
 			_draw_thumb_plate(r, "", c, hot, open)
 		else:
 			_px.rect(r, Color(c.r, c.g, c.b, 0.42 if open else (0.18 if hot else 0.06)))
 			_px.frame(r, c if open else (Color(1, 1, 1, 0.5) if hot else Color(0.3, 0.32, 0.36)))
+		if id == "":
+			continue
 		var tex := Sprites.texture(Style.weapon_art(id))
 		if tex == null:
 			continue
@@ -1298,6 +1308,8 @@ func _draw_shelf() -> void:
 ## the plate's side: a picture says less than a name, the GUN's being a bow.
 func _draw_shelf_hint(vp: Vector2) -> void:
 	var id := String(shelf[_hover_shelf]["id"])
+	if id == "":
+		return
 	var named := Weapons.name_for(id).to_upper()
 	var on := _shelf_rect(_hover_shelf)
 	var w := ceilf((PixelDraw.text_width(named) + HINT_PAD * 2.0) / PX) * PX

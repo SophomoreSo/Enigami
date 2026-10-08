@@ -164,14 +164,17 @@ func _ready() -> void:
 	check(board.comp_at(moved_to).is_empty(), "dropping on the palette removes the part")
 
 	# --- the weapons down the board's left ----------------------------------
-	# The bench's kit stands there, the weapon in hand open. A press on another
-	# opens its graph and its runner, and leaves the hand where it was; a part
-	# set down then goes onto the graph open. A press back opens the hand's.
+	# The bench's kit stands there, the weapon in hand open, and the empty hand
+	# last. A press on another weapon opens its graph and its runner, and leaves
+	# the hand where it was; a part set down then goes onto the graph open. A
+	# press on the empty hand opens nothing, and a press back opens the hand's.
 	var hand := sb.player.weapon_id
-	check(ed.shelf.size() == sb.player.weapons.size() and ed.shelf.size() > 1
-			and String(ed.shelf[ed.shelf_open]["id"]) == hand,
-		"the bench's kit stands down the board's left, the one in hand open (%d)" % ed.shelf.size())
-	var other := (ed.shelf_open + 1) % ed.shelf.size()
+	var kit := sb.player.weapons.size()
+	check(ed.shelf.size() == kit + 1 and kit > 1 and String(ed.shelf[ed.shelf_open]["id"]) == hand
+			and String(ed.shelf[kit]["id"]) == "" and ed.shelf[kit]["board"] == null,
+		"the bench's kit stands down the board's left, the one in hand open, the empty hand last (%d)"
+			% ed.shelf.size())
+	var other := (ed.shelf_open + 1) % kit
 	var other_id := String(ed.shelf[other]["id"])
 	var slot := sb.player.weapons.find(other_id)
 	var plate := ed._shelf_rect(other).get_center()
@@ -190,6 +193,13 @@ func _ready() -> void:
 	await button(cell_pos(there), MOUSE_BUTTON_LEFT, false)
 	check(String(ed.current_board().comp_at(there).get("id", "")) == "FIRE" and board.comp_at(there).is_empty(),
 		"a part set down goes onto the graph open, not the hand's")
+	var open_before := ed.current_board()
+	var bare := ed._shelf_rect(kit).get_center()
+	await move_to(bare)
+	await button(bare, MOUSE_BUTTON_LEFT, true)
+	await button(bare, MOUSE_BUTTON_LEFT, false)
+	check(ed.current_board() == open_before and ed.shelf_open == other,
+		"the empty hand's plate opens nothing yet")
 	var back := ed._shelf_rect(ed.shelf.map(func(e: Dictionary) -> String: return String(e["id"])).find(hand))
 	await move_to(back.get_center())
 	await button(back.get_center(), MOUSE_BUTTON_LEFT, true)
