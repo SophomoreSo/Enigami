@@ -64,7 +64,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_editing(on: bool) -> void:
 	if on:
-		editor.configure(sandbox.board(), sandbox.inventory, true, sandbox.player.runner)
+		# Every weapon on the bench's kit, down the board's left, the one in hand
+		# open.
+		editor.configure_shelf(SkillEditor.shelf_of(sandbox.player), sandbox.player.weapon_id,
+			sandbox.inventory, true)
 		editor.visible = true
 		editor.grab_focus()
 	# The bench controls share a canvas layer with the editor and would cover
@@ -73,3 +76,5 @@ func _on_editing(on: bool) -> void:
 		editor.visible = false
 	panel.visible = not on
 	samples.visible = not on
+	# And the HUD, whose bars stand where the board's way back does.
+	hud.visible = not on

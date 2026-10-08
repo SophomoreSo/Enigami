@@ -115,7 +115,11 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	if hud != null and is_instance_valid(hud):
-		hud.player = world.player if world != null and is_instance_valid(world) else null
+		var here := world != null and is_instance_valid(world)
+		hud.player = world.player if here else null
+		# Put away while the workbench's board is up, as a raid's is: the board
+		# has the screen, and its way back stands where the bars do.
+		hud.visible = not (here and world.editing)
 	_dress()
 	if panel != null and is_instance_valid(panel) and _panel_thumb != UiKit.mobile() \
 			and world != null and is_instance_valid(world):

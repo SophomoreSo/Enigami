@@ -35,6 +35,10 @@
 		},
 		"close": "%s 또는 ESC로 닫기"
 	},
+	"tabs": {
+		"graph": "조립",
+		"map": "지도"
+	},
 	"extracting": "탈출 중",
 	"extract": {
 		"hold": "%s를 길게 눌러 탈출",

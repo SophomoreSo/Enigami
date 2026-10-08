@@ -15,7 +15,8 @@ extends RefCounted
 ##     var _px := PixelDraw.new(self)
 ##     _px.rect(Rect2(0, 0, 100, 20), Color.BLACK)
 ##
-## Screens using it: `SkillEditor`, `SandboxPanel`, `Hud`, and the hideout's
+## Screens using it: `SkillEditor` and `MapPanel`, the two pages of one screen
+## under the same top (`ScreenTabs`), `SandboxPanel`, `Hud`, and the hideout's
 ## station signs — which draw it over the world rather than on a screen, and say
 ## in `HideoutWorldView` why the words cannot go into the world itself — and an
 ## NPC's talk prompt and a treasure box's, which are the same `key_cap` the
@@ -203,6 +204,30 @@ func bar(r: Rect2, ratio: float, fill: Color, ground: Color, edge: Color) -> voi
 	rect(r, ground)
 	rect(Rect2(r.position, Vector2(r.size.x * clampf(ratio, 0.0, 1.0), r.size.y)), fill)
 	frame(r, edge)
+
+## A button for a pointer: `label` in the middle of it, a PIXEL of edge, lit
+## under the pointer. The assembly screen's COPY and PASTE, and the back arrow
+## of the screen it is a page of (`ScreenTabs`).
+func button(r: Rect2, label: String, hot: bool) -> void:
+	rect(r, Color(0.16, 0.3, 0.4, 0.9) if hot else Color(0.11, 0.13, 0.17, 0.9))
+	frame(r, Color(0.55, 0.9, 1.0) if hot else Color(0.32, 0.4, 0.5))
+	text(r.position + Vector2((r.size.x - ink_width(label)) * 0.5, (r.size.y + 10.0) * 0.5), label,
+		Color(0.92, 0.98, 1.0) if hot else Color(0.7, 0.8, 0.9))
+
+## A plate for a thumb: its ground and its two PIXELs of edge in `accent`, lit
+## under a thumb, drained when it has nothing to act on, and `label` in the
+## middle of it at a thumb's size.
+func plate(r: Rect2, label: String, accent: Color, hot: bool, on: bool) -> void:
+	rect(r, Color(accent.r, accent.g, accent.b, 0.3) if (hot and on) else Color(0.11, 0.13, 0.17, 0.92))
+	var edge := accent if on else Color(0.32, 0.34, 0.38)
+	frame(r, edge)
+	frame(r.grow(-PX), edge)
+	if label == "":
+		return
+	var font_size := Loc.text_size(label, UiKit.THUMB_TEXT)
+	text(Vector2(r.position.x + (r.size.x - ink_width(label, font_size)) * 0.5,
+		r.position.y + (r.size.y + 20.0) * 0.5), label,
+		Color(0.95, 0.98, 1.0) if on else Color(0.45, 0.48, 0.52), -1.0, font_size)
 
 ## A bitmap — one string per row, `#` for a PIXEL — with its top-left at `at`,
 ## each bitmap pixel `zoom` PIXELs square. Each run along a row goes down as one

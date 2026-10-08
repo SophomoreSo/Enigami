@@ -1145,9 +1145,10 @@ func _the_weapon_key() -> void:
 		await frames(3)
 		check(player.weapon_id == want, "a tap on it puts the next weapon in hand (%s)" % player.weapon_id)
 	# Not on the map's face, or a conversation's: only where the weapon is used.
+	# The map is a page of the board's screen, which leaves the glass clear.
 	raid.set_reading_map(true)
 	await frames(3)
-	check(pad.face == TouchPad.Face.SCREEN and not pad.shown(key), "it is not among the keys a screen keeps")
+	check(pad.face == TouchPad.Face.CLEAR and not pad.shown(key), "it is not on the glass under the map")
 	raid.set_reading_map(false)
 	await frames(3)
 	# The one weapon back, for everything after this.

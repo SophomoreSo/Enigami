@@ -13,7 +13,8 @@ extends Node
 ## A desk first, where the mouse is the finger, since that is where it was
 ## found; a gamepad, whose START is the pause action and which no board closes
 ## on; then a thumb, which the system hands over as a click as well as a touch;
-## then the raid's board, and the map, which keeps its keys.
+## then the raid's board, and the map, which is the other page of the same
+## screen and leaves the glass as clear.
 
 const GameScript := preload("res://app/game.gd")
 
@@ -152,7 +153,7 @@ func _on_a_desk() -> void:
 			% [layer_of(game.editor), layer_of(pad), layer_of(game.pause_menu)])
 
 	await click(game.editor._close_rect().get_center())
-	check(not paused(), "a click on the workbench's X does not open the pause menu")
+	check(not paused(), "a click on the workbench's back arrow does not open the pause menu")
 	check(not workbench_up(), "it closes the workbench")
 	check(pad.face == TouchPad.Face.PLAY, "and the floor is back with its keys")
 	await tidy()
@@ -237,7 +238,7 @@ func _with_a_thumb() -> void:
 	game._edit_weapon_graph()
 	await frames(4)
 	await tap(game.editor._close_rect().get_center())
-	check(not workbench_up(), "a thumb on the workbench's X closes it")
+	check(not workbench_up(), "a thumb on the workbench's back arrow closes it")
 	check(not paused(), "and presses nothing else on the way")
 	await tidy()
 
@@ -251,18 +252,29 @@ func _the_raids_board() -> void:
 	await frames(3)
 	check(pad.face == TouchPad.Face.CLEAR, "the raid's board leaves the console CLEAR too")
 	await tap(Views.of(raid).editor._close_rect().get_center())
-	check(not raid.editing, "a thumb on its X closes it")
+	check(not raid.editing, "a thumb on its back arrow closes it")
 	check(not paused(), "rather than pressing the MENU key that stood on it")
 	await tidy()
 
-	# The map has no CLOSE of its own: the key that opened it is the way out,
-	# and on a phone that key is on the console or it is nowhere.
+	# The map is the board's screen with its other tab up, and the same top: the
+	# back arrow that puts it away, and the tabs that go between the two. So the
+	# glass is as clear under it as under the board.
 	raid.set_reading_map(true)
 	await frames(3)
-	check(pad.face == TouchPad.Face.SCREEN and shown().has("open_map"),
-		"the map keeps its keys (%s)" % str(shown()))
-	await tap(TouchPad.area(control_of("open_map")).get_center())
-	check(not raid.reading_map, "and its MAP key closes it")
+	check(pad.face == TouchPad.Face.CLEAR, "the map leaves the console CLEAR as the board does (%s)"
+		% str(shown()))
+	await tap(tab_of(Views.of(raid).map_panel.pages, ScreenTabs.GRAPH))
+	check(raid.editing and not raid.reading_map, "a thumb on the GRAPH tab puts the board up in the map's place")
+	await tap(tab_of(Views.of(raid).editor.pages, ScreenTabs.MAP))
+	check(raid.reading_map and not raid.editing, "and one on MAP the map in the board's")
+	await tap(ScreenTabs.back_rect(true).get_center())
+	check(not raid.reading_map and not raid.editing, "a thumb on the map's back arrow puts it away")
+	check(not paused(), "and presses nothing else on the way")
+	await tidy()
+
+## The middle of `id`'s tab along the top of a thumb's screen with `pages` on it.
+func tab_of(pages: Array, id: String) -> Vector2:
+	return (ScreenTabs.tab_rects(pages, true)[pages.find(id)] as Rect2).get_center()
 
 func control_of(action: String) -> Dictionary:
 	for c in TouchPad.CONTROLS:

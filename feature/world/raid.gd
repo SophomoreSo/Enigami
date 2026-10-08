@@ -396,10 +396,14 @@ func set_editing(on: bool) -> void:
 
 ## --- the map ----------------------------------------------------------------
 ## Reading the map costs exactly what the workbench costs: the raid runs on, the
-## clock keeps climbing and the player stands still while they look.
+## clock keeps climbing and the player stands still while they look. The two are
+## pages of one screen, a tab each, so the map takes over from the workbench the
+## way the workbench does from the map.
 func set_reading_map(on: bool) -> void:
-	if reading_map == on or (on and editing):
+	if reading_map == on:
 		return
+	if on:
+		set_editing(false)
 	reading_map = on
 	player.input_locked = editing or reading_map
 	Cues.emit_cue(&"ui", {"kind": "map"})

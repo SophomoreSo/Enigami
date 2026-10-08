@@ -11,9 +11,9 @@ extends Node
 ## by side in the middle of the screen, the biggest board a Workbench grows
 ## included; the palette is one block a part category with its name beside it in
 ## the gutter, every part's name fits its palette row, every part's description
-## fits its card, the X stands in the screen's corner and COPY and PASTE under
-## the board, clear of the parts in every language, and a preview with more to
-## say than rows to say it in is cut short and says so.
+## fits its card, the back arrow stands in the screen's corner and COPY and
+## PASTE under the board, clear of the parts in every language, and a preview
+## with more to say than rows to say it in is cut short and says so.
 ## On the track: the root is lit round its own outline, its dots running to its
 ## point, and a run's dots set off from the middle of the side the flow comes in
 ## by and meet in the middle of the side it leaves by, however the part behind
@@ -198,14 +198,22 @@ func _ready() -> void:
 	await frames(4)
 	var ed: SkillEditor = Views.of(sb).editor
 	check(ed.current_board() == sb.board(), "the bench brings the weapon's graph")
-	# No header: the X in the screen's own corner, and COPY and PASTE under the
-	# board, side by side and short of the parts — as wide as their words are
-	# in whichever language is the widest.
+	# No header: the back arrow in the screen's own corner, and COPY and PASTE
+	# under the board, side by side and short of the parts — as wide as their
+	# words are in whichever language is the widest.
 	var frame := ed._board_frame()
 	check(ed._close_rect().position == SkillEditor.CORNER and not ed._close_rect().intersects(frame),
-		"the X stands in the top-left corner, clear of the board (%s)" % str(ed._close_rect()))
+		"the back arrow stands in the top-left corner, clear of the board (%s)" % str(ed._close_rect()))
 	check(ed._copy_rect().position.y > frame.end.y and ed._paste_rect().position.x > ed._copy_rect().end.x,
 		"COPY and PASTE stand under the board, side by side")
+	# The board and the parts stand on the same lines, top and foot: a first
+	# workbench's grid grows its cells, an odd number of PIXELs, to stand as tall
+	# as the parts, COPY and PASTE and all.
+	var parts_box := ed._pal_panel()
+	check(ed.cell_size() > float(SkillEditor.CELL) and int(ed.cell_size() / UiKit.PIXEL) % 2 == 1
+			and frame.position.y == parts_box.position.y and ed._paste_rect().end.y == parts_box.end.y,
+		"the board, grown to a cell of %.0f, stands on the parts' lines (%.0f to %.0f, the parts %.0f to %.0f)"
+			% [ed.cell_size(), frame.position.y, ed._paste_rect().end.y, parts_box.position.y, parts_box.end.y])
 	for lang in Loc.languages():
 		var copy_w := maxf(SkillEditor.BTN_W, ceilf((PixelDraw.ink_width(_in(lang, "editor.share.copy"))
 			+ 40.0) / UiKit.PIXEL) * UiKit.PIXEL)
@@ -258,7 +266,7 @@ func _ready() -> void:
 	ed._update_hover(ed._cell_center(Vector2i(at.x + 1, at.y)))
 	ed._drag_id = "DASHSLASH"
 	# In hand between the board and the parts.
-	ed._mouse_pos = Vector2(ed._pal_panel().position.x - SkillEditor.BOARD_TO_PARTS * 0.5, 333.0)
+	ed._mouse_pos = Vector2((ed._board_frame().end.x + ed._pal_panel().position.x) * 0.5, 333.0)
 	ed._notify("No room for SWIFT STRIKE there.")
 	var hidden := isolate(ed)
 	await blocks("bench")
@@ -400,7 +408,7 @@ func _ready() -> void:
 		# editor has left an edge on rather than fusing away.
 		for sx in [1, 2]:
 			var under := Vector2i(sx, 2) + o
-			var seam := wb._cell_center(under) + Vector2(0, SkillEditor.CELL * 0.5)
+			var seam := wb._cell_center(under) + Vector2(0, wb.cell_size() * 0.5)
 			if wb._fused_seam.has(Vector3i(under.x, under.y, Components.S)):
 				continue
 			check(_on_track(wb, seam) <= 0.5,
@@ -425,7 +433,7 @@ func _ready() -> void:
 		# the parts the main line crosses east, west under the branch running
 		# home, and both at once down the seam between them, which is one side of
 		# each. The seam is the pair: the two lips are the same line on screen.
-		var half := SkillEditor.CELL * 0.5
+		var half := wb.cell_size() * 0.5
 		check(_runs_one_way(wb, wb._cell_center(Vector2i(2, 2) + o) - Vector2(0, half), Vector2.RIGHT),
 			"%s: the dots run east over the main line" % how)
 		check(_runs_one_way(wb, wb._cell_center(Vector2i(2, 3) + o) + Vector2(0, half), Vector2.LEFT),
@@ -463,7 +471,7 @@ func _ready() -> void:
 	wb._sim_dirty = true
 	await frames(2)
 	for side in [-1.0, 1.0]:
-		var edge := wb._cell_center(Vector2i(8, 4)) + Vector2(0, side * SkillEditor.CELL * 0.5)
+		var edge := wb._cell_center(Vector2i(8, 4)) + Vector2(0, side * wb.cell_size() * 0.5)
 		check(_runs_one_way(wb, edge, Vector2.RIGHT),
 			"a straight run carries its dots east %s it too (%s)"
 				% ["over" if side < 0.0 else "under", str(_dot_ways(wb, edge))])
@@ -484,7 +492,7 @@ func _ready() -> void:
 	big.place("OVERCLOCK", exit_at + Vector2i(-2, 1), 3)     # and north, back into the root
 	wb._sim_dirty = true
 	await frames(2)
-	var quarter := SkillEditor.CELL * 0.25
+	var quarter := wb.cell_size() * 0.25
 	var feeds := wb._cell_rect(exit_at - Vector2i(1, 0))
 	var fed_back := wb._cell_rect(exit_at + Vector2i(-2, 1))
 	var off_root: Array = wb._flow_arcs.filter(func(a: Dictionary) -> bool:
@@ -515,7 +523,7 @@ func _ready() -> void:
 	# leaves the board and becomes an attack — from the cell against it, and no
 	# other. A flow goes from a part into the one beside it and no further, so
 	# nothing reaches it from across an empty cell.
-	var cell := float(SkillEditor.CELL)
+	var cell := wb.cell_size()
 	var arrow := wb._way_out_rect(big)
 	var frame_end := wb.board_origin().x + big.width * cell + 10.0
 	check(big.way_out() == Vector2i(big.width - 1, SkillBoard.middle(big.height)),
@@ -591,13 +599,31 @@ func _ready() -> void:
 	check(biggest.position.x >= 0.0 and biggest.position.y >= 0.0 and foot <= vp.y,
 		"the biggest board (%dx%d) is inside the screen, COPY and PASTE with it (%s, %.0f of %.0f)"
 			% [most.x, most.y, str(biggest), foot, vp.y])
-	check(is_equal_approx(biggest.end.x + SkillEditor.BOARD_TO_PARTS, panel.position.x),
-		"and the palette stands BOARD_TO_PARTS beside it (%.0f and %.0f)" % [biggest.end.x, panel.position.x])
+	# Every weapon the vault holds stands down the board's left, the GUN's graph
+	# open; beside the biggest board, on a screen this narrow, the room before
+	# the parts is what gives.
+	var weapons := wb._shelf_rect(0)
+	for i in wb.shelf.size():
+		weapons = weapons.merge(wb._shelf_rect(i))
+	var shelved := wb.shelf.map(func(e: Dictionary) -> String: return String(e["id"]))
+	check(wb.shelf.size() == GameState.owned_weapons.size() + 1 and wb.shelf_open == shelved.find("GUN")
+			and shelved.back() == "",
+		"the vault's weapons stand down its left, the GUN's graph open, the empty hand last (%s)" % str(shelved))
+	check(weapons.position.x >= 0.0 and weapons.end.y <= vp.y and weapons.end.x <= biggest.position.x
+			and not weapons.intersects(wb._close_rect()),
+		"on the screen, clear of the board and of the back arrow (%s)" % str(weapons))
+	var gap := panel.position.x - biggest.end.x
+	check(gap >= SkillEditor.BOARD_TO_PARTS_LEAST and gap <= SkillEditor.BOARD_TO_PARTS,
+		"and the palette stands beside it, BOARD_TO_PARTS apart or no nearer than BOARD_TO_PARTS_LEAST (%.0f)"
+			% gap)
 	check(panel.end.x <= vp.x and panel.end.y <= vp.y, "the palette is inside the screen (%s of %s)"
 		% [str(panel), str(vp)])
-	check(absf(biggest.position.x - (vp.x - panel.end.x)) <= SkillEditor.PX,
-		"the pair is in the middle, as far from either side (%.0f and %.0f)"
-			% [biggest.position.x, vp.x - panel.end.x])
+	check(absf(weapons.position.x - (vp.x - panel.end.x)) <= SkillEditor.PX,
+		"the weapons, the board and the parts are in the middle, as far from either side (%.0f and %.0f)"
+			% [weapons.position.x, vp.x - panel.end.x])
+	check(biggest.position.y == panel.position.y and foot == panel.end.y,
+		"the biggest board and the parts stand on the same lines, the panel stretched down to its foot"
+			+ " (%.0f to %.0f, the parts %.0f to %.0f)" % [biggest.position.y, foot, panel.position.y, panel.end.y])
 	check(absf(biggest.position.y - (vp.y - foot)) <= SkillEditor.PX
 			and absf(panel.position.y - (vp.y - panel.end.y)) <= SkillEditor.PX,
 		"and each is halfway down (the board %.0f over and %.0f under, the palette %.0f and %.0f)"
