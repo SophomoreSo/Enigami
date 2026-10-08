@@ -163,15 +163,15 @@ func _process(_delta: float) -> void:
 ## A scene has no player to ask — the prologue is a cast and a camera — and it
 ## turns its own pages on `interact`, so it wears the same face a conversation
 ## does; so does a story read as a novel in the story maker, which is a scene
-## too. A screen that has taken the controls keeps only the keys that close it
-## again: the map is opened and shut with the same key, and on a phone that key
-## is on the pad or it is nowhere.
+## too. A window that has taken the controls — the bench's drawer — keeps only
+## the keys that close it again.
 ##
-## The assembly board leaves the glass clear instead. It covers all of it, it is
-## itself what the thumb is there for, and it has its own way out in CLOSE —
-## which is where KIT, MAP and MENU stand, so with them up a press on CLOSE was
-## a press on MENU. The pad stays up with nothing on it, so the words the board
-## prints for a control are still the ones on the glass.
+## The assembly board leaves the glass clear instead, and so does the raid's
+## map, the other page of the same screen (`ScreenTabs`). It covers all of it,
+## it is itself what the thumb is there for, and it has its own way out in the
+## back arrow and its own way from one page to the other in the tabs beside it.
+## The pad stays up with nothing on it, so the words the board prints for a
+## control are still the ones on the glass.
 ##
 ## So does a panel a world puts up over itself — a station's, in the hideout.
 ## In mobile mode it is a page nearly the width of the screen, with its own way
@@ -180,7 +180,7 @@ func _process(_delta: float) -> void:
 func _touch_face() -> int:
 	if state == State.INTRO or _reading():
 		return TouchPad.Face.TALK
-	if _assembling() or _paneled():
+	if _assembling() or _mapping() or _paneled():
 		return TouchPad.Face.CLEAR
 	for p in get_tree().get_nodes_in_group("player"):
 		if not p.controls_locked():
@@ -222,6 +222,11 @@ func _possessing() -> bool:
 func _paneled() -> bool:
 	return current != null and is_instance_valid(current) and current is World \
 		and (current as World).paneled()
+
+## Whether the raid's map is up: the other page of the screen the board is on.
+func _mapping() -> bool:
+	return current != null and is_instance_valid(current) and current is Raid \
+		and (current as Raid).reading_map
 
 ## Whether an assembly board is up: the hideout's workbench, which is the
 ## shell's own, or the one the world under it carries.

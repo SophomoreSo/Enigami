@@ -10,16 +10,32 @@ extends Control
 ## costs what the workbench costs: the raid runs on behind it, the clock keeps
 ## climbing, and the player stands still while they read.
 ##
+## It is the MAP page of the screen the weapons' graphs are on, a tab each along
+## its top (`ScreenTabs`): the back arrow in the corner puts the screen away,
+## and the GRAPH tab puts the assembly board up in the map's place
+## (`page_picked`). The keys say the same: M, or ESC, puts it away, and the key
+## that opens assembly, which this does not answer, goes on to the raid, which
+## puts the board up instead.
+##
 ## Drawn in UiKit's pixel look, like the assembly screen it shares the raid
 ## with: every fill, border and letter a whole PIXEL on the PIXEL grid, all of
 ## it through `PixelDraw`.
 
 signal closed()
+## A tab along the screen's top was pressed, for a page other than the map: the
+## raid puts that page up in its place.
+signal page_picked(id: String)
 
 ## What the window is looking at. `RaidView` keeps both fresh, the same way it
 ## keeps the HUD fresh; a window with no map draws nothing at all.
 var map: RaidMap = null
 var room = null
+## The pages of the screen this is a page of, in the order their tabs stand
+## along its top. The map is only ever up in a raid, which has a graph as well.
+var pages: Array = [ScreenTabs.GRAPH, ScreenTabs.MAP]
+## What along the top is under the pointer: the back arrow, or a page's tab.
+var _back_hot: bool = false
+var _page_hot: String = ""
 
 const PX := UiKit.PIXEL
 ## A room, and the gap the corridor between two of them is drawn in.
@@ -34,13 +50,12 @@ const HEADER_H := 52.0
 const LEGEND_TOP_GAP := 18.0
 const LEGEND_ROW := 26.0
 const LEGEND_COLS := 3
-## The row that says how to put the map away.
+## The row that says how to put the map away, at a desk (`_foot`).
 const FOOT_H := 34.0
 ## A row's baseline, from the top of the row: capitals stand 10 tall.
 const TEXT_DROP := 16.0
 const SWATCH := 12.0
 
-const WASH := Color(0.03, 0.04, 0.06, 0.55)
 const BG := Color(0.07, 0.08, 0.11, 0.97)
 const EDGE := Color(0.35, 0.55, 0.75, 0.85)
 ## A room nobody has walked into yet: the floor plan is known, what is on it
@@ -109,12 +124,45 @@ func _input(event: InputEvent) -> void:
 		closed.emit()
 		get_viewport().set_input_as_handled()
 
+## The top answers the pointer, and a thumb, which the system hands over as a
+## click: the back arrow puts the screen away, and the graph's tab puts the
+## board up in the map's place.
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		_point(event.position)
+		accept_event()
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		_point(event.position)
+		if event.pressed:
+			_press()
+		elif event.device == InputEvent.DEVICE_ID_EMULATION:
+			# A thumb that has lifted is pointing at nothing.
+			_point(Vector2(-1, -1))
+		accept_event()
+
+func _point(pos: Vector2) -> void:
+	_back_hot = ScreenTabs.back_rect(UiKit.mobile()).has_point(pos)
+	_page_hot = ScreenTabs.page_at(pages, pos, UiKit.mobile())
+
+## Lets go of what it lit before it goes: it is not under the pointer any more
+## by the time the screen comes back.
+func _press() -> void:
+	if _back_hot:
+		_back_hot = false
+		Audio.play("ui")
+		closed.emit()
+	elif _page_hot != "":
+		var id := _page_hot
+		_page_hot = ""
+		if id != ScreenTabs.MAP:
+			page_picked.emit(id)
+
 ## The window, centred on whatever size the screen happens to be.
 func window_rect() -> Rect2:
 	var extent := Vector2(
 		RaidMap.MW * CELL + (RaidMap.MW - 1) * GAP + PAD * 2.0,
 		HEADER_H + RaidMap.MH * CELL + (RaidMap.MH - 1) * GAP
-			+ LEGEND_TOP_GAP + LEGEND_ROW * float(_legend_rows()) + FOOT_H)
+			+ LEGEND_TOP_GAP + LEGEND_ROW * float(_legend_rows()) + _foot())
 	var screen := get_viewport_rect().size
 	return Rect2(_px.snap((screen - extent) * 0.5), extent)
 
@@ -122,7 +170,9 @@ func _draw() -> void:
 	if map == null:
 		return
 	var win := window_rect()
-	_px.rect(Rect2(Vector2.ZERO, get_viewport_rect().size), WASH)
+	# The screen's own veil, the one the graph's page lies on: going from one
+	# page to the other changes what is under the top and nothing round it.
+	_px.rect(Rect2(Vector2.ZERO, get_viewport_rect().size), ScreenTabs.VEIL)
 	_px.rect(win, BG)
 	_px.frame(win, EDGE)
 	_draw_header(win)
@@ -131,7 +181,9 @@ func _draw() -> void:
 	_draw_rooms(grid)
 	var under := grid.y + RaidMap.MH * CELL + (RaidMap.MH - 1) * GAP + LEGEND_TOP_GAP
 	_draw_legend(Vector2(win.position.x + PAD, under), win.size.x - PAD * 2.0)
-	_draw_footer(win)
+	if _foot() > 0.0:
+		_draw_footer(win)
+	ScreenTabs.draw(_px, pages, ScreenTabs.MAP, _back_hot, _page_hot, UiKit.mobile())
 
 ## The title on the left, the raid clock on the right — the one number on this
 ## window that is still moving while it is up.
@@ -283,6 +335,12 @@ func _draw_legend(at: Vector2, width: float) -> void:
 		_px.text(cell + Vector2(SWATCH + 8.0, TEXT_DROP),
 			Loc.t("hud.map.legend.%s" % String(item[0])), UiKit.DIM,
 			col_w - SWATCH - 16.0)
+
+## How tall the row that says how to put the map away stands. A phone has no
+## row: there is no key to name on the glass, which is clear under the screen,
+## and the way out is the back arrow along the top.
+func _foot() -> float:
+	return 0.0 if UiKit.mobile() else FOOT_H
 
 func _draw_footer(win: Rect2) -> void:
 	_px.text_centered(Vector2(win.position.x + PAD, win.end.y - PAD + 2.0),

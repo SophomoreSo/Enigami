@@ -152,6 +152,9 @@ func _ready() -> void:
 
 func _the_layout() -> void:
 	check(ed.thumb() and bench.editing, "in mobile mode the board is laid out for a thumb")
+	# With a raid's two pages along the top, the most it ever carries: the bench
+	# has the graph's alone.
+	ed.pages = [ScreenTabs.GRAPH, ScreenTabs.MAP]
 	var l := layout()
 	var vp := Rect2(Vector2.ZERO, screen())
 	var named := {"the back arrow": l["close"], "the message": l["message"],
@@ -161,6 +164,9 @@ func _the_layout() -> void:
 	var tabs: Array = l["tabs"]
 	for i in tabs.size():
 		named["tab %d" % i] = tabs[i]
+	var tops: Array = l["pages"]
+	for i in tops.size():
+		named["the %s tab" % String(ed.pages[i])] = tops[i]
 	# The bench's kit, a plate a weapon under the back arrow, a thumb's size, and
 	# the empty hand's after them.
 	check(ed.shelf.size() == bench.player.weapons.size() + 1 and bench.player.weapons.size() > 1,
@@ -196,7 +202,14 @@ func _the_layout() -> void:
 		var r: Rect2 = tabs[i]
 		if r.size.y < 60.0 or r.size.x < 120.0:
 			small.append("tab %d %s" % [i, str(r.size)])
+	for i in tops.size():
+		var r: Rect2 = tops[i]
+		if r.size.y < SkillEditor.THUMB_BTN or r.size.x < 120.0:
+			small.append("the %s tab %s" % [String(ed.pages[i]), str(r.size)])
 	check(small.is_empty(), "the buttons and the tabs are a thumb's size (%s)" % str(small))
+	check(tops.size() == 2 and (tops[0] as Rect2).position.y == back.position.y
+			and (tops[0] as Rect2).position.x > back.end.x and (l["message"] as Rect2).position.x > (tops[1] as Rect2).end.x,
+		"the page tabs stand along the top beside the back arrow, the message past them")
 	check(tabs.size() == ed._pal_groups().size(), "there is a tab a category (%d)" % tabs.size())
 	# The way out is on the board's frame, its head outside it: on the screen,
 	# and in the room between the board and the parts rather than on them.
@@ -231,6 +244,7 @@ func _the_layout() -> void:
 		% [seen.size(), ed._pool_ids().size()])
 	check(cramped.is_empty(), "each on a plate a thumb's size, in the column's room (%s)" % str(cramped))
 	check(clipped.is_empty(), "with its name whole on it, written big (%s)" % str(clipped))
+	ed.pages = [ScreenTabs.GRAPH]
 
 ## --- the grid ----------------------------------------------------------------------
 

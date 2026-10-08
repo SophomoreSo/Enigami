@@ -2,7 +2,10 @@ class_name RaidView
 extends Node2D
 
 ## Everything a raid puts on the screen: the camera that follows it, the HUD,
-## the assembly overlay and the map window.
+## and the screen with the assembly board and the map on it, a tab each along
+## its top (`ScreenTabs`) — the two are separate nodes, and only ever one of
+## them up, so going from one tab to the other is the raid putting one away and
+## the other up.
 ##
 ## It pulls from the raid every frame rather than being pushed at. The raid
 ## therefore has no HUD to update and no editor to configure — it just runs,
@@ -34,13 +37,17 @@ func _ready() -> void:
 
 	editor = SkillEditor.new()
 	editor.visible = false
+	editor.pages = [ScreenTabs.GRAPH, ScreenTabs.MAP]
 	editor.closed.connect(func() -> void: raid.set_editing(false))
+	editor.page_picked.connect(_on_page_picked)
 	editor.board_changed.connect(func() -> void: raid.on_board_changed())
 	layer.add_child(editor)
 
 	map_panel = MapPanel.new()
 	map_panel.visible = false
+	map_panel.pages = [ScreenTabs.GRAPH, ScreenTabs.MAP]
 	map_panel.closed.connect(func() -> void: raid.set_reading_map(false))
+	map_panel.page_picked.connect(_on_page_picked)
 	layer.add_child(map_panel)
 
 	raid.editing_changed.connect(_on_editing)
@@ -57,7 +64,8 @@ func _process(_delta: float) -> void:
 	map_panel.room = raid.room
 
 ## Event-driven rather than polled: when the editor consumes TAB to close
-## itself, this must not see the same press and open it straight back up.
+## itself, this must not see the same press and open it straight back up. Each
+## key is its own tab: pressed over the other page, it puts its own up instead.
 func _unhandled_input(event: InputEvent) -> void:
 	if raid == null or raid.ended:
 		return
@@ -70,6 +78,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		raid.set_reading_map(true)
 		get_viewport().set_input_as_handled()
 
+## A tab along the screen's top, pressed on the page that is up: its own page
+## up in that one's place.
+func _on_page_picked(id: String) -> void:
+	match id:
+		ScreenTabs.GRAPH:
+			raid.set_editing(true)
+		ScreenTabs.MAP:
+			raid.set_reading_map(true)
+
 func _on_editing(on: bool) -> void:
 	if on:
 		# The kit carried, the raid's own copy of the graph on each, down the
@@ -80,8 +97,13 @@ func _on_editing(on: bool) -> void:
 		editor.grab_focus()
 	else:
 		editor.visible = false
-	# The board has the screen, and its way back stands where the HUD's bars do.
-	hud.visible = not on
+	_put_hud_away()
 
 func _on_reading_map(on: bool) -> void:
 	map_panel.visible = on
+	_put_hud_away()
+
+## The HUD is away while either page of the screen is up: it has the screen,
+## and its top stands where the HUD's bars do.
+func _put_hud_away() -> void:
+	hud.visible = not (raid.editing or raid.reading_map)

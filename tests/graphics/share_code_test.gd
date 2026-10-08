@@ -115,15 +115,15 @@ func _ready() -> void:
 	var code := BoardCode.encode(b)
 	say("the bench board is " + code)
 
-	# No header: COPY and PASTE under the board, side by side, and the X that
-	# closes it in the screen's top-left corner.
+	# No header but the screen's top: COPY and PASTE under the board, side by
+	# side, and the back arrow that closes it in the screen's top-left corner.
 	var frame := ed._board_frame()
 	check(ed._copy_rect().position.y > frame.end.y
 			and ed._paste_rect().position.x > ed._copy_rect().end.x
 			and ed._paste_rect().position.y == ed._copy_rect().position.y,
 		"COPY and PASTE stand under the board, side by side")
 	check(ed._close_rect().position == SkillEditor.CORNER and not ed._close_rect().intersects(frame),
-		"and the X stands in the top-left corner, clear of the board")
+		"and the back arrow stands in the top-left corner, clear of the board")
 
 	if clipboard:
 		DisplayServer.clipboard_set("")
@@ -174,7 +174,7 @@ func _ready() -> void:
 		check(same_parts(want, b) and ed._message == Loc.t("editor.share.clipboard_empty"),
 			"with nothing a code is made of on the clipboard, PASTE says so (%s)" % ed._message)
 
-	# ESC closes the editor, and so does the X in the corner.
+	# ESC closes the editor, and so does the back arrow in the corner.
 	key(KEY_ESCAPE)
 	await frames(3)
 	check(not sb.editing, "ESC closes the editor")
@@ -183,7 +183,7 @@ func _ready() -> void:
 	ed = Views.of(sb).editor
 	await click(ed._close_rect().get_center())
 	await frames(2)
-	check(not sb.editing, "and so does the X")
+	check(not sb.editing, "and so does the back arrow")
 
 	# --- the workbench: a code costs what the board costs --------------------
 	game.goto_hideout()

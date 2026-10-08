@@ -204,7 +204,11 @@ func _the_workbench() -> void:
 	await frames(4)
 	var ed: SkillEditor = (Views.of(sb) as SandboxView).editor
 	var s := screen()
+	# The weapons down the board's left stand in the middle with it and the
+	# parts: the three together are what the layout centres (`_desk_layout`).
 	var left := ed._cell_rect(Vector2i.ZERO).position.x - 10.0
+	if not ed.shelf.is_empty():
+		left = ed._shelf_rect(0).position.x
 	var right := s.x - ed._pal_panel().end.x
 	check(absf(left - right) <= float(UiKit.PIXEL) * 2.0,
 		"the assembly screen stands in the middle (%.0f clear on the left, %.0f on the right)"

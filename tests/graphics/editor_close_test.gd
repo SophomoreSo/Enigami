@@ -1,6 +1,10 @@
 extends Node
 ## The editor has to close and STAY closed. It previously reopened in the same
 ## frame, because the screen that owns it polled the same keypress.
+##
+## And in a raid it and the map are one screen, a tab each along its top: the
+## keys and the tabs put either page up in the other's place, and the map's back
+## arrow puts the screen away like the board's.
 
 const GameScript := preload("res://app/game.gd")
 var game: Node
@@ -50,6 +54,10 @@ func click(p: Vector2) -> void:
 		await get_tree().process_frame
 	await frames(3)
 
+## The middle of `id`'s tab along the top of a screen with `pages` on it.
+func tab_of(pages: Array, id: String) -> Vector2:
+	return (ScreenTabs.tab_rects(pages, UiKit.mobile())[pages.find(id)] as Rect2).get_center()
+
 func _ready() -> void:
 	GameState.reset_profile()
 	seed(7)
@@ -91,6 +99,7 @@ func _ready() -> void:
 	await key(KEY_M)
 	check(raid.reading_map, "M opens the map in a raid")
 	check(Views.of(raid).map_panel.visible, "and the window is on screen")
+	check(not Views.of(raid).hud.visible, "the HUD is put away under it too")
 	check(raid.player.input_locked, "the player stands still while reading it")
 	await key(KEY_M)
 	check(not raid.reading_map, "M closes it")
@@ -113,6 +122,31 @@ func _ready() -> void:
 	await key(KEY_TAB)
 	check(not raid.editing and not raid.player.input_locked,
 		"and closing the workbench hands the controls back")
+
+	# The other way: M over the workbench puts the map up in its place. Then
+	# the tabs along the top, and the map's own back arrow.
+	await key(KEY_TAB)
+	await key(KEY_M)
+	check(raid.reading_map and not raid.editing, "M over the workbench swaps it for the map")
+	check(raid.player.input_locked and not Views.of(raid).hud.visible,
+		"the player still stands still, and the HUD stays away")
+	var pages: Array = Views.of(raid).map_panel.pages
+	await click(tab_of(pages, ScreenTabs.GRAPH))
+	check(raid.editing and not raid.reading_map and Views.of(raid).editor.visible
+			and not Views.of(raid).map_panel.visible,
+		"a click on the GRAPH tab puts the board up in the map's place")
+	await click(tab_of(pages, ScreenTabs.GRAPH))
+	check(raid.editing and not raid.reading_map, "and another on it, the page that is up, does nothing")
+	await click(tab_of(pages, ScreenTabs.MAP))
+	check(raid.reading_map and not raid.editing and Views.of(raid).map_panel.visible
+			and not Views.of(raid).editor.visible,
+		"a click on the MAP tab puts the map up in the board's")
+	await click(ScreenTabs.back_rect(UiKit.mobile()).get_center())
+	check(not raid.reading_map and not raid.editing and not raid.player.input_locked,
+		"the map's back arrow puts the screen away")
+	check(Views.of(raid).hud.visible, "and the HUD comes back")
+	await frames(6)
+	check(not raid.reading_map and not raid.editing, "and it stays away")
 
 	# ESC with no editor open should still reach the pause menu.
 	await key(KEY_ESCAPE)

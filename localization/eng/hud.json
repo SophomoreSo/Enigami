@@ -35,6 +35,10 @@
 		},
 		"close": "%s OR ESC TO CLOSE"
 	},
+	"tabs": {
+		"graph": "GRAPH",
+		"map": "MAP"
+	},
 	"extracting": "EXTRACTING",
 	"extract": {
 		"hold": "hold %s to extract",

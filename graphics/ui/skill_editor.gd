@@ -5,6 +5,11 @@ extends Control
 ## in a raid the world keeps running behind it, so the panel stays translucent
 ## and compact and every action is a single click.
 ##
+## It is the GRAPH page of a screen with tabs along its top, like a browser's
+## (`ScreenTabs`): in a raid the map is the other page (`MapPanel`), a press on
+## its tab away (`page_picked`), and everywhere else the graph's is the only
+## tab there is.
+##
 ## The root — the weapon's own part — is drawn as a port pointing the way it
 ## hands the flow over. The hand moves and turns it like any part, but it never
 ## leaves the board and nothing is dropped on it: it is the weapon's, not the
@@ -41,12 +46,12 @@ extends Control
 ## forms, elements, stats and the rest — each block named down the gutter beside
 ## it in the category's own colour, which is the colour its parts wear.
 ##
-## There is no header over it: the board and the parts have the screen, side by
-## side in the middle of it (`_desk_layout`), with the back arrow in its
-## top-left corner — the way back every page of the menus has in its own — that
-## closes it, and COPY and PASTE under the board. The screen it is opened over
-## puts its HUD away while it is up: the board has the screen, and that corner
-## is where the HUD's bars stand.
+## There is no header over it but the screen's top: the board and the parts
+## have the screen, side by side in the middle of it (`_desk_layout`), with the
+## back arrow in its top-left corner — the way back every page of the menus has
+## in its own — that closes it, the tabs beside it, and COPY and PASTE under the
+## board. The screen it is opened over puts its HUD away while it is up: the
+## board has the screen, and that corner is where the HUD's bars stand.
 ## COPY puts the board on the clipboard as a code, and PASTE builds the board
 ## out of the code on the clipboard. What a pasted code costs is decided here —
 ## see `_paste_code`.
@@ -62,6 +67,9 @@ extends Control
 
 signal board_changed()
 signal closed()
+## A tab along the screen's top was pressed, for a page other than this one:
+## the screen that opened it puts that page up in its place.
+signal page_picked(id: String)
 
 ## The least a desk's cell is across. A desk's board grows its cells past it to
 ## stand as tall as the parts beside it (`_desk_layout`), and a thumb's to fill
@@ -174,6 +182,10 @@ var runner: SkillRunner = null       ## the graph running live, for the flow dis
 var shelf: Array = []
 ## Which of them is open: the one `board` and `runner` are.
 var shelf_open: int = -1
+## The pages of the screen this is a page of, in the order their tabs stand
+## along its top (`ScreenTabs`): the graph's alone, or the graph and the raid's
+## map. The screen that opens this says which.
+var pages: Array = [ScreenTabs.GRAPH]
 
 var selected: String = ""
 var rotation_step: int = 0
@@ -181,6 +193,8 @@ var _hover_cell: Vector2i = Vector2i(-1, -1)
 var _hover_pal: int = -1
 var _hover_shelf: int = -1
 var _hover_close: bool = false
+## The page whose tab along the top is under the pointer, or "".
+var _hover_page: String = ""
 var _hover_copy: bool = false
 var _hover_paste: bool = false
 ## Mobile mode's own things to press: a category's tab, by index, and the two
@@ -305,27 +319,29 @@ func _layout_key() -> Array:
 		Vector2i(b.width, b.height) if b != null else Vector2i.ZERO, shelf.size(), _tab]
 
 ## Where everything on mobile mode's screen stands, for a screen of this shape
-## and a grid of this size: `close` in the top-left corner and `message` beside
-## it; `column`, the parts' whole column, with its `tabs`, the `plates` room
-## beside them, and `turn` and `remove` along its foot; the board's `cell`,
-## `origin` and `frame`; and `copy` and `paste` under it. COPY and PASTE are as
-## wide as their words, so the language is part of what this is worked out for.
+## and a grid of this size: `close` in the top-left corner, the tabs of the
+## screen's `pages` beside it and `message` past them; `column`, the parts'
+## whole column, with its `tabs`, the `plates` room beside them, and `turn` and
+## `remove` along its foot; the board's `cell`, `origin` and `frame`; and `copy`
+## and `paste` under it. COPY and PASTE are as wide as their words, so the
+## language is part of what this is worked out for.
 func _thumb_layout() -> Dictionary:
 	var b := current_board()
 	var grid := Vector2i(b.width, b.height) if b != null else Vector2i(7, 5)
 	var vp := get_viewport_rect().size
 	var groups := _pal_groups().size()
-	var key := [vp, grid, groups, Loc.language, shelf.size()]
+	var key := [vp, grid, groups, Loc.language, shelf.size(), pages.size()]
 	if not _thumb_rects.is_empty() and _thumb_key == key:
 		return _thumb_rects
 	_thumb_key = key
 	var l := {}
-	var corner := Rect2(THUMB_EDGE, THUMB_EDGE, THUMB_BTN, THUMB_BTN)
+	var corner := ScreenTabs.back_rect(true)
 	l["close"] = corner
+	l["pages"] = ScreenTabs.tab_rects(pages, true)
 	var column := Rect2(vp.x - THUMB_EDGE - THUMB_PARTS, THUMB_EDGE, THUMB_PARTS, vp.y - THUMB_EDGE * 2.0)
 	l["column"] = column
-	l["message"] = Rect2(corner.end.x + 12.0, THUMB_EDGE,
-		column.position.x - 16.0 - corner.end.x - 12.0, THUMB_BTN)
+	var past := ScreenTabs.end_x(pages, true) + 12.0
+	l["message"] = Rect2(past, THUMB_EDGE, column.position.x - 16.0 - past, THUMB_BTN)
 	var acts := column.end.y - THUMB_ACT
 	var half := floorf((column.size.x - 8.0) * 0.5 / PX) * PX
 	l["turn"] = Rect2(column.position.x, acts, half, THUMB_ACT)
@@ -654,9 +670,7 @@ static func _halfway(room: float, long: float) -> float:
 
 ## The back arrow that closes the screen, in its top-left corner.
 func _close_rect() -> Rect2:
-	if thumb():
-		return _thumb_layout()["close"]
-	return Rect2(CORNER, Vector2(CLOSE_SIDE, CLOSE_SIDE))
+	return ScreenTabs.back_rect(thumb())
 
 ## COPY, under the board and level with its left edge: the board is what it
 ## copies, and what PASTE beside it builds.
@@ -691,6 +705,7 @@ func _clear_hover() -> void:
 	_hover_pal = -1
 	_hover_shelf = -1
 	_hover_close = false
+	_hover_page = ""
 	_hover_copy = false
 	_hover_paste = false
 	_hover_tab = -1
@@ -700,9 +715,10 @@ func _clear_hover() -> void:
 func _update_hover(pos: Vector2) -> void:
 	_clear_hover()
 	_hover_close = _close_rect().has_point(pos)
+	_hover_page = ScreenTabs.page_at(pages, pos, thumb())
 	_hover_copy = _copy_rect().has_point(pos)
 	_hover_paste = _paste_rect().has_point(pos)
-	if _hover_close or _hover_copy or _hover_paste:
+	if _hover_close or _hover_page != "" or _hover_copy or _hover_paste:
 		return
 	for i in shelf.size():
 		if _shelf_rect(i).has_point(pos):
@@ -816,6 +832,14 @@ func _press_left() -> void:
 	if _hover_close:
 		Audio.play("ui")
 		closed.emit()
+		return
+	# The graph's own tab is the page that is up already: a press on it is a
+	# press on nothing. Another page's puts that page up, which says so itself.
+	if _hover_page != "":
+		var id := _hover_page
+		_hover_page = ""
+		if id != ScreenTabs.GRAPH:
+			page_picked.emit(id)
 		return
 	if _hover_copy:
 		_copy()
@@ -1240,8 +1264,9 @@ func _draw() -> void:
 	_drawn_origin = board_origin()
 	_drawing = true
 	var vp := get_viewport_rect().size
-	# Only a light veil: the fight behind this panel has to stay readable.
-	draw_rect(Rect2(Vector2.ZERO, vp), Color(0.04, 0.05, 0.07, 0.62))
+	# Only a light veil: the fight behind this panel has to stay readable. The
+	# screen's, so the map's page lies on the same one.
+	draw_rect(Rect2(Vector2.ZERO, vp), ScreenTabs.VEIL)
 	# The wiring's outline is kept where the board stood when it was worked out.
 	# A screen that has changed shape, or mode, has the board somewhere else.
 	var laid := _layout_key().slice(0, 4)
@@ -1257,7 +1282,7 @@ func _draw() -> void:
 	else:
 		_draw_palette()
 		_draw_message(vp)
-	_draw_close()
+	_draw_top()
 	_draw_hint(vp)
 	_draw_drag()
 	_drawing = false
@@ -1309,17 +1334,12 @@ func _flow_dot_span() -> float:
 func _flow_dot() -> int:
 	return maxi(FLOW_DOT, int(cell_size() * 0.25 / float(PX)))
 
-## The back arrow in the screen's top-left corner, which closes it: the way back
-## a page of the menus has in its own (`menu.pause.arrow`), so the corner means
-## the same here as there. A desk's square, a button like COPY and PASTE, or a
-## thumb's plate with the arrow at a thumb's size.
-func _draw_close() -> void:
-	var r := _close_rect()
-	var arrow := Loc.t("menu.pause.arrow")
-	if thumb():
-		_draw_thumb_plate(r, arrow, Color(0.55, 0.9, 1.0), _hover_close, true)
-		return
-	_draw_desk_button(r, arrow, _hover_close)
+## The screen's top, over this page: the back arrow in the top-left corner,
+## which closes it — the way back a page of the menus has in its own
+## (`menu.pause.arrow`), so the corner means the same here as there — and the
+## tabs beside it, the graph's lit (`ScreenTabs`).
+func _draw_top() -> void:
+	ScreenTabs.draw(_px, pages, ScreenTabs.GRAPH, _hover_close, _hover_page, thumb())
 
 ## The weapons down the left: a plate each, the weapon's own tile on it at the
 ## PIXEL grid's two, standing up as the tiles do — the open one lit in its
@@ -1334,7 +1354,7 @@ func _draw_shelf() -> void:
 		var open := i == shelf_open
 		var hot := i == _hover_shelf and id != ""
 		if thumb():
-			_draw_thumb_plate(r, "", c, hot, open)
+			_px.plate(r, "", c, hot, open)
 		else:
 			_px.rect(r, Color(c.r, c.g, c.b, 0.42 if open else (0.18 if hot else 0.06)))
 			_px.frame(r, c if open else (Color(1, 1, 1, 0.5) if hot else Color(0.3, 0.32, 0.36)))
@@ -1373,17 +1393,9 @@ func _draw_copy_paste() -> void:
 		var label: String = button[1]
 		var hot: bool = button[2]
 		if thumb():
-			_draw_thumb_plate(r, label, Color(0.55, 0.9, 1.0), hot, true)
+			_px.plate(r, label, Color(0.55, 0.9, 1.0), hot, true)
 			continue
-		_draw_desk_button(r, label, hot)
-
-## One of a desk's buttons, BTN_H tall: `label` in the middle of it, lit under
-## the pointer.
-func _draw_desk_button(r: Rect2, label: String, hot: bool) -> void:
-	_px.rect(r, Color(0.16, 0.3, 0.4, 0.9) if hot else Color(0.11, 0.13, 0.17, 0.9))
-	_px.frame(r, Color(0.55, 0.9, 1.0) if hot else Color(0.32, 0.4, 0.5))
-	_px.text(r.position + Vector2((r.size.x - PixelDraw.ink_width(label)) * 0.5, 20), label,
-		Color(0.92, 0.98, 1.0) if hot else Color(0.7, 0.8, 0.9))
+		_px.button(r, label, hot)
 
 ## The board as it is drawn: the board itself, except while the root is in
 ## hand. The weapon keeps the root where it stands until it is set down
@@ -2951,25 +2963,13 @@ func _draw_thumb_message() -> void:
 	var r: Rect2 = _thumb_layout()["message"]
 	_px.rect(r, Color(0.12, 0.28, 0.2, 0.9) if _message_good else Color(0.3, 0.14, 0.12, 0.9))
 	_px.frame(r, UiKit.GOOD if _message_good else Color(1.0, 0.65, 0.55))
-	# At the size everything else here is read at: it is a sentence, and the
-	# plate is one row.
-	_px.text(r.position + Vector2(16, 38), _message,
-		Color(0.8, 1.0, 0.88) if _message_good else Color(1.0, 0.8, 0.72), r.size.x - 32.0)
-
-## One of mobile mode's plates: its ground and its edge in `accent`, lit under a
-## thumb, drained when it has nothing to act on, and `label` in the middle of it
-## at a thumb's size.
-func _draw_thumb_plate(r: Rect2, label: String, accent: Color, hot: bool, on: bool) -> void:
-	_px.rect(r, Color(accent.r, accent.g, accent.b, 0.3) if (hot and on) else Color(0.11, 0.13, 0.17, 0.92))
-	var edge := accent if on else Color(0.32, 0.34, 0.38)
-	_px.frame(r, edge)
-	_px.frame(r.grow(-PX), edge)
-	if label == "":
-		return
-	var font_size := Loc.text_size(label, UiKit.THUMB_TEXT)
-	_px.text(Vector2(r.position.x + (r.size.x - PixelDraw.ink_width(label, font_size)) * 0.5,
-		r.position.y + (r.size.y + 20.0) * 0.5), label,
-		Color(0.95, 0.98, 1.0) if on else Color(0.45, 0.48, 0.52), -1.0, font_size)
+	# At the size everything else here is read at: it is a sentence. In two rows,
+	# the plate standing in what the tabs along the top leave of it.
+	var rows := PixelDraw.wrap(_message, r.size.x - 32.0, 2)
+	var ink := Color(0.8, 1.0, 0.88) if _message_good else Color(1.0, 0.8, 0.72)
+	var base := r.position.y + (r.size.y - PixelDraw.LINE * float(rows.size() - 1) + 10.0) * 0.5
+	for i in rows.size():
+		_px.text(Vector2(r.position.x + 16.0, base + PixelDraw.LINE * float(i)), rows[i], ink)
 
 ## The parts, for a thumb: a tab a category down the left of the column, the
 ## plates of the one that is up beside them, and TURN and REMOVE along the foot.
@@ -3020,7 +3020,7 @@ func _draw_thumb_parts() -> void:
 	var turn: Rect2 = l["turn"]
 	var turn_label := Loc.t("editor.turn")
 	var turn_size := Loc.text_size(turn_label, big)
-	_draw_thumb_plate(turn, "", UiKit.ACCENT, _hover_turn, true)
+	_px.plate(turn, "", UiKit.ACCENT, _hover_turn, true)
 	var arrow := ARROW[0].length() * PX * 3 + 16.0
 	var turn_at := _px.snap(turn.position + Vector2(
 		(turn.size.x - arrow - PixelDraw.ink_width(turn_label, turn_size)) * 0.5, (turn.size.y - 30.0) * 0.5))
@@ -3028,7 +3028,7 @@ func _draw_thumb_parts() -> void:
 	_px.text(Vector2(turn_at.x + arrow, turn.position.y + (turn.size.y + 20.0) * 0.5), turn_label,
 		Color(0.95, 0.98, 1.0), -1.0, turn_size)
 	var b := current_board()
-	_draw_thumb_plate(l["remove"], Loc.t("editor.remove"), Color(1.0, 0.55, 0.55), _hover_remove,
+	_px.plate(l["remove"], Loc.t("editor.remove"), Color(1.0, 0.55, 0.55), _hover_remove,
 		_picked_part() != NOWHERE and b != null and not b.is_root(_picked))
 
 ## A part's count at a thumb's size, right-aligned on `right`, a baseline: "x2",

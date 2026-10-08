@@ -31,9 +31,10 @@ extends Control
 ## readout of a fight nobody is in: only something else to look at beside the
 ## box.
 ##
-## And it is put away while an assembly board is up — by the view that opens
-## one, which knows when it does. The board has the screen, and its way back
-## stands in the corner the bars do.
+## And it is put away while the screen the assembly board is on is up, on
+## either of its pages — the board's, or in a raid the map's — by the view that
+## opens it, which knows when it does. The screen has it all, and its top, the
+## back arrow and the tabs (`ScreenTabs`), stands in the corner the bars do.
 
 ## The bars in the top-left corner: health, then the two thin ones under it.
 const BAR_W := 264.0
