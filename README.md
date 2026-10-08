@@ -51,7 +51,7 @@ godot res://tests/graphics/menu_fit_test.tscn # menus stay on screen and scroll 
 godot res://tests/graphics/title_mobile_test.tscn # mobile mode's title: a row of big square tiles
 godot res://tests/graphics/screen_fit_test.tscn # a phone- or tablet-shaped screen is filled to its edges
 godot res://tests/graphics/editor_pixel_test.tscn # every pixel of the assembly screen is on the grid
-godot res://tests/graphics/icon_motion_test.tscn # every part's icon moves through a film that starts on the icon, and a setting stops them
+godot res://tests/graphics/icon_motion_test.tscn # the part under the pointer moves through a film that starts on its icon, the rest stand still, and a setting stops it
 godot res://tests/graphics/hideout_pixel_test.tscn # the hideout's pixel look, and everything on it fits
 godot res://tests/graphics/hideout_scenery_test.tscn # the hideout's scenery, in every look it has: where each stands, what lights it, that it stays in the room, what a frame of it costs, and what a look hangs swinging on its cord
 godot res://tests/graphics/hideout_theme_test.tscn # HIDEOUT THEME, on the hideout's pause menu: the looks listed, the room dressed as one is pressed, and the pick kept

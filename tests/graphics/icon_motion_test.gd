@@ -1,16 +1,19 @@
 extends Node
-## The parts' icons move on the assembly screen, each through a film of its own
-## (`Style.COMPONENT_MOTION`), and a setting stops them (`Video.icon_motion`).
+## The part under the pointer moves on the assembly screen, through a film of
+## its own (`Style.COMPONENT_MOTION`), the rest stand still, and a setting
+## stops it (`Video.icon_motion`).
 ##
 ## Every part has a film, cut into frames seven pixels square, the first being
 ## its icon at rest — so a board whose parts are kept still shows the icons it
 ## always did — and no frame the same as the one before it, or the part would
 ## sit still for a beat it was not given. The film goes round: every frame comes
 ## up in the order the strip draws them, held as long as it says, and then the
-## first again. The screen asks the setting: on, a part is where its film has
-## got to on the screen's clock; off, it is its icon at rest, whatever the clock
-## says. And the setting is kept where the screen mode and the camera shake are,
-## and is on where nobody has set it.
+## first again. The screen moves the one part under the pointer — the part in
+## hand, the board's part, or the parts' row — from the moment the pointer
+## comes onto it, starting on its icon at rest, and keeps every other part on
+## its icon at rest; with the setting off, that one too. And the setting is
+## kept where the screen mode and the camera shake are, and is on where
+## nobody has set it.
 ##
 ## No renderer needed: the films are pictures in a table, and which one the
 ## screen draws is a question it answers.
@@ -27,6 +30,7 @@ func check(ok: bool, what: String) -> void:
 func _ready() -> void:
 	_films()
 	_round()
+	_pointer()
 	_screen()
 	_kept()
 	print("[MOTION] ---- %d failures ----" % fails)
@@ -95,35 +99,70 @@ func _round() -> void:
 	check(Style.component_icon_at("NO_SUCH_PART", 3.0) == Style.component_icon("NO_SUCH_PART"),
 		"a part with no film stands on its icon")
 
-## The screen asks the setting. Sampled every twentieth of a second, which is
-## quicker than the quickest film's tick, for two seconds — longer than any
-## film rests on its first frame.
+## Which part is under the pointer: the one in hand, wherever it is carried;
+## else the board's part under it, filed under its origin; else the parts'
+## row; else none.
+func _pointer() -> void:
+	var ed := SkillEditor.new()
+	var b := SkillBoard.new(7, 5, "pointed at")
+	b.place("FIRE", Vector2i(2, 1), 0)
+	ed.board = b
+	check(ed._under_pointer().is_empty(), "with the pointer on nothing, no part is under it")
+	ed._hover_pal = 3
+	check(ed._under_pointer() == ["parts", 3], "on a row of the parts, that row")
+	ed._hover_pal = -1
+	ed._hover_cell = Vector2i(2, 1)
+	ed._under = ed._under_pointer()
+	check(ed._under == ["board", Vector2i(2, 1), "FIRE"] and ed._pointed_at(Vector2i(2, 1))
+			and not ed._pointed_at(Vector2i(0, 0)),
+		"on a part on the board, that part and no other (%s)" % str(ed._under))
+	ed._hover_cell = Vector2i(5, 3)
+	check(ed._under_pointer().is_empty(), "on an empty cell, none")
+	ed._drag_id = "ICE"
+	check(ed._under_pointer() == ["hand", "ICE"], "with a part in hand, the part in hand, wherever the pointer is")
+	ed.free()
+
+## The screen draws the part under the pointer moving, from the moment the
+## pointer came onto it, and every other part still — and nothing moving with
+## the setting off. Sampled every twentieth of a second, quicker than the
+## quickest film's tick, for two seconds, longer than any film rests on its
+## first frame; the pointer comes on a little way into the screen's clock, so
+## the film is seen to start there rather than at the clock's start.
 func _screen() -> void:
 	var was := Video.icon_motion
 	var ed := SkillEditor.new()
 	Video.icon_motion = true
+	var came_on := 1.3
+	ed._under_since = came_on
+	var starts := true
 	var follows := true
+	var others_still := true
 	var moved: Array = []
 	for id in Components.ids():
 		var off_rest := false
-		for tick in 40:
-			ed._flow_time = float(tick) * 0.05
-			var drawn: Array = ed._icon(id)
-			follows = follows and drawn == Style.component_icon_at(id, ed._flow_time)
+		for tick in 41:
+			ed._flow_time = came_on + float(tick) * 0.05
+			var drawn: Array = ed._icon(id, true)
+			if tick == 0:
+				starts = starts and drawn == Style.component_icon(id)
+			follows = follows and drawn == Style.component_icon_at(id, ed._flow_time - came_on)
 			off_rest = off_rest or drawn != Style.component_icon(id)
+			others_still = others_still and ed._icon(id, false) == Style.component_icon(id)
 		if off_rest:
 			moved.append(id)
-	check(follows, "with the parts let move, each is drawn where its film has got to on the screen's clock")
+	check(starts, "the part under the pointer is its icon at rest the moment the pointer comes onto it")
+	check(follows, "and from then on where its film has got to")
 	check(moved.size() == Components.ids().size(),
-		"and every part is off its icon at rest some time in its first two seconds (%d of %d)"
+		"every part moves some time in its first two seconds under the pointer (%d of %d)"
 			% [moved.size(), Components.ids().size()])
+	check(others_still, "and every part not under the pointer is its icon at rest, whatever the clock says")
 	Video.icon_motion = false
 	var still := true
 	for id in Components.ids():
 		for tick in 40:
-			ed._flow_time = float(tick) * 0.05
-			still = still and ed._icon(id) == Style.component_icon(id)
-	check(still, "with them kept still, every part is its icon at rest, whatever the clock says")
+			ed._flow_time = came_on + float(tick) * 0.05
+			still = still and ed._icon(id, true) == Style.component_icon(id)
+	check(still, "with the setting off, the part under the pointer is its icon at rest too")
 	ed.free()
 	Video.icon_motion = was
 

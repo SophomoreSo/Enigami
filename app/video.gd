@@ -2,7 +2,7 @@ extends Node
 
 ## What the game looks like on the machine it is running on: whether the window
 ## fills the screen, whether an impact is allowed to move the camera, and
-## whether the parts' icons move.
+## whether the part under the pointer moves.
 ##
 ## Its own file beside the language, the key bindings and the pointer speed, and
 ## for the same reason: these are properties of the desk the game is sitting on,
@@ -27,12 +27,12 @@ var fullscreen: bool = false
 ## wrong way round. Nothing about the fight changes either way — see `Fx`.
 var screen_shake: bool = false
 
-## Whether the parts' icons move on the assembly screen, each through its film
-## (`Style.COMPONENT_MOTION`). `SkillEditor` is what reads it.
+## Whether the part under the pointer moves on the assembly screen, through
+## its film (`Style.COMPONENT_MOTION`); every other part stands still on its
+## icon at rest either way. `SkillEditor` is what reads it.
 ##
-## On to start with: the moving icon is how a part shows what it does at a
-## glance. Off, every part stands still on its icon at rest, for anyone who
-## would rather a board of thirty parts did not move.
+## On to start with: a part pointed at shows what it does by doing it. Off,
+## it stands still like the rest.
 var icon_motion: bool = true
 
 func _ready() -> void:

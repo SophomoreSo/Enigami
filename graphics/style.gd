@@ -382,11 +382,11 @@ const ICON_FALLBACK := [
 static func component_icon(id: String) -> Array:
 	return COMPONENT_ICON.get(id, ICON_FALLBACK)
 
-## Every part's icon again, moving: what the assembly screen draws while the
-## parts are let move (`Video.icon_motion`). Each does what its part does — a
-## bolt flies down its shaft, a flame flickers, a blast's rings go out, a heart
-## fills from the bottom, the glass is turned and its grain falls — so a board
-## says what it is made of before a part is hovered.
+## Every part's icon again, moving: what the assembly screen draws for the part
+## under the pointer, while that is let move (`Video.icon_motion`). Each does
+## what its part does — a bolt flies down its shaft, a flame flickers, a
+## blast's rings go out, a heart fills from the bottom, the glass is turned and
+## its grain falls — so a part pointed at shows what it is for.
 ##
 ## A film is its frames side by side, seven pixels square and a space apart,
 ## shown left to right and round again; the first is the icon at rest

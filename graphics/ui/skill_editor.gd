@@ -22,8 +22,9 @@ extends Control
 ## PIXELs laid on the PIXEL grid, so the board reads as the same pixel art as the
 ## world under it. All of it goes through `PixelDraw`, which snaps to that grid.
 ## The pixel face has almost none of the symbols in `Style`'s part glyphs, so
-## parts are drawn as their `Style.component_icon` instead — moving through
-## its film while the parts are let move (`Video.icon_motion`, `_icon`).
+## parts are drawn as their `Style.component_icon` instead — and the one under
+## the pointer moving through its film, while that is let move
+## (`Video.icon_motion`, `_icon`).
 ##
 ## The parts on the right are grouped by the category the rules give them —
 ## forms, elements, stats and the rest — each block named down the gutter beside
@@ -189,6 +190,10 @@ var _flow_arcs: Array = []
 ## See `_rebuild_way_out`.
 var _way_out_col: Color = BREAK
 var _flow_time: float = 0.0
+## What the pointer is on, for the one icon that moves (`_under_pointer`), and
+## when it came onto it, by `_flow_time`.
+var _under: Array = []
+var _under_since: float = 0.0
 var _message: String = ""
 var _message_time: float = 0.0
 ## Whether the message is news rather than a refusal: what COPY and PASTE did.
@@ -400,6 +405,10 @@ func current_board() -> SkillBoard:
 func _process(delta: float) -> void:
 	UiKit.sync_screen(self)
 	_flow_time += delta
+	var under := _under_pointer()
+	if under != _under:
+		_under = under
+		_under_since = _flow_time
 	if _message_time > 0.0:
 		_message_time -= delta
 	queue_redraw()
@@ -1096,12 +1105,35 @@ func _draw() -> void:
 func _icon_zoom() -> int:
 	return maxi(ICON_ZOOM, int(cell_size() / 25.0))
 
-## A part's icon as it is drawn now: where its film has got to on the screen's
-## own clock while the parts are let move (`Video.icon_motion`), and its icon
-## at rest while they are kept still — which is its film's first frame, so
-## turning them off stops every part on the picture it starts from.
-func _icon(id: String) -> Array:
-	return Style.component_icon_at(id, _flow_time) if Video.icon_motion else Style.component_icon(id)
+## A part's icon as it is drawn now: its icon at rest, unless it is the one
+## under the pointer (`moving`) and that is let move (`Video.icon_motion`) —
+## then where its film has got to since the pointer came onto it, which
+## starts it on its first frame, the icon at rest, and goes on from there.
+func _icon(id: String, moving: bool) -> Array:
+	if moving and Video.icon_motion:
+		return Style.component_icon_at(id, _flow_time - _under_since)
+	return Style.component_icon(id)
+
+## What the pointer is on, as far as the moving icon goes: the part in hand,
+## which is under the pointer wherever it is carried; otherwise the board's
+## part under it, and which part that is; otherwise the palette's row; and
+## nothing. The film starts again whenever this changes — so it does when one
+## part is swapped for another under a pointer standing still.
+func _under_pointer() -> Array:
+	if _drag_id != "":
+		return ["hand", _drag_id]
+	var b := current_board()
+	if b != null and _hover_cell.x >= 0:
+		var at = b.origin_at(_hover_cell)
+		if at != null:
+			return ["board", at, String((b.cells[at] as Dictionary).get("id", ""))]
+	if _hover_pal >= 0:
+		return ["parts", _hover_pal]
+	return []
+
+## Whether the board's part filed under `origin` is the one under the pointer.
+func _pointed_at(origin: Vector2i) -> bool:
+	return _under.size() == 3 and _under[0] == "board" and _under[1] == origin
 
 ## The same for a port's arrow, which at a thumb's cell is a speck at one.
 func _port_zoom() -> int:
@@ -1372,7 +1404,7 @@ func _draw_drag() -> void:
 	_draw_part(id, Vector2i.ZERO, rot, cut, [
 		_faded(Color(col.r, col.g, col.b, 0.28), fade), _faded(col.lightened(0.45), fade),
 		_faded(col.lightened(0.3), fade), _faded(col.lightened(0.4), fade),
-		_faded(Color(1.0, 0.55, 0.8), fade)], fade)
+		_faded(Color(1.0, 0.55, 0.8), fade)], fade, true)
 	draw_set_transform(Vector2.ZERO)
 
 ## `col` with its alpha scaled by `fade`.
@@ -2477,15 +2509,16 @@ func _draw_component(b: SkillBoard, origin: Vector2i) -> void:
 		DEAD_EDGE if dead else (col.lightened(0.45) if live else Color(col.r, col.g, col.b, 0.35)),
 		DEAD_INK if dead else (col.lightened(0.3) if live else Color(col.r, col.g, col.b, 0.4)),
 		DEAD_EDGE if dead else (col.lightened(0.4) if live else Color(col.r, col.g, col.b, 0.35)),
-		DEAD_EDGE if dead else (Color(1.0, 0.55, 0.8) if live else Color(1.0, 0.55, 0.8, 0.35))])
+		DEAD_EDGE if dead else (Color(1.0, 0.55, 0.8) if live else Color(1.0, 0.55, 0.8, 0.35))],
+		1.0, _pointed_at(origin))
 
 ## A part filed under `origin`, pointed on its `cut` side if it is the root, in
 ## `look`'s colours: its tint, its edge, its icon, the arrows its flow leaves by
 ## and the one its payload does. Its own ground goes under the tint, `ground`
 ## solid, so the grid it covers does not show through and draw a seam across a
-## two-cell part.
+## two-cell part. Its icon moves if it is the one under the pointer (`moving`).
 func _draw_part(id: String, origin: Vector2i, rot: int, cut: int, look: Array,
-		ground: float = 1.0) -> void:
+		ground: float = 1.0, moving: bool = false) -> void:
 	var r := _part_rect(id, origin, rot)
 	_draw_part_body(r, cut, _faded(CELL_FILL, ground))
 	_draw_part_body(r, cut, look[0])
@@ -2494,7 +2527,7 @@ func _draw_part(id: String, origin: Vector2i, rot: int, cut: int, look: Array,
 	# part names it on a card instead. The icon is drawn at ICON_ZOOM here — a
 	# cell is wide enough for it, and at palette size it was lost in the middle
 	# of one.
-	_px.icon_centered(r.get_center(), _icon(id), look[2], _icon_zoom())
+	_px.icon_centered(r.get_center(), _icon(id, moving), look[2], _icon_zoom())
 	var ex := Components.exit_cell(id, origin, rot)
 	for d in Components.world_outputs(id, rot):
 		_draw_port_arrow(ex, d, look[3])
@@ -2647,7 +2680,7 @@ func _draw_palette() -> void:
 			bg = Color(c.r, c.g, c.b, 0.42)
 		_px.rect(r, bg)
 		_px.frame(r, c if have else Color(0.3, 0.32, 0.36))
-		_px.icon(r.position + Vector2(8, 4), _icon(id), c)
+		_px.icon(r.position + Vector2(8, 4), _icon(id, _drag_id == "" and i == _hover_pal), c)
 		_draw_count(r.end - Vector2(8, 6), id)
 		_px.text(r.position + Vector2(30, PAL_TEXT_Y), Components.name_for(id),
 			Color(0.92, 0.95, 1.0) if have else Color(0.45, 0.48, 0.52), _pal_name_width(i))
@@ -2742,7 +2775,7 @@ func _draw_thumb_parts() -> void:
 		_px.frame(r, c if have else Color(0.3, 0.32, 0.36))
 		if id == selected:
 			_px.frame(r.grow(-PX), c)
-		var icon := _icon(id)
+		var icon := _icon(id, _drag_id == "" and i == _hover_pal)
 		_px.icon(Vector2(r.position.x + 14.0, r.position.y + (r.size.y - icon.size() * PX * 2) * 0.5), icon, c, 2)
 		# The count on the right, at the plate's own size; the name has the rest.
 		var counted := _draw_thumb_count(Vector2(r.end.x - 14.0, r.position.y + (r.size.y + 20.0) * 0.5), id)
