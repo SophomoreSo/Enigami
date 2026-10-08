@@ -160,20 +160,27 @@ func _thrown() -> void:
 	check(flying != null, "(a rock in the air)")
 	if flying == null:
 		return
-	var im := await unlit_frame()
-	check(view.weapon_sprite.self_modulate.a == 0.0, "the hand is empty once it is thrown")
-	var at := on_screen(flying.global_position)
-	check(rock_pixels(im, at, 14) >= 6, "and it is the rock that flies (%d of its pixels)" % rock_pixels(im, at, 14))
+	# How far it has turned over, a quarter at a time, every frame from here
+	# while it flies — through the frames the picture below is read in, too.
+	# A slow screen has the rock on the floor a few frames after it is thrown,
+	# and started only after that read, CI's saw it at one quarter twice.
 	var turns: Array = []
 	var pv: ProjectileView = Views.of(flying)
-	for i in 6:
-		await wait(0.04)
+	var watch := func() -> void:
 		if pv != null and is_instance_valid(pv):
-			turns.append(fmod(absf(roundf(pv._spin / (PI * 0.5))), 4.0))
-	# A slow screen sees fewer of its turns before it lands: two that differ is
-	# a rock turning over.
-	check(turns.size() >= 2 and turns.any(func(t: float) -> bool: return t != turns[0]),
-		"turning over as it goes, a quarter at a time (%s)" % str(turns))
+			var q := fmod(absf(roundf(pv._spin / (PI * 0.5))), 4.0)
+			if turns.is_empty() or turns.back() != q:
+				turns.append(q)
+	watch.call()
+	get_tree().process_frame.connect(watch)
+	var im := await unlit_frame()
+	check(view.weapon_sprite.self_modulate.a == 0.0, "the hand is empty once it is thrown")
+	var seen := rock_pixels(im, on_screen(flying.global_position), 14) if is_instance_valid(flying) else 0
+	check(seen >= 6, "and it is the rock that flies (%d of its pixels)" % seen)
+	await until(func() -> bool: return turns.size() >= 2 or pv == null or not is_instance_valid(pv), 0.25)
+	get_tree().process_frame.disconnect(watch)
+	# Two quarters seen is a rock turning over.
+	check(turns.size() >= 2, "turning over as it goes, a quarter at a time (%s)" % str(turns))
 
 ## The rock in the air, once it is well out of the hand; or null.
 func _rock_away() -> Projectile:
