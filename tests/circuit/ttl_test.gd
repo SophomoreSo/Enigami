@@ -17,14 +17,14 @@ func runner(b: SkillBoard, bonus: int = 0) -> SkillRunner:
 	r.ttl_bonus = bonus
 	return r
 
-## A straight run of `n` DELAYs into an attack, off a DELAY on the root, on a
+## A straight run of `n` BRIDGEs into an attack, off a BRIDGE on the root, on a
 ## board exactly as long, so the SLASH is against the way out: no cycle, just
 ## length.
 func chain(n: int) -> SkillBoard:
 	var b := SkillBoard.new(n + 2, 5, "chain")
-	b.set_root("DELAY")
+	b.set_root("BRIDGE")
 	for i in n:
-		b.place("DELAY", Vector2i(1 + i, 2), 0)
+		b.place("BRIDGE", Vector2i(1 + i, 2), 0)
 	b.place("SLASH", Vector2i(1 + n, 2), 0)
 	return b
 
@@ -99,12 +99,12 @@ func _ready() -> void:
 
 	# Length alone must never cost a board its shot: a cast's life starts at
 	# exactly one pass of whatever board it is, short or long. A pass is the
-	# parts on it — the root, the DELAYs and the SLASH — and nothing for going
+	# parts on it — the root, the BRIDGEs and the SLASH — and nothing for going
 	# out.
 	for n in [2, 12, 40]:
 		var r := runner(chain(n))
 		check(r.pass_cost == n + 2,
-			"a %d-DELAY chain costs %d to walk once (%d)" % [n, n + 2, r.pass_cost])
+			"a %d-BRIDGE chain costs %d to walk once (%d)" % [n, n + 2, r.pass_cost])
 		check(shots(r) == 1, "and one pass is exactly what an uncharged cast takes")
 		check(not bool(r.simulate()["expired"]), "with nothing cut short for want of life")
 

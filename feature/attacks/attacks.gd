@@ -102,6 +102,13 @@ const CHAIN_HITSTOP := 0.010
 ## SIZE and RANGE carry it further (`Payload.lunge`).
 const DASH_SLASH_REACH := 85.0
 
+## HEADBUTT. How far the head lunges at size 1 with nothing in the way — a step,
+## about a body and a half, where SWIFT STRIKE dashes — and how far to either
+## side of its line it meets what is there. SIZE carries both further, as it
+## does a swing's; RANGE does nothing to it, as to a swing.
+const HEADBUTT_REACH := 44.0
+const HEADBUTT_WIDTH := 12.0
+
 ## AUTO-AIM. How far one looks for something to go at, and how much further
 ## each one stacked looks: the first looks as far as SWIFT STRIKE+ used to,
 ## which was SWIFT STRIKE with this built in. A bolt looks as far as it
@@ -209,6 +216,8 @@ class Deferred extends Node:
 				Attacks._burst(payload, pos, team, atk, room)
 			"dash":
 				Attacks._dash_slash(payload, aim, team, atk, room, far)
+			"headbutt":
+				Attacks._headbutt(payload, aim, team, atk, room)
 			"spawn":
 				# The full spawn path, so a trigger's attack behaves exactly as
 				# it would fired straight off the board.
@@ -346,6 +355,12 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 					_dash_slash(payload, aim, team, attacker, room, far)
 				else:
 					_schedule(float(i) * 0.12, "dash", payload, aim, origin, team, attacker, room, far)
+		"HEADBUTT":
+			for i in count:
+				if i == 0:
+					_headbutt(payload, aim, team, attacker, room)
+				else:
+					_schedule(float(i) * 0.12, "headbutt", payload, aim, origin, team, attacker, room)
 		_:
 			pass
 
@@ -454,6 +469,32 @@ static func _dash_slash(p: Payload, aim: Vector2, team: int, atk: Actor, room, f
 	n.setup(p, start, dest, team, atk, room)
 	container().add_child(n)
 	Cues.at(&"lunge_cut", start, {"payload": p, "to": dest})
+
+## HEADBUTT: the attacker lunges a short way down the aim — no further than the
+## first wall — and the head stops on the first enemy it meets (`Headbutt`).
+## HOMING turns it to the nearest enemy first, as far off as a swing looks for
+## one; AUTO-AIM has pointed it already (`spawn`). Like a swing, it does not go
+## further for being aimed further. It wants a head to do it with: an attacker
+## gone by the time a volley's later ones come due headbutts nothing.
+static func _headbutt(p: Payload, aim: Vector2, team: int, atk: Actor, room) -> void:
+	if atk == null or not is_instance_valid(atk):
+		return
+	if room != null and not is_instance_valid(room):
+		room = null
+	var start: Vector2 = atk.global_position
+	if p.homing:
+		var t := nearest_target(start, team, 260.0)
+		if t != null and t.global_position.distance_to(start) > 0.01:
+			aim = (t.global_position - start).normalized()
+	var dest := start + aim * HEADBUTT_REACH * p.size
+	if room != null and room.has_method("clamp_dash"):
+		dest = room.clamp_dash(start, dest)
+	var n := Headbutt.new()
+	n.setup(p, start, dest, team, atk, room)
+	n.aim = aim
+	n.thickness = HEADBUTT_WIDTH * p.size
+	container().add_child(n)
+	Cues.at(&"lunge_cut", start, {"payload": p, "to": n.to})
 
 ## A payload in words: its form, what it carries, and what it does when it
 ## lands, SHATTER's and MANA DRAIN's numbers included — which are this file's.

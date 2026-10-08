@@ -19,12 +19,12 @@ func _ready() -> void:
 	# A flow entering a part from the side it does not point at is fine now:
 	# the arrow says where flow leaves, nothing says where it may come from.
 	var b := SkillBoard.new(7, 5, "sideways")
-	b.set_root("DELAY", Vector2i(3, 2), 1)       # south
+	b.set_root("BRIDGE", Vector2i(3, 2), 1)      # south
 	b.place("OVERCLOCK", Vector2i(3, 3), 0)      # entered from the north, leaves east
 	b.place("OVERCLOCK", Vector2i(4, 3), 3)      # entered from the west, leaves north
 	b.place("OVERCLOCK", Vector2i(4, 2), 0)      # entered from the south, leaves east
 	b.place("SLASH", Vector2i(5, 2), 0)
-	b.place("DELAY", Vector2i(6, 2), 0)          # against the way out
+	b.place("BRIDGE", Vector2i(6, 2), 0)         # against the way out
 	var t := b.trace()
 	check((t["breaks"] as Array).is_empty(), "turning a corner through any part is a valid join")
 	check(t["reachable"].size() == 6, "the whole snaking chain is live (%d)" % t["reachable"].size())
@@ -72,12 +72,12 @@ func _ready() -> void:
 	check((far_run.simulate()["outputs"] as Array).is_empty(), "and fires nothing")
 	# A chain one cell short is a leak at its end; the last part makes it whole.
 	for x in range(1, 6):
-		far.place("DELAY", Vector2i(x, 2), 0)
+		far.place("BRIDGE", Vector2i(x, 2), 0)
 	var short_of := far.trace()
 	check(not bool(short_of["gets_out"]) and (short_of["leaks"] as Array).size() == 1
 			and (short_of["leaks"] as Array)[0].get("from") == Vector2i(5, 2),
 		"a chain that stops a cell short leaks there")
-	far.place("DELAY", Vector2i(6, 2), 0)
+	far.place("BRIDGE", Vector2i(6, 2), 0)
 	check(bool(far.trace()["gets_out"]) and (far.trace()["leaks"] as Array).is_empty(),
 		"and reaches the way out once the cell is filled")
 	# Any other edge is not a way out — another row's end of the right edge
@@ -94,24 +94,24 @@ func _ready() -> void:
 
 	# Two outputs pointed at each other is the one join that cannot carry flow.
 	var h := SkillBoard.new(7, 5, "headon")
-	h.set_root("DELAY")
-	h.place("DELAY", Vector2i(1, 2), 2)          # points back west at the root
+	h.set_root("BRIDGE")
+	h.place("BRIDGE", Vector2i(1, 2), 2)         # points back west at the root
 	var th := h.trace()
 	check((th["breaks"] as Array).size() == 1, "outputs meeting head-on is a break")
 	var hb: Dictionary = (th["breaks"] as Array)[0] if not (th["breaks"] as Array).is_empty() else {}
-	# The break is named at the part that would not take the flow — the DELAY
+	# The break is named at the part that would not take the flow — the BRIDGE
 	# turned back on the root — not at the one that sent it.
-	check(String(hb.get("id", "")) == "DELAY" and hb.get("to") == Vector2i(1, 2)
+	check(String(hb.get("id", "")) == "BRIDGE" and hb.get("to") == Vector2i(1, 2)
 			and String(hb.get("why", "")) == "facing",
 		"and it is reported at the part that turned the flow back (%s)" % str(hb))
 
 	# The root is a part like any other, so a flow may run back into it — and a
 	# ring through it with no way out is dead code like any other ring.
 	var fb := SkillBoard.new(7, 5, "feedback")
-	fb.set_root("DELAY", Vector2i(1, 2), 0)
-	fb.place("DELAY", Vector2i(2, 2), 1)
-	fb.place("DELAY", Vector2i(2, 3), 2)
-	fb.place("DELAY", Vector2i(1, 3), 3)         # points north, back into the root
+	fb.set_root("BRIDGE", Vector2i(1, 2), 0)
+	fb.place("BRIDGE", Vector2i(2, 2), 1)
+	fb.place("BRIDGE", Vector2i(2, 3), 2)
+	fb.place("BRIDGE", Vector2i(1, 3), 3)        # points north, back into the root
 	var ti := fb.trace()
 	check((ti["breaks"] as Array).is_empty() and ti["reachable"].size() == 4,
 		"a flow aimed back at the root is taken: the root feeds on any side but its own output")
@@ -120,11 +120,11 @@ func _ready() -> void:
 
 	# A ring must not run forever: a pulse gets a hop budget.
 	var r := SkillBoard.new(7, 5, "ring")
-	r.set_root("DELAY", Vector2i(0, 0), 0)      # feeds east into the ring
-	r.place("DELAY", Vector2i(1, 0), 0)          # east
-	r.place("DELAY", Vector2i(2, 0), 1)          # south
-	r.place("DELAY", Vector2i(2, 1), 2)          # west
-	r.place("DELAY", Vector2i(1, 1), 3)          # north, closing the ring
+	r.set_root("BRIDGE", Vector2i(0, 0), 0)     # feeds east into the ring
+	r.place("BRIDGE", Vector2i(1, 0), 0)         # east
+	r.place("BRIDGE", Vector2i(2, 0), 1)         # south
+	r.place("BRIDGE", Vector2i(2, 1), 2)         # west
+	r.place("BRIDGE", Vector2i(1, 1), 3)         # north, closing the ring
 	var tr := r.trace()
 	check((tr["breaks"] as Array).is_empty(), "a ring is a legal board")
 	check(tr["reachable"].size() == 5, "the whole ring is reachable")
@@ -158,12 +158,12 @@ func _ready() -> void:
 	# with the root stuck behind it, and the board fired once where the preview
 	# said four.
 	var lp := SkillBoard.new(7, 5, "loop")
-	lp.set_root("DELAY", Vector2i(3, 2))
-	lp.place("DELAY", Vector2i(4, 2), 0)
+	lp.set_root("BRIDGE", Vector2i(3, 2))
+	lp.place("BRIDGE", Vector2i(4, 2), 0)
 	lp.place("ON_HIT", Vector2i(5, 2), 0)   # on to the attack, and its branch round the ring
 	lp.place("SLASH", Vector2i(6, 2), 0)    # east, and out
-	lp.place("DELAY", Vector2i(5, 3), 2)
-	lp.place("DELAY", Vector2i(4, 3), 3)    # north, back into the first DELAY
+	lp.place("BRIDGE", Vector2i(5, 3), 2)
+	lp.place("BRIDGE", Vector2i(4, 3), 3)   # north, back into the first BRIDGE
 	var lr := SkillRunner.new(lp)
 	lr.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
 	# An uncharged cast is worth one pass, so the laps this is checking are
@@ -215,7 +215,7 @@ func _ready() -> void:
 	# it is — the root is doing its job, and the SLASH stranded past it is
 	# unreached rather than caught.
 	var dl := SkillBoard.new(7, 5, "deadloop")
-	dl.set_root("DELAY")
+	dl.set_root("BRIDGE")
 	dl.place("DUPLICATE", Vector2i(1, 2), 3)     # in from the west, out north
 	dl.place("FIRE", Vector2i(1, 1), 0)          # east
 	dl.place("DAMAGE", Vector2i(2, 1), 1)        # south
@@ -239,10 +239,10 @@ func _ready() -> void:
 	# The same ring with nothing feeding it: a trap is a trap before anything
 	# falls into it, so this is marked too.
 	var orphan := SkillBoard.new(7, 5, "orphan")
-	orphan.place("DELAY", Vector2i(1, 0), 0)
-	orphan.place("DELAY", Vector2i(2, 0), 1)
-	orphan.place("DELAY", Vector2i(2, 1), 2)
-	orphan.place("DELAY", Vector2i(1, 1), 3)
+	orphan.place("BRIDGE", Vector2i(1, 0), 0)
+	orphan.place("BRIDGE", Vector2i(2, 0), 1)
+	orphan.place("BRIDGE", Vector2i(2, 1), 2)
+	orphan.place("BRIDGE", Vector2i(1, 1), 3)
 	check((orphan.trace()["dead"] as Dictionary).size() == 4,
 		"a ring with nothing feeding it is dead code all the same")
 	check((tr["dead"] as Dictionary).size() == 4, "and so is the one the root feeds")
@@ -259,8 +259,8 @@ func _ready() -> void:
 	var lo := SkillBoard.new(7, 5, "leaves")
 	lo.set_root("SLASH", Vector2i(5, 2))
 	lo.place("ON_HIT", Vector2i(6, 2), 0)        # east and out, and its branch south round the ring
-	lo.place("DELAY", Vector2i(6, 3), 2)
-	lo.place("DELAY", Vector2i(5, 3), 3)         # north, back into the root
+	lo.place("BRIDGE", Vector2i(6, 3), 2)
+	lo.place("BRIDGE", Vector2i(5, 3), 3)        # north, back into the root
 	var tlo := lo.trace()
 	check((tlo["dead"] as Dictionary).is_empty() and bool(tlo["gets_out"]),
 		"a ring that lets its flow out of the board itself is not dead code either")
@@ -269,9 +269,9 @@ func _ready() -> void:
 	var shut := SkillBoard.new(7, 5, "shut")
 	shut.set_root("SLASH", Vector2i(4, 2))
 	shut.place("ON_HIT", Vector2i(5, 2), 0)
-	shut.place("DELAY", Vector2i(5, 3), 2)
-	shut.place("DELAY", Vector2i(4, 3), 3)
-	shut.place("DELAY", Vector2i(6, 2), 2)       # facing back at the ON HIT
+	shut.place("BRIDGE", Vector2i(5, 3), 2)
+	shut.place("BRIDGE", Vector2i(4, 3), 3)
+	shut.place("BRIDGE", Vector2i(6, 2), 2)      # facing back at the ON HIT
 	check((shut.trace()["dead"] as Dictionary).size() == 4,
 		"but one with its way out shut is")
 
@@ -279,11 +279,11 @@ func _ready() -> void:
 	# flow out: trapped or not, it dilates time once a lap for as long as the
 	# life lasts.
 	var spin := SkillBoard.new(7, 5, "dilate")
-	spin.set_root("DELAY", Vector2i(0, 0), 0)
-	spin.place("DELAY", Vector2i(1, 0), 0)
+	spin.set_root("BRIDGE", Vector2i(0, 0), 0)
+	spin.place("BRIDGE", Vector2i(1, 0), 0)
 	spin.place("TIME_DILATION", Vector2i(2, 0), 1)
-	spin.place("DELAY", Vector2i(2, 1), 2)
-	spin.place("DELAY", Vector2i(1, 1), 3)
+	spin.place("BRIDGE", Vector2i(2, 1), 2)
+	spin.place("BRIDGE", Vector2i(1, 1), 3)
 	check((spin.trace()["dead"] as Dictionary).is_empty(),
 		"a ring with TIME DILATION in it is doing something every lap, not nothing")
 
@@ -292,13 +292,13 @@ func _ready() -> void:
 	# DAMAGE parts collapsed into one enormous strike rather than the four
 	# separate attacks the board draws.
 	var tb := SkillBoard.new(7, 5, "trigger loop")
-	tb.set_root("DELAY", Vector2i(3, 2))
+	tb.set_root("BRIDGE", Vector2i(3, 2))
 	tb.place("DASHSLASH", Vector2i(4, 2), 0)
-	tb.place("DELAY", Vector2i(5, 2), 0)
+	tb.place("BRIDGE", Vector2i(5, 2), 0)
 	tb.place("ON_HIT", Vector2i(6, 2), 0)      # onward E and out, branch S
 	tb.place("DAMAGE", Vector2i(6, 3), 1)
 	tb.place("DAMAGE", Vector2i(6, 4), 2)
-	tb.place("DELAY", Vector2i(5, 4), 2)
+	tb.place("BRIDGE", Vector2i(5, 4), 2)
 	tb.place("DAMAGE", Vector2i(4, 4), 3)
 	tb.place("DAMAGE", Vector2i(4, 3), 3)      # back into the DASHSLASH
 	var tr2 := SkillRunner.new(tb)
@@ -357,7 +357,7 @@ func _ready() -> void:
 	# A part two cells off is not reached at all: the flow leaks into the empty
 	# cell between, and nothing carries it on.
 	var d2 := SkillBoard.new(7, 5, "gap")
-	d2.set_root("DELAY", Vector2i(1, 0), 1)     # south, down the column
+	d2.set_root("BRIDGE", Vector2i(1, 0), 1)    # south, down the column
 	d2.place("EXPLODE", Vector2i(1, 2), 0)       # two cells down
 	var td2 := d2.trace()
 	check((td2["breaks"] as Array).is_empty() and (td2["leaks"] as Array).size() == 1
@@ -372,8 +372,8 @@ func _ready() -> void:
 
 	# A wired board with no attack form reports that, not a wiring fault.
 	var g := SkillBoard.new(7, 5, "noform")
-	g.set_root("DELAY", Vector2i(5, 2))
-	g.place("DELAY", Vector2i(6, 2), 0)
+	g.set_root("BRIDGE", Vector2i(5, 2))
+	g.place("BRIDGE", Vector2i(6, 2), 0)
 	var tg := g.trace()
 	check(bool(tg["has_root"]) and bool(tg["gets_out"]) and (tg["breaks"] as Array).is_empty()
 			and (tg["leaks"] as Array).is_empty() and g.compute_tags().is_empty(),

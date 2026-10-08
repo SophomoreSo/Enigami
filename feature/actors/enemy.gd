@@ -150,6 +150,8 @@ func _make_runner() -> void:
 	runner.fired.connect(_on_fired)
 
 func _on_fired(p: Payload) -> void:
+	if dead:
+		return
 	var aim: Vector2
 	if piloted():
 		# Where the pilot is pointing. Going off gives nothing away; hurting one
@@ -165,6 +167,21 @@ func _on_fired(p: Payload) -> void:
 		"attacker": self, "room": room, "team": team,
 		"aim": aim, "origin": global_position, "gravity": _gravity_shots,
 	})
+	if bool(def.get("spent_by_attack", false)):
+		_go_up(p)
+
+## Spent by its attack, as the Bomber is (`spent_by_attack`): the blow is the
+## last thing it does. What it carried goes up where it stands — wherever the
+## blow left it — as the same flow with no form under it, which an EXPLODE on
+## it makes a burst of its own (`Attacks.spawn`), and it dies in it, whether
+## the blow found anybody or not. A player whose hands are in it is put back in
+## their own body, as from any monster that dies.
+func _go_up(p: Payload) -> void:
+	var blast := p.clone()
+	blast.form = ""
+	Attacks.spawn(blast, {"attacker": null, "room": room, "team": team, "aim": Vector2.RIGHT,
+		"origin": global_position})
+	_kill()
 
 func _process(delta: float) -> void:
 	_process_status(delta)

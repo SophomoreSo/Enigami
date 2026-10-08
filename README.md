@@ -406,7 +406,8 @@ on every one.
 it: it is cast into it. A bolt off the rock is the rock itself, carrying
 whatever was built into the graph, and it leaves your hand empty — until you
 walk over it where it came down and pick it back up, the rock casts nothing,
-charges nothing, and says NO ROCK when you reach for it. A copy of it that the
+charges nothing, and says NO ROCK when you reach for it — unless its graph does
+nothing but headbutt (below), which needs no rock. A copy of it that the
 same cast sends — the rest of a `DUPLICATE` volley, a lap that comes round
 after it has gone — strikes as it does and is gone when it lands. A rock left
 in a room stays in that room, and is there when you come back for it. Your
@@ -414,6 +415,15 @@ hands in a monster (`POSSESS`) pick it up and throw it as your own do;
 stepping out, the monster lets it fall where it stands. A monster with its own
 mind never touches it. The pack has no stone, so the rock is drawn in code, a
 letter a pixel (`Style.DRAWN_TILES`).
+
+**A headbutt needs no weapon.** `HEADBUTT` is the one form with nothing in the
+hand: a short lunge along the aim that drives the head into the first enemy in
+the way and stops against it — `PIERCE` carries it on into the next. A graph
+whose every attack is a headbutt goes off whether its weapon is in hand or not:
+the rock lying across the room, every shuriken thrown, your hands in a monster
+that has not taken the weapon, which then headbutts with your graph instead of
+using its own attack. None of the weapon's multipliers weigh it. A graph that
+fires anything else as well still wants the weapon in hand.
 
 A board is a circuit. A pulse leaves the root, spends **one tick in every
 part** it enters, and mutates a payload on the way through — every part takes
@@ -447,7 +457,8 @@ first attack leaving the board is spent the moment you press, so the attack
 lands on the press, and those ticks are charged back onto the cooldown instead.
 A long board makes you wait for the *next* shot, never for this one. Everything
 the board does after that first attack still plays out in real time, which is
-what lets `DELAY` hold a trigger's branch back behind the attack it follows.
+what lets a trigger's branch be held back behind the attack it follows, by
+giving it further to walk.
 
 - Nothing forks a flow, so a cast is one attack; `DUPLICATE x3` is how it
   becomes three. `SPLIT` and `TEE` used to fork it, and are retired.
@@ -492,10 +503,14 @@ what lets `DELAY` hold a trigger's branch back behind the attack it follows.
   and a wall of them is far worse than none. The delay is measured in real
   seconds rather than ticks on purpose: a tick-denominated cost would be shrunk
   by the very speed-up it pays for, and the two would cancel.
-- `DELAY` is a cell of waiting and nothing more: it turns a flow and leaves it
-  as it was, which makes it the part for steering a branch round to the way
-  out — and, since every part is a tick, for staggering one branch against
-  another by giving it further to walk.
+- `BRIDGE` carries a flow one cell and does nothing else: it turns the flow
+  and leaves it as it was, which makes it the part for steering a branch round
+  to the way out — and, since every part is a tick, for staggering one branch
+  against another by giving it further to walk. It is what WIRE and BEND were.
+- `DELAY` makes every cast that passes through it wait longer before the next,
+  and two of them twice as long: its heat is all it does, and it does nothing
+  to the flow itself. On a weapon each one adds about a quarter of a second to
+  the wait between casts.
 - A bolt carries a fixed distance and then fades — a quarter of a room as
   standard, and the weapon scales it: a good third of a room off the Gun, a
   quarter off the Rock, a sixth off the Sword. You fight inside a part of a
@@ -648,6 +663,14 @@ would produce, the trigger payloads, and total heat.
 
 Monsters run boards through the exact same simulator, and a kill can drop the
 components its attack was visibly built from.
+
+The **Bomber**'s attack is the last thing it does. It runs at you and, once it
+is close enough, headbutts you: its board is a `HEADBUTT` carrying `DAMAGE`,
+`FIRE` and an `EXPLODE`, so the blow bursts on everything round you. Then it
+goes up where it stands — the same flow with no form under it, which its
+`EXPLODE` makes a burst of its own, and you are in that one — and it dies in
+it, whether the blow found you or not. Fragile and quick: stop it before it
+arrives, or be out of reach when it does.
 
 ## Sharing a board
 

@@ -66,12 +66,13 @@ func _ready() -> void:
 		if Components.world_payload_out(id, 0) < 0 or String(Components.get_def(id).get("cat", "")) != Components.CAT_TRIGGER:
 			unbranched.append(id)
 	check(unbranched.is_empty(), "ON HIT, ON KILL and ON PARRY are triggers, each with a branch (%s)" % str(unbranched))
-	# An attack is spawned by its form (`Attacks.spawn`), and three are drawn.
+	# An attack is spawned by its form (`Attacks.spawn`), and four are drawn.
 	# Each is a part that makes a flow that form, and no row makes any other.
-	# EXPLODE and ZAP made five. EXPLODE is a behaviour now: it bursts the hits
-	# of the form the flow has, and is a burst of its own only on a flow with
-	# none. ZAP is PROJECTILE now (`renamed_parts`).
-	const DRAWN := ["PROJECTILE", "SLASH", "DASHSLASH"]
+	# EXPLODE and ZAP were two more. EXPLODE is a behaviour now: it bursts the
+	# hits of the form the flow has, and is a burst of its own only on a flow
+	# with none. ZAP is PROJECTILE now (`renamed_parts`). HEADBUTT is the
+	# newest, and the one with no weapon in it.
+	const DRAWN := ["PROJECTILE", "SLASH", "DASHSLASH", "HEADBUTT"]
 	var misformed: Array = []
 	for id in DRAWN:
 		if not Components.exists(id) or (_entered(id)["payload"] as Payload).form != id:

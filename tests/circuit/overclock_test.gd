@@ -12,12 +12,12 @@ func check(ok: bool, what: String) -> void:
 		fails += 1
 		push_error("OC FAIL: " + what)
 
-## A row of `n` overclocks feeding a SLASH, off a DELAY on the root, on a
+## A row of `n` overclocks feeding a SLASH, off a BRIDGE on the root, on a
 ## board exactly as long and one row high — so the row is the middle one, and
 ## the SLASH stands against the way out.
 func build(n: int) -> SkillBoard:
 	var b := SkillBoard.new(n + 2, 1, "oc")
-	b.set_root("DELAY", Vector2i(0, 0), 0)
+	b.set_root("BRIDGE", Vector2i(0, 0), 0)
 	for i in n:
 		b.place("OVERCLOCK", Vector2i(1 + i, 0), 0)
 	b.place("SLASH", Vector2i(n + 1, 0), 0)

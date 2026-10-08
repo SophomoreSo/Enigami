@@ -11,6 +11,10 @@
 		"name": "SWIFT STRIKE",
 		"desc": "Lunges along the aim direction, cutting everything on the path."
 	},
+	"HEADBUTT": {
+		"name": "HEADBUTT",
+		"desc": "A short lunge along the aim that drives the head into the first enemy in the way, and stops there. It needs no weapon: it goes off with the weapon in hand or without it."
+	},
 	"FIRE": {
 		"name": "FIRE",
 		"desc": "Adds flame. Struck enemies burn for damage over time; a wet one is only dried."
@@ -93,7 +97,7 @@
 	},
 	"DELAY": {
 		"name": "DELAY",
-		"desc": "One cell of waiting and nothing more: it turns a flow and leaves it as it was. Steer a flow round to the way out with it, or walk a trigger's branch round a ring and back."
+		"desc": "Makes every cast that passes through it wait longer before the next, and each one more adds as much again. It does nothing else: it turns a flow and leaves it as it was."
 	},
 	"TIME_DILATION": {
 		"name": "TIME DILATION",
@@ -102,6 +106,10 @@
 	"INVERT": {
 		"name": "INVERT",
 		"desc": "Turns the part right before it inside out: DAMAGE heals what it strikes, FIRE, ICE and STUN cleanse it, GRAVITY pushes away, KNOCKBACK pulls in, and SIZE, SPEED and RANGE shrink. After anything else it does nothing."
+	},
+	"BRIDGE": {
+		"name": "BRIDGE",
+		"desc": "Carries a flow one cell and does nothing else: it turns the flow and leaves it as it was. Steer a flow round to the way out with it, or walk a trigger's branch round a ring and back."
 	},
 	"ON_HIT": {
 		"name": "ON HIT",
