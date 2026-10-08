@@ -20,7 +20,7 @@ signal jean_grey_test_requested()
 ## A sample skill was put on its weapon (`load_sample`).
 signal sample_loaded(id: String)
 
-const MONSTER_BUTTONS := ["CRAWLER", "SENTRY", "LOBBER", "HOPPER", "DRIFTER", "WARDEN", "ARBITER"]
+const MONSTER_BUTTONS := ["CRAWLER", "SENTRY", "LOBBER", "HOPPER", "DRIFTER", "BOMBER", "WARDEN", "ARBITER"]
 ## The column the apprentice stands in: by the left wall, which the wall kick
 ## they teach needs.
 const APPRENTICE_CELL := 5

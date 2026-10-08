@@ -661,6 +661,14 @@ would produce, the trigger payloads, and total heat.
 Monsters run boards through the exact same simulator, and a kill can drop the
 components its attack was visibly built from.
 
+The **Bomber**'s attack is the last thing it does. It runs at you and, once it
+is close enough, headbutts you: its board is a `HEADBUTT` carrying `DAMAGE`,
+`FIRE` and an `EXPLODE`, so the blow bursts on everything round you. Then it
+goes up where it stands — the same flow with no form under it, which its
+`EXPLODE` makes a burst of its own, and you are in that one — and it dies in
+it, whether the blow found you or not. Fragile and quick: stop it before it
+arrives, or be out of reach when it does.
+
 ## Sharing a board
 
 **COPY**, under the board in the assembly screen — or Ctrl+C, ⌘C on a Mac —

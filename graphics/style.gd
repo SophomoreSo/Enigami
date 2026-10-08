@@ -923,6 +923,8 @@ const MONSTER := {
 	"LOBBER": {"art": "orc_shaman", "color": Color(0.6, 0.8, 0.45)},
 	"HOPPER": {"art": "masked_orc", "color": Color(0.82, 0.8, 0.86)},
 	"DRIFTER": {"art": "angel", "color": Color(0.5, 0.85, 0.95)},
+	# The pack's goblin, small and quick, and orange as what it goes up in.
+	"BOMBER": {"art": "goblin", "color": Color(1.0, 0.55, 0.25)},
 	"WARDEN": {"art": "ogre", "color": Color(0.45, 0.65, 0.98), "tint": Color(0.66, 0.82, 1.1)},
 	# A person: the pack's knight, with a rifle the pack does not have, drawn
 	# by `EnemyView` (`gun`).

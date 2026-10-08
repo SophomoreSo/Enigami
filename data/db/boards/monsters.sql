@@ -12,7 +12,7 @@
 -- itself, a burst where the monster stands (data/db/parts/parts.sql).
 
 INSERT INTO boards (id) VALUES
-	('crawler'), ('sentry'), ('lobber'), ('hopper'), ('drifter'), ('warden'), ('arbiter'), ('arbiter_phase2'),
+	('crawler'), ('sentry'), ('lobber'), ('hopper'), ('drifter'), ('bomber'), ('warden'), ('arbiter'), ('arbiter_phase2'),
 	('gunman');
 
 INSERT INTO board_parts (board_id, x, y, part, facing, root) VALUES
@@ -25,6 +25,13 @@ INSERT INTO board_parts (board_id, x, y, part, facing, root) VALUES
 	('hopper', 6, 2, 'EXPLODE', 'E', 1),
 
 	('drifter', 5, 2, 'PROJECTILE', 'E', 1), ('drifter', 6, 2, 'HOMING', 'E', 0),
+
+	-- A headbutt as hard as a DAMAGE makes it, burning, and bursting on
+	-- everything round whoever it struck. It is the last thing the Bomber does
+	-- (feature/actors/monsters.gd): the flow then goes up where it stands — the
+	-- same EXPLODE with no form under it, which is a burst of its own.
+	('bomber', 3, 2, 'HEADBUTT', 'E', 1), ('bomber', 4, 2, 'DAMAGE', 'E', 0),
+	('bomber', 5, 2, 'FIRE', 'E', 0), ('bomber', 6, 2, 'EXPLODE', 'E', 0),
 
 	-- A frost bolt, three times over.
 	('warden', 4, 2, 'PROJECTILE', 'E', 1), ('warden', 5, 2, 'ICE', 'E', 0),
