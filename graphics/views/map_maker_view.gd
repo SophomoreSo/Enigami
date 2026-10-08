@@ -150,5 +150,7 @@ func _on_editing(on: bool) -> void:
 		editor.grab_focus()
 	else:
 		editor.visible = false
-	# The line of keys shares a layer with the editor and would lie on its foot.
+	# The line of keys shares a layer with the editor and would lie on its foot,
+	# and the HUD's bars where its way back stands.
 	keys.visible = maker.playing and not on
+	hud.visible = maker.playing and not on

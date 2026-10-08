@@ -42,8 +42,11 @@ extends Control
 ## it in the category's own colour, which is the colour its parts wear.
 ##
 ## There is no header over it: the board and the parts have the screen, side by
-## side in the middle of it (`_desk_layout`), with an X in its top-left corner
-## that closes it, and COPY and PASTE under the board.
+## side in the middle of it (`_desk_layout`), with the back arrow in its
+## top-left corner — the way back every page of the menus has in its own — that
+## closes it, and COPY and PASTE under the board. The screen it is opened over
+## puts its HUD away while it is up: the board has the screen, and that corner
+## is where the HUD's bars stand.
 ## COPY puts the board on the clipboard as a code, and PASTE builds the board
 ## out of the code on the clipboard. What a pasted code costs is decided here —
 ## see `_paste_code`.
@@ -117,15 +120,15 @@ const NOWHERE := Vector2i(-1, -1)
 ## --- for a thumb --------------------------------------------------------------
 ## Mobile mode's screen, top to bottom and left to right:
 ##
-##   * in the top-left corner the X that closes it, THUMB_BTN square, and beside
-##     it, for the moment one lasts, a refusal or what COPY and PASTE did, on a
-##     plate of its own; under it, where there are weapons to choose between,
-##     a plate each, THUMB_BTN square, their pictures on them;
-##   * the board, in the room under the X and left of the parts, its cells as big
-##     as that room lets them be: at a desk a cell is as big as stands the
-##     board as tall as the parts, 78 on a first workbench's seven by five,
-##     and here that grid stands at 90 — 82 beside the weapons — a thumb's
-##     width. Under it, COPY and PASTE, each THUMB_BTN tall;
+##   * in the top-left corner the back arrow that closes it, THUMB_BTN square,
+##     and beside it, for the moment one lasts, a refusal or what COPY and PASTE
+##     did, on a plate of its own; under it, where there are weapons to choose
+##     between, a plate each, THUMB_BTN square, their pictures on them;
+##   * the board, in the room under the back arrow and left of the parts, its
+##     cells as big as that room lets them be: at a desk a cell is as big as
+##     stands the board as tall as the parts, 78 on a first workbench's seven
+##     by five, and here that grid stands at 90 — 82 beside the weapons — a
+##     thumb's width. Under it, COPY and PASTE, each THUMB_BTN tall;
 ##   * down the right, THUMB_PARTS wide and the screen's height, the parts: a
 ##     tab a category, and beside them the picked category's parts, a plate
 ##     each, with the name written at the size a thumb's page writes at. A
@@ -339,12 +342,12 @@ func _thumb_layout() -> Dictionary:
 	l["plates"] = Rect2(column.position.x + THUMB_TAB_W + 8.0, column.position.y,
 		column.size.x - THUMB_TAB_W - 8.0, room)
 
-	# The board has the rest, under the X and over a row for COPY and PASTE: as
-	# big as fits, a cell an odd number of PIXELs so an icon still lands in the
-	# middle of one (see `_cell_center`).
+	# The board has the rest, under the back arrow and over a row for COPY and
+	# PASTE: as big as fits, a cell an odd number of PIXELs so an icon still
+	# lands in the middle of one (see `_cell_center`).
 	var under := corner.end.y + 12.0
-	# The weapons, where there are any to choose between, stand under the X
-	# (`_shelf_rect`), and the board's room starts past them.
+	# The weapons, where there are any to choose between, stand under the back
+	# arrow (`_shelf_rect`), and the board's room starts past them.
 	var from := THUMB_EDGE + (THUMB_BTN + 12.0 if not shelf.is_empty() else 0.0)
 	var space := Rect2(from, under, column.position.x - 16.0 - from,
 		vp.y - THUMB_EDGE - THUMB_BTN - 12.0 - under)
@@ -564,9 +567,9 @@ func _input(event: InputEvent) -> void:
 			return
 	get_viewport().set_input_as_handled()
 
-## At a desk the X is a square in the screen's own top-left corner, and COPY and
-## PASTE stand under the board, each as wide as its word and no narrower than
-## BTN_W.
+## At a desk the back arrow is a square in the screen's own top-left corner,
+## and COPY and PASTE stand under the board, each as wide as its word and no
+## narrower than BTN_W.
 const CORNER := Vector2(16, 14)
 const CLOSE_SIDE := 30.0
 const BTN_H := 30.0
@@ -579,7 +582,7 @@ const BTN_GAP := 8.0
 ## its first cell and `parts` that of the first row, the gutter the category
 ## names sit in included: what `board_origin` and the palette's rows are laid
 ## out from; `cell` is how big a cell is drawn, and `tall` how tall the two
-## stand. The X stays in the screen's own corner.
+## stand. The back arrow stays in the screen's own corner.
 ##
 ## The board and the parts stand on the same lines, top and foot. The board's
 ## cells grow until it stands, COPY and PASTE and all, as tall as the parts'
@@ -634,7 +637,7 @@ static func _odd_down(across: float) -> float:
 	return floorf((across - PX) / (PX * 2.0)) * PX * 2.0 + PX
 
 ## Where the plate of the weapon at `i` on the shelf stands: down the left of a
-## desk's board from the top of its frame, and under the X for a thumb.
+## desk's board from the top of its frame, and under the back arrow for a thumb.
 func _shelf_rect(i: int) -> Rect2:
 	if thumb():
 		var under := (_thumb_layout()["close"] as Rect2).end.y + 12.0
@@ -649,7 +652,7 @@ func _shelf_rect(i: int) -> Rect2:
 static func _halfway(room: float, long: float) -> float:
 	return floorf(maxf(room - long, 0.0) * 0.5 / PX) * PX
 
-## The X that closes the screen, in its top-left corner.
+## The back arrow that closes the screen, in its top-left corner.
 func _close_rect() -> Rect2:
 	if thumb():
 		return _thumb_layout()["close"]
@@ -1306,18 +1309,17 @@ func _flow_dot_span() -> float:
 func _flow_dot() -> int:
 	return maxi(FLOW_DOT, int(cell_size() * 0.25 / float(PX)))
 
-## The X in the screen's top-left corner, which closes it: a desk's square, or a
-## thumb's plate with the cross at twice the size.
+## The back arrow in the screen's top-left corner, which closes it: the way back
+## a page of the menus has in its own (`menu.pause.arrow`), so the corner means
+## the same here as there. A desk's square, a button like COPY and PASTE, or a
+## thumb's plate with the arrow at a thumb's size.
 func _draw_close() -> void:
 	var r := _close_rect()
-	var ink := Color(1, 0.9, 0.9) if _hover_close else Color(0.8, 0.78, 0.8)
+	var arrow := Loc.t("menu.pause.arrow")
 	if thumb():
-		_draw_thumb_plate(r, "", Color(1.0, 0.55, 0.55), _hover_close, true)
-		_px.icon_centered(r.get_center(), CROSS, ink, 2)
+		_draw_thumb_plate(r, arrow, Color(0.55, 0.9, 1.0), _hover_close, true)
 		return
-	_px.rect(r, Color(0.45, 0.18, 0.2, 0.9) if _hover_close else Color(0.14, 0.12, 0.14, 0.9))
-	_px.frame(r, Color(1.0, 0.55, 0.55) if _hover_close else Color(0.45, 0.4, 0.44))
-	_px.icon_centered(r.get_center(), CROSS, ink)
+	_draw_desk_button(r, arrow, _hover_close)
 
 ## The weapons down the left: a plate each, the weapon's own tile on it at the
 ## PIXEL grid's two, standing up as the tiles do — the open one lit in its
@@ -1373,10 +1375,15 @@ func _draw_copy_paste() -> void:
 		if thumb():
 			_draw_thumb_plate(r, label, Color(0.55, 0.9, 1.0), hot, true)
 			continue
-		_px.rect(r, Color(0.16, 0.3, 0.4, 0.9) if hot else Color(0.11, 0.13, 0.17, 0.9))
-		_px.frame(r, Color(0.55, 0.9, 1.0) if hot else Color(0.32, 0.4, 0.5))
-		_px.text(r.position + Vector2((r.size.x - PixelDraw.ink_width(label)) * 0.5, 20), label,
-			Color(0.92, 0.98, 1.0) if hot else Color(0.7, 0.8, 0.9))
+		_draw_desk_button(r, label, hot)
+
+## One of a desk's buttons, BTN_H tall: `label` in the middle of it, lit under
+## the pointer.
+func _draw_desk_button(r: Rect2, label: String, hot: bool) -> void:
+	_px.rect(r, Color(0.16, 0.3, 0.4, 0.9) if hot else Color(0.11, 0.13, 0.17, 0.9))
+	_px.frame(r, Color(0.55, 0.9, 1.0) if hot else Color(0.32, 0.4, 0.5))
+	_px.text(r.position + Vector2((r.size.x - PixelDraw.ink_width(label)) * 0.5, 20), label,
+		Color(0.92, 0.98, 1.0) if hot else Color(0.7, 0.8, 0.9))
 
 ## The board as it is drawn: the board itself, except while the root is in
 ## hand. The weapon keeps the root where it stands until it is set down
@@ -2935,9 +2942,9 @@ func _draw_count(right: Vector2, id: String) -> void:
 
 ## --- for a thumb: the drawing -----------------------------------------------------
 
-## A message, for the moment it lasts, on a plate of its own beside the X — at a
-## desk it is written along the bottom, where a thumb's COPY and PASTE now are.
-## A refusal on red, and what COPY and PASTE did on green.
+## A message, for the moment it lasts, on a plate of its own beside the back
+## arrow — at a desk it is written along the bottom, where a thumb's COPY and
+## PASTE now are. A refusal on red, and what COPY and PASTE did on green.
 func _draw_thumb_message() -> void:
 	if _message_time <= 0.0:
 		return

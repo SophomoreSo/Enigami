@@ -11,9 +11,9 @@ extends Node
 ## by side in the middle of the screen, the biggest board a Workbench grows
 ## included; the palette is one block a part category with its name beside it in
 ## the gutter, every part's name fits its palette row, every part's description
-## fits its card, the X stands in the screen's corner and COPY and PASTE under
-## the board, clear of the parts in every language, and a preview with more to
-## say than rows to say it in is cut short and says so.
+## fits its card, the back arrow stands in the screen's corner and COPY and
+## PASTE under the board, clear of the parts in every language, and a preview
+## with more to say than rows to say it in is cut short and says so.
 ## On the track: the root is lit round its own outline, its dots running to its
 ## point, and a run's dots set off from the middle of the side the flow comes in
 ## by and meet in the middle of the side it leaves by, however the part behind
@@ -198,12 +198,12 @@ func _ready() -> void:
 	await frames(4)
 	var ed: SkillEditor = Views.of(sb).editor
 	check(ed.current_board() == sb.board(), "the bench brings the weapon's graph")
-	# No header: the X in the screen's own corner, and COPY and PASTE under the
-	# board, side by side and short of the parts — as wide as their words are
-	# in whichever language is the widest.
+	# No header: the back arrow in the screen's own corner, and COPY and PASTE
+	# under the board, side by side and short of the parts — as wide as their
+	# words are in whichever language is the widest.
 	var frame := ed._board_frame()
 	check(ed._close_rect().position == SkillEditor.CORNER and not ed._close_rect().intersects(frame),
-		"the X stands in the top-left corner, clear of the board (%s)" % str(ed._close_rect()))
+		"the back arrow stands in the top-left corner, clear of the board (%s)" % str(ed._close_rect()))
 	check(ed._copy_rect().position.y > frame.end.y and ed._paste_rect().position.x > ed._copy_rect().end.x,
 		"COPY and PASTE stand under the board, side by side")
 	# The board and the parts stand on the same lines, top and foot: a first
@@ -611,7 +611,7 @@ func _ready() -> void:
 		"the vault's weapons stand down its left, the GUN's graph open, the empty hand last (%s)" % str(shelved))
 	check(weapons.position.x >= 0.0 and weapons.end.y <= vp.y and weapons.end.x <= biggest.position.x
 			and not weapons.intersects(wb._close_rect()),
-		"on the screen, clear of the board and of the X (%s)" % str(weapons))
+		"on the screen, clear of the board and of the back arrow (%s)" % str(weapons))
 	var gap := panel.position.x - biggest.end.x
 	check(gap >= SkillEditor.BOARD_TO_PARTS_LEAST and gap <= SkillEditor.BOARD_TO_PARTS,
 		"and the palette stands beside it, BOARD_TO_PARTS apart or no nearer than BOARD_TO_PARTS_LEAST (%.0f)"

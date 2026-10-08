@@ -210,7 +210,7 @@ func _the_workbench() -> void:
 		"the assembly screen stands in the middle (%.0f clear on the left, %.0f on the right)"
 			% [left, right])
 	check(ed._close_rect().position == SkillEditor.CORNER,
-		"and the X stays in the screen's own corner (%s)" % str(ed._close_rect().position))
+		"and the back arrow stays in the screen's own corner (%s)" % str(ed._close_rect().position))
 	sb.set_editing(false)
 	await frames(4)
 

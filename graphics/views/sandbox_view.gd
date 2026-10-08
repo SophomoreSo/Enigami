@@ -76,3 +76,5 @@ func _on_editing(on: bool) -> void:
 		editor.visible = false
 	panel.visible = not on
 	samples.visible = not on
+	# And the HUD, whose bars stand where the board's way back does.
+	hud.visible = not on

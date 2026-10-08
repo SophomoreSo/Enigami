@@ -137,7 +137,7 @@ not a thing to reach for once it errors.
 | mouse wheel | the next weapon in hand, a notch down, or the one before, a notch up; round from the last to the first |
 | Q | leave the monster you are possessing, back into your own body |
 | mouse / right stick | aim, and where a lunge lands. A stick's aim is bent toward a monster it is near — never snapped, and never the mouse's; how much is AIM ASSIST in the control settings |
-| TAB | open assembly — **the raid keeps running**; the weapons carried stand down the board's left, and a click on one opens its graph, the weapon in hand staying in hand — the empty hand's plate after them opens nothing yet; TAB, ESC or the X in its corner leaves it |
+| TAB | open assembly — **the raid keeps running**; the weapons carried stand down the board's left, and a click on one opens its graph, the weapon in hand staying in hand — the empty hand's plate after them opens nothing yet; the HUD is put away while it is up; TAB, ESC or the back arrow in its corner leaves it |
 | Ctrl+C / Ctrl+V (⌘ on a Mac) | in assembly: COPY and PASTE — the board onto the clipboard as a share code, or someone else's board built from theirs |
 | F | interact: talk to an NPC — the last step over to them is walked for you, and pushing the other way on it changes your mind — (again for the next line), go through a gate to the room above or below, and hold to extract. Someone who talks free goes on by themselves; F only hurries their line |
 | W / S, ↑ / ↓ | when an NPC asks a question, move between answers; F gives the highlighted one |
@@ -304,14 +304,14 @@ has a second layout (`UiKit.mobile`), and at a desk each is exactly as it was:
   cells are 82 across where a desk's are 78, and the biggest grid still fits
   at 50, a desk's least — the parts come a category at a time, on tabs, each a plate with its
   name written big, and under them are TURN and REMOVE. The weapons whose
-  graphs it opens stand under the X, a plate each. A touch on a plate
+  graphs it opens stand under the back arrow, a plate each. A touch on a plate
   takes the part in hand and a touch on an empty cell sets it down; a touch on
   a part on the board picks it, bringing its tab up, for TURN to turn and
   REMOVE to put back in the bag; a part dragged is moved, and one dragged onto
   the parts is put away. The weapon's own part is picked, turned and dragged
   the same way, and REMOVE leaves it on the board. Nothing scrolls, so a drag
   is never asked to mean two
-  things. The X that closes it is a plate in the top-left corner, and COPY and
+  things. The back arrow that closes it is a plate in the top-left corner, and COPY and
   PASTE are plates under the board.
 * **The rest** follow: the bench's drawer has buttons and a tab a thumb can
   land on, the screen behind SET BUTTON POSITIONS likewise, and the page after

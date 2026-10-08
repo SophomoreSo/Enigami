@@ -80,6 +80,8 @@ func _on_editing(on: bool) -> void:
 		editor.grab_focus()
 	else:
 		editor.visible = false
+	# The board has the screen, and its way back stands where the HUD's bars do.
+	hud.visible = not on
 
 func _on_reading_map(on: bool) -> void:
 	map_panel.visible = on

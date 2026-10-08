@@ -30,6 +30,10 @@ extends Control
 ## in the box holds the player still and has the screen, and the bars are a
 ## readout of a fight nobody is in: only something else to look at beside the
 ## box.
+##
+## And it is put away while an assembly board is up — by the view that opens
+## one, which knows when it does. The board has the screen, and its way back
+## stands in the corner the bars do.
 
 ## The bars in the top-left corner: health, then the two thin ones under it.
 const BAR_W := 264.0

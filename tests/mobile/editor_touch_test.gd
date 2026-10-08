@@ -2,9 +2,9 @@ extends Node
 ## The assembly board in mobile mode, which is laid out for a thumb and worked
 ## with one (`SkillEditor`, "for a thumb").
 ##
-## On the layout: the X in the corner, the board with COPY and PASTE under it,
-## the tabs, the plates and the two under them are all on the screen and none on
-## another; everything a thumb presses is
+## On the layout: the back arrow in the corner, the board with COPY and PASTE
+## under it, the tabs, the plates and the two under them are all on the screen
+## and none on another; everything a thumb presses is
 ## a thumb's size; every part in the pool is on some tab; a first workbench's
 ## grid stands at a thumb's width a cell and the biggest one a workbench grows
 ## still fits, its cells no smaller than a desk's, with the way out's arrow
@@ -18,7 +18,7 @@ extends Node
 ## dragged is moved, from a plate or across the board, and thrown at the parts
 ## it is put away; the weapon's own part is picked, turned and moved the same
 ## way, and REMOVE leaves it on the board. COPY puts the board on the clipboard
-## and PASTE builds it back off it, and the X closes the board.
+## and PASTE builds it back off it, and the back arrow closes the board.
 ##
 ## And at a desk it is the board it was: thrown off under an open board, the
 ## desk's layout comes back, cell for cell.
@@ -154,16 +154,17 @@ func _the_layout() -> void:
 	check(ed.thumb() and bench.editing, "in mobile mode the board is laid out for a thumb")
 	var l := layout()
 	var vp := Rect2(Vector2.ZERO, screen())
-	var named := {"X": l["close"], "the message": l["message"], "COPY": l["copy"], "PASTE": l["paste"],
+	var named := {"the back arrow": l["close"], "the message": l["message"],
+		"COPY": l["copy"], "PASTE": l["paste"],
 		"the board": l["frame"],
 		"the plates": l["plates"], "TURN": l["turn"], "REMOVE": l["remove"]}
 	var tabs: Array = l["tabs"]
 	for i in tabs.size():
 		named["tab %d" % i] = tabs[i]
-	# The bench's kit, a plate a weapon under the X, a thumb's size, and the
-	# empty hand's after them.
+	# The bench's kit, a plate a weapon under the back arrow, a thumb's size, and
+	# the empty hand's after them.
 	check(ed.shelf.size() == bench.player.weapons.size() + 1 and bench.player.weapons.size() > 1,
-		"the weapons of the bench's kit stand under the X, the empty hand last (%d)" % ed.shelf.size())
+		"the weapons of the bench's kit stand under the back arrow, the empty hand last (%d)" % ed.shelf.size())
 	for i in ed.shelf.size():
 		var plate := ed._shelf_rect(i)
 		named["weapon %d" % i] = plate
@@ -186,11 +187,11 @@ func _the_layout() -> void:
 		var r: Rect2 = named[k]
 		if r.size.y < SkillEditor.THUMB_BTN or r.size.x < 120.0:
 			small.append("%s %s" % [k, str(r.size)])
-	var x: Rect2 = named["X"]
-	if x.size.x < SkillEditor.THUMB_BTN or x.size.y < SkillEditor.THUMB_BTN:
-		small.append("X %s" % str(x.size))
-	check(x.position == Vector2(SkillEditor.THUMB_EDGE, SkillEditor.THUMB_EDGE),
-		"the X is in the screen's top-left corner (%s)" % str(x.position))
+	var back: Rect2 = named["the back arrow"]
+	if back.size.x < SkillEditor.THUMB_BTN or back.size.y < SkillEditor.THUMB_BTN:
+		small.append("the back arrow %s" % str(back.size))
+	check(back.position == Vector2(SkillEditor.THUMB_EDGE, SkillEditor.THUMB_EDGE),
+		"the back arrow is in the screen's top-left corner (%s)" % str(back.position))
 	for i in tabs.size():
 		var r: Rect2 = tabs[i]
 		if r.size.y < 60.0 or r.size.x < 120.0:
@@ -268,14 +269,15 @@ func _the_grid() -> void:
 	await frames(2)
 
 ## Every PIXEL×PIXEL block of the frame is one colour, with the board dressed:
-## parts on it, one picked, a tab of plates up and a refusal beside the X.
+## parts on it, one picked, a tab of plates up and a refusal beside the back
+## arrow.
 func _on_the_grid() -> void:
 	var form := part_on(0)
 	await tap(tab_of(form))
 	await tap(plate_of(form))
 	await tap(cell(Vector2i(3, 0)))
 	# The weapon's own part picked, and REMOVE pressed on it: a refusal, beside
-	# the X. Then the part just set down picked in its place.
+	# the back arrow. Then the part just set down picked in its place.
 	await tap(cell(ed.current_board().root))
 	await tap((layout()["remove"] as Rect2).get_center())
 	await tap(cell(Vector2i(3, 0)))
@@ -404,7 +406,7 @@ func _a_part_picked() -> void:
 	before = changes
 	await tap(remove)
 	check(at(root) == root_id and b.root == root and changes == before and ed._message_time > 0.0,
-		"REMOVE leaves it on the board, and the plate beside the X says why")
+		"REMOVE leaves it on the board, and the plate beside the back arrow says why")
 	await tap(cell(root))
 	check(ed._picked == SkillEditor.NOWHERE, "a second touch lets it go")
 	var over := root + Vector2i(-2, 0)
@@ -447,7 +449,7 @@ func _copy_and_paste() -> void:
 	ed._message_time = 0.0
 	await tap(ed._copy_rect().get_center())
 	check(DisplayServer.clipboard_get() == code, "a thumb on COPY puts the board on the clipboard")
-	check(ed._message_time > 0.0 and ed._message_good, "and the plate beside the X says so")
+	check(ed._message_time > 0.0 and ed._message_good, "and the plate beside the back arrow says so")
 	var before := b.duplicate_board()
 	await tap(ed._paste_rect().get_center())
 	check(BoardCode.encode(b) == BoardCode.encode(before) and ed._message_good and bench.editing,
@@ -466,11 +468,11 @@ func _at_a_desk() -> void:
 		"at a desk the board is a desk's: its cell, in its place")
 	check(ed._palette_ids().size() == ed._pool_ids().size(), "with every part in its rows at once")
 	check(ed._close_rect() == Rect2(SkillEditor.CORNER, Vector2.ONE * SkillEditor.CLOSE_SIDE),
-		"and the X a desk's, in its corner")
+		"and the back arrow a desk's, in its corner")
 	Touch.set_mode(Touch.ON)
 	await frames(4)
 	check(ed.thumb() and ed.cell_size() > float(SkillEditor.CELL), "and thrown back, a thumb's again")
 
 func _closing() -> void:
 	await tap(ed._close_rect().get_center())
-	check(not bench.editing, "a thumb on the X closes the board")
+	check(not bench.editing, "a thumb on the back arrow closes the board")
