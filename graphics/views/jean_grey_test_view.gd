@@ -13,6 +13,8 @@ var screen: JeanGreyTest
 var camera: Camera2D
 var pixels: PixelCamera
 var editor: SkillEditor
+## The board and the map's page beside it, which says the ground has no map.
+var pages: ScreenPages
 var hud: JeanGreyHud
 
 ## How quickly the camera closes on whoever it follows: the share of the way
@@ -40,6 +42,7 @@ func _ready() -> void:
 	editor.closed.connect(func() -> void: screen.set_editing(false))
 	editor.board_changed.connect(func() -> void: screen.on_board_changed())
 	layer.add_child(editor)
+	pages = ScreenPages.new(editor, func() -> void: screen.set_editing(false))
 
 	screen.editing_changed.connect(_on_editing)
 	screen.stolen.connect(func(seconds: float) -> void: hud.show_stolen(seconds))
@@ -68,11 +71,16 @@ func follow(delta: float, snap: bool) -> void:
 	camera.position = want if snap else camera.position.lerp(want, clampf(FOLLOW * delta, 0.0, 1.0))
 
 ## See RaidView._unhandled_input: the editor consumes its own keys, R included.
+## The map's key puts the screen up on the map's page, as it does in a raid.
 func _unhandled_input(event: InputEvent) -> void:
 	if screen == null or not is_instance_valid(screen):
 		return
 	if event.is_action_pressed("open_editor"):
 		screen.set_editing(not screen.editing)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("open_map") and not screen.editing:
+		pages.page = ScreenTabs.MAP
+		screen.set_editing(true)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("pause"):
 		screen.leave()
@@ -86,9 +94,8 @@ func _on_editing(on: bool) -> void:
 	if on:
 		editor.configure(screen.board, screen.inventory, true,
 			screen.player.runner if screen.player != null and is_instance_valid(screen.player) else null)
-		editor.visible = true
-		editor.grab_focus()
+		pages.put(pages.page)
 	else:
-		editor.visible = false
+		pages.away()
 	# The read-outs share a layer with the editor and would sit on its header.
 	hud.visible = not on

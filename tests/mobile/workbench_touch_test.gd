@@ -242,6 +242,24 @@ func _with_a_thumb() -> void:
 	check(not paused(), "and presses nothing else on the way")
 	await tidy()
 
+	# The hideout has no map, and the MAP tab is on the workbench's top all the
+	# same: a thumb on it puts the map's page up, which says so, the glass as
+	# clear as under the board; and the MAP key on the floor puts the screen up
+	# on that page.
+	game._edit_weapon_graph()
+	await frames(4)
+	await tap(tab_of(game.editor.pages, ScreenTabs.MAP))
+	check(workbench_up() and game.editor_pages.map.visible and not game.editor.visible
+			and game.editor_pages.map.map == null,
+		"a thumb on the workbench's MAP tab puts the map's page up, with no map on it")
+	check(pad.face == TouchPad.Face.CLEAR, "and the glass is clear under it")
+	await tap(ScreenTabs.back_rect(true).get_center())
+	check(not workbench_up() and not paused(), "a thumb on its back arrow puts the screen away, and presses nothing else")
+	await tidy()
+	await tap(TouchPad.area(control_of("open_map")).get_center())
+	check(workbench_up() and game.editor_pages.map.visible, "the MAP key on the floor puts it up on the map's page")
+	await tidy()
+
 ## --- the raid's board, and the map ------------------------------------------
 
 func _the_raids_board() -> void:

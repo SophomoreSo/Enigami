@@ -37,7 +37,6 @@ func _ready() -> void:
 
 	editor = SkillEditor.new()
 	editor.visible = false
-	editor.pages = [ScreenTabs.GRAPH, ScreenTabs.MAP]
 	editor.closed.connect(func() -> void: raid.set_editing(false))
 	editor.page_picked.connect(_on_page_picked)
 	editor.board_changed.connect(func() -> void: raid.on_board_changed())
@@ -45,7 +44,6 @@ func _ready() -> void:
 
 	map_panel = MapPanel.new()
 	map_panel.visible = false
-	map_panel.pages = [ScreenTabs.GRAPH, ScreenTabs.MAP]
 	map_panel.closed.connect(func() -> void: raid.set_reading_map(false))
 	map_panel.page_picked.connect(_on_page_picked)
 	layer.add_child(map_panel)

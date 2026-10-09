@@ -10,6 +10,8 @@ var camera: Camera2D
 var pixels: PixelCamera
 var hud: Hud
 var editor: SkillEditor
+## The board and the map's page beside it, which says the bench has no map.
+var pages: ScreenPages
 var panel: SandboxPanel
 var samples: SampleSkillsPanel
 
@@ -35,6 +37,7 @@ func _ready() -> void:
 	editor.closed.connect(func() -> void: sandbox.set_editing(false))
 	editor.board_changed.connect(func() -> void: sandbox.on_board_changed())
 	layer.add_child(editor)
+	pages = ScreenPages.new(editor, func() -> void: sandbox.set_editing(false))
 
 	panel = SandboxPanel.new()
 	panel.sandbox = sandbox
@@ -50,12 +53,17 @@ func _process(_delta: float) -> void:
 		return
 	hud.player = sandbox.player
 
-## See RaidView._unhandled_input: the editor consumes its own close key.
+## See RaidView._unhandled_input: the editor consumes its own close key. The
+## map's key puts the screen up on the map's page, as it does in a raid.
 func _unhandled_input(event: InputEvent) -> void:
 	if sandbox == null or not is_instance_valid(sandbox):
 		return
 	if event.is_action_pressed("open_editor"):
 		sandbox.set_editing(not sandbox.editing)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("open_map") and not sandbox.editing:
+		pages.page = ScreenTabs.MAP
+		sandbox.set_editing(true)
 		get_viewport().set_input_as_handled()
 	# Pause is deliberately not taken here. It used to walk straight out of the
 	# bench, which meant a press people expect to stop the game for a moment
@@ -68,12 +76,11 @@ func _on_editing(on: bool) -> void:
 		# open.
 		editor.configure_shelf(SkillEditor.shelf_of(sandbox.player), sandbox.player.weapon_id,
 			sandbox.inventory, true)
-		editor.visible = true
-		editor.grab_focus()
+		pages.put(pages.page)
 	# The bench controls share a canvas layer with the editor and would cover
 	# the board. Nothing there is usable while assembling anyway.
 	else:
-		editor.visible = false
+		pages.away()
 	panel.visible = not on
 	samples.visible = not on
 	# And the HUD, whose bars stand where the board's way back does.

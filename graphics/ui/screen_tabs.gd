@@ -11,9 +11,9 @@ extends RefCounted
 ##
 ## Both pages draw it, the same pixels in the same place, over the same veil
 ## (`SkillEditor`, `MapPanel`): going from one to the other changes what is
-## under the top and nothing in it. Only the pages a screen has are on it. A
-## raid has both; the bench, the hideout's workbench and the rest have the
-## graph's alone.
+## under the top and nothing in it. Both tabs are on it wherever it comes up. A
+## raid has a floor plan for the map's page to show; the bench, the hideout's
+## workbench and the rest have none, and the page says so (`ScreenPages`).
 ##
 ## Drawn in UiKit's pixel look, like the pages under it. At a desk the back
 ## arrow is a button like COPY and PASTE, in the board's corner, and the tabs

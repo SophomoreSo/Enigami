@@ -6,9 +6,9 @@ extends Control
 ## and compact and every action is a single click.
 ##
 ## It is the GRAPH page of a screen with tabs along its top, like a browser's
-## (`ScreenTabs`): in a raid the map is the other page (`MapPanel`), a press on
-## its tab away (`page_picked`), and everywhere else the graph's is the only
-## tab there is.
+## (`ScreenTabs`): the map is the other page (`MapPanel`), a press on its tab or
+## its key away (`page_picked`) — the raid's floor plan in a raid, and
+## everywhere else the map's window saying there is no map.
 ##
 ## The root — the weapon's own part — is drawn as a port pointing the way it
 ## hands the flow over. The hand moves and turns it like any part, but it never
@@ -183,9 +183,8 @@ var shelf: Array = []
 ## Which of them is open: the one `board` and `runner` are.
 var shelf_open: int = -1
 ## The pages of the screen this is a page of, in the order their tabs stand
-## along its top (`ScreenTabs`): the graph's alone, or the graph and the raid's
-## map. The screen that opens this says which.
-var pages: Array = [ScreenTabs.GRAPH]
+## along its top (`ScreenTabs`).
+var pages: Array = [ScreenTabs.GRAPH, ScreenTabs.MAP]
 
 var selected: String = ""
 var rotation_step: int = 0
@@ -559,6 +558,11 @@ func _gui_input(event: InputEvent) -> void:
 ## editor does not act on the same press and re-open it.
 func _input(event: InputEvent) -> void:
 	if not visible:
+		return
+	# The map's key is the map's tab: its page up in this one's place.
+	if event.is_action_pressed("open_map"):
+		page_picked.emit(ScreenTabs.MAP)
+		get_viewport().set_input_as_handled()
 		return
 	if not (event is InputEventKey) or not event.is_pressed() or event.is_echo():
 		return

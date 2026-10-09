@@ -31,6 +31,9 @@ signal station_used(id: String)
 ## or off the rack's BUILD. The editor belongs to `app/game.gd`, so this only
 ## passes the ask on.
 signal edit_requested()
+## The map was asked for, by the key that reads it in a raid. The hideout has no
+## floor plan; the screen it is a page of is still `app/game.gd`'s to put up.
+signal map_requested()
 ## The panel over the room opened or closed. The room keeps standing either way.
 signal panel_changed(id: String)
 
@@ -275,6 +278,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	# is no workbench to walk to.
 	if event.is_action_pressed("open_editor"):
 		edit_requested.emit()
+		get_viewport().set_input_as_handled()
+		return
+	if event.is_action_pressed("open_map"):
+		map_requested.emit()
 		get_viewport().set_input_as_handled()
 		return
 	if not event.is_action_pressed("interact"):

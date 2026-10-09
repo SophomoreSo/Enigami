@@ -152,9 +152,6 @@ func _ready() -> void:
 
 func _the_layout() -> void:
 	check(ed.thumb() and bench.editing, "in mobile mode the board is laid out for a thumb")
-	# With a raid's two pages along the top, the most it ever carries: the bench
-	# has the graph's alone.
-	ed.pages = [ScreenTabs.GRAPH, ScreenTabs.MAP]
 	var l := layout()
 	var vp := Rect2(Vector2.ZERO, screen())
 	var named := {"the back arrow": l["close"], "the message": l["message"],
@@ -244,7 +241,6 @@ func _the_layout() -> void:
 		% [seen.size(), ed._pool_ids().size()])
 	check(cramped.is_empty(), "each on a plate a thumb's size, in the column's room (%s)" % str(cramped))
 	check(clipped.is_empty(), "with its name whole on it, written big (%s)" % str(clipped))
-	ed.pages = [ScreenTabs.GRAPH]
 
 ## --- the grid ----------------------------------------------------------------------
 

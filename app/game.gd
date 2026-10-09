@@ -29,6 +29,9 @@ var overlay_layer: CanvasLayer
 var touch_layer: CanvasLayer
 var touch_pad: TouchPad = null
 var editor: SkillEditor = null
+## The workbench's screen's two pages: the board, and beside it the map's,
+## which says the hideout has no map. There while `editor` is.
+var editor_pages: ScreenPages = null
 var pause_menu: Control = null
 ## The pause menu's two pages: PAUSED, and the rebinding list behind its
 ## CONTROL SETTINGS button. Exactly one of them is on screen; see
@@ -166,8 +169,8 @@ func _process(_delta: float) -> void:
 ## too. A window that has taken the controls — the bench's drawer — keeps only
 ## the keys that close it again.
 ##
-## The assembly board leaves the glass clear instead, and so does the raid's
-## map, the other page of the same screen (`ScreenTabs`). It covers all of it,
+## The assembly board leaves the glass clear instead, and so does the map's
+## page, the other page of the same screen (`ScreenTabs`). It covers all of it,
 ## it is itself what the thumb is there for, and it has its own way out in the
 ## back arrow and its own way from one page to the other in the tabs beside it.
 ## The pad stays up with nothing on it, so the words the board prints for a
@@ -224,6 +227,8 @@ func _paneled() -> bool:
 		and (current as World).paneled()
 
 ## Whether the raid's map is up: the other page of the screen the board is on.
+## Anywhere else the map's page, saying there is no map, is only up while the
+## world is `editing`, which `_assembling` answers for already.
 func _mapping() -> bool:
 	return current != null and is_instance_valid(current) and current is Raid \
 		and (current as Raid).reading_map
@@ -316,6 +321,7 @@ func goto_hideout() -> void:
 	h.deploy_requested.connect(_deploy)
 	h.title_requested.connect(goto_title)
 	h.edit_requested.connect(_edit_weapon_graph)
+	h.map_requested.connect(_edit_weapon_graph.bind(ScreenTabs.MAP))
 	add_child(h)
 	current = h
 	hideout_ref = h
@@ -404,8 +410,9 @@ func _raid_finished(result: String, payload: Dictionary) -> void:
 ## it is reached, and the profile's own, so what is built is what the gate
 ## carries. Every weapon the vault holds stands down the board's left, its own
 ## graph a press away: the workbench builds onto any of them, carried or not —
-## and onto the one the rack is on even where the vault has lost it.
-func _edit_weapon_graph() -> void:
+## and onto the one the rack is on even where the vault has lost it. The map's
+## key puts the same screen up on its map's page (`page`), as it does in a raid.
+func _edit_weapon_graph(page: String = ScreenTabs.GRAPH) -> void:
 	if hideout_ref == null or not is_instance_valid(hideout_ref):
 		return
 	var on := hideout_ref.weapon_id
@@ -415,24 +422,29 @@ func _edit_weapon_graph() -> void:
 	var shelf: Array = []
 	for w in ids:
 		shelf.append({"id": String(w), "board": GameState.weapon_board(String(w)), "runner": null})
-	_open_graphs(shelf, on)
+	_open_graphs(shelf, on, page)
 
 ## The workbench editor over the weapons' graphs it is given, the one `open`
-## open (`SkillEditor.configure_shelf`), spending the stash.
-func _open_graphs(shelf: Array, open: String) -> void:
+## open (`SkillEditor.configure_shelf`), spending the stash — up on `page`, the
+## board's or the map's beside it.
+func _open_graphs(shelf: Array, open: String, page: String = ScreenTabs.GRAPH) -> void:
 	_close_editor()
 	editor = SkillEditor.new()
 	editor.configure_shelf(shelf, open, GameState.stash, false)
 	editor.closed.connect(_close_editor)
 	editor.board_changed.connect(func() -> void: GameState.save_game())
 	window_layer.add_child(editor)
-	editor.grab_focus()
+	editor_pages = ScreenPages.new(editor, _close_editor)
+	editor_pages.put(page)
 	# The room holds the player still under it, which is also what hands the
 	# mouse back from their aim to the board.
 	if hideout_ref != null and is_instance_valid(hideout_ref):
 		hideout_ref.set_editing(true)
 
 func _close_editor() -> void:
+	if editor_pages != null and is_instance_valid(editor_pages.map):
+		editor_pages.map.queue_free()
+	editor_pages = null
 	if editor != null and is_instance_valid(editor):
 		editor.queue_free()
 		GameState.save_game()

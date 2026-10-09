@@ -33,7 +33,8 @@
 			"unseen": "UNSEEN",
 			"kit": "YOUR KIT"
 		},
-		"close": "%s OR ESC TO CLOSE"
+		"close": "%s OR ESC TO CLOSE",
+		"none": "NO MAP AVAILABLE"
 	},
 	"tabs": {
 		"graph": "GRAPH",

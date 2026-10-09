@@ -33,7 +33,8 @@
 			"unseen": "미탐색",
 			"kit": "내 장비"
 		},
-		"close": "%s 또는 ESC로 닫기"
+		"close": "%s 또는 ESC로 닫기",
+		"none": "볼 수 있는 지도가 없습니다"
 	},
 	"tabs": {
 		"graph": "조립",

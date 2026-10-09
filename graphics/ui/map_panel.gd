@@ -14,8 +14,12 @@ extends Control
 ## its top (`ScreenTabs`): the back arrow in the corner puts the screen away,
 ## and the GRAPH tab puts the assembly board up in the map's place
 ## (`page_picked`). The keys say the same: M, or ESC, puts it away, and the key
-## that opens assembly, which this does not answer, goes on to the raid, which
-## puts the board up instead.
+## that opens assembly puts the board up instead.
+##
+## The tab is there wherever the screen is, a raid or not, and so is this page:
+## over the bench, the hideout's workbench and everywhere else with no floor
+## plan to show it is the map's window with nothing on it but that there is no
+## map (`_draw_none`).
 ##
 ## Drawn in UiKit's pixel look, like the assembly screen it shares the raid
 ## with: every fill, border and letter a whole PIXEL on the PIXEL grid, all of
@@ -27,11 +31,11 @@ signal closed()
 signal page_picked(id: String)
 
 ## What the window is looking at. `RaidView` keeps both fresh, the same way it
-## keeps the HUD fresh; a window with no map draws nothing at all.
+## keeps the HUD fresh; with no map, the window says there is none.
 var map: RaidMap = null
 var room = null
 ## The pages of the screen this is a page of, in the order their tabs stand
-## along its top. The map is only ever up in a raid, which has a graph as well.
+## along its top.
 var pages: Array = [ScreenTabs.GRAPH, ScreenTabs.MAP]
 ## What along the top is under the pointer: the back arrow, or a page's tab.
 var _back_hot: bool = false
@@ -52,6 +56,8 @@ const LEGEND_ROW := 26.0
 const LEGEND_COLS := 3
 ## The row that says how to put the map away, at a desk (`_foot`).
 const FOOT_H := 34.0
+## Where there is no map: the room under the title the line saying so stands in.
+const NONE_H := 88.0
 ## A row's baseline, from the top of the row: capitals stand 10 tall.
 const TEXT_DROP := 16.0
 const SWATCH := 12.0
@@ -123,6 +129,9 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("open_map") or event.is_action_pressed("ui_cancel"):
 		closed.emit()
 		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("open_editor"):
+		page_picked.emit(ScreenTabs.GRAPH)
+		get_viewport().set_input_as_handled()
 
 ## The top answers the pointer, and a thumb, which the system hands over as a
 ## click: the back arrow puts the screen away, and the graph's tab puts the
@@ -157,33 +166,44 @@ func _press() -> void:
 		if id != ScreenTabs.MAP:
 			page_picked.emit(id)
 
-## The window, centred on whatever size the screen happens to be.
+## The window, centred on whatever size the screen happens to be: as wide with
+## no map as with one, and only as tall as the line that says so.
 func window_rect() -> Rect2:
-	var extent := Vector2(
-		RaidMap.MW * CELL + (RaidMap.MW - 1) * GAP + PAD * 2.0,
-		HEADER_H + RaidMap.MH * CELL + (RaidMap.MH - 1) * GAP
-			+ LEGEND_TOP_GAP + LEGEND_ROW * float(_legend_rows()) + _foot())
+	var tall := HEADER_H + NONE_H
+	if map != null:
+		tall = HEADER_H + RaidMap.MH * CELL + (RaidMap.MH - 1) * GAP \
+			+ LEGEND_TOP_GAP + LEGEND_ROW * float(_legend_rows())
+	var extent := Vector2(RaidMap.MW * CELL + (RaidMap.MW - 1) * GAP + PAD * 2.0, tall + _foot())
 	var screen := get_viewport_rect().size
 	return Rect2(_px.snap((screen - extent) * 0.5), extent)
 
 func _draw() -> void:
-	if map == null:
-		return
 	var win := window_rect()
 	# The screen's own veil, the one the graph's page lies on: going from one
 	# page to the other changes what is under the top and nothing round it.
 	_px.rect(Rect2(Vector2.ZERO, get_viewport_rect().size), ScreenTabs.VEIL)
 	_px.rect(win, BG)
 	_px.frame(win, EDGE)
-	_draw_header(win)
-	var grid := _origin(Vector2(win.position.x + PAD, win.position.y + HEADER_H))
-	_draw_links(grid)
-	_draw_rooms(grid)
-	var under := grid.y + RaidMap.MH * CELL + (RaidMap.MH - 1) * GAP + LEGEND_TOP_GAP
-	_draw_legend(Vector2(win.position.x + PAD, under), win.size.x - PAD * 2.0)
+	if map == null:
+		_draw_none(win)
+	else:
+		_draw_header(win)
+		var grid := _origin(Vector2(win.position.x + PAD, win.position.y + HEADER_H))
+		_draw_links(grid)
+		_draw_rooms(grid)
+		var under := grid.y + RaidMap.MH * CELL + (RaidMap.MH - 1) * GAP + LEGEND_TOP_GAP
+		_draw_legend(Vector2(win.position.x + PAD, under), win.size.x - PAD * 2.0)
 	if _foot() > 0.0:
 		_draw_footer(win)
 	ScreenTabs.draw(_px, pages, ScreenTabs.MAP, _back_hot, _page_hot, UiKit.mobile())
+
+## The window with no map to show: its title where a map's is, and under it,
+## in the middle of the room a floor plan would have, the line that says so.
+## No clock: there is no raid for it to time.
+func _draw_none(win: Rect2) -> void:
+	_px.text(Vector2(win.position.x + PAD, win.position.y + PAD + 10.0), Loc.t("hud.map.title"), UiKit.TEXT)
+	_px.text_centered(Vector2(win.position.x + PAD, win.position.y + HEADER_H + (NONE_H + 10.0) * 0.5),
+		Loc.t("hud.map.none"), UiKit.DIM, win.size.x - PAD * 2.0)
 
 ## The title on the left, the raid clock on the right — the one number on this
 ## window that is still moving while it is up.
