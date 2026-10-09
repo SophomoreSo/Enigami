@@ -49,6 +49,16 @@ var handed_out: Array[String] = []
 ## skill without a weapon and no weapon without a graph, so a weapon lost on
 ## a raid takes its graph down with it, and one won back brings it home.
 var weapon_boards: Dictionary = {}
+## How many graphs every weapon keeps to choose between. Always this many, each
+## weapon's, from the first: nothing is added and nothing taken away.
+const GRAPH_PRESETS := 3
+## weapon id -> its presets, `{"on": i, "kept": [serialized, ...]}`: which of
+## the GRAPH_PRESETS is the graph on it, and the others as they were left — a
+## blueprint each, `{}` for one never built on. The one `on` is the weapon's
+## graph itself (`weapon_boards`, a raid's copy while one is out), and its
+## entry in `kept` is whatever it was when it was last put away. A weapon with
+## no entry is on its first, and has never put one away. See `switch_preset`.
+var graph_presets: Dictionary = {}
 ## The weapons picked on the rack to carry, in the order they are slotted: at
 ## most MAX_CARRIED. It may still name a weapon the vault no longer has — one
 ## lost on a raid and not walked back out yet — and `carried` leaves those out.
@@ -214,6 +224,7 @@ func _new_profile() -> void:
 	handed_out.assign(HANDED_OUT)
 	loadout = []
 	weapon_boards.clear()
+	graph_presets = {}
 	scrap = 40
 	# A handful of parts to build a first graph with: something for every
 	# weapon's root.
@@ -412,6 +423,62 @@ func weapon_board(weapon_id: String) -> SkillBoard:
 func graph_is_bare(weapon_id: String) -> bool:
 	return not weapon_boards.has(weapon_id) \
 		or (weapon_boards[weapon_id] as SkillBoard).used_components().is_empty()
+
+## Which of the weapon's GRAPH_PRESETS is the graph on it, 0 to the last.
+func preset_on(weapon_id: String) -> int:
+	return clampi(int((graph_presets.get(weapon_id, {}) as Dictionary).get("on", 0)), 0, GRAPH_PRESETS - 1)
+
+## Puts `weapon_id`'s preset `to` on it: the graph on it now is kept as the one
+## it was, and `to`'s is built in its place, on the same board — the raid's copy
+## while one is out, and the parts out of the raid's bag; at home the weapon's
+## own, and out of the stash.
+##
+## A kept preset is a blueprint and not the parts, the way a shared code is
+## (`trade_board`): the parts the graph is built of go back as it is put away,
+## and the ones the preset needs come out, so a part is only ever on the graph
+## in use and is never locked up in one put away. That is also why a preset is
+## not lost with the weapon: a death takes the graph on it, and what it was
+## built of, and the others are only how to build them again. A preset never
+## built on is the weapon's bare graph, and putting it on puts everything else
+## back on the shelves.
+##
+## All or nothing, as a paste is: with the parts short nothing moves and the
+## weapon stays on the one it was on, and what is missing comes back, id ->
+## how many more. `{}` means it went through, and it is saved there and then.
+func switch_preset(weapon_id: String, to: int) -> Dictionary:
+	var on := preset_on(weapon_id)
+	if to == on or to < 0 or to >= GRAPH_PRESETS:
+		return {}
+	var out := in_raid and raid_graphs.has(weapon_id)
+	var board: SkillBoard = raid_graphs[weapon_id] if out else weapon_board(weapon_id)
+	var pool: Dictionary = raid_bag if out else stash
+	var kept := _kept_presets(weapon_id)
+	var want := Weapons.make_board(weapon_id)
+	if not (kept[to] as Dictionary).is_empty():
+		want = SkillBoard.deserialize(kept[to])
+	# The grid only grows, so a preset kept on it always fits; one that somehow
+	# does not is built again from bare rather than in pieces.
+	if not board.fits(want):
+		want = Weapons.make_board(weapon_id)
+	var missing := trade_board(board, board.adoption_cost(want), pool)
+	if not missing.is_empty():
+		return missing
+	kept[on] = board.serialize()
+	board.adopt(want)
+	graph_presets[weapon_id] = {"on": to, "kept": kept}
+	kit_changed.emit()
+	save_game()
+	return {}
+
+## `weapon_id`'s presets as they were put away, GRAPH_PRESETS of them: `{}` for
+## one never built on.
+func _kept_presets(weapon_id: String) -> Array:
+	var kept: Array = ((graph_presets.get(weapon_id, {}) as Dictionary).get("kept", []) as Array).duplicate()
+	kept.resize(GRAPH_PRESETS)
+	for i in kept.size():
+		if not (kept[i] is Dictionary):
+			kept[i] = {}
+	return kept
 
 ## Parts a graph is built out of, `board`'s player-placed ones, back on the
 ## shelves. What the vault has no room for is lost, as it is for any haul.
@@ -819,6 +886,7 @@ func save_game() -> void:
 		"handed_out": handed_out,
 		"loadout": loadout,
 		"weapon_boards": _boards_out(weapon_boards),
+		"graph_presets": graph_presets,
 		"scrap": scrap,
 		"facilities": facilities,
 		"records": records,
@@ -886,6 +954,16 @@ func _read_save(path: String) -> bool:
 	if graphs is Dictionary:
 		for w in graphs:
 			weapon_boards[String(w)] = SkillBoard.deserialize(graphs[w])
+	# A profile saved before there were presets is on every weapon's first, and
+	# has put none away.
+	graph_presets = {}
+	var presets = parsed.get("graph_presets", {})
+	if presets is Dictionary:
+		for w in presets:
+			var p = presets[w]
+			if p is Dictionary:
+				graph_presets[String(w)] = {"on": int(p.get("on", 0)),
+					"kept": p.get("kept", []) if p.get("kept", []) is Array else []}
 	scrap = int(parsed.get("scrap", 0))
 	# Every facility as the save has it, and one the save says nothing of at
 	# its first level — not at whatever the profile open before this one had.

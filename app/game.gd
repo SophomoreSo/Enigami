@@ -431,6 +431,8 @@ func _open_graphs(shelf: Array, open: String) -> void:
 	_close_perks()
 	editor = SkillEditor.new()
 	editor.configure_shelf(shelf, open, GameState.stash, false)
+	# The weapons' own graphs, so each weapon's presets stand under its board.
+	editor.presets = true
 	# The workbench's screen has the perks for its other page, a tab beside the
 	# graph's: a press on it puts the perks up in the board's place.
 	editor.pages = [ScreenTabs.GRAPH, ScreenTabs.PERKS]

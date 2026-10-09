@@ -108,6 +108,9 @@ func _on_editing(on: bool) -> void:
 		# board's left — the one in hand open, as it always was.
 		editor.configure_shelf(SkillEditor.shelf_of(raid.player), raid.player.weapon_id,
 			GameState.raid_bag, false)
+		# The kit's own graphs, so each weapon's presets stand under its board,
+		# paid for out of the bag.
+		editor.presets = true
 		editor.visible = true
 		editor.grab_focus()
 	else:

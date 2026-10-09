@@ -56,6 +56,14 @@ extends Control
 ## out of the code on the clipboard. What a pasted code costs is decided here —
 ## see `_paste_code`.
 ##
+## Against the board's right edge on the same row stand the weapon's presets
+## (`GameState.GRAPH_PRESETS`), a plate each numbered from 1, the one on the
+## weapon lit in its colour: a press on another puts that graph on the weapon
+## and keeps this one as it was, paid for out of the same parts PASTE pays from
+## (`GameState.switch_preset`). There are always three, and nothing adds one.
+## They stand only where the screen is on a weapon's own graph — the
+## workbench's and a raid's (`presets`) — and not on the bench's copies.
+##
 ## **In mobile mode it is laid out for a thumb** (`UiKit.mobile`), and it is a
 ## different screen rather than this one drawn bigger — see "for a thumb" below.
 ## A desk's board is worked with a pointer: a wheel to turn a part, a second
@@ -182,6 +190,11 @@ var runner: SkillRunner = null       ## the graph running live, for the flow dis
 var shelf: Array = []
 ## Which of them is open: the one `board` and `runner` are.
 var shelf_open: int = -1
+## The weapon whose graph is open, or "" for a board that is no weapon's.
+var weapon: String = ""
+## Whether the weapon's presets stand under the board: set by whoever opens the
+## screen on the weapons' own graphs, which are the ones a preset is kept for.
+var presets: bool = false
 ## The pages of the screen this is a page of, in the order their tabs stand
 ## along its top (`ScreenTabs`): the graph's alone, or the graph and the raid's
 ## map. The screen that opens this says which.
@@ -197,6 +210,8 @@ var _hover_close: bool = false
 var _hover_page: String = ""
 var _hover_copy: bool = false
 var _hover_paste: bool = false
+## The preset whose plate is under the pointer, or -1.
+var _hover_preset: int = -1
 ## Mobile mode's own things to press: a category's tab, by index, and the two
 ## plates under the parts.
 var _hover_tab: int = -1
@@ -460,6 +475,7 @@ func _ready() -> void:
 func configure(b: SkillBoard, inv: Dictionary, unlim: bool, r: SkillRunner = null) -> void:
 	shelf = []
 	shelf_open = -1
+	weapon = ""
 	_put(b, inv, unlim, r)
 
 ## Opens the screen on several weapons' graphs, one at a time: `entries` each
@@ -478,6 +494,7 @@ func configure_shelf(entries: Array, open: String, inv: Dictionary, unlim: bool)
 			at = k
 	var e: Dictionary = entries[at]
 	_put(e["board"], inv, unlim, e.get("runner", null))
+	weapon = String(e["id"])
 	shelf = entries + [EMPTY_HAND] if entries.size() > 1 else []
 	shelf_open = at if entries.size() > 1 else -1
 
@@ -498,6 +515,7 @@ func _open_shelf(i: int) -> void:
 	Audio.play("ui")
 	var e: Dictionary = shelf[i]
 	_put(e["board"], inventory, unlimited, e.get("runner", null))
+	weapon = String(e["id"])
 	shelf_open = i
 
 ## The board, the parts and the runner the screen is on, with nothing it had
@@ -688,6 +706,20 @@ func _paste_rect() -> Rect2:
 	return Rect2(Vector2(copy.end.x + BTN_GAP, copy.position.y),
 		Vector2(_button_width(Loc.t("editor.share.paste")), BTN_H))
 
+## Whether the weapon's presets stand under the board.
+func _shows_presets() -> bool:
+	return presets and weapon != "" and not unlimited
+
+## Where the plate of preset `i` stands: on COPY and PASTE's row, square, the
+## last against the board's right edge.
+func _preset_rect(i: int) -> Rect2:
+	var side := THUMB_BTN if thumb() else BTN_H
+	var gap := THUMB_GAP if thumb() else BTN_GAP
+	var frame := _board_frame()
+	var n := GameState.GRAPH_PRESETS
+	var x := frame.end.x - float(n) * side - float(n - 1) * gap + float(i) * (side + gap)
+	return Rect2(Vector2(x, _copy_rect().position.y), Vector2(side, side))
+
 ## A desk's button for `label`: BTN_W, or the word with room either side of it.
 func _button_width(label: String) -> float:
 	return maxf(BTN_W, ceilf((PixelDraw.ink_width(label) + 40.0) / PX) * PX)
@@ -708,6 +740,7 @@ func _clear_hover() -> void:
 	_hover_page = ""
 	_hover_copy = false
 	_hover_paste = false
+	_hover_preset = -1
 	_hover_tab = -1
 	_hover_turn = false
 	_hover_remove = false
@@ -720,6 +753,11 @@ func _update_hover(pos: Vector2) -> void:
 	_hover_paste = _paste_rect().has_point(pos)
 	if _hover_close or _hover_page != "" or _hover_copy or _hover_paste:
 		return
+	if _shows_presets():
+		for i in GameState.GRAPH_PRESETS:
+			if _preset_rect(i).has_point(pos):
+				_hover_preset = i
+				return
 	for i in shelf.size():
 		if _shelf_rect(i).has_point(pos):
 			_hover_shelf = i
@@ -846,6 +884,9 @@ func _press_left() -> void:
 		return
 	if _hover_paste:
 		_paste()
+		return
+	if _hover_preset >= 0:
+		_put_preset(_hover_preset)
 		return
 	if _hover_shelf >= 0 and _drag_id == "":
 		_open_shelf(_hover_shelf)
@@ -1151,6 +1192,26 @@ func _paste_code(entry: String) -> void:
 	Audio.play("place")
 	board_changed.emit()
 
+## --- presets ----------------------------------------------------------------
+## Preset `i` onto the weapon open, in place of the graph on it, which is kept.
+## The rules decide what it costs and keep it (`GameState.switch_preset`); this
+## only says what came of it. Not with a part in hand: the board it came off is
+## short of it until it is set down.
+func _put_preset(i: int) -> void:
+	if not _shows_presets() or _drag_id != "" or i == GameState.preset_on(weapon):
+		return
+	var missing := GameState.switch_preset(weapon, i)
+	if not missing.is_empty():
+		_notify(Loc.t("editor.share.short_of", [_missing_text(missing)]))
+		Audio.play("deny")
+		return
+	_picked = NOWHERE
+	_sim_dirty = true
+	_trace_cache = {}
+	_notify(Loc.t("editor.preset.on", [i + 1]), true)
+	Audio.play("place")
+	board_changed.emit()
+
 ## What a refused paste is short of, in the names the palette uses. The count
 ## goes in front of the name rather than after it, because several parts carry a
 ## number in their own name and "DUPLICATE x3 x1" reads as neither of them.
@@ -1275,6 +1336,7 @@ func _draw() -> void:
 		_sim_dirty = true
 	_draw_board()
 	_draw_copy_paste()
+	_draw_presets()
 	_draw_shelf()
 	if thumb():
 		_draw_thumb_parts()
@@ -1396,6 +1458,28 @@ func _draw_copy_paste() -> void:
 			_px.plate(r, label, Color(0.55, 0.9, 1.0), hot, true)
 			continue
 		_px.button(r, label, hot)
+
+## The presets on COPY and PASTE's row, numbered: the one on the weapon lit in
+## the weapon's colour, as its plate down the left is, and the others like
+## COPY and PASTE.
+func _draw_presets() -> void:
+	if not _shows_presets():
+		return
+	var on := GameState.preset_on(weapon)
+	var c := Style.weapon_color(weapon)
+	for i in GameState.GRAPH_PRESETS:
+		var r := _preset_rect(i)
+		var label := str(i + 1)
+		var hot := i == _hover_preset
+		if thumb():
+			_px.plate(r, label, c if i == on else Color(0.55, 0.9, 1.0), hot or i == on, true)
+		elif i == on:
+			_px.rect(r, Color(c.r, c.g, c.b, 0.42))
+			_px.frame(r, c)
+			_px.text(r.position + Vector2((r.size.x - PixelDraw.ink_width(label)) * 0.5,
+				(r.size.y + 10.0) * 0.5), label, Color(0.95, 0.98, 1.0))
+		else:
+			_px.button(r, label, hot)
 
 ## The board as it is drawn: the board itself, except while the root is in
 ## hand. The weapon keeps the root where it stands until it is set down

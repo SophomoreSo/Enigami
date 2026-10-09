@@ -736,6 +736,21 @@ reads back with each of them moved on into that cell, so whatever it fed, it
 feeds still, and the build in front of a sword's root goes on from it as it
 did. Whatever fed one runs into the cell it left, which is where to mend it.
 
+## Presets
+
+Every weapon keeps **three graphs**, numbered **1 2 3** on the plates against
+the board's right edge, on COPY and PASTE's row — at the workbench and in a
+raid. The one lit in the weapon's colour is the graph on it; a click on another
+puts that one on and keeps this one as it was. There are always three: none is
+added and none taken away, and one never built on is the weapon's bare graph.
+
+A preset put away is **a blueprint, not the parts**, the same as a code: the
+parts of the graph going away go back into the stash (the bag, in a raid), and
+the ones the preset needs come out, so a part is never locked up in a preset
+you are not using. One you cannot afford changes nothing and says what it is
+short of. A death takes the graph on the weapon and what it was built of, as
+ever; the presets put away are only how to build them, and stay.
+
 ## The dragon test
 
 Title → SANDBOX → **DRAGON TEST**. A four-storey tower with eight guards posted

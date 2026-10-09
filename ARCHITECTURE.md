@@ -288,8 +288,11 @@ which the player moves but never takes off — and there is no INPUT part. A flo
 goes from a part into the one beside it and leaves the board by the middle of
 its right edge (`SkillBoard.way_out`), and there is no OUTPUT part either.
 A weapon *is* its graph (`GameState.weapon_boards`): one each, carried into a
-raid as a copy, lost and won back with the weapon. What a part looks like stays
-in `Style`.
+raid as a copy, lost and won back with the weapon. Each weapon keeps three
+(`GameState.GRAPH_PRESETS`, `graph_presets`), one on it and the others put
+away as blueprints, the way a share code is one: putting another on trades the
+parts across (`switch_preset`), so a part is only ever on the graph in use. What
+a part looks like stays in `Style`.
 
 The `text` in a conversation's rows is the English fallback. What is actually said is
 laid over it from `localization/<lang>/dialogue/<id>.json`, by node name —
