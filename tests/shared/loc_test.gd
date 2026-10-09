@@ -19,7 +19,7 @@ extends Node
 ## No renderer needed: nothing here draws. Measuring a string and asking a font
 ## whether it has a letter both work headless.
 
-const SRC_DIRS := ["res://app", "res://feature", "res://graphics"]
+const SRC_DIRS := ["res://app", "res://feature", "res://graphics", "res://perks"]
 
 var fails := 0
 var _was_language := ""
@@ -133,6 +133,9 @@ func _check_fallbacks() -> void:
 		checked += _same(eng, "weapons.%s.desc" % id, String(Weapons.DEFS[id]["desc"]))
 	for id in Monsters.DEFS:
 		checked += _same(eng, "monsters.%s" % id, String(Monsters.DEFS[id]["name"]))
+	for id in Perks.ids():
+		checked += _same(eng, "perks.%s.name" % id, String(Perks.get_def(id)["name"]))
+		checked += _same(eng, "perks.%s.desc" % id, String(Perks.get_def(id)["desc"]))
 	# A facility has a name and nothing else to say: what each one does used to
 	# be written on the counter's status line, and went out with it.
 	for key in GameState.FACILITY_INFO:
@@ -336,7 +339,7 @@ func _check_nothing_hardcoded() -> void:
 func _check_cues_carry_ids() -> void:
 	var re := RegEx.create_from_string("\"text\"\\s*:\\s*\"[^\"\\n]*[A-Za-z]")
 	var found: Array = []
-	for path in _scripts(["res://feature", "res://story/rules", "res://circuit"]):
+	for path in _scripts(["res://feature", "res://story/rules", "res://circuit", "res://perks/rules"]):
 		var src := FileAccess.get_file_as_string(path)
 		for m in re.search_all(src):
 			var upto := src.substr(0, m.get_start())

@@ -41,7 +41,7 @@ jobs:
       - name: Run
         env:
           GODOT_ARGS: --audio-driver Dummy
-        run: ./tests/run.sh --timeout 300 tests/circuit tests/feature tests/story tests/shared
+        run: ./tests/run.sh --timeout 300 tests/circuit tests/feature tests/story tests/perks tests/shared
 
       - uses: actions/upload-artifact@v7
         if: always()
@@ -84,7 +84,7 @@ jobs:
       - name: The rules must still run with nothing to draw with
         env:
           GODOT_ARGS: --audio-driver Dummy
-        run: ./tests/run.sh --timeout 300 tests/circuit tests/feature tests/story
+        run: ./tests/run.sh --timeout 300 tests/circuit tests/feature tests/story tests/perks
 
       - uses: actions/upload-artifact@v7
         if: always()

@@ -9,6 +9,9 @@ signal stash_changed()
 ## graph edited, a slot wiped.
 signal kit_changed()
 signal records_changed()
+## What is added to the player's own numbers changed — a perk bought, a profile
+## opened — and whoever holds one of those numbers takes it again (`boost`).
+signal boosts_changed()
 
 ## How many profiles can be kept side by side. The title screen offers this
 ## many rows; `graphics/ui/title_screen.gd` reads it rather than counting its
@@ -133,6 +136,17 @@ var intro_seen: bool = false
 ## is somebody new to them, and the next slot is somebody else.
 var memory: Dictionary = {}
 
+## The perks the player has bought: perk -> how many of its steps. Bought and
+## read by perks/rules (`Perks`), which is what knows what a perk is; nothing
+## here reads it. It is kept with the profile for the reason `memory` is.
+var perks: Dictionary = {}
+
+## Whatever adds to the player's own numbers from outside the rules: functions
+## from a stat's name to what they add to it, each asked in turn by `boost`.
+## The perks put theirs here (perks/rules), which is how what they add reaches
+## the rules without the rules naming them. Nothing here, nothing added.
+var boost_sources: Array[Callable] = []
+
 const FACILITY_INFO := {
 	"workbench": {"name": "Workbench", "max": 5},
 	"vault": {"name": "Vault", "max": 5},
@@ -195,6 +209,7 @@ func _new_profile() -> void:
 	records = {"raids": 0, "escapes": 0, "deaths": 0, "kills": 0, "best_haul": 0}
 	intro_seen = false
 	memory = {}
+	perks = {}
 	owned_weapons = ["ROCK", "SWORD", "GUN", "SHOVEL", "SHURIKEN"]
 	handed_out.assign(HANDED_OUT)
 	loadout = []
@@ -209,7 +224,21 @@ func _new_profile() -> void:
 
 ## --- derived stats ----------------------------------------------------------
 func max_health() -> float:
-	return 80.0 + 20.0 * float(facilities["medbay"])
+	return 80.0 + 20.0 * float(facilities["medbay"]) + boost("max_health")
+
+## What everything in `boost_sources` adds to `stat`: `max_health`,
+## `max_stamina` and `max_mana` in points, `move_speed` and `gold` as a share
+## more, `cast_speed` as a share off the wait between casts.
+func boost(stat: String) -> float:
+	var total := 0.0
+	for source in boost_sources:
+		if source.is_valid():
+			total += float(source.call(stat))
+	return total
+
+## What `amount` of gold found in a raid comes to, with what adds to it.
+func gold_found(amount: int) -> int:
+	return roundi(float(amount) * (1.0 + boost("gold")))
 
 func board_size() -> Vector2i:
 	var l: int = facilities["workbench"]
@@ -758,6 +787,7 @@ func load_slot(n: int) -> bool:
 	stash_changed.emit()
 	kit_changed.emit()
 	records_changed.emit()
+	boosts_changed.emit()
 	return found
 
 ## Throws a profile away. There is no undo, which is why the screen that offers
@@ -773,6 +803,7 @@ func delete_slot(n: int) -> void:
 		stash_changed.emit()
 		kit_changed.emit()
 		records_changed.emit()
+		boosts_changed.emit()
 
 func _boards_out(boards: Dictionary) -> Dictionary:
 	var out := {}
@@ -793,6 +824,7 @@ func save_game() -> void:
 		"records": records,
 		"intro_seen": intro_seen,
 		"memory": memory,
+		"perks": perks,
 		# The raid in progress, if there is one. It used to be left out, so a
 		# profile saved mid-raid came back with the weapon gone from the vault
 		# and no raid to account for it.
@@ -869,6 +901,12 @@ func _read_save(path: String) -> bool:
 	if kept is Dictionary:
 		for k in kept:
 			memory[String(k)] = int(kept[k])
+	# A profile saved before there were perks has bought none.
+	perks = {}
+	var bought = parsed.get("perks", {})
+	if bought is Dictionary:
+		for k in bought:
+			perks[String(k)] = int(bought[k])
 	# The same for the records: one the save does not mention is nought.
 	var rec: Dictionary = parsed.get("records", {})
 	for k in records:
@@ -971,3 +1009,4 @@ func reset_profile() -> void:
 	save_game()
 	stash_changed.emit()
 	kit_changed.emit()
+	boosts_changed.emit()

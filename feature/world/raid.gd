@@ -318,7 +318,7 @@ func _take_gate(dir: int) -> void:
 ## --- events -----------------------------------------------------------------
 func _on_pickup(p: Pickup) -> void:
 	if p.scrap_amount > 0:
-		GameState.raid_scrap += p.scrap_amount
+		GameState.raid_scrap += GameState.gold_found(p.scrap_amount)
 	else:
 		GameState.add_component(p.component_id, 1, GameState.raid_bag)
 
@@ -337,7 +337,7 @@ func _on_spot_dug(_spot: DigSpot, items: Array) -> void:
 func _take_haul(items: Array) -> void:
 	for l in items:
 		if l.has("scrap"):
-			GameState.raid_scrap += int(l["scrap"])
+			GameState.raid_scrap += GameState.gold_found(int(l["scrap"]))
 		else:
 			# The record can be out of a raid parked before one of its parts was renamed.
 			GameState.add_component(Components.current_id(String(l["id"])), 1, GameState.raid_bag)

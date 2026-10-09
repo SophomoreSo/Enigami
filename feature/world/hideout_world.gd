@@ -24,8 +24,8 @@ extends World
 
 signal deploy_requested(weapon: String)
 signal title_requested()
-## A station was used: "weapons" or "shop". The view opens the panel; the rules
-## do not know there is one.
+## A station was used: "weapons", "shop" or "perks". The view opens the panel;
+## the rules do not know there is one.
 signal station_used(id: String)
 ## The weapon's graph was asked for — by the key that opens assembly in a raid,
 ## or off the rack's BUILD. The editor belongs to `app/game.gd`, so this only
@@ -37,10 +37,12 @@ signal panel_changed(id: String)
 ## Where each station stands, in room cells. The floor is generated, so these
 ## are columns rather than exact spots: `_floor_at` drops each one onto whatever
 ## the generator put under it. Laid left to right in the order you would use
-## them — pick a weapon, buy what its graph still needs, leave.
+## them — pick a weapon, buy what its graph still needs, buy yourself a step of
+## a perk (perks/, whose page the view opens), leave.
 const STATION_CELLS := {
 	"weapons": 7,
 	"shop": 20,
+	"perks": 27,
 	"gate": 34,
 }
 

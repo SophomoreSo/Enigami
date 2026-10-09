@@ -237,6 +237,14 @@ func _on_panel_changed(id: String) -> void:
 	_clear_panel()
 	if id == "":
 		return
+	if id == "perks":
+		# The perk station's page is the perks' own (perks/view), in the frame
+		# every station's panel stands in. A step bought builds the frame again
+		# round a new page, so the gold in its corner is what is left.
+		var page := PerkPage.new()
+		page.bought.connect(func(_perk: String) -> void: world.refresh_panel())
+		_host(page, Loc.t("hideout.station.%s" % id))
+		return
 	_host(_column("weapons" if id == "weapons" else "shop"),
 		Loc.t("hideout.station.%s" % id))
 
@@ -256,13 +264,13 @@ func _column(section: String) -> Hideout:
 ## Puts a station's panel on screen inside the pixel frame every menu here uses,
 ## with the title along the top and the way out along the bottom. The panel
 ## itself never learns it is in a frame — it is the same column the whole screen
-## used to hold.
+## used to hold, or the perks' page (`PerkPage`).
 ##
 ## The rows are the only part of it that scrolls. The whole panel used to, and
 ## a list long enough to need a bar — the counter's, on any honest profile —
 ## carried its own title off the top of the screen and the way back to the room
 ## off the bottom.
-func _host(inner: Hideout, heading: String) -> void:
+func _host(inner: Control, heading: String) -> void:
 	# The room goes dark behind it, the way the game does behind the pause menu:
 	# the panel is what is being read, and the room is where it closes back to.
 	_shade = UiKit.shade()

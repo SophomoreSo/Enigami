@@ -729,6 +729,27 @@ burning and the way out are each a light made in code, a point or a spot.
 `tests/graphics/lighting_test.tscn` makes a light of a kind and finds its
 row's numbers in it, and lights a picture with each type.
 
+## A perk
+
+What a player buys for themselves with gold, a step at a time, at the hideout's
+perk station (`perks/rules/perks.gd`). The rows are in the order the station's
+page lists them.
+
+```sql
+INSERT INTO perks (id, name, stat, per_step, description) VALUES
+	('TOUGHNESS', 'TOUGHNESS', 'max_health', 10, 'More health: 10 more for every step.');
+
+INSERT INTO perk_steps (perk_id, step, cost) VALUES
+	('TOUGHNESS', 1, 60), ('TOUGHNESS', 2, 140), ('TOUGHNESS', 3, 260);
+```
+
+| Table · column | Meaning |
+|---|---|
+| `perks.stat` | Which of the player's own numbers it raises, by the word the rules ask `GameState.boost` for it by: `max_health`, `max_stamina`, `max_mana` in points, `move_speed` and `gold` as a share more, `cast_speed` as a share off the wait between casts. The schema holds it to those six. |
+| `perks.per_step` | What every step bought adds to its stat. |
+| `perks.name` `description` | The English, laid under `localization/<lang>/perks.json`; `loc_test` fails if the two drift. |
+| `perk_steps` | Its steps from the first, and what each costs in gold. A step is only ever bought after the one before it, so they run 1, 2, 3 with none missed; `tests/perks/perks_test` holds them to it. |
+
 ## Reading it from code
 
 ```gdscript

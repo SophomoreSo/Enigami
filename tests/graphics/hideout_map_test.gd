@@ -164,7 +164,7 @@ func _ready() -> void:
 	check(world != null and game.state == GameScript.State.HIDEOUT,
 		"the hideout is a world, not a screen (%s)" % ("null" if world == null else world.get_class()))
 	check(world.room != null and world.player != null, "with a room and somebody standing in it")
-	check(world.stations.size() == 3, "and three stations on its floor (%d)" % world.stations.size())
+	check(world.stations.size() == 4, "and four stations on its floor (%d)" % world.stations.size())
 	check(not world.stations.has("bench"), "with no workbench among them: TAB is the way onto the board")
 
 	# --- a station only answers from close enough ----------------------------

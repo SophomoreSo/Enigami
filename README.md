@@ -46,6 +46,7 @@ godot res://tests/feature/aim_assist_test.tscn # aim assist: the stick-to-weapon
 godot res://tests/feature/crouch_test.tscn  # the crouch: down lets the body onto its feet, a stick's threshold for it, and what stands it up again
 godot res://tests/feature/sprint_test.tscn  # the sprint: a run half as fast again while it is held, and what stops it
 godot res://tests/feature/pool_test.tscn    # pooling: lent, played out and handed back, and taken back when a screen goes
+godot res://tests/perks/perks_test.tscn     # the perks: bought with gold a step at a time, kept with the profile, and what they add reaching the player
 godot res://tests/graphics/fx_pool_test.tscn # sparks, rings and floating numbers come out of pools, never out of nothing
 godot res://tests/graphics/menu_fit_test.tscn # menus stay on screen and scroll the rest
 godot res://tests/graphics/title_mobile_test.tscn # mobile mode's title: a row of big square tiles
@@ -988,6 +989,31 @@ the entry gate is free but slow, a toll gate costs scrap, the Arbiter's gate is
 sealed until it dies, and a crack in the wall is fast but sits somewhere nasty.
 Extraction needs a held input so nothing ends by accident.
 
+## Perks
+
+The hideout has a fourth station, between the counter and the gate: **PERKS**.
+Its page lists what a player can buy for themselves with gold — a perk a row,
+how many of its steps are bought, what it does, and the price of the next step
+on the button that buys it. A perk's steps are bought in order, each dearer
+than the last, and any perk can be the first one started. What is bought is the
+profile's, kept the moment it is bought, and reaches the body standing in the
+hideout there and then.
+
+| Perk | Every step |
+|---|---|
+| TOUGHNESS | 10 more health |
+| ENDURANCE | 25 more stamina: one more dash before the bar runs dry |
+| SWIFTNESS | runs and sprints 6% faster |
+| FOCUS | 20 more mana to charge a cast with |
+| QUICK HANDS | 6% off the wait between casts |
+| SCAVENGER | 15% more gold from everything found in a raid |
+
+Three steps each, for 60, 140 and 260 gold — QUICK HANDS and SCAVENGER for 80,
+180 and 320. The perks, their steps and their prices are rows in the content
+database (`data/db/perks/perks.sql`), and the code is a module of its own,
+`perks/`, which the rules hear from only through `GameState.boost` — see
+[ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Continuous integration
 
 Every push runs the rules tests headless, the graphics tests under a virtual
@@ -1002,10 +1028,10 @@ rather than something you can install.
 
 ## Layout
 
-Five modules, and a shell around them. A picture may read the rules it draws;
+Six modules, and a shell around them. A picture may read the rules it draws;
 a rule never mentions its picture. `circuit/` is the engine under the rules — a
 board, the pulse that runs it, the payload it builds — and names nothing but
-itself, the words, and the table its parts are rows in. `story/` and `mobile/` each carry both sides of one
+itself, the words, and the table its parts are rows in. `story/`, `mobile/` and `perks/` each carry both sides of one
 subsystem and so repeat that seam inside themselves. See
 [ARCHITECTURE.md](ARCHITECTURE.md) for how they talk.
 
@@ -1041,6 +1067,8 @@ story/view/        the dialogue box, the speech bubble, the cutscene box, the po
 mobile/input/      whether the console is on the glass, and what a key on it presses
 mobile/view/       the two-thumb console drawn on the glass, and the screen that
                    moves its buttons (SET BUTTON POSITIONS)
+perks/rules/       the perks: what each adds and costs, which a profile has bought, the buying
+perks/view/        the page they are bought on, at the hideout's perk station
 graphics/          the atlas, screen effects, the pixel camera, the palette, view attachment
                    lighting and lamps; glazing and glass: the passes the picture goes through
 graphics/views/    one view per gameplay node: actors, attacks, rooms, loot
@@ -1062,12 +1090,13 @@ graphics/assets/sprites/player/  the player: a skin, its map, poses painted in t
 tests/circuit/     board tracing, codes, cycle timing, a pulse's life — run headless
 tests/feature/     movement, hits, raids, the bench — rules, run headless
 tests/story/       conversations and scene files — rules, run headless
+tests/perks/       buying perks and what they add — rules, run headless
 tests/graphics/    editor input, focus, menus, the pixel camera, screenshot capture — need a window
 tests/mobile/      the console under a thumb, and moving its buttons — need a window
 tests/shared/      the smoke test, which walks the whole game
 ```
 
-`tests/circuit` and `tests/feature` run under `--headless`; `tests/graphics`
+`tests/circuit`, `tests/feature` and `tests/perks` run under `--headless`; `tests/graphics`
 and `tests/mobile` drive the mouse and fingers and need a real window.
 `tests/shared/loc_test` and `module_test` run headless too.
 
