@@ -13,6 +13,8 @@ signal finished(result: String, payload: Dictionary)
 signal editing_changed(on: bool)
 ## The map opened or closed. The raid keeps running either way, as above.
 signal reading_map_changed(on: bool)
+## The monster dictionary opened or closed, the same way again.
+signal reading_dex_changed(on: bool)
 ## A new room is live and populated.
 signal room_changed(room: Room)
 
@@ -20,6 +22,7 @@ var map: RaidMap
 var room: Room = null
 var player: Player
 var reading_map: bool = false
+var reading_dex: bool = false
 var ended: bool = false
 ## What stands between the player and the exit they are standing in — a toll,
 ## a seal — or "" when nothing does, or they are not in one. An exit that will
@@ -297,6 +300,7 @@ func _enter_room(coord: Vector2i, from_dir: int) -> void:
 	for c in room.get_children():
 		if c is Enemy:
 			c.room = room
+			_meet(c)
 	_pending_dir = -1
 	room_changed.emit(room)
 
@@ -389,8 +393,9 @@ func set_editing(on: bool) -> void:
 	# standing on top of it, so closing either one gives the controls back.
 	if on:
 		set_reading_map(false)
+		set_reading_dex(false)
 	editing = on
-	player.input_locked = editing or reading_map
+	player.input_locked = _held()
 	Cues.emit_cue(&"ui", {"kind": "editor"})
 	editing_changed.emit(on)
 
@@ -404,10 +409,37 @@ func set_reading_map(on: bool) -> void:
 		return
 	if on:
 		set_editing(false)
+		set_reading_dex(false)
 	reading_map = on
-	player.input_locked = editing or reading_map
+	player.input_locked = _held()
 	Cues.emit_cue(&"ui", {"kind": "map"})
 	reading_map_changed.emit(on)
+
+## The monster dictionary: the screen's third page, costing what the other two
+## cost, and taking over from either the way they take over from each other.
+func set_reading_dex(on: bool) -> void:
+	if reading_dex == on:
+		return
+	if on:
+		set_editing(false)
+		set_reading_map(false)
+	reading_dex = on
+	player.input_locked = _held()
+	Cues.emit_cue(&"ui", {"kind": "map"})
+	reading_dex_changed.emit(on)
+
+## Whether a page of the screen is up over the raid, holding the player still.
+func _held() -> bool:
+	return editing or reading_map or reading_dex
+
+## A monster in the room just come into: met, for the monster dictionary, and
+## heard from whenever its attack goes off, which is its skill seen. A room is
+## the screen, so whatever is in it is in sight.
+func _meet(e: Enemy) -> void:
+	if not Monsters.DEX.has(e.kind):
+		return
+	GameState.discover_monster(e.kind)
+	e.attacked.connect(func(skill: String) -> void: GameState.discover_skill(e.kind, skill))
 
 func on_board_changed() -> void:
 	player.rebuild_runner()

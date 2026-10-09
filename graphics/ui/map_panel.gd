@@ -36,7 +36,7 @@ var map: RaidMap = null
 var room = null
 ## The pages of the screen this is a page of, in the order their tabs stand
 ## along its top.
-var pages: Array = [ScreenTabs.GRAPH, ScreenTabs.MAP]
+var pages: Array = ScreenTabs.PAGES.duplicate()
 ## What along the top is under the pointer: the back arrow, or a page's tab.
 var _back_hot: bool = false
 var _page_hot: String = ""

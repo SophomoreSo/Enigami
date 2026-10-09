@@ -133,6 +133,12 @@ var intro_seen: bool = false
 ## is somebody new to them, and the next slot is somebody else.
 var memory: Dictionary = {}
 
+## The monster dictionary's: the monsters this profile has met in a raid, by
+## kind, and which of their skills it has seen them use, as "KIND:board".
+## Only a raid writes here (`Raid`) — the bench and the tests are not
+## somewhere a monster is met — and a new game knows none of them.
+var bestiary: Dictionary = {"monsters": [], "skills": []}
+
 const FACILITY_INFO := {
 	"workbench": {"name": "Workbench", "max": 5},
 	"vault": {"name": "Vault", "max": 5},
@@ -195,6 +201,7 @@ func _new_profile() -> void:
 	records = {"raids": 0, "escapes": 0, "deaths": 0, "kills": 0, "best_haul": 0}
 	intro_seen = false
 	memory = {}
+	bestiary = {"monsters": [], "skills": []}
 	owned_weapons = ["ROCK", "SWORD", "GUN", "SHOVEL", "SHURIKEN"]
 	handed_out.assign(HANDED_OUT)
 	loadout = []
@@ -682,6 +689,30 @@ func _haul_size(d: Dictionary) -> int:
 func register_kill() -> void:
 	records["kills"] = int(records["kills"]) + 1
 
+## --- the monster dictionary -------------------------------------------------
+func knows_monster(kind: String) -> bool:
+	return (bestiary["monsters"] as Array).has(kind)
+
+func knows_skill(kind: String, skill: String) -> bool:
+	return (bestiary["skills"] as Array).has("%s:%s" % [kind, skill])
+
+## A monster met. Saved on the spot when it is the first of its kind: what has
+## been seen stays seen, whatever happens to the raid it was seen in.
+func discover_monster(kind: String) -> void:
+	if knows_monster(kind):
+		return
+	(bestiary["monsters"] as Array).append(kind)
+	save_game()
+
+## A monster seen using `skill`, which is a sight of the monster as well.
+func discover_skill(kind: String, skill: String) -> void:
+	if knows_skill(kind, skill):
+		return
+	if not knows_monster(kind):
+		(bestiary["monsters"] as Array).append(kind)
+	(bestiary["skills"] as Array).append("%s:%s" % [kind, skill])
+	save_game()
+
 ## The opening scene has been played, or skipped. Saved on the spot: a prologue
 ## sat through once is never sat through again, whatever happens after it.
 func mark_intro_seen() -> void:
@@ -793,6 +824,7 @@ func save_game() -> void:
 		"records": records,
 		"intro_seen": intro_seen,
 		"memory": memory,
+		"bestiary": bestiary,
 		# The raid in progress, if there is one. It used to be left out, so a
 		# profile saved mid-raid came back with the weapon gone from the vault
 		# and no raid to account for it.
@@ -873,6 +905,13 @@ func _read_save(path: String) -> bool:
 	var rec: Dictionary = parsed.get("records", {})
 	for k in records:
 		records[k] = int(rec.get(k, 0))
+	# A profile saved before the dictionary has met nothing yet.
+	bestiary = {"monsters": [], "skills": []}
+	var dex = parsed.get("bestiary", {})
+	if dex is Dictionary:
+		for key in ["monsters", "skills"]:
+			for v in (dex as Dictionary).get(key, []):
+				(bestiary[key] as Array).append(String(v))
 	lost_kit = _kit_read(parsed.get("lost_kit", {}))
 	_read_raid(parsed)
 	_read_library(parsed)

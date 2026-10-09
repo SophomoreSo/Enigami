@@ -6,9 +6,10 @@ extends Control
 ## and compact and every action is a single click.
 ##
 ## It is the GRAPH page of a screen with tabs along its top, like a browser's
-## (`ScreenTabs`): the map is the other page (`MapPanel`), a press on its tab or
+## (`ScreenTabs`): the map is another page (`MapPanel`), a press on its tab or
 ## its key away (`page_picked`) — the raid's floor plan in a raid, and
-## everywhere else the map's window saying there is no map.
+## everywhere else the map's window saying there is no map — and the monster
+## dictionary the third (`MonsterDex`).
 ##
 ## The root — the weapon's own part — is drawn as a port pointing the way it
 ## hands the flow over. The hand moves and turns it like any part, but it never
@@ -129,14 +130,15 @@ const NOWHERE := Vector2i(-1, -1)
 ## Mobile mode's screen, top to bottom and left to right:
 ##
 ##   * in the top-left corner the back arrow that closes it, THUMB_BTN square,
-##     and beside it, for the moment one lasts, a refusal or what COPY and PASTE
-##     did, on a plate of its own; under it, where there are weapons to choose
-##     between, a plate each, THUMB_BTN square, their pictures on them;
+##     and beside it the screen's tabs; under it, where there are weapons to
+##     choose between, a plate each, THUMB_BTN square, their pictures on them;
 ##   * the board, in the room under the back arrow and left of the parts, its
 ##     cells as big as that room lets them be: at a desk a cell is as big as
 ##     stands the board as tall as the parts, 78 on a first workbench's seven
 ##     by five, and here that grid stands at 90 — 82 beside the weapons — a
-##     thumb's width. Under it, COPY and PASTE, each THUMB_BTN tall;
+##     thumb's width. Under it, COPY and PASTE, each THUMB_BTN tall, and past
+##     them, for the moment one lasts, a refusal or what COPY and PASTE did, on
+##     a plate of its own;
 ##   * down the right, THUMB_PARTS wide and the screen's height, the parts: a
 ##     tab a category, and beside them the picked category's parts, a plate
 ##     each, with the name written at the size a thumb's page writes at. A
@@ -184,7 +186,7 @@ var shelf: Array = []
 var shelf_open: int = -1
 ## The pages of the screen this is a page of, in the order their tabs stand
 ## along its top (`ScreenTabs`).
-var pages: Array = [ScreenTabs.GRAPH, ScreenTabs.MAP]
+var pages: Array = ScreenTabs.PAGES.duplicate()
 
 var selected: String = ""
 var rotation_step: int = 0
@@ -318,11 +320,11 @@ func _layout_key() -> Array:
 		Vector2i(b.width, b.height) if b != null else Vector2i.ZERO, shelf.size(), _tab]
 
 ## Where everything on mobile mode's screen stands, for a screen of this shape
-## and a grid of this size: `close` in the top-left corner, the tabs of the
-## screen's `pages` beside it and `message` past them; `column`, the parts'
-## whole column, with its `tabs`, the `plates` room beside them, and `turn` and
-## `remove` along its foot; the board's `cell`, `origin` and `frame`; and `copy`
-## and `paste` under it. COPY and PASTE are as wide as their words, so the
+## and a grid of this size: `close` in the top-left corner and the tabs of the
+## screen's `pages` beside it; `column`, the parts' whole column, with its
+## `tabs`, the `plates` room beside them, and `turn` and `remove` along its foot;
+## the board's `cell`, `origin` and `frame`; and `copy` and `paste` under it,
+## and `message` past them. COPY and PASTE are as wide as their words, so the
 ## language is part of what this is worked out for.
 func _thumb_layout() -> Dictionary:
 	var b := current_board()
@@ -339,8 +341,6 @@ func _thumb_layout() -> Dictionary:
 	l["pages"] = ScreenTabs.tab_rects(pages, true)
 	var column := Rect2(vp.x - THUMB_EDGE - THUMB_PARTS, THUMB_EDGE, THUMB_PARTS, vp.y - THUMB_EDGE * 2.0)
 	l["column"] = column
-	var past := ScreenTabs.end_x(pages, true) + 12.0
-	l["message"] = Rect2(past, THUMB_EDGE, column.position.x - 16.0 - past, THUMB_BTN)
 	var acts := column.end.y - THUMB_ACT
 	var half := floorf((column.size.x - 8.0) * 0.5 / PX) * PX
 	l["turn"] = Rect2(column.position.x, acts, half, THUMB_ACT)
@@ -378,6 +378,10 @@ func _thumb_layout() -> Dictionary:
 	l["copy"] = Rect2(row, Vector2(_thumb_copy_width(Loc.t("editor.share.copy")), THUMB_BTN))
 	l["paste"] = Rect2(Vector2((l["copy"] as Rect2).end.x + 8.0, row.y),
 		Vector2(_thumb_copy_width(Loc.t("editor.share.paste")), THUMB_BTN))
+	# The message, for the moment it lasts, past PASTE in the same row: the row
+	# along the top is the screen's tabs.
+	var past := (l["paste"] as Rect2).end.x + 12.0
+	l["message"] = Rect2(past, row.y, column.position.x - 16.0 - past, THUMB_BTN)
 	_thumb_rects = l
 	return l
 
@@ -2958,9 +2962,9 @@ func _draw_count(right: Vector2, id: String) -> void:
 
 ## --- for a thumb: the drawing -----------------------------------------------------
 
-## A message, for the moment it lasts, on a plate of its own beside the back
-## arrow — at a desk it is written along the bottom, where a thumb's COPY and
-## PASTE now are. A refusal on red, and what COPY and PASTE did on green.
+## A message, for the moment it lasts, on a plate of its own past COPY and
+## PASTE — at a desk it is written along the bottom. A refusal on red, and what
+## COPY and PASTE did on green.
 func _draw_thumb_message() -> void:
 	if _message_time <= 0.0:
 		return
@@ -2968,7 +2972,7 @@ func _draw_thumb_message() -> void:
 	_px.rect(r, Color(0.12, 0.28, 0.2, 0.9) if _message_good else Color(0.3, 0.14, 0.12, 0.9))
 	_px.frame(r, UiKit.GOOD if _message_good else Color(1.0, 0.65, 0.55))
 	# At the size everything else here is read at: it is a sentence. In two rows,
-	# the plate standing in what the tabs along the top leave of it.
+	# the plate standing in what COPY and PASTE leave of their row.
 	var rows := PixelDraw.wrap(_message, r.size.x - 32.0, 2)
 	var ink := Color(0.8, 1.0, 0.88) if _message_good else Color(1.0, 0.8, 0.72)
 	var base := r.position.y + (r.size.y - PixelDraw.LINE * float(rows.size() - 1) + 10.0) * 0.5

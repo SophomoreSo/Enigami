@@ -204,9 +204,13 @@ func _the_layout() -> void:
 		if r.size.y < SkillEditor.THUMB_BTN or r.size.x < 120.0:
 			small.append("the %s tab %s" % [String(ed.pages[i]), str(r.size)])
 	check(small.is_empty(), "the buttons and the tabs are a thumb's size (%s)" % str(small))
-	check(tops.size() == 2 and (tops[0] as Rect2).position.y == back.position.y
-			and (tops[0] as Rect2).position.x > back.end.x and (l["message"] as Rect2).position.x > (tops[1] as Rect2).end.x,
-		"the page tabs stand along the top beside the back arrow, the message past them")
+	var said: Rect2 = l["message"]
+	check(tops.size() == ScreenTabs.PAGES.size() and (tops[0] as Rect2).position.y == back.position.y
+			and (tops[0] as Rect2).position.x > back.end.x,
+		"the page tabs stand along the top beside the back arrow (%d)" % tops.size())
+	check(said.position.y == (l["paste"] as Rect2).position.y and said.position.x > (l["paste"] as Rect2).end.x
+			and said.size.x >= 200.0,
+		"and the message past PASTE, in its row, with room for a sentence (%s)" % str(said))
 	check(tabs.size() == ed._pal_groups().size(), "there is a tab a category (%d)" % tabs.size())
 	# The way out is on the board's frame, its head outside it: on the screen,
 	# and in the room between the board and the parts rather than on them.
@@ -279,15 +283,14 @@ func _the_grid() -> void:
 	await frames(2)
 
 ## Every PIXEL×PIXEL block of the frame is one colour, with the board dressed:
-## parts on it, one picked, a tab of plates up and a refusal beside the back
-## arrow.
+## parts on it, one picked, a tab of plates up and a refusal past PASTE.
 func _on_the_grid() -> void:
 	var form := part_on(0)
 	await tap(tab_of(form))
 	await tap(plate_of(form))
 	await tap(cell(Vector2i(3, 0)))
-	# The weapon's own part picked, and REMOVE pressed on it: a refusal, beside
-	# the back arrow. Then the part just set down picked in its place.
+	# The weapon's own part picked, and REMOVE pressed on it: a refusal, past
+	# PASTE. Then the part just set down picked in its place.
 	await tap(cell(ed.current_board().root))
 	await tap((layout()["remove"] as Rect2).get_center())
 	await tap(cell(Vector2i(3, 0)))
@@ -416,7 +419,7 @@ func _a_part_picked() -> void:
 	before = changes
 	await tap(remove)
 	check(at(root) == root_id and b.root == root and changes == before and ed._message_time > 0.0,
-		"REMOVE leaves it on the board, and the plate beside the back arrow says why")
+		"REMOVE leaves it on the board, and the plate past PASTE says why")
 	await tap(cell(root))
 	check(ed._picked == SkillEditor.NOWHERE, "a second touch lets it go")
 	var over := root + Vector2i(-2, 0)
@@ -459,7 +462,7 @@ func _copy_and_paste() -> void:
 	ed._message_time = 0.0
 	await tap(ed._copy_rect().get_center())
 	check(DisplayServer.clipboard_get() == code, "a thumb on COPY puts the board on the clipboard")
-	check(ed._message_time > 0.0 and ed._message_good, "and the plate beside the back arrow says so")
+	check(ed._message_time > 0.0 and ed._message_good, "and the plate past PASTE says so")
 	var before := b.duplicate_board()
 	await tap(ed._paste_rect().get_center())
 	check(BoardCode.encode(b) == BoardCode.encode(before) and ed._message_good and bench.editing,

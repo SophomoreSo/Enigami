@@ -29,8 +29,8 @@ var overlay_layer: CanvasLayer
 var touch_layer: CanvasLayer
 var touch_pad: TouchPad = null
 var editor: SkillEditor = null
-## The workbench's screen's two pages: the board, and beside it the map's,
-## which says the hideout has no map. There while `editor` is.
+## The workbench's screen's pages: the board, the map's beside it, which says
+## the hideout has no map, and the monster dictionary. There while `editor` is.
 var editor_pages: ScreenPages = null
 var pause_menu: Control = null
 ## The pause menu's two pages: PAUSED, and the rebinding list behind its
@@ -226,12 +226,12 @@ func _paneled() -> bool:
 	return current != null and is_instance_valid(current) and current is World \
 		and (current as World).paneled()
 
-## Whether the raid's map is up: the other page of the screen the board is on.
-## Anywhere else the map's page, saying there is no map, is only up while the
+## Whether the raid's map or its monster dictionary is up: the other pages of
+## the screen the board is on. Anywhere else those pages are only up while the
 ## world is `editing`, which `_assembling` answers for already.
 func _mapping() -> bool:
 	return current != null and is_instance_valid(current) and current is Raid \
-		and (current as Raid).reading_map
+		and ((current as Raid).reading_map or (current as Raid).reading_dex)
 
 ## Whether an assembly board is up: the hideout's workbench, which is the
 ## shell's own, or the one the world under it carries.
@@ -442,8 +442,10 @@ func _open_graphs(shelf: Array, open: String, page: String = ScreenTabs.GRAPH) -
 		hideout_ref.set_editing(true)
 
 func _close_editor() -> void:
-	if editor_pages != null and is_instance_valid(editor_pages.map):
-		editor_pages.map.queue_free()
+	if editor_pages != null:
+		for p in editor_pages.others():
+			if is_instance_valid(p):
+				p.queue_free()
 	editor_pages = null
 	if editor != null and is_instance_valid(editor):
 		editor.queue_free()
