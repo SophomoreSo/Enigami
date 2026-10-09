@@ -33,11 +33,34 @@
 			"unseen": "미탐색",
 			"kit": "내 장비"
 		},
-		"close": "%s 또는 ESC로 닫기"
+		"close": "%s 또는 ESC로 닫기",
+		"none": "볼 수 있는 지도가 없습니다"
 	},
 	"tabs": {
 		"graph": "조립",
-		"map": "지도"
+		"map": "지도",
+		"dex": "도감"
+	},
+	"dex": {
+		"title": "몬스터 도감",
+		"found": "%d / %d 발견",
+		"number": "No.%02d",
+		"unknown": "??",
+		"unmet": "아직 만나지 못했습니다",
+		"unseen": "아직 쓰는 것을 보지 못했습니다",
+		"skills": "스킬",
+		"skill": {
+			"board": "공격",
+			"board_phase2": "제2형태"
+		},
+		"stat": {
+			"health": "체력 %d",
+			"speed": "속도 %d",
+			"reach": "사거리 %d",
+			"scrap": "골드 %d"
+		},
+		"elite": "정예",
+		"boss": "보스"
 	},
 	"extracting": "탈출 중",
 	"extract": {

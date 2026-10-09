@@ -12,6 +12,8 @@ var screen: DragonTest
 var camera: Camera2D
 var pixels: PixelCamera
 var editor: SkillEditor
+## The board and the map's page beside it, which says the tower has no map.
+var pages: ScreenPages
 var hud: DragonTestHud
 var tape: Tape
 var stains: Stains
@@ -53,6 +55,7 @@ func _ready() -> void:
 	editor.closed.connect(func() -> void: screen.set_editing(false))
 	editor.board_changed.connect(func() -> void: screen.on_board_changed())
 	layer.add_child(editor)
+	pages = ScreenPages.new(editor, func() -> void: screen.set_editing(false))
 
 	screen.editing_changed.connect(_on_editing)
 	screen.cleared.connect(func(one_cast: bool) -> void: hud.show_clear(one_cast))
@@ -60,11 +63,16 @@ func _ready() -> void:
 	Cues.fired.connect(_on_cue)
 
 ## See RaidView._unhandled_input: the editor consumes its own keys, R included.
+## The map's key puts the screen up on the map's page, as it does in a raid.
 func _unhandled_input(event: InputEvent) -> void:
 	if screen == null or not is_instance_valid(screen):
 		return
 	if event.is_action_pressed("open_editor"):
 		screen.set_editing(not screen.editing)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("open_map") and not screen.editing:
+		pages.page = ScreenTabs.MAP
+		screen.set_editing(true)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("pause"):
 		screen.leave()
@@ -77,10 +85,9 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_editing(on: bool) -> void:
 	if on:
 		editor.configure(screen.board, screen.inventory, true, screen.player.runner)
-		editor.visible = true
-		editor.grab_focus()
+		pages.put(pages.page)
 	else:
-		editor.visible = false
+		pages.away()
 	# The read-outs share a layer with the editor and would sit on its header.
 	hud.visible = not on
 

@@ -31,6 +31,17 @@ func frames(n: int) -> void:
 func seconds(t: float) -> void:
 	await get_tree().create_timer(t).timeout
 
+## The card's logo and paper, once `cond` holds: on the first frame it does — or
+## [-1, -1] if the card went first, or it never came to. Waited for rather than
+## timed: the whole card is gone in about a second, and on a slow machine a
+## frame is a good part of one of its steps.
+func once(card: LogoCard, cond: Callable) -> Array:
+	var left := LogoCard.HOLD + LogoCard.LOGO_OUT + LogoCard.FADE + 1.0
+	while left > 0.0 and is_instance_valid(card) and not cond.call():
+		await get_tree().process_frame
+		left -= get_process_delta_time()
+	return [card.logo_alpha(), card.paper_alpha()] if is_instance_valid(card) else [-1.0, -1.0]
+
 func on_glass(at: Vector2) -> Vector2:
 	return get_window().get_final_transform() * at
 
@@ -204,15 +215,13 @@ func _the_card() -> void:
 	await seconds(LogoCard.HOLD * 0.5)
 	check(is_instance_valid(again) and again.holding() and again.logo_alpha() == 1.0
 			and again.paper_alpha() == 1.0, "left alone it holds the logo")
-	await seconds(LogoCard.HOLD * 0.5 + LogoCard.LOGO_OUT * 0.5)
-	var going := [again.logo_alpha(), again.paper_alpha()] if is_instance_valid(again) else [-1.0, -1.0]
+	var going: Array = await once(again, func() -> bool: return again.logo_alpha() < 1.0)
 	check(going[0] > 0.0 and going[0] < 1.0 and going[1] == 1.0,
 		"then the logo goes into the white, which stays whole (%.2f, %.2f)" % going)
-	await seconds(LogoCard.LOGO_OUT * 0.5 + LogoCard.FADE * 0.5)
-	going = [again.logo_alpha(), again.paper_alpha()] if is_instance_valid(again) else [-1.0, -1.0]
+	going = await once(again, func() -> bool: return again.paper_alpha() < 1.0)
 	check(going[0] == 0.0 and going[1] > 0.0 and going[1] < 1.0,
 		"and then the white goes into what is under it, by itself (%.2f, %.2f)" % going)
-	await seconds(LogoCard.FADE * 0.5 + 0.3)
+	await seconds(LogoCard.FADE + 0.3)
 	check(not is_instance_valid(again), "and the card is gone")
 	under.queue_free()
 	over.queue_free()

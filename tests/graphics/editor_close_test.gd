@@ -2,9 +2,13 @@ extends Node
 ## The editor has to close and STAY closed. It previously reopened in the same
 ## frame, because the screen that owns it polled the same keypress.
 ##
-## And in a raid it and the map are one screen, a tab each along its top: the
-## keys and the tabs put either page up in the other's place, and the map's back
-## arrow puts the screen away like the board's.
+## And it and the map are one screen, a tab each along its top: the keys and
+## the tabs put either page up in the other's place, and the map's back arrow
+## puts the screen away like the board's. In a raid the map's page is the floor
+## plan; on the bench and in the hideout it is there all the same, saying there
+## is no map, and the map's key brings the screen up on it. The monster
+## dictionary is the third page, a tab away from either, and the other pages'
+## keys go from it to them.
 
 const GameScript := preload("res://app/game.gd")
 var game: Node
@@ -148,6 +152,25 @@ func _ready() -> void:
 	await frames(6)
 	check(not raid.reading_map and not raid.editing, "and it stays away")
 
+	# The monster dictionary: the third tab, the player held and the HUD away
+	# under it as under the other two, and the other pages' keys going to them.
+	await key(KEY_TAB)
+	await click(tab_of(pages, ScreenTabs.DEX))
+	check(raid.reading_dex and not raid.editing and Views.of(raid).dex.visible
+			and not Views.of(raid).editor.visible and raid.player.input_locked
+			and not Views.of(raid).hud.visible,
+		"a click on the MONSTERS tab puts the dictionary up in the board's place")
+	await key(KEY_M)
+	check(raid.reading_map and not raid.reading_dex, "M on it puts the map up")
+	await click(tab_of(pages, ScreenTabs.DEX))
+	await key(KEY_TAB)
+	check(raid.editing and not raid.reading_dex, "TAB on it puts the board up")
+	await click(tab_of(pages, ScreenTabs.DEX))
+	await key(KEY_ESCAPE)
+	check(not raid.reading_dex and not raid.editing and not raid.player.input_locked
+			and not game.get_tree().paused and Views.of(raid).hud.visible,
+		"ESC puts it away, pausing nothing")
+
 	# ESC with no editor open should still reach the pause menu.
 	await key(KEY_ESCAPE)
 	check(game.get_tree().paused, "ESC still pauses when no editor is open")
@@ -172,6 +195,42 @@ func _ready() -> void:
 	check(not sb.editing, "ESC closes the sandbox editor")
 	check(game.state == GameScript.State.SANDBOX, "that ESC did not also leave the sandbox")
 	check(not game.get_tree().paused, "nor did it pause behind the editor")
+
+	# The bench has no map, and the MAP tab is there all the same: its page
+	# says so. The keys and the tabs go between the two as in a raid, the screen
+	# staying up, and the map's key brings it up on its own page.
+	var bench_pages: ScreenPages = Views.of(sb).pages
+	await key(KEY_TAB)
+	check(Views.of(sb).editor.pages.has(ScreenTabs.MAP), "the bench's board has the MAP tab on its top")
+	await click(tab_of(Views.of(sb).editor.pages, ScreenTabs.MAP))
+	check(sb.editing and bench_pages.map.visible and not Views.of(sb).editor.visible
+			and bench_pages.map.map == null,
+		"a click on it puts the map's page up, with no map on it, the screen still up")
+	check(sb.player.input_locked and not Views.of(sb).hud.visible, "the player still held, the HUD still away")
+	await key(KEY_TAB)
+	check(sb.editing and Views.of(sb).editor.visible and not bench_pages.map.visible,
+		"TAB on the map's page puts the board back")
+	await key(KEY_M)
+	check(sb.editing and bench_pages.map.visible, "M on the board puts the map's page up")
+	await key(KEY_M)
+	check(not sb.editing and not bench_pages.map.visible and not Views.of(sb).editor.visible,
+		"M on the map's page puts the screen away")
+	await key(KEY_M)
+	check(sb.editing and bench_pages.map.visible and not Views.of(sb).editor.visible,
+		"M on the bench puts the screen up on the map's page")
+	await click(ScreenTabs.back_rect(UiKit.mobile()).get_center())
+	check(not sb.editing and not bench_pages.map.visible and Views.of(sb).hud.visible,
+		"its back arrow puts the screen away")
+	await key(KEY_TAB)
+	check(sb.editing and Views.of(sb).editor.visible, "and TAB brings it back on the board's page")
+	await key(KEY_TAB)
+	check(not sb.editing, "TAB on the board puts it away again")
+	await key(KEY_TAB)
+	await click(tab_of(Views.of(sb).editor.pages, ScreenTabs.DEX))
+	check(sb.editing and bench_pages.dex.visible and not Views.of(sb).editor.visible,
+		"the bench's screen has the dictionary on its third tab")
+	await click(ScreenTabs.back_rect(UiKit.mobile()).get_center())
+	check(not sb.editing and not bench_pages.dex.visible, "and its back arrow puts the screen away")
 
 	# ESC with nothing open pauses the bench. It used to walk out of it, which
 	# put the player in the hideout for pressing a key that should have stopped
@@ -212,6 +271,21 @@ func _ready() -> void:
 	var ed: SkillEditor = game.editor
 	await click(ed._close_rect().get_center())
 	check(game.editor == null, "the back arrow closes the workbench editor")
+
+	# The hideout has no map either: M on its floor puts the workbench's screen
+	# up on the map's page, which says so, and the GRAPH tab puts the board up.
+	await frames(4)
+	await key(KEY_M)
+	check(game.editor != null and game.editor_pages != null and game.editor_pages.map.visible
+			and not game.editor.visible and game.editor_pages.map.map == null,
+		"M in the hideout puts the workbench's screen up on the map's page")
+	await click(tab_of(game.editor.pages, ScreenTabs.GRAPH))
+	check(game.editor != null and game.editor.visible and not game.editor_pages.map.visible,
+		"the GRAPH tab puts the board up in its place")
+	await key(KEY_M)
+	await key(KEY_M)
+	check(game.editor == null and game.editor_pages == null, "M twice: the map's page, then away")
+	check(not game.get_tree().paused, "with nothing paused on the way")
 
 	# --- the hideout pauses too ----------------------------------------------
 	# It is a menu, but it is the one the player stands in between raids, and

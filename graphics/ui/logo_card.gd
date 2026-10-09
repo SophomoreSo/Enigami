@@ -32,10 +32,11 @@ const PAPER := Color.WHITE
 ## lifts, stays as black as it was. The test holds every logo in the pool to it.
 const LIFT := 1.0 / 0.965
 ## How long the logo is held, how long it takes to go into its paper, and how
-## long the paper then takes to go into the title.
-const HOLD := 1.4
-const LOGO_OUT := 0.3
-const FADE := 0.4
+## long the paper then takes to go into the title: about a second in all, half
+## what it was, each step halved so the card goes the way it did, only sooner.
+const HOLD := 0.7
+const LOGO_OUT := 0.15
+const FADE := 0.2
 ## The most of the screen a logo may take, across and down.
 const FIT := Vector2(0.7, 0.6)
 

@@ -40,6 +40,10 @@ const BLIND_MARGIN := 10.0
 const GLANCE_MIN := 2.0
 const GLANCE_MAX := 4.0
 
+## Its attack went off, cast off `skill`'s board — by it, or by a player whose
+## hands are in it. A raid hears it, for the monster dictionary.
+signal attacked(skill: String)
+
 var kind: String = "CRAWLER"
 var def: Dictionary = {}
 var board: SkillBoard
@@ -59,6 +63,12 @@ var aggro: bool = false
 var telegraph: float = 0.0
 ## 1 until a boss changes form, then 2.
 var phase: int = 1
+## The board it is casting now, as the key it is under in its kind's DEFS:
+## `board`, or the Arbiter's second form's. What the monster dictionary calls
+## its skill (`Monsters.skills_of`).
+var skill: String:
+	get:
+		return "board_phase2" if phase == 2 and def.has("board_phase2") else "board"
 
 var _patrol_dir: int = 1
 var _glance: float = 0.0
@@ -167,6 +177,7 @@ func _on_fired(p: Payload) -> void:
 		"attacker": self, "room": room, "team": team,
 		"aim": aim, "origin": global_position, "gravity": _gravity_shots,
 	})
+	attacked.emit(skill)
 	if bool(def.get("spent_by_attack", false)):
 		_go_up(p)
 

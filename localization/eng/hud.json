@@ -33,11 +33,34 @@
 			"unseen": "UNSEEN",
 			"kit": "YOUR KIT"
 		},
-		"close": "%s OR ESC TO CLOSE"
+		"close": "%s OR ESC TO CLOSE",
+		"none": "NO MAP AVAILABLE"
 	},
 	"tabs": {
 		"graph": "GRAPH",
-		"map": "MAP"
+		"map": "MAP",
+		"dex": "MONSTERS"
+	},
+	"dex": {
+		"title": "MONSTERS",
+		"found": "%d OF %d MET",
+		"number": "No.%02d",
+		"unknown": "??",
+		"unmet": "Not met yet",
+		"unseen": "Not seen used yet",
+		"skills": "SKILLS",
+		"skill": {
+			"board": "ATTACK",
+			"board_phase2": "SECOND FORM"
+		},
+		"stat": {
+			"health": "HEALTH %d",
+			"speed": "SPEED %d",
+			"reach": "REACH %d",
+			"scrap": "SCRAP %d"
+		},
+		"elite": "ELITE",
+		"boss": "BOSS"
 	},
 	"extracting": "EXTRACTING",
 	"extract": {

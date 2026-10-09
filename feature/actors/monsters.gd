@@ -102,6 +102,20 @@ const DEFS := {
 
 const NORMAL_POOL := ["CRAWLER", "SENTRY", "LOBBER", "HOPPER", "DRIFTER", "BOMBER"]
 
+## The monster dictionary's entries, in its order: every monster a raid puts in
+## front of the player — the ones `pick` draws, then the Arbiter. A monster met
+## nowhere but the bench or the tests has no entry.
+const DEX := ["CRAWLER", "SENTRY", "LOBBER", "HOPPER", "DRIFTER", "BOMBER", "WARDEN", "ARBITER"]
+
+## A monster's skills, as the keys its boards are under in DEFS: its attack,
+## and the Arbiter's second form's. A monster with no board has none.
+static func skills_of(id: String) -> Array:
+	var out: Array = []
+	for key in ["board", "board_phase2"]:
+		if String(get_def(id).get(key, "")) != "":
+			out.append(key)
+	return out
+
 static func get_def(id: String) -> Dictionary:
 	return DEFS.get(id, DEFS["CRAWLER"])
 

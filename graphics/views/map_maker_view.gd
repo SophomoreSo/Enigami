@@ -23,6 +23,9 @@ var pixels: PixelCamera
 var hud: Hud
 var keys: Keys
 var editor: SkillEditor
+## The board and the map's page beside it, which says a played map has no
+## floor plan to show.
+var pages: ScreenPages
 var table: MapTable
 
 ## The keys a played map answers to, along the foot of the screen.
@@ -73,6 +76,7 @@ func _ready() -> void:
 	editor.closed.connect(func() -> void: maker.set_editing(false))
 	editor.board_changed.connect(func() -> void: maker.on_board_changed())
 	layer.add_child(editor)
+	pages = ScreenPages.new(editor, func() -> void: maker.set_editing(false))
 	# The table is laid once the maker has its map on it. A view is ready before
 	# the node it is the picture of, and the map kept from the last visit is put
 	# back in the maker's own `_ready`.
@@ -114,12 +118,17 @@ func follow(delta: float, snap: bool) -> void:
 	camera.position = want if snap else camera.position.lerp(want, clampf(FOLLOW * delta, 0.0, 1.0))
 
 ## See RaidView._unhandled_input: the editor consumes its own keys, R included.
-## Only a map being played has any here: the table has its own.
+## Only a map being played has any here: the table has its own. The map's key
+## puts the screen up on the map's page, as it does in a raid.
 func _unhandled_input(event: InputEvent) -> void:
 	if maker == null or not is_instance_valid(maker) or not maker.playing:
 		return
 	if event.is_action_pressed("open_editor"):
 		maker.set_editing(not maker.editing)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("open_map") and not maker.editing:
+		pages.page = ScreenTabs.MAP
+		maker.set_editing(true)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("pause"):
 		# Back to the table rather than into the pause menu: that is one more
@@ -146,10 +155,9 @@ func _on_editing(on: bool) -> void:
 				maker.inventory, true)
 		else:
 			editor.configure(maker.board(), maker.inventory, true, null)
-		editor.visible = true
-		editor.grab_focus()
+		pages.put(pages.page)
 	else:
-		editor.visible = false
+		pages.away()
 	# The line of keys shares a layer with the editor and would lie on its foot,
 	# and the HUD's bars where its way back stands.
 	keys.visible = maker.playing and not on
