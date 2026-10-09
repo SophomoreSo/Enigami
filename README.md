@@ -1008,6 +1008,10 @@ hideout there and then.
 | QUICK HANDS | 6% off the wait between casts |
 | SCAVENGER | 15% more gold from everything found in a raid |
 
+The same page is a tab of the screen the graph and the map are pages of:
+**PERKS**, beside GRAPH on the hideout's workbench and beside GRAPH and MAP in a
+raid, where it spends the gold banked at home, not the raid's.
+
 Three steps each, for 60, 140 and 260 gold — QUICK HANDS and SCAVENGER for 80,
 180 and 320. The perks, their steps and their prices are rows in the content
 database (`data/db/perks/perks.sql`), and the code is a module of its own,

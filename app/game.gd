@@ -29,6 +29,9 @@ var overlay_layer: CanvasLayer
 var touch_layer: CanvasLayer
 var touch_pad: TouchPad = null
 var editor: SkillEditor = null
+## The perks' page over the hideout: the workbench's screen's other tab
+## (`PerkScreen`), or null while it is not up.
+var perk_screen: PerkScreen = null
 var pause_menu: Control = null
 ## The pause menu's two pages: PAUSED, and the rebinding list behind its
 ## CONTROL SETTINGS button. Exactly one of them is on screen; see
@@ -226,12 +229,15 @@ func _paneled() -> bool:
 ## Whether the raid's map is up: the other page of the screen the board is on.
 func _mapping() -> bool:
 	return current != null and is_instance_valid(current) and current is Raid \
-		and (current as Raid).reading_map
+		and ((current as Raid).reading_map or (current as Raid).reading_perks)
 
 ## Whether an assembly board is up: the hideout's workbench, which is the
-## shell's own, or the one the world under it carries.
+## shell's own, or the one the world under it carries. The perks' page over
+## the hideout is the same screen, and counts as it does.
 func _assembling() -> bool:
 	if editor != null and is_instance_valid(editor):
+		return true
+	if perk_screen != null and is_instance_valid(perk_screen):
 		return true
 	if current == null or not is_instance_valid(current) or not (current is World):
 		return false
@@ -242,6 +248,7 @@ func _clear() -> void:
 		current.queue_free()
 	current = null
 	_close_editor()
+	_close_perks()
 	TimeCtl.clear()
 
 ## --- screens ----------------------------------------------------------------
@@ -421,8 +428,15 @@ func _edit_weapon_graph() -> void:
 ## open (`SkillEditor.configure_shelf`), spending the stash.
 func _open_graphs(shelf: Array, open: String) -> void:
 	_close_editor()
+	_close_perks()
 	editor = SkillEditor.new()
 	editor.configure_shelf(shelf, open, GameState.stash, false)
+	# The workbench's screen has the perks for its other page, a tab beside the
+	# graph's: a press on it puts the perks up in the board's place.
+	editor.pages = [ScreenTabs.GRAPH, ScreenTabs.PERKS]
+	editor.page_picked.connect(func(id: String) -> void:
+		if id == ScreenTabs.PERKS:
+			_open_perks())
 	editor.closed.connect(_close_editor)
 	editor.board_changed.connect(func() -> void: GameState.save_game())
 	window_layer.add_child(editor)
@@ -446,6 +460,34 @@ func _close_editor() -> void:
 			hideout_ref.refresh_kit()
 			hideout_ref.refresh_panel()
 	editor = null
+
+## The perks' page over the hideout, in the workbench's place: the screen's
+## other tab. Its GRAPH tab puts the workbench back up over the weapon the rack
+## is on; the back arrow, or ESC, puts the screen away. The room holds the
+## player still under it, as under the board.
+func _open_perks() -> void:
+	_close_editor()
+	_close_perks()
+	perk_screen = PerkScreen.new()
+	perk_screen.pages = [ScreenTabs.GRAPH, ScreenTabs.PERKS]
+	perk_screen.closed.connect(_close_perks)
+	perk_screen.page_picked.connect(func(id: String) -> void:
+		if id == ScreenTabs.GRAPH:
+			_edit_weapon_graph())
+	window_layer.add_child(perk_screen)
+	if hideout_ref != null and is_instance_valid(hideout_ref):
+		hideout_ref.set_editing(true)
+
+func _close_perks() -> void:
+	if perk_screen == null or not is_instance_valid(perk_screen):
+		perk_screen = null
+		return
+	perk_screen.queue_free()
+	perk_screen = null
+	if hideout_ref != null and is_instance_valid(hideout_ref):
+		hideout_ref.set_editing(false)
+		# A step bought changed the gold, and the counter's panel says how much.
+		hideout_ref.refresh_panel()
 
 ## --- pause ------------------------------------------------------------------
 

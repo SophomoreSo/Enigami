@@ -1,10 +1,11 @@
 class_name ScreenTabs
 extends RefCounted
 
-## The top of the screen the weapons' graphs and the raid's map are pages of,
-## laid out the way a browser's is: the back arrow in the corner, which puts
-## the screen away, and beside it a tab a page — GRAPH, the assembly board, and
-## MAP, the floor plan. A press on a tab puts its page up under the same top,
+## The top of the screen the weapons' graphs, the raid's map and the perks are
+## pages of, laid out the way a browser's is: the back arrow in the corner,
+## which puts the screen away, and beside it a tab a page — GRAPH, the assembly
+## board, MAP, the floor plan, and PERKS, what the player buys for themselves
+## (`PerkScreen`, in perks/view). A press on a tab puts its page up under the same top,
 ## and the page that is up has its tab lit. The keys are the same tabs: the one
 ## that opens assembly puts the graph up and the map's key the map, and either,
 ## pressed on its own page, puts the screen away.
@@ -12,8 +13,8 @@ extends RefCounted
 ## Both pages draw it, the same pixels in the same place, over the same veil
 ## (`SkillEditor`, `MapPanel`): going from one to the other changes what is
 ## under the top and nothing in it. Only the pages a screen has are on it. A
-## raid has both; the bench, the hideout's workbench and the rest have the
-## graph's alone.
+## raid has all three; the hideout's workbench the graph and the perks; the
+## bench and the rest the graph's alone.
 ##
 ## Drawn in UiKit's pixel look, like the pages under it. At a desk the back
 ## arrow is a button like COPY and PASTE, in the board's corner, and the tabs
@@ -22,6 +23,7 @@ extends RefCounted
 
 const GRAPH := "graph"
 const MAP := "map"
+const PERKS := "perks"
 
 ## What the screen lays over the world, whichever page is up: only a light
 ## veil, since a raid behind it goes on and has to stay readable.

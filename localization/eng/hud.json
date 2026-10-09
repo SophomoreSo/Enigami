@@ -37,7 +37,8 @@
 	},
 	"tabs": {
 		"graph": "GRAPH",
-		"map": "MAP"
+		"map": "MAP",
+		"perks": "PERKS"
 	},
 	"extracting": "EXTRACTING",
 	"extract": {

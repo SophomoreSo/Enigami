@@ -13,6 +13,8 @@ signal finished(result: String, payload: Dictionary)
 signal editing_changed(on: bool)
 ## The map opened or closed. The raid keeps running either way, as above.
 signal reading_map_changed(on: bool)
+## The perks' page opened or closed, the screen's third. The same again.
+signal reading_perks_changed(on: bool)
 ## A new room is live and populated.
 signal room_changed(room: Room)
 
@@ -20,6 +22,7 @@ var map: RaidMap
 var room: Room = null
 var player: Player
 var reading_map: bool = false
+var reading_perks: bool = false
 var ended: bool = false
 ## What stands between the player and the exit they are standing in — a toll,
 ## a seal — or "" when nothing does, or they are not in one. An exit that will
@@ -389,8 +392,9 @@ func set_editing(on: bool) -> void:
 	# standing on top of it, so closing either one gives the controls back.
 	if on:
 		set_reading_map(false)
+		set_reading_perks(false)
 	editing = on
-	player.input_locked = editing or reading_map
+	player.input_locked = editing or reading_map or reading_perks
 	Cues.emit_cue(&"ui", {"kind": "editor"})
 	editing_changed.emit(on)
 
@@ -404,10 +408,27 @@ func set_reading_map(on: bool) -> void:
 		return
 	if on:
 		set_editing(false)
+		set_reading_perks(false)
 	reading_map = on
-	player.input_locked = editing or reading_map
+	player.input_locked = editing or reading_map or reading_perks
 	Cues.emit_cue(&"ui", {"kind": "map"})
 	reading_map_changed.emit(on)
+
+## --- the perks ----------------------------------------------------------------
+## The third page of the same screen, a tab beside the other two: what the
+## player buys for themselves (perks/), which the raid knows only as a page that
+## is up. It costs what the other two cost — the raid runs on and the player
+## stands still while they look — and takes over from either the same way.
+func set_reading_perks(on: bool) -> void:
+	if reading_perks == on:
+		return
+	if on:
+		set_editing(false)
+		set_reading_map(false)
+	reading_perks = on
+	player.input_locked = editing or reading_map or reading_perks
+	Cues.emit_cue(&"ui", {"kind": "perks"})
+	reading_perks_changed.emit(on)
 
 func on_board_changed() -> void:
 	player.rebuild_runner()

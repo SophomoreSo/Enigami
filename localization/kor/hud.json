@@ -37,7 +37,8 @@
 	},
 	"tabs": {
 		"graph": "조립",
-		"map": "지도"
+		"map": "지도",
+		"perks": "특성"
 	},
 	"extracting": "탈출 중",
 	"extract": {

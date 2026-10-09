@@ -96,9 +96,12 @@ the shell's.
 second layout for mobile mode — and names one thing in `mobile/view/`: `graphics/ui/controls_panel.gd`
 opens `TouchLayoutEditor` from SET BUTTON POSITIONS, because the control
 settings are where a player looks for it. It opens the screen and takes nothing
-else. It names one thing in `perks/view/` the same way: `graphics/views/hideout_world_view.gd`
-puts up `PerkPage` in the frame every station's panel stands in, when the
-hideout's perk station is used.
+else. It names `perks/view/` the same way, twice, each a page it puts up and
+nothing more: `graphics/views/hideout_world_view.gd` puts `PerkPage` in the
+frame every station's panel stands in, when the hideout's perk station is used,
+and `graphics/views/raid_view.gd` puts `PerkScreen` up as the PERKS tab of the
+screen the graph and the map are pages of. The hideout's workbench has that tab
+too, and the shell, which may name anything, puts it up there.
 
 **What the perks add reaches the rules through one hook.** `perks/rules/` may
 read `feature/`, so the rules cannot read it back: a perk raises a number the
