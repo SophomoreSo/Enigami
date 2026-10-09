@@ -9,6 +9,9 @@ signal stash_changed()
 ## graph edited, a slot wiped.
 signal kit_changed()
 signal records_changed()
+## What is added to the player's own numbers changed — a perk bought, a profile
+## opened — and whoever holds one of those numbers takes it again (`boost`).
+signal boosts_changed()
 
 ## How many profiles can be kept side by side. The title screen offers this
 ## many rows; `graphics/ui/title_screen.gd` reads it rather than counting its
@@ -46,6 +49,16 @@ var handed_out: Array[String] = []
 ## skill without a weapon and no weapon without a graph, so a weapon lost on
 ## a raid takes its graph down with it, and one won back brings it home.
 var weapon_boards: Dictionary = {}
+## How many graphs every weapon keeps to choose between. Always this many, each
+## weapon's, from the first: nothing is added and nothing taken away.
+const GRAPH_PRESETS := 3
+## weapon id -> its presets, `{"on": i, "kept": [serialized, ...]}`: which of
+## the GRAPH_PRESETS is the graph on it, and the others as they were left — a
+## blueprint each, `{}` for one never built on. The one `on` is the weapon's
+## graph itself (`weapon_boards`, a raid's copy while one is out), and its
+## entry in `kept` is whatever it was when it was last put away. A weapon with
+## no entry is on its first, and has never put one away. See `switch_preset`.
+var graph_presets: Dictionary = {}
 ## The weapons picked on the rack to carry, in the order they are slotted: at
 ## most MAX_CARRIED. It may still name a weapon the vault no longer has — one
 ## lost on a raid and not walked back out yet — and `carried` leaves those out.
@@ -138,6 +151,16 @@ var memory: Dictionary = {}
 ## Only a raid writes here (`Raid`) — the bench and the tests are not
 ## somewhere a monster is met — and a new game knows none of them.
 var bestiary: Dictionary = {"monsters": [], "skills": []}
+## The perks the player has bought: perk -> how many of its steps. Bought and
+## read by perks/rules (`Perks`), which is what knows what a perk is; nothing
+## here reads it. It is kept with the profile for the reason `memory` is.
+var perks: Dictionary = {}
+
+## Whatever adds to the player's own numbers from outside the rules: functions
+## from a stat's name to what they add to it, each asked in turn by `boost`.
+## The perks put theirs here (perks/rules), which is how what they add reaches
+## the rules without the rules naming them. Nothing here, nothing added.
+var boost_sources: Array[Callable] = []
 
 const FACILITY_INFO := {
 	"workbench": {"name": "Workbench", "max": 5},
@@ -202,10 +225,12 @@ func _new_profile() -> void:
 	intro_seen = false
 	memory = {}
 	bestiary = {"monsters": [], "skills": []}
+	perks = {}
 	owned_weapons = ["ROCK", "SWORD", "GUN", "SHOVEL", "SHURIKEN"]
 	handed_out.assign(HANDED_OUT)
 	loadout = []
 	weapon_boards.clear()
+	graph_presets = {}
 	scrap = 40
 	# A handful of parts to build a first graph with: something for every
 	# weapon's root.
@@ -216,7 +241,21 @@ func _new_profile() -> void:
 
 ## --- derived stats ----------------------------------------------------------
 func max_health() -> float:
-	return 80.0 + 20.0 * float(facilities["medbay"])
+	return 80.0 + 20.0 * float(facilities["medbay"]) + boost("max_health")
+
+## What everything in `boost_sources` adds to `stat`: `max_health`,
+## `max_stamina` and `max_mana` in points, `move_speed` and `gold` as a share
+## more, `cast_speed` as a share off the wait between casts.
+func boost(stat: String) -> float:
+	var total := 0.0
+	for source in boost_sources:
+		if source.is_valid():
+			total += float(source.call(stat))
+	return total
+
+## What `amount` of gold found in a raid comes to, with what adds to it.
+func gold_found(amount: int) -> int:
+	return roundi(float(amount) * (1.0 + boost("gold")))
 
 func board_size() -> Vector2i:
 	var l: int = facilities["workbench"]
@@ -390,6 +429,62 @@ func weapon_board(weapon_id: String) -> SkillBoard:
 func graph_is_bare(weapon_id: String) -> bool:
 	return not weapon_boards.has(weapon_id) \
 		or (weapon_boards[weapon_id] as SkillBoard).used_components().is_empty()
+
+## Which of the weapon's GRAPH_PRESETS is the graph on it, 0 to the last.
+func preset_on(weapon_id: String) -> int:
+	return clampi(int((graph_presets.get(weapon_id, {}) as Dictionary).get("on", 0)), 0, GRAPH_PRESETS - 1)
+
+## Puts `weapon_id`'s preset `to` on it: the graph on it now is kept as the one
+## it was, and `to`'s is built in its place, on the same board — the raid's copy
+## while one is out, and the parts out of the raid's bag; at home the weapon's
+## own, and out of the stash.
+##
+## A kept preset is a blueprint and not the parts, the way a shared code is
+## (`trade_board`): the parts the graph is built of go back as it is put away,
+## and the ones the preset needs come out, so a part is only ever on the graph
+## in use and is never locked up in one put away. That is also why a preset is
+## not lost with the weapon: a death takes the graph on it, and what it was
+## built of, and the others are only how to build them again. A preset never
+## built on is the weapon's bare graph, and putting it on puts everything else
+## back on the shelves.
+##
+## All or nothing, as a paste is: with the parts short nothing moves and the
+## weapon stays on the one it was on, and what is missing comes back, id ->
+## how many more. `{}` means it went through, and it is saved there and then.
+func switch_preset(weapon_id: String, to: int) -> Dictionary:
+	var on := preset_on(weapon_id)
+	if to == on or to < 0 or to >= GRAPH_PRESETS:
+		return {}
+	var out := in_raid and raid_graphs.has(weapon_id)
+	var board: SkillBoard = raid_graphs[weapon_id] if out else weapon_board(weapon_id)
+	var pool: Dictionary = raid_bag if out else stash
+	var kept := _kept_presets(weapon_id)
+	var want := Weapons.make_board(weapon_id)
+	if not (kept[to] as Dictionary).is_empty():
+		want = SkillBoard.deserialize(kept[to])
+	# The grid only grows, so a preset kept on it always fits; one that somehow
+	# does not is built again from bare rather than in pieces.
+	if not board.fits(want):
+		want = Weapons.make_board(weapon_id)
+	var missing := trade_board(board, board.adoption_cost(want), pool)
+	if not missing.is_empty():
+		return missing
+	kept[on] = board.serialize()
+	board.adopt(want)
+	graph_presets[weapon_id] = {"on": to, "kept": kept}
+	kit_changed.emit()
+	save_game()
+	return {}
+
+## `weapon_id`'s presets as they were put away, GRAPH_PRESETS of them: `{}` for
+## one never built on.
+func _kept_presets(weapon_id: String) -> Array:
+	var kept: Array = ((graph_presets.get(weapon_id, {}) as Dictionary).get("kept", []) as Array).duplicate()
+	kept.resize(GRAPH_PRESETS)
+	for i in kept.size():
+		if not (kept[i] is Dictionary):
+			kept[i] = {}
+	return kept
 
 ## Parts a graph is built out of, `board`'s player-placed ones, back on the
 ## shelves. What the vault has no room for is lost, as it is for any haul.
@@ -789,6 +884,7 @@ func load_slot(n: int) -> bool:
 	stash_changed.emit()
 	kit_changed.emit()
 	records_changed.emit()
+	boosts_changed.emit()
 	return found
 
 ## Throws a profile away. There is no undo, which is why the screen that offers
@@ -804,6 +900,7 @@ func delete_slot(n: int) -> void:
 		stash_changed.emit()
 		kit_changed.emit()
 		records_changed.emit()
+		boosts_changed.emit()
 
 func _boards_out(boards: Dictionary) -> Dictionary:
 	var out := {}
@@ -819,12 +916,14 @@ func save_game() -> void:
 		"handed_out": handed_out,
 		"loadout": loadout,
 		"weapon_boards": _boards_out(weapon_boards),
+		"graph_presets": graph_presets,
 		"scrap": scrap,
 		"facilities": facilities,
 		"records": records,
 		"intro_seen": intro_seen,
 		"memory": memory,
 		"bestiary": bestiary,
+		"perks": perks,
 		# The raid in progress, if there is one. It used to be left out, so a
 		# profile saved mid-raid came back with the weapon gone from the vault
 		# and no raid to account for it.
@@ -886,6 +985,16 @@ func _read_save(path: String) -> bool:
 	if graphs is Dictionary:
 		for w in graphs:
 			weapon_boards[String(w)] = SkillBoard.deserialize(graphs[w])
+	# A profile saved before there were presets is on every weapon's first, and
+	# has put none away.
+	graph_presets = {}
+	var presets = parsed.get("graph_presets", {})
+	if presets is Dictionary:
+		for w in presets:
+			var p = presets[w]
+			if p is Dictionary:
+				graph_presets[String(w)] = {"on": int(p.get("on", 0)),
+					"kept": p.get("kept", []) if p.get("kept", []) is Array else []}
 	scrap = int(parsed.get("scrap", 0))
 	# Every facility as the save has it, and one the save says nothing of at
 	# its first level — not at whatever the profile open before this one had.
@@ -901,6 +1010,12 @@ func _read_save(path: String) -> bool:
 	if kept is Dictionary:
 		for k in kept:
 			memory[String(k)] = int(kept[k])
+	# A profile saved before there were perks has bought none.
+	perks = {}
+	var bought = parsed.get("perks", {})
+	if bought is Dictionary:
+		for k in bought:
+			perks[String(k)] = int(bought[k])
 	# The same for the records: one the save does not mention is nought.
 	var rec: Dictionary = parsed.get("records", {})
 	for k in records:
@@ -1010,3 +1125,4 @@ func reset_profile() -> void:
 	save_game()
 	stash_changed.emit()
 	kit_changed.emit()
+	boosts_changed.emit()

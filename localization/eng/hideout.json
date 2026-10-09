@@ -48,6 +48,7 @@
 	"station": {
 		"weapons": "WEAPON RACK",
 		"shop": "COUNTER",
+		"perks": "PERKS",
 		"gate": "THE GATE",
 		"back": "BACK TO THE ROOM",
 		"arrow": "<"

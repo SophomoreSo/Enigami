@@ -63,7 +63,7 @@ const FONT_NAMES := ["font.woff2", "font.woff", "font.ttf", "font.otf"]
 ## an error — its keys simply fall back — but `tests/shared/loc_test` reads
 ## this list to check that nothing has been left behind.
 const DOMAINS := ["menu", "hud", "hideout", "editor", "controls", "parts",
-	"weapons", "monsters"]
+	"weapons", "monsters", "perks"]
 
 ## Folders of per-id files rather than one flat file: a conversation and a
 ## scene are keyed by the id of the character or scene they belong to.

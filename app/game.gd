@@ -32,6 +32,9 @@ var editor: SkillEditor = null
 ## The workbench's screen's pages: the board, the map's beside it, which says
 ## the hideout has no map, and the monster dictionary. There while `editor` is.
 var editor_pages: ScreenPages = null
+## The perks' page over the hideout: the workbench's screen's last tab
+## (`PerkScreen`), or null while it is not up.
+var perk_screen: PerkScreen = null
 var pause_menu: Control = null
 ## The pause menu's two pages: PAUSED, and the rebinding list behind its
 ## CONTROL SETTINGS button. Exactly one of them is on screen; see
@@ -231,12 +234,16 @@ func _paneled() -> bool:
 ## world is `editing`, which `_assembling` answers for already.
 func _mapping() -> bool:
 	return current != null and is_instance_valid(current) and current is Raid \
-		and ((current as Raid).reading_map or (current as Raid).reading_dex)
+		and ((current as Raid).reading_map or (current as Raid).reading_dex \
+			or (current as Raid).reading_perks)
 
 ## Whether an assembly board is up: the hideout's workbench, which is the
-## shell's own, or the one the world under it carries.
+## shell's own, or the one the world under it carries. The perks' page over
+## the hideout is the same screen, and counts as it does.
 func _assembling() -> bool:
 	if editor != null and is_instance_valid(editor):
+		return true
+	if perk_screen != null and is_instance_valid(perk_screen):
 		return true
 	if current == null or not is_instance_valid(current) or not (current is World):
 		return false
@@ -247,6 +254,7 @@ func _clear() -> void:
 		current.queue_free()
 	current = null
 	_close_editor()
+	_close_perks()
 	TimeCtl.clear()
 
 ## --- screens ----------------------------------------------------------------
@@ -426,15 +434,24 @@ func _edit_weapon_graph(page: String = ScreenTabs.GRAPH) -> void:
 
 ## The workbench editor over the weapons' graphs it is given, the one `open`
 ## open (`SkillEditor.configure_shelf`), spending the stash — up on `page`, the
-## board's or the map's beside it.
+## board's, the map's beside it or the monster dictionary's.
 func _open_graphs(shelf: Array, open: String, page: String = ScreenTabs.GRAPH) -> void:
 	_close_editor()
+	_close_perks()
 	editor = SkillEditor.new()
 	editor.configure_shelf(shelf, open, GameState.stash, false)
+	# The weapons' own graphs, so each weapon's presets stand under its board.
+	editor.presets = true
 	editor.closed.connect(_close_editor)
 	editor.board_changed.connect(func() -> void: GameState.save_game())
 	window_layer.add_child(editor)
-	editor_pages = ScreenPages.new(editor, _close_editor)
+	editor_pages = ScreenPages.new(editor, _close_editor, ScreenTabs.PAGES_WITH_PERKS)
+	# The workbench's screen has the perks for a page as well, a tab past the
+	# others': a press on it, on any of them, puts the perks up in their place.
+	for p in [editor] + editor_pages.others():
+		p.page_picked.connect(func(id: String) -> void:
+			if id == ScreenTabs.PERKS:
+				_open_perks())
 	editor_pages.put(page)
 	# The room holds the player still under it, which is also what hands the
 	# mouse back from their aim to the board.
@@ -460,6 +477,34 @@ func _close_editor() -> void:
 			hideout_ref.refresh_kit()
 			hideout_ref.refresh_panel()
 	editor = null
+
+## The perks' page over the hideout, in the workbench's place: the screen's
+## last tab. The other tabs put the workbench's screen back up over the weapon
+## the rack is on, on their page; the back arrow, or ESC, puts the screen away.
+## The room holds the player still under it, as under the board.
+func _open_perks() -> void:
+	_close_editor()
+	_close_perks()
+	perk_screen = PerkScreen.new()
+	perk_screen.pages = ScreenTabs.PAGES_WITH_PERKS.duplicate()
+	perk_screen.closed.connect(_close_perks)
+	perk_screen.page_picked.connect(func(id: String) -> void:
+		if id != ScreenTabs.PERKS:
+			_edit_weapon_graph(id))
+	window_layer.add_child(perk_screen)
+	if hideout_ref != null and is_instance_valid(hideout_ref):
+		hideout_ref.set_editing(true)
+
+func _close_perks() -> void:
+	if perk_screen == null or not is_instance_valid(perk_screen):
+		perk_screen = null
+		return
+	perk_screen.queue_free()
+	perk_screen = null
+	if hideout_ref != null and is_instance_valid(hideout_ref):
+		hideout_ref.set_editing(false)
+		# A step bought changed the gold, and the counter's panel says how much.
+		hideout_ref.refresh_panel()
 
 ## --- pause ------------------------------------------------------------------
 

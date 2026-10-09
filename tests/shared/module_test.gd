@@ -11,11 +11,11 @@ extends Node
 ## Three things the table cannot say, checked after it:
 ##   GONE     edges cut on purpose, by file, so a rewrite does not bring one back
 ##            without anybody noticing. Cutting an edge is a line here.
-##   NEVER    what no rule — `feature/`, `story/rules/`, `circuit/` — may name:
-##            a picture, the console, checked by class as the table does; and
-##            the engine's own drawing, sound and asset names, because the doc's
-##            promise that no rule draws, names a colour, loads a sprite or plays
-##            a sound is a promise about names the table cannot see.
+##   NEVER    what no rule — `feature/`, `story/rules/`, `circuit/`, `perks/rules/` —
+##            may name: a picture, the console, checked by class as the table
+##            does; and the engine's own drawing, sound and asset names, because
+##            the doc's promise that no rule draws, names a colour, loads a sprite
+##            or plays a sound is a promise about names the table cannot see.
 ##   counts   the edges between each pair of modules, printed and not judged, so
 ##            a review can see which way the wiring is going.
 ##
@@ -39,8 +39,10 @@ const MAY := [
 	{"module": "res://graphics/", "folders": ["res://graphics/", "res://feature/", "res://circuit/",
 			"res://mobile/input/", "res://app/"],
 		"except": {"res://graphics/views.gd": ["StoryViews"],
-			"res://graphics/ui/controls_panel.gd": ["TouchLayoutEditor"]},
-		"what": "the picture reads the rules, the circuit, the console's input and the shell — views.gd hands off to StoryViews, controls_panel.gd opens TouchLayoutEditor"},
+			"res://graphics/ui/controls_panel.gd": ["TouchLayoutEditor"],
+			"res://graphics/views/hideout_world_view.gd": ["PerkPage"],
+			"res://graphics/views/raid_view.gd": ["PerkScreen"]},
+		"what": "the picture reads the rules, the circuit, the console's input and the shell — views.gd hands off to StoryViews, controls_panel.gd opens TouchLayoutEditor, hideout_world_view.gd puts up PerkPage, raid_view.gd PerkScreen"},
 	{"module": "res://story/view/", "folders": ["res://story/view/", "res://story/rules/",
 			"res://graphics/", "res://feature/", "res://app/"],
 		"what": "the telling's picture reads its rules, the picture, the game's rules and the shell"},
@@ -49,6 +51,12 @@ const MAY := [
 	{"module": "res://mobile/view/", "folders": ["res://mobile/view/", "res://mobile/input/",
 			"res://graphics/", "res://feature/", "res://app/"],
 		"what": "the console's picture reads its input, the picture, the rules and the shell"},
+	{"module": "res://perks/rules/", "folders": ["res://perks/rules/", "res://feature/"],
+		"names": ["Loc", "Cues", "Db"],
+		"what": "the perks' rules name the game's rules, Loc, Cues and Db"},
+	{"module": "res://perks/view/", "folders": ["res://perks/view/", "res://perks/rules/",
+			"res://graphics/", "res://feature/", "res://app/"],
+		"what": "the perks' picture reads their rules, the picture, the game's rules and the shell"},
 ]
 
 ## Edges cut on purpose: file -> the names it no longer reaches for. A name
@@ -62,8 +70,8 @@ const GONE := {
 }
 
 ## What the rules never name: a picture, or anything that knows a finger.
-const RULES := ["res://feature/", "res://story/rules/", "res://circuit/"]
-const NEVER := ["res://graphics/", "res://story/view/", "res://mobile/"]
+const RULES := ["res://feature/", "res://story/rules/", "res://circuit/", "res://perks/rules/"]
+const NEVER := ["res://graphics/", "res://story/view/", "res://mobile/", "res://perks/view/"]
 
 ## And of the engine's own: what would draw, colour, load a picture or make a
 ## sound. The physics nodes the rules stand on are not among these.

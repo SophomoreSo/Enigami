@@ -13,6 +13,11 @@ extends RefCounted
 ## pages are the raid's own states instead (`Raid.set_reading_map`,
 ## `Raid.set_reading_dex`, `RaidView`), since there reading the map is a thing
 ## the raid knows about.
+##
+## The hideout's workbench has the perks for a page as well, a tab past these
+## three. That page is not one of these: the tab is on every page here, and a
+## press on it is the holder's to answer (`app/game.gd`, which puts the perks
+## up in the screen's place).
 
 var editor: SkillEditor
 var map: MapPanel
@@ -22,8 +27,8 @@ var page := ScreenTabs.GRAPH
 
 ## Builds the map's page and the dictionary beside `ed`, on the layer it is on,
 ## and puts the screen away through `close` from either as the board does from
-## its own.
-func _init(ed: SkillEditor, close: Callable) -> void:
+## its own. `tabs` are the tabs along the top of all three.
+func _init(ed: SkillEditor, close: Callable, tabs: Array = ScreenTabs.PAGES) -> void:
 	editor = ed
 	map = MapPanel.new()
 	map.visible = false
@@ -35,9 +40,14 @@ func _init(ed: SkillEditor, close: Callable) -> void:
 		p.closed.connect(close)
 		p.page_picked.connect(put)
 	ed.page_picked.connect(put)
+	for p in [ed, map, dex]:
+		p.pages = tabs.duplicate()
 
-## Puts `id`'s page up and the others away.
+## Puts `id`'s page up and the others away. A page that is not one of these is
+## left to whoever holds the screen.
 func put(id: String) -> void:
+	if not ScreenTabs.PAGES.has(id):
+		return
 	page = id
 	editor.visible = id == ScreenTabs.GRAPH
 	map.visible = id == ScreenTabs.MAP

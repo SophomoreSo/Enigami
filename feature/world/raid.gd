@@ -15,6 +15,8 @@ signal editing_changed(on: bool)
 signal reading_map_changed(on: bool)
 ## The monster dictionary opened or closed, the same way again.
 signal reading_dex_changed(on: bool)
+## The perks' page opened or closed, the screen's fourth. The same again.
+signal reading_perks_changed(on: bool)
 ## A new room is live and populated.
 signal room_changed(room: Room)
 
@@ -23,6 +25,7 @@ var room: Room = null
 var player: Player
 var reading_map: bool = false
 var reading_dex: bool = false
+var reading_perks: bool = false
 var ended: bool = false
 ## What stands between the player and the exit they are standing in — a toll,
 ## a seal — or "" when nothing does, or they are not in one. An exit that will
@@ -322,7 +325,7 @@ func _take_gate(dir: int) -> void:
 ## --- events -----------------------------------------------------------------
 func _on_pickup(p: Pickup) -> void:
 	if p.scrap_amount > 0:
-		GameState.raid_scrap += p.scrap_amount
+		GameState.raid_scrap += GameState.gold_found(p.scrap_amount)
 	else:
 		GameState.add_component(p.component_id, 1, GameState.raid_bag)
 
@@ -341,7 +344,7 @@ func _on_spot_dug(_spot: DigSpot, items: Array) -> void:
 func _take_haul(items: Array) -> void:
 	for l in items:
 		if l.has("scrap"):
-			GameState.raid_scrap += int(l["scrap"])
+			GameState.raid_scrap += GameState.gold_found(int(l["scrap"]))
 		else:
 			# The record can be out of a raid parked before one of its parts was renamed.
 			GameState.add_component(Components.current_id(String(l["id"])), 1, GameState.raid_bag)
@@ -394,6 +397,7 @@ func set_editing(on: bool) -> void:
 	if on:
 		set_reading_map(false)
 		set_reading_dex(false)
+		set_reading_perks(false)
 	editing = on
 	player.input_locked = _held()
 	Cues.emit_cue(&"ui", {"kind": "editor"})
@@ -410,6 +414,7 @@ func set_reading_map(on: bool) -> void:
 	if on:
 		set_editing(false)
 		set_reading_dex(false)
+		set_reading_perks(false)
 	reading_map = on
 	player.input_locked = _held()
 	Cues.emit_cue(&"ui", {"kind": "map"})
@@ -423,14 +428,32 @@ func set_reading_dex(on: bool) -> void:
 	if on:
 		set_editing(false)
 		set_reading_map(false)
+		set_reading_perks(false)
 	reading_dex = on
 	player.input_locked = _held()
 	Cues.emit_cue(&"ui", {"kind": "map"})
 	reading_dex_changed.emit(on)
 
+## --- the perks ----------------------------------------------------------------
+## The fourth page of the same screen, a tab beside the other three: what the
+## player buys for themselves (perks/), which the raid knows only as a page that
+## is up. It costs what the others cost — the raid runs on and the player
+## stands still while they look — and takes over from any of them the same way.
+func set_reading_perks(on: bool) -> void:
+	if reading_perks == on:
+		return
+	if on:
+		set_editing(false)
+		set_reading_map(false)
+		set_reading_dex(false)
+	reading_perks = on
+	player.input_locked = _held()
+	Cues.emit_cue(&"ui", {"kind": "perks"})
+	reading_perks_changed.emit(on)
+
 ## Whether a page of the screen is up over the raid, holding the player still.
 func _held() -> bool:
-	return editing or reading_map or reading_dex
+	return editing or reading_map or reading_dex or reading_perks
 
 ## A monster in the room just come into: met, for the monster dictionary, and
 ## heard from whenever its attack goes off, which is its skill seen. A room is

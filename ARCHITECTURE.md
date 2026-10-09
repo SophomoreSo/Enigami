@@ -1,9 +1,9 @@
-# Five modules
+# Six modules
 
 The project is split so that **a change to what the game does**, **a change to
 how the game looks**, **a change to what the game tells**, **a change to how a
-skill board runs** and **a change to how a thumb plays it** are edits to
-disjoint sets of files. Branches working in parallel — one per module — can
+skill board runs**, **a change to how a thumb plays it** and **a change to what
+a player buys for themselves** are edits to disjoint sets of files. Branches working in parallel — one per module — can
 then be merged without any of them touching another's lines.
 
 ```
@@ -12,8 +12,9 @@ feature/     the rules. What happens, and when.
 graphics/    the picture. What that looks like.
 story/       the telling. Who speaks, what is staged, and how that reads.
 mobile/      the glass. The console a thumb plays on, and where its buttons stand.
+perks/       the perks. What a player buys for themselves with gold, a step at a time.
 app/         the shell they sit in: the seam, the screen flow, the sound bank.
-tests/       circuit/ · feature/ · graphics/ · story/ · mobile/ · shared/, the same split
+tests/       circuit/ · feature/ · graphics/ · story/ · mobile/ · perks/ · shared/, the same split
 
 data/          the content database, and the scenes. Content the modules read.
 localization/  every word the game says, one folder per language.
@@ -27,20 +28,22 @@ the content database, which `components.gd` reads through `Db`, the one other
 name in it. What it needs from the game is handed in: a runner is given its base payload (`base_payload_provider`),
 and the weapons, the player and the attacks are built on top of it in `feature/`.
 
-`story/` and `mobile/` are whole subsystems rather than one side of one — a
-conversation has both a shape and a look, and so does a console on the glass —
-so each carries the same seam inside itself:
+`story/`, `mobile/` and `perks/` are whole subsystems rather than one side of
+one — a conversation has both a shape and a look, and so does a console on the
+glass, and so does a perk — so each carries the same seam inside itself:
 
 ```
 story/rules/   the conversation and the staging. What is said, and what follows.
 story/view/    the box, the portraits, the camera. What that looks like.
 mobile/input/  whether the console is up, and the actions a thumb holds down.
 mobile/view/   the console drawn on the glass, and the screen that moves its buttons.
+perks/rules/   what each perk adds and costs, which a profile has bought, the buying.
+perks/view/    the page they are bought on, at the hideout's perk station.
 ```
 
 That is why they are modules and not a folder in each of the other two:
-everything about a conversation, or about playing with thumbs, is in one place,
-and a branch writing one opens no file the others touch.
+everything about a conversation, about playing with thumbs, or about a perk is
+in one place, and a branch writing one opens no file the others touch.
 
 ## The rule
 
@@ -56,13 +59,16 @@ story/rules/   may read  feature/
 story/view/    may read  story/rules/ · graphics/ · feature/
 mobile/input/  reads none of them, only the shell it presses keys for
 mobile/view/   may read  mobile/input/ · graphics/ · feature/
+perks/rules/   may read  feature/
+perks/view/    may read  perks/rules/ · graphics/ · feature/
 ```
 
-Nothing in `feature/`, `story/rules/` or `circuit/` draws, names a colour,
-loads a sprite, plays a sound, or holds a reference to a screen. There is a
-standing check for this: delete the four graphics autoloads (`Sprites`, `Fx`,
-`Views`, `CueVisuals`) from `project.godot` and every test under
-`tests/circuit`, `tests/feature` **and `tests/story`** still passes — raids run,
+Nothing in `feature/`, `story/rules/`, `perks/rules/` or `circuit/` draws,
+names a colour, loads a sprite, plays a sound, or holds a reference to a
+screen. There is a standing check for this: delete the four graphics autoloads
+(`Sprites`, `Fx`, `Views`, `CueVisuals`) from `project.godot` and every test
+under `tests/circuit`, `tests/feature`, `tests/story` **and `tests/perks`**
+still passes — raids run,
 hits resolve, boards fire, conversations run to their last line, nothing is
 drawn. CI runs it on every push. `tests/shared/module_test` checks the same rule
 class by class, from the code: every row of the table above is a row in it, the
@@ -90,7 +96,23 @@ the shell's.
 second layout for mobile mode — and names one thing in `mobile/view/`: `graphics/ui/controls_panel.gd`
 opens `TouchLayoutEditor` from SET BUTTON POSITIONS, because the control
 settings are where a player looks for it. It opens the screen and takes nothing
-else.
+else. It names `perks/view/` the same way, twice, each a page it puts up and
+nothing more: `graphics/views/hideout_world_view.gd` puts `PerkPage` in the
+frame every station's panel stands in, when the hideout's perk station is used,
+and `graphics/views/raid_view.gd` puts `PerkScreen` up as the PERKS tab of the
+screen the graph, the map and the monster dictionary are pages of. The hideout's workbench has that tab
+too, and the shell, which may name anything, puts it up there.
+
+**What the perks add reaches the rules through one hook.** `perks/rules/` may
+read `feature/`, so the rules cannot read it back: a perk raises a number the
+rules hold — the player's health, stamina, mana, pace, the wait between casts,
+the gold a raid finds — without being named there. `GameState.boost(stat)` asks
+every function in `GameState.boost_sources` what it adds to a stat named by a
+word, and `Perks` (`perks/rules/perks.gd`, an autoload) puts its own there as it
+starts. The rules ask `boost` and hear `boosts_changed`; who answers is not
+their business, and a perk changed — a step dearer, a perk more — changes no
+rule. What a profile has bought is kept with it, in `GameState.perks`, the way
+`memory` is kept for the telling.
 
 **The two layouts.** Which one a menu is in is one question, `UiKit.mobile()`,
 asked through the kit so the telling's pictures can ask it too without naming
@@ -266,8 +288,11 @@ which the player moves but never takes off — and there is no INPUT part. A flo
 goes from a part into the one beside it and leaves the board by the middle of
 its right edge (`SkillBoard.way_out`), and there is no OUTPUT part either.
 A weapon *is* its graph (`GameState.weapon_boards`): one each, carried into a
-raid as a copy, lost and won back with the weapon. What a part looks like stays
-in `Style`.
+raid as a copy, lost and won back with the weapon. Each weapon keeps three
+(`GameState.GRAPH_PRESETS`, `graph_presets`), one on it and the others put
+away as blueprints, the way a share code is one: putting another on trades the
+parts across (`switch_preset`), so a part is only ever on the graph in use. What
+a part looks like stays in `Style`.
 
 The `text` in a conversation's rows is the English fallback. What is actually said is
 laid over it from `localization/<lang>/dialogue/<id>.json`, by node name —
@@ -396,7 +421,7 @@ has to hear about it.
 | Something spawned again and again — a spark, a ring, a number that floats off | borrow it from a `Pool` (`feature/core/pool.gd`, after aarthificial's devlog on pooling), lent to the screen it is for, and let it hand itself back once it has played out; a screen that goes takes back whatever it still had out. `graphics/fx.gd`'s sparks, rings and words are drawn that way |
 | HUD layout, editor look — where a thing sits, not what it says | `graphics/ui/` |
 | The monster dictionary — which monsters have an entry, what a skill is, when one is met or seen | `Monsters.DEX` and `Monsters.skills_of` in `feature/actors/monsters.gd`; what has been met and seen is the profile's (`GameState.bestiary`), written as a raid goes (`Raid._meet`, off `Enemy.attacked`). The page is `graphics/ui/monster_dex.gd`, a skill drawn by `graphics/ui/board_picture.gd` — the assembly screen's drawing with nothing to press — and its words `hud.dex` in `localization/`. `tests/feature/bestiary_test` |
-| The screen the graph, the map and the monster dictionary are pages of — the tabs along its top, its back arrow, its veil | `graphics/ui/screen_tabs.gd`, drawn by every page (`SkillEditor`, `MapPanel`, `MonsterDex`), every tab wherever it comes up. What a press on a tab puts up is the view that opens it: `graphics/views/raid_view.gd` for a raid, whose map's page is the floor plan, and `graphics/ui/screen_pages.gd` for everywhere with no map, whose map's page says so (`hud.map.none`). The tabs' words are `hud.tabs` in `localization/`. `tests/graphics/editor_close_test` |
+| The screen the graph, the map, the monster dictionary and the perks are pages of — the tabs along its top, its back arrow, its veil | `graphics/ui/screen_tabs.gd`, drawn by every page (`SkillEditor`, `MapPanel`, `MonsterDex`, `PerkScreen`), the first three tabs wherever it comes up (`ScreenTabs.PAGES`) and PERKS after them in a raid and at the hideout's workbench (`PAGES_WITH_PERKS`), which `app/game.gd` puts up there. What a press on a tab puts up is the view that opens it: `graphics/views/raid_view.gd` for a raid, whose map's page is the floor plan, and `graphics/ui/screen_pages.gd` for everywhere with no map, whose map's page says so (`hud.map.none`). The tabs' words are `hud.tabs` in `localization/`. `tests/graphics/editor_close_test` |
 | How a menu is laid out in mobile mode — a row's height, a word's size, a page's width | the kit's: `THUMB`, `THUMB_TEXT` and `THUMB_PAGE` in `graphics/ui/ui_kit.gd`, which every page built of Controls takes them from. What is *on* a page there is that screen's own — the "for a thumb" section of `skill_editor.gd`, `dialogue_box.gd` and the rest, `_build_for_a_thumb` in `controls_panel.gd` |
 | The resolution the world is drawn at | `graphics/pixel_camera.gd` (the size comes from `Sprites.PIXEL_SCALE`) |
 | A new sound | `app/audio/audio_cues.gd` |

@@ -47,6 +47,7 @@ godot res://tests/feature/aim_assist_test.tscn # aim assist: the stick-to-weapon
 godot res://tests/feature/crouch_test.tscn  # the crouch: down lets the body onto its feet, a stick's threshold for it, and what stands it up again
 godot res://tests/feature/sprint_test.tscn  # the sprint: a run half as fast again while it is held, and what stops it
 godot res://tests/feature/pool_test.tscn    # pooling: lent, played out and handed back, and taken back when a screen goes
+godot res://tests/perks/perks_test.tscn     # the perks: bought with gold a step at a time, kept with the profile, and what they add reaching the player
 godot res://tests/graphics/fx_pool_test.tscn # sparks, rings and floating numbers come out of pools, never out of nothing
 godot res://tests/graphics/menu_fit_test.tscn # menus stay on screen and scroll the rest
 godot res://tests/graphics/title_mobile_test.tscn # mobile mode's title: a row of big square tiles
@@ -138,7 +139,7 @@ not a thing to reach for once it errors.
 | mouse wheel | the next weapon in hand, a notch down, or the one before, a notch up; round from the last to the first |
 | Q | leave the monster you are possessing, back into your own body |
 | mouse / right stick | aim, and where a lunge lands. A stick's aim is bent toward a monster it is near — never snapped, and never the mouse's; how much is AIM ASSIST in the control settings |
-| TAB | open assembly — **the raid keeps running**; the weapons carried stand down the board's left, and a click on one opens its graph, the weapon in hand staying in hand — the empty hand's plate after them opens nothing yet. It is the GRAPH tab of a screen with tabs along its top, like a browser's: a click on MAP beside it puts the map up in its place, and one on MONSTERS the monster dictionary — every monster a raid has, `??` until it has been met, and each one's skills `??` until it has been seen using them, then drawn as the graph each is. The HUD is put away while the screen is up; TAB, ESC or the back arrow in its corner leaves it |
+| TAB | open assembly — **the raid keeps running**; the weapons carried stand down the board's left, and a click on one opens its graph, the weapon in hand staying in hand — the empty hand's plate after them opens nothing yet. It is the GRAPH tab of a screen with tabs along its top, like a browser's: a click on MAP beside it puts the map up in its place, and one on MONSTERS the monster dictionary — every monster a raid has, `??` until it has been met, and each one's skills `??` until it has been seen using them, then drawn as the graph each is. At the hideout's workbench and in a raid a last tab, PERKS, puts up the perks (see [Perks](#perks)). The HUD is put away while the screen is up; TAB, ESC or the back arrow in its corner leaves it |
 | M | the map — the MAP tab of the same screen: in a raid the floor plan, the raid running on behind it as well, and on the bench, in the hideout and anywhere else with no map a page saying so. A click on GRAPH, or TAB, puts the board up in its place, and M, ESC or the back arrow leaves it |
 | Ctrl+C / Ctrl+V (⌘ on a Mac) | in assembly: COPY and PASTE — the board onto the clipboard as a share code, or someone else's board built from theirs |
 | F | interact: talk to an NPC — the last step over to them is walked for you, and pushing the other way on it changes your mind — (again for the next line), go through a gate to the room above or below, and hold to extract. Someone who talks free goes on by themselves; F only hurries their line |
@@ -314,7 +315,7 @@ has a second layout (`UiKit.mobile`), and at a desk each is exactly as it was:
   the same way, and REMOVE leaves it on the board. Nothing scrolls, so a drag
   is never asked to mean two
   things. The back arrow that closes it is a plate in the top-left corner, the
-  screen's tabs are plates beside it — GRAPH, MAP and MONSTERS — and COPY and PASTE are
+  screen's tabs are plates beside it — GRAPH, MAP and MONSTERS, and PERKS where the perks are — and COPY and PASTE are
   plates under the board. The map's page has the same top over it.
 * **The rest** follow: the bench's drawer has buttons and a tab a thumb can
   land on, the screen behind SET BUTTON POSITIONS likewise, and the page after
@@ -736,6 +737,21 @@ reads back with each of them moved on into that cell, so whatever it fed, it
 feeds still, and the build in front of a sword's root goes on from it as it
 did. Whatever fed one runs into the cell it left, which is where to mend it.
 
+## Presets
+
+Every weapon keeps **three graphs**, numbered **1 2 3** on the plates against
+the board's right edge, on COPY and PASTE's row — at the workbench and in a
+raid. The one lit in the weapon's colour is the graph on it; a click on another
+puts that one on and keeps this one as it was. There are always three: none is
+added and none taken away, and one never built on is the weapon's bare graph.
+
+A preset put away is **a blueprint, not the parts**, the same as a code: the
+parts of the graph going away go back into the stash (the bag, in a raid), and
+the ones the preset needs come out, so a part is never locked up in a preset
+you are not using. One you cannot afford changes nothing and says what it is
+short of. A death takes the graph on the weapon and what it was built of, as
+ever; the presets put away are only how to build them, and stay.
+
 ## The dragon test
 
 Title → SANDBOX → **DRAGON TEST**. A four-storey tower with eight guards posted
@@ -989,6 +1005,36 @@ the entry gate is free but slow, a toll gate costs scrap, the Arbiter's gate is
 sealed until it dies, and a crack in the wall is fast but sits somewhere nasty.
 Extraction needs a held input so nothing ends by accident.
 
+## Perks
+
+The hideout has a fourth station, between the counter and the gate: **PERKS**.
+Its page lists what a player can buy for themselves with gold — a perk a row,
+how many of its steps are bought, what it does, and the price of the next step
+on the button that buys it. A perk's steps are bought in order, each dearer
+than the last, and any perk can be the first one started. What is bought is the
+profile's, kept the moment it is bought, and reaches the body standing in the
+hideout there and then.
+
+| Perk | Every step |
+|---|---|
+| TOUGHNESS | 10 more health |
+| ENDURANCE | 25 more stamina: one more dash before the bar runs dry |
+| SWIFTNESS | runs and sprints 6% faster |
+| FOCUS | 20 more mana to charge a cast with |
+| QUICK HANDS | 6% off the wait between casts |
+| SCAVENGER | 15% more gold from everything found in a raid |
+
+The same page is a tab of the screen the graph, the map and the monster
+dictionary are pages of: **PERKS**, after GRAPH, MAP and MONSTERS on the
+hideout's workbench and in a raid, where it spends the gold banked at home, not
+the raid's. The bench and the other screens have no PERKS tab.
+
+Three steps each, for 60, 140 and 260 gold — QUICK HANDS and SCAVENGER for 80,
+180 and 320. The perks, their steps and their prices are rows in the content
+database (`data/db/perks/perks.sql`), and the code is a module of its own,
+`perks/`, which the rules hear from only through `GameState.boost` — see
+[ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Continuous integration
 
 Every push runs the rules tests headless, the graphics tests under a virtual
@@ -1003,10 +1049,10 @@ rather than something you can install.
 
 ## Layout
 
-Five modules, and a shell around them. A picture may read the rules it draws;
+Six modules, and a shell around them. A picture may read the rules it draws;
 a rule never mentions its picture. `circuit/` is the engine under the rules — a
 board, the pulse that runs it, the payload it builds — and names nothing but
-itself, the words, and the table its parts are rows in. `story/` and `mobile/` each carry both sides of one
+itself, the words, and the table its parts are rows in. `story/`, `mobile/` and `perks/` each carry both sides of one
 subsystem and so repeat that seam inside themselves. See
 [ARCHITECTURE.md](ARCHITECTURE.md) for how they talk.
 
@@ -1042,6 +1088,8 @@ story/view/        the dialogue box, the speech bubble, the cutscene box, the po
 mobile/input/      whether the console is on the glass, and what a key on it presses
 mobile/view/       the two-thumb console drawn on the glass, and the screen that
                    moves its buttons (SET BUTTON POSITIONS)
+perks/rules/       the perks: what each adds and costs, which a profile has bought, the buying
+perks/view/        the page they are bought on, at the hideout's perk station
 graphics/          the atlas, screen effects, the pixel camera, the palette, view attachment
                    lighting and lamps; glazing and glass: the passes the picture goes through
 graphics/views/    one view per gameplay node: actors, attacks, rooms, loot
@@ -1065,12 +1113,13 @@ graphics/assets/sprites/player/  the player: a skin, its map, poses painted in t
 tests/circuit/     board tracing, codes, cycle timing, a pulse's life — run headless
 tests/feature/     movement, hits, raids, the bench — rules, run headless
 tests/story/       conversations and scene files — rules, run headless
+tests/perks/       buying perks and what they add — rules, run headless
 tests/graphics/    editor input, focus, menus, the pixel camera, screenshot capture — need a window
 tests/mobile/      the console under a thumb, and moving its buttons — need a window
 tests/shared/      the smoke test, which walks the whole game
 ```
 
-`tests/circuit` and `tests/feature` run under `--headless`; `tests/graphics`
+`tests/circuit`, `tests/feature` and `tests/perks` run under `--headless`; `tests/graphics`
 and `tests/mobile` drive the mouse and fingers and need a real window.
 `tests/shared/loc_test` and `module_test` run headless too.
 

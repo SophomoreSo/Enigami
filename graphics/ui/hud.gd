@@ -179,7 +179,7 @@ func _draw_stamina() -> void:
 	# The notches are cut out of the fill a whole PIXEL wide, inside the edge
 	# that is drawn over them: a hairline between two segments is the one thing
 	# a grid this size cannot draw.
-	var segments := int(round(Player.MAX_STAMINA / Player.DASH_STAMINA))
+	var segments := int(round(player.max_stamina / Player.DASH_STAMINA))
 	for i in range(1, segments):
 		var sx := bar.position.x + bar.size.x * float(i) / float(segments)
 		_px.rect(Rect2(sx - PixelDraw.PX, bar.position.y, PixelDraw.PX, bar.size.y), BAR_GROUND)

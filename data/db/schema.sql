@@ -653,3 +653,30 @@ CREATE TABLE lights (
 	x          REAL NOT NULL DEFAULT 0,                                             -- where it is from the thing that gives it, in world units
 	y          REAL NOT NULL DEFAULT 0
 );
+
+-- ---- perks -----------------------------------------------------------------
+-- What a player buys for themselves with gold and keeps, a step at a time
+-- (perks/rules, `Perks`). A perk raises one of the player's own numbers — its
+-- `stat`, by the name the rules ask `GameState.boost` for it — by `per_step`
+-- for every step bought: `max_health`, `max_stamina` and `max_mana` in points,
+-- `move_speed` and `gold` as a share more, `cast_speed` as a share off the
+-- wait between casts. The `name` and `description` are the English, laid
+-- under localization/<lang>/perks.json.
+CREATE TABLE perks (
+	id          TEXT PRIMARY KEY CHECK (id <> '' AND id = upper(id)),
+	name        TEXT NOT NULL CHECK (name <> ''),
+	stat        TEXT NOT NULL CHECK (stat IN ('max_health', 'max_stamina', 'max_mana',
+	            'move_speed', 'cast_speed', 'gold')),
+	per_step    REAL NOT NULL CHECK (per_step > 0),
+	description TEXT NOT NULL CHECK (description <> '')
+);
+
+-- A perk's steps, from the first, and what each costs in gold. A step is only
+-- ever bought after the one before it, so they run 1, 2, 3 with nothing missed;
+-- tests/perks/perks_test holds them to it.
+CREATE TABLE perk_steps (
+	perk_id TEXT NOT NULL REFERENCES perks (id) ON DELETE CASCADE,
+	step    INTEGER NOT NULL CHECK (step >= 1),
+	cost    INTEGER NOT NULL CHECK (cost > 0),
+	PRIMARY KEY (perk_id, step)
+);

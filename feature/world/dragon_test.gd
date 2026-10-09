@@ -127,8 +127,8 @@ func reset_floor() -> void:
 	_counting = false
 	player.global_position = room.spawn_point()
 	player.velocity = Vector2.ZERO
-	player.mana = Player.MAX_MANA
-	player.stamina = Player.MAX_STAMINA
+	player.mana = player.max_mana
+	player.stamina = player.max_stamina
 	player.charge = 0.0
 	floor_reset.emit()
 

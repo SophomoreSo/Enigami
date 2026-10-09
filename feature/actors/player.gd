@@ -227,6 +227,13 @@ var _air_jump_used: bool = false
 var stamina: float = MAX_STAMINA
 var _stamina_pause: float = 0.0
 var mana: float = MAX_MANA
+## The player's own numbers with what the profile adds to them
+## (`GameState.boost`) — the bars' ceilings, and how much faster the body runs.
+## Taken when the body comes up, and again whenever what is added changes
+## (`_reboost`), so a perk bought in the hideout reaches the body standing there.
+var max_stamina: float = MAX_STAMINA
+var max_mana: float = MAX_MANA
+var _pace_mul: float = 1.0
 ## Extra life being built up while the button is held, in TTL.
 var charge: float = 0.0
 ## What the last release actually paid for, carried by the cast it bought.
@@ -306,6 +313,8 @@ func _ready() -> void:
 	add_to_group("player")
 	_setup_fsm()
 	current_state = machine.start
+	_reboost()
+	GameState.boosts_changed.connect(_reboost)
 
 func _notification(what: int) -> void:
 	# Not _exit_tree: a player carried between rooms leaves the tree and comes
@@ -392,7 +401,7 @@ func setup_kit(ids: Array, boards: Array, in_hand: int = 0) -> void:
 ## whichever weapon is in hand by the time it lands.
 func _make_runner(weapon: String, board: SkillBoard) -> SkillRunner:
 	var r := SkillRunner.new(board)
-	r.cooldown_mul = CAST_COOLDOWN_MUL
+	r.cooldown_mul = _cast_mul()
 	r.base_payload_provider = func() -> Payload: return Weapons.base_payload(weapon)
 	r.fired.connect(_on_fired.bind(weapon))
 	r.cycle_started.connect(_on_cycle_started)
@@ -618,17 +627,40 @@ func switch_by(step: int) -> bool:
 	return switch_to(posmod(hand + step, weapons.size()))
 
 func stamina_ratio() -> float:
-	return clampf(stamina / MAX_STAMINA, 0.0, 1.0)
+	return clampf(stamina / max_stamina, 0.0, 1.0)
 
 func mana_ratio() -> float:
-	return clampf(mana / MAX_MANA, 0.0, 1.0)
+	return clampf(mana / max_mana, 0.0, 1.0)
+
+## Takes what the profile adds to the player's own numbers again: a perk was
+## bought, a profile opened. What a ceiling gained is added to what is under it,
+## so a full bar stays full; one that came down leaves nothing over it.
+func _reboost() -> void:
+	var had_health := max_health
+	max_health = GameState.max_health()
+	health = minf(health + maxf(max_health - had_health, 0.0), max_health)
+	var had_stamina := max_stamina
+	max_stamina = MAX_STAMINA + GameState.boost("max_stamina")
+	stamina = minf(stamina + maxf(max_stamina - had_stamina, 0.0), max_stamina)
+	var had_mana := max_mana
+	max_mana = MAX_MANA + GameState.boost("max_mana")
+	mana = minf(mana + maxf(max_mana - had_mana, 0.0), max_mana)
+	_pace_mul = 1.0 + GameState.boost("move_speed")
+	for r in runners:
+		r.cooldown_mul = _cast_mul()
+
+## What every cast off the player waits, against its graph alone
+## (`CAST_COOLDOWN_MUL`), with what the profile takes off it — never below
+## half, whatever is bought.
+func _cast_mul() -> float:
+	return CAST_COOLDOWN_MUL * maxf(1.0 - GameState.boost("cast_speed"), 0.5)
 
 ## Mana taken back off an enemy by a MANA DRAIN attack. It lands whatever the
 ## charge is doing, unlike regeneration: `_mana_pause` exists to stop a hold
 ## refilling itself the moment it is released, and this was earned by landing a
 ## hit rather than by waiting.
 func gain_mana(amount: float) -> void:
-	mana = minf(MAX_MANA, mana + maxf(amount, 0.0))
+	mana = minf(max_mana, mana + maxf(amount, 0.0))
 
 func charge_ratio() -> float:
 	return clampf(charge / MAX_CHARGE_TTL, 0.0, 1.0)
@@ -663,8 +695,8 @@ func _update_charge(delta: float, holding: bool) -> void:
 	charge = maxf(0.0, charge - CHARGE_DECAY * delta)
 	if _mana_pause > 0.0:
 		_mana_pause = maxf(0.0, _mana_pause - delta)
-	elif mana < MAX_MANA:
-		mana = minf(MAX_MANA, mana + MANA_REGEN * delta)
+	elif mana < max_mana:
+		mana = minf(max_mana, mana + MANA_REGEN * delta)
 
 func can_dash() -> bool:
 	return _dash_cd <= 0.0 and stamina >= DASH_STAMINA
@@ -940,8 +972,8 @@ func _sense(delta: float) -> void:
 	# Stamina only comes back once the dashing stops.
 	if _stamina_pause > 0.0:
 		_stamina_pause = maxf(0.0, _stamina_pause - delta)
-	elif stamina < MAX_STAMINA:
-		stamina = minf(MAX_STAMINA, stamina + STAMINA_REGEN * delta)
+	elif stamina < max_stamina:
+		stamina = minf(max_stamina, stamina + STAMINA_REGEN * delta)
 
 ## --- state actions ----------------------------------------------------------
 ## What a state's steps can take, by the names `_setup_fsm` gives them. Each is
@@ -949,9 +981,10 @@ func _sense(delta: float) -> void:
 ## is the table's.
 
 ## How fast the body goes flat out this frame: a run, or a sprint while one is
-## asked for, and either slowed by a chill.
+## asked for, either quickened by what the profile adds (`_pace_mul`) and
+## slowed by a chill.
 func _pace() -> float:
-	return (SPRINT_SPEED if _asked.sprint else RUN_SPEED) * speed_scale()
+	return (SPRINT_SPEED if _asked.sprint else RUN_SPEED) * _pace_mul * speed_scale()
 
 ## Slows to a stop along the ground.
 func _action_brake() -> void:

@@ -2,10 +2,11 @@ class_name RaidView
 extends Node2D
 
 ## Everything a raid puts on the screen: the camera that follows it, the HUD,
-## and the screen with the assembly board, the map and the monster dictionary
-## on it, a tab each along its top (`ScreenTabs`) — separate nodes, and only
-## ever one of them up, so going from one tab to another is the raid putting one
-## away and the other up.
+## and the screen with the assembly board, the map, the monster dictionary and
+## the perks on it, a tab each along its top (`ScreenTabs`) — separate nodes,
+## and only ever one of them up, so going from one tab to another is the raid
+## putting one away and the other up. The perks' page is the perks' own
+## (`PerkScreen`, in perks/view).
 ##
 ## It pulls from the raid every frame rather than being pushed at. The raid
 ## therefore has no HUD to update and no editor to configure — it just runs,
@@ -18,6 +19,7 @@ var hud: Hud
 var editor: SkillEditor
 var map_panel: MapPanel
 var dex: MonsterDex
+var perk_screen: PerkScreen
 
 func _ready() -> void:
 	raid = get_parent() as Raid
@@ -38,6 +40,7 @@ func _ready() -> void:
 
 	editor = SkillEditor.new()
 	editor.visible = false
+	editor.pages = ScreenTabs.PAGES_WITH_PERKS.duplicate()
 	editor.closed.connect(func() -> void: raid.set_editing(false))
 	editor.page_picked.connect(_on_page_picked)
 	editor.board_changed.connect(func() -> void: raid.on_board_changed())
@@ -45,19 +48,29 @@ func _ready() -> void:
 
 	map_panel = MapPanel.new()
 	map_panel.visible = false
+	map_panel.pages = ScreenTabs.PAGES_WITH_PERKS.duplicate()
 	map_panel.closed.connect(func() -> void: raid.set_reading_map(false))
 	map_panel.page_picked.connect(_on_page_picked)
 	layer.add_child(map_panel)
 
 	dex = MonsterDex.new()
 	dex.visible = false
+	dex.pages = ScreenTabs.PAGES_WITH_PERKS.duplicate()
 	dex.closed.connect(func() -> void: raid.set_reading_dex(false))
 	dex.page_picked.connect(_on_page_picked)
 	layer.add_child(dex)
 
+	perk_screen = PerkScreen.new()
+	perk_screen.visible = false
+	perk_screen.pages = ScreenTabs.PAGES_WITH_PERKS.duplicate()
+	perk_screen.closed.connect(func() -> void: raid.set_reading_perks(false))
+	perk_screen.page_picked.connect(_on_page_picked)
+	layer.add_child(perk_screen)
+
 	raid.editing_changed.connect(_on_editing)
 	raid.reading_map_changed.connect(_on_reading_map)
 	raid.reading_dex_changed.connect(_on_reading_dex)
+	raid.reading_perks_changed.connect(_on_reading_perks)
 
 func _process(_delta: float) -> void:
 	if raid == null or not is_instance_valid(raid):
@@ -94,6 +107,8 @@ func _on_page_picked(id: String) -> void:
 			raid.set_reading_map(true)
 		ScreenTabs.DEX:
 			raid.set_reading_dex(true)
+		ScreenTabs.PERKS:
+			raid.set_reading_perks(true)
 
 func _on_editing(on: bool) -> void:
 	if on:
@@ -101,6 +116,9 @@ func _on_editing(on: bool) -> void:
 		# board's left — the one in hand open, as it always was.
 		editor.configure_shelf(SkillEditor.shelf_of(raid.player), raid.player.weapon_id,
 			GameState.raid_bag, false)
+		# The kit's own graphs, so each weapon's presets stand under its board,
+		# paid for out of the bag.
+		editor.presets = true
 		editor.visible = true
 		editor.grab_focus()
 	else:
@@ -115,7 +133,11 @@ func _on_reading_dex(on: bool) -> void:
 	dex.visible = on
 	_put_hud_away()
 
-## The HUD is away while either page of the screen is up: it has the screen,
-## and its top stands where the HUD's bars do.
+func _on_reading_perks(on: bool) -> void:
+	perk_screen.visible = on
+	_put_hud_away()
+
+## The HUD is away while any page of the screen is up: it has the screen, and
+## its top stands where the HUD's bars do.
 func _put_hud_away() -> void:
-	hud.visible = not (raid.editing or raid.reading_map or raid.reading_dex)
+	hud.visible = not (raid.editing or raid.reading_map or raid.reading_dex or raid.reading_perks)

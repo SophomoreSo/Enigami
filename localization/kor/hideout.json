@@ -48,6 +48,7 @@
 	"station": {
 		"weapons": "무기 거치대",
 		"shop": "상점",
+		"perks": "특성",
 		"gate": "관문",
 		"back": "방으로 돌아가기",
 		"arrow": "<"

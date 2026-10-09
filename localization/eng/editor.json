@@ -23,6 +23,9 @@
 		"built": "Built — %d parts on the board.",
 		"more_of": "%d more %s"
 	},
+	"preset": {
+		"on": "Preset %d is on the weapon."
+	},
 	"code_error": {
 		"mistyped": "That code does not check out — a character is wrong, its case is wrong, or two of them have swapped.",
 		"truncated": "That code stops in the middle of a board.",
