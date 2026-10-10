@@ -19,8 +19,9 @@ extends Node2D
 ##
 ## It is scenery, and only that. It reads where the stations stand, whether the
 ## player is at one and whether the gate would open, and changes nothing; with
-## it gone the hideout is the bare room it was. So it goes on moving while the
-## game is stopped: it is weather, and a menu does not stop the rain.
+## it gone the hideout is the bare room it was. It stops with the game, as
+## everything in the room does: the rain, the lanterns, the gate, stand still
+## behind the pause menu and go on where they stood.
 ##
 ## What a look paints glowing gives light as well (`shine`): a torch, a tube,
 ## a sign, each the light of its kind (`Shine`, a row of `lights`), put where
@@ -93,9 +94,6 @@ var _at: Dictionary = {}
 ## How lit each station's own fittings are, 0 to 1: up when the player is at
 ## one that would answer, and eased so it does not snap.
 var _lit: Dictionary = {}
-
-func _init() -> void:
-	process_mode = Node.PROCESS_MODE_ALWAYS
 
 func _ready() -> void:
 	# Where the stations stand in the hideout as it is, for a scenery stood
