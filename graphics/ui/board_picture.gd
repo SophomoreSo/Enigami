@@ -6,7 +6,9 @@ extends SkillEditor
 ## the way out bobbing — and nothing else: no parts to pick from, no top, no
 ## hand, nothing a press does. The monster dictionary shows a monster's skill
 ## this way (`MonsterDex`), so a skill reads as the graph it is, one the player
-## could build.
+## could build — and, as on the assembly screen, a part under the pointer says
+## what it is and does on a card hung off it. The page it stands on says where
+## the pointer is (`point_at`), since nothing here takes input.
 ##
 ## It is the assembly screen with its drawing kept and its layout and its input
 ## taken away: `fit` is all the layout there is, the rect the board and its
@@ -27,6 +29,21 @@ func _ready() -> void:
 ## The board to draw: nothing to spend, nothing running it.
 func show_board(b: SkillBoard) -> void:
 	configure(b, {}, true, null)
+
+## The pointer is at `pos`, in the screen's coordinates: the part under it is
+## the one the card is about, or none, off the board.
+func point_at(pos: Vector2) -> void:
+	_clear_hover()
+	_mouse_pos = pos
+	var b := current_board()
+	if b == null or not visible:
+		return
+	var rel := pos - board_origin()
+	if rel.x < 0.0 or rel.y < 0.0:
+		return
+	var c := Vector2i(int(rel.x / cell_size()), int(rel.y / cell_size()))
+	if b.in_bounds(c):
+		_hover_cell = c
 
 func _grid() -> Vector2:
 	var b := current_board()
@@ -62,6 +79,8 @@ func _draw() -> void:
 		_fit_laid = fit
 		_sim_dirty = true
 	_draw_board()
+	# What the part under the pointer is and does, on the assembly screen's card.
+	_draw_hint(get_viewport_rect().size)
 	_drawing = false
 
 ## Nothing is pressed here, and no key is taken from the page it stands on.

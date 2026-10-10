@@ -12,7 +12,8 @@ extends Control
 ## its skills. A skill is `??` until the monster has been seen using it, and
 ## one seen is shown as the graph it is (`BoardPicture`): the board the monster
 ## casts, drawn the way the assembly screen draws the player's, so what it does
-## can be read off it and built.
+## can be read off it and built — a part under the pointer saying what it is
+## and does on a card, as there.
 ##
 ## What has been met and seen is the profile's (`GameState.bestiary`), written
 ## by a raid as it happens (`Raid._meet`).
@@ -117,6 +118,8 @@ func _point(pos: Vector2) -> void:
 	for i in plates.size():
 		if (plates[i] as Rect2).has_point(pos):
 			_skill_hot = i
+	# The skill's graph, for the card a part under the pointer says itself on.
+	_picture.point_at(pos)
 
 ## Lets go of what it lit before anything goes: it is not under the pointer
 ## any more by the time the screen comes back.
