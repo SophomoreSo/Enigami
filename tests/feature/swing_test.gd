@@ -199,12 +199,14 @@ func _made() -> void:
 	await phys(2)
 	check(p._spin > 0.5, "and set swinging the way the body was going (%.2f)" % p._spin)
 	var widest := 0.0
+	var fastest := 0.0
 	var jolt := 0.0
 	var was := p._spin
 	for i in 300:
 		hands.move = signf(p._spin)
 		await phys(1)
 		widest = maxf(widest, absf(p._swing))
+		fastest = maxf(fastest, absf(p._spin) * maxf(p._grip, Player.SWING_SHORTEST))
 		var dt := get_physics_process_delta_time()
 		var pulled := Player.GRAVITY * absf(sin(p._swing)) / maxf(p._grip, Player.SWING_SHORTEST) * dt \
 			+ absf(was) * (1.0 - exp(-Player.SWING_DAMP * dt))
@@ -214,6 +216,8 @@ func _made() -> void:
 		was = p._spin
 	hands.move = 0.0
 	check(widest > 0.8, "pushed along in time with the swing it goes higher every time (%.2f)" % widest)
+	check(fastest > Player.SWING_FASTEST - 1.0 and fastest <= Player.SWING_FASTEST + 0.01,
+		"until it goes as fast as a swing goes, %.0f, and no faster (%.1f)" % [Player.SWING_FASTEST, fastest])
 	check(jolt < 0.05, "and nothing takes its speed but the world's pull and the rock it bounces off: no height it is stopped at (%.3f rad/s more than that, at most, in a frame)"
 		% jolt)
 
@@ -241,6 +245,24 @@ func _made() -> void:
 	hands.crouch = false
 	check(dropped and not rope.held(), "and down held there %.1fs lets go" % Player.ROPE_LET_GO)
 	check(await until(func() -> bool: return p.is_on_floor(), 240), "and the body comes down")
+
+	# Caught faster than a swing goes, it swings no faster than that, and a leap
+	# off it flings the body across no faster either.
+	p.global_position = mid + Vector2(-12.0, 0.0)
+	p.velocity = Vector2(Player.DASH_SPEED, 0.0)
+	hands.climb = true
+	check(await until(p.on_rope, 10), "taken at a dash")
+	hands.climb = false
+	var dashed := 0.0
+	for i in 30:
+		await phys(1)
+		dashed = maxf(dashed, absf(p._spin) * maxf(p._grip, Player.SWING_SHORTEST))
+	hands.jump()
+	await until(func() -> bool: return not p.on_rope(), 10)
+	check(dashed <= Player.SWING_FASTEST + 0.01 and absf(p.velocity.x) <= Player.SWING_FASTEST + 1.0,
+		"caught at a dash, %.0f, it swings no faster than %.0f, and is leapt off no faster across (%.1f, %.1f)"
+			% [Player.DASH_SPEED, Player.SWING_FASTEST, dashed, p.velocity.x])
+	await until(func() -> bool: return p.is_on_floor(), 240)
 
 	# A jump leaps off it, with a jump on top of the swing and the air jump back.
 	p.global_position = mid + Vector2(-4.0, 0.0)

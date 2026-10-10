@@ -195,8 +195,8 @@ const ROPE_LET_GO := 0.4
 const SWING_PUMP := 300.0
 const SWING_FEEL := 120.0
 ## How fast a swing dies away, a share of it a second. Nothing else takes a
-## swing's speed away but the world's pull: there is no height it stops at, and
-## a swing pushed high enough goes over the top.
+## swing's speed away but the world's pull: there is no height it stops at, only
+## a speed it goes no faster than (SWING_FASTEST).
 const SWING_DAMP := 0.4
 ## A swing that runs into rock — over it, beside it — bounces back off it with
 ## this much of its speed, turned round, rather than stopping there.
@@ -207,6 +207,13 @@ const SWING_SHORT := 0.002
 ## The shortest a swing is reckoned at. Near the top of a rope a pendulum that
 ## short would swing back and forth faster than it reads.
 const SWING_SHORTEST := 48.0
+## The fastest a swing goes along it, in the world's units a second, however
+## hard it is pushed, however fast it was caught, and however far it has fallen
+## on the way down — reckoned at no shorter than SWING_SHORTEST, so near the top
+## of a rope it turns no faster than a swing that long would. It swings only as
+## high as that much speed carries it: over the top wants about 600 on the
+## shortest swing, and more on a longer one.
+const SWING_FASTEST := 450.0
 ## A jump off a rope goes up at least this fast, and faster still off the way
 ## up a swing — the jump on top no more than takes it to ROPE_JUMP_MOST, and
 ## never less than the swing was going up already.
@@ -1184,7 +1191,8 @@ func _action_rush() -> void:
 ## A frame on a rope: up and down climb it, left and right swing it, and the
 ## pull of the world swings it back down — a pendulum from the rope's anchor,
 ## the hands on it. Left and right push a swing along that is already going
-## their way (`SWING_PUMP`). The swing's speed carries on from frame to frame,
+## their way (`SWING_PUMP`), and nothing swings it faster than SWING_FASTEST.
+## The swing's speed carries on from frame to frame,
 ## and only what the body runs into changes it: rock over it or beside it
 ## bounces it back (`SWING_BOUNCE`), and anything else that moved the body —
 ## a blow, a floor it dragged along — swings it as far as it moved. Down climbs as far as the rope's end and stops there; held there
@@ -1226,6 +1234,7 @@ func _action_swing() -> void:
 		push = SWING_PUMP * signf(going) * absf(_dir) * pace * clampf(absf(going) / SWING_FEEL, 0.0, 1.0)
 	_spin += (-GRAVITY * sin(at) + push) / reach * delta
 	_spin *= exp(-SWING_DAMP * delta)
+	_spin = clampf(_spin, -SWING_FASTEST / reach, SWING_FASTEST / reach)
 	var to := at + _spin * delta
 	_meant = to
 	var hands := a + Vector2(sin(to), cos(to)) * _grip
@@ -1348,8 +1357,10 @@ func _take_rope(r: HangingRope) -> void:
 	_grip = clampf(r.reach(hands, ROPE_REACH, ROPE_REACH), ROPE_TOP, maxf(r.length, ROPE_TOP))
 	var at := _swing_at(hands - a)
 	var along := Vector2(cos(at), -sin(at))
-	# All of the body's speed across the rope goes into the swing, however fast.
-	var caught := velocity.dot(along) / maxf(_grip, 1.0)
+	# All of the body's speed across the rope goes into the swing, as much of it
+	# as a swing goes (SWING_FASTEST).
+	var most := SWING_FASTEST / maxf(_grip, SWING_SHORTEST)
+	var caught := clampf(velocity.dot(along) / maxf(_grip, 1.0), -most, most)
 	_swing = at
 	_meant = at
 	_spin = caught
