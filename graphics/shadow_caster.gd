@@ -17,9 +17,19 @@ extends Node2D
 ##
 ## A caster is put wherever the thing that throws the shadow is, by its view:
 ## a room's rock is one (`RoomView`), and a body another (`ActorView`).
+##
+## A body throws its edges' shadow only in a spot's light or a sun's. A round
+## light — a point's, an area's — is in front of a body or behind it, as the
+## world draws the two, and not beside it in one plane: in front, the body
+## throws its figure on the wall behind it, and behind, a patch of shadow at
+## its feet, and it stands dark against the light but for a rim (`Lighting`).
+## Its figure is what it is drawn as (`figures`).
 
 ## The group every caster in the tree is in, which is how it is found.
 const GROUP := &"shadow_casters"
+## How fast the shadow at a body's feet goes as it leaves the ground and comes
+## back as it lands: all of it in an eighth of a second.
+const FEET_EASE := 8.0
 
 ## The edges, as `shadow.gdshader` draws them, or null with none.
 var mesh: ArrayMesh = null
@@ -27,9 +37,19 @@ var mesh: ArrayMesh = null
 var bounds := Rect2()
 ## Whether this is one closed shape that a light can be inside — a body, not
 ## a room's rock. A light inside one that is the body's own takes no shadow
-## from it: a body on fire lights the room round it. Any other light inside
-## one still has the body throw a shadow (`beyond`).
+## from it: a body on fire lights the room round it. A spot inside one still
+## has the body throw a shadow (`beyond`).
 var body := false
+## What a body is drawn as — its sprite, and what it holds — which is its
+## figure: what it throws on the wall in a round light in front of it, and
+## where it stands dark against one behind it. With none, its outline is.
+var figures: Array[CanvasItem] = []
+## What it is the body of, when that stands on things: the shadow a light
+## behind it leaves at its feet is there while it stands on something.
+var standing: CharacterBody2D = null
+## How much of that shadow there is, 0 to 1: all of it, with nothing to say
+## it is off the ground.
+var feet := 1.0
 
 var _shape := PackedVector2Array()
 
@@ -39,6 +59,10 @@ const HAIR := 0.5
 
 func _enter_tree() -> void:
 	add_to_group(GROUP)
+
+func _process(delta: float) -> void:
+	if standing != null and is_instance_valid(standing):
+		feet = move_toward(feet, 1.0 if standing.is_on_floor() else 0.0, delta * FEET_EASE)
 
 ## Loose edges: `ends` two points to an edge, and `facings` the way each
 ## faces — out of the thing it is an edge of.
@@ -67,6 +91,99 @@ func covers() -> Rect2:
 ## Whether the world point `at` is inside it, for a body.
 func holds(at: Vector2) -> bool:
 	return body and Geometry2D.is_point_in_polygon(to_local(at), _shape)
+
+## What draws the body: the view it is put in, which is where the world has
+## it among everything else drawn.
+func drawn() -> CanvasItem:
+	var view := get_parent() as CanvasItem
+	return view if view != null else self
+
+## Draws a body's figure on `on`, which draws into a buffer whose canvas lies
+## across the world as `view` does: on the same pixels the world draws it on,
+## in `colour`, and thrown by `thrown`, a transform of the world, when that is
+## anything. Each picture marks where it is solid (`bodies.gdshader`,
+## `figure_shadow.gdshader`); a body with none drawn marks its outline.
+func draw_figure(on: CanvasItem, view: Transform2D, colour: Color, thrown := Transform2D.IDENTITY) -> void:
+	var drew := false
+	for f in figures:
+		if f == null or not is_instance_valid(f) or not f.is_visible_in_tree() \
+				or f.modulate.a <= 0.0 or f.self_modulate.a <= 0.0:
+			continue
+		var picture := _picture(f)
+		if picture.is_empty():
+			continue
+		on.draw_set_transform_matrix(thrown * view.affine_inverse() * _placed(f, view))
+		on.draw_texture_rect_region(picture[0], picture[1], picture[2], colour)
+		drew = true
+	if not drew and body:
+		on.draw_set_transform_matrix(thrown * global_transform)
+		on.draw_colored_polygon(_shape, colour)
+	on.draw_set_transform_matrix(Transform2D.IDENTITY)
+
+## What a sprite draws this frame, as it draws it: its texture, where in its
+## own space, and what of the texture — or nothing, for one with nothing to
+## draw. An animated sprite's frame, or a sprite's region and frame, placed
+## by its offset, centred or not, and turned over as it is.
+static func _picture(f: CanvasItem) -> Array:
+	var tex: Texture2D = null
+	var from := Rect2()
+	var at := Vector2.ZERO
+	var centred := true
+	var flip := Vector2i.ZERO
+	if f is AnimatedSprite2D:
+		var a := f as AnimatedSprite2D
+		if a.sprite_frames == null or not a.sprite_frames.has_animation(a.animation):
+			return []
+		tex = a.sprite_frames.get_frame_texture(a.animation, a.frame)
+		if tex == null:
+			return []
+		from = Rect2(Vector2.ZERO, tex.get_size())
+		at = a.offset
+		centred = a.centered
+		flip = Vector2i(int(a.flip_h), int(a.flip_v))
+	elif f is Sprite2D:
+		var s := f as Sprite2D
+		tex = s.texture
+		if tex == null:
+			return []
+		var whole := s.region_rect if s.region_enabled else Rect2(Vector2.ZERO, tex.get_size())
+		var cell := whole.size / Vector2(s.hframes, s.vframes)
+		@warning_ignore("integer_division")
+		from = Rect2(whole.position + Vector2(s.frame % s.hframes, s.frame / s.hframes) * cell, cell)
+		at = s.offset
+		centred = s.centered
+		flip = Vector2i(int(s.flip_h), int(s.flip_v))
+	else:
+		return []
+	if centred:
+		at -= from.size * 0.5
+	if f.get_viewport() != null and f.get_viewport().snap_2d_transforms_to_pixel:
+		at = (at + Vector2(0.5, 0.5)).floor()
+	var size := from.size
+	if flip.x != 0:
+		size.x = -size.x
+	if flip.y != 0:
+		size.y = -size.y
+	return [tex, Rect2(at, size), from]
+
+## Where a viewport that snaps to whole pixels, its canvas lying across the
+## world as `view` does, draws `item`: every step down to it snapped, its own
+## place and its parent's, as the engine snaps them.
+static func _placed(item: CanvasItem, view: Transform2D) -> Transform2D:
+	var chain: Array[CanvasItem] = []
+	var n: Node = item
+	while n is CanvasItem:
+		chain.push_front(n as CanvasItem)
+		if (n as CanvasItem).top_level:
+			break
+		n = n.get_parent()
+	var xf := view
+	for c in chain:
+		var own := c.get_transform()
+		own.origin = (own.origin + Vector2(0.5, 0.5)).floor()
+		xf.origin = (xf.origin + Vector2(0.5, 0.5)).floor()
+		xf = xf * own
+	return xf
 
 ## What of a body throws its shadow in a light at `at`, inside it, as edges in
 ## the world: the light is taken to stand at the body's edge nearest to it,
