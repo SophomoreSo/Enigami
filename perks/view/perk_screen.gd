@@ -10,8 +10,8 @@ extends Control
 ## on: the heading and the gold there is to spend, and the perks a row each
 ## (`PerkPage`), bought here as at the hideout's perk station. The rows scroll
 ## when a thumb's run longer than the screen. Whoever puts the screen up says
-## which pages it has (`pages`): a raid and the hideout's workbench, the only
-## screens the perks are on, have all four.
+## which pages it has (`pages`): a raid, the hideout's workbench and the
+## bench, the only screens the perks are on, have all four.
 
 signal closed()
 ## A tab along the screen's top was pressed, for a page other than this one:

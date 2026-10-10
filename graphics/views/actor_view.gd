@@ -7,9 +7,10 @@ extends Node2D
 ## the same for the player and for every monster.
 ##
 ## And how a body stands to the light (`Lighting`): the sprite's shader says
-## which way its edge faces, the body throws a shadow the size of itself, what
-## is drawn round it to be read — a ring, a bar of health — is its own light,
-## and one on fire lights the room.
+## which way its edge faces, the body throws a shadow the size of itself — or
+## in a round light its figure on the wall, or a patch at its feet — what is
+## drawn round it to be read — a ring, a bar of health — is its own light, and
+## one on fire lights the room.
 
 ## The light of a body on fire: how far it reaches in world units, how bright
 ## it is, and how much of it hangs in the air.
@@ -27,7 +28,7 @@ var sprite: AnimatedSprite2D
 ## Blows the silhouette out to white on a hit, then fades.
 var flash: float = 0.0
 
-## The shadow the body throws: a box the size of it.
+## The shadow the body throws: a box the size of it, and its sprite.
 var caster: ShadowCaster
 ## The light of it burning, once it has.
 var fire: Lamp
@@ -81,6 +82,8 @@ func _build_sprite() -> void:
 	sprite.material = _mat
 	add_child(sprite)
 	sprite.play("idle")
+	caster.figures.append(sprite)
+	caster.standing = actor
 
 ## Puts the art's feet on the body's: the tile is centred on the node, so the
 ## node is backed off by half the body and by however much padding sits under

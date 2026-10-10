@@ -84,6 +84,7 @@
 		"swap_weapon": "무기 교체",
 		"dragon_test": "드래곤 테스트 >",
 		"jean_grey_test": "진 그레이 테스트 >",
+		"lighting_test": "조명 테스트 >",
 		"samples": "샘플 스킬",
 		"sample": {
 			"dragon": "적중할 때마다 돌진이 이어짐",
@@ -336,6 +337,31 @@
 		"rock_out": "돌이 바닥에 있음",
 		"keys": "R 초기화  TAB 편집  %s 몬스터에서 나가기  ESC 뒤로",
 		"board": "사이킥 투척"
+	},
+	"light": {
+		"title": "조명 테스트",
+		"subtitle": "조명 사이를 걸어 보세요",
+		"behind": "뒤에 있는 랜턴",
+		"front": "앞에 있는 랜턴",
+		"fire": "모닥불과 벽난로",
+		"spot": "스포트라이트 (기존 방식)",
+		"time": "밝기  %s",
+		"times": {
+			"night": "밤",
+			"grove": "달빛",
+			"day": "낮"
+		},
+		"crosshair": "조준점  %s",
+		"held": {
+			"nothing": "없음",
+			"lantern": "랜턴",
+			"bulb": "스포트라이트",
+			"tube": "조명관"
+		},
+		"in_front": "%s, 앞",
+		"in_back": "%s, 뒤",
+		"count": "조명 %d개  그림자 %d개",
+		"keys": "T 밝기  C 조준점  L 앞/뒤  R 다시  ESC 뒤로"
 	},
 	"exit": {
 		"sign": "비상구",

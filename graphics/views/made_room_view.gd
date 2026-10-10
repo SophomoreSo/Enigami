@@ -295,6 +295,16 @@ func _hang_light(x: int, y: int, light: Lantern, kind: String, body: Rect2i) -> 
 	_cords.append(cord)
 	lanterns.append(light)
 
+## Puts `light`, one of the lanterns, and the cord it hangs on at `z` among
+## everything else the world draws: under the bodies, as a map hangs them, or
+## over them, in front of whoever walks into it (`Lighting._rank`).
+func hang_at(light: Lantern, z: int) -> void:
+	var i := lanterns.find(light)
+	if i < 0:
+		return
+	light.z_index = z
+	_cords[i].z_index = z
+
 func _hang_line(x: int, y: int, mark: String) -> void:
 	var last := MapTiles.run_down(cells, x, y, mark)
 	if last < 0:

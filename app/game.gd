@@ -9,7 +9,7 @@ extends Node
 ## builds screens out of `graphics/` and drives them with `feature/`. Neither
 ## module reaches the other except through here and through `Cues`.
 
-enum State { TITLE, HIDEOUT, RAID, SANDBOX, RESULTS, DRAGON_TEST, INTRO, JEAN_GREY_TEST, MAP_MAKER, STORY_MAKER }
+enum State { TITLE, HIDEOUT, RAID, SANDBOX, RESULTS, DRAGON_TEST, INTRO, JEAN_GREY_TEST, MAP_MAKER, STORY_MAKER, LIGHTING_TEST }
 
 var state: int = State.TITLE
 var current: Node = null
@@ -346,6 +346,7 @@ func goto_sandbox() -> void:
 	s.exit_requested.connect(goto_title)
 	s.dragon_test_requested.connect(goto_dragon_test)
 	s.jean_grey_test_requested.connect(goto_jean_grey_test)
+	s.lighting_test_requested.connect(goto_lighting_test)
 	add_child(s)
 	current = s
 
@@ -366,6 +367,15 @@ func goto_jean_grey_test() -> void:
 	j.exit_requested.connect(goto_sandbox)
 	add_child(j)
 	current = j
+
+## And leaving the lighting test.
+func goto_lighting_test() -> void:
+	_clear()
+	state = State.LIGHTING_TEST
+	var l := LightingTest.new()
+	l.exit_requested.connect(goto_sandbox)
+	add_child(l)
+	current = l
 
 ## The map creator is opened from the title, like the bench beside it, and
 ## hands back to it. What was on its table is kept for the next visit

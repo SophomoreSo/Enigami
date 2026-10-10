@@ -17,6 +17,8 @@ signal editing_changed(on: bool)
 signal dragon_test_requested()
 ## The Jean Grey test was asked for: a diamond to steal by possessing its guards.
 signal jean_grey_test_requested()
+## The lighting test was asked for: a light of each kind to walk through.
+signal lighting_test_requested()
 ## A sample skill was put on its weapon (`load_sample`).
 signal sample_loaded(id: String)
 
@@ -172,6 +174,9 @@ func open_dragon_test() -> void:
 
 func open_jean_grey_test() -> void:
 	jean_grey_test_requested.emit()
+
+func open_lighting_test() -> void:
+	lighting_test_requested.emit()
 
 ## The skills the bench has ready to try: the proving grounds' graphs, and the
 ## seeker arrow. Each is a graph, the weapon it was built for, and what it is

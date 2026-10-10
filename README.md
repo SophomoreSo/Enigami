@@ -66,7 +66,7 @@ godot res://tests/graphics/menus_test.tscn  # every menu's rows name an act its 
 godot res://tests/graphics/rope_test.tscn   # a cable's line of nodes: hung, pushed, settled, cut at, what rides one, where a room hangs them, and the Jean Grey test's lanterns swinging on theirs
 godot res://tests/graphics/foliage_test.tscn # the grass, flowers and bushes a patch grows, its mask, and where a room grows them
 godot res://tests/graphics/velocity_test.tscn # the velocity buffer: what moving things push, how it springs back, and the foliage leaning for it
-godot res://tests/graphics/lighting_test.tscn # the light: the world drawn for its colours and for how it faces, a lamp added to it, what stands in one's light dark behind, a light as the property of what gives it in each of Blender's four types, what is out past a room, and what the game lights
+godot res://tests/graphics/lighting_test.tscn # the light: the world drawn for its colours and for how it faces, a lamp added to it, what stands in one's light dark behind — a body in a round one throwing its figure on the wall, or with the lamp behind it a patch at its feet — a light as the property of what gives it in each of Blender's four types, what is out past a room, and what the game lights
 godot res://tests/graphics/glass_test.tscn  # glass: what is behind clear glass seen through it, what is in front of a mirror shown in it, upside down or turned round, and the map creator's
 godot res://tests/graphics/bolt_view_test.tscn # a bolt's trail: the gaps between its beads drawn in, and a laser's beam from the muzzle
 godot res://tests/graphics/rock_view_test.tscn # the rock, drawn: a stone of the game's own and not the pack's morning star, held upright, turning over in the air, and marked where it lies
@@ -139,7 +139,7 @@ not a thing to reach for once it errors.
 | mouse wheel | the next weapon in hand, a notch down, or the one before, a notch up; round from the last to the first |
 | Q | leave the monster you are possessing, back into your own body |
 | mouse / right stick | aim, and where a lunge lands. A stick's aim is bent toward a monster it is near — never snapped, and never the mouse's; how much is AIM ASSIST in the control settings |
-| TAB | open assembly — **the raid keeps running**; the weapons carried stand down the board's left, and a click on one opens its graph, the weapon in hand staying in hand — the empty hand's plate after them opens nothing yet. It is the GRAPH tab of a screen with tabs along its top, like a browser's: a click on MAP beside it puts the map up in its place, and one on MONSTERS the monster dictionary — every monster a raid has, `??` until it has been met, and each one's skills `??` until it has been seen using them, then drawn as the graph each is. At the hideout's workbench and in a raid a last tab, PERKS, puts up the perks (see [Perks](#perks)). The HUD is put away while the screen is up; TAB, ESC or the back arrow in its corner leaves it |
+| TAB | open assembly — **the raid keeps running**; the weapons carried stand down the board's left, and a click on one opens its graph, the weapon in hand staying in hand — the empty hand's plate after them opens nothing yet. It is the GRAPH tab of a screen with tabs along its top, like a browser's: a click on MAP beside it puts the map up in its place, and one on MONSTERS the monster dictionary — every monster a raid has, `??` until it has been met, and each one's skills `??` until it has been seen using them, then drawn as the graph each is. At the hideout's workbench, on the bench and in a raid a last tab, PERKS, puts up the perks (see [Perks](#perks)). The HUD is put away while the screen is up; TAB, ESC or the back arrow in its corner leaves it |
 | M | the map — the MAP tab of the same screen: in a raid the floor plan, the raid running on behind it as well, and on the bench, in the hideout and anywhere else with no map a page saying so. A click on GRAPH, or TAB, puts the board up in its place, and M, ESC or the back arrow leaves it |
 | Ctrl+C / Ctrl+V (⌘ on a Mac) | in assembly: COPY and PASTE — the board onto the clipboard as a share code, or someone else's board built from theirs |
 | F | interact: talk to an NPC — the last step over to them is walked for you, and pushing the other way on it changes your mind — (again for the next line), go through a gate to the room above or below, and hold to extract. Someone who talks free goes on by themselves; F only hurries their line |
@@ -779,6 +779,31 @@ cells: `#` solid, `G` a guard's post, `P` the door. Moving a post or closing a
 stairwell can break the chain — `tests/feature/dragon_test.tscn` is what says
 whether one cast still clears it.
 
+## The lighting test
+
+Title → SANDBOX → **LIGHTING TEST**. A stretch of the Moonlit Grove at night
+with a light of each kind hung in it and a dummy beside each, to walk through
+and see what a body does in each light: left to right, a lantern hung behind
+whoever walks into it — the body dark against it but for a rim, and a patch of
+shadow at its feet leaning away — a lantern hung in front, which throws the
+body's figure on the wall behind it, a fire and a fireplace, and a spotlight,
+which lights bodies as it always did. The lanterns hang on cords at a body's
+height and swing when they are walked through, so the light goes in and out
+of the body as it swings.
+
+| Key | What it does |
+|---|---|
+| `T` | the light the ground is seen in: a dark night, the grove's moonlight, day |
+| `L` | the lanterns the other way round — the first in front, the second behind — and the light on the crosshair with them |
+| `C` | a light on the crosshair: none, a lantern, a spotlight, a tube of light (an area), to hold up to anyone from any side |
+| `R` | the ground again, everything hanging still |
+| `ESC` | back to the bench |
+
+The kit in hand is the bench's, and nothing is at stake. The ground is
+`PLAN`, `BACK` and `DRESSING` in `feature/world/lighting_test.gd`, laid the way
+the map creator lays a map; what the keys do is
+`graphics/views/lighting_test_view.gd`.
+
 ## The map creator
 
 Title → **MAP CREATOR**, under SANDBOX. A grid of cells, laid a mark at a time
@@ -1026,8 +1051,9 @@ hideout there and then.
 
 The same page is a tab of the screen the graph, the map and the monster
 dictionary are pages of: **PERKS**, after GRAPH, MAP and MONSTERS on the
-hideout's workbench and in a raid, where it spends the gold banked at home, not
-the raid's. The bench and the other screens have no PERKS tab.
+hideout's workbench, on the bench and in a raid — always spending the gold
+banked at home, not the raid's, and buying for the profile, even from the
+bench. The dragon test, the Jean Grey test and a played map have no PERKS tab.
 
 Three steps each, for 60, 140 and 260 gold — QUICK HANDS and SCAVENGER for 80,
 180 and 320. The perks, their steps and their prices are rows in the content

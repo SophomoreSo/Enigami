@@ -17,10 +17,15 @@ extends Node
 ## is not. What gives its own light is drawn as it is, by the lamps and by the
 ## dark alike.
 ##
-## Shadows: what stands in a lamp's light is dark behind and lit across its
-## own face; each lamp's shadows are its own; a lamp inside a body still has
-## it throw one, as from the edge the lamp is nearest, and a body's own light
-## inside it takes none from it; and only so many lamps throw them at once.
+## Shadows: what stands in a lamp's light throws a shadow and is lit across
+## its own face; each lamp's shadows are its own; a body in a round lamp's
+## light throws its figure on the wall behind it when the lamp is drawn in
+## front of it — the same either side of its middle, the lamp inside it or
+## not — and when the lamp is drawn behind it throws none on the wall, but a
+## patch at its feet leaning away from the lamp, and stands dark against it;
+## a spot inside a body still has it throw one as from the edge the spot is
+## nearest; a body's own light inside it takes none from it; and only so many
+## lamps throw them at once.
 ##
 ## A light as the property of what gives it (`Shine`): made from its kind's
 ## row, giving its light where the thing is, going with it, and out when it is
@@ -453,9 +458,17 @@ func _shadows() -> void:
 	var left := lamp_at(here + Vector2(-60, 0), 160.0)
 	var behind := here + Vector2(50, 0)
 	var beside := here + Vector2(0, 50)
+	var before := here + Vector2(-50, 0)
+	# The lamp is drawn after the body, so in front of it: the box throws
+	# itself on the wall, WALL_SCALE bigger about the lamp — from 7.5 past the
+	# body's middle to 34.5 — and WALL_DARK dark.
+	var on_wall := here + Vector2(20, 0)
+	var walled := 1.0 - Lighting.WALL_DARK
 	var img := await shown()
 	check(lighting.lamps_shadowed == 1, "a lamp that throws shadows is given a mask to mark them in")
-	check(near(at(img, behind), GROUND), "what stands in a lamp's light is dark behind (%s)" % at(img, behind))
+	check(near(at(img, on_wall), times(GROUND, 1.0 + share(left, on_wall) * walled)),
+		"a body in front of a round lamp throws itself on the wall behind it (%s)" % at(img, on_wall))
+	check(near(at(img, behind), times(GROUND, 1.0 + share(left, behind))), "and no further (%s)" % at(img, behind))
 	check(near(at(img, beside), times(GROUND, 1.0 + share(left, beside))), "lit beside (%s)" % at(img, beside))
 	check(near(at(img, here), times(GROUND, 1.0 + share(left, here))), "and lit across its own face (%s)" % at(img, here))
 	check(near(at(img, here + Vector2(-30, 0)), times(GROUND, 1.0 + share(left, here + Vector2(-30, 0)))),
@@ -463,29 +476,75 @@ func _shadows() -> void:
 
 	var right := lamp_at(here + Vector2(60, 0), 160.0)
 	img = await shown()
+	var off_wall := here + Vector2(-20, 0)
 	check(lighting.lamps_shadowed == 2, "a second lamp has a mask's colour of its own")
-	check(near(at(img, behind), times(GROUND, 1.0 + share(right, behind))),
-		"each lamp's shadows are its own: behind the box from one, the other still lights (%s)" % at(img, behind))
-	var before := here + Vector2(-50, 0)
-	check(near(at(img, before), times(GROUND, 1.0 + share(left, before))), "and the other way round (%s)" % at(img, before))
+	check(near(at(img, on_wall), times(GROUND, 1.0 + share(left, on_wall) * walled + share(right, on_wall))),
+		"each lamp's shadows are its own: on the wall from one, the other still lights (%s)" % at(img, on_wall))
+	check(near(at(img, off_wall), times(GROUND, 1.0 + share(left, off_wall) + share(right, off_wall) * walled)),
+		"and the other way round (%s)" % at(img, off_wall))
 	await out([right])
 
 	left.shadows = false
 	img = await shown()
-	check(lighting.lamps_shadowed == 0 and near(at(img, behind), times(GROUND, 1.0 + share(left, behind))),
-		"a lamp told to throw none shines through (%s)" % at(img, behind))
+	check(lighting.lamps_shadowed == 0 and near(at(img, on_wall), times(GROUND, 1.0 + share(left, on_wall))),
+		"a lamp told to throw none shines through (%s)" % at(img, on_wall))
 	left.shadows = true
-	# Inside the body, nearer its right edge than any other: it throws the
-	# shadow it threw as the lamp came in over that edge.
+	# Inside the body and in front of it, either side of its middle: its figure
+	# on the wall round it, and both sides of it lit alike.
+	var either_side := true
+	var halo := here + Vector2(0, -12)
+	for x: float in [6.0, -6.0]:
+		left.position = here + Vector2(x, 0)
+		img = await shown()
+		for spot: Vector2 in [here + Vector2(-30, 0), here + Vector2(30, 0)]:
+			if not near(at(img, spot), times(GROUND, 1.0 + share(left, spot))):
+				either_side = false
+		if not near(at(img, halo), times(GROUND, 1.0 + share(left, halo) * walled)):
+			either_side = false
+	check(either_side, "a round lamp inside a body in front of it throws its figure on the wall round it, the same either side of its middle (%s)" % at(img, halo))
+
+	# Drawn behind the body: nothing on the wall, either side of its middle;
+	# the body dark against it; and a patch at its feet, leaning away from it.
+	left.z_index = -1
+	var lit_alike := true
+	for x: float in [-60.0, -1.0, 1.0]:
+		left.position = here + Vector2(x, 0)
+		img = await shown()
+		for spot: Vector2 in [here + Vector2(-30, 0), here + Vector2(30, 0), on_wall]:
+			if not near(at(img, spot), times(GROUND, 1.0 + share(left, spot))):
+				lit_alike = false
+	check(lit_alike, "a round lamp behind a body throws no shadow of it on the wall, either side of its middle")
+	check(near(at(img, here), times(GROUND, 1.0 + share(left, here) * Lighting.FACE)),
+		"and the body stands dark against it (%s)" % at(img, here))
+	check(lighting.bodies().get_image().get_pixelv(texel(here)).g > 0.5, "where it stands is marked for the lamps")
+	left.position = here + Vector2(-60, 0)
+	img = await shown()
+	var far_foot := here + Vector2(30, 12)
+	var near_foot := here + Vector2(-30, 12)
+	var dimmed := at(img, far_foot).r / GROUND.r - 1.0
+	check(dimmed > share(left, far_foot) * 0.4 and dimmed < share(left, far_foot) * 0.65,
+		"it leaves a patch of shadow at its feet, away from the lamp (%.3f of %.3f)" % [dimmed, share(left, far_foot)])
+	check(near(at(img, near_foot), times(GROUND, 1.0 + share(left, near_foot))),
+		"and none on the lamp's side (%s)" % at(img, near_foot))
+	left.z_index = 0
+
+	# A spot is as it was: inside the body, nearer its right edge than any
+	# other, it throws the shadow it threw as it came in over that edge. One
+	# pointing up, its cone wide enough to light both sides.
+	left.spread = PI * 0.95
+	left.soft = 0.0
+	left.rotation = -PI * 0.5
 	left.position = here + Vector2(6, 0)
 	img = await shown()
 	check(near(at(img, before), GROUND) and near(at(img, behind), times(GROUND, 1.0 + share(left, behind))),
-		"a lamp inside a body still has it throw a shadow, away from the edge it is nearest (%s, %s)" % [at(img, before), at(img, behind)])
+		"a spot inside a body still has it throw a shadow, away from the edge it is nearest (%s, %s)" % [at(img, before), at(img, behind)])
 	check(near(at(img, here), times(GROUND, 1.0 + share(left, here))), "with the body lit across its own face (%s)" % at(img, here))
 	left.position = here + Vector2(-6, 0)
 	img = await shown()
 	check(near(at(img, behind), GROUND) and near(at(img, before), times(GROUND, 1.0 + share(left, before))),
 		"and past its middle, the other way (%s, %s)" % [at(img, behind), at(img, before)])
+	left.spread = PI
+	left.rotation = 0.0
 	# The body's own light, inside it — a body on fire — lights the room round it.
 	left.visible = false
 	var own := Lamp.of(Color.WHITE, 160.0)
@@ -827,13 +886,23 @@ func _the_room() -> void:
 	n = normals()
 	var behind := body.global_position + Vector2(body.body_size.x * 0.5 + 24.0, 0)
 	var above := body.global_position + Vector2(body.body_size.x * 0.5 + 24.0, -60.0)
-	check(near(at(img, behind), at(was, behind), 0.005), "the wall behind it is dark (%s for %s)" % [at(img, behind), at(was, behind)])
-	check(at(img, above).b > at(was, above).b + 0.03, "and the wall over its shadow is lit")
+	# The lamp is drawn under the body, so behind it: the wall past it is lit,
+	# and the body stands dark against it.
+	var lit_behind := at(img, behind)
+	check(lit_behind.b > at(was, behind).b + 0.03, "a lamp behind a body lights the wall past it (%s for %s)" % [lit_behind, at(was, behind)])
+	check(lighting.bodies().get_image().get_pixelv(texel(body.global_position)).g > 0.5,
+		"and where the body stands is marked, for it to stand dark against the lamp")
 	var rim := 0.0
 	for dy in range(-16, 17, 2):
 		for dx in range(-16, 17, 2):
 			rim = maxf(rim, facing(n, body.global_position + Vector2(dx, dy)).length())
 	check(rim > 0.5, "and its sprite says how its edge faces (%.2f at most)" % rim)
+	# Drawn over the body, the lamp is in front of it: the body throws its
+	# figure on the wall behind it.
+	lamp.z_index = 60
+	img = await shown()
+	check(at(img, behind).b < lit_behind.b - 0.03, "a lamp in front of it has it throw its figure on the wall (%s for %s)" % [at(img, behind), lit_behind])
+	check(at(img, above).b > at(was, above).b + 0.03, "and the wall over its shadow is lit")
 	await out([lamp])
 	await settle()
 	check(not lighting.working(), "with that lamp out nothing is lit")

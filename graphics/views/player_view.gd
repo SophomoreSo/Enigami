@@ -45,6 +45,7 @@ func _build_sprite() -> void:
 	weapon_sprite.scale = Vector2.ONE * Sprites.PIXEL_SCALE
 	weapon_sprite.z_index = 1
 	add_child(weapon_sprite)
+	caster.figures.append(weapon_sprite)
 
 ## The player's own art has a pose for everything the body can do; the Dragon
 ## is cut from the atlas and has only the three, so each airborne case falls

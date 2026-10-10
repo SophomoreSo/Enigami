@@ -32,6 +32,13 @@ global uniform vec2 normals_size;
 
 const float RELIEF = 256.0;
 
+// What a light's colour of a shadow mask is marked with where its light does
+// not reach at all — rock in its way, or a body in a spot's or a sun's
+// (shadow.gdshader). Under it, what is marked is how dark the shadow a body
+// throws out of a round light's plane is there (figure_shadow.gdshader): no
+// number of those ever adds up to it. `Lighting.SOLID` is the same number.
+const float SOLID = 64.0;
+
 // Whether this is the picture of the world's normals, for a fragment told
 // its SCREEN_PIXEL_SIZE.
 bool drawing_normals(vec2 screen_pixel_size) {
