@@ -84,6 +84,8 @@ func view_script_for(n: Node) -> GDScript:
 		return DragonTestView
 	if n is JeanGreyTest:
 		return JeanGreyTestView
+	if n is LightingTest:
+		return LightingTestView
 	if n is MapMaker:
 		return MapMakerView
 	# Story keeps its own table, in `story/view/story_views.gd`.

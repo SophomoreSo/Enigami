@@ -779,6 +779,31 @@ cells: `#` solid, `G` a guard's post, `P` the door. Moving a post or closing a
 stairwell can break the chain — `tests/feature/dragon_test.tscn` is what says
 whether one cast still clears it.
 
+## The lighting test
+
+Title → SANDBOX → **LIGHTING TEST**. A stretch of the Moonlit Grove at night
+with a light of each kind hung in it and a dummy beside each, to walk through
+and see what a body does in each light: left to right, a lantern hung behind
+whoever walks into it — the body dark against it but for a rim, and a patch of
+shadow at its feet leaning away — a lantern hung in front, which throws the
+body's figure on the wall behind it, a fire and a fireplace, and a spotlight,
+which lights bodies as it always did. The lanterns hang on cords at a body's
+height and swing when they are walked through, so the light goes in and out
+of the body as it swings.
+
+| Key | What it does |
+|---|---|
+| `T` | the light the ground is seen in: a dark night, the grove's moonlight, day |
+| `L` | the lanterns the other way round — the first in front, the second behind — and the light on the crosshair with them |
+| `C` | a light on the crosshair: none, a lantern, a spotlight, a tube of light (an area), to hold up to anyone from any side |
+| `R` | the ground again, everything hanging still |
+| `ESC` | back to the bench |
+
+The kit in hand is the bench's, and nothing is at stake. The ground is
+`PLAN`, `BACK` and `DRESSING` in `feature/world/lighting_test.gd`, laid the way
+the map creator lays a map; what the keys do is
+`graphics/views/lighting_test_view.gd`.
+
 ## The map creator
 
 Title → **MAP CREATOR**, under SANDBOX. A grid of cells, laid a mark at a time

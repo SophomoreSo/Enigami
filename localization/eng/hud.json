@@ -84,6 +84,7 @@
 		"swap_weapon": "SWAP WEAPON",
 		"dragon_test": "DRAGON TEST >",
 		"jean_grey_test": "JEAN GREY TEST >",
+		"lighting_test": "LIGHTING TEST >",
 		"samples": "SAMPLE SKILLS",
 		"sample": {
 			"dragon": "chains a lunge on every hit",
@@ -336,6 +337,31 @@
 		"rock_out": "ROCK ON THE FLOOR",
 		"keys": "R RESET  TAB EDIT  %s LEAVE MONSTER  ESC BACK",
 		"board": "Psychic Throw"
+	},
+	"light": {
+		"title": "LIGHTING TEST",
+		"subtitle": "WALK THROUGH THE LIGHTS",
+		"behind": "LANTERN BEHIND YOU",
+		"front": "LANTERN IN FRONT OF YOU",
+		"fire": "FIRE AND FIREPLACE",
+		"spot": "SPOTLIGHT, AS IT WAS",
+		"time": "LIGHT  %s",
+		"times": {
+			"night": "NIGHT",
+			"grove": "MOONLIGHT",
+			"day": "DAY"
+		},
+		"crosshair": "ON THE CROSSHAIR  %s",
+		"held": {
+			"nothing": "NOTHING",
+			"lantern": "LANTERN",
+			"bulb": "SPOTLIGHT",
+			"tube": "LIGHT TUBE"
+		},
+		"in_front": "%s, IN FRONT",
+		"in_back": "%s, BEHIND",
+		"count": "%d LIGHTS  %d THROWING SHADOWS",
+		"keys": "T LIGHT  C CROSSHAIR  L FRONT/BEHIND  R AGAIN  ESC BACK"
 	},
 	"exit": {
 		"sign": "EXIT",
