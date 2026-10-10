@@ -183,10 +183,14 @@ const CLIMB_DOWN_SPEED := 240.0
 ## it. A tap there keeps hold, and so does the hold that climbed down to it,
 ## until it has been held this much longer.
 const ROPE_LET_GO := 0.4
-## What left and right do to a swing: this much speed along it a second, the
-## way held. Held against the pull back down, a rope is leaned over and kept
-## there; in time with the swing, it goes higher every time.
-const SWING_PUMP := 1100.0
+## What left and right do to a swing: push it along, this much speed along it
+## a second, the way held. They only feed a swing already going that way — a
+## body hanging still has nothing to push against, and a way held never keeps
+## a rope leaned over — and the slower it goes, the less of it they give, all
+## of it from SWING_FEEL up. Held in time with the swing, it goes higher every
+## time.
+const SWING_PUMP := 300.0
+const SWING_FEEL := 120.0
 ## How fast a swing dies away, a share of it a second.
 const SWING_DAMP := 0.4
 ## The furthest a rope swings from hanging straight down, either way: about
@@ -1157,9 +1161,10 @@ func _action_rush() -> void:
 
 ## A frame on a rope: up and down climb it, left and right swing it, and the
 ## pull of the world swings it back down — a pendulum from the rope's anchor,
-## the hands on it. The swing is measured off where the body actually is, so a
-## wall that stopped it stopped the swing, and a blow that knocked it aside
-## swung it. Down climbs as far as the rope's end and stops there; held there
+## the hands on it. Left and right push a swing along that is already going
+## their way (`SWING_PUMP`). The swing is measured off where the body actually
+## is, so a wall that stopped it stopped the swing, and a blow that knocked it
+## aside swung it. Down climbs as far as the rope's end and stops there; held there
 ## ROPE_LET_GO, it lets go, the body carrying the swing's speed.
 func _action_swing() -> void:
 	if rope == null:
@@ -1185,7 +1190,11 @@ func _action_swing() -> void:
 	else:
 		_held_at_end = 0.0
 	var reach := maxf(_grip, SWING_SHORTEST)
-	_spin += (-GRAVITY * sin(at) + SWING_PUMP * _dir * pace) / reach * delta
+	var going := _spin * _grip
+	var push := 0.0
+	if _dir != 0.0 and signf(going) == signf(_dir):
+		push = SWING_PUMP * _dir * pace * clampf(absf(going) / SWING_FEEL, 0.0, 1.0)
+	_spin += (-GRAVITY * sin(at) + push) / reach * delta
 	_spin *= exp(-SWING_DAMP * delta)
 	var to := at + _spin * delta
 	if absf(to) > SWING_MOST:
