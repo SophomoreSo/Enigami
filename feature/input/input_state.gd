@@ -29,6 +29,10 @@ var turn: int = 0
 ## Crouching, for as long as it is asked: down held — a key, or a stick pushed
 ## down past its threshold.
 var crouch: bool = false
+## Up held — a key, or a stick pushed up past its threshold — for as long as it
+## is: what takes hold of a rope within reach, and climbs one held
+## (`Player`). Down, held on a rope, is `crouch`, and climbs down it.
+var climb: bool = false
 ## Sprinting, for as long as it is asked: whatever way the body walks, it goes
 ## that way faster (`Player.SPRINT_SPEED`). A key, or the console's stick
 ## dragged far out of its ring.

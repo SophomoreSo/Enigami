@@ -23,12 +23,15 @@ extends HandLaidRoom
 ##             first floor under their cells, so neither is ever left hanging.
 ##   back      what stands behind all of it: a wall, a column, a tree, a pane
 ##             of glass.
-##   dressing  what is put about it: a lantern, a patch of grass, a vine.
+##   dressing  what is put about it: a lantern, a patch of grass, a vine, a
+##             rope.
 ##
-## The last two are the picture's, and nothing here reads them. Which marks
-## they hold, and what each looks like, is the tileset's — `tileset`, by id —
-## which draws the ground as well: every kind of ground is as solid as the
-## next, and what kind it is says only how it looks.
+## The last two are the picture's, and nothing here reads them but the lines
+## a body takes hold of and swings on — a rope, a vine (`LINES`) — which makes
+## them the rules' as much as the picture's, wherever they were laid. Which
+## other marks they hold, and what each looks like, is the tileset's —
+## `tileset`, by id — which draws the ground as well: every kind of ground is
+## as solid as the next, and what kind it is says only how it looks.
 ##
 ## The rock goes on past the plan's edge, as it is drawn to (`RoomView`): the
 ## room is shut in on every side whatever its outermost cells hold, so a gap in
@@ -52,6 +55,14 @@ const MONSTERS := {
 	"c": "CRAWLER", "s": "SENTRY", "l": "LOBBER", "h": "HOPPER", "d": "DRIFTER",
 	"w": "WARDEN", "g": "GUNMAN", "u": "GRUNT", "y": "DUMMY", "a": "ARBITER",
 }
+## A rope and a vine, laid in the dressing down a column of cells: one line a
+## run of either, hung from the top of the run and as long as it, and one a
+## body takes hold of and swings on (`_hang_ropes`).
+const ROPE := "r"
+const VINE := "v"
+## Those lines by the mark that lays each, and the kind of line each is, by its
+## row of `ropes`.
+const LINES := {ROPE: "cable", VINE: "vine"}
 ## The marks a room holds one of at most: a player starts in one place, and a
 ## room keeps its loot in one box (`Room.box`).
 const ONE_OF := [START, BOX]
@@ -213,6 +224,22 @@ func _parts(dice: RandomNumberGenerator, count: int) -> Array:
 		if not pool.is_empty():
 			out.append({"id": pool[dice.randi() % pool.size()]})
 	return out
+
+## A rope wherever a rope or a vine was laid: one to every run of either down
+## a column of the dressing (`LINES`), of its kind, hung from the top of its
+## first cell and reaching the foot of its last.
+func _hang_ropes() -> void:
+	_drop_ropes()
+	for y in rows:
+		for x in cols:
+			var mark := dressing_at(x, y)
+			if not LINES.has(mark) or dressing_at(x, y - 1) == mark:
+				continue
+			var last := y
+			while dressing_at(x, last + 1) == mark:
+				last += 1
+			_hang_rope(Vector2((x + 0.5) * CELL, y * CELL), float((last + 1 - y) * CELL),
+				String(LINES[mark]), Vector2i(x, y))
 
 ## The room's own rock, and the rock past its edge on every side.
 func _build_collision() -> void:

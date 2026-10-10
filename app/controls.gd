@@ -9,7 +9,7 @@ const PATH := "user://enigami_controls.json"
 const ACTIONS := [
 	["move_left", "Move left"],
 	["move_right", "Move right"],
-	["move_up", "Aim up"],
+	["move_up", "Up / climb"],
 	["move_down", "Crouch"],
 	["jump", "Jump"],
 	["dash", "Dash"],

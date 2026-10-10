@@ -28,6 +28,12 @@ extends Actor
 ## every one picked back up where it struck (`StuckShuriken`). At none it
 ## casts nothing; see `stock`.
 ##
+## A rope hung in the room (`HangingRope`) is something to take hold of: up
+## held with one within reach of the hands takes it, left and right swing on
+## it, up and down climb it, and a jump lets go of it — with whatever speed the
+## swing had and a jump on top. See `_mind_rope` and the actions `swing` and
+## `leap`.
+##
 ## A hit carrying POSSESS puts the player's hands into the monster it strikes
 ## (`possess`). The body stays where it was, standing still, and the monsters go
 ## on hunting it — it dies, and the raid is lost. The input line drives the
@@ -160,6 +166,42 @@ const MAX_CHARGE_TTL := float(SkillRunner.MAX_TTL_BONUS)
 const CHARGE_DECAY := 150.0       ## how fast an unspent charge bleeds off
 const CAST_BUFFER := 0.18         ## grace for a release landing on a cooldown
 
+## --- a rope -----------------------------------------------------------------
+## The hands hold a rope over the head, this far over the middle of the body,
+## and the body hangs upright under them wherever the swing carries them. The
+## picture's pose for it puts its hands there (`PlayerView`).
+const ROPE_HANDS := 30.0
+## How far the hands reach for a rope: either side of its line, and past
+## either end of it.
+const ROPE_REACH := 16.0
+## The highest the hands go up a rope: this far under where it hangs from.
+const ROPE_TOP := 12.0
+## How fast a rope is climbed: up it, and down it faster, as far as its end.
+const CLIMB_SPEED := 150.0
+const CLIMB_DOWN_SPEED := 240.0
+## How long down is held with the hands at a rope's end before they let go of
+## it. A tap there keeps hold, and so does the hold that climbed down to it,
+## until it has been held this much longer.
+const ROPE_LET_GO := 0.4
+## What left and right do to a swing: this much speed along it a second, the
+## way held. Held against the pull back down, a rope is leaned over and kept
+## there; in time with the swing, it goes higher every time.
+const SWING_PUMP := 1100.0
+## How fast a swing dies away, a share of it a second.
+const SWING_DAMP := 0.4
+## The furthest a rope swings from hanging straight down, either way: about
+## seventy degrees. It never goes over the top.
+const SWING_MOST := 1.25
+## The shortest a swing is reckoned at. Near the top of a rope a pendulum that
+## short would swing back and forth faster than it reads.
+const SWING_SHORTEST := 48.0
+## The fastest a rope is set swinging by a body catching it.
+const SWING_CAUGHT := 6.0
+## A jump off a rope goes up at least this fast, and faster still off the way
+## up a swing, but never faster than ROPE_JUMP_MOST.
+const ROPE_JUMP := -520.0
+const ROPE_JUMP_MOST := -820.0
+
 ## The weapons carried, in slot order, and the graph of each, run live. A
 ## weapon is its skill, so this is every skill the player has to hand.
 var weapons: Array[String] = []
@@ -202,7 +244,13 @@ var vessel_armed: bool = false
 ## Runner -> whether every attack its graph fires is a HEADBUTT (`bare_handed`),
 ## walked once a graph and thrown away whenever a graph or the kit changes.
 var _bare: Dictionary = {}
-var room = null
+## The room the body is in. A rope in the hands is let go of as it changes: the
+## rope was the room's.
+var room = null:
+	set(r):
+		if r != room and rope != null:
+			_drop_rope()
+		room = r
 var aim: Vector2 = Vector2.RIGHT
 ## Where the player is pointing, in world space, as opposed to `aim` which is
 ## only the direction. A lunge lands here rather than a fixed distance out.
@@ -213,6 +261,23 @@ var aim_point: Vector2 = Vector2.ZERO
 ## pointer always asks for all of it — a mouse points at a place, and a lunge
 ## already lands on that place (`aim_point`).
 var aim_reach: float = 1.0
+## The rope in the hands, or null — see `_mind_rope`.
+var rope: HangingRope = null
+## How far down the rope from its anchor the hands are, the angle it swings at
+## off hanging straight down — positive to the right — as the body was at the
+## top of the frame, and how fast that turns, in radians a second.
+var _grip: float = 0.0
+var _swing: float = 0.0
+var _spin: float = 0.0
+## How long down has been held with the hands at the rope's end (`ROPE_LET_GO`).
+var _held_at_end: float = 0.0
+## The rope last let go of. It is not taken again until up has been let go of,
+## so a jump off one with up still held is not caught by it on the way past.
+var _let_go_of: HangingRope = null
+## Whether the speed the body carries was flung off a rope. Held the way it
+## goes, the air does not brake it down to a run (`_action_steer`); the floor,
+## a wall, a dash or another rope ends it.
+var _flung: bool = false
 ## Whether the player has an air jump at all. Clear it to take the move away —
 ## for an upgrade that grants it, a debuff, or a room that asks for precision.
 var can_double_jump: bool = true
@@ -337,8 +402,11 @@ func _setup_fsm() -> void:
 		"dash": _action_dash,
 		"rush": _action_rush,
 		"duck": _action_duck,
+		"swing": _action_swing,
+		"leap": _action_leap,
 	}, {
 		"dashing": is_dashing,
+		"roped": on_rope,
 		"on_floor": is_on_floor,
 		"crouch": func() -> bool: return _asked.crouch,
 		"wall": func() -> int: return _wall_dir,
@@ -614,9 +682,11 @@ func _mind_possession(delta: float, s: InputState) -> void:
 	if s.use_pressed:
 		take_weapon()
 
-## The body dies with the player's hands elsewhere: they come back to it.
+## The body dies with the player's hands elsewhere: they come back to it. A
+## rope in them is let go of.
 func _kill() -> void:
 	release()
+	_drop_rope()
 	super._kill()
 
 ## Puts the weapon `step` slots along in hand: 1 for the next, -1 for the one
@@ -945,6 +1015,9 @@ func _physics_process(delta: float) -> void:
 	# The state that just ran set `velocity` from the controls; a knockback is
 	# not something the player asked for, so it moves them on its own.
 	apply_shove(delta)
+	# Where the hands ended up on the rope, for whoever draws it.
+	if rope != null and is_instance_valid(rope):
+		rope.hold(self, _hands_at(), _grip)
 
 func _change_state(new_state: FSMNode) -> void:
 	if debug_mode:
@@ -968,6 +1041,11 @@ func _sense(delta: float) -> void:
 		var normal := get_wall_normal()
 		if absf(normal.x) > 0.5 and _dir != 0.0 and signf(_dir) == -signf(normal.x):
 			_wall_dir = -int(signf(normal.x))
+
+	# Speed flung off a rope lasts until the body meets something.
+	if is_on_floor() or _wall_dir != 0:
+		_flung = false
+	_mind_rope()
 
 	# Stamina only comes back once the dashing stops.
 	if _stamina_pause > 0.0:
@@ -995,10 +1073,13 @@ func _action_run() -> void:
 	var delta := get_physics_process_delta_time()
 	velocity.x = move_toward(velocity.x, _dir * _pace(), GROUND_ACCEL * delta)
 
-## The same in the air, and easing off when nothing is held.
+## The same in the air, and easing off when nothing is held. Speed flung off a
+## rope faster than a run is kept for as long as the way it goes is held.
 func _action_steer() -> void:
 	var delta := get_physics_process_delta_time()
 	if _dir != 0.0:
+		if _flung and signf(velocity.x) == signf(_dir) and absf(velocity.x) > _pace():
+			return
 		velocity.x = move_toward(velocity.x, _dir * _pace(), AIR_ACCEL * delta)
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, FRICTION * delta)
@@ -1062,6 +1143,7 @@ func _action_dash() -> void:
 			_dash_dir = Vector2(facing, 0)
 			_dash_time = DASH_TIME
 			_dash_cd = DASH_COOLDOWN
+			_flung = false
 			# Armed once, at the press, rather than topped up every frame of the
 			# dash: what the move is worth as a dodge is then a window of its own
 			# length, and not the dash's length plus whatever the top-up was.
@@ -1072,6 +1154,57 @@ func _action_dash() -> void:
 func _action_rush() -> void:
 	_dash_time -= get_physics_process_delta_time()
 	velocity = _dash_dir * DASH_SPEED
+
+## A frame on a rope: up and down climb it, left and right swing it, and the
+## pull of the world swings it back down — a pendulum from the rope's anchor,
+## the hands on it. The swing is measured off where the body actually is, so a
+## wall that stopped it stopped the swing, and a blow that knocked it aside
+## swung it. Down climbs as far as the rope's end and stops there; held there
+## ROPE_LET_GO, it lets go, the body carrying the swing's speed.
+func _action_swing() -> void:
+	if rope == null:
+		return
+	if not is_instance_valid(rope):
+		_drop_rope()
+		return
+	var delta := get_physics_process_delta_time()
+	var a := rope.anchor()
+	var at := _swing_at(_hands_at() - a)
+	_spin = (at - _swing) / delta
+	_swing = at
+	var pace := speed_scale()
+	if _asked.climb:
+		_grip = maxf(_grip - CLIMB_SPEED * pace * delta, ROPE_TOP)
+	elif _asked.crouch:
+		_grip = maxf(minf(_grip + CLIMB_DOWN_SPEED * pace * delta, rope.length), _grip)
+	if _asked.crouch and not _asked.climb and _grip >= rope.length:
+		_held_at_end += delta
+		if _held_at_end >= ROPE_LET_GO:
+			_drop_rope()
+			return
+	else:
+		_held_at_end = 0.0
+	var reach := maxf(_grip, SWING_SHORTEST)
+	_spin += (-GRAVITY * sin(at) + SWING_PUMP * _dir * pace) / reach * delta
+	_spin *= exp(-SWING_DAMP * delta)
+	var to := at + _spin * delta
+	if absf(to) > SWING_MOST:
+		to = signf(to) * SWING_MOST
+	var hands := a + Vector2(sin(to), cos(to)) * _grip
+	velocity = (hands + Vector2(0.0, ROPE_HANDS) - global_position) / delta
+
+## A press lets go of the rope with a jump: the swing's speed and a jump on top
+## — up at least ROPE_JUMP, more off the way up a swing — and the air jump back,
+## the way kicking off a wall hands it back.
+func _action_leap() -> void:
+	if rope == null or _buffer <= 0.0:
+		return
+	_buffer = 0.0
+	_drop_rope()
+	velocity.y = maxf(minf(velocity.y + ROPE_JUMP, ROPE_JUMP), ROPE_JUMP_MOST)
+	_air_jump_used = false
+	_flung = true
+	Cues.at(&"jump", global_position, {"kind": "rope"})
 
 ## Keeps the body low for the frame. The frame a state stops taking this step,
 ## the body stands.
@@ -1122,11 +1255,93 @@ func apply_damage(amount: float, elements: Array = [], source: Node = null, is_h
 		invuln = maxf(invuln, HURT_INVULN)
 	return dealt
 
+## --- a rope -----------------------------------------------------------------
+
+## A frame of the hands and the ropes: up held with a rope within their reach
+## takes it, and a rope that has gone from under them — taken down with its
+## room — lets go. A rope let go of waits for up to be let go of too.
+func _mind_rope() -> void:
+	if not _asked.climb or not is_instance_valid(_let_go_of):
+		_let_go_of = null
+	if rope != null:
+		if not is_instance_valid(rope) or rope.holder != self:
+			_drop_rope()
+		return
+	if _asked.climb:
+		var r := _rope_in_reach()
+		if r != null:
+			_take_rope(r)
+
+## Where the hands are: over the middle of the body, at the top of the arms
+## reaching up.
+func _hands_at() -> Vector2:
+	return global_position + Vector2(0.0, -ROPE_HANDS)
+
+## The rope nearest the hands that they reach, in the room the body is in, or
+## null. Not one somebody else holds, nor the one just let go of.
+func _rope_in_reach() -> HangingRope:
+	if not is_instance_valid(room) or not (room is Room):
+		return null
+	var hands := _hands_at()
+	var best: HangingRope = null
+	var nearest := INF
+	for r in (room as Room).ropes:
+		if not is_instance_valid(r) or r == _let_go_of or r.held():
+			continue
+		if r.reach(hands, ROPE_REACH, ROPE_REACH) < 0.0:
+			continue
+		var across := absf(hands.x - r.anchor().x)
+		if across < nearest:
+			nearest = across
+			best = r
+	return best
+
+## `r` in the hands, where they are on it: the rope swings out to meet them,
+## and the body's speed across it sets it swinging. A jump pressed on the way
+## to it is not the jump off it.
+func _take_rope(r: HangingRope) -> void:
+	var hands := _hands_at()
+	var a := r.anchor()
+	rope = r
+	_grip = clampf(r.reach(hands, ROPE_REACH, ROPE_REACH), ROPE_TOP, maxf(r.length, ROPE_TOP))
+	var at := _swing_at(hands - a)
+	var along := Vector2(cos(at), -sin(at))
+	var caught := clampf(velocity.dot(along) / maxf(_grip, SWING_SHORTEST), -SWING_CAUGHT, SWING_CAUGHT)
+	# Measured from here as if it had already been swinging that fast.
+	_swing = at - caught * get_physics_process_delta_time()
+	_spin = caught
+	_held_at_end = 0.0
+	_buffer = 0.0
+	_flung = false
+	_air_jump_used = false
+	r.hold(self, a + Vector2(sin(at), cos(at)) * _grip, _grip)
+	Cues.at(&"rope", hands, {"kind": "grab"})
+
+## The angle a rope hangs at to hands `off` from its anchor: off straight down,
+## positive to the right, and never past SWING_MOST either way — hands over the
+## anchor hold it at its furthest, not over the top.
+static func _swing_at(off: Vector2) -> float:
+	return clampf(atan2(off.x, maxf(off.y, 1.0)), -SWING_MOST, SWING_MOST)
+
+## The rope out of the hands, left hanging, and not taken again until up has
+## been let go of. The body carries whatever speed it had.
+func _drop_rope() -> void:
+	if rope != null and is_instance_valid(rope):
+		if rope.holder == self:
+			rope.let_go()
+		_let_go_of = rope
+	rope = null
+
 ## --- read by the view -------------------------------------------------------
 func is_dashing() -> bool:
 	return _dash_time > 0.0
 
-## The movement state, by name: Idle, Run, Crouch, Rise, Fall, WallSlide or Dash.
+## Whether a rope is in the hands.
+func on_rope() -> bool:
+	return rope != null
+
+## The movement state, by name: Idle, Run, Crouch, Rise, Fall, WallSlide, Dash
+## or Swing.
 func state_name() -> String:
 	return _state_label(current_state)
 

@@ -106,7 +106,7 @@ func _ready() -> void:
 	if sk == null:
 		_finish()
 		return
-	for anim in ["idle", "run", "crouch", "hit", "rise", "fall", "wall_slide", "dash"]:
+	for anim in ["idle", "run", "crouch", "hit", "rise", "fall", "wall_slide", "dash", "hang"]:
 		check(sk.frames.has_animation(anim) and sk.frames.get_frame_count(anim) > 0,
 			"it has a '%s' pose" % anim)
 	check(sk.frames.get_frame_count("run") >= 6, "the run is a cycle, not a shuffle (%d frames)" % sk.frames.get_frame_count("run"))

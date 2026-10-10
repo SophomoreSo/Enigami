@@ -317,8 +317,8 @@ INSERT INTO transitions (machine_id, from_id, position, to_id, condition) VALUES
 | `transitions.condition` | Whether this way is open: the `id` of one of the machine's `conditions`. The build refuses one that is not written. |
 | `transitions.probability` | Rows sharing a `from_id` and a `position` are one way out that **splits** between their `to_id`s by this, and add up to 1. One row, and the way is certain. The rows of a split name the same condition; the build refuses ones that do not. |
 
-The player's seven states can each reach every other, so `player.sql` is
-forty-two ways; close one by deleting its row, and open a split by adding rows
+The player's eight states can each reach every other, so `player.sql` is
+fifty-six ways; close one by deleting its row, and open a split by adding rows
 at the same position.
 
 ### The player's words
@@ -337,10 +337,13 @@ and, for an action, the method it calls.
 | `dash` | a press starts a dash, when the stamina and the cooldown allow |
 | `rush` | a dash under way carries the body until its time runs out |
 | `duck` | keeps the body low for the frame — crouched; the frame no step does, it stands back up |
+| `swing` | on a rope: up and down climb it, left and right swing it, the world's pull swings it back down; down held at its end lets go |
+| `leap` | a press lets go of the rope with a jump, on top of the swing's speed |
 
 | Sense | What it says |
 |---|---|
 | `dashing` | whether a dash is under way |
+| `roped` | whether a rope is in the hands: up held within reach of one took it |
 | `on_floor` | whether the player is standing on something |
 | `crouch` | whether a crouch is asked for: the down key held, or a stick pointing down |
 | `wall` | the wall being hugged: `-1` on the left, `1` on the right, `0` none |
@@ -362,7 +365,7 @@ INSERT INTO conditions (machine_id, id, expression) VALUES
 	('player', 'running', 'not dashing and on_floor and dir != 0');
 ```
 
-The player's six are exclusive and leave nothing out: on any frame exactly
+The player's eight are exclusive and leave nothing out: on any frame exactly
 one holds, so the order a state asks its ways in only says which is asked
 first. `machine_test` tries them against every combination of the senses
 that matters to them. A condition that overlaps another fails it; if that
@@ -560,14 +563,17 @@ a part's look is `Style`'s.
 
 ## A rope
 
-The lines that hang in the rooms — cables today — are `Rope`
-(`graphics/rope.gd`): a line of nodes, hung from a point, swinging from it
-when somebody walks through any part of it — or an attack goes through it: a
-bolt, a blast, a lunge, a slash — drawn pixel by pixel. A
+The lines that hang in the rooms — cables today — are ropes a body takes hold
+of and swings on (`HangingRope`, `feature/world/hanging_rope.gd`), which the
+room hangs, and each is drawn as a `Rope` (`graphics/rope.gd`): a line of
+nodes, hung from a point, swinging from it when somebody walks through any
+part of it — or an attack goes through it: a bolt, a blast, a lunge, a slash
+— drawn pixel by pixel, and held taut to the hands of whoever hangs on it. A
 **kind** of line is a row of `ropes`, the numbers the simulation shares
 along one, and what a room hangs of each kind is a row of `hangings`.
 Change a number in `ropes/ropes.sql` and rebuild, and every line of that
-kind moves that way.
+kind moves that way. How a body swings on one is the player's
+(`feature/actors/player.gd`), and the same whatever kind it is.
 
 A kind with no row of `hangings` is one no room hangs, and whoever wants
 one hangs it. A `cord` is that: what a light hangs on in the hideout — the
@@ -581,7 +587,8 @@ as a pendulum does.
 
 A `vine` is another: what a map made in the map creator hangs where a vine
 was put, the length of the run of it, with a leaf riding every node
-(`graphics/views/made_room_view.gd`). Finer and looser than a cable, it bends
+(`graphics/views/made_room_view.gd`), and a rope a body takes hold of as it
+does a cable (`MadeRoom.LINES`). Finer and looser than a cable, it bends
 where it is pushed rather than swinging whole. A made map hangs its ropes as
 cables the same way, and its lanterns on cables too, in a cord's colour
 (`MapTiles.LANTERN_LINE`): the hideout's cords are one length and swing from
@@ -607,11 +614,15 @@ INSERT INTO hangings (rope, fewest, most, shortest, longest) VALUES
 | `hangings.fewest` `most` | How many of the kind a room hangs. |
 | `hangings.shortest` `longest` | How long each is, in cells of the room's grid, to the nearest node. |
 
-Where a line hangs is `RoomView`'s (`graphics/views/room_view.gd`): from a
-solid cell with open air under it — the ceiling, or the underside of a
-ledge — never at the room's edge, never under the readout, never two close
-together, rolled from the room's own seed so a room looks the same every
-time. What keeps a line steady whatever its numbers say stays code, as
+Where a line hangs is the room's (`Room._hang_ropes`,
+`feature/world/room.gd`): from a solid cell with open air under it — the
+ceiling, or the underside of a ledge — never at the room's edge, never in its
+top-left corner, where the readout stands over it, never two close together,
+rolled from the room's own seed so a room hangs the same ropes every time. A
+room laid by hand hangs none of these, and a made map hangs a rope down every
+run of them laid in it (`MadeRoom._hang_ropes`); a room whose record names its
+ropes hangs those and rolls none, which is how the hideout hangs its own
+(`HideoutWorld.ROPES`). What keeps a line steady whatever its numbers say stays code, as
 constants on `Rope`: the most a node moves in a step, and the slowest body
 that moves it — and so does the rule that whatever holds a node to its
 parent pulls the parent the other way, which is what swings a whole line

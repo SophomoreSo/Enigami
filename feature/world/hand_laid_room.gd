@@ -42,6 +42,11 @@ func mark_at(x: int, y: int) -> String:
 	var row := String(laid[y])
 	return row[x] if x >= 0 and x < row.length() else "#"
 
+## A room laid by hand hangs what was laid in it, and the content database's
+## `hangings` lay nothing here: none, unless the room says otherwise.
+func _hang_ropes() -> void:
+	_drop_ropes()
+
 ## Every cell carrying `mark`, row by row from the top.
 func cells_marked(mark: String) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []

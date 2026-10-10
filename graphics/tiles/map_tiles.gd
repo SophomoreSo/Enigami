@@ -43,14 +43,16 @@ const IDS := ["grove", "rock"]
 ## creator offers them.
 const PROPS := {
 	"L": "lantern", "B": "lightbulb", "F": "fire", "H": "fireplace", "m": "mushrooms", "*": "fireflies",
-	"g": "grass", "f": "flowers", "b": "bush", "n": "fern", "v": "vine", "r": "rope",
+	"g": "grass", "f": "flowers", "b": "bush", "n": "fern", MadeRoom.VINE: "vine", MadeRoom.ROPE: "rope",
 }
 ## Those that are foliage (`Foliage`), by the kind each grows.
 const FOLIAGE := {"g": "grass", "f": "flowers", "b": "bush"}
 ## Those that hang from what is over them, and those that are lines: a run of
-## them down a column is one, hung from the top of the run.
-const HANGING := ["L", "B", "v", "r"]
-const LINES := {"v": "vine", "r": "cable"}
+## them down a column is one, hung from the top of the run. A line is the
+## room's as well as the picture's — a body takes hold of a vine or a rope —
+## so their marks and their kinds of line are the room's (`MadeRoom.LINES`).
+const HANGING := ["L", "B", MadeRoom.VINE, MadeRoom.ROPE]
+const LINES := MadeRoom.LINES
 ## The kind of line a lantern hangs on: a rope's, with a node all along it, so
 ## whatever goes through any of it moves it there and swings the lantern on
 ## its end, as a rope moves. It is drawn in a cord's colour (`Style.ROPE_LOOK`),
@@ -600,7 +602,7 @@ func paint_prop_still(c: CanvasItem, cells: MapCells, x: int, y: int, t: float) 
 			fireflies(c, x, y, t)
 		"n":
 			fern(c, mid, ground)
-		"v", "r":
+		MadeRoom.VINE, MadeRoom.ROPE:
 			var last := run_down(cells, x, y, mark)
 			if last < 0:
 				return
@@ -608,7 +610,7 @@ func paint_prop_still(c: CanvasItem, cells: MapCells, x: int, y: int, t: float) 
 			var foot := (last + 1) * C - 2
 			var look := Style.rope_look(String(LINES[mark]))
 			box(c, mid, top, 1, foot - top, look["line"])
-			if mark == "v":
+			if mark == MadeRoom.VINE:
 				for k in range(top + 3, foot - 1, 4):
 					vine_leaf_at(c, mid, k, (k / 4) % 2 == 0)
 			box(c, mid - 1, foot - 1, 3, 3, look["end"])

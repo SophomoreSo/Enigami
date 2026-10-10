@@ -48,6 +48,18 @@ const STATION_CELLS := {
 	"perks": 27,
 	"gate": 34,
 }
+## The ropes over the floor, to take hold of and swing on between the stations
+## (`HangingRope`): the column each hangs down from the ceiling, and how many
+## cells long. The longest is a jump from the floor to reach, and the others a
+## jump and the air jump; hung that close, a swing on one reaches the next.
+## They are the room's, and no rolled cables hang beside them. What they look
+## like is the look's: the grove's are its vines (`HideoutScenery.dress_lines`).
+const ROPES := [
+	{"col": 3, "cells": 13},
+	{"col": 11, "cells": 15},
+	{"col": 16, "cells": 13},
+	{"col": 30, "cells": 14},
+]
 
 var room: Room
 var player: Player
@@ -74,12 +86,13 @@ func _ready() -> void:
 	# One room, flat and empty: a hideout is somewhere to stand, and a generated
 	# raid room's platforms would put the merchant on a ledge. `entry` is the
 	# kind with no monsters and no loot in it, and `flat` is the room asking the
-	# generator for a floor and four walls and nothing else.
+	# generator for a floor and four walls and nothing else — and the ropes
+	# over it, which are the hideout's own rather than rolled.
 	room = Room.new()
 	add_child(room)
 	room.build(Vector2i.ZERO, {
 		"kind": "entry", "danger": 1, "region": 0, "variant": 3,
-		"flat": true, "enemies": [], "loot": [],
+		"flat": true, "enemies": [], "loot": [], "ropes": ROPES.duplicate(true),
 	}, {}, 20260920)
 
 	if weapon_id == "" or not GameState.owned_weapons.has(weapon_id):

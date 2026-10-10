@@ -16,6 +16,7 @@ player.fall.png
 player.wall_slide.png
 player.dash.png
 player.hit.png
+player.hang.png     hanging from a rope by the fist over the head, where the rope's line runs in
 ```
 
 At load, `SkinnedCharacter` turns each strip into what `skin_sprite.gdshader`

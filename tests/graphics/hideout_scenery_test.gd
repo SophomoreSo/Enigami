@@ -302,6 +302,16 @@ func _dressed() -> void:
 		"and behind everything the room hangs and grows (%d cables, %d patches)"
 			% [room_view.ropes.size(), room_view.plants.size()])
 	check(scenery.z_index < 0, "which puts it behind whoever walks the room too")
+	var worn := room_view.rope_lines()
+	var as_they_should := not worn.is_empty() and worn.size() == world.room.ropes.size()
+	for held in worn:
+		var l: Rope = worn[held]
+		if scenery is HideoutGrove:
+			as_they_should = as_they_should and l.kind == "vine" and l.ridden(l.nodes.size() - 1)
+		else:
+			as_they_should = as_they_should and l.kind == (held as HangingRope).kind and not l.ridden(l.nodes.size() - 1)
+	check(as_they_should, "the room's ropes worn as %s (%d of them)"
+		% ["the grove's vines, a leaf at every node" if scenery is HideoutGrove else "the room hung them", worn.size()])
 	check(not scenery._still.is_empty() and not scenery._moving.is_empty(),
 		"it has depths that stand still and depths that move (%d and %d)"
 			% [scenery._still.size(), scenery._moving.size()])

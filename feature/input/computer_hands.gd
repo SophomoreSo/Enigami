@@ -26,6 +26,8 @@ extends InputMiddleware
 var move: float = 0.0
 ## Crouching, for as long as it is set.
 var crouch: bool = false
+## Up held, for as long as it is set: taking hold of a rope, and climbing it.
+var climb: bool = false
 ## Sprinting, for as long as it is set, whichever way it walks.
 var sprint: bool = false
 ## The attack button, held.
@@ -91,6 +93,7 @@ func process(_said: InputState) -> InputState:
 	var s := InputState.new()
 	s.move = clampf(move, -1.0, 1.0)
 	s.crouch = crouch
+	s.climb = climb
 	s.sprint = sprint
 	s.attack = attack
 	s.cast = cast

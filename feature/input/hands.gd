@@ -23,6 +23,9 @@ func process(s: InputState) -> InputState:
 	# (`TouchPad.STICK_CROUCH`). The sprint is a key of its own, which the
 	# console's stick holds when it is dragged as far out to a side.
 	s.crouch = Input.is_action_pressed("move_down")
+	# Up held is up whatever holds it, the same way: what takes hold of a rope,
+	# and climbs it.
+	s.climb = Input.is_action_pressed("move_up")
 	s.sprint = Input.is_action_pressed("sprint")
 	s.attack = Input.is_action_pressed("attack")
 	s.cast = Input.is_action_pressed("cast_skill")

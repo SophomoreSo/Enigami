@@ -79,9 +79,15 @@ extends Node2D
 ## data/db/README.md). What keeps a line steady whatever the numbers say
 ## stays here, as constants, and so does its look, in `Style`.
 ##
-## Nothing here is a rule. It changes nothing and reads only where bodies are
-## and how fast they move; a world without a picture has no cables in it and
-## never misses them.
+## A line can be held (`hold`): a body hanging on the rope this line draws
+## (`HangingRope`) has it taut and straight from its anchor to the hands, and
+## what is below the hands hangs from them and swings after them. Let go of, it
+## swings on with what the hands gave it.
+##
+## Nothing here is a rule. It changes nothing and reads only where bodies are,
+## how fast they move and where a hand holds it; the rope a body swings on is
+## the rules' (`HangingRope`), and a world without a picture swings on it all
+## the same, drawing nothing.
 
 ## The width of the line, and the grid it is drawn on: one pixel of the buffer
 ## the pixel camera draws the world into.
@@ -158,6 +164,9 @@ var end_color: Color = Style.rope_look("cable")["end"]
 var nodes: Array = []
 ## What rides the line: `{node, index, offset, body}`.
 var _riders: Array = []
+## How many nodes past the root a hand holds (`hold`): where the hand puts them,
+## and left out of the simulation. None while nobody holds it.
+var _held: int = 0
 ## Where each bolt in the air was a step ago, by its instance: a bolt is taken
 ## from there to where it is now, so a fast one is not past the line between
 ## two steps.
@@ -211,6 +220,8 @@ func hang(at: Vector2, length: float, spacing: float = 0.0) -> void:
 ## it up over what it hangs from. And a free end with a rider on it has no
 ## plug: the rider is its end.
 func attach(rider: Node2D, i: int, offset: Vector2 = Vector2.ZERO, body: Rect2 = Rect2()) -> void:
+	# What rode it and is gone — the leaves of a look since taken off — is let go of first.
+	_riders = _riders.filter(func(r: Dictionary) -> bool: return is_instance_valid(r["node"]))
 	_riders.append({"node": rider, "index": i, "offset": offset, "body": body})
 	_carry()
 
@@ -238,21 +249,30 @@ static func source(id: String) -> Dictionary:
 ## in the table is said loudly, and the line is a cable.
 static func of(id: String) -> Rope:
 	var rope := Rope.new()
+	rope.become(id)
+	return rope
+
+## This line, made of kind `id` from now on: its row's numbers and its look —
+## a look of the hideout dressing the room's ropes as its own vines. Its nodes
+## stay where and as far apart as they were hung, so the kind's own `segment`
+## is taken only by a line not hung yet. A kind that is not in the table is
+## said loudly, and the line is left as it was.
+func become(id: String) -> void:
 	var row := source(id)
 	if row.is_empty():
 		push_error("Rope: no kind of line called '%s' in %s" % [id, Db.PATH])
-		return rope
-	rope.kind = id
-	rope.segment = float(row["segment"])
-	rope.stiffness = float(row["stiffness"])
-	rope.damping = float(row["damping"])
-	rope.gravity = float(row["gravity"])
-	rope.give = float(row["give"])
-	rope.push_most = float(row["push_most"])
+		return
+	kind = id
+	if nodes.is_empty():
+		segment = float(row["segment"])
+	stiffness = float(row["stiffness"])
+	damping = float(row["damping"])
+	gravity = float(row["gravity"])
+	give = float(row["give"])
+	push_most = float(row["push_most"])
 	var look := Style.rope_look(id)
-	rope.color = look["line"]
-	rope.end_color = look["end"]
-	return rope
+	color = look["line"]
+	end_color = look["end"]
 
 ## What a room hangs: the rows of `hangings`, each the kind of line (`rope`),
 ## how many (`fewest` to `most`) and how long in cells (`shortest` to
@@ -285,6 +305,48 @@ func tips() -> Array[int]:
 			out.append(i)
 	return out
 
+## Held by a hand at `at`, in the world, `along` down the line from its root:
+## the line runs straight and taut from the root to the hand — the node nearest
+## `along` is put in the hand and the ones above it on the way there — and what
+## hangs below swings after it. Called every physics frame the hand holds on,
+## before the line is stepped; `delta` is that frame, so a node moved by the
+## hand is moving as fast as the hand moved it, and swings on at that speed when
+## it is let go of (`let_go`).
+func hold(at: Vector2, along: float, delta: float) -> void:
+	if nodes.size() < 2:
+		return
+	var hand := to_local(at)
+	var k := held_at(along)
+	var top: Vector2 = nodes[0]["pos"]
+	for i in range(1, k + 1):
+		var to := top.lerp(hand, float(i) / float(k))
+		if delta > 0.0:
+			nodes[i]["vel"] = (to - (nodes[i]["pos"] as Vector2)) / delta
+		nodes[i]["pos"] = to
+		nodes[i]["pull"] = Vector2.ZERO
+	_held = k
+	_carry()
+
+## The node a hand `along` down the line holds it by: the one nearest that far
+## down it, counted node by node as the line was hung, and never the root.
+func held_at(along: float) -> int:
+	var down := 0.0
+	for i in range(1, nodes.size()):
+		var length := float(nodes[i]["length"])
+		down += length
+		if along <= down - length * 0.5:
+			return maxi(i - 1, 1)
+	return maxi(nodes.size() - 1, 1)
+
+## Out of the hand: every node swings free again, from where the hand left it,
+## as fast as the hand was moving it.
+func let_go() -> void:
+	_held = 0
+
+## Whether a hand holds it.
+func holding() -> bool:
+	return _held > 0
+
 ## --- the simulation ---------------------------------------------------------
 
 ## One physics frame. Every free node falls, carries its speed, slows, takes
@@ -308,7 +370,7 @@ func step(delta: float) -> void:
 	var keep := 1.0 - exp(-stiffness * delta)
 	for i in range(1, nodes.size()):
 		var n: Dictionary = nodes[i]
-		if n["fixed"]:
+		if n["fixed"] or i <= _held:
 			continue
 		var parent: int = n["parent"]
 		var at: Vector2 = n["pos"]
@@ -354,7 +416,7 @@ func step(delta: float) -> void:
 		var held := rest if far < 0.01 else hung + d * (length / far)
 		n["vel"] = (held - at) / delta
 		n["pos"] = held
-		if not nodes[parent]["fixed"]:
+		if not nodes[parent]["fixed"] and parent > _held:
 			var back := asked - next
 			if far > length:
 				back += next - held
