@@ -199,13 +199,21 @@ func _made() -> void:
 	await phys(2)
 	check(p._spin > 0.5, "and set swinging the way the body was going (%.2f)" % p._spin)
 	var widest := 0.0
+	var jolt := 0.0
+	var was := p._spin
 	for i in 300:
 		hands.move = signf(p._spin)
 		await phys(1)
 		widest = maxf(widest, absf(p._swing))
+		var pulled := Player.GRAVITY * absf(sin(p._swing)) / maxf(p._grip, Player.SWING_SHORTEST) \
+			* get_physics_process_delta_time()
+		jolt = maxf(jolt, absf(was) - absf(p._spin) - pulled)
+		was = p._spin
 	hands.move = 0.0
 	check(widest > 0.8 and widest <= Player.SWING_MOST + 0.001,
 		"pushed along in time with the swing it goes higher every time, never past %.2f (%.2f)" % [Player.SWING_MOST, widest])
+	check(jolt < 0.05, "and slows into its furthest as the world's pull slows it, never stopped dead there (%.3f rad/s more than that, at most, in a frame)"
+		% jolt)
 
 	# Up and down climb it: up as far as the top, and down as far as the end,
 	# where down held a moment longer lets go — and a tap of it does not.
