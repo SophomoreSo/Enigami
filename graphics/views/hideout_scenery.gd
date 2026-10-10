@@ -13,7 +13,8 @@ extends Node2D
 ## is 640 by 352, so nothing can land between two of them; where each
 ## station's fittings stand, and how lit they are for whoever is standing at
 ## one; the depths themselves, drawn once or drawn again as they move; what
-## hangs in the room on a line and swings on it; and the handful of shapes
+## hangs in the room on a line and swings on it; how the ropes the room hangs
+## over its floor are worn (`dress_lines`); and the handful of shapes
 ## everything is made of.
 ##
 ## It is scenery, and only that. It reads where the stations stand, whether the
@@ -108,6 +109,7 @@ func _ready() -> void:
 			_at[id] = Vector2i(roundi(to_local(s.global_position).x / S), FLOOR)
 			_lit[id] = 0.0
 	_build()
+	dress_lines()
 	# Slid to where the player already stands, so a look put on in the middle
 	# of the room does not open a pixel out and step into place.
 	if _watched():
@@ -117,6 +119,25 @@ func _ready() -> void:
 ## `still` or `moving`.
 func _build() -> void:
 	pass
+
+## The ropes the room hangs over its floor (`Room.ropes`, drawn by the room's
+## view as lines), worn in this look, each by `dress_line`. They are the room's
+## and stand in every look; a look only says what they are made of.
+func dress_lines() -> void:
+	var view := get_parent() as RoomView
+	if view == null:
+		return
+	var lines := view.rope_lines()
+	for held in lines:
+		if is_instance_valid(held) and is_instance_valid(lines[held]):
+			dress_line(lines[held] as Rope, held as HangingRope)
+
+## One of the room's ropes, the line `worn` drawing `held`, worn in this look:
+## as the kind of line the room hung it as, unless the look has a line of its
+## own for it. Which also takes off what a look worn before this one dressed it
+## in.
+func dress_line(worn: Rope, held: HangingRope) -> void:
+	worn.become(held.kind)
 
 ## A look's own: its depths moved for where the player stands, -1 at the
 ## room's left wall and 1 at its right. `slid` is the step each takes.

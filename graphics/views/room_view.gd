@@ -150,6 +150,11 @@ func _hang_lines() -> void:
 		ropes.append(line)
 		_lines[held] = line
 
+## The line drawing each of the room's ropes, by the rope (`HangingRope`): for a
+## look the room is dressed in to wear them its own way (`HideoutScenery`).
+func rope_lines() -> Dictionary:
+	return _lines
+
 func _physics_process(delta: float) -> void:
 	_hold_lines(delta)
 

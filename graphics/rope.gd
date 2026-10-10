@@ -220,6 +220,8 @@ func hang(at: Vector2, length: float, spacing: float = 0.0) -> void:
 ## it up over what it hangs from. And a free end with a rider on it has no
 ## plug: the rider is its end.
 func attach(rider: Node2D, i: int, offset: Vector2 = Vector2.ZERO, body: Rect2 = Rect2()) -> void:
+	# What rode it and is gone — the leaves of a look since taken off — is let go of first.
+	_riders = _riders.filter(func(r: Dictionary) -> bool: return is_instance_valid(r["node"]))
 	_riders.append({"node": rider, "index": i, "offset": offset, "body": body})
 	_carry()
 
@@ -247,21 +249,30 @@ static func source(id: String) -> Dictionary:
 ## in the table is said loudly, and the line is a cable.
 static func of(id: String) -> Rope:
 	var rope := Rope.new()
+	rope.become(id)
+	return rope
+
+## This line, made of kind `id` from now on: its row's numbers and its look —
+## a look of the hideout dressing the room's ropes as its own vines. Its nodes
+## stay where and as far apart as they were hung, so the kind's own `segment`
+## is taken only by a line not hung yet. A kind that is not in the table is
+## said loudly, and the line is left as it was.
+func become(id: String) -> void:
 	var row := source(id)
 	if row.is_empty():
 		push_error("Rope: no kind of line called '%s' in %s" % [id, Db.PATH])
-		return rope
-	rope.kind = id
-	rope.segment = float(row["segment"])
-	rope.stiffness = float(row["stiffness"])
-	rope.damping = float(row["damping"])
-	rope.gravity = float(row["gravity"])
-	rope.give = float(row["give"])
-	rope.push_most = float(row["push_most"])
+		return
+	kind = id
+	if nodes.is_empty():
+		segment = float(row["segment"])
+	stiffness = float(row["stiffness"])
+	damping = float(row["damping"])
+	gravity = float(row["gravity"])
+	give = float(row["give"])
+	push_most = float(row["push_most"])
 	var look := Style.rope_look(id)
-	rope.color = look["line"]
-	rope.end_color = look["end"]
-	return rope
+	color = look["line"]
+	end_color = look["end"]
 
 ## What a room hangs: the rows of `hangings`, each the kind of line (`rope`),
 ## how many (`fewest` to `most`) and how long in cells (`shortest` to
@@ -305,7 +316,7 @@ func hold(at: Vector2, along: float, delta: float) -> void:
 	if nodes.size() < 2:
 		return
 	var hand := to_local(at)
-	var k := clampi(int(round(along / maxf(segment, 1.0))), 1, nodes.size() - 1)
+	var k := held_at(along)
 	var top: Vector2 = nodes[0]["pos"]
 	for i in range(1, k + 1):
 		var to := top.lerp(hand, float(i) / float(k))
@@ -315,6 +326,17 @@ func hold(at: Vector2, along: float, delta: float) -> void:
 		nodes[i]["pull"] = Vector2.ZERO
 	_held = k
 	_carry()
+
+## The node a hand `along` down the line holds it by: the one nearest that far
+## down it, counted node by node as the line was hung, and never the root.
+func held_at(along: float) -> int:
+	var down := 0.0
+	for i in range(1, nodes.size()):
+		var length := float(nodes[i]["length"])
+		down += length
+		if along <= down - length * 0.5:
+			return maxi(i - 1, 1)
+	return maxi(nodes.size() - 1, 1)
 
 ## Out of the hand: every node swings free again, from where the hand left it,
 ## as fast as the hand was moving it.

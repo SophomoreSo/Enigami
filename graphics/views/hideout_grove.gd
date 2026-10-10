@@ -572,8 +572,8 @@ func _paint_trees(c: CanvasItem) -> void:
 	for k in range(0, 150, 6):
 		box(c, LEFT + 2 + _odd(k, 52) % 14, 90 + k, 2, 2, MOSS if k % 4 == 0 else LEAF.lightened(0.08))
 
-## The leaves overhead, all along the top of the place, and what trails down
-## out of them.
+## The leaves overhead, all along the top of the place. What trails down out
+## of them are the room's ropes, which are vines here (`dress_line`).
 func _paint_canopy(c: CanvasItem) -> void:
 	for x in range(LEFT, RIGHT, 7):
 		glow(c, x + _odd(x, 61) % 5, TOP + 1 + _odd(x, 62) % 10, 7 + _odd(x, 63) % 5, DARK)
@@ -582,16 +582,19 @@ func _paint_canopy(c: CanvasItem) -> void:
 	for x in range(LEFT + 3, RIGHT - 3, 4):
 		if _odd(x, 66) % 3 == 0:
 			box(c, x, 22 + _odd(x, 67) % 18, 2, 1, LEAF)
-	for vine in [[70, 58], [132, 84], [262, 48], [388, 40], [456, 64], [540, 46], [610, 70]]:
-		var x: int = vine[0]
-		for k in range(0, int(vine[1]), 3):
-			@warning_ignore("integer_division")
-			var sway := (k / 6) % 2
-			box(c, x + sway, 30 + k, 1, 3, LEAF.lightened(0.03))
-			@warning_ignore("integer_division")
-			if (k / 3) % 3 == 0:
-				@warning_ignore("integer_division")
-				box(c, x + sway - 1 + 2 * ((k / 9) % 2), 31 + k, 2, 1, MOSS.darkened(0.15))
+
+## The room's ropes, worn as the wood's vines hanging out of the leaves
+## overhead: in a vine's green, as loose as one, and with a leaf at every node,
+## either side by turns, as a vine laid in a map has (`MadeRoomView`). The
+## leaves are this look's, and go with it when another look is put on.
+func dress_line(worn: Rope, _held: HangingRope) -> void:
+	worn.become("vine")
+	for i in range(1, worn.nodes.size()):
+		var leaf := MadeRoomView.Leaf.new()
+		leaf.flip = i % 2 == 0
+		leaf.visibility_layer = PixelCamera.WORLD_LAYER
+		add_child(leaf)
+		worn.attach(leaf, i)
 
 ## The standing stone, with the way through cut into it. What the cuts are lit
 ## in is `_paint_room_life`'s.

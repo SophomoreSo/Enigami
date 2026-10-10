@@ -131,7 +131,7 @@ not a thing to reach for once it errors.
 |---|---|
 | A / D, ← / → | move; on a rope, swing it — the way held, and in time with the swing higher every time, never over the top |
 | S, ↓ | crouch, on the floor: the body is let down onto its feet — lower, and a smaller thing to hit — and stays where it is; a direction held with it turns it round. A jump or a dash goes out of it, and there is no crouch in the air. On a rope, climb down it, as far as its end; held there a moment more, let go of it — a tap there keeps hold |
-| W, ↑ | take hold of a rope within reach of the hands — held on the way to one, it catches it — and, holding on, climb it, as far as its top. A rope just let go of is not caught again until W has been let go of |
+| W, ↑ | take hold of a rope or a vine within reach of the hands — held on the way to one, it catches it — and, holding on, climb it, as far as its top. One just let go of is not caught again until W has been let go of |
 | SPACE | jump; again in mid-air to double jump; against a wall to kick off; on a rope, leap off it, with the swing's speed and a jump on top — more off the way up a swing — and the air jump back. Speed a swing flings the body off at faster than a run is kept in the air for as long as that way is held |
 | SHIFT | dash — left or right only, never up; brief invulnerability from the press; spends stamina, four dashes to a full bar |
 | CTRL | sprint — held with a direction, the same run half as fast again. It costs nothing, turns and jumps as a run does and carries into the air while it is held; a crouch stops it |
@@ -160,6 +160,11 @@ has **HIDEOUT THEME** on it for as long as you are standing there: the looks
 are listed in a corner of the screen, and the room is dressed in whichever is
 pressed, behind the list, there and then. The pick is remembered in
 `user://enigami_hideout_theme.json`, beside the language and the bindings.
+
+Four ropes hang over the hideout's floor between the stations, in every look,
+to take hold of and swing on: the two longer are a jump from the floor to
+reach, the other two a jump and the air jump. In the grove they are its vines;
+in the other looks, plain ropes. Where they hang is `HideoutWorld.ROPES`.
 
 ### The screen's shape
 
@@ -806,8 +811,8 @@ The props are the game's own things. A lantern hangs from the ground, the
 rail or the lintel over it, with a lamp in it, on a line that is a rope like
 the ROPE: somebody going through it anywhere moves it there and swings the
 lantern on its end, as going through the lantern does. A vine or a rope hangs
-the length of its run, and swings the same way — and a rope is one to take hold
-of and swing on, as a raid room's are, hanging from the top of its run; grass, flowers and a bush are the floor's foliage, and
+the length of its run, and swings the same way — and either is one to take
+hold of and swing on, as a raid room's ropes are, hanging from the top of its run; grass, flowers and a bush are the floor's foliage, and
 lean where somebody walks; a campfire, glowing caps and fireflies each give
 light of their own. A played grove is seen at night, by its lamps, and the
 table shows their light where it will fall.

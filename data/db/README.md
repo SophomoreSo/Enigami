@@ -587,7 +587,8 @@ as a pendulum does.
 
 A `vine` is another: what a map made in the map creator hangs where a vine
 was put, the length of the run of it, with a leaf riding every node
-(`graphics/views/made_room_view.gd`). Finer and looser than a cable, it bends
+(`graphics/views/made_room_view.gd`), and a rope a body takes hold of as it
+does a cable (`MadeRoom.LINES`). Finer and looser than a cable, it bends
 where it is pushed rather than swinging whole. A made map hangs its ropes as
 cables the same way, and its lanterns on cables too, in a cord's colour
 (`MapTiles.LANTERN_LINE`): the hideout's cords are one length and swing from
@@ -619,7 +620,9 @@ ceiling, or the underside of a ledge — never at the room's edge, never in its
 top-left corner, where the readout stands over it, never two close together,
 rolled from the room's own seed so a room hangs the same ropes every time. A
 room laid by hand hangs none of these, and a made map hangs a rope down every
-run of them laid in it (`MadeRoom._hang_ropes`). What keeps a line steady whatever its numbers say stays code, as
+run of them laid in it (`MadeRoom._hang_ropes`); a room whose record names its
+ropes hangs those and rolls none, which is how the hideout hangs its own
+(`HideoutWorld.ROPES`). What keeps a line steady whatever its numbers say stays code, as
 constants on `Rope`: the most a node moves in a step, and the slowest body
 that moves it — and so does the rule that whatever holds a node to its
 parent pulls the parent the other way, which is what swings a whole line

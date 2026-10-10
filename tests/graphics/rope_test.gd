@@ -702,7 +702,7 @@ func _held() -> void:
 		add_child(hands)
 		rope.hold(hands, rope.anchor() + Vector2(20, rope.length * 0.5), rope.length * 0.5)
 		view._hold_lines(DT)
-		var at := clampi(int(round(rope.grip / drawn.segment)), 1, drawn.nodes.size() - 1)
+		var at := drawn.held_at(rope.grip)
 		check(drawn.holding() and drawn.to_global(drawn.point_of(at)) == rope.hands,
 			"and while its rope is held, the line runs to the hands (%s)" % str(drawn.to_global(drawn.point_of(at))))
 		rope.let_go()

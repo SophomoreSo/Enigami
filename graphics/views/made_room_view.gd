@@ -19,16 +19,16 @@ extends RoomView
 ## through the line, anywhere along it, moves it where it touches and swings
 ## what hangs on its end, as anything going through that does, and its light
 ## swings with it. A vine and a rope are lines of their own, the length of
-## their run, that anything moving through them sets swinging — and a rope is
-## the room's to say about, being something a body takes hold of and swings on
-## (`MadeRoom.ROPE`, `Room.ropes`): its line is held taut to the hands of
-## whoever hangs on it, as a raid room's are (`RoomView`). Grass, flowers
-## and a bush are patches of foliage (`Foliage`) that lean where somebody
-## walks. A fire and a fireplace burn and light the room round them, glowing
-## caps and fireflies give a little light of their own, and a fern stands where
-## it was put. What light each gives is its kind's row of `lights`. Nothing is
-## rolled: a made room has what was put in it, and none of the cables and grass
-## a raid's rooms are hung and grown with.
+## their run, that anything moving through them sets swinging — and they are
+## the room's to say about, each being something a body takes hold of and
+## swings on (`MadeRoom.LINES`, `Room.ropes`): its line is held taut to the
+## hands of whoever hangs on it, as a raid room's are (`RoomView`). Grass,
+## flowers and a bush are patches of foliage (`Foliage`) that lean where
+## somebody walks. A fire and a fireplace burn and light the room round them,
+## glowing caps and fireflies give a little light of their own, and a fern
+## stands where it was put. What light each gives is its kind's row of
+## `lights`. Nothing is rolled: a made room has what was put in it, and none of
+## the cables and grass a raid's rooms are hung and grown with.
 ##
 ## Its glass is glass (`Glass`): a pane over every cell of it, clear or a
 ## mirror, which the pixel camera's glazing works from (`Glazing`) — what stands
@@ -272,11 +272,10 @@ func _hang_lines() -> void:
 				_hang_light(x, y, Lantern.new(), "lantern", MapTiles.LANTERN_BODY)
 			elif mark == "B":
 				_hang_light(x, y, Bulb.new(), "lightbulb", MapTiles.LIGHTBULB_BODY)
-			elif MapTiles.LINES.has(mark) and mark != MadeRoom.ROPE:
-				_hang_line(x, y, mark)
-	# The ropes, where the room hung them: from the top of each run laid.
+	# The vines and the ropes, where the room hung them: from the top of each
+	# run laid.
 	for held in room.ropes:
-		var line := _hang_line(held.cell.x, held.cell.y, MadeRoom.ROPE)
+		var line := _hang_line(held.cell.x, held.cell.y, cells.prop(held.cell.x, held.cell.y))
 		if line != null:
 			_lines[held] = line
 
@@ -320,7 +319,7 @@ func _hang_line(x: int, y: int, mark: String) -> Rope:
 	line.z_index = -1
 	line.visibility_layer = PixelCamera.WORLD_LAYER
 	line.hang((Vector2(x * C + C / 2, top) + Vector2(0.5, 0.5)) * S, float(foot - top) * S)
-	if mark == "v":
+	if mark == MadeRoom.VINE:
 		# A leaf at every node, either side by turns.
 		for i in range(1, line.nodes.size()):
 			var leaf := Leaf.new()

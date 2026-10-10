@@ -8,8 +8,9 @@ extends Node2D
 ##
 ## Ropes are a room's (`Room.ropes`): a raid's rooms hang them where the content
 ## database's `hangings` say, the same ones every time a room is built; a room
-## laid by hand hangs none of its own; a made map hangs one down every run of
-## `MadeRoom.ROPE` laid in its dressing.
+## laid by hand hangs none of its own; a made map hangs one down every run of a
+## rope or a vine laid in its dressing (`MadeRoom.LINES`), and a vine is taken
+## hold of as a rope is.
 
 var fails := 0
 
@@ -73,6 +74,32 @@ func _rooms() -> void:
 		"flat": true, "enemies": [], "loot": []}, 20260920)
 	check(not flat.ropes.is_empty() and flat.ropes.all(func(r: HangingRope) -> bool: return r.position.y == float(Room.CELL)),
 		"a flat room hangs its ropes from the ceiling, having nothing else (%s)" % str(_anchors(flat)))
+	var named := _room({"kind": "entry", "danger": 1, "region": 0, "variant": 3, "flat": true,
+		"enemies": [], "loot": [], "ropes": HideoutWorld.ROPES.duplicate(true)}, 20260920)
+	var as_named := named.ropes.size() == HideoutWorld.ROPES.size()
+	for i in mini(named.ropes.size(), HideoutWorld.ROPES.size()):
+		var r: HangingRope = named.ropes[i]
+		var want: Dictionary = HideoutWorld.ROPES[i]
+		as_named = as_named and r.position == Vector2((int(want["col"]) + 0.5) * Room.CELL, Room.CELL) \
+			and r.length == int(want["cells"]) * Room.CELL and r.kind == "cable"
+	check(as_named, "a room whose record names its ropes hangs those, from the rock over each, and rolls none (%s)"
+		% str(_anchors(named)))
+	# The hideout's: within reach of the hands at the top of a jump and the air
+	# jump from the floor, and ending clear of it for a body hanging off the end.
+	var floor_y := float(Room.FLOOR_ROW + 1) * Room.CELL
+	var standing := floor_y - Player.BODY.y * 0.5
+	var leap := Player.JUMP_VELOCITY * Player.JUMP_VELOCITY / (2.0 * Player.GRAVITY) \
+		+ Player.DOUBLE_JUMP_VELOCITY * Player.DOUBLE_JUMP_VELOCITY / (2.0 * Player.GRAVITY)
+	var hands_at_best := standing - leap - Player.ROPE_HANDS
+	var reached := not named.ropes.is_empty()
+	var ends: Array = []
+	for r in named.ropes:
+		ends.append(r.tip().y)
+		reached = reached and r.tip().y + Player.ROPE_REACH > hands_at_best \
+			and r.tip().y + Player.ROPE_HANDS + Player.BODY.y * 0.5 < floor_y
+	check(reached, "the hideout's every one in reach of a jump and the air jump, and clear of the floor (hands get to %.0f; ends at %s)"
+		% [hands_at_best, str(ends)])
+	named.free()
 	var ground := JeanGreyBase.new()
 	add_child(ground)
 	ground.build(Vector2i.ZERO, {"kind": "entry", "danger": 1, "region": 0, "variant": 0, "enemies": [], "loot": []}, {}, 0)
@@ -83,7 +110,7 @@ func _rooms() -> void:
 ## --- a rope in the hands -----------------------------------------------------
 
 ## A map twenty cells by twelve, walled round, with a rope laid down column 7
-## from under the ceiling, four cells of it.
+## from under the ceiling, four cells of it, and a vine down column 14, three.
 func _map() -> MadeRoom:
 	var made := MadeRoom.new()
 	var plan := PackedStringArray()
@@ -93,6 +120,8 @@ func _map() -> MadeRoom:
 		dressing.append(".".repeat(20))
 	for y in [1, 2, 3, 4]:
 		dressing[y] = ".".repeat(7) + MadeRoom.ROPE + ".".repeat(12)
+	for y in [1, 2, 3]:
+		dressing[y] = dressing[y].substr(0, 14) + MadeRoom.VINE + dressing[y].substr(15)
 	made.plan = plan
 	made.dressing = dressing
 	add_child(made)
@@ -101,14 +130,18 @@ func _map() -> MadeRoom:
 
 func _made() -> void:
 	var made := _map()
-	check(made.ropes.size() == 1, "a made map hangs a rope down the run of it laid (%d)" % made.ropes.size())
-	if made.ropes.is_empty():
+	check(made.ropes.size() == 2, "a made map hangs a rope down every run of a rope or a vine laid (%d)" % made.ropes.size())
+	if made.ropes.size() < 2:
 		made.free()
 		return
 	var rope: HangingRope = made.ropes[0]
+	var vine: HangingRope = made.ropes[1]
 	check(rope.position == Vector2(7.5 * Room.CELL, Room.CELL) and rope.length == 4.0 * Room.CELL
-			and rope.kind == MadeRoom.ROPE_KIND and rope.cell == Vector2i(7, 1),
-		"from the top of the run, as long as it, a %s (%s, %.0f, %s)" % [MadeRoom.ROPE_KIND, rope.position, rope.length, rope.cell])
+			and rope.kind == MadeRoom.LINES[MadeRoom.ROPE] and rope.cell == Vector2i(7, 1),
+		"from the top of the run, as long as it, a %s (%s, %.0f, %s)" % [MadeRoom.LINES[MadeRoom.ROPE], rope.position, rope.length, rope.cell])
+	check(vine.position == Vector2(14.5 * Room.CELL, Room.CELL) and vine.length == 3.0 * Room.CELL
+			and vine.kind == MadeRoom.LINES[MadeRoom.VINE] and vine.cell == Vector2i(14, 1),
+		"and a vine's as a %s (%s, %.0f, %s)" % [MadeRoom.LINES[MadeRoom.VINE], vine.position, vine.length, vine.cell])
 
 	var p := Player.new()
 	p.collision_layer = 2
@@ -210,9 +243,23 @@ func _made() -> void:
 	check(await until(p.on_rope, 10), "and up pressed again takes it again")
 	hands.climb = false
 
+	# A vine is taken hold of as a rope is.
+	await phys(2)
+	hands.jump()
+	await until(func() -> bool: return not p.on_rope(), 10)
+	await until(func() -> bool: return p.is_on_floor(), 240)
+	p.global_position = vine.anchor() + Vector2(-5.0, 48.0 + Player.ROPE_HANDS)
+	p.velocity = Vector2.ZERO
+	hands.climb = true
+	check(await until(p.on_rope, 10) and p.rope == vine and vine.held() and not rope.held(),
+		"and a vine is taken hold of as a rope is")
+	hands.climb = false
+	await phys(2)
+	check(p.state_name() == "Swing", "and swung on (%s)" % p.state_name())
+
 	# Out of the room, out of the hands.
 	p.room = null
-	check(not p.on_rope() and not rope.held(), "a body taken out of the room lets go of its rope")
+	check(not p.on_rope() and not vine.held(), "a body taken out of the room lets go of its rope")
 	p.queue_free()
 	made.queue_free()
 	await phys(2)

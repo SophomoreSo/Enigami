@@ -543,8 +543,21 @@ func _spawn_digs() -> void:
 ## room's own seed, so a room hangs the same ropes every time it is walked into,
 ## and on dice of its own rather than the room's, so the monsters and the loot
 ## fall as they always did.
+##
+## A room whose record names its ropes hangs those and rolls none: `ropes`, each
+## `{"col", "cells"}` and a `kind` if it is not a cable — down that column from
+## the rock over it, that many cells long. The hideout is one (`HideoutWorld`).
 func _hang_ropes() -> void:
 	_drop_ropes()
+	if data.has("ropes"):
+		for r in data["ropes"]:
+			var col := int(r["col"])
+			var top := 0
+			while top < rows and is_solid(col, top):
+				top += 1
+			_hang_rope(Vector2((col + 0.5) * CELL, top * CELL), float(int(r["cells"]) * CELL),
+				String(r.get("kind", "cable")))
+		return
 	var dice := RandomNumberGenerator.new()
 	dice.seed = rng.seed ^ 0x5eedcab1e
 	var hung: Array[Vector2i] = []
