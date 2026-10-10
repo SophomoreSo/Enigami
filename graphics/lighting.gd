@@ -324,6 +324,11 @@ func follow(at: Vector2, texels: Vector2i, view: Transform2D) -> void:
 		for mask in _masks:
 			mask.render_target_update_mode = SubViewport.UPDATE_DISABLED
 		_bodies.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		# Nor anything kept of the bodies, which may be gone by the next light.
+		for cast in _casts:
+			cast.figures.clear()
+			cast.patches.clear()
+		_figures.drawn.clear()
 		return
 	_normals.canvas_transform = view
 	_lit.canvas_transform = view
@@ -490,6 +495,9 @@ func _draw_shadows(lights: Array[Lit], casters: Array[ShadowCaster], ranks: Dict
 		if i >= throwing.size():
 			shade.visible = false
 			cast.visible = false
+			# Nothing kept of bodies for a light it no longer has.
+			cast.figures.clear()
+			cast.patches.clear()
 			continue
 		var lit := throwing[i]
 		given[lit] = i
@@ -685,7 +693,9 @@ class Cast extends Node2D:
 
 	func _draw() -> void:
 		for f in figures:
-			(f[0] as ShadowCaster).draw_figure(self, view, f[2], f[1])
+			# A body freed since its shadow was gathered throws none.
+			if is_instance_valid(f[0]):
+				(f[0] as ShadowCaster).draw_figure(self, view, f[2], f[1])
 		for p in patches:
 			draw_polygon(p[0], p[1])
 
@@ -699,4 +709,6 @@ class Figures extends Node2D:
 
 	func _draw() -> void:
 		for d in drawn:
-			(d[0] as ShadowCaster).draw_figure(self, view, Color(float(d[1]), 1.0, 0.0, 1.0))
+			# A body freed since it was gathered stands nowhere.
+			if is_instance_valid(d[0]):
+				(d[0] as ShadowCaster).draw_figure(self, view, Color(float(d[1]), 1.0, 0.0, 1.0))
