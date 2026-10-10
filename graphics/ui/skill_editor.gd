@@ -589,6 +589,12 @@ func _input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.is_pressed() or event.is_echo():
 		return
 	var key := event as InputEventKey
+	# The key that opens it closes it: G as well as TAB, or whatever it is bound
+	# to now.
+	if key.is_action_pressed("open_editor") and not key.is_command_or_control_pressed():
+		closed.emit()
+		get_viewport().set_input_as_handled()
+		return
 	# The clipboard's own keys are COPY and PASTE here, as they are everywhere.
 	if key.is_command_or_control_pressed():
 		match key.keycode:
