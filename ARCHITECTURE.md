@@ -96,11 +96,12 @@ the shell's.
 second layout for mobile mode — and names one thing in `mobile/view/`: `graphics/ui/controls_panel.gd`
 opens `TouchLayoutEditor` from SET BUTTON POSITIONS, because the control
 settings are where a player looks for it. It opens the screen and takes nothing
-else. It names `perks/view/` the same way, twice, each a page it puts up and
+else. It names `perks/view/` the same way, three times, each a page it puts up and
 nothing more: `graphics/views/hideout_world_view.gd` puts `PerkPage` in the
 frame every station's panel stands in, when the hideout's perk station is used,
 and `graphics/views/raid_view.gd` puts `PerkScreen` up as the PERKS tab of the
-screen the graph, the map and the monster dictionary are pages of. The hideout's workbench has that tab
+screen the graph, the map and the monster dictionary are pages of, and
+`graphics/views/sandbox_view.gd` puts it up as the same tab on the bench. The hideout's workbench has that tab
 too, and the shell, which may name anything, puts it up there.
 
 **What the perks add reaches the rules through one hook.** `perks/rules/` may
@@ -421,7 +422,7 @@ has to hear about it.
 | Something spawned again and again — a spark, a ring, a number that floats off | borrow it from a `Pool` (`feature/core/pool.gd`, after aarthificial's devlog on pooling), lent to the screen it is for, and let it hand itself back once it has played out; a screen that goes takes back whatever it still had out. `graphics/fx.gd`'s sparks, rings and words are drawn that way |
 | HUD layout, editor look — where a thing sits, not what it says | `graphics/ui/` |
 | The monster dictionary — which monsters have an entry, what a skill is, when one is met or seen | `Monsters.DEX` and `Monsters.skills_of` in `feature/actors/monsters.gd`; what has been met and seen is the profile's (`GameState.bestiary`), written as a raid goes (`Raid._meet`, off `Enemy.attacked`). The page is `graphics/ui/monster_dex.gd`, a skill drawn by `graphics/ui/board_picture.gd` — the assembly screen's drawing with nothing to press — and its words `hud.dex` in `localization/`. `tests/feature/bestiary_test` |
-| The screen the graph, the map, the monster dictionary and the perks are pages of — the tabs along its top, its back arrow, its veil | `graphics/ui/screen_tabs.gd`, drawn by every page (`SkillEditor`, `MapPanel`, `MonsterDex`, `PerkScreen`), the first three tabs wherever it comes up (`ScreenTabs.PAGES`) and PERKS after them in a raid and at the hideout's workbench (`PAGES_WITH_PERKS`), which `app/game.gd` puts up there. What a press on a tab puts up is the view that opens it: `graphics/views/raid_view.gd` for a raid, whose map's page is the floor plan, and `graphics/ui/screen_pages.gd` for everywhere with no map, whose map's page says so (`hud.map.none`). The tabs' words are `hud.tabs` in `localization/`. `tests/graphics/editor_close_test` |
+| The screen the graph, the map, the monster dictionary and the perks are pages of — the tabs along its top, its back arrow, its veil | `graphics/ui/screen_tabs.gd`, drawn by every page (`SkillEditor`, `MapPanel`, `MonsterDex`, `PerkScreen`), the first three tabs wherever it comes up (`ScreenTabs.PAGES`) and PERKS after them in a raid, on the bench and at the hideout's workbench (`PAGES_WITH_PERKS`), which `app/game.gd` puts up there. What a press on a tab puts up is the view that opens it: `graphics/views/raid_view.gd` for a raid, whose map's page is the floor plan, and `graphics/ui/screen_pages.gd` for everywhere with no map, whose map's page says so (`hud.map.none`). The tabs' words are `hud.tabs` in `localization/`. `tests/graphics/editor_close_test` |
 | How a menu is laid out in mobile mode — a row's height, a word's size, a page's width | the kit's: `THUMB`, `THUMB_TEXT` and `THUMB_PAGE` in `graphics/ui/ui_kit.gd`, which every page built of Controls takes them from. What is *on* a page there is that screen's own — the "for a thumb" section of `skill_editor.gd`, `dialogue_box.gd` and the rest, `_build_for_a_thumb` in `controls_panel.gd` |
 | The resolution the world is drawn at | `graphics/pixel_camera.gd` (the size comes from `Sprites.PIXEL_SCALE`) |
 | A new sound | `app/audio/audio_cues.gd` |

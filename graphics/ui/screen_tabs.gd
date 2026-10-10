@@ -18,8 +18,9 @@ extends RefCounted
 ## tabs are on it wherever it comes up (`PAGES`). A raid has a floor plan for
 ## the map's page to show; the bench, the hideout's workbench and the rest have
 ## none, and the page says so (`ScreenPages`). PERKS is on it where the perks
-## can be bought — a raid and the hideout's workbench (`PAGES_WITH_PERKS`) —
-## last, so the others' tabs stand where they do everywhere else.
+## can be bought — a raid, the hideout's workbench and the bench
+## (`PAGES_WITH_PERKS`) — last, so the others' tabs stand where they do
+## everywhere else.
 ##
 ## Drawn in UiKit's pixel look, like the pages under it. At a desk the back
 ## arrow is a button like COPY and PASTE, in the board's corner, and the tabs
