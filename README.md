@@ -141,7 +141,7 @@ not a thing to reach for once it errors.
 | mouse wheel | the next weapon in hand, a notch down, or the one before, a notch up; round from the last to the first |
 | Q | leave the monster you are possessing, back into your own body |
 | mouse / right stick | aim, and where a lunge lands. A stick's aim is bent toward a monster it is near — never snapped, and never the mouse's; how much is AIM ASSIST in the control settings |
-| TAB | open assembly — **the raid keeps running**; the weapons carried stand down the board's left, and a click on one opens its graph, the weapon in hand staying in hand — the empty hand's plate after them opens nothing yet. It is the GRAPH tab of a screen with tabs along its top, like a browser's: a click on MAP beside it puts the map up in its place, and one on MONSTERS the monster dictionary — every monster a raid has, `??` until it has been met, and each one's skills `??` until it has been seen using them, then drawn as the graph each is. At the hideout's workbench, on the bench and in a raid a last tab, PERKS, puts up the perks (see [Perks](#perks)). The HUD is put away while the screen is up; TAB, ESC or the back arrow in its corner leaves it |
+| TAB | open assembly — **the raid keeps running**; the weapons carried stand down the board's left, and a click on one opens its graph, the weapon in hand staying in hand — the empty hand's plate after them opens nothing yet. It is the GRAPH tab of a screen with tabs along its top, like a browser's: a click on MAP beside it puts the map up in its place, and one on FOES the monster dictionary — every monster a raid has, `??` until it has been met, and each one's skills `??` until it has been seen using them, then drawn as the graph each is. At the hideout's workbench, on the bench and in a raid a last tab, PERKS, puts up the perks (see [Perks](#perks)). The HUD is put away while the screen is up; TAB, ESC or the back arrow in its corner leaves it |
 | M | the map — the MAP tab of the same screen: in a raid the floor plan, the raid running on behind it as well, and on the bench, in the hideout and anywhere else with no map a page saying so. A click on GRAPH, or TAB, puts the board up in its place, and M, ESC or the back arrow leaves it |
 | Ctrl+C / Ctrl+V (⌘ on a Mac) | in assembly: COPY and PASTE — the board onto the clipboard as a share code, or someone else's board built from theirs |
 | F | interact: talk to an NPC — the last step over to them is walked for you, and pushing the other way on it changes your mind — (again for the next line), go through a gate to the room above or below, and hold to extract. Someone who talks free goes on by themselves; F only hurries their line |
@@ -322,7 +322,7 @@ has a second layout (`UiKit.mobile`), and at a desk each is exactly as it was:
   the same way, and REMOVE leaves it on the board. Nothing scrolls, so a drag
   is never asked to mean two
   things. The back arrow that closes it is a plate in the top-left corner, the
-  screen's tabs are plates beside it — GRAPH, MAP and MONSTERS, and PERKS where the perks are — and COPY and PASTE are
+  screen's tabs are plates beside it — GRAPH, MAP and FOES, and PERKS where the perks are — and COPY and PASTE are
   plates under the board. The map's page has the same top over it.
 * **The rest** follow: the bench's drawer has buttons and a tab a thumb can
   land on, the screen behind SET BUTTON POSITIONS likewise, and the page after
@@ -1033,7 +1033,7 @@ hideout there and then.
 | SCAVENGER | 15% more gold from everything found in a raid |
 
 The same page is a tab of the screen the graph, the map and the monster
-dictionary are pages of: **PERKS**, after GRAPH, MAP and MONSTERS on the
+dictionary are pages of: **PERKS**, after GRAPH, MAP and FOES on the
 hideout's workbench, on the bench and in a raid — always spending the gold
 banked at home, not the raid's, and buying for the profile, even from the
 bench. The dragon test, the Jean Grey test and a played map have no PERKS tab.

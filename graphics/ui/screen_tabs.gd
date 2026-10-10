@@ -4,7 +4,7 @@ extends RefCounted
 ## The top of the screen the weapons' graphs, the map, the monster dictionary
 ## and the perks are pages of, laid out the way a browser's is: the back arrow
 ## in the corner, which puts the screen away, and beside it a tab a page —
-## GRAPH, the assembly board, MAP, the floor plan, MONSTERS, every monster met
+## GRAPH, the assembly board, MAP, the floor plan, FOES, every monster met
 ## and the skills seen of it (`MonsterDex`), and PERKS, what the player buys for
 ## themselves (`PerkScreen`, in perks/view). A press on a tab puts its page up
 ## under the same top, and the page that is up has its tab lit. The keys are the
