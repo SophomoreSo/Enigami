@@ -337,7 +337,7 @@ and, for an action, the method it calls.
 | `dash` | a press starts a dash, when the stamina and the cooldown allow |
 | `rush` | a dash under way carries the body until its time runs out |
 | `duck` | keeps the body low for the frame — crouched; the frame no step does, it stands back up |
-| `swing` | on a rope: up and down climb it, left and right push its swing along when it is already going their way, the world's pull swings it back down; down held at its end lets go |
+| `swing` | on a rope: up and down climb it, left and right kick it off their way from hanging still and push its swing along when it is already going their way, the world's pull swings it back down; down held at its end lets go |
 | `leap` | a press lets go of the rope with a jump, on top of the swing's speed |
 
 | Sense | What it says |

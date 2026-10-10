@@ -175,16 +175,21 @@ func _made() -> void:
 	check(p.on_rope() and absf(rope.hands.distance_to(rope.anchor()) - rope.grip) < 2.0,
 		"left alone it stays on, hanging (%.1f from the anchor, held at %.1f)" % [rope.hands.distance_to(rope.anchor()), rope.grip])
 
-	# Left and right push a swing along. A rope hanging still has nothing to
-	# push against, so there neither moves it.
-	var still := 0.0
-	for way in [-1.0, 1.0]:
-		hands.move = way
-		for i in 45:
-			await phys(1)
-			still = maxf(still, absf(p._swing))
+	# A rope hanging still is kicked off the way held, and swings from there:
+	# held, the way never keeps it leaned over.
+	hands.move = 1.0
+	await phys(2)
+	var kicked := p._spin * maxf(p._grip, Player.SWING_SHORTEST)
+	check(kicked >= Player.SWING_KICK * 0.9, "hanging still, a way held kicks it off that way (%.1f)" % kicked)
+	var lo := 0.0
+	var hi := 0.0
+	for i in 90:
+		await phys(1)
+		lo = minf(lo, p._swing)
+		hi = maxf(hi, p._swing)
 	hands.move = 0.0
-	check(still < 0.001, "hanging still, left and right move nothing: there is no swing to push along (%.4f)" % still)
+	check(lo < -0.2 and hi > 0.2,
+		"and held, it swings both ways rather than keeping the rope leaned over (%.2f to %.2f)" % [lo, hi])
 
 	# Caught on the move, it swings the way the body was going; pushed along in
 	# time with the swing, it goes higher every time.

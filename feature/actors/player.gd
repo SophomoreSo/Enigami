@@ -187,13 +187,19 @@ const CLIMB_DOWN_SPEED := 240.0
 ## until it has been held this much longer.
 const ROPE_LET_GO := 0.4
 ## What left and right do to a swing: push it along, this much speed along it
-## a second, the way held. They only feed a swing already going that way — a
-## body hanging still has nothing to push against, and a way held never keeps
-## a rope leaned over — and the slower it goes, the less of it they give, all
-## of it from SWING_FEEL up. Held in time with the swing, it goes higher every
-## time.
+## a second, the way held. They only feed a swing already going that way — so a
+## way held never keeps a rope leaned over — and the slower it goes, the less
+## of it they give, all of it from SWING_FEEL up. Held in time with the swing,
+## it goes higher every time.
 const SWING_PUMP := 300.0
 const SWING_FEEL := 120.0
+## A rope hanging still — with less in it than would take it through the
+## bottom at SWING_STILL — is kicked off the way held instead: set going that
+## way at SWING_KICK, at once, and pushed on from there. Only once: a kick is
+## not a push, so it leans nothing over, and it never turns round a swing going
+## the other way.
+const SWING_KICK := 120.0
+const SWING_STILL := 40.0
 ## How fast a swing dies away, a share of it a second. Nothing else takes a
 ## swing's speed away but the world's pull: there is no height it stops at, only
 ## a speed it goes no faster than (SWING_FASTEST).
@@ -1190,8 +1196,9 @@ func _action_rush() -> void:
 
 ## A frame on a rope: up and down climb it, left and right swing it, and the
 ## pull of the world swings it back down — a pendulum from the rope's anchor,
-## the hands on it. Left and right push a swing along that is already going
-## their way (`SWING_PUMP`), and nothing swings it faster than SWING_FASTEST.
+## the hands on it. Left and right kick a rope hanging still off their way
+## (`SWING_KICK`), and push a swing along that is already going their way
+## (`SWING_PUMP`), and nothing swings it faster than SWING_FASTEST.
 ## The swing's speed carries on from frame to frame,
 ## and only what the body runs into changes it: rock over it or beside it
 ## bounces it back (`SWING_BOUNCE`), and anything else that moved the body —
@@ -1226,6 +1233,9 @@ func _action_swing() -> void:
 	else:
 		_held_at_end = 0.0
 	var reach := maxf(_grip, SWING_SHORTEST)
+	var through := _spin * _spin * reach * reach + 2.0 * GRAVITY * reach * (1.0 - cos(at))
+	if _dir != 0.0 and _spin * _dir >= 0.0 and through < SWING_STILL * SWING_STILL:
+		_spin = signf(_dir) * SWING_KICK * pace / reach
 	# The push goes along the swing, the way it is going, when that is the way
 	# held across the screen — which, over the top, is the other way round.
 	var going := _spin * _grip
