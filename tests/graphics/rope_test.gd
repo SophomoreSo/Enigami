@@ -678,6 +678,18 @@ func _held() -> void:
 		"held, a line runs straight from its anchor to the hand, the node nearest the hand in it (%s)" % str(line.point_of(7)))
 	check(absf(line.point_of(8).distance_to(hand) - 12.0) < 0.01,
 		"and what is below the hand hangs from it (%.2f)" % line.point_of(8).distance_to(hand))
+	var heading := (hand - Vector2(100, 0)).normalized()
+	line.hold(Vector2(100, 0) + heading * 90.0, 90.0, DT)
+	line.step(DT)
+	var third := line.point_of(3)
+	var under := line.point_of(8).distance_to(line.hand_at())
+	line.hold(Vector2(100, 0) + heading * 78.0, 78.0, DT)
+	line.step(DT)
+	check(line.point_of(3).distance_to(third) < 0.01 and absf(under - 6.0) < 0.5
+			and absf(line.point_of(7).distance_to(line.hand_at()) - 6.0) < 0.01,
+		"a hand climbing the line slides along it: what it has not passed stays where it was, and what it has hangs from it (%s, %.2f)"
+			% [str(line.point_of(3) - third), line.point_of(7).distance_to(line.hand_at())])
+	line.hold(hand, 84.0, DT)
 	line.hold(hand + Vector2(6, 0), 84.0, DT)
 	line.step(DT)
 	line.let_go()
@@ -702,9 +714,13 @@ func _held() -> void:
 		add_child(hands)
 		rope.hold(hands, rope.anchor() + Vector2(20, rope.length * 0.5), rope.length * 0.5)
 		view._hold_lines(DT)
-		var at := drawn.held_at(rope.grip)
-		check(drawn.holding() and drawn.to_global(drawn.point_of(at)) == rope.hands,
-			"and while its rope is held, the line runs to the hands (%s)" % str(drawn.to_global(drawn.point_of(at))))
+		var on_it := drawn.holding() and drawn.hand_at() == rope.hands
+		var top := drawn.to_global(drawn.point_of(0))
+		for i in range(1, drawn._held + 1):
+			var at := drawn.to_global(drawn.point_of(i))
+			on_it = on_it and absf((at - top).cross((rope.hands - top).normalized())) < 0.01
+		check(on_it and drawn._held > 0, "and while its rope is held, the line runs straight to the hands (%d nodes above them)"
+			% drawn._held)
 		rope.let_go()
 		view._hold_lines(DT)
 		check(not drawn.holding(), "and is let go of with it")

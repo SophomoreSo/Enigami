@@ -83,6 +83,9 @@ const DIG_APART := 96.0
 ## The ropes hung from this room's rock, in the order they were hung: lines a
 ## body takes hold of and swings on (`HangingRope`). See `_hang_ropes`.
 var ropes: Array[HangingRope] = []
+## The benches standing in it, to sit on (`Bench`): the ones its record names,
+## `benches`, each `{"pos": [x, y]}`, and any put down since (`add_bench`).
+var benches: Array[Bench] = []
 ## Open cells a rope needs under its end, to swing in without meeting a floor.
 const SWING_ROOM := 2
 ## How far apart two ropes hang, in cells, so they read as two.
@@ -329,6 +332,10 @@ func _spawn_contents() -> void:
 	if not data.has("digs"):
 		data["digs"] = _roll_digs()
 	_spawn_digs()
+	for rec in data.get("benches", []):
+		var p: Array = rec.get("pos", [])
+		if p.size() == 2:
+			add_bench(Vector2(float(p[0]), float(p[1])))
 	# Put down before the room was built, by `Raid`, out of what a death left
 	# behind. It is not rolled and it is not loot: this room holds one only
 	# because the player died standing in it.
@@ -615,6 +622,23 @@ func _clear_under(x: int, y: int, n: int) -> bool:
 		if is_solid(x, y + k):
 			return false
 	return true
+
+## A bench standing at `at` — the middle of a cell, half a cell over its floor,
+## the way a treasure box stands — for whoever plays this room to sit on.
+func add_bench(at: Vector2) -> Bench:
+	var b := Bench.new()
+	b.setup(at)
+	b.player = player
+	add_child(b)
+	benches.append(b)
+	return b
+
+## Whether a press of interact would sit the body down on a bench here.
+func bench_offered() -> bool:
+	for b in benches:
+		if is_instance_valid(b) and b.offered():
+			return true
+	return false
 
 ## Whether holding interact would dig here.
 func dig_offered() -> bool:

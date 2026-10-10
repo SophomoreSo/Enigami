@@ -36,6 +36,7 @@ is, with its rows in the scene rather than in a script. Its properties:
 | `P` | Where the player starts. One a map. With none, the floor nearest the middle. |
 | `T` | The room's treasure box. One a map. It is put down on the first floor under its cell. |
 | `x` | Ground worth digging, put down the same way. |
+| `_` | A bench to sit on, put down the same way. |
 | `c` `s` `l` `h` `d` | A post for a Crawler, a Sentry, a Lobber, a Hopper, a Drifter. |
 | `w` `g` `u` `y` `a` | And for a Warden, a Gunman, a Grunt, a Test Dummy, the Arbiter. |
 

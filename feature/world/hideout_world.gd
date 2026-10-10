@@ -54,6 +54,11 @@ const STATION_CELLS := {
 ## jump and the air jump; hung that close, a swing on one reaches the next.
 ## They are the room's, and no rolled cables hang beside them. What they look
 ## like is the look's: the grove's are its vines (`HideoutScenery.dress_lines`).
+## Where the bench to sit on stands, in room cells: a column, dropped onto the
+## floor as the stations are, between the rack and the stall and far enough
+## from both that no spot is in reach of a station's press and the bench's at
+## once — the bench answers the key itself.
+const BENCH_CELL := 14
 const ROPES := [
 	{"col": 3, "cells": 13},
 	{"col": 11, "cells": 15},
@@ -120,6 +125,8 @@ func _ready() -> void:
 
 	for id in STATION_CELLS:
 		_build_station(String(id))
+	room.player = player
+	room.add_bench(room.cell_center(BENCH_CELL, _floor_at(BENCH_CELL)))
 	_refresh_gate()
 	GameState.kit_changed.connect(_refresh_gate)
 	# The player standing in the room carries what the gate would carry, so a
@@ -308,9 +315,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
-## A station open and within reach.
+## A station open and within reach, or the bench.
 func use_nearby() -> bool:
 	for s in stations.values():
 		if (s as Station).near and (s as Station).open:
 			return true
+	if room != null and is_instance_valid(room) and room.bench_offered():
+		return true
 	return false

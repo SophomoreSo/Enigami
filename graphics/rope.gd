@@ -164,9 +164,14 @@ var end_color: Color = Style.rope_look("cable")["end"]
 var nodes: Array = []
 ## What rides the line: `{node, index, offset, body}`.
 var _riders: Array = []
-## How many nodes past the root a hand holds (`hold`): where the hand puts them,
-## and left out of the simulation. None while nobody holds it.
+## Whether a hand holds the line (`hold`), how many nodes past the root are
+## above it — put where the hand's pull lays them, and left out of the
+## simulation — and where the hand is, in this node's space, with how much of
+## the line there is from it to the next node down, which hangs from the hand.
+var _holding: bool = false
 var _held: int = 0
+var _hand: Vector2 = Vector2.ZERO
+var _hand_rest: float = 0.0
 ## Where each bolt in the air was a step ago, by its instance: a bolt is taken
 ## from there to where it is now, so a fast one is not past the line between
 ## two steps.
@@ -306,46 +311,57 @@ func tips() -> Array[int]:
 	return out
 
 ## Held by a hand at `at`, in the world, `along` down the line from its root:
-## the line runs straight and taut from the root to the hand — the node nearest
-## `along` is put in the hand and the ones above it on the way there — and what
-## hangs below swings after it. Called every physics frame the hand holds on,
-## before the line is stepped; `delta` is that frame, so a node moved by the
-## hand is moving as fast as the hand moved it, and swings on at that speed when
-## it is let go of (`let_go`).
+## the line runs straight and taut from the root to the hand, and what is below
+## the hand hangs from it and swings after it. The hand slides along the line
+## rather than taking a node in it: every node above it keeps its own place
+## along the line, as far down it as it was hung, and the first one below hangs
+## from the hand by what is left of its length — so a hand climbing the line
+## moves nothing on it but what it passes, and what rides the line, a vine's
+## leaves, stays put. A hand past the line's end holds it by the end.
+##
+## Called every physics frame the hand holds on, before the line is stepped;
+## `delta` is that frame, so a node moved by the hand is moving as fast as the
+## hand moved it, and swings on at that speed when it is let go of (`let_go`).
 func hold(at: Vector2, along: float, delta: float) -> void:
 	if nodes.size() < 2:
 		return
-	var hand := to_local(at)
-	var k := held_at(along)
+	_hand = to_local(at)
 	var top: Vector2 = nodes[0]["pos"]
-	for i in range(1, k + 1):
-		var to := top.lerp(hand, float(i) / float(k))
+	var whole := 0.0
+	for i in range(1, nodes.size()):
+		whole += float(nodes[i]["length"])
+	var span := clampf(along, 0.001, whole)
+	var down := 0.0
+	_held = 0
+	_hand_rest = 0.0
+	for i in range(1, nodes.size()):
+		var length := float(nodes[i]["length"])
+		if down + length > span + 0.001:
+			_hand_rest = down + length - span
+			break
+		down += length
+		_held = i
+		var to := top.lerp(_hand, down / span)
 		if delta > 0.0:
 			nodes[i]["vel"] = (to - (nodes[i]["pos"] as Vector2)) / delta
 		nodes[i]["pos"] = to
 		nodes[i]["pull"] = Vector2.ZERO
-	_held = k
+	_holding = true
 	_carry()
-
-## The node a hand `along` down the line holds it by: the one nearest that far
-## down it, counted node by node as the line was hung, and never the root.
-func held_at(along: float) -> int:
-	var down := 0.0
-	for i in range(1, nodes.size()):
-		var length := float(nodes[i]["length"])
-		down += length
-		if along <= down - length * 0.5:
-			return maxi(i - 1, 1)
-	return maxi(nodes.size() - 1, 1)
 
 ## Out of the hand: every node swings free again, from where the hand left it,
 ## as fast as the hand was moving it.
 func let_go() -> void:
+	_holding = false
 	_held = 0
 
 ## Whether a hand holds it.
 func holding() -> bool:
-	return _held > 0
+	return _holding
+
+## Where the hand holds it, in the world, while one does.
+func hand_at() -> Vector2:
+	return to_global(_hand)
 
 ## --- the simulation ---------------------------------------------------------
 
@@ -370,13 +386,19 @@ func step(delta: float) -> void:
 	var keep := 1.0 - exp(-stiffness * delta)
 	for i in range(1, nodes.size()):
 		var n: Dictionary = nodes[i]
-		if n["fixed"] or i <= _held:
+		if n["fixed"] or (_holding and i <= _held):
 			continue
 		var parent: int = n["parent"]
 		var at: Vector2 = n["pos"]
 		var length: float = n["length"]
 		var vel: Vector2 = (n["vel"] + Vector2(0.0, gravity) * delta) * damp
 		var hung: Vector2 = nodes[parent]["pos"]
+		# How far it is kept from what it hangs from: its own length, or the
+		# first node under a hand hangs from the hand by what is left of it.
+		var tied := length
+		if _holding and i == _held + 1:
+			hung = _hand
+			tied = maxf(_hand_rest, 0.5)
 		# The way it lies from its parent when nothing moves it.
 		var hangs := Vector2.from_angle(_heading(parent) + float(n["angle"]))
 		# What rides this node, as the room it takes up where it has been
@@ -409,16 +431,16 @@ func step(delta: float) -> void:
 		# back out by the length.
 		var asked := at + (vel * delta).limit_length(MOST_A_STEP * length) + (n["pull"] as Vector2) * delta
 		n["pull"] = Vector2.ZERO
-		var rest := hung + hangs * length
+		var rest := hung + hangs * tied
 		var next := asked.lerp(rest, keep)
 		var d := next - hung
 		var far := d.length()
-		var held := rest if far < 0.01 else hung + d * (length / far)
+		var held := rest if far < 0.01 else hung + d * (tied / far)
 		n["vel"] = (held - at) / delta
 		n["pos"] = held
-		if not nodes[parent]["fixed"] and parent > _held:
+		if not nodes[parent]["fixed"] and not (_holding and parent <= _held):
 			var back := asked - next
-			if far > length:
+			if far > tied:
 				back += next - held
 			nodes[parent]["pull"] += back / delta
 	_carry()
@@ -627,9 +649,17 @@ func plugged() -> Array[int]:
 func pixels() -> Array[Vector2i]:
 	var seen := {}
 	var out: Array[Vector2i] = []
+	var runs: Array = []
 	for i in range(1, nodes.size()):
 		var n: Dictionary = nodes[i]
-		for px in bresenham(_pixel(nodes[n["parent"]]["pos"]), _pixel(n["pos"])):
+		var from: Vector2 = nodes[n["parent"]]["pos"]
+		# Held, the line runs into the hand and out of it again.
+		if _holding and i == _held + 1:
+			runs.append([nodes[_held]["pos"], _hand])
+			from = _hand
+		runs.append([from, n["pos"]])
+	for run in runs:
+		for px in bresenham(_pixel(run[0]), _pixel(run[1])):
 			if not seen.has(px):
 				seen[px] = true
 				out.append(px)

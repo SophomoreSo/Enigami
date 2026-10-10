@@ -81,7 +81,7 @@ picture and the sound bank the way a line in `data/db/dialogue/` is
 | `do` | `walk` or `run` somewhere, `pose` held, or `face` a way. |
 | `to` | For a walk or a run: `player` or `npc`, up to the other, stopping a step short of them; or `left` or `right`, `steps` cells along. |
 | `steps` | How many cells a walk left or right goes. Default 2. |
-| `pose` | For a pose: one the sprite has — an atlas character's `idle`, `run` and sometimes `hit`; the player's `idle`, `run`, `crouch`, `hit`, `rise`, `fall`, `wall_slide`, `dash` and `hang`. Held until the talk is over. |
+| `pose` | For a pose: one the sprite has — an atlas character's `idle`, `run` and sometimes `hit`; the player's `idle`, `run`, `crouch`, `hit`, `rise`, `fall`, `wall_slide`, `dash`, `hang` and `sit`. Held until the talk is over. |
 | `dir` | For a turn: `left`, `right`, or `toward` the other. |
 
 A walk starts as the node does. In a novel the node waits for it before its

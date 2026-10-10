@@ -160,7 +160,7 @@ func _made() -> void:
 	hands.climb = false
 
 	# In reach, it does, and the body hangs from it by the hands over its head.
-	p.global_position = mid + Vector2(6.0, 0.0)
+	p.global_position = mid
 	p.velocity = Vector2.ZERO
 	hands.climb = true
 	check(await until(p.on_rope, 10), "up held with a rope within reach of the hands takes it")
@@ -175,28 +175,47 @@ func _made() -> void:
 	check(p.on_rope() and absf(rope.hands.distance_to(rope.anchor()) - rope.grip) < 2.0,
 		"left alone it stays on, hanging (%.1f from the anchor, held at %.1f)" % [rope.hands.distance_to(rope.anchor()), rope.grip])
 
-	# Left and right swing it.
-	var right := 0.0
-	hands.move = 1.0
-	for i in 40:
-		await phys(1)
-		right = maxf(right, p._swing)
-	var left := 0.0
-	hands.move = -1.0
-	for i in 80:
-		await phys(1)
-		left = minf(left, p._swing)
-	hands.move = 0.0
-	check(right > 0.15 and left < -0.15, "right swings it out to the right, left to the left (%.2f, %.2f)" % [right, left])
-	var widest := 0.0
-	for k in 10:
-		hands.move = 1.0 if k % 2 == 0 else -1.0
-		for i in 26:
+	# Left and right push a swing along. A rope hanging still has nothing to
+	# push against, so there neither moves it.
+	var still := 0.0
+	for way in [-1.0, 1.0]:
+		hands.move = way
+		for i in 45:
 			await phys(1)
-			widest = maxf(widest, absf(p._swing))
+			still = maxf(still, absf(p._swing))
 	hands.move = 0.0
-	check(widest > 0.8 and widest <= Player.SWING_MOST + 0.001,
-		"in time with the swing it swings higher every time, never past %.2f (%.2f)" % [Player.SWING_MOST, widest])
+	check(still < 0.001, "hanging still, left and right move nothing: there is no swing to push along (%.4f)" % still)
+
+	# Caught on the move, it swings the way the body was going; pushed along in
+	# time with the swing, it goes higher every time.
+	hands.jump()
+	await until(func() -> bool: return not p.on_rope(), 10)
+	await until(func() -> bool: return p.is_on_floor(), 240)
+	p.global_position = mid + Vector2(-12.0, 0.0)
+	p.velocity = Vector2(220.0, 0.0)
+	hands.climb = true
+	check(await until(p.on_rope, 10), "taken on the move")
+	hands.climb = false
+	await phys(2)
+	check(p._spin > 0.5, "and set swinging the way the body was going (%.2f)" % p._spin)
+	var widest := 0.0
+	var jolt := 0.0
+	var was := p._spin
+	for i in 300:
+		hands.move = signf(p._spin)
+		await phys(1)
+		widest = maxf(widest, absf(p._swing))
+		var dt := get_physics_process_delta_time()
+		var pulled := Player.GRAVITY * absf(sin(p._swing)) / maxf(p._grip, Player.SWING_SHORTEST) * dt \
+			+ absf(was) * (1.0 - exp(-Player.SWING_DAMP * dt))
+		# Turned round by the rock it ran into, it keeps SWING_BOUNCE of its speed.
+		var kept := absf(was) * (Player.SWING_BOUNCE if signf(p._spin) == -signf(was) and absf(was) > 1.0 else 1.0)
+		jolt = maxf(jolt, kept - absf(p._spin) - pulled)
+		was = p._spin
+	hands.move = 0.0
+	check(widest > 0.8, "pushed along in time with the swing it goes higher every time (%.2f)" % widest)
+	check(jolt < 0.05, "and nothing takes its speed but the world's pull and the rock it bounces off: no height it is stopped at (%.3f rad/s more than that, at most, in a frame)"
+		% jolt)
 
 	# Up and down climb it: up as far as the top, and down as far as the end,
 	# where down held a moment longer lets go — and a tap of it does not.

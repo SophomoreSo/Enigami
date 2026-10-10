@@ -51,7 +51,8 @@ func _build_sprite() -> void:
 ## is cut from the atlas and has only the three, so each airborne case falls
 ## back to holding the stride that reads as rising or falling. On a rope the
 ## body hangs by the hand over its head, the fist where the rules hold the rope
-## (`Player.ROPE_HANDS`), so the line runs into it.
+## (`Player.ROPE_HANDS`), so the line runs into it; on a bench it sits, on the
+## seat a bench is drawn with (`BenchView.SEAT`).
 func _animate() -> void:
 	if player.forced_anim != "" and has_anim(player.forced_anim):
 		# A pose a story's line holds them in, over whatever the body is doing.
@@ -65,6 +66,12 @@ func _animate() -> void:
 		else:
 			# Art with no hang reaches up out of a rise.
 			play("rise", 1.0, 0)
+	elif player.seated():
+		# On a bench's seat, its feet on the floor in front of it.
+		if has_anim("sit"):
+			play("sit")
+		else:
+			play("crouch", 1.0, 0)
 	elif player.is_dashing():
 		if has_anim("dash"):
 			play("dash")

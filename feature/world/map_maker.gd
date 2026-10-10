@@ -495,9 +495,10 @@ func on_board_changed() -> void:
 	if player != null and is_instance_valid(player):
 		player.rebuild_runner()
 
-## The played room's box in reach, or ground under the shovel.
+## The played room's box in reach, ground under the shovel, or a bench.
 func use_nearby() -> bool:
-	return room != null and is_instance_valid(room) and (room.box_offered() or room.dig_offered())
+	return room != null and is_instance_valid(room) \
+		and (room.box_offered() or room.dig_offered() or room.bench_offered())
 
 func leave() -> void:
 	exit_requested.emit()

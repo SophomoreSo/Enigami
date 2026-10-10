@@ -34,6 +34,9 @@ extends Actor
 ## swing had and a jump on top. See `_mind_rope` and the actions `swing` and
 ## `leap`.
 ##
+## A bench (`Bench`) is somewhere to sit: interact at one sits the body down on
+## it, and it stays sat until it is asked to do anything else (`sit`).
+##
 ## A hit carrying POSSESS puts the player's hands into the monster it strikes
 ## (`possess`). The body stays where it was, standing still, and the monsters go
 ## on hunting it — it dies, and the raid is lost. The input line drives the
@@ -183,22 +186,30 @@ const CLIMB_DOWN_SPEED := 240.0
 ## it. A tap there keeps hold, and so does the hold that climbed down to it,
 ## until it has been held this much longer.
 const ROPE_LET_GO := 0.4
-## What left and right do to a swing: this much speed along it a second, the
-## way held. Held against the pull back down, a rope is leaned over and kept
-## there; in time with the swing, it goes higher every time.
-const SWING_PUMP := 1100.0
-## How fast a swing dies away, a share of it a second.
+## What left and right do to a swing: push it along, this much speed along it
+## a second, the way held. They only feed a swing already going that way — a
+## body hanging still has nothing to push against, and a way held never keeps
+## a rope leaned over — and the slower it goes, the less of it they give, all
+## of it from SWING_FEEL up. Held in time with the swing, it goes higher every
+## time.
+const SWING_PUMP := 300.0
+const SWING_FEEL := 120.0
+## How fast a swing dies away, a share of it a second. Nothing else takes a
+## swing's speed away but the world's pull: there is no height it stops at, and
+## a swing pushed high enough goes over the top.
 const SWING_DAMP := 0.4
-## The furthest a rope swings from hanging straight down, either way: about
-## seventy degrees. It never goes over the top.
-const SWING_MOST := 1.25
+## A swing that runs into rock — over it, beside it — bounces back off it with
+## this much of its speed, turned round, rather than stopping there.
+const SWING_BOUNCE := 0.8
+## How far short of where it was sent a swing has to come, in radians, to have
+## run into something.
+const SWING_SHORT := 0.002
 ## The shortest a swing is reckoned at. Near the top of a rope a pendulum that
 ## short would swing back and forth faster than it reads.
 const SWING_SHORTEST := 48.0
-## The fastest a rope is set swinging by a body catching it.
-const SWING_CAUGHT := 6.0
 ## A jump off a rope goes up at least this fast, and faster still off the way
-## up a swing, but never faster than ROPE_JUMP_MOST.
+## up a swing — the jump on top no more than takes it to ROPE_JUMP_MOST, and
+## never less than the swing was going up already.
 const ROPE_JUMP := -520.0
 const ROPE_JUMP_MOST := -820.0
 
@@ -250,6 +261,8 @@ var room = null:
 	set(r):
 		if r != room and rope != null:
 			_drop_rope()
+		if r != room:
+			stand_up()
 		room = r
 var aim: Vector2 = Vector2.RIGHT
 ## Where the player is pointing, in world space, as opposed to `aim` which is
@@ -263,12 +276,21 @@ var aim_point: Vector2 = Vector2.ZERO
 var aim_reach: float = 1.0
 ## The rope in the hands, or null — see `_mind_rope`.
 var rope: HangingRope = null
+## The bench the body sits on, or null — see `sit`.
+var seat: Bench = null
+## Whether a way held since the body sat down has yet to be let go of: a run
+## into the bench, carried on over the walk to its seat, stands nobody up until
+## it has been (`_mind_seat`).
+var _sat_holding: bool = false
 ## How far down the rope from its anchor the hands are, the angle it swings at
 ## off hanging straight down — positive to the right — as the body was at the
 ## top of the frame, and how fast that turns, in radians a second.
 var _grip: float = 0.0
 var _swing: float = 0.0
 var _spin: float = 0.0
+## The angle the swing sent the body to last frame: where it got to instead says
+## whether it ran into anything on the way.
+var _meant: float = 0.0
 ## How long down has been held with the hands at the rope's end (`ROPE_LET_GO`).
 var _held_at_end: float = 0.0
 ## The rope last let go of. It is not taken again until up has been let go of,
@@ -687,6 +709,7 @@ func _mind_possession(delta: float, s: InputState) -> void:
 func _kill() -> void:
 	release()
 	_drop_rope()
+	stand_up()
 	super._kill()
 
 ## Puts the weapon `step` slots along in hand: 1 for the next, -1 for the one
@@ -990,7 +1013,10 @@ func _physics_process(delta: float) -> void:
 	# With the hands in a monster the body is asked for nothing, and stands
 	# where it was left: the monster reads the line for itself.
 	_asked = input.state() if possessing == null else InputState.new()
-	_dir = _asked.move
+	_mind_seat()
+	# Sat down, the body goes nowhere: a way still held from before it sat is
+	# not a step.
+	_dir = _asked.move if seat == null else 0.0
 	if _dir != 0.0:
 		face(int(signf(_dir)))
 	# Turned without a step: by whatever walked them here, to face what they
@@ -1157,9 +1183,11 @@ func _action_rush() -> void:
 
 ## A frame on a rope: up and down climb it, left and right swing it, and the
 ## pull of the world swings it back down — a pendulum from the rope's anchor,
-## the hands on it. The swing is measured off where the body actually is, so a
-## wall that stopped it stopped the swing, and a blow that knocked it aside
-## swung it. Down climbs as far as the rope's end and stops there; held there
+## the hands on it. Left and right push a swing along that is already going
+## their way (`SWING_PUMP`). The swing's speed carries on from frame to frame,
+## and only what the body runs into changes it: rock over it or beside it
+## bounces it back (`SWING_BOUNCE`), and anything else that moved the body —
+## a blow, a floor it dragged along — swings it as far as it moved. Down climbs as far as the rope's end and stops there; held there
 ## ROPE_LET_GO, it lets go, the body carrying the swing's speed.
 func _action_swing() -> void:
 	if rope == null:
@@ -1170,7 +1198,12 @@ func _action_swing() -> void:
 	var delta := get_physics_process_delta_time()
 	var a := rope.anchor()
 	var at := _swing_at(_hands_at() - a)
-	_spin = (at - _swing) / delta
+	var short := wrapf(_meant - at, -PI, PI)
+	if absf(short) > SWING_SHORT:
+		if short * _spin > 0.0 and (is_on_ceiling() or is_on_wall()):
+			_spin = -_spin * SWING_BOUNCE
+		else:
+			_spin = wrapf(at - _swing, -PI, PI) / delta
 	_swing = at
 	var pace := speed_scale()
 	if _asked.climb:
@@ -1185,11 +1218,16 @@ func _action_swing() -> void:
 	else:
 		_held_at_end = 0.0
 	var reach := maxf(_grip, SWING_SHORTEST)
-	_spin += (-GRAVITY * sin(at) + SWING_PUMP * _dir * pace) / reach * delta
+	# The push goes along the swing, the way it is going, when that is the way
+	# held across the screen — which, over the top, is the other way round.
+	var going := _spin * _grip
+	var push := 0.0
+	if _dir != 0.0 and signf(going * cos(at)) == signf(_dir):
+		push = SWING_PUMP * signf(going) * absf(_dir) * pace * clampf(absf(going) / SWING_FEEL, 0.0, 1.0)
+	_spin += (-GRAVITY * sin(at) + push) / reach * delta
 	_spin *= exp(-SWING_DAMP * delta)
 	var to := at + _spin * delta
-	if absf(to) > SWING_MOST:
-		to = signf(to) * SWING_MOST
+	_meant = to
 	var hands := a + Vector2(sin(to), cos(to)) * _grip
 	velocity = (hands + Vector2(0.0, ROPE_HANDS) - global_position) / delta
 
@@ -1201,7 +1239,7 @@ func _action_leap() -> void:
 		return
 	_buffer = 0.0
 	_drop_rope()
-	velocity.y = maxf(minf(velocity.y + ROPE_JUMP, ROPE_JUMP), ROPE_JUMP_MOST)
+	velocity.y = minf(maxf(minf(velocity.y + ROPE_JUMP, ROPE_JUMP), ROPE_JUMP_MOST), velocity.y)
 	_air_jump_used = false
 	_flung = true
 	Cues.at(&"jump", global_position, {"kind": "rope"})
@@ -1245,6 +1283,9 @@ func apply_damage(amount: float, elements: Array = [], source: Node = null, is_h
 				_on_fired(p)
 		return 0.0
 	var dealt := super.apply_damage(amount, elements, source, is_hit)
+	# A blow that gets through stands the body up off a bench.
+	if dealt > 0.0 and is_hit:
+		stand_up()
 	# Damage over time ticks every frame, so the cue and the i-frames hang off
 	# the blow that lit the burn rather than off the burning. Without `is_hit`
 	# one Arbiter shot played its hurt sound a hundred and fifty times over the
@@ -1278,7 +1319,8 @@ func _hands_at() -> Vector2:
 	return global_position + Vector2(0.0, -ROPE_HANDS)
 
 ## The rope nearest the hands that they reach, in the room the body is in, or
-## null. Not one somebody else holds, nor the one just let go of.
+## null. Not one somebody else holds, nor the one just let go of, nor one whose
+## anchor the hands are over: a rope is taken from under where it hangs.
 func _rope_in_reach() -> HangingRope:
 	if not is_instance_valid(room) or not (room is Room):
 		return null
@@ -1286,7 +1328,7 @@ func _rope_in_reach() -> HangingRope:
 	var best: HangingRope = null
 	var nearest := INF
 	for r in (room as Room).ropes:
-		if not is_instance_valid(r) or r == _let_go_of or r.held():
+		if not is_instance_valid(r) or r == _let_go_of or r.held() or hands.y <= r.anchor().y:
 			continue
 		if r.reach(hands, ROPE_REACH, ROPE_REACH) < 0.0:
 			continue
@@ -1306,9 +1348,10 @@ func _take_rope(r: HangingRope) -> void:
 	_grip = clampf(r.reach(hands, ROPE_REACH, ROPE_REACH), ROPE_TOP, maxf(r.length, ROPE_TOP))
 	var at := _swing_at(hands - a)
 	var along := Vector2(cos(at), -sin(at))
-	var caught := clampf(velocity.dot(along) / maxf(_grip, SWING_SHORTEST), -SWING_CAUGHT, SWING_CAUGHT)
-	# Measured from here as if it had already been swinging that fast.
-	_swing = at - caught * get_physics_process_delta_time()
+	# All of the body's speed across the rope goes into the swing, however fast.
+	var caught := velocity.dot(along) / maxf(_grip, 1.0)
+	_swing = at
+	_meant = at
 	_spin = caught
 	_held_at_end = 0.0
 	_buffer = 0.0
@@ -1318,10 +1361,9 @@ func _take_rope(r: HangingRope) -> void:
 	Cues.at(&"rope", hands, {"kind": "grab"})
 
 ## The angle a rope hangs at to hands `off` from its anchor: off straight down,
-## positive to the right, and never past SWING_MOST either way — hands over the
-## anchor hold it at its furthest, not over the top.
+## positive to the right, all the way round — over the anchor is half a turn.
 static func _swing_at(off: Vector2) -> float:
-	return clampf(atan2(off.x, maxf(off.y, 1.0)), -SWING_MOST, SWING_MOST)
+	return atan2(off.x, off.y)
 
 ## The rope out of the hands, left hanging, and not taken again until up has
 ## been let go of. The body carries whatever speed it had.
@@ -1331,6 +1373,49 @@ func _drop_rope() -> void:
 			rope.let_go()
 		_let_go_of = rope
 	rope = null
+
+## --- a bench ----------------------------------------------------------------
+
+## Sits the body down on `b` where it stands — over the middle of it, where the
+## walk over brought it (`Bench`), to within WalkTo.THERE; it is not moved the
+## rest of the way — and still. It stays sat until it
+## is asked to do anything else — a step, a jump, a dash, a crouch, up, an
+## attack, a cast (`_mind_seat`) — or interact is pressed at the bench again, a
+## blow gets through, it dies, or it leaves the room. The body sitting is the
+## body standing still, as far as anything else in the game goes: only the
+## picture of it sits.
+func sit(b: Bench) -> void:
+	if b == null or not is_instance_valid(b) or seat == b:
+		return
+	_drop_rope()
+	seat = b
+	_sat_holding = true
+	velocity = Vector2.ZERO
+	Cues.at(&"sit", b.global_position, {"kind": "down"})
+
+## Up off the bench, if the body is on one.
+func stand_up() -> void:
+	if seat == null:
+		return
+	seat = null
+	Cues.at(&"sit", global_position, {"kind": "up"})
+
+## A frame on a bench: whatever is asked of the body stands it up, and what
+## asked goes ahead on the same frame — but not a way held since it sat down,
+## until that has been let go of and pushed again. A bench gone from under it
+## stands it up too.
+func _mind_seat() -> void:
+	if seat == null:
+		return
+	if _asked.move == 0.0:
+		_sat_holding = false
+	if not is_instance_valid(seat) or (_asked.move != 0.0 and not _sat_holding) or _asked.jump_pressed \
+			or _asked.dash_pressed or _asked.crouch or _asked.climb or _asked.attack or _asked.cast:
+		stand_up()
+
+## Whether the body sits on a bench.
+func seated() -> bool:
+	return seat != null and is_instance_valid(seat)
 
 ## --- read by the view -------------------------------------------------------
 func is_dashing() -> bool:

@@ -47,6 +47,7 @@ godot res://tests/feature/aim_assist_test.tscn # aim assist: the stick-to-weapon
 godot res://tests/feature/crouch_test.tscn  # the crouch: down lets the body onto its feet, a stick's threshold for it, and what stands it up again
 godot res://tests/feature/sprint_test.tscn  # the sprint: a run half as fast again while it is held, and what stops it
 godot res://tests/feature/swing_test.tscn   # a rope: taken hold of with up, swung on, climbed, leapt off and dropped off, and where a room hangs its ropes
+godot res://tests/feature/bench_test.tscn   # a bench: sat down on with F, stood up off by a step, a jump, F or a blow; laid in a map, and the hideout's
 godot res://tests/feature/pool_test.tscn    # pooling: lent, played out and handed back, and taken back when a screen goes
 godot res://tests/perks/perks_test.tscn     # the perks: bought with gold a step at a time, kept with the profile, and what they add reaching the player
 godot res://tests/graphics/fx_pool_test.tscn # sparks, rings and floating numbers come out of pools, never out of nothing
@@ -129,7 +130,7 @@ not a thing to reach for once it errors.
 
 | | |
 |---|---|
-| A / D, ← / → | move; on a rope, swing it — the way held, and in time with the swing higher every time, never over the top |
+| A / D, ← / → | move; on a rope, push its swing along the way held — only a swing already going that way, so a rope hanging still stays still: catch one on the move, or jump at it, to set it swinging. In time with the swing it goes higher every time, with no height it stops at: nothing slows a swing but the world's pull, and rock it runs into bounces it back rather than stopping it |
 | S, ↓ | crouch, on the floor: the body is let down onto its feet — lower, and a smaller thing to hit — and stays where it is; a direction held with it turns it round. A jump or a dash goes out of it, and there is no crouch in the air. On a rope, climb down it, as far as its end; held there a moment more, let go of it — a tap there keeps hold |
 | W, ↑ | take hold of a rope or a vine within reach of the hands — held on the way to one, it catches it — and, holding on, climb it, as far as its top. One just let go of is not caught again until W has been let go of |
 | SPACE | jump; again in mid-air to double jump; against a wall to kick off; on a rope, leap off it, with the swing's speed and a jump on top — more off the way up a swing — and the air jump back. Speed a swing flings the body off at faster than a run is kept in the air for as long as that way is held |
@@ -144,7 +145,7 @@ not a thing to reach for once it errors.
 | TAB | open assembly — **the raid keeps running**; the weapons carried stand down the board's left, and a click on one opens its graph, the weapon in hand staying in hand — the empty hand's plate after them opens nothing yet. It is the GRAPH tab of a screen with tabs along its top, like a browser's: a click on MAP beside it puts the map up in its place, and one on FOES the monster dictionary — every monster a raid has, `??` until it has been met, and each one's skills `??` until it has been seen using them, then drawn as the graph each is. At the hideout's workbench, on the bench and in a raid a last tab, PERKS, puts up the perks (see [Perks](#perks)). The HUD is put away while the screen is up; TAB, ESC or the back arrow in its corner leaves it |
 | M | the map — the MAP tab of the same screen: in a raid the floor plan, the raid running on behind it as well, and on the bench, in the hideout and anywhere else with no map a page saying so. A click on GRAPH, or TAB, puts the board up in its place, and M, ESC or the back arrow leaves it |
 | Ctrl+C / Ctrl+V (⌘ on a Mac) | in assembly: COPY and PASTE — the board onto the clipboard as a share code, or someone else's board built from theirs |
-| F | interact: talk to an NPC — the last step over to them is walked for you, and pushing the other way on it changes your mind — (again for the next line), go through a gate to the room above or below, and hold to extract. Someone who talks free goes on by themselves; F only hurries their line |
+| F | interact: talk to an NPC — the last step over to them is walked for you, and pushing the other way on it changes your mind — (again for the next line), go through a gate to the room above or below, sit down on a bench — the last steps over to its seat are walked for you, as they are to someone you talk to, and pushing the other way on them changes your mind — and stand up again; so does a step, a jump or a blow — and hold to extract. Someone who talks free goes on by themselves; F only hurries their line |
 | W / S, ↑ / ↓ | when an NPC asks a question, move between answers; F gives the highlighted one |
 | ESC | pause |
 
@@ -164,7 +165,10 @@ pressed, behind the list, there and then. The pick is remembered in
 Four ropes hang over the hideout's floor between the stations, in every look,
 to take hold of and swing on: the two longer are a jump from the floor to
 reach, the other two a jump and the air jump. In the grove they are its vines;
-in the other looks, plain ropes. Where they hang is `HideoutWorld.ROPES`.
+in the other looks, plain ropes. Where they hang is `HideoutWorld.ROPES`. And
+a bench stands between the weapon rack and the counter, to sit on: F beside it
+walks you over to its seat and sits you down, and anything else you do stands
+you back up.
 
 ### The screen's shape
 
@@ -829,7 +833,7 @@ under each tab are drawn by the tileset the map is in.
 |---|---|
 | GROUND | the ground, in the tileset's kinds of it, and glass. Every kind is as solid as the next: the kind is only how it looks |
 | BACK | what stands behind: a ruin's wall, a column, a stone lintel, a tree, the undergrowth, a rail to hang lanterns from, and glass |
-| THINGS | where the player starts, a post for each of the monsters, the treasure box, ground to dig — on the ground's layer |
+| THINGS | where the player starts, a post for each of the monsters, the treasure box, ground to dig, a bench to sit on — on the ground's layer |
 | PROPS | what is put about: a lantern, a campfire, glowing caps, fireflies, grass, flowers, a bush, a fern, a vine, a rope |
 
 The props are the game's own things. A lantern hangs from the ground, the
