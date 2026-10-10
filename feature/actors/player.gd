@@ -15,6 +15,8 @@ extends Actor
 ## its own wait between casts, and one of them is in hand: the one the two
 ## buttons fire. A slot's key, or a step along with the wheel, puts another in
 ## hand at once (`switch_to`) — so three weapons are three skills, a key apart.
+## After them, on the fourth key, is the empty hand (`EMPTY_HAND`): nothing in
+## it and, for now, no graph, so neither button does anything with it in hand.
 ## A weapon put away goes on with what it was doing: a cast already out lands,
 ## and its wait runs down, so it is ready again by the time it is drawn.
 ##
@@ -61,6 +63,10 @@ signal released(monster)
 ## The most weapons carried at once. `GameState.MAX_CARRIED` is the same number
 ## from the profile's side: what a raid can be walked into with.
 const MAX_WEAPONS := 3
+## The slot of the empty hand: the fourth, after the most weapons carried,
+## whatever is carried before it. With it in hand there is no weapon
+## (`weapon_id` is "") and no graph (`runner` is null) — see `empty_handed`.
+const EMPTY_HAND := MAX_WEAPONS
 ## How long a monster stands stunned once the player has stepped out of it,
 ## which is the head start they have on it.
 const RELEASE_STUN := 1.2
@@ -230,7 +236,8 @@ const ROPE_JUMP_MOST := -820.0
 ## weapon is its skill, so this is every skill the player has to hand.
 var weapons: Array[String] = []
 var runners: Array[SkillRunner] = []
-## Which slot is in hand, and so which of them the buttons fire.
+## Which slot is in hand, and so which of them the buttons fire: one of the
+## weapons', or EMPTY_HAND.
 var hand: int = 0
 ## The weapon in hand and its runner: `weapons[hand]` and `runners[hand]`, kept
 ## beside them because nearly everything that asks about the player's weapon
@@ -458,7 +465,7 @@ func setup(weapon: String, board: SkillBoard) -> void:
 	setup_kit([weapon], [board])
 
 ## Hands the player a kit: up to MAX_WEAPONS weapons, in slot order, the graph
-## on each, and which slot is in hand. The runners are rebuilt wholesale; the
+## on each, and which slot is in hand — EMPTY_HAND for none. The runners are rebuilt wholesale; the
 ## old ones go away with their signals, and so does whatever was being charged.
 ##
 ## A thrown weapon comes in the body's hand — unless the kit before this one
@@ -496,9 +503,17 @@ func setup_kit(ids: Array, boards: Array, in_hand: int = 0) -> void:
 		runner = null
 		hand = 0
 		return
-	hand = clampi(in_hand, 0, weapons.size() - 1)
-	weapon_id = weapons[hand]
-	runner = runners[hand]
+	hand = EMPTY_HAND if in_hand == EMPTY_HAND else clampi(in_hand, 0, weapons.size() - 1)
+	_hold_hand()
+
+## `weapon_id` and `runner` for the slot in hand: nothing for the empty hand.
+func _hold_hand() -> void:
+	weapon_id = "" if hand == EMPTY_HAND else weapons[hand]
+	runner = null if hand == EMPTY_HAND else runners[hand]
+
+## Whether the empty hand is in hand: no weapon, and no graph to cast.
+func empty_handed() -> bool:
+	return hand == EMPTY_HAND and not weapons.is_empty()
 
 ## One weapon's graph, run live. What it fires is finalized as that weapon's,
 ## whichever weapon is in hand by the time it lands.
@@ -512,15 +527,16 @@ func _make_runner(weapon: String, board: SkillBoard) -> SkillRunner:
 	r.parry_opened.connect(_on_parry_opened)
 	return r
 
-## Puts the weapon in `slot` in hand, 0 for the first carried. Whether it did:
-## not for a slot nothing is carried in, nor for the one already in hand.
+## Puts the weapon in `slot` in hand, 0 for the first carried, or nothing at
+## all for EMPTY_HAND. Whether it did: not for a slot nothing is carried in, nor
+## for the one already in hand.
 ##
 ## It is instant, and it costs whatever was being charged: the hold was buying
 ## life for the weapon being put away, and does not follow the hand to the next
 ## one. That weapon keeps the wait it was in, and anything it had already cast
 ## still lands.
 func switch_to(slot: int) -> bool:
-	if slot < 0 or slot >= weapons.size() or slot == hand:
+	if weapons.is_empty() or slot == hand or (slot != EMPTY_HAND and (slot < 0 or slot >= weapons.size())):
 		return false
 	charge = 0.0
 	cast_charge = 0.0
@@ -530,8 +546,7 @@ func switch_to(slot: int) -> bool:
 		runner.ttl_bonus = 0
 		runner.set_active(false)
 	hand = slot
-	weapon_id = weapons[hand]
-	runner = runners[hand]
+	_hold_hand()
 	weapon_switched.emit(weapon_id)
 	Cues.at(&"weapon_switch", global_position, {"weapon": weapon_id, "slot": hand})
 	return true
@@ -549,6 +564,8 @@ func holds(id: String) -> bool:
 ## from a monster once it has taken it. A graph that only ever headbutts needs
 ## none of that (`bare_handed`): the head is always there.
 func can_cast() -> bool:
+	if runner == null:
+		return false
 	if Weapons.is_thrown(weapon_id):
 		return (holds(weapon_id) and holders[weapon_id] == vessel()) or bare_handed()
 	if Weapons.is_stacked(weapon_id) and stock_of(weapon_id) <= 0:
@@ -577,9 +594,11 @@ func bare_handed() -> bool:
 	return bool(_bare[key])
 
 ## The hands the weapon in hand is in, for whatever draws it there: the body,
-## the monster the player is in once it holds it, or null — a thrown weapon out
-## of hand, or a stack with none left in it.
+## the monster the player is in once it holds it, or null — the empty hand, a
+## thrown weapon out of hand, or a stack with none left in it.
 func weapon_hands() -> Actor:
+	if empty_handed():
+		return null
 	if Weapons.is_thrown(weapon_id):
 		return holders[weapon_id] if holds(weapon_id) else null
 	if Weapons.is_stacked(weapon_id) and stock_of(weapon_id) <= 0:
@@ -684,9 +703,10 @@ func release() -> void:
 	released.emit(left)
 
 ## Whether a press of interact would take the weapon: the monster the player is
-## in, standing at the body, with nothing in its hands yet.
+## in, standing at the body, with nothing in its hands yet — and a weapon in the
+## body's to take.
 func can_take_weapon() -> bool:
-	return possessing != null and is_instance_valid(possessing) and not possessing.dead \
+	return not empty_handed() and possessing != null and is_instance_valid(possessing) and not possessing.dead \
 		and not vessel_armed and possessing.global_position.distance_to(global_position) <= TAKE_REACH
 
 ## The weapon, out of the body's hands and into the monster's: from now on the
@@ -726,11 +746,14 @@ func _kill() -> void:
 	super._kill()
 
 ## Puts the weapon `step` slots along in hand: 1 for the next, -1 for the one
-## before, round from the last to the first.
+## before, from the last weapon to the empty hand and round from that to the
+## first.
 func switch_by(step: int) -> bool:
-	if weapons.size() < 2 or step == 0:
+	if weapons.is_empty() or step == 0:
 		return false
-	return switch_to(posmod(hand + step, weapons.size()))
+	var at := weapons.size() if hand == EMPTY_HAND else hand
+	var to := posmod(at + step, weapons.size() + 1)
+	return switch_to(EMPTY_HAND if to == weapons.size() else to)
 
 func stamina_ratio() -> float:
 	return clampf(stamina / max_stamina, 0.0, 1.0)
@@ -952,8 +975,9 @@ func _process(delta: float) -> void:
 	if possessing != null:
 		possessing.attacking = false
 	# The body's hand is empty — the rock is out — and nothing goes off. Said
-	# once a press, so it does not read as a dropped input.
-	if not castable and (pressed or s.cast_released):
+	# once a press, so it does not read as a dropped input. The empty hand has
+	# nothing to say it about.
+	if not castable and not empty_handed() and (pressed or s.cast_released):
 		Cues.at(&"refused", global_position, {"kind": "thrown", "weapon": weapon_id})
 	# Holding the cast button charges; letting go is what fires it. A tap is
 	# simply a charge of nothing, so a quick press still casts as it always did.

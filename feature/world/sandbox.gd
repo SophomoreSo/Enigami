@@ -70,9 +70,11 @@ func _ready() -> void:
 	player.room = room
 	player.global_position = room.spawn_point()
 	# Drawn with a key rather than the bench's own button, the weapon in hand is
-	# still the one the bench is on.
+	# still the one the bench is on. The empty hand leaves the bench on the one
+	# it was on.
 	player.weapon_switched.connect(func(weapon: String) -> void:
-		weapon_index = maxi(Weapons.ids().find(weapon), 0))
+		if weapon != "":
+			weapon_index = maxi(Weapons.ids().find(weapon), 0))
 	_apply_weapon()
 
 	spawn_dummy()

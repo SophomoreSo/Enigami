@@ -139,7 +139,8 @@ not a thing to reach for once it errors.
 | LMB | cast the weapon's graph as it is — again and again while held, and it costs nothing |
 | RMB | hold to charge the weapon's graph, release to cast it with what the hold paid for — a tap is a charge of nothing, and a graph still recovering cannot be charged |
 | 1 / 2 / 3 | put the weapon carried in that slot in hand — at once, and whatever was being charged is let go of |
-| mouse wheel | the next weapon in hand, a notch down, or the one before, a notch up; round from the last to the first |
+| 4 | the empty hand: nothing in it, so neither button does anything with it in hand — it has no graph yet |
+| mouse wheel | the next weapon in hand, a notch down, or the one before, a notch up; from the last to the empty hand, and round from it to the first |
 | Q | leave the monster you are possessing, back into your own body |
 | mouse / right stick | aim, and where a lunge lands. A stick's aim is bent toward a monster it is near — never snapped, and never the mouse's; how much is AIM ASSIST in the control settings |
 | TAB, G | open assembly — **the raid keeps running**; the weapons carried stand down the board's left, and a click on one opens its graph, the weapon in hand staying in hand — the empty hand's plate after them opens nothing yet. It is the GRAPH tab of a screen with tabs along its top, like a browser's: a click on MAP beside it puts the map up in its place, and one on FOES the monster dictionary — every monster a raid has, `??` until it has been met, and each one's skills `??` until it has been seen using them, then drawn as the graph each is. At the hideout's workbench, on the bench and in a raid a last tab, PERKS, puts up the perks (see [Perks](#perks)). The HUD is put away while the screen is up; TAB, G, ESC or the back arrow in its corner leaves it |
@@ -406,8 +407,9 @@ while it is held, for nothing; `RMB` charges it (below) and casts on release.
 picking a weapon takes it in hand and into the kit, in the next free slot, and
 PUT BACK takes the one in hand out again — never the last, since nobody goes in
 empty-handed. In a raid `1`, `2` and `3` put the weapon in that slot in hand,
-and the wheel the next or the one before; the HUD names them all, the one in
-hand lit. Each has its own graph and its own wait between casts, so a weapon
+`4` the empty hand after them — nothing in it, and for now no graph, so
+neither button does anything with it in hand — and the wheel the next or the
+one before; the HUD names them all, EMPTY last, the one in hand lit. Each has its own graph and its own wait between casts, so a weapon
 put away goes on recovering in its slot, ready again by the time it is drawn,
 and a cast it had already loosed still lands as its own.
 Changing weapon is instant and costs only what was being charged. The price of

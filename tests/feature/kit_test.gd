@@ -211,12 +211,23 @@ func _in_a_raid() -> void:
 	check(p.weapon_id == "ROCK", "3 draws the third")
 	await tap_key(KEY_2)
 	check(p.weapon_id == "GUN", "2 the second")
+	await tap_key(KEY_4)
+	check(p.empty_handed() and p.hand == Player.EMPTY_HAND and p.weapon_id == "" and p.runner == null
+			and not p.can_cast() and p.weapon_hands() == null,
+		"4 draws the empty hand: nothing in it, and no graph to cast")
+	check(GameState.raid_hand == 1 and GameState.raid_weapon == "GUN",
+		"and the profile stays on the weapon last in hand, whose graph assembly opens")
+	await tap_key(KEY_2)
 	await wheel(MOUSE_BUTTON_WHEEL_DOWN)
 	check(p.weapon_id == "ROCK", "a notch of the wheel down is the next weapon")
 	await wheel(MOUSE_BUTTON_WHEEL_DOWN)
-	check(p.weapon_id == "SWORD", "round from the last to the first")
+	check(p.empty_handed(), "on from the last weapon to the empty hand")
+	await wheel(MOUSE_BUTTON_WHEEL_DOWN)
+	check(p.weapon_id == "SWORD", "and round from it to the first")
 	await wheel(MOUSE_BUTTON_WHEEL_UP)
-	check(p.weapon_id == "ROCK", "and a notch up is the one before")
+	check(p.empty_handed(), "and a notch up is the one before")
+	await wheel(MOUSE_BUTTON_WHEEL_UP)
+	check(p.weapon_id == "ROCK", "(and the one before that, the last weapon)")
 
 	# Not while a screen has the keys.
 	raid.set_editing(true)

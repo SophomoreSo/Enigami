@@ -77,9 +77,10 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 		&"weapon_switch":
 			# The weapon drawn, by name over whoever drew it, in its own colour:
 			# the HUD's line says the same in the corner, and this says it where
-			# the eye is in a fight.
+			# the eye is in a fight. The empty hand has no name but EMPTY.
 			var drawn := String(d.get("weapon", ""))
-			Fx.text(pos + Vector2(0, -44), Weapons.name_for(drawn).to_upper(), Style.weapon_color(drawn))
+			var named := Loc.t("hud.empty_hand") if drawn == "" else Weapons.name_for(drawn).to_upper()
+			Fx.text(pos + Vector2(0, -44), named, Style.weapon_color(drawn))
 		&"shatter":
 			# Frost coming apart reads as shards, not as a bigger hit.
 			Fx.burst(pos, Style.SHATTER_SPARK, 10, 210.0)

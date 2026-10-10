@@ -111,8 +111,11 @@ func _ready() -> void:
 	player.room = room
 	refresh_kit()
 	# Switched on the floor, with the keys a raid switches with: the weapon in
-	# hand is what the rack is on now.
+	# hand is what the rack is on now. The empty hand leaves the rack where it
+	# was: there is nothing on it to carry to the gate.
 	player.weapon_switched.connect(func(weapon: String) -> void:
+		if weapon == "":
+			return
 		weapon_id = weapon
 		_refresh_gate())
 	# Nothing here can hurt anybody, and a player who walked in wounded should

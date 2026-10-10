@@ -421,10 +421,10 @@ func current_weapon() -> String:
 	return String(Weapons.ids()[weapon_index % Weapons.ids().size()])
 
 ## The graph on the weapon in hand: what the assembly board over a played map
-## edits.
+## edits — the map's own weapon's with the empty hand in hand.
 func board() -> SkillBoard:
 	var weapon := current_weapon()
-	if player != null and is_instance_valid(player):
+	if player != null and is_instance_valid(player) and not player.empty_handed():
 		weapon = player.weapon_id
 	return graphs[weapon]
 

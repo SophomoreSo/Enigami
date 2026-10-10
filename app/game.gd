@@ -210,11 +210,13 @@ func _use_nearby() -> bool:
 		return false
 	return (current as World).use_nearby()
 
-## How many weapons the player on screen is carrying: the console keeps a key
-## for changing weapon only while there is more than one.
+## How many slots the player on screen can change between — the weapons they
+## carry and, with any carried, the empty hand after them: the console keeps a
+## key for changing weapon only while there is more than one.
 func _kit_size() -> int:
 	for p in get_tree().get_nodes_in_group("player"):
-		return (p as Player).weapons.size()
+		var carried := (p as Player).weapons.size()
+		return carried + 1 if carried > 0 else 0
 	return 0
 
 ## Whether the player on screen has their hands in a monster: the console keeps

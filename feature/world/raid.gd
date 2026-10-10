@@ -66,8 +66,11 @@ func _ready() -> void:
 	for w in _rocks_left_lying():
 		player.let_go(w)
 	# The profile is told which weapon is in hand as it changes: assembly opens
-	# that one's graph, and a raid put down is picked back up holding it.
-	player.weapon_switched.connect(func(_weapon: String) -> void: GameState.raid_hand = player.hand)
+	# that one's graph, and a raid put down is picked back up holding it. The
+	# empty hand leaves it on the weapon last in hand, which has a graph to open.
+	player.weapon_switched.connect(func(_weapon: String) -> void:
+		if not player.empty_handed():
+			GameState.raid_hand = player.hand)
 	player.died.connect(_on_player_died)
 	add_child(player)
 

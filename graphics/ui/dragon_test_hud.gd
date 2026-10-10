@@ -96,6 +96,9 @@ func _draw_guards(vp: Vector2) -> void:
 ## nine-link chain said nothing about what was happening on screen.
 func _draw_chain(vp: Vector2) -> void:
 	var p := screen.player
+	# The empty hand in hand: no graph, and nothing a release would chain to.
+	if p.runner == null:
+		return
 	var n := screen.cast_chain if not p.runner.is_ready() \
 		else screen.chain_length(int(p.charge))
 	var need := screen.total_guards
@@ -107,6 +110,8 @@ func _draw_chain(vp: Vector2) -> void:
 func _draw_skill(vp: Vector2) -> void:
 	var p := screen.player
 	var r: SkillRunner = p.runner
+	if r == null:
+		return
 	var y := vp.y - 58.0
 	var card := Rect2(24, y, 272, 40)
 	draw_rect(card, Color(0.05, 0.03, 0.1, 0.88))
