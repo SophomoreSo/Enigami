@@ -114,10 +114,15 @@ func _made() -> void:
 	check(not p.seated() and p.global_position.x > b.global_position.x, "a step stands it up, and is taken")
 	hands.move = 0.0
 	await phys(10)
+	# Further from the seat than WalkTo.THERE, so the press walks the last step.
 	p.global_position = b.global_position + Vector2(4.0, 0.0)
 	await phys(4)
 	await press()
-	check(p.seated(), "sat down again")
+	for i in 60:
+		if p.seated():
+			break
+		await phys(1)
+	check(p.seated(), "sat down again, after the step over")
 	await press()
 	check(not p.seated() and not b.taken(), "and interact again stands it up")
 
