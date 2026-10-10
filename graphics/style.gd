@@ -1179,6 +1179,12 @@ const ROPE_LOOK := {
 	"vine": {"line": Color(0.19, 0.35, 0.18), "end": Color(0.42, 0.66, 0.30)},
 }
 
+## A bench to sit on (`BenchView`): its planks, the shade under them and on its
+## back, and the light along their tops.
+const BENCH_WOOD := Color(0.46, 0.31, 0.18)
+const BENCH_SHADE := Color(0.31, 0.20, 0.12)
+const BENCH_LIT := Color(0.62, 0.45, 0.27)
+
 static func rope_look(kind: String) -> Dictionary:
 	return ROPE_LOOK.get(kind, ROPE_LOOK["cable"])
 ## What grows on a room's floor (`Foliage`), by the kind it is — the rows of

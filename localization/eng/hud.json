@@ -122,7 +122,8 @@
 		"mark": {
 			"start": "START",
 			"box": "TREASURE BOX",
-			"dig": "DIG SPOT"
+			"dig": "DIG SPOT",
+			"bench": "BENCH"
 		},
 		"tiles": {
 			"grove": {

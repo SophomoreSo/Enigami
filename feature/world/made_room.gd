@@ -17,10 +17,11 @@ extends HandLaidRoom
 ##             read. A cell of it is open, or ground (`GROUND`), which is solid
 ##             whatever kind it is; or what is put in it — `P` where the player
 ##             starts, `T` the room's treasure box, `x` ground worth digging,
-##             and a letter of `MONSTERS` a monster's post. A monster stands in
-##             its cell, on whatever is under it, and one that flies holds the
-##             middle of it; the box and the ground to dig are put down on the
-##             first floor under their cells, so neither is ever left hanging.
+##             `_` a bench, and a letter of `MONSTERS` a monster's post. A
+##             monster stands in its cell, on whatever is under it, and one
+##             that flies holds the middle of it; the box, the ground to dig
+##             and a bench are put down on the first floor under their cells,
+##             so none is ever left hanging.
 ##   back      what stands behind all of it: a wall, a column, a tree, a pane
 ##             of glass.
 ##   dressing  what is put about it: a lantern, a patch of grass, a vine, a
@@ -45,6 +46,7 @@ const OPEN := "."
 const START := "P"
 const BOX := "T"
 const DIG := "x"
+const BENCH := "_"
 ## The kinds of ground, by the mark that lays each. All of them are solid,
 ## glass as much as stone: clear glass and a mirror are ground a body stands on
 ## and cannot go through, and what either shows is the picture's.
@@ -115,14 +117,15 @@ static func is_ground(mark: String) -> bool:
 	return GROUND.has(mark)
 
 ## Everything that can be put in a cell of the plan that is not ground, in the
-## order the map creator offers it: the player's start, each monster, the box
-## and the ground to dig.
+## order the map creator offers it: the player's start, each monster, the box,
+## the ground to dig and a bench.
 static func things() -> PackedStringArray:
 	var out := PackedStringArray([START])
 	for mark in MONSTERS:
 		out.append(String(mark))
 	out.append(BOX)
 	out.append(DIG)
+	out.append(BENCH)
 	return out
 
 ## The monster `mark` posts, or "" for a mark that is not a monster's.
@@ -154,12 +157,15 @@ func record() -> Dictionary:
 	var dice := RandomNumberGenerator.new()
 	dice.seed = hash(plan)
 	var rec := {"kind": "entry", "danger": 1, "region": region, "variant": hash(plan) % 65536,
-		"enemies": monster_records(), "loot": [], "digs": []}
+		"enemies": monster_records(), "loot": [], "digs": [], "benches": []}
 	var boxes := cells_marked(BOX)
 	if not boxes.is_empty():
 		var at := _put_down(boxes[0])
 		rec["loot"] = _haul(dice, dice.randi_range(2, 4))
 		rec["box"] = {"pos": [at.x, at.y], "opened": false}
+	for c in cells_marked(BENCH):
+		var at := _put_down(c)
+		(rec["benches"] as Array).append({"pos": [at.x, at.y]})
 	for c in cells_marked(DIG):
 		var at := _put_down(c)
 		var buried: Array = [{"scrap": dice.randi_range(5, 18)}]

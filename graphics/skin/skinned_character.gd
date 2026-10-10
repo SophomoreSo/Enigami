@@ -33,6 +33,7 @@ const ANIMS := {
 	"wall_slide": {"fps": 6.0, "loop": true},
 	"dash": {"fps": 20.0, "loop": false},
 	"hang": {"fps": 1.0, "loop": true},
+	"sit": {"fps": 1.0, "loop": true},
 }
 
 var base: String

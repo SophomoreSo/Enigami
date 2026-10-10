@@ -34,6 +34,9 @@ extends Actor
 ## swing had and a jump on top. See `_mind_rope` and the actions `swing` and
 ## `leap`.
 ##
+## A bench (`Bench`) is somewhere to sit: interact at one sits the body down on
+## it, and it stays sat until it is asked to do anything else (`sit`).
+##
 ## A hit carrying POSSESS puts the player's hands into the monster it strikes
 ## (`possess`). The body stays where it was, standing still, and the monsters go
 ## on hunting it — it dies, and the raid is lost. The input line drives the
@@ -258,6 +261,8 @@ var room = null:
 	set(r):
 		if r != room and rope != null:
 			_drop_rope()
+		if r != room:
+			stand_up()
 		room = r
 var aim: Vector2 = Vector2.RIGHT
 ## Where the player is pointing, in world space, as opposed to `aim` which is
@@ -271,6 +276,12 @@ var aim_point: Vector2 = Vector2.ZERO
 var aim_reach: float = 1.0
 ## The rope in the hands, or null — see `_mind_rope`.
 var rope: HangingRope = null
+## The bench the body sits on, or null — see `sit`.
+var seat: Bench = null
+## Whether a way held since the body sat down has yet to be let go of: a run
+## into the bench, carried on over the walk to its seat, stands nobody up until
+## it has been (`_mind_seat`).
+var _sat_holding: bool = false
 ## How far down the rope from its anchor the hands are, the angle it swings at
 ## off hanging straight down — positive to the right — as the body was at the
 ## top of the frame, and how fast that turns, in radians a second.
@@ -698,6 +709,7 @@ func _mind_possession(delta: float, s: InputState) -> void:
 func _kill() -> void:
 	release()
 	_drop_rope()
+	stand_up()
 	super._kill()
 
 ## Puts the weapon `step` slots along in hand: 1 for the next, -1 for the one
@@ -1001,7 +1013,10 @@ func _physics_process(delta: float) -> void:
 	# With the hands in a monster the body is asked for nothing, and stands
 	# where it was left: the monster reads the line for itself.
 	_asked = input.state() if possessing == null else InputState.new()
-	_dir = _asked.move
+	_mind_seat()
+	# Sat down, the body goes nowhere: a way still held from before it sat is
+	# not a step.
+	_dir = _asked.move if seat == null else 0.0
 	if _dir != 0.0:
 		face(int(signf(_dir)))
 	# Turned without a step: by whatever walked them here, to face what they
@@ -1268,6 +1283,9 @@ func apply_damage(amount: float, elements: Array = [], source: Node = null, is_h
 				_on_fired(p)
 		return 0.0
 	var dealt := super.apply_damage(amount, elements, source, is_hit)
+	# A blow that gets through stands the body up off a bench.
+	if dealt > 0.0 and is_hit:
+		stand_up()
 	# Damage over time ticks every frame, so the cue and the i-frames hang off
 	# the blow that lit the burn rather than off the burning. Without `is_hit`
 	# one Arbiter shot played its hurt sound a hundred and fifty times over the
@@ -1355,6 +1373,49 @@ func _drop_rope() -> void:
 			rope.let_go()
 		_let_go_of = rope
 	rope = null
+
+## --- a bench ----------------------------------------------------------------
+
+## Sits the body down on `b` where it stands — over the middle of it, where the
+## walk over brought it (`Bench`), to within WalkTo.THERE; it is not moved the
+## rest of the way — and still. It stays sat until it
+## is asked to do anything else — a step, a jump, a dash, a crouch, up, an
+## attack, a cast (`_mind_seat`) — or interact is pressed at the bench again, a
+## blow gets through, it dies, or it leaves the room. The body sitting is the
+## body standing still, as far as anything else in the game goes: only the
+## picture of it sits.
+func sit(b: Bench) -> void:
+	if b == null or not is_instance_valid(b) or seat == b:
+		return
+	_drop_rope()
+	seat = b
+	_sat_holding = true
+	velocity = Vector2.ZERO
+	Cues.at(&"sit", b.global_position, {"kind": "down"})
+
+## Up off the bench, if the body is on one.
+func stand_up() -> void:
+	if seat == null:
+		return
+	seat = null
+	Cues.at(&"sit", global_position, {"kind": "up"})
+
+## A frame on a bench: whatever is asked of the body stands it up, and what
+## asked goes ahead on the same frame — but not a way held since it sat down,
+## until that has been let go of and pushed again. A bench gone from under it
+## stands it up too.
+func _mind_seat() -> void:
+	if seat == null:
+		return
+	if _asked.move == 0.0:
+		_sat_holding = false
+	if not is_instance_valid(seat) or (_asked.move != 0.0 and not _sat_holding) or _asked.jump_pressed \
+			or _asked.dash_pressed or _asked.crouch or _asked.climb or _asked.attack or _asked.cast:
+		stand_up()
+
+## Whether the body sits on a bench.
+func seated() -> bool:
+	return seat != null and is_instance_valid(seat)
 
 ## --- read by the view -------------------------------------------------------
 func is_dashing() -> bool:

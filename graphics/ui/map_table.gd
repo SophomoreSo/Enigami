@@ -483,6 +483,8 @@ func name_of(entry: String, in_tab: int = tab) -> String:
 			return Loc.t("hud.maker.mark.box")
 		MadeRoom.DIG:
 			return Loc.t("hud.maker.mark.dig")
+		MadeRoom.BENCH:
+			return Loc.t("hud.maker.mark.bench")
 	var kind := MadeRoom.monster_of(entry)
 	return Monsters.name_for(kind).to_upper() if kind != "" else entry
 
@@ -776,7 +778,7 @@ func _edge(cv: CanvasItem, r: Rect2, col: Color) -> void:
 ## --- what stands in the map, drawn ----------------------------------------------
 
 ## What `mark` of the plan stands for — a monster's post, the player's start,
-## the box, the ground to dig — drawn in the cell `r` as the game draws it,
+## the box, the ground to dig, a bench — drawn in the cell `r` as the game draws it,
 ## smaller by as much as `r` is smaller than a room's cell.
 static func paint_mark(cv: CanvasItem, mark: String, r: Rect2) -> void:
 	var k := r.size.x / float(Room.CELL)
@@ -787,6 +789,8 @@ static func paint_mark(cv: CanvasItem, mark: String, r: Rect2) -> void:
 			_paint_box(cv, r, k)
 		MadeRoom.DIG:
 			_paint_dig(cv, r, k)
+		MadeRoom.BENCH:
+			BenchView.paint(cv, Vector2(r.get_center().x, r.end.y), float(PixelCamera.SCALE) * k)
 		_:
 			var kind := MadeRoom.monster_of(mark)
 			if kind != "":
@@ -878,6 +882,9 @@ static func stands_in(mark: String) -> Rect2:
 			return Rect2(-TreasureBoxView.W * 0.5 - 1.0, -high, TreasureBoxView.W + 2.0, high)
 		MadeRoom.DIG:
 			return Rect2(-DigSpotView.W * 0.5, -PixelCamera.SCALE * 4.0, DigSpotView.W, PixelCamera.SCALE * 4.0)
+		MadeRoom.BENCH:
+			var s := float(PixelCamera.SCALE)
+			return Rect2(-(BenchView.WIDE * 0.5 + 1.0) * s, -BenchView.BACK * s, (BenchView.WIDE + 2.0) * s, BenchView.BACK * s)
 	var art := Style.PLAYER_ART if mark == MadeRoom.START else Style.monster_art(MadeRoom.monster_of(mark))
 	var drawn := Sprites.art_rect(art).size * Sprites.PIXEL_SCALE
 	if flies(mark):
