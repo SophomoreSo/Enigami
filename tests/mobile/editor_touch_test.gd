@@ -205,7 +205,7 @@ func _the_layout() -> void:
 			small.append("the %s tab %s" % [String(ed.pages[i]), str(r.size)])
 	check(small.is_empty(), "the buttons and the tabs are a thumb's size (%s)" % str(small))
 	var said: Rect2 = l["message"]
-	check(tops.size() == ScreenTabs.PAGES.size() and (tops[0] as Rect2).position.y == back.position.y
+	check(tops.size() == ed.pages.size() and (tops[0] as Rect2).position.y == back.position.y
 			and (tops[0] as Rect2).position.x > back.end.x,
 		"the page tabs stand along the top beside the back arrow (%d)" % tops.size())
 	check(said.position.y == (l["paste"] as Rect2).position.y and said.position.x > (l["paste"] as Rect2).end.x

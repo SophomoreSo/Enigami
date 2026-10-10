@@ -39,7 +39,7 @@
 	"tabs": {
 		"graph": "GRAPH",
 		"map": "MAP",
-		"dex": "MONSTERS",
+		"dex": "FOES",
 		"perks": "PERKS"
 	},
 	"dex": {

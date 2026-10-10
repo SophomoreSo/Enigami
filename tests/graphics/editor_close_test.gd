@@ -159,7 +159,7 @@ func _ready() -> void:
 	check(raid.reading_dex and not raid.editing and Views.of(raid).dex.visible
 			and not Views.of(raid).editor.visible and raid.player.input_locked
 			and not Views.of(raid).hud.visible,
-		"a click on the MONSTERS tab puts the dictionary up in the board's place")
+		"a click on the FOES tab puts the dictionary up in the board's place")
 	await key(KEY_M)
 	check(raid.reading_map and not raid.reading_dex, "M on it puts the map up")
 	await click(tab_of(pages, ScreenTabs.DEX))
