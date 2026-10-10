@@ -176,10 +176,13 @@ const ROPE_HANDS := 30.0
 const ROPE_REACH := 16.0
 ## The highest the hands go up a rope: this far under where it hangs from.
 const ROPE_TOP := 12.0
-## How fast a rope is climbed: up it, and down it faster. Down past its end is
-## off it.
+## How fast a rope is climbed: up it, and down it faster, as far as its end.
 const CLIMB_SPEED := 150.0
 const CLIMB_DOWN_SPEED := 240.0
+## How long down is held with the hands at a rope's end before they let go of
+## it. A tap there keeps hold, and so does the hold that climbed down to it,
+## until it has been held this much longer.
+const ROPE_LET_GO := 0.4
 ## What left and right do to a swing: this much speed along it a second, the
 ## way held. Held against the pull back down, a rope is leaned over and kept
 ## there; in time with the swing, it goes higher every time.
@@ -266,6 +269,8 @@ var rope: HangingRope = null
 var _grip: float = 0.0
 var _swing: float = 0.0
 var _spin: float = 0.0
+## How long down has been held with the hands at the rope's end (`ROPE_LET_GO`).
+var _held_at_end: float = 0.0
 ## The rope last let go of. It is not taken again until up has been let go of,
 ## so a jump off one with up still held is not caught by it on the way past.
 var _let_go_of: HangingRope = null
@@ -1154,8 +1159,8 @@ func _action_rush() -> void:
 ## pull of the world swings it back down — a pendulum from the rope's anchor,
 ## the hands on it. The swing is measured off where the body actually is, so a
 ## wall that stopped it stopped the swing, and a blow that knocked it aside
-## swung it. Down past the rope's end lets go of it, the body carrying the
-## swing's speed.
+## swung it. Down climbs as far as the rope's end and stops there; held there
+## ROPE_LET_GO, it lets go, the body carrying the swing's speed.
 func _action_swing() -> void:
 	if rope == null:
 		return
@@ -1171,10 +1176,14 @@ func _action_swing() -> void:
 	if _asked.climb:
 		_grip = maxf(_grip - CLIMB_SPEED * pace * delta, ROPE_TOP)
 	elif _asked.crouch:
-		_grip += CLIMB_DOWN_SPEED * pace * delta
-		if _grip > rope.length:
+		_grip = maxf(minf(_grip + CLIMB_DOWN_SPEED * pace * delta, rope.length), _grip)
+	if _asked.crouch and not _asked.climb and _grip >= rope.length:
+		_held_at_end += delta
+		if _held_at_end >= ROPE_LET_GO:
 			_drop_rope()
 			return
+	else:
+		_held_at_end = 0.0
 	var reach := maxf(_grip, SWING_SHORTEST)
 	_spin += (-GRAVITY * sin(at) + SWING_PUMP * _dir * pace) / reach * delta
 	_spin *= exp(-SWING_DAMP * delta)
@@ -1301,6 +1310,7 @@ func _take_rope(r: HangingRope) -> void:
 	# Measured from here as if it had already been swinging that fast.
 	_swing = at - caught * get_physics_process_delta_time()
 	_spin = caught
+	_held_at_end = 0.0
 	_buffer = 0.0
 	_flung = false
 	_air_jump_used = false

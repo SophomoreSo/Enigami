@@ -130,7 +130,7 @@ not a thing to reach for once it errors.
 | | |
 |---|---|
 | A / D, ← / → | move; on a rope, swing it — the way held, and in time with the swing higher every time, never over the top |
-| S, ↓ | crouch, on the floor: the body is let down onto its feet — lower, and a smaller thing to hit — and stays where it is; a direction held with it turns it round. A jump or a dash goes out of it, and there is no crouch in the air. On a rope, climb down it, and down past its end, drop off |
+| S, ↓ | crouch, on the floor: the body is let down onto its feet — lower, and a smaller thing to hit — and stays where it is; a direction held with it turns it round. A jump or a dash goes out of it, and there is no crouch in the air. On a rope, climb down it, as far as its end; held there a moment more, let go of it — a tap there keeps hold |
 | W, ↑ | take hold of a rope within reach of the hands — held on the way to one, it catches it — and, holding on, climb it, as far as its top. A rope just let go of is not caught again until W has been let go of |
 | SPACE | jump; again in mid-air to double jump; against a wall to kick off; on a rope, leap off it, with the swing's speed and a jump on top — more off the way up a swing — and the air jump back. Speed a swing flings the body off at faster than a run is kept in the air for as long as that way is held |
 | SHIFT | dash — left or right only, never up; brief invulnerability from the press; spends stamina, four dashes to a full bar |

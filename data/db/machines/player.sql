@@ -33,7 +33,7 @@ INSERT INTO states (machine_id, id, label) VALUES
 --   rush     a dash under way carries the body until its time runs out
 --   duck     keeps the body low for the frame; the frame no step does, it stands
 --   swing    on a rope: up and down climb it, left and right swing it, and the
---            world's pull swings it back down; down past its end lets go
+--            world's pull swings it back down; down held at its end lets go
 --   leap     a press of jump lets go of the rope, with the swing's speed and a
 --            jump on top
 --

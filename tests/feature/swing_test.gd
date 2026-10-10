@@ -1,7 +1,8 @@
 extends Node2D
 ## A rope: up held with one within reach of the hands takes it, left and right
 ## swing on it, up and down climb it, a jump lets go of it with the swing's
-## speed and a jump on top, and down past its end drops off it. The rules
+## speed and a jump on top, and down held at its end drops off it — a tap of
+## down there keeps hold. The rules
 ## alone: what a rope looks like, and the line that runs taut to the hands, are
 ## rope_test's.
 ##
@@ -164,16 +165,29 @@ func _made() -> void:
 	check(widest > 0.8 and widest <= Player.SWING_MOST + 0.001,
 		"in time with the swing it swings higher every time, never past %.2f (%.2f)" % [Player.SWING_MOST, widest])
 
-	# Up and down climb it: up as far as the top, and down past the end is off.
+	# Up and down climb it: up as far as the top, and down as far as the end,
+	# where down held a moment longer lets go — and a tap of it does not.
 	hands.climb = true
 	await phys(90)
 	hands.climb = false
 	check(p.on_rope() and absf(rope.grip - Player.ROPE_TOP) < 0.01,
 		"up climbs it, as high as the top of it and no higher (%.1f)" % rope.grip)
 	hands.crouch = true
-	var dropped := await until(func() -> bool: return not p.on_rope(), 120)
+	var bottom := await until(func() -> bool: return rope.grip >= rope.length, 120)
 	hands.crouch = false
-	check(dropped and not rope.held(), "down climbs it, and down past its end lets go")
+	check(bottom and p.on_rope(), "down climbs it, as far as its end, and holds on there (%.1f of %.1f)"
+		% [rope.grip, rope.length])
+	await phys(2)
+	var tap := int(Player.ROPE_LET_GO * 60.0 * 0.5)
+	hands.crouch = true
+	await phys(tap)
+	hands.crouch = false
+	await phys(2)
+	check(p.on_rope() and rope.held(), "a tap of down at its end keeps hold (%d frames)" % tap)
+	hands.crouch = true
+	var dropped := await until(func() -> bool: return not p.on_rope(), int(Player.ROPE_LET_GO * 60.0) + 10)
+	hands.crouch = false
+	check(dropped and not rope.held(), "and down held there %.1fs lets go" % Player.ROPE_LET_GO)
 	check(await until(func() -> bool: return p.is_on_floor(), 240), "and the body comes down")
 
 	# A jump leaps off it, with a jump on top of the swing and the air jump back.
