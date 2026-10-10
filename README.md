@@ -46,6 +46,7 @@ godot res://tests/feature/input_test.tscn   # the input line: the hands, a hold,
 godot res://tests/feature/aim_assist_test.tscn # aim assist: the stick-to-weapon curve, and what it bends toward
 godot res://tests/feature/crouch_test.tscn  # the crouch: down lets the body onto its feet, a stick's threshold for it, and what stands it up again
 godot res://tests/feature/sprint_test.tscn  # the sprint: a run half as fast again while it is held, and what stops it
+godot res://tests/feature/swing_test.tscn   # a rope: taken hold of with up, swung on, climbed, leapt off and dropped off, and where a room hangs its ropes
 godot res://tests/feature/pool_test.tscn    # pooling: lent, played out and handed back, and taken back when a screen goes
 godot res://tests/perks/perks_test.tscn     # the perks: bought with gold a step at a time, kept with the profile, and what they add reaching the player
 godot res://tests/graphics/fx_pool_test.tscn # sparks, rings and floating numbers come out of pools, never out of nothing
@@ -128,9 +129,10 @@ not a thing to reach for once it errors.
 
 | | |
 |---|---|
-| A / D, ← / → | move |
-| S, ↓ | crouch, on the floor: the body is let down onto its feet — lower, and a smaller thing to hit — and stays where it is; a direction held with it turns it round. A jump or a dash goes out of it, and there is no crouch in the air |
-| SPACE | jump; again in mid-air to double jump; against a wall to kick off |
+| A / D, ← / → | move; on a rope, swing it — the way held, and in time with the swing higher every time, never over the top |
+| S, ↓ | crouch, on the floor: the body is let down onto its feet — lower, and a smaller thing to hit — and stays where it is; a direction held with it turns it round. A jump or a dash goes out of it, and there is no crouch in the air. On a rope, climb down it, and down past its end, drop off |
+| W, ↑ | take hold of a rope within reach of the hands — held on the way to one, it catches it — and, holding on, climb it, as far as its top. A rope just let go of is not caught again until W has been let go of |
+| SPACE | jump; again in mid-air to double jump; against a wall to kick off; on a rope, leap off it, with the swing's speed and a jump on top — more off the way up a swing — and the air jump back. Speed a swing flings the body off at faster than a run is kept in the air for as long as that way is held |
 | SHIFT | dash — left or right only, never up; brief invulnerability from the press; spends stamina, four dashes to a full bar |
 | CTRL | sprint — held with a direction, the same run half as fast again. It costs nothing, turns and jumps as a run does and carries into the air while it is held; a crouch stops it |
 | LMB | cast the weapon's graph as it is — again and again while held, and it costs nothing |
@@ -804,7 +806,8 @@ The props are the game's own things. A lantern hangs from the ground, the
 rail or the lintel over it, with a lamp in it, on a line that is a rope like
 the ROPE: somebody going through it anywhere moves it there and swings the
 lantern on its end, as going through the lantern does. A vine or a rope hangs
-the length of its run, and swings the same way; grass, flowers and a bush are the floor's foliage, and
+the length of its run, and swings the same way — and a rope is one to take hold
+of and swing on, as a raid room's are, hanging from the top of its run; grass, flowers and a bush are the floor's foliage, and
 lean where somebody walks; a campfire, glowing caps and fireflies each give
 light of their own. A played grove is seen at night, by its lamps, and the
 table shows their light where it will fall.

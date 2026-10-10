@@ -38,7 +38,7 @@
 	"action": {
 		"move_left": "왼쪽 이동",
 		"move_right": "오른쪽 이동",
-		"move_up": "위 조준",
+		"move_up": "위 / 오르기",
 		"move_down": "웅크리기",
 		"jump": "점프",
 		"dash": "대시",

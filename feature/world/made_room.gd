@@ -23,9 +23,12 @@ extends HandLaidRoom
 ##             first floor under their cells, so neither is ever left hanging.
 ##   back      what stands behind all of it: a wall, a column, a tree, a pane
 ##             of glass.
-##   dressing  what is put about it: a lantern, a patch of grass, a vine.
+##   dressing  what is put about it: a lantern, a patch of grass, a vine, a
+##             rope.
 ##
-## The last two are the picture's, and nothing here reads them. Which marks
+## The last two are the picture's, and nothing here reads them but the rope
+## (`ROPE`): a body takes hold of one and swings on it, which makes it the
+## rules' as much as the picture's, wherever it was laid. Which other marks
 ## they hold, and what each looks like, is the tileset's — `tileset`, by id —
 ## which draws the ground as well: every kind of ground is as solid as the
 ## next, and what kind it is says only how it looks.
@@ -52,6 +55,11 @@ const MONSTERS := {
 	"c": "CRAWLER", "s": "SENTRY", "l": "LOBBER", "h": "HOPPER", "d": "DRIFTER",
 	"w": "WARDEN", "g": "GUNMAN", "u": "GRUNT", "y": "DUMMY", "a": "ARBITER",
 }
+## A rope, laid in the dressing down a column of cells: one rope a run of them,
+## hung from the top of the run and as long as it (`_hang_ropes`).
+const ROPE := "r"
+## The kind of line a laid rope is, by its row of `ropes`.
+const ROPE_KIND := "cable"
 ## The marks a room holds one of at most: a player starts in one place, and a
 ## room keeps its loot in one box (`Room.box`).
 const ONE_OF := [START, BOX]
@@ -213,6 +221,20 @@ func _parts(dice: RandomNumberGenerator, count: int) -> Array:
 		if not pool.is_empty():
 			out.append({"id": pool[dice.randi() % pool.size()]})
 	return out
+
+## A rope wherever one was laid: one to every run of `ROPE` down a column of
+## the dressing, hung from the top of its first cell and reaching the foot of
+## its last.
+func _hang_ropes() -> void:
+	_drop_ropes()
+	for y in rows:
+		for x in cols:
+			if dressing_at(x, y) != ROPE or dressing_at(x, y - 1) == ROPE:
+				continue
+			var last := y
+			while dressing_at(x, last + 1) == ROPE:
+				last += 1
+			_hang_rope(Vector2((x + 0.5) * CELL, y * CELL), float((last + 1 - y) * CELL), ROPE_KIND, Vector2i(x, y))
 
 ## The room's own rock, and the rock past its edge on every side.
 func _build_collision() -> void:

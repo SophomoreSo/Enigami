@@ -19,7 +19,10 @@ extends RoomView
 ## through the line, anywhere along it, moves it where it touches and swings
 ## what hangs on its end, as anything going through that does, and its light
 ## swings with it. A vine and a rope are lines of their own, the length of
-## their run, that anything moving through them sets swinging. Grass, flowers
+## their run, that anything moving through them sets swinging — and a rope is
+## the room's to say about, being something a body takes hold of and swings on
+## (`MadeRoom.ROPE`, `Room.ropes`): its line is held taut to the hands of
+## whoever hangs on it, as a raid room's are (`RoomView`). Grass, flowers
 ## and a bush are patches of foliage (`Foliage`) that lean where somebody
 ## walks. A fire and a fireplace burn and light the room round them, glowing
 ## caps and fireflies give a little light of their own, and a fern stands where
@@ -257,6 +260,7 @@ func _hang_lines() -> void:
 		if is_instance_valid(l):
 			l.queue_free()
 	ropes.clear()
+	_lines.clear()
 	_spans.clear()
 	lanterns.clear()
 	_cords.clear()
@@ -268,8 +272,13 @@ func _hang_lines() -> void:
 				_hang_light(x, y, Lantern.new(), "lantern", MapTiles.LANTERN_BODY)
 			elif mark == "B":
 				_hang_light(x, y, Bulb.new(), "lightbulb", MapTiles.LIGHTBULB_BODY)
-			elif MapTiles.LINES.has(mark):
+			elif MapTiles.LINES.has(mark) and mark != MadeRoom.ROPE:
 				_hang_line(x, y, mark)
+	# The ropes, where the room hung them: from the top of each run laid.
+	for held in room.ropes:
+		var line := _hang_line(held.cell.x, held.cell.y, MadeRoom.ROPE)
+		if line != null:
+			_lines[held] = line
 
 ## `light`, a lantern or a lightbulb, hung on a cord of its own from over cell
 ## (x, y), giving the light of `kind`; `body` the room it takes up.
@@ -278,6 +287,9 @@ func _hang_light(x: int, y: int, light: Lantern, kind: String, body: Rect2i) -> 
 	var hangs := tiles.lantern_top(cells, x, y)
 	var cord := Rope.of(MapTiles.LANTERN_LINE)
 	cord.color = Style.rope_look("cord")["line"]
+	# Stepped after the air has leant on it (`_physics_process`), as every line
+	# here is.
+	cord.process_physics_priority = HOLD_AFTER + 1
 	var length := float((hangs - top) * S)
 	cord.hang((Vector2(x * C + C / 2, top) + Vector2(0.5, 0.5)) * S, length)
 	cord.z_index = -1
@@ -295,13 +307,16 @@ func _hang_light(x: int, y: int, light: Lantern, kind: String, body: Rect2i) -> 
 	_cords.append(cord)
 	lanterns.append(light)
 
-func _hang_line(x: int, y: int, mark: String) -> void:
+## The line of `mark` — a vine, a rope — hung from over cell (x, y) down the
+## run of it, or null where (x, y) is not the top of one.
+func _hang_line(x: int, y: int, mark: String) -> Rope:
 	var last := MapTiles.run_down(cells, x, y, mark)
 	if last < 0:
-		return
+		return null
 	var top := tiles.anchor(cells, x, y)
 	var foot := (last + 1) * C - 2
 	var line := Rope.of(String(MapTiles.LINES[mark]))
+	line.process_physics_priority = HOLD_AFTER + 1
 	line.z_index = -1
 	line.visibility_layer = PixelCamera.WORLD_LAYER
 	line.hang((Vector2(x * C + C / 2, top) + Vector2(0.5, 0.5)) * S, float(foot - top) * S)
@@ -318,6 +333,7 @@ func _hang_line(x: int, y: int, mark: String) -> void:
 	add_child(line)
 	ropes.append(line)
 	_spans.append(Rect2(Vector2(x * C + C / 2, top) * S, Vector2.ZERO).grow(float(foot - top) * S))
+	return line
 
 ## The foliage, a patch to each run of one kind along a row, standing on the
 ## floor of its cells — in place of what a raid's rooms are grown with.
@@ -494,6 +510,7 @@ func _wake() -> void:
 ## The air is never quite still: it leans on every lantern and vine a little,
 ## each out of step with the rest — every one that is swinging.
 func _physics_process(delta: float) -> void:
+	super(delta)
 	for i in _cords.size():
 		if _cords[i].is_physics_processing():
 			_cords[i].nudge(_cords[i].nodes.size() - 1, Vector2(sin(_t * 0.9 + i * 2.3) * LANTERN_BREEZE * delta, 0.0))

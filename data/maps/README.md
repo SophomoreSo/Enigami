@@ -82,7 +82,7 @@ own cell.
 | `*` | Fireflies, and their light. |
 | `g` `f` `b` | Grass, flowers, a bush: the floor's foliage. A run of one along a row is one patch, standing on the floor of its cells. |
 | `n` | A fern. |
-| `v` `r` | A vine, a rope. A run of one down a column is one line, hanging from what is over its top cell to the foot of its last. |
+| `v` `r` | A vine, a rope. A run of one down a column is one line, hanging from what is over its top cell to the foot of its last. A rope is also one to take hold of and swing on, as a raid room's are: the one mark of this layer the rules read (`MadeRoom.ROPE`). It swings from the top of its run, so lay it from right under what it hangs from. |
 
 The scene is text and the layers are lists of strings, so a map reads in a
 diff and can be mended by hand — in the file, or in Godot's inspector. The

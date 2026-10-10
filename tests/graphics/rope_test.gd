@@ -23,8 +23,11 @@ extends Node
 ## ring passes; and a lunge and a slash, for the moment after each is made. A room hangs what the
 ## `hangings` rows say, as many and as long, from rock with open air under
 ## them, the same ones every time it is built — and no cords, which are the
-## grove's to hang. And what the schema promises to refuse is tried against a
-## scratch copy.
+## grove's to hang. A line held by a hand runs taut and straight from its
+## anchor to the hand, and swings on as fast as the hand moved it once let go;
+## a room's view draws a line for every rope the room hung, where it hangs,
+## and holds it to the hands of whoever hangs on it. And what the schema
+## promises to refuse is tried against a scratch copy.
 ##
 ## No renderer needed: the simulation is stepped by hand, and the pixels are
 ## asked for rather than drawn. The refusals print an `SQL error` line each
@@ -59,6 +62,7 @@ func _ready() -> void:
 	_movers()
 	_cut_through()
 	_rooms()
+	_held()
 	_grove()
 	_refusals()
 	print("[ROPE] ---- %d failures ----" % fails)
@@ -654,6 +658,58 @@ func _anchors(view: RoomView) -> Array:
 	for rope: Rope in view.ropes:
 		out.append(rope.point_of(0))
 	return out
+
+## A line held by a hand, and a room's lines held where its ropes are.
+func _held() -> void:
+	var line := Rope.new()
+	line.hang(Vector2(100, 0), 120.0, 12.0)
+	add_child(line)
+	line.set_physics_process(false)
+	run(line, 30)
+	var hand := Vector2(130, 80)
+	line.hold(hand, 84.0, DT)
+	line.step(DT)
+	var straight := true
+	for i in range(1, 8):
+		var on := Vector2(100, 0).lerp(hand, float(i) / 7.0)
+		if line.point_of(i).distance_to(on) > 0.01:
+			straight = false
+	check(line.holding() and line.point_of(7) == hand and straight,
+		"held, a line runs straight from its anchor to the hand, the node nearest the hand in it (%s)" % str(line.point_of(7)))
+	check(absf(line.point_of(8).distance_to(hand) - 12.0) < 0.01,
+		"and what is below the hand hangs from it (%.2f)" % line.point_of(8).distance_to(hand))
+	line.hold(hand + Vector2(6, 0), 84.0, DT)
+	line.step(DT)
+	line.let_go()
+	var was := line.point_of(7)
+	line.step(DT)
+	check(not line.holding() and (line.nodes[7]["vel"] as Vector2).x > 100.0 and line.point_of(7).x > was.x,
+		"let go of, it swings on the way the hand was moving it (%s)" % str(line.nodes[7]["vel"]))
+	line.free()
+
+	var room := _room({"kind": "entry", "danger": 1, "region": 0, "variant": 7, "enemies": [], "loot": []}, 12345)
+	var view := Views.of(room) as RoomView
+	var lines: Array = [] if view == null else room.ropes.map(func(r: HangingRope) -> Rope: return view._lines.get(r, null))
+	check(view != null and not room.ropes.is_empty() and view.ropes.size() == room.ropes.size()
+			and lines.all(func(l) -> bool: return l != null)
+			and room.ropes.all(func(r: HangingRope) -> bool:
+				return (view._lines[r] as Rope).point_of(0) == r.position and (view._lines[r] as Rope).kind == r.kind),
+		"a room's view hangs a line for every rope the room hung, of its kind, where it hangs (%d)" % room.ropes.size())
+	if view != null and not room.ropes.is_empty():
+		var rope: HangingRope = room.ropes[0]
+		var drawn: Rope = view._lines[rope]
+		var hands := Node2D.new()
+		add_child(hands)
+		rope.hold(hands, rope.anchor() + Vector2(20, rope.length * 0.5), rope.length * 0.5)
+		view._hold_lines(DT)
+		var at := clampi(int(round(rope.grip / drawn.segment)), 1, drawn.nodes.size() - 1)
+		check(drawn.holding() and drawn.to_global(drawn.point_of(at)) == rope.hands,
+			"and while its rope is held, the line runs to the hands (%s)" % str(drawn.to_global(drawn.point_of(at))))
+		rope.let_go()
+		view._hold_lines(DT)
+		check(not drawn.holding(), "and is let go of with it")
+		hands.free()
+	room.free()
 
 ## The lanterns under the Jean Grey test's roofs hang on cords, where they
 ## were painted when they hung still, and swing when a body goes through one.

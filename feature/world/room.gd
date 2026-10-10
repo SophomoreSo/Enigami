@@ -80,6 +80,18 @@ var digs: Array[DigSpot] = []
 ## How far apart two spots of it are kept, and how far from the box: one dug
 ## should not be one stood on while opening something else.
 const DIG_APART := 96.0
+## The ropes hung from this room's rock, in the order they were hung: lines a
+## body takes hold of and swings on (`HangingRope`). See `_hang_ropes`.
+var ropes: Array[HangingRope] = []
+## Open cells a rope needs under its end, to swing in without meeting a floor.
+const SWING_ROOM := 2
+## How far apart two ropes hang, in cells, so they read as two.
+const HANG_GAP := 3
+## The corner of the room no rope hangs in: the top left, this many cells across
+## and down. The player's own bars stand over it, on a screen the room's shape,
+## and a rope there is one nobody sees.
+const ROPELESS_COLS := 10
+const ROPELESS_ROWS := 8
 
 func build(room_coord: Vector2i, record: Dictionary, doorset: Dictionary, seed_base: int) -> void:
 	coord = room_coord
@@ -100,6 +112,7 @@ func build(room_coord: Vector2i, record: Dictionary, doorset: Dictionary, seed_b
 	_build_collision()
 	_spawn_gates()
 	_spawn_contents()
+	_hang_ropes()
 	built.emit()
 
 ## --- grid -------------------------------------------------------------------
@@ -518,6 +531,77 @@ func _spawn_digs() -> void:
 		d.dug.connect(func(s: DigSpot, items: Array) -> void: spot_dug.emit(s, items))
 		add_child(d)
 		digs.append(d)
+
+## --- ropes ------------------------------------------------------------------
+
+## What hangs from the room's rock is the `hangings` rows of the content
+## database: of each kind of line, how many and how long. Where each hangs is
+## decided here: from a solid cell with open air under it for its length and its
+## swing — the ceiling, or the underside of a ledge — never at the edge of the
+## room, never in its top-left corner (`ROPELESS_COLS`), and never two within
+## HANG_GAP of each other. Which cells, how many and how long is rolled from the
+## room's own seed, so a room hangs the same ropes every time it is walked into,
+## and on dice of its own rather than the room's, so the monsters and the loot
+## fall as they always did.
+func _hang_ropes() -> void:
+	_drop_ropes()
+	var dice := RandomNumberGenerator.new()
+	dice.seed = rng.seed ^ 0x5eedcab1e
+	var hung: Array[Vector2i] = []
+	for row in Db.records("hangings", "", [], "rowid"):
+		var longest := int(row["longest"])
+		var spots := _rope_spots(longest + SWING_ROOM)
+		var want := dice.randi_range(int(row["fewest"]), int(row["most"]))
+		var count := 0
+		var tries := 0
+		while count < want and not spots.is_empty() and tries < 40:
+			tries += 1
+			var spot: Vector2i = spots[dice.randi() % spots.size()]
+			var crowded := false
+			for h in hung:
+				if absi(h.x - spot.x) < HANG_GAP:
+					crowded = true
+			if crowded:
+				continue
+			hung.append(spot)
+			count += 1
+			_hang_rope(Vector2((spot.x + 0.5) * CELL, (spot.y + 1) * CELL),
+				float(dice.randi_range(int(row["shortest"]), longest) * CELL), String(row["rope"]))
+
+## Every rope the room had hung, taken down.
+func _drop_ropes() -> void:
+	for r in ropes:
+		if is_instance_valid(r):
+			r.queue_free()
+	ropes.clear()
+
+## A rope of `kind`, hung from `at` in the room, `long` straight down.
+func _hang_rope(at: Vector2, long: float, kind: String, laid: Vector2i = Vector2i(-1, -1)) -> HangingRope:
+	var r := HangingRope.new()
+	r.setup(at, long, kind, laid)
+	add_child(r)
+	ropes.append(r)
+	return r
+
+## The cells a rope needing `clear` open cells under it may hang from: solid,
+## with that much air below, in from the room's edge and out of its top-left
+## corner.
+func _rope_spots(clear: int) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for y in range(0, rows - clear):
+		for x in range(2, cols - 2):
+			if x < ROPELESS_COLS and y < ROPELESS_ROWS:
+				continue
+			if is_solid(x, y) and _clear_under(x, y, clear):
+				out.append(Vector2i(x, y))
+	return out
+
+## Whether the `n` cells under (x, y) are open.
+func _clear_under(x: int, y: int, n: int) -> bool:
+	for k in range(1, n + 1):
+		if is_solid(x, y + k):
+			return false
+	return true
 
 ## Whether holding interact would dig here.
 func dig_offered() -> bool:

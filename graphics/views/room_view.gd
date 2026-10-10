@@ -2,7 +2,7 @@ class_name RoomView
 extends Node2D
 
 ## A room, drawn: the tile field, its door frames, whatever exit it
-## holds, the cables hung from its rock and the foliage growing on its floors.
+## holds, the ropes hung from its rock and the foliage growing on its floors.
 ## Its gates are drawn by their own views (`GateView`).
 ##
 ## And how it stands to the light (`Lighting`): which way its rock faces where
@@ -21,19 +21,17 @@ extends Node2D
 ## dark past the world, and a door's gap runs on through it as a tunnel, so a
 ## way out still reads as one.
 
-## The lines hung from a room's rock — cables, and whatever else the content
-## database's `hangings` say — are scenery: they hang from the ceiling and
-## from under the ledges, and sway when somebody walks through them (`Rope`).
-## Open cells a line needs under its end, to swing in without meeting a floor.
-const SWING_ROOM := 2
-## How far apart two lines hang, in cells, so they read as two.
-const HANG_GAP := 3
-## The corner of the room the readout stands over — the health bar and the
-## slot cards, in the top left of the screen, which is the top left of the
-## room on a screen the room's own shape. A line hung there is one nobody
-## sees.
-const READOUT_COLS := 10
-const READOUT_ROWS := 8
+## The ropes hung from a room's rock are the room's (`Room.ropes`): where each
+## hangs, how long and what kind of line, the rules say, and something a body
+## takes hold of. Each is drawn here as a line that sways when somebody walks
+## through it (`Rope`), and runs taut to the hands of whoever hangs on it.
+##
+## The hands are where the body hanging on it moved them this physics frame,
+## so a line is held after every body has moved, wherever in the tree the room
+## stands — HOLD_AFTER, past the bodies' own place in the frame — and steps
+## after it is held, a place later again. Held any sooner, a line trails the
+## hands by a frame of the swing.
+const HOLD_AFTER := 10
 ## How much the way the rock faces counts, a pixel of the picture at a time in
 ## from where it meets the open air: its skin is lit only from its own side,
 ## and by three pixels in it takes any light alike.
@@ -54,6 +52,9 @@ var shadow: ShadowCaster
 var exit_lamp: Lamp
 ## The lines hung in this room, in the order they were hung.
 var ropes: Array = []
+## The line drawing each of the room's ropes, by the rope (`HangingRope`): held
+## where its rope is held, every physics frame (`_hold_lines`).
+var _lines: Dictionary = {}
 ## The patches growing on this room's floors, in the order they were grown,
 ## which is the order they are drawn in (`Foliage`).
 var plants: Array = []
@@ -81,6 +82,7 @@ class Faces extends Node2D:
 func _ready() -> void:
 	room = get_parent() as Room
 	z_index = 0
+	process_physics_priority = HOLD_AFTER
 	# What is drawn here itself is the way out, which is its own light.
 	material = Lighting.glow()
 	# Behind the tiles, so whatever stands in front of them — a look the room
@@ -128,70 +130,40 @@ func dress(scenery: Node2D) -> void:
 	move_child(scenery, _tiles.get_index() + 1)
 	_faces.visible = false
 
-## What hangs from the room's rock is the `hangings` rows of the content
-## database: of each kind of line, how many and how long. Where each hangs is
-## decided here: from a solid cell with open air under it for its length and
-## its swing — the ceiling, or the underside of a ledge — never at the edge
-## of the room, never under the readout, and never two within HANG_GAP of
-## each other. Which cells, how many and how long is rolled from the room's
-## own seed, so a room looks the same every time it is walked into, and from
-## a roll of its own rather than the room's, so the monsters and the loot
-## fall as they always did. Each line is settled before it is seen, so a room
-## never opens on lines dropping into place.
+## A line for every rope the room hung (`Room.ropes`), of the rope's kind,
+## hung where it hangs and as long. Each is settled before it is seen, so a
+## room never opens on lines dropping into place.
 func _hang_lines() -> void:
 	for r in ropes:
 		if is_instance_valid(r):
 			r.queue_free()
 	ropes.clear()
-	var rng := RandomNumberGenerator.new()
-	rng.seed = room.rng.seed ^ 0x5eedcab1e
-	var hung: Array[Vector2i] = []
-	for row in Rope.hangings():
-		var kind := String(row["rope"])
-		var longest := int(row["longest"])
-		var spots := _spots(longest + SWING_ROOM)
-		var want := rng.randi_range(int(row["fewest"]), int(row["most"]))
-		var count := 0
-		var tries := 0
-		while count < want and not spots.is_empty() and tries < 40:
-			tries += 1
-			var spot: Vector2i = spots[rng.randi() % spots.size()]
-			var crowded := false
-			for h in hung:
-				if absi(h.x - spot.x) < HANG_GAP:
-					crowded = true
-			if crowded:
-				continue
-			hung.append(spot)
-			count += 1
-			var rope := Rope.of(kind)
-			rope.z_index = -1
-			rope.visibility_layer = PixelCamera.WORLD_LAYER
-			rope.hang(Vector2((spot.x + 0.5) * Room.CELL, (spot.y + 1) * Room.CELL),
-				rng.randi_range(int(row["shortest"]), longest) * Room.CELL)
-			rope.settle()
-			add_child(rope)
-			ropes.append(rope)
+	_lines.clear()
+	for held in room.ropes:
+		var line := Rope.of(held.kind)
+		line.z_index = -1
+		line.visibility_layer = PixelCamera.WORLD_LAYER
+		line.process_physics_priority = HOLD_AFTER + 1
+		line.hang(held.position, held.length)
+		line.settle()
+		add_child(line)
+		ropes.append(line)
+		_lines[held] = line
 
-## The cells a line needing `clear` open cells under it may hang from: solid,
-## with that much air below, in from the room's edge and out from under the
-## readout.
-func _spots(clear: int) -> Array[Vector2i]:
-	var out: Array[Vector2i] = []
-	for y in range(0, room.rows - clear):
-		for x in range(2, room.cols - 2):
-			if x < READOUT_COLS and y < READOUT_ROWS:
-				continue
-			if room.is_solid(x, y) and _clear_under(x, y, clear):
-				out.append(Vector2i(x, y))
-	return out
+func _physics_process(delta: float) -> void:
+	_hold_lines(delta)
 
-## Whether the `n` cells under (x, y) are open.
-func _clear_under(x: int, y: int, n: int) -> bool:
-	for k in range(1, n + 1):
-		if room.is_solid(x, y + k):
-			return false
-	return true
+## Every line whose rope somebody hangs on, held taut to their hands; every
+## other let go of. After the bodies move, and before the lines step.
+func _hold_lines(delta: float) -> void:
+	for held in _lines:
+		var line: Rope = _lines[held]
+		if not is_instance_valid(held) or not is_instance_valid(line):
+			continue
+		if (held as HangingRope).held():
+			line.hold((held as HangingRope).hands, (held as HangingRope).grip, delta)
+		elif line.holding():
+			line.let_go()
 
 ## What grows on the room's floors is the `growths` rows of the content
 ## database: of each kind of foliage, how many patches and how long. Where each

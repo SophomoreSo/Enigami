@@ -48,7 +48,9 @@ func _build_sprite() -> void:
 
 ## The player's own art has a pose for everything the body can do; the Dragon
 ## is cut from the atlas and has only the three, so each airborne case falls
-## back to holding the stride that reads as rising or falling.
+## back to holding the stride that reads as rising or falling. On a rope the
+## body hangs by the hand over its head, the fist where the rules hold the rope
+## (`Player.ROPE_HANDS`), so the line runs into it.
 func _animate() -> void:
 	if player.forced_anim != "" and has_anim(player.forced_anim):
 		# A pose a story's line holds them in, over whatever the body is doing.
@@ -56,6 +58,12 @@ func _animate() -> void:
 	elif flash > 0.55:
 		# The recoil pose, held for the front of the flash.
 		play("hit", 1.0, 0)
+	elif player.on_rope():
+		if has_anim("hang"):
+			play("hang")
+		else:
+			# Art with no hang reaches up out of a rise.
+			play("rise", 1.0, 0)
 	elif player.is_dashing():
 		if has_anim("dash"):
 			play("dash")
