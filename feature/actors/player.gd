@@ -191,22 +191,22 @@ const ROPE_LET_GO := 0.4
 ## time.
 const SWING_PUMP := 300.0
 const SWING_FEEL := 120.0
-## How fast a swing dies away, a share of it a second.
+## How fast a swing dies away, a share of it a second. Nothing else takes a
+## swing's speed away but the world's pull: there is no height it stops at, and
+## a swing pushed high enough goes over the top.
 const SWING_DAMP := 0.4
-## The furthest a rope swings from hanging straight down, either way: about
-## seventy degrees. It never goes over the top, and slows into it as into any
-## other furthest point (`_swing_room`).
-const SWING_MOST := 1.25
-## How fast a swing with more in it than takes it as far as SWING_MOST is
-## slowed down to that, a share of it a second.
-const SWING_OVER := 5.0
+## A swing that runs into rock — over it, beside it — bounces back off it with
+## this much of its speed, turned round, rather than stopping there.
+const SWING_BOUNCE := 0.8
+## How far short of where it was sent a swing has to come, in radians, to have
+## run into something.
+const SWING_SHORT := 0.002
 ## The shortest a swing is reckoned at. Near the top of a rope a pendulum that
 ## short would swing back and forth faster than it reads.
 const SWING_SHORTEST := 48.0
-## The fastest a rope is set swinging by a body catching it.
-const SWING_CAUGHT := 6.0
 ## A jump off a rope goes up at least this fast, and faster still off the way
-## up a swing, but never faster than ROPE_JUMP_MOST.
+## up a swing — the jump on top no more than takes it to ROPE_JUMP_MOST, and
+## never less than the swing was going up already.
 const ROPE_JUMP := -520.0
 const ROPE_JUMP_MOST := -820.0
 
@@ -277,6 +277,9 @@ var rope: HangingRope = null
 var _grip: float = 0.0
 var _swing: float = 0.0
 var _spin: float = 0.0
+## The angle the swing sent the body to last frame: where it got to instead says
+## whether it ran into anything on the way.
+var _meant: float = 0.0
 ## How long down has been held with the hands at the rope's end (`ROPE_LET_GO`).
 var _held_at_end: float = 0.0
 ## The rope last let go of. It is not taken again until up has been let go of,
@@ -1166,9 +1169,10 @@ func _action_rush() -> void:
 ## A frame on a rope: up and down climb it, left and right swing it, and the
 ## pull of the world swings it back down — a pendulum from the rope's anchor,
 ## the hands on it. Left and right push a swing along that is already going
-## their way (`SWING_PUMP`). The swing is measured off where the body actually
-## is, so a wall that stopped it stopped the swing, and a blow that knocked it
-## aside swung it. Down climbs as far as the rope's end and stops there; held there
+## their way (`SWING_PUMP`). The swing's speed carries on from frame to frame,
+## and only what the body runs into changes it: rock over it or beside it
+## bounces it back (`SWING_BOUNCE`), and anything else that moved the body —
+## a blow, a floor it dragged along — swings it as far as it moved. Down climbs as far as the rope's end and stops there; held there
 ## ROPE_LET_GO, it lets go, the body carrying the swing's speed.
 func _action_swing() -> void:
 	if rope == null:
@@ -1179,7 +1183,12 @@ func _action_swing() -> void:
 	var delta := get_physics_process_delta_time()
 	var a := rope.anchor()
 	var at := _swing_at(_hands_at() - a)
-	_spin = (at - _swing) / delta
+	var short := wrapf(_meant - at, -PI, PI)
+	if absf(short) > SWING_SHORT:
+		if short * _spin > 0.0 and (is_on_ceiling() or is_on_wall()):
+			_spin = -_spin * SWING_BOUNCE
+		else:
+			_spin = wrapf(at - _swing, -PI, PI) / delta
 	_swing = at
 	var pace := speed_scale()
 	if _asked.climb:
@@ -1194,27 +1203,16 @@ func _action_swing() -> void:
 	else:
 		_held_at_end = 0.0
 	var reach := maxf(_grip, SWING_SHORTEST)
-	# Never past SWING_MOST, and never stopped dead there: the push gives a
-	# swing no more than takes it that far (`_swing_room`), and the world's pull
-	# turns it round there as it turns it round anywhere — slowing into its
-	# furthest, rather than meeting a wall at it.
-	var spare := _swing_room(at, _spin, reach)
+	# The push goes along the swing, the way it is going, when that is the way
+	# held across the screen — which, over the top, is the other way round.
 	var going := _spin * _grip
 	var push := 0.0
-	if _dir != 0.0 and signf(going) == signf(_dir) and spare > 0.0:
-		push = SWING_PUMP * _dir * pace * clampf(absf(going) / SWING_FEEL, 0.0, 1.0)
-		var adds := absf(push * _spin * reach) * delta
-		if adds > spare:
-			push *= spare / adds
+	if _dir != 0.0 and signf(going * cos(at)) == signf(_dir):
+		push = SWING_PUMP * signf(going) * absf(_dir) * pace * clampf(absf(going) / SWING_FEEL, 0.0, 1.0)
 	_spin += (-GRAVITY * sin(at) + push) / reach * delta
 	_spin *= exp(-SWING_DAMP * delta)
-	# More in it than that — the rope let out under it as it swung — and it is
-	# slowed down to it over a few frames.
-	if spare < 0.0:
-		_spin *= exp(-SWING_OVER * delta)
 	var to := at + _spin * delta
-	if absf(to) > SWING_MOST:
-		to = signf(to) * SWING_MOST
+	_meant = to
 	var hands := a + Vector2(sin(to), cos(to)) * _grip
 	velocity = (hands + Vector2(0.0, ROPE_HANDS) - global_position) / delta
 
@@ -1226,7 +1224,7 @@ func _action_leap() -> void:
 		return
 	_buffer = 0.0
 	_drop_rope()
-	velocity.y = maxf(minf(velocity.y + ROPE_JUMP, ROPE_JUMP), ROPE_JUMP_MOST)
+	velocity.y = minf(maxf(minf(velocity.y + ROPE_JUMP, ROPE_JUMP), ROPE_JUMP_MOST), velocity.y)
 	_air_jump_used = false
 	_flung = true
 	Cues.at(&"jump", global_position, {"kind": "rope"})
@@ -1303,7 +1301,8 @@ func _hands_at() -> Vector2:
 	return global_position + Vector2(0.0, -ROPE_HANDS)
 
 ## The rope nearest the hands that they reach, in the room the body is in, or
-## null. Not one somebody else holds, nor the one just let go of.
+## null. Not one somebody else holds, nor the one just let go of, nor one whose
+## anchor the hands are over: a rope is taken from under where it hangs.
 func _rope_in_reach() -> HangingRope:
 	if not is_instance_valid(room) or not (room is Room):
 		return null
@@ -1311,7 +1310,7 @@ func _rope_in_reach() -> HangingRope:
 	var best: HangingRope = null
 	var nearest := INF
 	for r in (room as Room).ropes:
-		if not is_instance_valid(r) or r == _let_go_of or r.held():
+		if not is_instance_valid(r) or r == _let_go_of or r.held() or hands.y <= r.anchor().y:
 			continue
 		if r.reach(hands, ROPE_REACH, ROPE_REACH) < 0.0:
 			continue
@@ -1331,14 +1330,10 @@ func _take_rope(r: HangingRope) -> void:
 	_grip = clampf(r.reach(hands, ROPE_REACH, ROPE_REACH), ROPE_TOP, maxf(r.length, ROPE_TOP))
 	var at := _swing_at(hands - a)
 	var along := Vector2(cos(at), -sin(at))
-	var reach := maxf(_grip, SWING_SHORTEST)
-	var caught := clampf(velocity.dot(along) / reach, -SWING_CAUGHT, SWING_CAUGHT)
-	# No more of a swing than takes it as far as SWING_MOST, however fast it was
-	# caught.
-	var spare := maxf(_swing_room(at, 0.0, reach), 0.0)
-	caught = clampf(caught, -sqrt(2.0 * spare) / reach, sqrt(2.0 * spare) / reach)
-	# Measured from here as if it had already been swinging that fast.
-	_swing = at - caught * get_physics_process_delta_time()
+	# All of the body's speed across the rope goes into the swing, however fast.
+	var caught := velocity.dot(along) / maxf(_grip, 1.0)
+	_swing = at
+	_meant = at
 	_spin = caught
 	_held_at_end = 0.0
 	_buffer = 0.0
@@ -1347,20 +1342,10 @@ func _take_rope(r: HangingRope) -> void:
 	r.hold(self, a + Vector2(sin(at), cos(at)) * _grip, _grip)
 	Cues.at(&"rope", hands, {"kind": "grab"})
 
-## How much more a swing at angle `at`, turning `spin` radians a second on a
-## rope reckoned `reach` long, may be given before it would go further than
-## SWING_MOST: what takes it that far less what it has — its speed and its
-## height together, which the world's pull only trades one for the other.
-## Under nothing, it has more than that.
-static func _swing_room(at: float, spin: float, reach: float) -> float:
-	var has := 0.5 * pow(spin * reach, 2.0) + GRAVITY * reach * (1.0 - cos(at))
-	return GRAVITY * reach * (1.0 - cos(SWING_MOST)) - has
-
 ## The angle a rope hangs at to hands `off` from its anchor: off straight down,
-## positive to the right, and never past SWING_MOST either way — hands over the
-## anchor hold it at its furthest, not over the top.
+## positive to the right, all the way round — over the anchor is half a turn.
 static func _swing_at(off: Vector2) -> float:
-	return clampf(atan2(off.x, maxf(off.y, 1.0)), -SWING_MOST, SWING_MOST)
+	return atan2(off.x, off.y)
 
 ## The rope out of the hands, left hanging, and not taken again until up has
 ## been let go of. The body carries whatever speed it had.

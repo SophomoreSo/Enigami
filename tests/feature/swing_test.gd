@@ -205,14 +205,16 @@ func _made() -> void:
 		hands.move = signf(p._spin)
 		await phys(1)
 		widest = maxf(widest, absf(p._swing))
-		var pulled := Player.GRAVITY * absf(sin(p._swing)) / maxf(p._grip, Player.SWING_SHORTEST) \
-			* get_physics_process_delta_time()
-		jolt = maxf(jolt, absf(was) - absf(p._spin) - pulled)
+		var dt := get_physics_process_delta_time()
+		var pulled := Player.GRAVITY * absf(sin(p._swing)) / maxf(p._grip, Player.SWING_SHORTEST) * dt \
+			+ absf(was) * (1.0 - exp(-Player.SWING_DAMP * dt))
+		# Turned round by the rock it ran into, it keeps SWING_BOUNCE of its speed.
+		var kept := absf(was) * (Player.SWING_BOUNCE if signf(p._spin) == -signf(was) and absf(was) > 1.0 else 1.0)
+		jolt = maxf(jolt, kept - absf(p._spin) - pulled)
 		was = p._spin
 	hands.move = 0.0
-	check(widest > 0.8 and widest <= Player.SWING_MOST + 0.001,
-		"pushed along in time with the swing it goes higher every time, never past %.2f (%.2f)" % [Player.SWING_MOST, widest])
-	check(jolt < 0.05, "and slows into its furthest as the world's pull slows it, never stopped dead there (%.3f rad/s more than that, at most, in a frame)"
+	check(widest > 0.8, "pushed along in time with the swing it goes higher every time (%.2f)" % widest)
+	check(jolt < 0.05, "and nothing takes its speed but the world's pull and the rock it bounces off: no height it is stopped at (%.3f rad/s more than that, at most, in a frame)"
 		% jolt)
 
 	# Up and down climb it: up as far as the top, and down as far as the end,
