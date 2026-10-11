@@ -115,7 +115,7 @@ func _on_editing(on: bool) -> void:
 		# The kit carried, the raid's own copy of the graph on each, down the
 		# board's left — the one in hand open, as it always was.
 		editor.configure_shelf(SkillEditor.shelf_of(raid.player), raid.player.weapon_id,
-			GameState.raid_bag, false)
+			GameState.raid_bag, false, SkillEditor.hand_of(raid.player))
 		# The kit's own graphs, so each weapon's presets stand under its board,
 		# paid for out of the bag.
 		editor.presets = true

@@ -131,6 +131,8 @@ func _check_fallbacks() -> void:
 	for id in Weapons.DEFS:
 		checked += _same(eng, "weapons.%s.name" % id, String(Weapons.DEFS[id]["name"]))
 		checked += _same(eng, "weapons.%s.desc" % id, String(Weapons.DEFS[id]["desc"]))
+	checked += _same(eng, "weapons.%s.name" % Weapons.HAND, String(Weapons.HAND_DEF["name"]))
+	checked += _same(eng, "weapons.%s.desc" % Weapons.HAND, String(Weapons.HAND_DEF["desc"]))
 	for id in Monsters.DEFS:
 		checked += _same(eng, "monsters.%s" % id, String(Monsters.DEFS[id]["name"]))
 	for id in Perks.ids():

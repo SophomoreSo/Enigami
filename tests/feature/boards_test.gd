@@ -63,7 +63,7 @@ func _ready() -> void:
 
 	# --- every board the code asks for ----------------------------------------
 	var asked: Array = []
-	for w in Weapons.ids():
+	for w in Weapons.ids() + [Weapons.HAND]:
 		asked.append(String(Weapons.get_def(w)["board"]))
 	for m in Monsters.DEFS:
 		for key in ["board", "board_phase2"]:
@@ -77,7 +77,7 @@ func _ready() -> void:
 	for id in asked:
 		if not ids.has(id):
 			missing.append(id)
-	check(missing.is_empty(), "every board a weapon, a monster or a world asks for is there (%s)" % str(missing))
+	check(missing.is_empty(), "every board a weapon, the empty hand, a monster or a world asks for is there (%s)" % str(missing))
 	var unasked: Array = []
 	for id in ids:
 		if not asked.has(id):
@@ -89,7 +89,7 @@ func _ready() -> void:
 	check(same_parts(sword, Boards.build("sword")) and sword.skill_name == Weapons.name_for("SWORD"),
 		"a weapon's graph is its board, named after the weapon (%s)" % sword.skill_name)
 	var misrooted: Array = []
-	for w in Weapons.ids():
+	for w in Weapons.ids() + [Weapons.HAND]:
 		var b := Weapons.make_board(String(w))
 		if String(b.root_entry().get("id", "")) != Weapons.root_part(String(w)):
 			misrooted.append("%s starts with %s, not %s" % [w, b.root_entry().get("id", "nothing"), Weapons.root_part(String(w))])
@@ -99,9 +99,12 @@ func _ready() -> void:
 		"every weapon's graph starts with the part the weapon says it does, and nothing built on after (%s)" % str(misrooted))
 	check(String(Weapons.make_board("SWORD").root_entry().get("id", "")) == "DASHSLASH",
 		"the sword's is a lunge: a DASHSLASH on the root")
+	check(String(Weapons.make_board(Weapons.HAND).root_entry().get("id", "")) == "HEADBUTT"
+			and not Weapons.ids().has(Weapons.HAND),
+		"the empty hand's is a PUNCH on the root, and the empty hand is no weapon")
 	# A weapon nobody has built on fires: its own part starts against the way out.
 	var unfired: Array = []
-	for w in Weapons.ids():
+	for w in Weapons.ids() + [Weapons.HAND]:
 		var b := Weapons.make_board(String(w))
 		var run := SkillRunner.new(b)
 		run.base_payload_provider = func() -> Payload: return Weapons.base_payload(String(w))

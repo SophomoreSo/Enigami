@@ -60,6 +60,8 @@ func _ready() -> void:
 	var graphs: Array = []
 	for w in GameState.raid_weapons:
 		graphs.append(GameState.raid_graphs[w])
+	# And the empty hand's, the raid's copy of it too.
+	player.hand_board = GameState.raid_graphs.get(Weapons.HAND, GameState.weapon_board(Weapons.HAND))
 	player.setup_kit(GameState.raid_weapons, graphs, GameState.raid_hand)
 	# A run put down with the rock lying in one of its rooms is walked back into
 	# without it: it is still lying there.

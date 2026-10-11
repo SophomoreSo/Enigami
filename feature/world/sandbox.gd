@@ -58,12 +58,13 @@ func _ready() -> void:
 	var record := {"kind": "entry", "danger": 1, "region": 0, "variant": 7, "enemies": [], "loot": []}
 	room.build(Vector2i.ZERO, record, {}, 12345)
 
-	# Copies only: nothing here touches the hideout.
+	# Copies only: nothing here touches the hideout. The empty hand's as well.
 	graphs.clear()
-	for w in Weapons.ids():
+	for w in Weapons.ids() + [Weapons.HAND]:
 		graphs[w] = GameState.weapon_board(String(w)).duplicate_board()
 
 	player = Player.new()
+	player.hand_board = graphs[Weapons.HAND]
 	player.collision_layer = 2
 	player.collision_mask = 1
 	add_child(player)

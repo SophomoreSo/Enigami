@@ -90,7 +90,7 @@ func _on_editing(on: bool) -> void:
 		# Every weapon on the bench's kit, down the board's left, the one in hand
 		# open.
 		editor.configure_shelf(SkillEditor.shelf_of(sandbox.player), sandbox.player.weapon_id,
-			sandbox.inventory, true)
+			sandbox.inventory, true, SkillEditor.hand_of(sandbox.player))
 		pages.put(pages.page)
 	# The bench controls share a canvas layer with the editor and would cover
 	# the board. Nothing there is usable while assembling anyway.

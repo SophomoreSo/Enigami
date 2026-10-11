@@ -96,17 +96,19 @@ INSERT INTO renamed_parts (old_id, new_id) VALUES ('AREA', 'EXPLODE'), ('DASHSLA
 -- root of its graph, so every cast off it starts as that form; a form placed
 -- after it makes the flow that instead.
 --
--- HEADBUTT is the one form with no weapon in it: the head does the striking. A
--- graph whose every attack is a HEADBUTT goes off whether its weapon is in hand
--- or not — the rock lying elsewhere, every shuriken thrown, the hands in a
--- monster that has not taken the weapon (`Player.can_cast`) — and none of the
--- weapon's multipliers weigh it (`Weapons.BARE_FORMS`).
+-- HEADBUTT, PUNCH wherever a player reads it, is the one form with no weapon in
+-- it: the fist does the striking. A graph whose every attack is a HEADBUTT goes
+-- off whether its weapon is in hand or not — the rock lying elsewhere, every
+-- shuriken thrown, the hands in a monster that has not taken the weapon
+-- (`Player.can_cast`) — and none of the weapon's multipliers weigh it
+-- (`Weapons.BARE_FORMS`). It is the root of the empty hand's graph
+-- (`Weapons.HAND`).
 
 INSERT INTO parts (id, name, category, heat, cells, tag, description) VALUES
 	('PROJECTILE', 'PROJECTILE', 'form', 0.6, 1, 'ranged', 'Fires a bolt along the aim direction. The standard ranged form.'),
 	('SLASH', 'SLASH', 'form', 0.5, 1, 'melee', 'An instant short arc at the aim direction. Fast, but reach is short.'),
 	('DASHSLASH', 'SWIFT STRIKE', 'form', 1.0, 1, 'melee', 'Lunges along the aim direction, cutting everything on the path.'),
-	('HEADBUTT', 'HEADBUTT', 'form', 0.5, 1, 'melee', 'A short lunge along the aim that drives the head into the first enemy in the way, and stops there. It needs no weapon: it goes off with the weapon in hand or without it.');
+	('HEADBUTT', 'PUNCH', 'form', 0.5, 1, 'melee', 'A short lunge along the aim that drives a fist into the first enemy in the way, and stops there. It needs no weapon: it goes off with the weapon in hand or without it.');
 
 INSERT INTO ports (part_id, side) VALUES
 	('PROJECTILE', 'E'), ('SLASH', 'E'), ('DASHSLASH', 'E'), ('HEADBUTT', 'E');

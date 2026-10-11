@@ -18,8 +18,9 @@ extends Actor
 ## There are four slots (`SLOTS`), each on its key: a weapon's three, and after
 ## them the empty hand's (`EMPTY_HAND`). A slot with no weapon in it — the
 ## fourth always, and the second and third while fewer are carried — is an
-## empty hand: nothing in it and, for now, no graph, so neither button does
-## anything with it in hand.
+## empty hand: nothing in it, and the empty hand's own graph to cast
+## (`hand_board`), a PUNCH at its root, which goes off only while every attack
+## it makes is one.
 ## A weapon put away goes on with what it was doing: a cast already out lands,
 ## and its wait runs down, so it is ready again by the time it is drawn.
 ##
@@ -243,12 +244,20 @@ const ROPE_JUMP_MOST := -820.0
 ## weapon is its skill, so this is every skill the player has to hand.
 var weapons: Array[String] = []
 var runners: Array[SkillRunner] = []
+## The empty hand's graph, and its runner: what every slot no weapon is in casts
+## (`Weapons.HAND`). Whoever hands the kit out says which board it is, as they
+## do for the weapons' — the profile's, a raid's copy, a bench's — before they
+## do (`setup_kit`); otherwise a bare one is made, PUNCH alone, and kept from
+## one kit to the next.
+var hand_board: SkillBoard = null
+var hand_runner: SkillRunner = null
 ## Which slot is in hand, and so which of them the buttons fire: 0 to SLOTS - 1,
 ## a weapon's while it is under `weapons.size()` and an empty hand from there.
 var hand: int = 0
 ## The weapon in hand and its runner: `weapons[hand]` and `runners[hand]`, kept
 ## beside them because nearly everything that asks about the player's weapon
-## means this one.
+## means this one — and with an empty hand in hand, no weapon ("") and the
+## empty hand's runner.
 var weapon_id: String = "SWORD"
 var runner: SkillRunner = null
 ## The monster the player's hands are in, or null — see `possess`.
@@ -502,6 +511,9 @@ func setup_kit(ids: Array, boards: Array, in_hand: int = 0) -> void:
 			holders[id] = self
 		if Weapons.is_stacked(id):
 			stock[id] = int(had.get(id, Weapons.stack_of(id)))
+	if hand_board == null:
+		hand_board = Weapons.make_board(Weapons.HAND)
+	hand_runner = _make_runner(Weapons.HAND, hand_board)
 	charge = 0.0
 	cast_charge = 0.0
 	_cast_buffer = 0.0
@@ -513,14 +525,22 @@ func setup_kit(ids: Array, boards: Array, in_hand: int = 0) -> void:
 	hand = clampi(in_hand, 0, SLOTS - 1)
 	_hold_hand()
 
-## `weapon_id` and `runner` for the slot in hand: nothing for an empty one.
+## `weapon_id` and `runner` for the slot in hand: no weapon and the empty
+## hand's graph for an empty one.
 func _hold_hand() -> void:
 	var armed := hand < weapons.size()
 	weapon_id = weapons[hand] if armed else ""
-	runner = runners[hand] if armed else null
+	runner = runners[hand] if armed else hand_runner
+
+## Every graph the player runs: each weapon's and the empty hand's.
+func _every_runner() -> Array[SkillRunner]:
+	var all: Array[SkillRunner] = runners.duplicate()
+	if hand_runner != null:
+		all.append(hand_runner)
+	return all
 
 ## Whether an empty hand is in hand — the fourth slot, or one no weapon is
-## carried in: no weapon, and no graph to cast.
+## carried in: no weapon, and the empty hand's graph to cast.
 func empty_handed() -> bool:
 	return not weapons.is_empty() and hand >= weapons.size()
 
@@ -575,6 +595,9 @@ func holds(id: String) -> bool:
 func can_cast() -> bool:
 	if runner == null:
 		return false
+	# An empty hand has nothing in it to strike with but the fist.
+	if empty_handed():
+		return bare_handed()
 	if Weapons.is_thrown(weapon_id):
 		return (holds(weapon_id) and holders[weapon_id] == vessel()) or bare_handed()
 	if Weapons.is_stacked(weapon_id) and stock_of(weapon_id) <= 0:
@@ -676,7 +699,7 @@ func possess(e: Enemy, seconds: float) -> bool:
 	cast_charge = 0.0
 	_cast_buffer = 0.0
 	charging = false
-	for r in runners:
+	for r in _every_runner():
 		r.ttl_bonus = 0
 		r.set_active(false)
 	velocity.x = 0.0
@@ -782,7 +805,7 @@ func _reboost() -> void:
 	max_mana = MAX_MANA + GameState.boost("max_mana")
 	mana = minf(mana + maxf(max_mana - had_mana, 0.0), max_mana)
 	_pace_mul = 1.0 + GameState.boost("move_speed")
-	for r in runners:
+	for r in _every_runner():
 		r.cooldown_mul = _cast_mul()
 
 ## What every cast off the player waits, against its graph alone
@@ -854,7 +877,7 @@ func can_charge() -> bool:
 ## to be sure of.
 func rebuild_runner() -> void:
 	_bare.clear()
-	for r in runners:
+	for r in _every_runner():
 		r.refresh()
 
 func _on_parry_opened(seconds: float) -> void:
@@ -982,8 +1005,8 @@ func _process(delta: float) -> void:
 	if possessing != null:
 		possessing.attacking = false
 	# The body's hand is empty — the rock is out — and nothing goes off. Said
-	# once a press, so it does not read as a dropped input. The empty hand has
-	# nothing to say it about.
+	# once a press, so it does not read as a dropped input. The empty hand's
+	# graph that wants a weapon has nothing to say it about.
 	if not castable and not empty_handed() and (pressed or s.cast_released):
 		Cues.at(&"refused", global_position, {"kind": "thrown", "weapon": weapon_id})
 	# Holding the cast button charges; letting go is what fires it. A tap is
@@ -1013,7 +1036,7 @@ func _process(delta: float) -> void:
 		runner.update(delta)
 	# The weapons put away are not cast, but they go on: a cast already out
 	# plays through, and each one's wait runs down in its slot.
-	for r in runners:
+	for r in _every_runner():
 		if r != runner:
 			r.ttl_bonus = 0
 			r.set_active(false)
@@ -1032,7 +1055,7 @@ func _attack_as_monster(delta: float, s: InputState) -> void:
 	_update_charge(delta, false)
 	_cast_buffer = 0.0
 	cast_charge = 0.0
-	for r in runners:
+	for r in _every_runner():
 		r.ttl_bonus = 0
 		r.set_active(false)
 		r.update(delta)

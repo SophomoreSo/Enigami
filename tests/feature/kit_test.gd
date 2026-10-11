@@ -153,8 +153,8 @@ func _in_the_room() -> void:
 			and world.player.runner.board == world.armed_board(),
 		"the player in the room is holding the kit, with the graph the gate would carry in hand")
 	await tap_key(KEY_3)
-	check(world.player.empty_handed() and world.player.hand == 2 and world.player.runner == null
-			and world.weapon_id == "GUN",
+	check(world.player.empty_handed() and world.player.hand == 2 and world.player.runner == world.player.hand_runner
+			and world.player.hand_board == GameState.weapon_board(Weapons.HAND) and world.weapon_id == "GUN",
 		"a slot no weapon is in is an empty hand on its key, and the rack stays where it was (%s)" % world.weapon_id)
 	world.set_weapon("SWORD")
 	check(world.player.weapons.size() == 3 and world.player.hand == 2, "a third joins it")
@@ -189,9 +189,11 @@ func _in_a_raid() -> void:
 	check(GameState.raid_weapons == ["SWORD", "GUN", "ROCK"] and GameState.raid_hand == 1
 			and GameState.raid_weapon == "GUN",
 		"deploying carries the kit, and walks in holding the one asked for")
-	check(GameState.raid_graphs.size() == 3 and GameState.raid_graphs["SWORD"] != sword_built
-			and (GameState.raid_graphs["SWORD"] as SkillBoard).used_components() == {"FIRE": 1},
-		"with a copy of the graph on each")
+	check(GameState.raid_graphs.size() == 4 and GameState.raid_graphs["SWORD"] != sword_built
+			and (GameState.raid_graphs["SWORD"] as SkillBoard).used_components() == {"FIRE": 1}
+			and GameState.raid_graphs.has(Weapons.HAND)
+			and GameState.raid_graphs[Weapons.HAND] != GameState.weapon_board(Weapons.HAND),
+		"with a copy of the graph on each, and of the empty hand's")
 	check(not GameState.owned_weapons.has("SWORD") and not GameState.owned_weapons.has("GUN")
 			and GameState.owned_weapons.has(GameState.FREE_WEAPON),
 		"every weapon carried is out of the vault, but the free one")
@@ -216,9 +218,10 @@ func _in_a_raid() -> void:
 	await tap_key(KEY_2)
 	check(p.weapon_id == "GUN", "2 the second")
 	await tap_key(KEY_4)
-	check(p.empty_handed() and p.hand == Player.EMPTY_HAND and p.weapon_id == "" and p.runner == null
-			and not p.can_cast() and p.weapon_hands() == null,
-		"4 draws the empty hand: nothing in it, and no graph to cast")
+	check(p.empty_handed() and p.hand == Player.EMPTY_HAND and p.weapon_id == "" and p.weapon_hands() == null
+			and p.runner == p.hand_runner and p.hand_board == GameState.raid_graphs[Weapons.HAND]
+			and String(p.runner.board.root_entry().get("id", "")) == "HEADBUTT" and p.can_cast(),
+		"4 draws the empty hand: nothing in it, and the raid's copy of its own graph to cast, a PUNCH")
 	check(GameState.raid_hand == 1 and GameState.raid_weapon == "GUN",
 		"and the profile stays on the weapon last in hand, whose graph assembly opens")
 	await tap_key(KEY_2)
@@ -321,7 +324,7 @@ func _put_down_and_picked_up() -> void:
 	GameState.raid_hand = 0
 	GameState.load_slot(GameState.slot)
 	check(GameState.has_parked_raid() and GameState.raid_weapons == ["SWORD", "GUN", "ROCK"]
-			and GameState.raid_hand == 2 and GameState.raid_graphs.size() == 3,
+			and GameState.raid_hand == 2 and GameState.raid_graphs.size() == 4,
 		"a parked raid keeps its kit, and which weapon was in hand")
 	var back := await start_raid()
 	check(back.player.weapons == ["SWORD", "GUN", "ROCK"] and back.player.weapon_id == "ROCK",

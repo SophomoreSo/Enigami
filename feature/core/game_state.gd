@@ -47,7 +47,9 @@ var handed_out: Array[String] = []
 ## weapon id -> the graph on it. A weapon is its graph: the weapon's own part
 ## on the root, and whatever the player has wired on after it. There is no
 ## skill without a weapon and no weapon without a graph, so a weapon lost on
-## a raid takes its graph down with it, and one won back brings it home.
+## a raid takes its graph down with it, and one won back brings it home. The
+## empty hand's is here too, under `Weapons.HAND`: it is no weapon, and nothing
+## takes it down.
 var weapon_boards: Dictionary = {}
 ## How many graphs every weapon keeps to choose between. Always this many, each
 ## weapon's, from the first: nothing is added and nothing taken away.
@@ -564,6 +566,9 @@ func deploy(kit: Variant = null, in_hand: String = "") -> void:
 	raid_graphs.clear()
 	for w in ids:
 		raid_graphs[w] = weapon_board(w).duplicate_board()
+	# The empty hand goes out with a copy of its graph as the weapons do, built
+	# onto out of the bag; it comes home on the way out and is never lost.
+	raid_graphs[Weapons.HAND] = weapon_board(Weapons.HAND).duplicate_board()
 	raid_hand = maxi(ids.find(in_hand), 0)
 	raid_bag.clear()
 	raid_scrap = 0
@@ -588,7 +593,7 @@ func deploy(kit: Variant = null, in_hand: String = "") -> void:
 func extract() -> Dictionary:
 	# Edits made mid-raid come home with the kit: the parts spent on them left
 	# the bag when they were placed, so nothing is counted twice.
-	for w in raid_weapons:
+	for w in raid_weapons + [Weapons.HAND]:
 		if raid_graphs.has(w):
 			weapon_boards[w] = raid_graphs[w]
 	# Whatever was recovered from an earlier death comes home as its own: the
@@ -636,7 +641,9 @@ func die(where: Dictionary = {}) -> Dictionary:
 	if _can_drop(where):
 		lost_kit = _drop_at(where)
 		lost["dropped"] = true
-	# The graphs went down with the weapons, whichever weapons they were.
+	# The graphs went down with the weapons, whichever weapons they were. The
+	# empty hand's stays at home as it went out: what was built onto its copy
+	# went down with the run.
 	for w in raid_weapons:
 		weapon_boards.erase(w)
 	records["deaths"] = int(records["deaths"]) + 1
@@ -1071,6 +1078,13 @@ func _read_raid(parsed: Dictionary) -> void:
 	for w in raid_weapons:
 		if not raid_graphs.has(w):
 			raid_graphs[w] = Weapons.make_board(w)
+	# The empty hand's copy, or one of the graph at home for a raid written
+	# before the hand had one.
+	var out = parsed.get("raid_graphs", {})
+	if out is Dictionary and (out as Dictionary).has(Weapons.HAND):
+		raid_graphs[Weapons.HAND] = SkillBoard.deserialize(out[Weapons.HAND])
+	else:
+		raid_graphs[Weapons.HAND] = weapon_board(Weapons.HAND).duplicate_board()
 	# Recovered weapons used to ride with the graphs they fell with, as a list
 	# of boards and then by weapon. What was built on those rides on in the
 	# bag now, the way a drop picked up today does.

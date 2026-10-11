@@ -103,7 +103,31 @@ const DEFS := {
 	},
 }
 
+## The empty hand: what a hand with nothing in it casts — every slot of a kit no
+## weapon is in (`Player.empty_handed`). The root of its graph is a PUNCH
+## (`HEADBUTT`), the one form made with nothing in the hand, and it goes off only
+## while every attack it makes is one (`Player.can_cast`). It is not a weapon:
+## it is in no vault, on no rack and in no kit, and `ids` leaves it out. But it
+## has a graph as a weapon does, kept in the profile beside theirs
+## (`GameState.weapon_board`), with presets of its own, and these numbers.
+const HAND := "HAND"
+const HAND_DEF := {
+	"name": "Empty hand",
+	"desc": "Nothing in it but a fist: what the hand casts is a graph of punches.",
+	"root": "HEADBUTT",
+	"board": "hand",
+	"base_damage": 8.0,
+	"melee_mul": 1.0,
+	"ranged_mul": 1.0,
+	"projectile_speed": 1.0,
+	"reach_mul": 1.0,
+	"size_mul": 1.0,
+	"gravity_shots": false,
+}
+
 static func get_def(id: String) -> Dictionary:
+	if id == HAND:
+		return HAND_DEF
 	return DEFS.get(id, DEFS["SWORD"])
 
 ## The weapon's name and what it is like to swing, in the language being
@@ -131,7 +155,7 @@ static func base_payload(weapon_id: String) -> Payload:
 	p.speed = float(d["projectile_speed"])
 	return p
 
-## The forms the body makes with nothing in its hands: the head's. A graph whose
+## The forms the body makes with nothing in its hands: the fist's, PUNCH. A graph whose
 ## every attack is one of them goes off whether its weapon is in hand or not
 ## (`Player.can_cast`), and the weapon's multipliers do not weigh it (`finalize`).
 const BARE_FORMS := ["HEADBUTT"]
@@ -145,7 +169,7 @@ static func finalize(weapon_id: String, p: Payload) -> Payload:
 	var d := get_def(weapon_id)
 	match p.form:
 		"HEADBUTT":
-			# The head strikes, not the weapon: none of its multipliers.
+			# The fist strikes, not the weapon: none of its multipliers.
 			pass
 		"SLASH", "DASHSLASH":
 			p.damage *= float(d["melee_mul"])

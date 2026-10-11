@@ -167,11 +167,11 @@ func _ready() -> void:
 	# The bench's kit stands there, the weapon in hand open, and the empty hand
 	# last. A press on another weapon opens its graph and its runner, and leaves
 	# the hand where it was; a part set down then goes onto the graph open. A
-	# press on the empty hand opens nothing, and a press back opens the hand's.
+	# press on the empty hand opens its graph, and a press back opens the hand's.
 	var hand := sb.player.weapon_id
 	var kit := sb.player.weapons.size()
 	check(ed.shelf.size() == kit + 1 and kit > 1 and String(ed.shelf[ed.shelf_open]["id"]) == hand
-			and String(ed.shelf[kit]["id"]) == "" and ed.shelf[kit]["board"] == null,
+			and String(ed.shelf[kit]["id"]) == Weapons.HAND and ed.shelf[kit]["board"] == sb.player.hand_board,
 		"the bench's kit stands down the board's left, the one in hand open, the empty hand last (%d)"
 			% ed.shelf.size())
 	var other := (ed.shelf_open + 1) % kit
@@ -198,8 +198,10 @@ func _ready() -> void:
 	await move_to(bare)
 	await button(bare, MOUSE_BUTTON_LEFT, true)
 	await button(bare, MOUSE_BUTTON_LEFT, false)
-	check(ed.current_board() == open_before and ed.shelf_open == other,
-		"the empty hand's plate opens nothing yet")
+	check(ed.current_board() == sb.player.hand_board and ed.runner == sb.player.hand_runner
+			and ed.shelf_open == kit and ed.current_board() != open_before
+			and String(ed.current_board().root_entry().get("id", "")) == "HEADBUTT",
+		"the empty hand's plate opens the empty hand's graph, a PUNCH on its root, and its runner")
 	var back := ed._shelf_rect(ed.shelf.map(func(e: Dictionary) -> String: return String(e["id"])).find(hand))
 	await move_to(back.get_center())
 	await button(back.get_center(), MOUSE_BUTTON_LEFT, true)
@@ -213,6 +215,15 @@ func _ready() -> void:
 	check(lone_ids == ["ROCK", "", "", ""] and lone.shelf_open == 0,
 		"one weapon stands down the left too, the slots no weapon is in bare after it, the empty hand last (%s)"
 			% str(lone_ids))
+	# Given the empty hand's graph, every bare plate opens it, and "" opens on it.
+	var fist := Weapons.make_board(Weapons.HAND)
+	lone.configure_shelf([{"id": "ROCK", "board": Weapons.make_board("ROCK"), "runner": null}], "", {}, true,
+		{"board": fist})
+	var bare_ids := lone.shelf.map(func(e: Dictionary) -> String: return String(e["id"]))
+	check(bare_ids == ["ROCK", Weapons.HAND, Weapons.HAND, Weapons.HAND] and lone.shelf_open == 1
+			and lone.current_board() == fist,
+		"and given the empty hand's graph, each bare plate opens it, and the screen opens on it for the empty hand (%s)"
+			% str(bare_ids))
 	lone.free()
 
 	# --- inventory accounting in a real (limited) pool ----------------------
