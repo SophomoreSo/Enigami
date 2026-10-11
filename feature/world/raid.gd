@@ -60,14 +60,19 @@ func _ready() -> void:
 	var graphs: Array = []
 	for w in GameState.raid_weapons:
 		graphs.append(GameState.raid_graphs[w])
+	# And the empty hand's, the raid's copy of it too.
+	player.hand_board = GameState.raid_graphs.get(Weapons.HAND, GameState.weapon_board(Weapons.HAND))
 	player.setup_kit(GameState.raid_weapons, graphs, GameState.raid_hand)
 	# A run put down with the rock lying in one of its rooms is walked back into
 	# without it: it is still lying there.
 	for w in _rocks_left_lying():
 		player.let_go(w)
 	# The profile is told which weapon is in hand as it changes: assembly opens
-	# that one's graph, and a raid put down is picked back up holding it.
-	player.weapon_switched.connect(func(_weapon: String) -> void: GameState.raid_hand = player.hand)
+	# that one's graph, and a raid put down is picked back up holding it. The
+	# empty hand leaves it on the weapon last in hand, which has a graph to open.
+	player.weapon_switched.connect(func(_weapon: String) -> void:
+		if not player.empty_handed():
+			GameState.raid_hand = player.hand)
 	player.died.connect(_on_player_died)
 	add_child(player)
 

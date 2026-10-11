@@ -15,6 +15,12 @@ extends Actor
 ## its own wait between casts, and one of them is in hand: the one the two
 ## buttons fire. A slot's key, or a step along with the wheel, puts another in
 ## hand at once (`switch_to`) — so three weapons are three skills, a key apart.
+## There are four slots (`SLOTS`), each on its key: a weapon's three, and after
+## them the empty hand's (`EMPTY_HAND`). A slot with no weapon in it — the
+## fourth always, and the second and third while fewer are carried — is an
+## empty hand: nothing in it, and the empty hand's own graph to cast
+## (`hand_board`), a PUNCH at its root, which goes off only while every attack
+## it makes is one.
 ## A weapon put away goes on with what it was doing: a cast already out lands,
 ## and its wait runs down, so it is ready again by the time it is drawn.
 ##
@@ -61,6 +67,14 @@ signal released(monster)
 ## The most weapons carried at once. `GameState.MAX_CARRIED` is the same number
 ## from the profile's side: what a raid can be walked into with.
 const MAX_WEAPONS := 3
+## The slot of the empty hand: the fourth, after the most weapons carried,
+## whatever is carried before it. With it, or any slot no weapon is in, in hand
+## there is no weapon (`weapon_id` is "") and no graph (`runner` is null) — see
+## `empty_handed`.
+const EMPTY_HAND := MAX_WEAPONS
+## How many slots there are to have in hand: a weapon's each, carried or not,
+## and the empty hand's.
+const SLOTS := MAX_WEAPONS + 1
 ## How long a monster stands stunned once the player has stepped out of it,
 ## which is the head start they have on it.
 const RELEASE_STUN := 1.2
@@ -187,16 +201,22 @@ const CLIMB_DOWN_SPEED := 240.0
 ## until it has been held this much longer.
 const ROPE_LET_GO := 0.4
 ## What left and right do to a swing: push it along, this much speed along it
-## a second, the way held. They only feed a swing already going that way — a
-## body hanging still has nothing to push against, and a way held never keeps
-## a rope leaned over — and the slower it goes, the less of it they give, all
-## of it from SWING_FEEL up. Held in time with the swing, it goes higher every
-## time.
+## a second, the way held. They only feed a swing already going that way — so a
+## way held never keeps a rope leaned over — and the slower it goes, the less
+## of it they give, all of it from SWING_FEEL up. Held in time with the swing,
+## it goes higher every time.
 const SWING_PUMP := 300.0
 const SWING_FEEL := 120.0
+## A rope hanging still — with less in it than would take it through the
+## bottom at SWING_STILL — is kicked off the way held instead: set going that
+## way at SWING_KICK, at once, and pushed on from there. Only once: a kick is
+## not a push, so it leans nothing over, and it never turns round a swing going
+## the other way.
+const SWING_KICK := 120.0
+const SWING_STILL := 40.0
 ## How fast a swing dies away, a share of it a second. Nothing else takes a
-## swing's speed away but the world's pull: there is no height it stops at, and
-## a swing pushed high enough goes over the top.
+## swing's speed away but the world's pull: there is no height it stops at, only
+## a speed it goes no faster than (SWING_FASTEST).
 const SWING_DAMP := 0.4
 ## A swing that runs into rock — over it, beside it — bounces back off it with
 ## this much of its speed, turned round, rather than stopping there.
@@ -207,6 +227,13 @@ const SWING_SHORT := 0.002
 ## The shortest a swing is reckoned at. Near the top of a rope a pendulum that
 ## short would swing back and forth faster than it reads.
 const SWING_SHORTEST := 48.0
+## The fastest a swing goes along it, in the world's units a second, however
+## hard it is pushed, however fast it was caught, and however far it has fallen
+## on the way down — reckoned at no shorter than SWING_SHORTEST, so near the top
+## of a rope it turns no faster than a swing that long would. It swings only as
+## high as that much speed carries it: over the top wants about 600 on the
+## shortest swing, and more on a longer one.
+const SWING_FASTEST := 450.0
 ## A jump off a rope goes up at least this fast, and faster still off the way
 ## up a swing — the jump on top no more than takes it to ROPE_JUMP_MOST, and
 ## never less than the swing was going up already.
@@ -217,11 +244,20 @@ const ROPE_JUMP_MOST := -820.0
 ## weapon is its skill, so this is every skill the player has to hand.
 var weapons: Array[String] = []
 var runners: Array[SkillRunner] = []
-## Which slot is in hand, and so which of them the buttons fire.
+## The empty hand's graph, and its runner: what every slot no weapon is in casts
+## (`Weapons.HAND`). Whoever hands the kit out says which board it is, as they
+## do for the weapons' — the profile's, a raid's copy, a bench's — before they
+## do (`setup_kit`); otherwise a bare one is made, PUNCH alone, and kept from
+## one kit to the next.
+var hand_board: SkillBoard = null
+var hand_runner: SkillRunner = null
+## Which slot is in hand, and so which of them the buttons fire: 0 to SLOTS - 1,
+## a weapon's while it is under `weapons.size()` and an empty hand from there.
 var hand: int = 0
 ## The weapon in hand and its runner: `weapons[hand]` and `runners[hand]`, kept
 ## beside them because nearly everything that asks about the player's weapon
-## means this one.
+## means this one — and with an empty hand in hand, no weapon ("") and the
+## empty hand's runner.
 var weapon_id: String = "SWORD"
 var runner: SkillRunner = null
 ## The monster the player's hands are in, or null — see `possess`.
@@ -445,7 +481,7 @@ func setup(weapon: String, board: SkillBoard) -> void:
 	setup_kit([weapon], [board])
 
 ## Hands the player a kit: up to MAX_WEAPONS weapons, in slot order, the graph
-## on each, and which slot is in hand. The runners are rebuilt wholesale; the
+## on each, and which slot is in hand — one with no weapon in it for none. The runners are rebuilt wholesale; the
 ## old ones go away with their signals, and so does whatever was being charged.
 ##
 ## A thrown weapon comes in the body's hand — unless the kit before this one
@@ -475,6 +511,9 @@ func setup_kit(ids: Array, boards: Array, in_hand: int = 0) -> void:
 			holders[id] = self
 		if Weapons.is_stacked(id):
 			stock[id] = int(had.get(id, Weapons.stack_of(id)))
+	if hand_board == null:
+		hand_board = Weapons.make_board(Weapons.HAND)
+	hand_runner = _make_runner(Weapons.HAND, hand_board)
 	charge = 0.0
 	cast_charge = 0.0
 	_cast_buffer = 0.0
@@ -483,9 +522,27 @@ func setup_kit(ids: Array, boards: Array, in_hand: int = 0) -> void:
 		runner = null
 		hand = 0
 		return
-	hand = clampi(in_hand, 0, weapons.size() - 1)
-	weapon_id = weapons[hand]
-	runner = runners[hand]
+	hand = clampi(in_hand, 0, SLOTS - 1)
+	_hold_hand()
+
+## `weapon_id` and `runner` for the slot in hand: no weapon and the empty
+## hand's graph for an empty one.
+func _hold_hand() -> void:
+	var armed := hand < weapons.size()
+	weapon_id = weapons[hand] if armed else ""
+	runner = runners[hand] if armed else hand_runner
+
+## Every graph the player runs: each weapon's and the empty hand's.
+func _every_runner() -> Array[SkillRunner]:
+	var all: Array[SkillRunner] = runners.duplicate()
+	if hand_runner != null:
+		all.append(hand_runner)
+	return all
+
+## Whether an empty hand is in hand — the fourth slot, or one no weapon is
+## carried in: no weapon, and the empty hand's graph to cast.
+func empty_handed() -> bool:
+	return not weapons.is_empty() and hand >= weapons.size()
 
 ## One weapon's graph, run live. What it fires is finalized as that weapon's,
 ## whichever weapon is in hand by the time it lands.
@@ -499,15 +556,16 @@ func _make_runner(weapon: String, board: SkillBoard) -> SkillRunner:
 	r.parry_opened.connect(_on_parry_opened)
 	return r
 
-## Puts the weapon in `slot` in hand, 0 for the first carried. Whether it did:
-## not for a slot nothing is carried in, nor for the one already in hand.
+## Puts the weapon in `slot` in hand, 0 for the first carried — or nothing at
+## all for a slot no weapon is in, EMPTY_HAND always. Whether it did: not for a
+## slot past the last, nor for the one already in hand, nor with no kit at all.
 ##
 ## It is instant, and it costs whatever was being charged: the hold was buying
 ## life for the weapon being put away, and does not follow the hand to the next
 ## one. That weapon keeps the wait it was in, and anything it had already cast
 ## still lands.
 func switch_to(slot: int) -> bool:
-	if slot < 0 or slot >= weapons.size() or slot == hand:
+	if weapons.is_empty() or slot < 0 or slot >= SLOTS or slot == hand:
 		return false
 	charge = 0.0
 	cast_charge = 0.0
@@ -517,8 +575,7 @@ func switch_to(slot: int) -> bool:
 		runner.ttl_bonus = 0
 		runner.set_active(false)
 	hand = slot
-	weapon_id = weapons[hand]
-	runner = runners[hand]
+	_hold_hand()
 	weapon_switched.emit(weapon_id)
 	Cues.at(&"weapon_switch", global_position, {"weapon": weapon_id, "slot": hand})
 	return true
@@ -536,6 +593,11 @@ func holds(id: String) -> bool:
 ## from a monster once it has taken it. A graph that only ever headbutts needs
 ## none of that (`bare_handed`): the head is always there.
 func can_cast() -> bool:
+	if runner == null:
+		return false
+	# An empty hand has nothing in it to strike with but the fist.
+	if empty_handed():
+		return bare_handed()
 	if Weapons.is_thrown(weapon_id):
 		return (holds(weapon_id) and holders[weapon_id] == vessel()) or bare_handed()
 	if Weapons.is_stacked(weapon_id) and stock_of(weapon_id) <= 0:
@@ -564,9 +626,11 @@ func bare_handed() -> bool:
 	return bool(_bare[key])
 
 ## The hands the weapon in hand is in, for whatever draws it there: the body,
-## the monster the player is in once it holds it, or null — a thrown weapon out
-## of hand, or a stack with none left in it.
+## the monster the player is in once it holds it, or null — the empty hand, a
+## thrown weapon out of hand, or a stack with none left in it.
 func weapon_hands() -> Actor:
+	if empty_handed():
+		return null
 	if Weapons.is_thrown(weapon_id):
 		return holders[weapon_id] if holds(weapon_id) else null
 	if Weapons.is_stacked(weapon_id) and stock_of(weapon_id) <= 0:
@@ -635,7 +699,7 @@ func possess(e: Enemy, seconds: float) -> bool:
 	cast_charge = 0.0
 	_cast_buffer = 0.0
 	charging = false
-	for r in runners:
+	for r in _every_runner():
 		r.ttl_bonus = 0
 		r.set_active(false)
 	velocity.x = 0.0
@@ -671,9 +735,10 @@ func release() -> void:
 	released.emit(left)
 
 ## Whether a press of interact would take the weapon: the monster the player is
-## in, standing at the body, with nothing in its hands yet.
+## in, standing at the body, with nothing in its hands yet — and a weapon in the
+## body's to take.
 func can_take_weapon() -> bool:
-	return possessing != null and is_instance_valid(possessing) and not possessing.dead \
+	return not empty_handed() and possessing != null and is_instance_valid(possessing) and not possessing.dead \
 		and not vessel_armed and possessing.global_position.distance_to(global_position) <= TAKE_REACH
 
 ## The weapon, out of the body's hands and into the monster's: from now on the
@@ -712,12 +777,13 @@ func _kill() -> void:
 	stand_up()
 	super._kill()
 
-## Puts the weapon `step` slots along in hand: 1 for the next, -1 for the one
-## before, round from the last to the first.
+## Puts the slot `step` along in hand: 1 for the next, -1 for the one before,
+## every slot of the four in turn, empty or not, and round from the empty hand
+## to the first.
 func switch_by(step: int) -> bool:
-	if weapons.size() < 2 or step == 0:
+	if weapons.is_empty() or step == 0:
 		return false
-	return switch_to(posmod(hand + step, weapons.size()))
+	return switch_to(posmod(hand + step, SLOTS))
 
 func stamina_ratio() -> float:
 	return clampf(stamina / max_stamina, 0.0, 1.0)
@@ -739,7 +805,7 @@ func _reboost() -> void:
 	max_mana = MAX_MANA + GameState.boost("max_mana")
 	mana = minf(mana + maxf(max_mana - had_mana, 0.0), max_mana)
 	_pace_mul = 1.0 + GameState.boost("move_speed")
-	for r in runners:
+	for r in _every_runner():
 		r.cooldown_mul = _cast_mul()
 
 ## What every cast off the player waits, against its graph alone
@@ -811,7 +877,7 @@ func can_charge() -> bool:
 ## to be sure of.
 func rebuild_runner() -> void:
 	_bare.clear()
-	for r in runners:
+	for r in _every_runner():
 		r.refresh()
 
 func _on_parry_opened(seconds: float) -> void:
@@ -939,8 +1005,9 @@ func _process(delta: float) -> void:
 	if possessing != null:
 		possessing.attacking = false
 	# The body's hand is empty — the rock is out — and nothing goes off. Said
-	# once a press, so it does not read as a dropped input.
-	if not castable and (pressed or s.cast_released):
+	# once a press, so it does not read as a dropped input. The empty hand's
+	# graph that wants a weapon has nothing to say it about.
+	if not castable and not empty_handed() and (pressed or s.cast_released):
 		Cues.at(&"refused", global_position, {"kind": "thrown", "weapon": weapon_id})
 	# Holding the cast button charges; letting go is what fires it. A tap is
 	# simply a charge of nothing, so a quick press still casts as it always did.
@@ -969,7 +1036,7 @@ func _process(delta: float) -> void:
 		runner.update(delta)
 	# The weapons put away are not cast, but they go on: a cast already out
 	# plays through, and each one's wait runs down in its slot.
-	for r in runners:
+	for r in _every_runner():
 		if r != runner:
 			r.ttl_bonus = 0
 			r.set_active(false)
@@ -988,7 +1055,7 @@ func _attack_as_monster(delta: float, s: InputState) -> void:
 	_update_charge(delta, false)
 	_cast_buffer = 0.0
 	cast_charge = 0.0
-	for r in runners:
+	for r in _every_runner():
 		r.ttl_bonus = 0
 		r.set_active(false)
 		r.update(delta)
@@ -1183,8 +1250,10 @@ func _action_rush() -> void:
 
 ## A frame on a rope: up and down climb it, left and right swing it, and the
 ## pull of the world swings it back down — a pendulum from the rope's anchor,
-## the hands on it. Left and right push a swing along that is already going
-## their way (`SWING_PUMP`). The swing's speed carries on from frame to frame,
+## the hands on it. Left and right kick a rope hanging still off their way
+## (`SWING_KICK`), and push a swing along that is already going their way
+## (`SWING_PUMP`), and nothing swings it faster than SWING_FASTEST.
+## The swing's speed carries on from frame to frame,
 ## and only what the body runs into changes it: rock over it or beside it
 ## bounces it back (`SWING_BOUNCE`), and anything else that moved the body —
 ## a blow, a floor it dragged along — swings it as far as it moved. Down climbs as far as the rope's end and stops there; held there
@@ -1218,6 +1287,9 @@ func _action_swing() -> void:
 	else:
 		_held_at_end = 0.0
 	var reach := maxf(_grip, SWING_SHORTEST)
+	var through := _spin * _spin * reach * reach + 2.0 * GRAVITY * reach * (1.0 - cos(at))
+	if _dir != 0.0 and _spin * _dir >= 0.0 and through < SWING_STILL * SWING_STILL:
+		_spin = signf(_dir) * SWING_KICK * pace / reach
 	# The push goes along the swing, the way it is going, when that is the way
 	# held across the screen — which, over the top, is the other way round.
 	var going := _spin * _grip
@@ -1226,6 +1298,7 @@ func _action_swing() -> void:
 		push = SWING_PUMP * signf(going) * absf(_dir) * pace * clampf(absf(going) / SWING_FEEL, 0.0, 1.0)
 	_spin += (-GRAVITY * sin(at) + push) / reach * delta
 	_spin *= exp(-SWING_DAMP * delta)
+	_spin = clampf(_spin, -SWING_FASTEST / reach, SWING_FASTEST / reach)
 	var to := at + _spin * delta
 	_meant = to
 	var hands := a + Vector2(sin(to), cos(to)) * _grip
@@ -1348,8 +1421,10 @@ func _take_rope(r: HangingRope) -> void:
 	_grip = clampf(r.reach(hands, ROPE_REACH, ROPE_REACH), ROPE_TOP, maxf(r.length, ROPE_TOP))
 	var at := _swing_at(hands - a)
 	var along := Vector2(cos(at), -sin(at))
-	# All of the body's speed across the rope goes into the swing, however fast.
-	var caught := velocity.dot(along) / maxf(_grip, 1.0)
+	# All of the body's speed across the rope goes into the swing, as much of it
+	# as a swing goes (SWING_FASTEST).
+	var most := SWING_FASTEST / maxf(_grip, SWING_SHORTEST)
+	var caught := clampf(velocity.dot(along) / maxf(_grip, 1.0), -most, most)
 	_swing = at
 	_meant = at
 	_spin = caught

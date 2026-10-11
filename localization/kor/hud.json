@@ -8,6 +8,7 @@
 	"possessing": "%s 빙의 %d초",
 	"thrown": "%s (던짐)",
 	"stock": "%s x%d",
+	"empty_hand": "빈손",
 	"fx": {
 		"winded": "탈진",
 		"parry": "막아냄",

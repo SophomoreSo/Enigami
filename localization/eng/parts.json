@@ -12,8 +12,8 @@
 		"desc": "Lunges along the aim direction, cutting everything on the path."
 	},
 	"HEADBUTT": {
-		"name": "HEADBUTT",
-		"desc": "A short lunge along the aim that drives the head into the first enemy in the way, and stops there. It needs no weapon: it goes off with the weapon in hand or without it."
+		"name": "PUNCH",
+		"desc": "A short lunge along the aim that drives a fist into the first enemy in the way, and stops there. It needs no weapon: it goes off with the weapon in hand or without it."
 	},
 	"FIRE": {
 		"name": "FIRE",

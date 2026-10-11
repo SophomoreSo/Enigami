@@ -86,8 +86,9 @@ var _remembered: bool = false
 func _ready() -> void:
 	Arena.register(self)
 	Cues.emit_cue(&"music_start")
-	# Copies only: nothing tried here reaches the hideout.
-	for w in Weapons.ids():
+	# Copies only: nothing tried here reaches the hideout. The empty hand's as
+	# well.
+	for w in Weapons.ids() + [Weapons.HAND]:
 		graphs[w] = GameState.weapon_board(String(w)).duplicate_board()
 	if _kept.is_empty():
 		new_map()
@@ -421,11 +422,11 @@ func current_weapon() -> String:
 	return String(Weapons.ids()[weapon_index % Weapons.ids().size()])
 
 ## The graph on the weapon in hand: what the assembly board over a played map
-## edits.
+## edits — the empty hand's with that in hand.
 func board() -> SkillBoard:
 	var weapon := current_weapon()
 	if player != null and is_instance_valid(player):
-		weapon = player.weapon_id
+		weapon = Weapons.HAND if player.empty_handed() else player.weapon_id
 	return graphs[weapon]
 
 func _stand() -> void:
@@ -433,6 +434,7 @@ func _stand() -> void:
 	player = Player.new()
 	player.collision_layer = 2
 	player.collision_mask = 1
+	player.hand_board = graphs[Weapons.HAND]
 	add_child(player)
 	_arm()
 	player.died.connect(_on_player_died)

@@ -2,14 +2,27 @@ class_name EnemyView
 extends ActorView
 
 ## A monster: the atlas character its kind wears, plus the read-outs layered
-## over it — a ring for a modifier, a second for an elite, a health strip, and
-## the dot that says it has seen you. One the player is in wears a ring of its
+## over it — a ring for a modifier, a second for an elite, a health strip, the
+## "!" that says it has just seen you, and the dot after it that says it still
+## has. One the player is in wears a ring of its
 ## own with the time left on it, and — once it has taken it — their weapon. A
 ## kind that carries a rifle (`Style.monster_gun`) holds it pointed at what it
 ## is aiming at, and it flashes at the muzzle when it fires.
 
 ## AI kinds that leave the ground, and so need an airborne pose.
 const AIRBORNE_AI := ["runner", "jumper", "boss"]
+## The "!" over a monster that has just noticed somebody (`Enemy.alert`), in
+## pixels of the art: `#` the mark, `o` the dark round it that keeps it read
+## against anything behind.
+const ALERT_ART := [
+	"ooo",
+	"o#o",
+	"o#o",
+	"o#o",
+	"ooo",
+	"o#o",
+	"ooo",
+]
 
 var enemy: Enemy
 var _phase: int = 1
@@ -160,5 +173,18 @@ func _draw() -> void:
 		draw_arc(Vector2.ZERO, s + 8.0, 0, TAU, 28, Color(Style.POSSESS_COLOR, 0.35), 2.0)
 		var left := clampf(p.possess_left / maxf(p.possess_for, 0.01), 0.0, 1.0)
 		draw_arc(Vector2.ZERO, s + 8.0, -PI * 0.5, -PI * 0.5 + TAU * left, 28, Style.POSSESS_COLOR, 2.0)
+	elif enemy.alert > 0.0:
+		_draw_alert(Vector2(0, -s - 16.0))
 	elif enemy.aggro:
 		draw_circle(Vector2(0, -s - 20.0), 2.5, Style.AGGRO_DOT)
+
+## The "!", standing on `foot`: where the dot that follows it hangs.
+func _draw_alert(foot: Vector2) -> void:
+	var px := float(Sprites.PIXEL_SCALE)
+	var rows := ALERT_ART.size()
+	var left := foot + Vector2(-String(ALERT_ART[0]).length() * 0.5, -rows) * px
+	for y in rows:
+		var row := String(ALERT_ART[y])
+		for x in row.length():
+			var col := Style.ALERT_MARK if row[x] == "#" else Style.ALERT_EDGE
+			draw_rect(Rect2(left + Vector2(x, y) * px, Vector2.ONE * px), col)

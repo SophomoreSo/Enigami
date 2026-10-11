@@ -142,18 +142,25 @@ static func kit_label(weapon_id: String, slot: int, carried: int) -> String:
 	var named := Weapons.name_for(weapon_id).to_upper()
 	return named if carried < 2 else "%d %s" % [slot + 1, named]
 
-## The weapons carried, left to right in their slots, starting at `at`: the one
-## in hand in its own colour and the rest dimmed. With one weapon carried it is
-## that weapon's name, as it always was. A rock out of hand says so, dimmed as
-## well: it is in a slot and in no hand. A stack says how many are left in it,
-## dimmed with none. Returns where the line goes on from.
+## The four slots, left to right, starting at `at` (`Player.SLOTS`): the
+## weapons carried, EMPTY in each slot no weapon is in — the second and third
+## while fewer are carried, and the empty hand's always — the one in hand in its
+## own colour and the rest dimmed. A player with no kit at all is
+## the name of the weapon they hold, as the line always was. A rock out of hand
+## says so, dimmed as well: it is in a slot and in no hand. A stack says how
+## many are left in it, dimmed with none. Returns where the line goes on from.
 func _draw_kit(at: Vector2) -> float:
-	var kit: Array = player.weapons if not player.weapons.is_empty() else [player.weapon_id]
-	for slot in kit.size():
-		var id := String(kit[slot])
-		var label := kit_label(id, slot, kit.size())
+	if player.weapons.is_empty():
+		var named := kit_label(player.weapon_id, 0, 1)
+		_px.text(at, named, Style.weapon_color(player.weapon_id))
+		return at.x + PixelDraw.text_width(named) + 16.0
+	var kit: Array = player.weapons
+	for slot in Player.SLOTS:
+		var id := String(kit[slot]) if slot < kit.size() else ""
+		var label := kit_label(id, slot, Player.SLOTS) if id != "" \
+			else "%d %s" % [slot + 1, Loc.t("hud.empty_hand")]
 		var ink := Style.weapon_color(id)
-		if id != player.weapon_id:
+		if slot != player.hand:
 			ink.a *= AWAY
 		if Weapons.is_thrown(id) and not player.holds(id):
 			label = Loc.t("hud.thrown", [label])

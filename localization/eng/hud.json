@@ -8,6 +8,7 @@
 	"possessing": "IN THE %s %ds",
 	"thrown": "%s (THROWN)",
 	"stock": "%s x%d",
+	"empty_hand": "EMPTY",
 	"fx": {
 		"winded": "WINDED",
 		"parry": "PARRY",

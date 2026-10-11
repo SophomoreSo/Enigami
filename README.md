@@ -130,7 +130,7 @@ not a thing to reach for once it errors.
 
 | | |
 |---|---|
-| A / D, ← / → | move; on a rope, push its swing along the way held — only a swing already going that way, so a rope hanging still stays still: catch one on the move, or jump at it, to set it swinging. In time with the swing it goes higher every time, with no height it stops at: nothing slows a swing but the world's pull, and rock it runs into bounces it back rather than stopping it |
+| A / D, ← / → | move; on a rope hanging still, kick it off that way; on a swinging one, push its swing along the way held — only a swing already going that way, so a way held never keeps a rope leaned over. In time with the swing it goes higher every time, until it goes as fast as a swing goes, and no faster: so as high as that speed carries it, and no height it stops at beyond that. Nothing else slows a swing but the world's pull, and rock it runs into bounces it back rather than stopping it |
 | S, ↓ | crouch, on the floor: the body is let down onto its feet — lower, and a smaller thing to hit — and stays where it is; a direction held with it turns it round. A jump or a dash goes out of it, and there is no crouch in the air. On a rope, climb down it, as far as its end; held there a moment more, let go of it — a tap there keeps hold |
 | W, ↑ | take hold of a rope or a vine within reach of the hands — held on the way to one, it catches it — and, holding on, climb it, as far as its top. One just let go of is not caught again until W has been let go of |
 | SPACE | jump; again in mid-air to double jump; against a wall to kick off; on a rope, leap off it, with the swing's speed and a jump on top — more off the way up a swing — and the air jump back. Speed a swing flings the body off at faster than a run is kept in the air for as long as that way is held |
@@ -138,12 +138,12 @@ not a thing to reach for once it errors.
 | CTRL | sprint — held with a direction, the same run half as fast again. It costs nothing, turns and jumps as a run does and carries into the air while it is held; a crouch stops it |
 | LMB | cast the weapon's graph as it is — again and again while held, and it costs nothing |
 | RMB | hold to charge the weapon's graph, release to cast it with what the hold paid for — a tap is a charge of nothing, and a graph still recovering cannot be charged |
-| 1 / 2 / 3 | put the weapon carried in that slot in hand — at once, and whatever was being charged is let go of |
-| mouse wheel | the next weapon in hand, a notch down, or the one before, a notch up; round from the last to the first |
+| 1 / 2 / 3 / 4 | put that slot in hand — at once, and whatever was being charged is let go of: the weapon carried in it, or an empty hand in a slot no weapon is in — the fourth always, and the second and third while fewer are carried — which casts the empty hand's own graph, a PUNCH at its root |
+| mouse wheel | the next slot in hand, a notch down, or the one before, a notch up — all four, empty or not, and round from the fourth to the first |
 | Q | leave the monster you are possessing, back into your own body |
 | mouse / right stick | aim, and where a lunge lands. A stick's aim is bent toward a monster it is near — never snapped, and never the mouse's; how much is AIM ASSIST in the control settings |
-| TAB | open assembly — **the raid keeps running**; the weapons carried stand down the board's left, and a click on one opens its graph, the weapon in hand staying in hand — the empty hand's plate after them opens nothing yet. It is the GRAPH tab of a screen with tabs along its top, like a browser's: a click on MAP beside it puts the map up in its place, and one on FOES the monster dictionary — every monster a raid has, `??` until it has been met, and each one's skills `??` until it has been seen using them, then drawn as the graph each is. At the hideout's workbench, on the bench and in a raid a last tab, PERKS, puts up the perks (see [Perks](#perks)). The HUD is put away while the screen is up; TAB, ESC or the back arrow in its corner leaves it |
-| M | the map — the MAP tab of the same screen: in a raid the floor plan, the raid running on behind it as well, and on the bench, in the hideout and anywhere else with no map a page saying so. A click on GRAPH, or TAB, puts the board up in its place, and M, ESC or the back arrow leaves it |
+| TAB, G | open assembly — **the raid keeps running**; the weapons carried stand down the board's left — one alone as well — and a click on one opens its graph, the weapon in hand staying in hand; a bare plate for each slot no weapon is in, and the empty hand's last, open the empty hand's graph, all of them lit while it is open. It is the GRAPH tab of a screen with tabs along its top, like a browser's: a click on MAP beside it puts the map up in its place, and one on FOES the monster dictionary — every monster a raid has, `??` until it has been met, and each one's skills `??` until it has been seen using them, then drawn as the graph each is. At the hideout's workbench, on the bench and in a raid a last tab, PERKS, puts up the perks (see [Perks](#perks)). The HUD is put away while the screen is up; TAB, G, ESC or the back arrow in its corner leaves it |
+| M | the map — the MAP tab of the same screen: in a raid the floor plan, the raid running on behind it as well, and on the bench, in the hideout and anywhere else with no map a page saying so. A click on GRAPH, or TAB or G, puts the board up in its place, and M, ESC or the back arrow leaves it |
 | Ctrl+C / Ctrl+V (⌘ on a Mac) | in assembly: COPY and PASTE — the board onto the clipboard as a share code, or someone else's board built from theirs |
 | F | interact: talk to an NPC — the last step over to them is walked for you, and pushing the other way on it changes your mind — (again for the next line), go through a gate to the room above or below, sit down on a bench — the last steps over to its seat are walked for you, as they are to someone you talk to, and pushing the other way on them changes your mind — and stand up again; so does a step, a jump or a blow — and hold to extract. Someone who talks free goes on by themselves; F only hurries their line |
 | W / S, ↑ / ↓ | when an NPC asks a question, move between answers; F gives the highlighted one |
@@ -405,9 +405,17 @@ while it is held, for nothing; `RMB` charges it (below) and casts on release.
 **Three weapons are three skills, a key apart.** The rack carries up to three:
 picking a weapon takes it in hand and into the kit, in the next free slot, and
 PUT BACK takes the one in hand out again — never the last, since nobody goes in
-empty-handed. In a raid `1`, `2` and `3` put the weapon in that slot in hand,
-and the wheel the next or the one before; the HUD names them all, the one in
-hand lit. Each has its own graph and its own wait between casts, so a weapon
+empty-handed. There are four slots, `1` to `4`, and in a raid
+each key puts its slot in hand, and the wheel the next or the one before: a
+weapon's three, and the empty hand's after them. A slot no weapon is in — the
+fourth always, the second and third while fewer are carried — is an empty
+hand: nothing in it, and a graph of its own, kept in the profile as a weapon's
+is and built on at assembly from any bare plate, presets and all. Its root is a
+`PUNCH`, so an empty hand punches as it comes; it goes off only while every
+attack it makes is a `PUNCH` — there is nothing in the hand to swing anything
+else with. A raid takes a copy of it, as of the weapons', and brings it home on
+the way out; a death leaves it as it went out. The HUD names all four slots,
+EMPTY where no weapon is, the one in hand lit. Each has its own graph and its own wait between casts, so a weapon
 put away goes on recovering in its slot, ready again by the time it is drawn,
 and a cast it had already loosed still lands as its own.
 Changing weapon is instant and costs only what was being charged. The price of
@@ -420,7 +428,7 @@ it: it is cast into it. A bolt off the rock is the rock itself, carrying
 whatever was built into the graph, and it leaves your hand empty — until you
 walk over it where it came down and pick it back up, the rock casts nothing,
 charges nothing, and says NO ROCK when you reach for it — unless its graph does
-nothing but headbutt (below), which needs no rock. A copy of it that the
+nothing but punch (below), which needs no rock. A copy of it that the
 same cast sends — the rest of a `DUPLICATE` volley, a lap that comes round
 after it has gone — strikes as it does and is gone when it lands. A rock left
 in a room stays in that room, and is there when you come back for it. Your
@@ -429,12 +437,12 @@ stepping out, the monster lets it fall where it stands. A monster with its own
 mind never touches it. The pack has no stone, so the rock is drawn in code, a
 letter a pixel (`Style.DRAWN_TILES`).
 
-**A headbutt needs no weapon.** `HEADBUTT` is the one form with nothing in the
-hand: a short lunge along the aim that drives the head into the first enemy in
+**A punch needs no weapon.** `PUNCH` (its id is `HEADBUTT`) is the one form with
+nothing in the hand: a short lunge along the aim that drives a fist into the first enemy in
 the way and stops against it — `PIERCE` carries it on into the next. A graph
-whose every attack is a headbutt goes off whether its weapon is in hand or not:
+whose every attack is a punch goes off whether its weapon is in hand or not:
 the rock lying across the room, every shuriken thrown, your hands in a monster
-that has not taken the weapon, which then headbutts with your graph instead of
+that has not taken the weapon, which then punches with your graph instead of
 using its own attack. None of the weapon's multipliers weigh it. A graph that
 fires anything else as well still wants the weapon in hand.
 
@@ -678,7 +686,7 @@ Monsters run boards through the exact same simulator, and a kill can drop the
 components its attack was visibly built from.
 
 The **Bomber**'s attack is the last thing it does. It runs at you and, once it
-is close enough, headbutts you: its board is a `HEADBUTT` carrying `DAMAGE`,
+is close enough, punches you: its board is a `PUNCH` carrying `DAMAGE`,
 `FIRE` and an `EXPLODE`, so the blow bursts on everything round you. Then it
 goes up where it stands — the same flow with no form under it, which its
 `EXPLODE` makes a burst of its own, and you are in that one — and it dies in

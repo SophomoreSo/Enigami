@@ -606,8 +606,9 @@ func _ready() -> void:
 	for i in wb.shelf.size():
 		weapons = weapons.merge(wb._shelf_rect(i))
 	var shelved := wb.shelf.map(func(e: Dictionary) -> String: return String(e["id"]))
-	check(wb.shelf.size() == GameState.owned_weapons.size() + 1 and wb.shelf_open == shelved.find("GUN")
-			and shelved.back() == "",
+	check(wb.shelf.size() == maxi(GameState.owned_weapons.size(), Player.MAX_WEAPONS) + 1
+			and wb.shelf_open == shelved.find("GUN") and shelved.back() == Weapons.HAND
+			and wb.shelf.back()["board"] == GameState.weapon_board(Weapons.HAND),
 		"the vault's weapons stand down its left, the GUN's graph open, the empty hand last (%s)" % str(shelved))
 	check(weapons.position.x >= 0.0 and weapons.end.y <= vp.y and weapons.end.x <= biggest.position.x
 			and not weapons.intersects(wb._close_rect()),

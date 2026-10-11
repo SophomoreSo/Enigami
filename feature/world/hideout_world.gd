@@ -111,8 +111,11 @@ func _ready() -> void:
 	player.room = room
 	refresh_kit()
 	# Switched on the floor, with the keys a raid switches with: the weapon in
-	# hand is what the rack is on now.
+	# hand is what the rack is on now. The empty hand leaves the rack where it
+	# was: there is nothing on it to carry to the gate.
 	player.weapon_switched.connect(func(weapon: String) -> void:
+		if weapon == "":
+			return
 		weapon_id = weapon
 		_refresh_gate())
 	# Nothing here can hurt anybody, and a player who walked in wounded should
@@ -185,16 +188,20 @@ func armed_board() -> SkillBoard:
 	return GameState.weapon_board(weapon_id)
 
 ## Puts the kit back on the player in the room: every weapon the gate would
-## carry and the graph on each, with the one the rack was left on in hand.
+## carry and the graph on each, with the one the rack was left on in hand — or
+## an empty hand, if that was in hand, unless `to_rack`: a weapon just picked is
+## taken up.
 ## Nothing in here fights, but the HUD over the room reads the player rather
 ## than the profile, so anything that changes the kit — the rack, a graph coming
 ## back from the editor — comes through here afterwards.
 ##
 ## The graphs are the profile's own, not copies: see `armed_board`.
-func refresh_kit() -> void:
+func refresh_kit(to_rack: bool = false) -> void:
 	if player == null or not is_instance_valid(player):
 		return
 	var kit := GameState.carried()
+	# The empty hand casts the profile's own graph for it, as the weapons do.
+	player.hand_board = GameState.weapon_board(Weapons.HAND)
 	# A weapon left out of the kit is not in hand any more: the hand goes to one
 	# that is still carried.
 	if not kit.has(weapon_id) and GameState.owned_weapons.has(weapon_id) and not kit.is_empty():
@@ -207,7 +214,12 @@ func refresh_kit() -> void:
 	var graphs: Array = []
 	for w in kit:
 		graphs.append(GameState.weapon_board(w))
-	player.setup_kit(kit, graphs, kit.find(weapon_id))
+	# An empty hand in hand stays there — a graph changed at assembly is no
+	# reason to take a weapon up — unless the rack's weapon is asked for.
+	var at := kit.find(weapon_id)
+	if player.empty_handed() and not to_rack:
+		at = player.hand
+	player.setup_kit(kit, graphs, at)
 
 func _on_station_used(s: Station) -> void:
 	if open_panel != "":
@@ -267,7 +279,7 @@ func set_weapon(id: String) -> void:
 	var was := weapon_id
 	weapon_id = id
 	GameState.carry(id, was)
-	refresh_kit()
+	refresh_kit(true)
 	_refresh_gate()
 
 ## Leaves `id` on the rack: out of the kit, with the hand on a weapon still

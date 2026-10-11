@@ -58,21 +58,24 @@ func _ready() -> void:
 	var record := {"kind": "entry", "danger": 1, "region": 0, "variant": 7, "enemies": [], "loot": []}
 	room.build(Vector2i.ZERO, record, {}, 12345)
 
-	# Copies only: nothing here touches the hideout.
+	# Copies only: nothing here touches the hideout. The empty hand's as well.
 	graphs.clear()
-	for w in Weapons.ids():
+	for w in Weapons.ids() + [Weapons.HAND]:
 		graphs[w] = GameState.weapon_board(String(w)).duplicate_board()
 
 	player = Player.new()
+	player.hand_board = graphs[Weapons.HAND]
 	player.collision_layer = 2
 	player.collision_mask = 1
 	add_child(player)
 	player.room = room
 	player.global_position = room.spawn_point()
 	# Drawn with a key rather than the bench's own button, the weapon in hand is
-	# still the one the bench is on.
+	# still the one the bench is on. The empty hand leaves the bench on the one
+	# it was on.
 	player.weapon_switched.connect(func(weapon: String) -> void:
-		weapon_index = maxi(Weapons.ids().find(weapon), 0))
+		if weapon != "":
+			weapon_index = maxi(Weapons.ids().find(weapon), 0))
 	_apply_weapon()
 
 	spawn_dummy()

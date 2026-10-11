@@ -152,7 +152,7 @@ func _on_editing(on: bool) -> void:
 	if on:
 		if maker.player != null and is_instance_valid(maker.player):
 			editor.configure_shelf(SkillEditor.shelf_of(maker.player), maker.player.weapon_id,
-				maker.inventory, true)
+				maker.inventory, true, SkillEditor.hand_of(maker.player))
 		else:
 			editor.configure(maker.board(), maker.inventory, true, null)
 		pages.put(pages.page)

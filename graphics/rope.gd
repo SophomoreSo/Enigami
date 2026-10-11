@@ -499,9 +499,8 @@ func _heading(i: int) -> float:
 ## the same answer.
 ##
 ## A body the game has stopped is not moving, whatever speed it was stopped
-## with. A line may go on swinging while the game is stopped — the hideout's
-## scenery does, being weather — and a player paused halfway through a
-## lantern would otherwise go on pushing it for as long as the menu was up.
+## with: a line still swinging beside it — one the game has not stopped —
+## would otherwise go on being pushed by it for as long as it stood there.
 func _movers() -> Array:
 	var out: Array = []
 	if not is_inside_tree():

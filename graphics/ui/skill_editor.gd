@@ -20,10 +20,14 @@ extends Control
 ## a plate each with the weapon's own picture on it at the PIXEL grid's two: the
 ## one open lit in the weapon's colour, and a press on another opening that
 ## one's graph instead. The weapon in hand stays in hand — every carried weapon
-## has a graph and a runner of its own, and this only shows another of them —
-## and with one weapon, or one board, nothing stands there at all. Last of them
-## stands the empty hand (`EMPTY_HAND`): a plate with nothing on it, for a hand
-## with nothing in it, which has no graph to open yet.
+## has a graph and a runner of its own, and this only shows another of them.
+## They stand there whenever the screen is on weapons (`configure_shelf`), one
+## of them or more; a screen on one board alone (`configure`) has none. Fewer
+## than a kit's three, the slots no weapon is in stand after them bare, and last
+## of all the empty hand's: plates with nothing on them, for a hand with nothing
+## in it. Every one of them opens the empty hand's graph (`Weapons.HAND`), a
+## PUNCH at its root, and all of them are lit while it is open — they are the
+## same hand. Given no graph for it, they open nothing (`EMPTY_HAND`).
 ##
 ## In the middle of the board's right edge is the way out: an arrowhead through
 ## the frame, where a flow leaves the board and becomes an attack. It is not a
@@ -102,8 +106,9 @@ const SHELF_W := 44.0
 const SHELF_H := 60.0
 const SHELF_GAP := 8.0
 const SHELF_AWAY := 12.0
-## The plate that stands last on every shelf: the empty hand. No weapon, and so
-## no picture and, for now, no graph — a press on it opens nothing.
+## The plate that stands last on every shelf, the empty hand — and one in each
+## slot of a kit no weapon is in — when the screen is given no graph for it: no
+## weapon, and so no picture, and nothing to open.
 const EMPTY_HAND := {"id": "", "board": null, "runner": null}
 ## Two wide columns of one-line rows rather than four of two-line tiles: the
 ## pixel face runs up to twice as wide as the one the palette was laid out for,
@@ -485,21 +490,30 @@ func configure(b: SkillBoard, inv: Dictionary, unlim: bool, r: SkillRunner = nul
 ## `{id, board, runner}` — the runner the one running that board live, or null
 ## — in the order their plates stand down the left, and `open` the id of the
 ## one shown first, or the first if it is none of them. The parts are `inv`'s,
-## as `configure` has them. With fewer than two there is nothing to choose
-## between, and no plate stands there; with two or more, the empty hand stands
-## after them.
-func configure_shelf(entries: Array, open: String, inv: Dictionary, unlim: bool) -> void:
+## as `configure` has them. After them stand a bare plate for each slot of a
+## kit's three no weapon is in, and the empty hand's, each opening `hand` —
+## `{board, runner}`, the empty hand's graph — and `open` "" is that one.
+func configure_shelf(entries: Array, open: String, inv: Dictionary, unlim: bool,
+		hand: Dictionary = {}) -> void:
 	if entries.is_empty():
 		return
+	var bare: Dictionary = EMPTY_HAND
+	if hand.get("board", null) != null:
+		bare = {"id": Weapons.HAND, "board": hand["board"], "runner": hand.get("runner", null)}
+	shelf = entries.duplicate()
+	while shelf.size() < Player.MAX_WEAPONS:
+		shelf.append(bare)
+	shelf.append(bare)
 	var at := 0
-	for k in entries.size():
-		if String(entries[k]["id"]) == open:
+	for k in shelf.size():
+		var id := String(shelf[k]["id"])
+		if shelf[k]["board"] != null and (id == open or (open == "" and id == Weapons.HAND)):
 			at = k
-	var e: Dictionary = entries[at]
+			break
+	var e: Dictionary = shelf[at]
 	_put(e["board"], inv, unlim, e.get("runner", null))
 	weapon = String(e["id"])
-	shelf = entries + [EMPTY_HAND] if entries.size() > 1 else []
-	shelf_open = at if entries.size() > 1 else -1
+	shelf_open = at
 
 ## A player's kit as a shelf: the weapons they carry, in slot order, the graph
 ## on each and the runner running it live.
@@ -510,10 +524,16 @@ static func shelf_of(p: Player) -> Array:
 		out.append({"id": p.weapons[i], "board": r.board, "runner": r})
 	return out
 
+## A player's empty hand, for `configure_shelf`: its graph and the runner
+## running it live.
+static func hand_of(p: Player) -> Dictionary:
+	return {"board": p.hand_board, "runner": p.hand_runner}
+
 ## Opens the graph of the weapon at `i` on the shelf, with the parts as they
 ## are. The hand is not the screen's to change: the weapon in hand stays.
 func _open_shelf(i: int) -> void:
-	if i < 0 or i >= shelf.size() or i == shelf_open or shelf[i].get("board", null) == null:
+	if i < 0 or i >= shelf.size() or i == shelf_open or shelf[i].get("board", null) == null \
+			or shelf[i]["board"] == board:
 		return
 	Audio.play("ui")
 	var e: Dictionary = shelf[i]
@@ -589,6 +609,12 @@ func _input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.is_pressed() or event.is_echo():
 		return
 	var key := event as InputEventKey
+	# The key that opens it closes it: G as well as TAB, or whatever it is bound
+	# to now.
+	if key.is_action_pressed("open_editor") and not key.is_command_or_control_pressed():
+		closed.emit()
+		get_viewport().set_input_as_handled()
+		return
 	# The clipboard's own keys are COPY and PASTE here, as they are everywhere.
 	if key.is_command_or_control_pressed():
 		match key.keycode:
@@ -1414,21 +1440,22 @@ func _draw_top() -> void:
 ## The weapons down the left: a plate each, the weapon's own tile on it at the
 ## PIXEL grid's two, standing up as the tiles do — the open one lit in its
 ## colour and drawn whole, the rest dim until the pointer is on one. The empty
-## hand's plate is bare, and does not light under the pointer: nothing opens
-## from it yet.
+## hand's plates are bare, all lit together while its graph is open, and with
+## no graph for it they do not light under the pointer.
 func _draw_shelf() -> void:
+	var on_hand := shelf_open >= 0 and String(shelf[shelf_open]["id"]) == Weapons.HAND
 	for i in shelf.size():
 		var r := _shelf_rect(i)
 		var id := String(shelf[i]["id"])
 		var c := Style.weapon_color(id)
-		var open := i == shelf_open
-		var hot := i == _hover_shelf and id != ""
+		var open := i == shelf_open or (on_hand and id == Weapons.HAND)
+		var hot := i == _hover_shelf and shelf[i]["board"] != null
 		if thumb():
 			_px.plate(r, "", c, hot, open)
 		else:
 			_px.rect(r, Color(c.r, c.g, c.b, 0.42 if open else (0.18 if hot else 0.06)))
 			_px.frame(r, c if open else (Color(1, 1, 1, 0.5) if hot else Color(0.3, 0.32, 0.36)))
-		if id == "":
+		if id == "" or id == Weapons.HAND:
 			continue
 		var tex := Sprites.texture(Style.weapon_art(id))
 		if tex == null:
@@ -1438,7 +1465,8 @@ func _draw_shelf() -> void:
 			Color(1, 1, 1, 1.0 if open or hot else 0.55))
 
 ## The name of the weapon whose plate is under the pointer, on a card hung off
-## the plate's side: a picture says less than a name, the GUN's being a bow.
+## the plate's side: a picture says less than a name, the GUN's being a bow —
+## and a bare plate says nothing at all, which is why the empty hand's is named.
 func _draw_shelf_hint(vp: Vector2) -> void:
 	var id := String(shelf[_hover_shelf]["id"])
 	if id == "":

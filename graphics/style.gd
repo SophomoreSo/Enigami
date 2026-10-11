@@ -984,6 +984,10 @@ const REPEL_RING := Color(1.0, 0.78, 0.55, 0.8)
 
 const ELITE_RING := Color(1, 0.9, 0.5, 0.7)
 const AGGRO_DOT := Color(1, 0.4, 0.4, 0.9)
+## The "!" over a monster that has just noticed somebody, in the dot's red, and
+## the dark round it.
+const ALERT_MARK := Color(1.0, 0.36, 0.32)
+const ALERT_EDGE := Color(0.16, 0.05, 0.05, 0.9)
 const HEALTH_BAR := Color(0.95, 0.35, 0.35)
 
 ## --- NPCs -------------------------------------------------------------------

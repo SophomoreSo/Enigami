@@ -210,11 +210,12 @@ func _use_nearby() -> bool:
 		return false
 	return (current as World).use_nearby()
 
-## How many weapons the player on screen is carrying: the console keeps a key
-## for changing weapon only while there is more than one.
+## How many slots the player on screen can change between — all four
+## (`Player.SLOTS`), empty or not, with any weapon carried: the console keeps a
+## key for changing weapon only while there is more than one.
 func _kit_size() -> int:
 	for p in get_tree().get_nodes_in_group("player"):
-		return (p as Player).weapons.size()
+		return Player.SLOTS if not (p as Player).weapons.is_empty() else 0
 	return 0
 
 ## Whether the player on screen has their hands in a monster: the console keeps
@@ -440,16 +441,20 @@ func _edit_weapon_graph(page: String = ScreenTabs.GRAPH) -> void:
 	var shelf: Array = []
 	for w in ids:
 		shelf.append({"id": String(w), "board": GameState.weapon_board(String(w)), "runner": null})
+	# With an empty hand in hand on the floor, it is the empty hand's graph.
+	if is_instance_valid(hideout_ref.player) and hideout_ref.player.empty_handed():
+		on = ""
 	_open_graphs(shelf, on, page)
 
 ## The workbench editor over the weapons' graphs it is given, the one `open`
-## open (`SkillEditor.configure_shelf`), spending the stash — up on `page`, the
+## open (`SkillEditor.configure_shelf`) — "" for the empty hand's, the profile's
+## own, whose plates stand after them — spending the stash; up on `page`, the
 ## board's, the map's beside it or the monster dictionary's.
 func _open_graphs(shelf: Array, open: String, page: String = ScreenTabs.GRAPH) -> void:
 	_close_editor()
 	_close_perks()
 	editor = SkillEditor.new()
-	editor.configure_shelf(shelf, open, GameState.stash, false)
+	editor.configure_shelf(shelf, open, GameState.stash, false, {"board": GameState.weapon_board(Weapons.HAND)})
 	# The weapons' own graphs, so each weapon's presets stand under its board.
 	editor.presets = true
 	editor.closed.connect(_close_editor)

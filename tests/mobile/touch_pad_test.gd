@@ -1112,8 +1112,10 @@ func _hit_is_use() -> void:
 ## --- the weapon key ---------------------------------------------------------
 
 ## One key on the glass changes weapon: the next one round. It is there only
-## while there is a next one — with a kit of one it would be a key that did
-## nothing — and it stands with the screens, clear of the hand.
+## while there is a next one — with nothing to change between it would be a
+## key that did nothing — and it stands with the screens, clear of the hand.
+## Every slot of the four (`Player.SLOTS`) is one round, empty or not, so one
+## weapon carried is already four to change between.
 func _the_weapon_key() -> void:
 	var key := control_of("weapon_next")
 	check(not key.is_empty() and int(key["kind"]) == TouchPad.Kind.KEY and key.has("rect"),
@@ -1122,23 +1124,26 @@ func _the_weapon_key() -> void:
 		return
 	player.global_position = raid.room.spawn_point()
 	await frames(4)
-	check(pad.face == TouchPad.Face.PLAY and player.weapons.size() == 1 and pad.kit == 1 and not pad.shown(key),
-		"with one weapon carried it is not on the glass (%d carried)" % pad.kit)
-	touch(0, spot("weapon_next"), true)
-	await frames(2)
-	check(not Input.is_action_pressed("weapon_next"), "and a thumb where it would stand presses nothing")
-	touch(0, spot("weapon_next"), false)
-	await frames(2)
+	check(pad.face == TouchPad.Face.PLAY and player.weapons.size() == 1 and pad.kit == Player.SLOTS and pad.shown(key),
+		"with one weapon carried it is on the glass: the empty slots are the next ones round (%d)" % pad.kit)
+	var own: SkillBoard = player.runner.board
+	var one := player.weapon_id
+	for empty: bool in [true, true, true, false]:
+		touch(0, spot("weapon_next"), true)
+		await frames(2)
+		touch(0, spot("weapon_next"), false)
+		await frames(3)
+		check(player.empty_handed() == empty and (empty or player.weapon_id == one),
+			"a tap on it goes round the weapon and the empty slots (%s)" % ("empty" if player.empty_handed() else player.weapon_id))
 
 	# A kit of three, as a raid walked into with one would have it.
-	var own: SkillBoard = player.runner.board
 	var kit := ["SWORD", "GUN", "ROCK"]
 	player.setup_kit(kit, [own, Weapons.make_board("GUN"), Weapons.make_board("ROCK")], 0)
 	await frames(3)
-	check(pad.kit == 3 and pad.shown(key), "with a kit, it is")
+	check(pad.kit == Player.SLOTS and pad.shown(key), "with a kit, it is, the empty hand after the three")
 	check(Controls.word_for("weapon_next") != "" and TouchPad.label_of(key) == Controls.word_for("weapon_next"),
 		"and says what it does (%s)" % TouchPad.label_of(key))
-	for want: String in ["GUN", "ROCK", "SWORD"]:
+	for want: String in ["GUN", "ROCK", "", "SWORD"]:
 		touch(0, spot("weapon_next"), true)
 		await frames(2)
 		touch(0, spot("weapon_next"), false)

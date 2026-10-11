@@ -9,7 +9,8 @@ extends Node
 ## cleared, so the room is in sight behind it; it lists every look, with the
 ## one in force lit and unpressable. Pressing another dresses the room in it
 ## there and then — the game is stopped, and the picture behind the page is
-## another picture all the same, and goes on moving — rebuilds the list round
+## another picture all the same, standing as still as the rest of the room
+## until the game goes on — rebuilds the list round
 ## the new answer, and keeps it in its file, so the next room walked into wears
 ## it too. A look put on by anything else is the one the list shows, and one
 ## only tried on is not kept. The pause key goes back one level at a time. And in mobile mode the
@@ -255,9 +256,15 @@ func _picking() -> void:
 		check(changed > 8000, "%s: the picture behind the page is another picture (%d of its pixels)" % [id, changed])
 		var moving: HideoutScenery.Layer = view.scenery._moving[0]
 		var painted := moving.painted
+		var hanging: Array = view.scenery.cords.map(func(r: Rope) -> Vector2: return r.nodes.back()["pos"])
 		await wait(0.4)
-		check(moving.painted > painted, "%s: and goes on moving behind it (%d more times drawn)"
+		check(moving.painted == painted, "%s: and stands still behind it, as the game does (%d more times drawn)"
 			% [id, moving.painted - painted])
+		var swung := 0
+		for i in view.scenery.cords.size():
+			if (view.scenery.cords[i] as Rope).nodes.back()["pos"] != hanging[i]:
+				swung += 1
+		check(swung == 0, "%s: what hangs in it too (%d of %d swung)" % [id, swung, hanging.size()])
 		var onto := get_viewport().get_final_transform() * get_viewport().get_canvas_transform() * view.global_transform
 		var gate := view._plate(world.stations["gate"] as Station)
 		var ground := (await unlit_frame()).get_pixelv(Vector2i(onto * (gate.position + Vector2(6.0, 6.0))))
@@ -298,6 +305,10 @@ func _the_way_back() -> void:
 		check(game.pause_main.visible and not game.pause_looks.visible, "which goes back to PAUSED too")
 	await press("pause")
 	check(not get_tree().paused and not game.pause_menu.visible, "and from PAUSED the key goes back into the game")
+	var moving: HideoutScenery.Layer = view.scenery._moving[0]
+	var painted := moving.painted
+	await wait(0.4)
+	check(moving.painted > painted, "where the room moves again (%d more times drawn)" % (moving.painted - painted))
 
 ## --- the pick, kept ---------------------------------------------------------
 
