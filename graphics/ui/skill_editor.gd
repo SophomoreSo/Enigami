@@ -20,10 +20,12 @@ extends Control
 ## a plate each with the weapon's own picture on it at the PIXEL grid's two: the
 ## one open lit in the weapon's colour, and a press on another opening that
 ## one's graph instead. The weapon in hand stays in hand — every carried weapon
-## has a graph and a runner of its own, and this only shows another of them —
-## and with one weapon, or one board, nothing stands there at all. Last of them
-## stands the empty hand (`EMPTY_HAND`): a plate with nothing on it, for a hand
-## with nothing in it, which has no graph to open yet.
+## has a graph and a runner of its own, and this only shows another of them.
+## They stand there whenever the screen is on weapons (`configure_shelf`), one
+## of them or more; a screen on one board alone (`configure`) has none. Fewer
+## than a kit's three, the slots no weapon is in stand after them bare, and last
+## of all the empty hand (`EMPTY_HAND`): plates with nothing on them, for a hand
+## with nothing in it, which have no graph to open yet.
 ##
 ## In the middle of the board's right edge is the way out: an arrowhead through
 ## the frame, where a flow leaves the board and becomes an attack. It is not a
@@ -102,8 +104,9 @@ const SHELF_W := 44.0
 const SHELF_H := 60.0
 const SHELF_GAP := 8.0
 const SHELF_AWAY := 12.0
-## The plate that stands last on every shelf: the empty hand. No weapon, and so
-## no picture and, for now, no graph — a press on it opens nothing.
+## The plate that stands last on every shelf: the empty hand — and one in each
+## slot of a kit no weapon is in. No weapon, and so no picture and, for now, no
+## graph — a press on it opens nothing.
 const EMPTY_HAND := {"id": "", "board": null, "runner": null}
 ## Two wide columns of one-line rows rather than four of two-line tiles: the
 ## pixel face runs up to twice as wide as the one the palette was laid out for,
@@ -485,9 +488,8 @@ func configure(b: SkillBoard, inv: Dictionary, unlim: bool, r: SkillRunner = nul
 ## `{id, board, runner}` — the runner the one running that board live, or null
 ## — in the order their plates stand down the left, and `open` the id of the
 ## one shown first, or the first if it is none of them. The parts are `inv`'s,
-## as `configure` has them. With fewer than two there is nothing to choose
-## between, and no plate stands there; with two or more, the empty hand stands
-## after them.
+## as `configure` has them. After them stand a bare plate for each slot of a
+## kit's three no weapon is in, and the empty hand's.
 func configure_shelf(entries: Array, open: String, inv: Dictionary, unlim: bool) -> void:
 	if entries.is_empty():
 		return
@@ -498,8 +500,11 @@ func configure_shelf(entries: Array, open: String, inv: Dictionary, unlim: bool)
 	var e: Dictionary = entries[at]
 	_put(e["board"], inv, unlim, e.get("runner", null))
 	weapon = String(e["id"])
-	shelf = entries + [EMPTY_HAND] if entries.size() > 1 else []
-	shelf_open = at if entries.size() > 1 else -1
+	shelf = entries.duplicate()
+	while shelf.size() < Player.MAX_WEAPONS:
+		shelf.append(EMPTY_HAND)
+	shelf.append(EMPTY_HAND)
+	shelf_open = at
 
 ## A player's kit as a shelf: the weapons they carry, in slot order, the graph
 ## on each and the runner running it live.

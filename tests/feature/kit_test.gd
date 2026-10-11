@@ -152,6 +152,10 @@ func _in_the_room() -> void:
 	check(world.player.weapons == [first, "GUN"] and world.player.weapon_id == "GUN"
 			and world.player.runner.board == world.armed_board(),
 		"the player in the room is holding the kit, with the graph the gate would carry in hand")
+	await tap_key(KEY_3)
+	check(world.player.empty_handed() and world.player.hand == 2 and world.player.runner == null
+			and world.weapon_id == "GUN",
+		"a slot no weapon is in is an empty hand on its key, and the rack stays where it was (%s)" % world.weapon_id)
 	world.set_weapon("SWORD")
 	check(world.player.weapons.size() == 3 and world.player.hand == 2, "a third joins it")
 

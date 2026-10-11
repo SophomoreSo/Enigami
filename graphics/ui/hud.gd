@@ -142,9 +142,10 @@ static func kit_label(weapon_id: String, slot: int, carried: int) -> String:
 	var named := Weapons.name_for(weapon_id).to_upper()
 	return named if carried < 2 else "%d %s" % [slot + 1, named]
 
-## The weapons carried, left to right in their slots, starting at `at`, and
-## after them the empty hand on its own key (`Player.EMPTY_HAND`): the one in
-## hand in its own colour and the rest dimmed. A player with no kit at all is
+## The four slots, left to right, starting at `at` (`Player.SLOTS`): the
+## weapons carried, EMPTY in each slot no weapon is in — the second and third
+## while fewer are carried, and the empty hand's always — the one in hand in its
+## own colour and the rest dimmed. A player with no kit at all is
 ## the name of the weapon they hold, as the line always was. A rock out of hand
 ## says so, dimmed as well: it is in a slot and in no hand. A stack says how
 ## many are left in it, dimmed with none. Returns where the line goes on from.
@@ -154,11 +155,12 @@ func _draw_kit(at: Vector2) -> float:
 		_px.text(at, named, Style.weapon_color(player.weapon_id))
 		return at.x + PixelDraw.text_width(named) + 16.0
 	var kit: Array = player.weapons
-	for slot in kit.size():
-		var id := String(kit[slot])
-		var label := kit_label(id, slot, kit.size() + 1)
+	for slot in Player.SLOTS:
+		var id := String(kit[slot]) if slot < kit.size() else ""
+		var label := kit_label(id, slot, Player.SLOTS) if id != "" \
+			else "%d %s" % [slot + 1, Loc.t("hud.empty_hand")]
 		var ink := Style.weapon_color(id)
-		if id != player.weapon_id:
+		if slot != player.hand:
 			ink.a *= AWAY
 		if Weapons.is_thrown(id) and not player.holds(id):
 			label = Loc.t("hud.thrown", [label])
@@ -169,12 +171,7 @@ func _draw_kit(at: Vector2) -> float:
 				ink.a *= AWAY
 		_px.text(at, label, ink)
 		at.x += PixelDraw.text_width(label) + 16.0
-	var empty := "%d %s" % [Player.EMPTY_HAND + 1, Loc.t("hud.empty_hand")]
-	var bare := Style.weapon_color("")
-	if not player.empty_handed():
-		bare.a *= AWAY
-	_px.text(at, empty, bare)
-	return at.x + PixelDraw.text_width(empty) + 16.0
+	return at.x
 
 ## Slimmer and quieter than health: this is a budget, not a life. It is divided
 ## into one segment per dash, so the question it answers at a glance is "how

@@ -11,8 +11,8 @@ extends InputMiddleware
 ## The console needs nothing here: a thumb on it presses the same actions a key
 ## does, and leans on the right stick to aim (`Touch`).
 
-## The key of each slot a weapon is carried in, first to last, and then the
-## empty hand's (`Player.EMPTY_HAND`).
+## The key of each slot, first to last (`Player.SLOTS`): the three a weapon is
+## carried in, and then the empty hand's (`Player.EMPTY_HAND`).
 const SLOT_ACTIONS: Array[StringName] = [&"weapon_1", &"weapon_2", &"weapon_3", &"weapon_4"]
 
 func process(s: InputState) -> InputState:

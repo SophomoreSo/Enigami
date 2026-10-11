@@ -1114,8 +1114,8 @@ func _hit_is_use() -> void:
 ## One key on the glass changes weapon: the next one round. It is there only
 ## while there is a next one — with nothing to change between it would be a
 ## key that did nothing — and it stands with the screens, clear of the hand.
-## The empty hand (`Player.EMPTY_HAND`) is one round with the weapons, so one
-## weapon carried is already two to change between.
+## Every slot of the four (`Player.SLOTS`) is one round, empty or not, so one
+## weapon carried is already four to change between.
 func _the_weapon_key() -> void:
 	var key := control_of("weapon_next")
 	check(not key.is_empty() and int(key["kind"]) == TouchPad.Kind.KEY and key.has("rect"),
@@ -1124,23 +1124,23 @@ func _the_weapon_key() -> void:
 		return
 	player.global_position = raid.room.spawn_point()
 	await frames(4)
-	check(pad.face == TouchPad.Face.PLAY and player.weapons.size() == 1 and pad.kit == 2 and pad.shown(key),
-		"with one weapon carried it is on the glass: the empty hand is the next one round (%d)" % pad.kit)
+	check(pad.face == TouchPad.Face.PLAY and player.weapons.size() == 1 and pad.kit == Player.SLOTS and pad.shown(key),
+		"with one weapon carried it is on the glass: the empty slots are the next ones round (%d)" % pad.kit)
 	var own: SkillBoard = player.runner.board
 	var one := player.weapon_id
-	for empty: bool in [true, false]:
+	for empty: bool in [true, true, true, false]:
 		touch(0, spot("weapon_next"), true)
 		await frames(2)
 		touch(0, spot("weapon_next"), false)
 		await frames(3)
 		check(player.empty_handed() == empty and (empty or player.weapon_id == one),
-			"a tap on it goes between the weapon and the empty hand (%s)" % ("empty" if player.empty_handed() else player.weapon_id))
+			"a tap on it goes round the weapon and the empty slots (%s)" % ("empty" if player.empty_handed() else player.weapon_id))
 
 	# A kit of three, as a raid walked into with one would have it.
 	var kit := ["SWORD", "GUN", "ROCK"]
 	player.setup_kit(kit, [own, Weapons.make_board("GUN"), Weapons.make_board("ROCK")], 0)
 	await frames(3)
-	check(pad.kit == 4 and pad.shown(key), "with a kit, it is, the empty hand after the three")
+	check(pad.kit == Player.SLOTS and pad.shown(key), "with a kit, it is, the empty hand after the three")
 	check(Controls.word_for("weapon_next") != "" and TouchPad.label_of(key) == Controls.word_for("weapon_next"),
 		"and says what it does (%s)" % TouchPad.label_of(key))
 	for want: String in ["GUN", "ROCK", "", "SWORD"]:

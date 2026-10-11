@@ -138,12 +138,11 @@ not a thing to reach for once it errors.
 | CTRL | sprint — held with a direction, the same run half as fast again. It costs nothing, turns and jumps as a run does and carries into the air while it is held; a crouch stops it |
 | LMB | cast the weapon's graph as it is — again and again while held, and it costs nothing |
 | RMB | hold to charge the weapon's graph, release to cast it with what the hold paid for — a tap is a charge of nothing, and a graph still recovering cannot be charged |
-| 1 / 2 / 3 | put the weapon carried in that slot in hand — at once, and whatever was being charged is let go of |
-| 4 | the empty hand: nothing in it, so neither button does anything with it in hand — it has no graph yet |
-| mouse wheel | the next weapon in hand, a notch down, or the one before, a notch up; from the last to the empty hand, and round from it to the first |
+| 1 / 2 / 3 / 4 | put that slot in hand — at once, and whatever was being charged is let go of: the weapon carried in it, or an empty hand in a slot no weapon is in — the fourth always, and the second and third while fewer are carried — so neither button does anything with it in hand; it has no graph yet |
+| mouse wheel | the next slot in hand, a notch down, or the one before, a notch up — all four, empty or not, and round from the fourth to the first |
 | Q | leave the monster you are possessing, back into your own body |
 | mouse / right stick | aim, and where a lunge lands. A stick's aim is bent toward a monster it is near — never snapped, and never the mouse's; how much is AIM ASSIST in the control settings |
-| TAB, G | open assembly — **the raid keeps running**; the weapons carried stand down the board's left, and a click on one opens its graph, the weapon in hand staying in hand — the empty hand's plate after them opens nothing yet. It is the GRAPH tab of a screen with tabs along its top, like a browser's: a click on MAP beside it puts the map up in its place, and one on FOES the monster dictionary — every monster a raid has, `??` until it has been met, and each one's skills `??` until it has been seen using them, then drawn as the graph each is. At the hideout's workbench, on the bench and in a raid a last tab, PERKS, puts up the perks (see [Perks](#perks)). The HUD is put away while the screen is up; TAB, G, ESC or the back arrow in its corner leaves it |
+| TAB, G | open assembly — **the raid keeps running**; the weapons carried stand down the board's left — one alone as well — and a click on one opens its graph, the weapon in hand staying in hand; a bare plate for each slot no weapon is in, and the empty hand's last, open nothing yet. It is the GRAPH tab of a screen with tabs along its top, like a browser's: a click on MAP beside it puts the map up in its place, and one on FOES the monster dictionary — every monster a raid has, `??` until it has been met, and each one's skills `??` until it has been seen using them, then drawn as the graph each is. At the hideout's workbench, on the bench and in a raid a last tab, PERKS, puts up the perks (see [Perks](#perks)). The HUD is put away while the screen is up; TAB, G, ESC or the back arrow in its corner leaves it |
 | M | the map — the MAP tab of the same screen: in a raid the floor plan, the raid running on behind it as well, and on the bench, in the hideout and anywhere else with no map a page saying so. A click on GRAPH, or TAB or G, puts the board up in its place, and M, ESC or the back arrow leaves it |
 | Ctrl+C / Ctrl+V (⌘ on a Mac) | in assembly: COPY and PASTE — the board onto the clipboard as a share code, or someone else's board built from theirs |
 | F | interact: talk to an NPC — the last step over to them is walked for you, and pushing the other way on it changes your mind — (again for the next line), go through a gate to the room above or below, sit down on a bench — the last steps over to its seat are walked for you, as they are to someone you talk to, and pushing the other way on them changes your mind — and stand up again; so does a step, a jump or a blow — and hold to extract. Someone who talks free goes on by themselves; F only hurries their line |
@@ -406,10 +405,13 @@ while it is held, for nothing; `RMB` charges it (below) and casts on release.
 **Three weapons are three skills, a key apart.** The rack carries up to three:
 picking a weapon takes it in hand and into the kit, in the next free slot, and
 PUT BACK takes the one in hand out again — never the last, since nobody goes in
-empty-handed. In a raid `1`, `2` and `3` put the weapon in that slot in hand,
-`4` the empty hand after them — nothing in it, and for now no graph, so
-neither button does anything with it in hand — and the wheel the next or the
-one before; the HUD names them all, EMPTY last, the one in hand lit. Each has its own graph and its own wait between casts, so a weapon
+empty-handed. There are four slots, `1` to `4`, and in a raid
+each key puts its slot in hand, and the wheel the next or the one before: a
+weapon's three, and the empty hand's after them. A slot no weapon is in — the
+fourth always, the second and third while fewer are carried — is an empty
+hand: nothing in it, and for now no graph, so neither button does anything
+with it in hand. The HUD names all four, EMPTY where no weapon is, the one in
+hand lit. Each has its own graph and its own wait between casts, so a weapon
 put away goes on recovering in its slot, ready again by the time it is drawn,
 and a cast it had already loosed still lands as its own.
 Changing weapon is instant and costs only what was being charged. The price of

@@ -205,6 +205,15 @@ func _ready() -> void:
 	await button(back.get_center(), MOUSE_BUTTON_LEFT, true)
 	await button(back.get_center(), MOUSE_BUTTON_LEFT, false)
 	check(ed.current_board() == board, "and the hand's plate opens the hand's graph again")
+	# One weapon stands there too: it, a bare plate for each slot no weapon is
+	# in, and the empty hand.
+	var lone := SkillEditor.new()
+	lone.configure_shelf([{"id": "ROCK", "board": Weapons.make_board("ROCK"), "runner": null}], "ROCK", {}, true)
+	var lone_ids := lone.shelf.map(func(e: Dictionary) -> String: return String(e["id"]))
+	check(lone_ids == ["ROCK", "", "", ""] and lone.shelf_open == 0,
+		"one weapon stands down the left too, the slots no weapon is in bare after it, the empty hand last (%s)"
+			% str(lone_ids))
+	lone.free()
 
 	# --- inventory accounting in a real (limited) pool ----------------------
 	sb.set_editing(false)

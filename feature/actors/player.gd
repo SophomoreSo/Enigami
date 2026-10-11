@@ -15,8 +15,11 @@ extends Actor
 ## its own wait between casts, and one of them is in hand: the one the two
 ## buttons fire. A slot's key, or a step along with the wheel, puts another in
 ## hand at once (`switch_to`) — so three weapons are three skills, a key apart.
-## After them, on the fourth key, is the empty hand (`EMPTY_HAND`): nothing in
-## it and, for now, no graph, so neither button does anything with it in hand.
+## There are four slots (`SLOTS`), each on its key: a weapon's three, and after
+## them the empty hand's (`EMPTY_HAND`). A slot with no weapon in it — the
+## fourth always, and the second and third while fewer are carried — is an
+## empty hand: nothing in it and, for now, no graph, so neither button does
+## anything with it in hand.
 ## A weapon put away goes on with what it was doing: a cast already out lands,
 ## and its wait runs down, so it is ready again by the time it is drawn.
 ##
@@ -64,9 +67,13 @@ signal released(monster)
 ## from the profile's side: what a raid can be walked into with.
 const MAX_WEAPONS := 3
 ## The slot of the empty hand: the fourth, after the most weapons carried,
-## whatever is carried before it. With it in hand there is no weapon
-## (`weapon_id` is "") and no graph (`runner` is null) — see `empty_handed`.
+## whatever is carried before it. With it, or any slot no weapon is in, in hand
+## there is no weapon (`weapon_id` is "") and no graph (`runner` is null) — see
+## `empty_handed`.
 const EMPTY_HAND := MAX_WEAPONS
+## How many slots there are to have in hand: a weapon's each, carried or not,
+## and the empty hand's.
+const SLOTS := MAX_WEAPONS + 1
 ## How long a monster stands stunned once the player has stepped out of it,
 ## which is the head start they have on it.
 const RELEASE_STUN := 1.2
@@ -236,8 +243,8 @@ const ROPE_JUMP_MOST := -820.0
 ## weapon is its skill, so this is every skill the player has to hand.
 var weapons: Array[String] = []
 var runners: Array[SkillRunner] = []
-## Which slot is in hand, and so which of them the buttons fire: one of the
-## weapons', or EMPTY_HAND.
+## Which slot is in hand, and so which of them the buttons fire: 0 to SLOTS - 1,
+## a weapon's while it is under `weapons.size()` and an empty hand from there.
 var hand: int = 0
 ## The weapon in hand and its runner: `weapons[hand]` and `runners[hand]`, kept
 ## beside them because nearly everything that asks about the player's weapon
@@ -465,7 +472,7 @@ func setup(weapon: String, board: SkillBoard) -> void:
 	setup_kit([weapon], [board])
 
 ## Hands the player a kit: up to MAX_WEAPONS weapons, in slot order, the graph
-## on each, and which slot is in hand — EMPTY_HAND for none. The runners are rebuilt wholesale; the
+## on each, and which slot is in hand — one with no weapon in it for none. The runners are rebuilt wholesale; the
 ## old ones go away with their signals, and so does whatever was being charged.
 ##
 ## A thrown weapon comes in the body's hand — unless the kit before this one
@@ -503,17 +510,19 @@ func setup_kit(ids: Array, boards: Array, in_hand: int = 0) -> void:
 		runner = null
 		hand = 0
 		return
-	hand = EMPTY_HAND if in_hand == EMPTY_HAND else clampi(in_hand, 0, weapons.size() - 1)
+	hand = clampi(in_hand, 0, SLOTS - 1)
 	_hold_hand()
 
-## `weapon_id` and `runner` for the slot in hand: nothing for the empty hand.
+## `weapon_id` and `runner` for the slot in hand: nothing for an empty one.
 func _hold_hand() -> void:
-	weapon_id = "" if hand == EMPTY_HAND else weapons[hand]
-	runner = null if hand == EMPTY_HAND else runners[hand]
+	var armed := hand < weapons.size()
+	weapon_id = weapons[hand] if armed else ""
+	runner = runners[hand] if armed else null
 
-## Whether the empty hand is in hand: no weapon, and no graph to cast.
+## Whether an empty hand is in hand — the fourth slot, or one no weapon is
+## carried in: no weapon, and no graph to cast.
 func empty_handed() -> bool:
-	return hand == EMPTY_HAND and not weapons.is_empty()
+	return not weapons.is_empty() and hand >= weapons.size()
 
 ## One weapon's graph, run live. What it fires is finalized as that weapon's,
 ## whichever weapon is in hand by the time it lands.
@@ -527,16 +536,16 @@ func _make_runner(weapon: String, board: SkillBoard) -> SkillRunner:
 	r.parry_opened.connect(_on_parry_opened)
 	return r
 
-## Puts the weapon in `slot` in hand, 0 for the first carried, or nothing at
-## all for EMPTY_HAND. Whether it did: not for a slot nothing is carried in, nor
-## for the one already in hand.
+## Puts the weapon in `slot` in hand, 0 for the first carried — or nothing at
+## all for a slot no weapon is in, EMPTY_HAND always. Whether it did: not for a
+## slot past the last, nor for the one already in hand, nor with no kit at all.
 ##
 ## It is instant, and it costs whatever was being charged: the hold was buying
 ## life for the weapon being put away, and does not follow the hand to the next
 ## one. That weapon keeps the wait it was in, and anything it had already cast
 ## still lands.
 func switch_to(slot: int) -> bool:
-	if weapons.is_empty() or slot == hand or (slot != EMPTY_HAND and (slot < 0 or slot >= weapons.size())):
+	if weapons.is_empty() or slot < 0 or slot >= SLOTS or slot == hand:
 		return false
 	charge = 0.0
 	cast_charge = 0.0
@@ -745,15 +754,13 @@ func _kill() -> void:
 	stand_up()
 	super._kill()
 
-## Puts the weapon `step` slots along in hand: 1 for the next, -1 for the one
-## before, from the last weapon to the empty hand and round from that to the
-## first.
+## Puts the slot `step` along in hand: 1 for the next, -1 for the one before,
+## every slot of the four in turn, empty or not, and round from the empty hand
+## to the first.
 func switch_by(step: int) -> bool:
 	if weapons.is_empty() or step == 0:
 		return false
-	var at := weapons.size() if hand == EMPTY_HAND else hand
-	var to := posmod(at + step, weapons.size() + 1)
-	return switch_to(EMPTY_HAND if to == weapons.size() else to)
+	return switch_to(posmod(hand + step, SLOTS))
 
 func stamina_ratio() -> float:
 	return clampf(stamina / max_stamina, 0.0, 1.0)
