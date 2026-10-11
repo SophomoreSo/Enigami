@@ -131,6 +131,9 @@ func _ready() -> void:
 
 	game = Node.new()
 	game.set_script(GameScript)
+	# The game stops with the tree, as it does under the root in play: this
+	# test runs on through the pause, and the game would run on with it.
+	game.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(game)
 	await wait(0.2)
 	await _the_door()
