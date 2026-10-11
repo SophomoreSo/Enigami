@@ -4,7 +4,8 @@ extends Node
 ## and in its sight, they are. Once it has noticed it turns to keep them in
 ## front, so walking round it does not shake it off — range or a wall does. A
 ## blow in the back turns it round, an idle monster looks over its shoulder
-## every few seconds, and a boss is never crept up on.
+## every few seconds, and a boss is never crept up on. Noticing somebody is
+## shown (`Enemy.alert`), and waited out for ALERT_TIME before the first blow.
 
 var fails := 0
 
@@ -112,6 +113,12 @@ func _crawler() -> void:
 	# Right up against its back is being stood on, not crept up on.
 	q.global_position = m.global_position + Vector2(-Enemy.BLIND_MARGIN + 2.0, 0)
 	check(await until(func() -> bool: return m.aggro, 30), "standing right on it is noticed from either side")
+	check(m.alert > 0.0 and not m.runner.active,
+		"noticing them, it shows it, and does not attack yet (%.2fs to go)" % m.alert)
+	var noticed := Time.get_ticks_msec()
+	check(await until(func() -> bool: return m.runner.active, 120), "and attacks after")
+	var waited := float(Time.get_ticks_msec() - noticed) / 1000.0
+	check(waited >= Enemy.ALERT_TIME - 0.05, "no sooner than ALERT_TIME after it noticed (%.2fs)" % waited)
 
 	# A blow in the back.
 	q.global_position = m.global_position + Vector2(-3000, 0)

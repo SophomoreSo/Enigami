@@ -39,6 +39,9 @@ const BLIND_MARGIN := 10.0
 ## is something to wait for.
 const GLANCE_MIN := 2.0
 const GLANCE_MAX := 4.0
+## How long a monster that has just noticed somebody waits before it attacks:
+## the moment it notices them has to read before the first blow does.
+const ALERT_TIME := 0.3
 
 ## Its attack went off, cast off `skill`'s board — by it, or by a player whose
 ## hands are in it. A raid hears it, for the monster dictionary.
@@ -58,6 +61,10 @@ var size: float = 14.0
 ## Seeing takes the target in front of it (see `_in_front`); once it has, it
 ## turns to keep them there, so it stays seen until range or a wall breaks it.
 var aggro: bool = false
+## Counts down from ALERT_TIME from the moment it notices somebody it had not
+## — `aggro` coming on, and not kept on — and it does not attack until it is
+## out. A view shows it, over its head.
+var alert: float = 0.0
 ## Counts down through the wind-up before a leap, so the leap can be read
 ## before it lands.
 var telegraph: float = 0.0
@@ -206,12 +213,13 @@ func _process(delta: float) -> void:
 		if not stunned():
 			runner.update(delta)
 		return
+	alert = maxf(alert - delta, 0.0)
 	_acquire()
 	var want_attack := aggro and target != null and _in_range()
 	if def.get("boss", false):
 		_boss_logic(delta)
 		want_attack = aggro and target != null
-	runner.set_active(want_attack and not stunned())
+	runner.set_active(want_attack and alert <= 0.0 and not stunned())
 	# A stunned monster's board waits with it: a cast already on its way would
 	# otherwise land while it stands there, and that is an attack.
 	if not stunned():
@@ -276,6 +284,7 @@ func take_pilot(p: Player) -> void:
 	revealed = false
 	attacking = false
 	aggro = false
+	alert = 0.0
 	target = null
 	telegraph = 0.0
 	runner.ttl_bonus = 0
@@ -291,6 +300,7 @@ func release_pilot(stun_for: float) -> void:
 	revealed = false
 	attacking = false
 	aggro = false
+	alert = 0.0
 	target = null
 	runner.set_active(false)
 	velocity.x = 0.0
@@ -359,8 +369,9 @@ func _nearest_quarry(noticed: bool = false) -> Actor:
 ## something else it can see in front of it is much nearer, a monster the player
 ## is in giving itself away beside it, say. Until then it looks for the nearest
 ## thing to hunt: the player's body, or a monster the player is in that has
-## given itself away.
+## given itself away. Noticing somebody it had not starts its ALERT_TIME.
 func _acquire() -> void:
+	var was := aggro
 	if aggro and _hunts(target):
 		var other := _nearest_quarry(true)
 		if other != null and other != target and global_position.distance_to(other.global_position) \
@@ -370,11 +381,16 @@ func _acquire() -> void:
 		target = _nearest_quarry()
 	if target == null:
 		aggro = false
+		alert = 0.0
 		return
 	var d := global_position.distance_to(target.global_position)
 	# Noticing takes the target in front; having noticed, it only has to keep
 	# them in reach and in sight, since it turns to follow them.
 	aggro = d <= float(def["aggro"]) and _sees(target.global_position) and (aggro or _in_front())
+	if aggro and not was:
+		alert = ALERT_TIME
+	elif not aggro:
+		alert = 0.0
 
 ## Whether nothing solid stands between it and `at`.
 func _sees(at: Vector2) -> bool:
