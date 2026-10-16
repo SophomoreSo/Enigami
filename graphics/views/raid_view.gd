@@ -21,6 +21,10 @@ var map_panel: MapPanel
 var dex: MonsterDex
 var perk_screen: PerkScreen
 
+## How quickly the camera closes on the player in a room bigger than the
+## screen: the share of the way it goes in a second.
+const FOLLOW := 5.0
+
 func _ready() -> void:
 	raid = get_parent() as Raid
 	camera = Camera2D.new()
@@ -72,15 +76,43 @@ func _ready() -> void:
 	raid.reading_dex_changed.connect(_on_reading_dex)
 	raid.reading_perks_changed.connect(_on_reading_perks)
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if raid == null or not is_instance_valid(raid):
 		return
+	follow(delta, false)
 	hud.player = raid.player
 	hud.prompt = raid.prompt
 	hud.extract_offered = raid.room != null and is_instance_valid(raid.room) and raid.room.extract_offered
 	hud.extract_ratio = raid.extract_ratio
 	map_panel.map = raid.map
 	map_panel.room = raid.room
+
+## Takes the camera towards the player by `delta`'s worth of `FOLLOW`, or all
+## the way with `snap` — and onto a new room all the way, as it is walked into.
+## A room is a map laid by hand and may be bigger than the screen either way:
+## along that way the camera goes after the player and never past the room's
+## edge, and a room no bigger than the screen that way is held in its middle.
+var _room_seen: Node = null
+
+func follow(delta: float, snap: bool) -> void:
+	var r := raid.room
+	if r == null or not is_instance_valid(r):
+		return
+	if r != _room_seen:
+		_room_seen = r
+		snap = true
+	var size := Vector2(r.cols, r.rows) * Room.CELL
+	var view := get_viewport().get_visible_rect().size
+	var want := size * 0.5
+	var p := raid.player
+	if p != null and is_instance_valid(p):
+		var at := p.vessel().global_position - r.global_position
+		if size.x > view.x:
+			want.x = clampf(at.x, view.x * 0.5, size.x - view.x * 0.5)
+		if size.y > view.y:
+			want.y = clampf(at.y, view.y * 0.5, size.y - view.y * 0.5)
+	want += r.global_position
+	camera.position = want if snap else camera.position.lerp(want, clampf(FOLLOW * delta, 0.0, 1.0))
 
 ## Event-driven rather than polled: when the editor consumes TAB to close
 ## itself, this must not see the same press and open it straight back up. Each

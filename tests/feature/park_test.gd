@@ -3,7 +3,7 @@ extends Node
 ## run into the save slot instead of ending it, and opening that slot again
 ## walks back into the same raid rather than into the hideout.
 ##
-## The map is not in the save — it grows from `raid_seed` — so what this checks
+## The map is not in the save — it is laid again from the same rows — so what this checks
 ## is that the run written over it comes back: the room the player was standing
 ## in, where they were standing, what was left of them, the raid clock, and the
 ## rooms as the run had left them. It goes through disk, not memory: the save is
@@ -112,7 +112,7 @@ func _ready() -> void:
 	await frames(20)
 	check(game.state == GameScript.State.RAID, "starting that slot walks into the raid")
 	check(back != null and back.map.seed_base == seed_was,
-		"the same map grows from the same seed (%d)" % back.map.seed_base)
+		"the same floor, under the same run number (%d)" % back.map.seed_base)
 	check(back.room != null and back.room.coord == moved,
 		"in the room it was left in (%s, wanted %s)"
 			% [Vector2i.ZERO if back.room == null else back.room.coord, moved])

@@ -28,12 +28,15 @@ data/
     │   └── menus.sql
     ├── ropes/        the lines that hang in the rooms, and what a room hangs of each
     │   └── ropes.sql
+    ├── floors/       the raid's floor: which map stands where, and what kind of room it is
+    │   └── raid.sql
     ├── foliage/      what grows on the rooms' floors, and how much of each a room grows
     │   └── foliage.sql
     ├── lights/       the light each kind of shining thing gives
     │   └── lights.sql
     ├── maps/         the maps the game ships with, a file a map, as the map creator writes them
-    │   └── moonlit_grove.sql
+    │   ├── moonlit_grove.sql
+    │   └── raid_<x>_<y>.sql   the raid's rooms, a map each
     └── parts/        every part a board is built from, and its number in a shared code
         └── parts.sql
 ```
@@ -801,8 +804,11 @@ a character a cell. `.` is nothing, in every layer.
 | `T` | The room's treasure box. One a map. It is put down on the first floor under its cell. |
 | `x` | Ground worth digging, put down the same way. |
 | `_` | A bench to sit on, put down the same way. |
-| `c` `s` `l` `h` `d` | A post for a Crawler, a Sentry, a Lobber, a Hopper, a Drifter. |
+| `c` `s` `l` `h` `d` `b` | A post for a Crawler, a Sentry, a Lobber, a Hopper, a Drifter, a Bomber. |
 | `w` `g` `u` `y` `a` | And for a Warden, a Gunman, a Grunt, a Test Dummy, the Arbiter. |
+| `<` `>` | A raid room's doorway in its west or east wall: the cells of its mouth, against that edge, walked through into the room beside it on the floor. |
+| `U` `D` | Its gate up or down, standing in the cell marked, gone through with interact into the room above or below. One each. |
+| `E` | Where its way out of the raid stands, if the floor gives it one. One. |
 
 Anything else is open. A monster stands in its cell, on whatever is under it;
 one that flies holds the middle of it. What the box and the ground hold is
@@ -869,6 +875,33 @@ answer to somebody. `MapMaker._stand` (`feature/world/map_maker.gd`) is the
 whole of it, as PLAY does it. A map is a `Room`, so everything that takes one
 takes it; the view the game gives it (`graphics/views/made_room_view.gd`)
 draws it in its tileset.
+
+## A floor
+
+The raid's rooms: which map stands where on a grid 7 across and 5 down, from
+(0, 0) in the top-left, a row of `raid_rooms` a room, in `floors/raid.sql`.
+
+```sql
+INSERT INTO raid_rooms (x, y, map_id, kind, danger, exit) VALUES
+	(0, 4, 'raid_0_4', 'entry', 1, 'entry'),
+	(1, 4, 'raid_1_4', 'normal', 3, 'crack');
+```
+
+| Column | Meaning |
+|---|---|
+| `x` `y` | Where the room stands on the floor. |
+| `map_id` | The map it is, one of **A map**'s. The player's own copy of that map, saved in the map creator, stands in front of the shipped one. |
+| `kind` | `entry`, where a run starts — one of these; `boss`, the Arbiter's; `treasure`; `normal`. |
+| `danger` | 1 to 5: how much harder its monsters are. |
+| `exit` | The way out it offers, standing on its map's `E`: `entry` and `crack`, free; `toll`, for gold; `arbiter`, once the Arbiter is down — or NULL. Their terms are `RaidMap.EXITS`. |
+
+Two rooms side by side are joined where both are on the floor and the one
+marks a doorway toward the other (`>` in the west room, `<` in the east one);
+two one over the other where the lower marks `U` and the upper `D`. A room
+holds what its map lays in it and nothing rolled. The build cannot see a map's
+marks, so `tests/feature/floor_test` holds the floor together: one way in with a
+start and an exit, the Arbiter's room with the Arbiter in it, every doorway and
+gate matched the way back, and every room reached from the way in.
 
 ## A perk
 

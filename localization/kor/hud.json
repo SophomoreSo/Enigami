@@ -124,7 +124,12 @@
 			"start": "시작 지점",
 			"box": "보물 상자",
 			"dig": "파낼 땅",
-			"bench": "벤치"
+			"bench": "벤치",
+			"door_west": "서쪽 출입구",
+			"door_east": "동쪽 출입구",
+			"gate_up": "위층 문",
+			"gate_down": "아래층 문",
+			"exit": "출구"
 		},
 		"tiles": {
 			"grove": {

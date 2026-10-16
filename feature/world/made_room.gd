@@ -54,7 +54,7 @@ const GROUND := {"#": "stone", "%": "earth", "|": "bark", "=": "wood", "*": "lea
 ## A monster's post, by the letter that marks it.
 const MONSTERS := {
 	"c": "CRAWLER", "s": "SENTRY", "l": "LOBBER", "h": "HOPPER", "d": "DRIFTER",
-	"w": "WARDEN", "g": "GUNMAN", "u": "GRUNT", "y": "DUMMY", "a": "ARBITER",
+	"b": "BOMBER", "w": "WARDEN", "g": "GUNMAN", "u": "GRUNT", "y": "DUMMY", "a": "ARBITER",
 }
 ## A rope and a vine, laid in the dressing down a column of cells: one line a
 ## run of either, hung from the top of the run and as long as it, and one a
@@ -64,9 +64,24 @@ const VINE := "v"
 ## Those lines by the mark that lays each, and the kind of line each is, by its
 ## row of `ropes`.
 const LINES := {ROPE: "cable", VINE: "vine"}
-## The marks a room holds one of at most: a player starts in one place, and a
-## room keeps its loot in one box (`Room.box`).
-const ONE_OF := [START, BOX]
+## The ways out of a room a raid stands it in (`RaidMap`): a doorway in its
+## west or east wall, walked through — the cells of its mouth, laid against
+## that edge — and a gate up or down, gone through with interact, standing
+## where it is marked. A room marks the ways it has, and the raid's floor says
+## which room each leads to. Off a raid nothing reads them, and they are open
+## cells like any.
+const DOOR_WEST := "<"
+const DOOR_EAST := ">"
+const GATE_UP := "U"
+const GATE_DOWN := "D"
+## Those marks, and the side of the room each is a way out on.
+const WAYS := {DOOR_WEST: Components.W, DOOR_EAST: Components.E, GATE_UP: Components.N, GATE_DOWN: Components.S}
+## Where a raid room's way out of the raid stands, when the floor gives it one.
+const EXIT := "E"
+## The marks a room holds one of at most: a player starts in one place, a room
+## keeps its loot in one box (`Room.box`), and it has one gate each way and one
+## exit.
+const ONE_OF := [START, BOX, GATE_UP, GATE_DOWN, EXIT]
 ## How far past the plan's edge the rock nothing leaves through goes, in cells.
 const BEYOND := 4
 
@@ -129,6 +144,8 @@ static func things() -> PackedStringArray:
 	out.append(BOX)
 	out.append(DIG)
 	out.append(BENCH)
+	for mark in [DOOR_WEST, DOOR_EAST, GATE_UP, GATE_DOWN, EXIT]:
+		out.append(mark)
 	return out
 
 ## The monster `mark` posts, or "" for a mark that is not a monster's.
@@ -208,6 +225,53 @@ func spawn_point() -> Vector2:
 	if best.x < 0:
 		return middle * CELL
 	return stand_point(best, Player.BODY.y * 0.5)
+
+## --- in a raid ---------------------------------------------------------------
+
+## The sides this room has a way out on, by the marks it carries.
+func ways() -> Array[int]:
+	var out: Array[int] = []
+	for mark in WAYS:
+		if not cells_marked(String(mark)).is_empty():
+			out.append(int(WAYS[mark]))
+	return out
+
+## The mouth of the doorway on side `dir`: every cell marked for it, as one
+## rect. Nothing for a side with none, or a side that is not a wall's.
+func door_rect(dir: int) -> Rect2:
+	var mark := DOOR_WEST if dir == Components.W else (DOOR_EAST if dir == Components.E else "")
+	if mark == "":
+		return Rect2()
+	var cells := cells_marked(mark)
+	if cells.is_empty():
+		return Rect2()
+	var r := Rect2(Vector2(cells[0]) * CELL, Vector2(CELL, CELL))
+	for c in cells:
+		r = r.merge(Rect2(Vector2(c) * CELL, Vector2(CELL, CELL)))
+	return r
+
+## Where a body coming in through `from_dir` is put down: two cells in from
+## the doorway on that side, level with the middle of its mouth, or in front of
+## the gate that leads back the way it came — as a carved room puts one down.
+## A side the room marks no way on puts it where the room starts a player,
+## which needs the room stood (`stand`) to find its floor.
+func arrival_at(from_dir: int) -> Vector2:
+	match from_dir:
+		Components.W, Components.E:
+			var mouth := door_rect(from_dir)
+			if mouth.size != Vector2.ZERO:
+				var x := mouth.end.x + CELL * 1.5 if from_dir == Components.W else mouth.position.x - CELL * 1.5
+				return Vector2(x, mouth.get_center().y)
+		Components.N, Components.S:
+			var gate := cells_marked(GATE_UP if from_dir == Components.N else GATE_DOWN)
+			if not gate.is_empty():
+				return cell_center(gate[0].x, gate[0].y)
+	return spawn_point()
+
+## The cell its exit stands on, or (-1, -1) for a room that marks none.
+func exit_cell() -> Vector2i:
+	var at := cells_marked(EXIT)
+	return at[0] if not at.is_empty() else Vector2i(-1, -1)
 
 ## The middle of the cell a thing laid in `c` comes to rest in: `c` itself, or
 ## the first one under it with ground beneath.

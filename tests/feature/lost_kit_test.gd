@@ -35,24 +35,24 @@ func _ready() -> void:
 	get_tree().quit(1 if fails > 0 else 0)
 
 ## --- the promise the whole thing rests on -----------------------------------
-## One seed, one floor. A drop is an address on a map that has not been built
-## yet, so a seed that grew a different map the second time would leave every
-## kit stranded — and would already have been quietly moving the rooms under a
-## parked raid. The global generator is the way that happens: `randomize()` runs
-## at boot, so anything drawing on it is a different answer every session.
+## One floor. A drop is an address on a map that has not been laid yet, so a
+## floor that came out different the second time would leave every kit
+## stranded. It is laid by hand now, the same rows every time: whatever the
+## run's number, and whatever the global generator is doing.
 func _same_floor() -> void:
 	seed(1)
 	var a := RaidMap.new()
-	a.generate(9876543)
+	a.lay(9876543)
 	var first: Array = a.rooms.keys()
 	var kinds := first.map(func(c: Vector2i) -> String: return String(a.rooms[c]["kind"]))
-	# A different global seed, deliberately: the map must not be able to tell.
+	# A different global seed, and another run's number: neither may matter.
 	seed(2)
 	randomize()
 	var b := RaidMap.new()
-	b.generate(9876543)
-	check(b.rooms.size() == a.rooms.size() and first.all(func(c: Vector2i) -> bool: return b.rooms.has(c)),
-		"the same seed grows the same rooms, whatever the global generator is doing (%d)"
+	b.lay(1234)
+	check(not first.is_empty() and b.rooms.size() == a.rooms.size()
+			and first.all(func(c: Vector2i) -> bool: return b.rooms.has(c)),
+		"the floor is the same rooms, whatever the run's number or the global generator (%d)"
 			% a.rooms.size())
 	check(kinds == first.map(func(c: Vector2i) -> String: return String(b.rooms[c]["kind"])),
 		"and puts the entry, the boss and the treasure in the same places")

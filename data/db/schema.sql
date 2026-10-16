@@ -22,7 +22,7 @@ CREATE TABLE meta (
 );
 -- `Db.SCHEMA_VERSION` in app/db.gd is the same number: bump both when a
 -- change is one older code could not read. build.sh adds `source_hash`.
-INSERT INTO meta (key, value) VALUES ('schema_version', '15');
+INSERT INTO meta (key, value) VALUES ('schema_version', '16');
 
 -- How a portrait and the letters behave while a line is said: the ids
 -- `Style.EMOTIONS` (graphics/style.gd) draws. A line naming one not here
@@ -723,3 +723,24 @@ CREATE TABLE map_rows (
 	PRIMARY KEY (map_id, layer, y),
 	FOREIGN KEY (map_id, layer) REFERENCES map_layers (map_id, layer) ON DELETE CASCADE
 );
+
+-- ---- the raid's floor --------------------------------------------------------
+-- Which map stands where: the raid's rooms on a grid of RaidMap.MW by MH, from
+-- (0, 0) in the top-left, each a map of the tables above. A room is joined to
+-- the room beside it through doorways its map marks, and to the room above or
+-- below through gates (`RaidMap`). `kind` is what the room is to the raid —
+-- `entry`, where a run starts; `boss`, the Arbiter's; `treasure`; `normal` —
+-- and `danger` how much harder its monsters are, 1 to 5. `exit` is the way out
+-- it offers, standing on its map's `E`: `entry` and `crack` free, `toll` for
+-- gold, `arbiter` once the boss is down — or NULL for none.
+CREATE TABLE raid_rooms (
+	x      INTEGER NOT NULL CHECK (x BETWEEN 0 AND 6),
+	y      INTEGER NOT NULL CHECK (y BETWEEN 0 AND 4),
+	map_id TEXT NOT NULL REFERENCES maps (id) DEFERRABLE INITIALLY DEFERRED,
+	kind   TEXT NOT NULL CHECK (kind IN ('entry', 'normal', 'treasure', 'boss')),
+	danger INTEGER NOT NULL DEFAULT 1 CHECK (danger BETWEEN 1 AND 5),
+	exit   TEXT CHECK (exit IS NULL OR exit IN ('entry', 'arbiter', 'toll', 'crack')),
+	PRIMARY KEY (x, y)
+);
+-- One way in.
+CREATE UNIQUE INDEX raid_rooms_one_entry ON raid_rooms (kind) WHERE kind = 'entry';

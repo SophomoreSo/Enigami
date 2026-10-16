@@ -485,6 +485,16 @@ func name_of(entry: String, in_tab: int = tab) -> String:
 			return Loc.t("hud.maker.mark.dig")
 		MadeRoom.BENCH:
 			return Loc.t("hud.maker.mark.bench")
+		MadeRoom.DOOR_WEST:
+			return Loc.t("hud.maker.mark.door_west")
+		MadeRoom.DOOR_EAST:
+			return Loc.t("hud.maker.mark.door_east")
+		MadeRoom.GATE_UP:
+			return Loc.t("hud.maker.mark.gate_up")
+		MadeRoom.GATE_DOWN:
+			return Loc.t("hud.maker.mark.gate_down")
+		MadeRoom.EXIT:
+			return Loc.t("hud.maker.mark.exit")
 	var kind := MadeRoom.monster_of(entry)
 	return Monsters.name_for(kind).to_upper() if kind != "" else entry
 
@@ -779,9 +789,17 @@ func _edge(cv: CanvasItem, r: Rect2, col: Color) -> void:
 
 ## What `mark` of the plan stands for — a monster's post, the player's start,
 ## the box, the ground to dig, a bench — drawn in the cell `r` as the game draws it,
-## smaller by as much as `r` is smaller than a room's cell.
+## smaller by as much as `r` is smaller than a room's cell. A raid room's ways
+## out — a doorway, a gate, its exit — are open cells in the game, and drawn
+## here as signs: an arrow the way each leads, and the exit's diamond.
 static func paint_mark(cv: CanvasItem, mark: String, r: Rect2) -> void:
 	var k := r.size.x / float(Room.CELL)
+	if MadeRoom.WAYS.has(mark):
+		_paint_way(cv, int(MadeRoom.WAYS[mark]), r)
+		return
+	if mark == MadeRoom.EXIT:
+		_paint_exit(cv, r)
+		return
 	match mark:
 		MadeRoom.START:
 			_paint_body(cv, Style.PLAYER_ART, Color.WHITE, r, k, false)
@@ -795,6 +813,29 @@ static func paint_mark(cv: CanvasItem, mark: String, r: Rect2) -> void:
 			var kind := MadeRoom.monster_of(mark)
 			if kind != "":
 				_paint_body(cv, Style.monster_art(kind), Style.monster_tint(kind), r, k, flies(mark))
+
+## A way out of the room, an arrow in the cell pointing the way it leads:
+## west or east through a doorway, up or down through a gate, on a plate.
+static func _paint_way(cv: CanvasItem, side: int, r: Rect2) -> void:
+	var inner := r.grow(-r.size.x * 0.12)
+	cv.draw_rect(inner, Color(0.1, 0.16, 0.22, 0.85))
+	cv.draw_rect(inner, WAY_INK, false, maxf(1.0, r.size.x / 16.0))
+	var c := inner.get_center()
+	var v := Vector2(Components.dir_to_vec(side))
+	var side_v := v.orthogonal()
+	var reach := inner.size.x * 0.32
+	cv.draw_colored_polygon(PackedVector2Array([c + v * reach, c - v * reach * 0.6 + side_v * reach * 0.8,
+		c - v * reach * 0.6 - side_v * reach * 0.8]), WAY_INK)
+
+## The way out of the raid, as the map has it: the green diamond of an exit.
+static func _paint_exit(cv: CanvasItem, r: Rect2) -> void:
+	var c := r.get_center()
+	var reach := r.size.x * 0.36
+	cv.draw_colored_polygon(PackedVector2Array([c + Vector2(0, -reach), c + Vector2(reach, 0),
+		c + Vector2(0, reach), c + Vector2(-reach, 0)]), MapPanel.EXIT_MARK)
+
+## What a doorway's and a gate's arrow is drawn in.
+const WAY_INK := Color(0.55, 0.9, 1.0)
 
 ## Whether `mark` posts a monster that flies: one that holds the middle of its
 ## cell rather than standing on its floor.
@@ -885,6 +926,8 @@ static func stands_in(mark: String) -> Rect2:
 		MadeRoom.BENCH:
 			var s := float(PixelCamera.SCALE)
 			return Rect2(-(BenchView.WIDE * 0.5 + 1.0) * s, -BenchView.BACK * s, (BenchView.WIDE + 2.0) * s, BenchView.BACK * s)
+	if MadeRoom.WAYS.has(mark) or mark == MadeRoom.EXIT:
+		return Rect2(-c * 0.5, -c, c, c)
 	var art := Style.PLAYER_ART if mark == MadeRoom.START else Style.monster_art(MadeRoom.monster_of(mark))
 	var drawn := Sprites.art_rect(art).size * Sprites.PIXEL_SCALE
 	if flies(mark):

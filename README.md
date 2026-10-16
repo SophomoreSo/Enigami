@@ -35,6 +35,7 @@ godot res://tests/feature/dash_test.tscn    # where a lunge lands, aimed and aut
 godot res://tests/feature/dash_move_test.tscn # the dash key: flat, a step long, briefly untouchable
 godot res://tests/feature/hurt_test.tscn    # the second of grace a blow that lands buys
 godot res://tests/feature/lost_kit_test.tscn # dying drops the kit, and the next run goes back for it
+godot res://tests/feature/floor_test.tscn   # the raid's floor laid by hand holds together: one way in, the Arbiter's room, every doorway matched, every room reached
 godot res://tests/feature/bestiary_test.tscn # the monster dictionary: a monster met by walking into its room, a skill seen by its going off, and both kept with the save
 godot res://tests/feature/possess_test.tscn # POSSESS: into a monster and out again, the body left behind, passing for one of them, the weapon, talking
 godot res://tests/feature/kit_test.tscn     # up to three weapons carried, one in hand: the rack, the keys and the wheel, and what walking out and dying do to the lot
@@ -841,7 +842,7 @@ under each tab are drawn by the tileset the map is in.
 |---|---|
 | GROUND | the ground, in the tileset's kinds of it, and glass. Every kind is as solid as the next: the kind is only how it looks |
 | BACK | what stands behind: a ruin's wall, a column, a stone lintel, a tree, the undergrowth, a rail to hang lanterns from, and glass |
-| THINGS | where the player starts, a post for each of the monsters, the treasure box, ground to dig, a bench to sit on — on the ground's layer |
+| THINGS | where the player starts, a post for each of the monsters, the treasure box, ground to dig, a bench to sit on, and a raid room's ways: a doorway west or east, a gate up or down, and its exit — on the ground's layer |
 | PROPS | what is put about: a lantern, a campfire, glowing caps, fireflies, grass, flowers, a bush, a fern, a vine, a rope |
 
 The props are the game's own things. A lantern hangs from the ground, the
@@ -1030,8 +1031,8 @@ Deploying binds the weapon and the graph on it into one kit. Dying costs you
 the weapon, everything built onto its graph — the rock itself always comes back,
 bare — and everything found along the way; but none of it is destroyed. It is left lying
 on the spot you fell on, and the next deployment goes back in after it: the
-same floor, grown from the same seed, with the room you died in still in the
-same place and the drop still lying in it. The map marks the room; the hideout says how
+same floor, laid by hand, with the room you died in still in the same place
+and the drop still lying in it. The map marks the room; the hideout says how
 much is waiting before you commit to the run.
 
 Picking it up does not end the story. A recovered kit is **carried**, not
@@ -1049,6 +1050,19 @@ away is a decision, and a decision leaves no trail to follow back.
 Anything left at home is untouched. There is always another rock, so a bad run
 never leaves you unable to deploy — which is also what makes the trip back for
 your own sword possible.
+
+The raid's floor is laid by hand: which map made in the map creator stands
+where on its 7 by 5 grid, what kind of room each is — the way in, the
+Arbiter's, a treasure room, an ordinary one — how dangerous, and which way out
+it offers, is `data/db/floors/raid.sql` (**A floor** in
+[data/db/README.md](data/db/README.md)). A room holds what its map lays in it —
+the monsters at their posts, the box, the ground to dig — and nothing is
+rolled. Two rooms side by side are joined through doorways their maps mark,
+and two one over the other through gates. A room bigger than the screen has the
+camera go after the player across it. The floor it ships with is what the old
+generator grew from one seed, a room a map (`raid_<x>_<y>`), to change in the
+map creator or start over from; a room saved there under its name stands in
+front of the shipped one in the next raid.
 
 Extracting is a place, not a menu: gates sit in the map with different terms —
 the entry gate is free but slow, a toll gate costs scrap, the Arbiter's gate is
@@ -1123,7 +1137,7 @@ feature/core/      weapons, the profile and its saves, time control, the arena, 
                    the boards the game ships with
 feature/actors/    actor base, player, monster catalogue, monster AI
 feature/attacks/   projectile, melee arc, area burst, dash slash, spawner
-feature/world/     room generation, raid map graph, raid loop, sandbox, pickups
+feature/world/     rooms, the raid's floor laid from its maps, raid loop, sandbox, pickups
                    lost kit: what a death leaves on the floor for the next run
                    loose rock: the rock, lying where it came down until it is picked up
                    dragon test: the hand-laid tower and its rules

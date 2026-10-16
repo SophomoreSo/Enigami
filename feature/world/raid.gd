@@ -1,8 +1,8 @@
 class_name Raid
 extends World
 
-## Runs one deployment: a connected map, one room loaded at a time, and the two
-## ways a raid can end.
+## Runs one deployment: a connected map of rooms laid by hand (`RaidMap`), one
+## room loaded at a time, and the two ways a raid can end.
 ##
 ## Nothing here draws. `graphics/views/raid_view.gd` attaches itself to this
 ## node and builds the camera, the HUD and the assembly overlay from the state
@@ -40,9 +40,9 @@ func _ready() -> void:
 	Arena.register(self)
 	Cues.emit_cue(&"music_start")
 	map = RaidMap.new()
-	map.generate(GameState.raid_seed if GameState.raid_seed != 0 else randi())
-	# A run put down with MAIN MENU: the map above is the same map, since it
-	# grew from the same seed, and this writes back what the run had made of it.
+	map.lay(GameState.raid_seed if GameState.raid_seed != 0 else randi())
+	# A run put down with MAIN MENU: the map above is the same floor, laid from
+	# the same rows, and this writes back what the run had made of it.
 	var parked: Dictionary = GameState.raid_progress if GameState.has_parked_raid() else {}
 	if not parked.is_empty():
 		map.restore(parked)
@@ -193,7 +193,7 @@ func _update_wandering() -> void:
 		if not map.has_room(target):
 			continue
 		Cues.at(&"travel", e.global_position)
-		_relocate(e, target, Room.arrival_point(RaidMap.opposite(dir)))
+		_relocate(e, target, map.arrival(target, RaidMap.opposite(dir)))
 
 ## Whatever was chasing the player and is still at their heels when they go
 ## through a doorway or a gate comes through after them.
@@ -211,7 +211,7 @@ func _carry_followers(target: Vector2i, dir: int) -> void:
 	# in the doorway would be walked straight back out again by the sweep above
 	# on the very frame it arrived. Through a gate, along the floor beside the
 	# one they come out of, not into the rock over it or under it.
-	var at := Room.arrival_point(RaidMap.opposite(dir))
+	var at := map.arrival(target, RaidMap.opposite(dir))
 	var into := Vector2(RaidMap.dir_delta(dir)) * ARRIVAL_SPACING
 	if dir == Components.N or dir == Components.S:
 		into = Vector2(ARRIVAL_SPACING, 0.0)
@@ -286,7 +286,12 @@ func _enter_room(coord: Vector2i, from_dir: int) -> void:
 	var rec: Dictionary = map.get_record(coord)
 	rec["visited"] = true
 
-	room = Room.new()
+	# The room is its map, stood up with the floor's record of it: what is in it,
+	# what the run has made of it, and the ways out it has here. A map gone
+	# from under the floor is a plain room of rock rather than no room at all.
+	room = Maps.load_room(String(rec.get("map", "")))
+	if room == null:
+		room = Room.new()
 	room.player = player
 	add_child(room)
 	room.build(coord, rec, map.doors_for(coord), map.seed_base)
