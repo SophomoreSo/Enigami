@@ -3,8 +3,8 @@
 `data/enigami.db` is what the game reads and never writes, kept as tables:
 the conversations, the player's state machine, the parts a skill board is
 built from, the boards the game ships with, the menus, the lines that hang
-in the rooms, what grows on their floors and the light shining things give,
-today, and whatever else is better kept as rows than as a file tomorrow. The game reaches it through `Db`
+in the rooms, what grows on their floors, the light shining things give and
+the maps made in the map creator, today, and whatever else is better kept as rows than as a file tomorrow. The game reaches it through `Db`
 (`app/db.gd`), and it is built from the SQL in this folder:
 
 ```
@@ -32,6 +32,8 @@ data/
     │   └── foliage.sql
     ├── lights/       the light each kind of shining thing gives
     │   └── lights.sql
+    ├── maps/         the maps the game ships with, a file a map, as the map creator writes them
+    │   └── moonlit_grove.sql
     └── parts/        every part a board is built from, and its number in a shared code
         └── parts.sql
 ```
@@ -739,6 +741,134 @@ fight lights with `Lamp` (`graphics/lamp.gd`): a bolt, a blast, a body
 burning and the way out are each a light made in code, a point or a spot.
 `tests/graphics/lighting_test.tscn` makes a light of a kind and finds its
 row's numbers in it, and lights a picture with each type.
+
+## A map
+
+A room made in the map creator (title → **MAP CREATOR**): its level, its three
+layers and each layer's grid of cells, in three tables. The ones the game
+ships with are built in from `maps/`, a file a map, named for it —
+`maps/moonlit_grove.sql` is the map `moonlit_grove`, the hideout's Moonlit
+Grove laid in its own tileset, to play and to start from. The ones a player
+makes are kept in the same three tables in a database of their own,
+`user://maps.db`, which the game writes beside the save; one there stands in
+front of a shipped one under its name. `Maps` (`feature/world/maps.gd`) reads
+both, and SAVE in the creator writes there. Run from the project — the
+editor, or `godot --path` — SAVE writes the map out as `maps/<id>.sql` as
+well: run `build.sh` and commit both to ship it.
+
+```sql
+INSERT INTO maps (id, tileset, region, width, height) VALUES
+	('keep', 'grove', 0, 40, 22);
+
+INSERT INTO map_layers (map_id, layer, level, reference) VALUES
+	('keep', 'back', 0, 'res://graphics/assets/references/keep_back.png'),
+	('keep', 'plan', 1, NULL),
+	('keep', 'dressing', 2, NULL);
+
+INSERT INTO map_rows (map_id, layer, y, cells) VALUES
+	('keep', 'plan', 0, '****************************************'),
+	('keep', 'plan', 1, '||.....................................|');
+	-- … a row of every layer's grid, as tall as `height`
+```
+
+`maps` — the level:
+
+| Column | Meaning |
+|---|---|
+| `id` | The map's name, lower case, letters, digits and `_` — what the creator files it under. |
+| `tileset` | Which tileset draws it: `grove`, the Moonlit Grove, or `rock` or `''`, the plain rock a raid's rooms are cut from. |
+| `region` | 0 to 3: which region's rock the plain rock is. Only `rock` reads it. |
+| `width` `height` | Its size in cells: every layer's grid is this size. |
+
+`map_layers` — a row a layer, all three of them:
+
+| Column | Meaning |
+|---|---|
+| `layer` | `plan`, the ground and what stands on it — the one layer the rules read; `back`, what stands behind; `dressing`, what is put about. |
+| `level` | The layer's place from the back forward: `back` 0, `plan` 1, `dressing` 2. |
+| `reference` | The picture the layer was laid over, a `res://` or `user://` path — kept with the map, and NULL for a layer with none. The path rather than the picture: the picture stays a file Godot imports, and the database stays text a merge can read. |
+
+`map_rows` — each layer's grid, a row of cells a row, `y` from 0 at the top,
+a character a cell. `.` is nothing, in every layer.
+
+#### The plan
+
+| Cell | Meaning |
+|---|---|
+| `#` `%` `\|` `=` `*` | Ground: stone, earth, bark, planks, leaves. Every kind is as solid as the next; the kind is how it looks. In `rock` every kind is the rock. |
+| `o` `@` | Glass, in every tileset and as solid: clear glass, which shows what stands behind it, and a mirror, which shows what stands in front of it across its face to the open air. |
+| `P` | Where the player starts. One a map. With none, the floor nearest the middle. |
+| `T` | The room's treasure box. One a map. It is put down on the first floor under its cell. |
+| `x` | Ground worth digging, put down the same way. |
+| `_` | A bench to sit on, put down the same way. |
+| `c` `s` `l` `h` `d` | A post for a Crawler, a Sentry, a Lobber, a Hopper, a Drifter. |
+| `w` `g` `u` `y` `a` | And for a Warden, a Gunman, a Grunt, a Test Dummy, the Arbiter. |
+
+Anything else is open. A monster stands in its cell, on whatever is under it;
+one that flies holds the middle of it. What the box and the ground hold is
+rolled from the plan, so the same map always hides the same things.
+
+Past the plan's edge there is ground on every side, drawn and solid, so a map
+does not need a wall of its own to keep a body in. A grove has leaves over its
+top and earth under it, and beside it, row by row, the kind of ground its
+outermost cell is, or bark where that cell is open; `rock` has the rock.
+
+#### What stands behind
+
+A cell behind is drawn as it meets its neighbours: a column ends in a foot
+where it stops going down, and in a capital under what it carries — or broken
+off, carrying nothing — and glass is framed wherever it meets anything but
+more of the same glass. Glass behind a cell of ground is hidden by it, as
+anything behind is.
+
+| Cell | In `grove` | In `rock` |
+|---|---|---|
+| `#` | A ruin's wall | A wall of the rock, darker |
+| `\|` | A column | |
+| `-` | A stone lintel, carved | |
+| `!` | A tree's trunk | |
+| `~` | Undergrowth | |
+| `=` | A rail, to hang lanterns from | |
+| `o` | A pane of clear glass: a window on what is out beyond | The same |
+| `@` | A mirror on the back wall, which shows whoever stands in front of it a little off | The same |
+
+#### What is put about
+
+The same in every tileset. A lantern, a vine and a rope hang from the
+underside of the first ground over them, or from a rail or a lintel behind or
+over them, as far as eight cells up; with nothing there, from the top of their
+own cell.
+
+| Cell | Meaning |
+|---|---|
+| `L` | A lantern with a lamp in it, on a line that moves like a rope's wherever it is touched. |
+| `F` | A campfire, and its light. |
+| `m` | Glowing caps, and their light. |
+| `*` | Fireflies, and their light. |
+| `g` `f` `b` | Grass, flowers, a bush: the floor's foliage. A run of one along a row is one patch, standing on the floor of its cells. |
+| `n` | A fern. |
+| `v` `r` | A vine, a rope. A run of one down a column is one line, hanging from what is over its top cell to the foot of its last. Either is also one to take hold of and swing on, as a raid room's ropes are: the marks of this layer the rules read (`MadeRoom.LINES`). It swings from the top of its run, so lay it from right under what it hangs from. |
+
+A map is text, a row of cells a line, so it reads in a diff and can be
+mended by hand in its .sql. The creator squares off whatever it loads: rows made one length, every layer the
+plan's size, and the whole kept between 8 cells by 6 and four screens (40 by
+22 each) each way.
+
+#### Picking one up
+
+```gdscript
+var room := Maps.load_room("moonlit_grove")
+add_child(room)
+room.stand()                                  # the ground, and whatever its plan says is in it
+player.room = room
+player.global_position = room.spawn_point()
+```
+
+Set `room.player` before `stand()` if the box and the ground to dig are to
+answer to somebody. `MapMaker._stand` (`feature/world/map_maker.gd`) is the
+whole of it, as PLAY does it. A map is a `Room`, so everything that takes one
+takes it; the view the game gives it (`graphics/views/made_room_view.gd`)
+draws it in its tileset.
 
 ## A perk
 

@@ -902,9 +902,14 @@ held. In Rock, ROCK picks which region's rock it is cut from. WEAPON picks
 which weapon a played map starts in hand, the next two round the rack beside
 it.
 
-**SAVE** keeps the map as a scene, named for it: `data/maps/<name>.tscn` when
-the game is run from the project, where it is committed and ships with the
-game, and `user://maps/` in an exported game, which cannot write into itself.
+**SAVE** keeps the map, named for it, in a database of the player's own,
+`user://maps.db` beside the save: its level — size, tileset, region — its three
+layers, each with the picture it was laid over if it has one, and each layer's
+grid, a row of cells a row. The maps the game ships with are in the content
+database, `data/enigami.db`, built from `data/db/maps/`; one kept under the
+same name on this machine stands in front of it. Run from the project, SAVE
+also writes the map out as `data/db/maps/<name>.sql`: run `data/db/build.sh`
+and commit both, and it ships with the game.
 Under the name of a map kept already it asks first. **LOAD** lists what is
 kept, each with a DELETE that asks too. NEW and LOAD are steps like any other,
 and a step back brings back what they took off the table. The table itself is
@@ -923,20 +928,20 @@ free and the graphs are copies of the profile's, as on the bench — and `ESC`
 goes back to the table. The body is the profile's own and can fall, and the
 floor is set again when it does.
 
-The scene is one node, a `MadeRoom` (`feature/world/made_room.gd`), and its
-layers are properties of it, rows of cells written the way the dragon test's
-tower is — so it reads in a diff, opens in Godot, and is picked up wherever a
-room is wanted:
+A map comes back as a `MadeRoom` (`feature/world/made_room.gd`), its layers
+rows of cells written the way the dragon test's tower is, and is picked up
+wherever a room is wanted:
 
 ```gdscript
-var room := Maps.load_room("moonlit_grove")   # or load("res://data/maps/moonlit_grove.tscn").instantiate()
+var room := Maps.load_room("moonlit_grove")
 add_child(room)
 room.stand()                                  # the ground, and whatever its cells say is in it
 ```
 
 Stood up anywhere, it is drawn in its tileset, hung with its props and lit by
 their lamps (`graphics/views/made_room_view.gd`). What a cell of each layer can
-hold is in [data/maps/README.md](data/maps/README.md).
+hold, and the tables a map is kept in, are **A map** in
+[data/db/README.md](data/db/README.md).
 
 ## The story maker
 
@@ -1109,7 +1114,6 @@ data/enigami.db    the content database: conversations, the player's state machi
                    and the boards the game ships with, as tables
                    built from data/db/, see its README
 data/scenes/       directed scenes, one JSON file per scene — format in its README
-data/maps/         rooms made in the map creator, one scene per map — format in its README
 data/stories/      conversations written in the story maker, one JSON file per story — format in its README
 localization/      every word the game says: eng/ and kor/, a file per screen
                    plus dialogue/ and scenes/ — format in its README

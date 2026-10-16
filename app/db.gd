@@ -15,6 +15,13 @@ extends Node
 ##     Db.rows("SELECT id, name FROM characters WHERE id = ?", ["SAGE"])
 ##     Db.records("nodes", "character_id = ?", ["SAGE"], "rowid")
 ##
+## The game writes to none of that. What a player makes for themselves and
+## keeps is in a database of its own under `user://` — the maps they lay
+## (`Maps`) — opened with `writable`, which asks the same way:
+##
+##     var mine = Db.writable("user://maps.db")
+##     mine.run("INSERT INTO maps (id) VALUES (?)", ["keep"])
+##
 ## It sits in `app/` for the reason `Loc` does: the rules name a character and
 ## a line, the picture reads that line's camera, and neither should have to
 ## know the words came out of a table. See ARCHITECTURE.md.
@@ -29,7 +36,7 @@ const PATH := "res://data/enigami.db"
 ## same number into `meta`, and `tests/story/dialogue_test` holds the two
 ## together, so a schema changed on one side is a failing test and not a
 ## conversation that reads as empty.
-const SCHEMA_VERSION := 14
+const SCHEMA_VERSION := 15
 
 enum State { CLOSED, OPEN, FAILED }
 
@@ -169,6 +176,59 @@ func _close() -> void:
 	if _db != null:
 		_db.close_db()
 		_db = null
+
+## A database the game writes, at `path` — under `user://`, the player's own —
+## made there on the first question if it is not there yet. Null where SQLite
+## cannot be had, which is a store with nothing in it to whoever asks.
+func writable(path: String) -> RefCounted:
+	if not ClassDB.class_exists("SQLite"):
+		return null
+	return Writable.new(path)
+
+## A connection to one of those, asked the way `Db` is asked: `rows` for what a
+## query selects, and `run` for a change, which says whether it went through.
+## Foreign keys are on, so a row cascades away with what it hangs off.
+class Writable extends RefCounted:
+	var path: String
+	var _db = null
+
+	func _init(at: String) -> void:
+		path = at
+
+	func rows(sql: String, bindings: Array = []) -> Array:
+		if not _open():
+			return []
+		if not _db.query_with_bindings(sql, bindings):
+			push_error("Db: %s\n   in: %s\n   at: %s" % [_db.error_message, sql, path])
+			return []
+		return _db.query_result
+
+	func run(sql: String, bindings: Array = []) -> bool:
+		if not _open():
+			return false
+		if not _db.query_with_bindings(sql, bindings):
+			push_error("Db: %s\n   in: %s\n   at: %s" % [_db.error_message, sql, path])
+			return false
+		return true
+
+	func close() -> void:
+		if _db != null:
+			_db.close_db()
+			_db = null
+
+	func _open() -> bool:
+		if _db != null:
+			return true
+		DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+		_db = ClassDB.instantiate("SQLite")
+		_db.path = path
+		_db.verbosity_level = 0
+		if not _db.open_db():
+			push_error("Db: could not open %s: %s" % [path, _db.error_message])
+			_db = null
+			return false
+		_db.query("PRAGMA foreign_keys = ON;")
+		return true
 
 func _exit_tree() -> void:
 	_close()

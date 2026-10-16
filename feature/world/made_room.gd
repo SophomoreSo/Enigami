@@ -1,13 +1,12 @@
 class_name MadeRoom
 extends HandLaidRoom
 
-## A room made in the map creator (`MapMaker`) and kept as a scene under
-## `data/maps/` (`Maps`). The scene is this node and nothing else, and its
-## layers — rows of cells, written the way every hand-laid room is — are
-## properties the file carries, so the file is the room. Anywhere a room is
-## wanted, one is picked up and stood:
+## A room made in the map creator (`MapMaker`) and kept as rows in a database
+## (`Maps`): its layers — rows of cells, written the way every hand-laid room
+## is — its tileset and region, and the picture each layer was laid over.
+## Anywhere a room is wanted, one is picked up and stood:
 ##
-##     var room := Maps.load_room("keep")      # or load(path).instantiate()
+##     var room := Maps.load_room("keep")
 ##     add_child(room)
 ##     room.stand()
 ##
@@ -88,6 +87,10 @@ const BEYOND := 4
 ## Which region's rock the plain rock is: the tint a raid's rooms take from
 ## how deep they lie.
 @export_range(0, 3) var region: int = 0
+## The picture a layer was laid over, by the layer's name — "plan", "back",
+## "dressing" — as a res:// or user:// path. A layer with none is not here.
+## Nothing in the room reads it; it is kept with the map for the creator.
+var references: Dictionary = {}
 
 func layout() -> Array:
 	return Array(plan)

@@ -167,31 +167,55 @@ func _ready() -> void:
 	check(maker.save_as("Test Keep") == "" and maker.map_id == "test_keep" and not maker.unsaved,
 		"SAVE keeps it under its name")
 	var path := Maps.path_of("test_keep")
-	check(path == SCRATCH.path_join("test_keep.tscn") and FileAccess.file_exists(path), "as a scene of its own (%s)" % path)
+	check(path == SCRATCH.path_join("maps.db") and FileAccess.file_exists(path),
+		"in the player's own database, beside the save (%s)" % path)
 	check(Maps.ids() == PackedStringArray(["test_keep"]) and Maps.exists("test_keep") and not Maps.exists("nowhere"),
 		"which the list of maps finds")
-	var text := FileAccess.get_file_as_string(path)
-	check(text.begins_with("[gd_scene") and text.contains("res://feature/world/made_room.gd") and text.contains("plan = PackedStringArray("),
-		"a text scene, of one node, carrying its rows of cells")
-	check(text.contains("back = PackedStringArray(") and text.contains("dressing = PackedStringArray(")
-			and text.contains('tileset = "%s"' % MapMaker.NEW_TILESET),
-		"in all three layers, and the tileset it is drawn in")
+	# The tables are the content database's own: a map built in from SQL and one
+	# saved here are read the same way.
+	var mine = Db.writable(path)
+	for table in ["maps", "map_layers", "map_rows"]:
+		var theirs := Db.columns(table).map(func(c: Dictionary) -> String: return "%s %s" % [c["name"], c["type"]])
+		var ours: Array = mine.rows("PRAGMA table_info(%s)" % table).map(
+			func(c: Dictionary) -> String: return "%s %s" % [c["name"], c["type"]])
+		check(not theirs.is_empty() and ours == theirs, "its %s are the content database's (%s)" % [table, str(ours)])
+	var level: Array = mine.rows("SELECT * FROM maps WHERE id = 'test_keep'")
+	check(level.size() == 1 and int(level[0]["width"]) == maker.cols and int(level[0]["height"]) == maker.rows
+			and String(level[0]["tileset"]) == MapMaker.NEW_TILESET,
+		"a level: its size and its tileset")
+	var layers: Array = mine.rows("SELECT layer, level FROM map_layers WHERE map_id = 'test_keep' ORDER BY level")
+	check(layers.map(func(l: Dictionary) -> String: return String(l["layer"])) == ["back", "plan", "dressing"],
+		"three layers, from the back forward")
+	var grid: Array = mine.rows("SELECT cells FROM map_rows WHERE map_id = 'test_keep' AND layer = 'plan' ORDER BY y")
+	check(PackedStringArray(grid.map(func(r: Dictionary) -> String: return String(r["cells"]))) == laid
+			and int(mine.rows("SELECT count(*) AS n FROM map_rows WHERE map_id = 'test_keep'")[0]["n"]) == maker.rows * 3,
+		"and every layer's grid, a row of cells a row")
+	mine.close()
 
-	# Picked up the way anything in Godot picks a scene up.
-	var scene := ResourceLoader.load(path, "PackedScene", ResourceLoader.CACHE_MODE_IGNORE) as PackedScene
-	check(scene != null and scene.get_state().get_node_count() == 1, "Godot loads it as a scene of one node")
-	var picked := scene.instantiate() if scene != null else null
-	check(picked is MadeRoom and (picked as MadeRoom).plan == laid and picked.name == "TestKeep",
-		"and instancing it is the room that was laid, named for the map")
-	check(picked is MadeRoom and (picked as MadeRoom).back == maker.back() and (picked as MadeRoom).dressing == maker.dressing()
-			and (picked as MadeRoom).tileset == MapMaker.NEW_TILESET and (picked as MadeRoom).back_at(8, 12) == "|"
-			and (picked as MadeRoom).dressing_at(9, 12) == "L" and (picked as MadeRoom).dressing_at(-1, 0) == MadeRoom.OPEN,
+	var picked := Maps.load_room("test_keep")
+	check(picked is MadeRoom and picked.plan == laid and picked.name == "TestKeep",
+		"read back, it is the room that was laid, named for the map")
+	check(picked != null and picked.back == maker.back() and picked.dressing == maker.dressing()
+			and picked.tileset == MapMaker.NEW_TILESET and picked.back_at(8, 12) == "|"
+			and picked.dressing_at(9, 12) == "L" and picked.dressing_at(-1, 0) == MadeRoom.OPEN,
 		"what stands behind it, what is put about it and its tileset with it")
 	if picked != null:
-		var made := picked as MadeRoom
-		check(made.cols == Room.W + 6 and made.rows == Room.H and made.cells_marked("c").size() == 2,
+		check(picked.cols == Room.W + 6 and picked.rows == Room.H and picked.cells_marked("c").size() == 2,
 			"which knows its size and its marks before it is stood")
 		picked.free()
+
+	# A layer's reference picture is kept with it, and nothing for one with none.
+	maker.references = {"back": "res://icon.svg"}
+	check(maker.save_as("test keep") == "", "a map with a picture under its back layer is kept")
+	var traced := Maps.load_room("test_keep")
+	check(traced != null and traced.references == {"back": "res://icon.svg"},
+		"and comes back with it, on that layer alone (%s)" % (str(traced.references) if traced != null else "none"))
+	var sql := Maps.sql_for("test_keep", traced) if traced != null else ""
+	check(sql.contains("('test_keep', 'back', 0, 'res://icon.svg')") and sql.contains("('test_keep', 'plan', 1, NULL)")
+			and sql.contains("('test_keep', 'plan', 0, '%s')" % laid[0]),
+		"and written out as the SQL build.sh builds in, references and rows")
+	if traced != null:
+		traced.free()
 
 	# Saved over, it is the new one that comes back.
 	maker.begin_stroke()
