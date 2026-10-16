@@ -438,8 +438,9 @@ mind never touches it. The pack has no stone, so the rock is drawn in code, a
 letter a pixel (`Style.DRAWN_TILES`).
 
 **A punch needs no weapon.** `PUNCH` (its id is `HEADBUTT`) is the one form with
-nothing in the hand: a short lunge along the aim that drives a fist into the first enemy in
-the way and stops against it — `PIERCE` carries it on into the next. A graph
+nothing in the hand: a fist thrown a short way along the aim from where you
+stand, into the first enemy in the way and no further — `PIERCE` carries it on
+into the next. You do not move with it; `SWIFT STRIKE` is the form that does. A graph
 whose every attack is a punch goes off whether its weapon is in hand or not:
 the rock lying across the room, every shuriken thrown, your hands in a monster
 that has not taken the weapon, which then punches with your graph instead of

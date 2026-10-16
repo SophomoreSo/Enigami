@@ -102,9 +102,10 @@ const CHAIN_HITSTOP := 0.010
 ## SIZE and RANGE carry it further (`Payload.lunge`).
 const DASH_SLASH_REACH := 85.0
 
-## HEADBUTT. How far the head lunges at size 1 with nothing in the way — a step,
-## about a body and a half, where SWIFT STRIKE dashes — and how far to either
-## side of its line it meets what is there. SIZE carries both further, as it
+## HEADBUTT, PUNCH to a player. How far past the body's own reach the fist goes
+## at size 1 with nothing in the way — a step, about a body and a half, where
+## SWIFT STRIKE dashes — and how far to either side of its line it meets what
+## is there. SIZE carries both further, as it
 ## does a swing's; RANGE does nothing to it, as to a swing.
 const HEADBUTT_REACH := 44.0
 const HEADBUTT_WIDTH := 12.0
@@ -470,12 +471,13 @@ static func _dash_slash(p: Payload, aim: Vector2, team: int, atk: Actor, room, f
 	container().add_child(n)
 	Cues.at(&"lunge_cut", start, {"payload": p, "to": dest})
 
-## HEADBUTT: the attacker lunges a short way down the aim — no further than the
-## first wall — and the head stops on the first enemy it meets (`Headbutt`).
+## HEADBUTT, PUNCH to a player: a fist thrown a short way down the aim from
+## where the attacker stands — no further than the first wall — that stops on
+## the first enemy it meets (`Headbutt`). The attacker does not move with it.
 ## HOMING turns it to the nearest enemy first, as far off as a swing looks for
 ## one; AUTO-AIM has pointed it already (`spawn`). Like a swing, it does not go
-## further for being aimed further. It wants a head to do it with: an attacker
-## gone by the time a volley's later ones come due headbutts nothing.
+## further for being aimed further. It wants a body to throw it: an attacker
+## gone by the time a volley's later ones come due punches nothing.
 static func _headbutt(p: Payload, aim: Vector2, team: int, atk: Actor, room) -> void:
 	if atk == null or not is_instance_valid(atk):
 		return
@@ -494,7 +496,7 @@ static func _headbutt(p: Payload, aim: Vector2, team: int, atk: Actor, room) -> 
 	n.aim = aim
 	n.thickness = HEADBUTT_WIDTH * p.size
 	container().add_child(n)
-	Cues.at(&"lunge_cut", start, {"payload": p, "to": n.to})
+	Cues.at(&"melee_arc", start, {"payload": p})
 
 ## A payload in words: its form, what it carries, and what it does when it
 ## lands, SHATTER's and MANA DRAIN's numbers included — which are this file's.

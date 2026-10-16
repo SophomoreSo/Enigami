@@ -26,7 +26,7 @@ INSERT INTO board_parts (board_id, x, y, part, facing, root) VALUES
 
 	('drifter', 5, 2, 'PROJECTILE', 'E', 1), ('drifter', 6, 2, 'HOMING', 'E', 0),
 
-	-- A headbutt as hard as a DAMAGE makes it, burning, and bursting on
+	-- A punch as hard as a DAMAGE makes it, burning, and bursting on
 	-- everything round whoever it struck. It is the last thing the Bomber does
 	-- (feature/actors/monsters.gd): the flow then goes up where it stands — the
 	-- same EXPLODE with no form under it, which is a burst of its own.

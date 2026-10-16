@@ -108,7 +108,7 @@ INSERT INTO parts (id, name, category, heat, cells, tag, description) VALUES
 	('PROJECTILE', 'PROJECTILE', 'form', 0.6, 1, 'ranged', 'Fires a bolt along the aim direction. The standard ranged form.'),
 	('SLASH', 'SLASH', 'form', 0.5, 1, 'melee', 'An instant short arc at the aim direction. Fast, but reach is short.'),
 	('DASHSLASH', 'SWIFT STRIKE', 'form', 1.0, 1, 'melee', 'Lunges along the aim direction, cutting everything on the path.'),
-	('HEADBUTT', 'PUNCH', 'form', 0.5, 1, 'melee', 'A short lunge along the aim that drives a fist into the first enemy in the way, and stops there. It needs no weapon: it goes off with the weapon in hand or without it.');
+	('HEADBUTT', 'PUNCH', 'form', 0.5, 1, 'melee', 'A fist thrown a short way along the aim from where you stand, into the first enemy in the way, and no further. You do not move with it. It needs no weapon: it goes off with the weapon in hand or without it.');
 
 INSERT INTO ports (part_id, side) VALUES
 	('PROJECTILE', 'E'), ('SLASH', 'E'), ('DASHSLASH', 'E'), ('HEADBUTT', 'E');

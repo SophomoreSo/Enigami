@@ -13,7 +13,7 @@
 	},
 	"HEADBUTT": {
 		"name": "PUNCH",
-		"desc": "A short lunge along the aim that drives a fist into the first enemy in the way, and stops there. It needs no weapon: it goes off with the weapon in hand or without it."
+		"desc": "A fist thrown a short way along the aim from where you stand, into the first enemy in the way, and no further. You do not move with it. It needs no weapon: it goes off with the weapon in hand or without it."
 	},
 	"FIRE": {
 		"name": "FIRE",

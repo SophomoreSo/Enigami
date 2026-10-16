@@ -116,7 +116,7 @@ func _goes_up() -> void:
 	check(is_equal_approx(kin.health, hp_kin), "and nothing on its own side is")
 
 ## A blow that finds nobody — whoever it hunts out of its reach — still ends it:
-## it goes up where the lunge left it, and catches whoever is near.
+## it goes up where it stands, and catches whoever is near.
 func _goes_up_missing() -> void:
 	var far := dummy(Vector2(2300, 0), 0)
 	var near := dummy(Vector2(1970, 0), 0)

@@ -1,7 +1,7 @@
 extends Node
-## HEADBUTT: the one form with no weapon in it. A short lunge along the aim
-## that drives the head into the first enemy in the way and stops against it,
-## weighed by no weapon's multipliers — and a graph whose every attack is one
+## HEADBUTT, PUNCH to a player: the one form with no weapon in it. A fist
+## thrown a short way along the aim from where the attacker stands, into the
+## first enemy in the way and no further, weighed by no weapon's multipliers — and a graph whose every attack is one
 ## goes off whether its weapon is in hand or not: the rock lying elsewhere,
 ## every shuriken thrown, the hands in a monster that has not taken the weapon.
 ##
@@ -54,7 +54,7 @@ func _ready() -> void:
 	Arena.register(self)
 	await frames(2)
 	_the_part()
-	await _the_lunge()
+	await _the_punch()
 	_unweighed()
 	await _without_the_weapon()
 	print("[HEADBUTT] ---- %d failures ----" % fails)
@@ -76,11 +76,11 @@ func _the_part() -> void:
 			and Weapons.needs_weapon("SLASH") and Weapons.needs_weapon("DASHSLASH"),
 		"and it is the one form that needs no weapon")
 
-## A short lunge down the aim that stops against the first enemy it meets: that
-## one takes the hit and the one behind it does not, and the attacker stands
-## short of it. With nothing in the way it goes its whole reach; PIERCE carries
-## it on into the next.
-func _the_lunge() -> void:
+## The fist thrown down the aim that stops against the first enemy it meets:
+## that one takes the hit and the one behind it does not, and the attacker does
+## not move. With nothing in the way the fist goes its whole reach and the body
+## still stays where it was; PIERCE carries the fist on into the next.
+func _the_punch() -> void:
 	var me := dummy(Vector2(0, 0), 0)
 	var first := dummy(Vector2(36, 0))
 	var behind := dummy(Vector2(70, 0))
@@ -91,15 +91,18 @@ func _the_lunge() -> void:
 	check(is_equal_approx(hp_first - first.health, p.damage),
 		"the first enemy in the way takes the hit (%.1f)" % (hp_first - first.health))
 	check(is_equal_approx(behind.health, hp_behind), "and the one behind it does not")
-	var touching := first.hurt_radius + me.hurt_radius
-	check(me.global_position.x > 0.0 and me.global_position.x <= 36.0 - touching + 0.5,
-		"the attacker lunged and stopped against it (%.1f, touching at %.1f)" % [me.global_position.x, 36.0 - touching])
+	check(me.global_position == Vector2(0, 0),
+		"and the attacker stays where it stood (%s)" % str(me.global_position))
 
 	var alone := dummy(Vector2(0, 600), 0)
+	var out_of_reach := dummy(Vector2(Attacks.HEADBUTT_REACH + alone.hurt_radius * 2.0 + 10.0, 600))
+	var hp_out := out_of_reach.health
 	butt(alone, 10.0)
 	await frames(2)
-	check(is_equal_approx(alone.global_position.x, Attacks.HEADBUTT_REACH),
-		"with nothing in the way it goes its whole reach (%.1f of %.1f)" % [alone.global_position.x, Attacks.HEADBUTT_REACH])
+	check(alone.global_position == Vector2(0, 600),
+		"with nothing in reach the attacker still does not move (%s)" % str(alone.global_position))
+	check(is_equal_approx(out_of_reach.health, hp_out),
+		"and an enemy past the fist's reach is not hit")
 
 	var through := dummy(Vector2(0, 1200), 0)
 	var one := dummy(Vector2(36, 1200))
