@@ -234,7 +234,8 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 
 -- ---- flow ---------------------------------------------------------------------
 -- OVERCLOCK does nothing to a flow: it runs the whole board on a faster clock,
--- which `SkillBoard.analyze` counts off the grid.
+-- which `SkillBoard.analyze` counts off the grid, and a flow crosses it without
+-- spending a tick (`SkillRunner.NO_TICK`).
 --
 -- Nor does DELAY: what it does is its heat, the wait it adds to every cast
 -- that passes through it (`SkillRunner.HEAT_TO_TICKS`), as much again for each
@@ -245,7 +246,7 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 
 INSERT INTO parts (id, name, category, heat, description) VALUES
 	('DUPLICATE', 'DUPLICATE x3', 'flow', 3.0, 'Produces the same result three times at full damage. Generates a lot of heat.'),
-	('OVERCLOCK', 'OVERCLOCK', 'flow', 0.0, 'Runs the whole board on a faster clock, at the price of a settling delay between cycles. Each one adds less speed than the last while the delay grows faster, so a few pay off and a wall of them does not.'),
+	('OVERCLOCK', 'OVERCLOCK', 'flow', 0.0, 'Runs the whole board on a faster clock. Each one takes the same 5% off the wait between casts, down to 40% of it at twelve, and a flow goes through it without spending a tick.'),
 	('DELAY', 'DELAY', 'flow', 2.0, 'Makes every cast that passes through it wait longer before the next, and each one more adds as much again. It does nothing else: it turns a flow and leaves it as it was.'),
 	('TIME_DILATION', 'TIME DILATION', 'flow', 2.0, 'Slows the world and the board alike. Not a speed buff — a change in the pace of the fight.'),
 	('INVERT', 'INVERT', 'flow', 0.4, 'Turns the part right before it inside out: DAMAGE heals what it strikes, FIRE, ICE and STUN cleanse it, GRAVITY pushes away, KNOCKBACK pulls in, and SIZE, SPEED and RANGE shrink. After anything else it does nothing.'),

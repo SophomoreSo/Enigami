@@ -1,7 +1,9 @@
 extends Node
-## OVERCLOCK is a trade: a faster clock against a settling delay. The delay is
-## real time on purpose — when it was denominated in ticks the speed-up shrank
-## it at the same rate it grew, the two cancelled, and stacking did nothing.
+## Every OVERCLOCK takes the same share of a board's cycle off, the tenth as much
+## as the first, down to a floor past which one more does nothing. That holds
+## only because a flow crosses one without spending a tick: when each cost the
+## tick every part costs, and a settling delay on top, the curve bottomed out at
+## one and a row of them made a board slower.
 
 var fails := 0
 
@@ -23,13 +25,18 @@ func build(n: int) -> SkillBoard:
 	b.place("SLASH", Vector2i(n + 1, 0), 0)
 	return b
 
-func cycle(n: int) -> float:
+func cycle(n: int, mul: float = 1.0) -> float:
 	var b := build(n)
 	if int(b.analyze()["overclock"]) != n:
 		push_error("OC FAIL: only %d of %d overclocks fitted" % [b.analyze()["overclock"], n])
 	var r := SkillRunner.new(b)
 	r.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")
+	r.cooldown_mul = mul
 	return float(r.simulate()["cycle_seconds"])
+
+## What `n` overclocks should leave of a cycle of `base`.
+func expected(base: float, n: int) -> float:
+	return base * maxf(1.0 - SkillBoard.OVERCLOCK_STEP * n, SkillBoard.OVERCLOCK_FLOOR)
 
 func _ready() -> void:
 	var c: Dictionary = {}
@@ -37,33 +44,39 @@ func _ready() -> void:
 		c[n] = cycle(n)
 	print("[OC] curve: ", c)
 
-	check(c[1] < c[0] * 0.92, "one overclock visibly shortens the cycle (%.3f -> %.3f)" % [c[0], c[1]])
-	check(c[2] < c[1], "a second still helps")
-	check(c[1] - c[2] < c[0] - c[1], "but less than the first did — returns diminish")
-
-	var best_n := 0
+	var cut: float = float(c[0]) * SkillBoard.OVERCLOCK_STEP
+	check(c[1] < c[0] and absf((c[0] - c[1]) - cut) < 1e-6,
+		"one overclock takes a step off the cycle (%.4f -> %.4f)" % [c[0], c[1]])
+	check(absf((c[1] - c[2]) - cut) < 1e-6 and absf((c[4] - c[5]) - cut) < 1e-6,
+		"and every one after takes the same step again")
+	var on_line := true
 	for n in c:
-		if c[n] < c[best_n]:
-			best_n = n
-	check(best_n >= 1 and best_n <= 4, "the sweet spot is a handful, not a wall (best = %d)" % best_n)
+		if absf(c[n] - expected(c[0], n)) > 1e-6:
+			on_line = false
+			push_error("OC FAIL: %d overclocks give %.4f, the line says %.4f" % [n, c[n], expected(c[0], n)])
+	check(on_line, "the whole curve is the line, floor included")
 
-	# Past the peak it must get steadily worse, with no second dip.
-	var monotonic := true
-	var prev := -1.0
-	for n in [6, 8, 12, 20, 29]:
-		if prev >= 0.0 and c[n] <= prev:
-			monotonic = false
-		prev = c[n]
-	check(monotonic, "past the peak, more overclocks are always worse")
-	check(c[29] > c[0] * 3.0, "a wall of them is a serious loss (%.3f vs %.3f)" % [c[29], c[0]])
-	check(c[8] > c[best_n], "eight is already past the point of profit")
+	# More is never worse, and past the floor it is nothing at all.
+	var falling := true
+	var keys := c.keys()
+	keys.sort()
+	for i in range(1, keys.size()):
+		if c[keys[i]] > c[keys[i - 1]] + 1e-9:
+			falling = false
+	check(falling, "more overclocks are never slower")
+	check(absf(c[12] - c[0] * SkillBoard.OVERCLOCK_FLOOR) < 1e-6,
+		"twelve reach the floor (%.4f of %.4f)" % [c[12], c[0]])
+	check(absf(c[29] - c[12]) < 1e-6, "and a wall of them past it is worth what twelve are")
 
-	# Speed is bounded however many are stacked.
-	var a29: Dictionary = build(29).analyze()
-	check(float(a29["speed_mul"]) < 5.0, "clock speed converges rather than running away")
+	# A weapon's wait is the graph's stretched ten times over, and the line holds
+	# on it just the same: the multiplier scales the whole cycle, not the cut.
+	var w0 := cycle(0, Player.CAST_COOLDOWN_MUL)
+	var w6 := cycle(6, Player.CAST_COOLDOWN_MUL)
+	check(absf(w6 - expected(w0, 6)) < 1e-6,
+		"on a weapon six take 30%% off too (%.3f -> %.3f)" % [w0, w6])
 
 	# The live runner must actually deliver the cycle the preview promises.
-	for n in [0, 2, 8]:
+	for n in [0, 2, 8, 12]:
 		var b := build(n)
 		var r := SkillRunner.new(b)
 		r.base_payload_provider = func() -> Payload: return Weapons.base_payload("SWORD")

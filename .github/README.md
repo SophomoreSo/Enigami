@@ -80,12 +80,6 @@ failed.
 known and understood. They still run and still report — they just do not fail
 the build, so one long-standing red does not train everyone to ignore the light.
 
-`tests/circuit/overclock_test.tscn` is in there: the cycle curve peaks at one
-overclock (0.035 → 0.030 → 0.039), so `c[2] < c[1]` — "a second still helps" —
-cannot hold. It is the tuning and the assertion disagreeing about where the
-sweet spot should be, and it has failed since at least 51504f9. Settle the
-balance, then delete the line.
-
 ## Two tests that read their surroundings
 
 `editor_input_test` and `save_slot_test` both passed and failed on the same Mac
