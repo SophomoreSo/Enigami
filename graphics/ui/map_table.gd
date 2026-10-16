@@ -704,7 +704,9 @@ func _paint_backs(c: CanvasItem, area: Rect2i) -> void:
 func _paint_grounds(c: CanvasItem, area: Rect2i) -> void:
 	for y in range(area.position.y, area.end.y):
 		for x in range(area.position.x, area.end.x):
-			if _cells.solid(x, y):
+			# Magic stone is drawn here whether or not magic is on: the table
+			# shows what was laid, and the room decides what is there.
+			if _cells.solid(x, y) or _cells.ground(x, y) == MadeRoom.MAGIC:
 				tiles.paint_ground(c, _cells, x, y)
 				# The table works out nothing a mirror shows, so it shows its sheen.
 				tiles.paint_mirror_sheen(c, _cells, x, y)

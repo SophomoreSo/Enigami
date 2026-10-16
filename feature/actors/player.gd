@@ -351,12 +351,15 @@ var stamina: float = MAX_STAMINA
 var _stamina_pause: float = 0.0
 var mana: float = MAX_MANA
 ## The player's own numbers with what the profile adds to them
-## (`GameState.boost`) — the bars' ceilings, and how much faster the body runs.
-## Taken when the body comes up, and again whenever what is added changes
-## (`_reboost`), so a perk bought in the hideout reaches the body standing there.
+## (`GameState.boost`) — the bars' ceilings, how much faster the body runs, and
+## how fast and how far a hold charges. Taken when the body comes up, and again
+## whenever what is added changes (`_reboost`), so a perk bought in the hideout
+## reaches the body standing there.
 var max_stamina: float = MAX_STAMINA
 var max_mana: float = MAX_MANA
 var _pace_mul: float = 1.0
+var _charge_mul: float = 1.0
+var _charge_cap: float = MAX_CHARGE_TTL
 ## Extra life being built up while the button is held, in TTL.
 var charge: float = 0.0
 ## What the last release actually paid for, carried by the cast it bought.
@@ -438,6 +441,7 @@ func _ready() -> void:
 	current_state = machine.start
 	_reboost()
 	GameState.boosts_changed.connect(_reboost)
+	Magic.changed.connect(_on_magic)
 
 func _notification(what: int) -> void:
 	# Not _exit_tree: a player carried between rooms leaves the tree and comes
@@ -549,6 +553,7 @@ func empty_handed() -> bool:
 func _make_runner(weapon: String, board: SkillBoard) -> SkillRunner:
 	var r := SkillRunner.new(board)
 	r.cooldown_mul = _cast_mul()
+	r.forms_only = not Magic.on
 	r.base_payload_provider = func() -> Payload: return Weapons.base_payload(weapon)
 	r.fired.connect(_on_fired.bind(weapon))
 	r.cycle_started.connect(_on_cycle_started)
@@ -618,6 +623,7 @@ func bare_handed() -> bool:
 	if not _bare.has(key):
 		var dry := SkillRunner.new(runner.board)
 		dry.base_payload_provider = runner.base_payload_provider
+		dry.forms_only = runner.forms_only
 		var outs: Array = dry.simulate()["outputs"]
 		var bare := not outs.is_empty()
 		for p: Payload in outs:
@@ -805,6 +811,8 @@ func _reboost() -> void:
 	max_mana = MAX_MANA + GameState.boost("max_mana")
 	mana = minf(mana + maxf(max_mana - had_mana, 0.0), max_mana)
 	_pace_mul = 1.0 + GameState.boost("move_speed")
+	_charge_mul = 1.0 + GameState.boost("charge_speed")
+	_charge_cap = MAX_CHARGE_TTL + GameState.boost("max_charge")
 	for r in _every_runner():
 		r.cooldown_mul = _cast_mul()
 
@@ -821,14 +829,17 @@ func _cast_mul() -> float:
 func gain_mana(amount: float) -> void:
 	mana = minf(max_mana, mana + maxf(amount, 0.0))
 
+## How full the charge is, against the most this player can hold: a full bar is
+## a full hold however far DEEP CHARGE has taken it.
 func charge_ratio() -> float:
-	return clampf(charge / MAX_CHARGE_TTL, 0.0, 1.0)
+	return clampf(charge / charge_cap(), 0.0, 1.0)
 
-## One ceiling for every skill in the game. Nothing here asks what shape the
-## board is: charging engages the same way on all of them, and what the life it
-## buys is worth is then up to what the player built.
+## One ceiling for every skill in the game, with what the profile adds to it
+## (DEEP CHARGE). Nothing here asks what shape the board is: charging engages
+## the same way on all of them, and what the life it buys is worth is then up
+## to what the player built.
 func charge_cap() -> float:
-	return MAX_CHARGE_TTL
+	return _charge_cap
 
 ## Charging runs only while the cast button is held on a graph that could be
 ## cast right now, and only while there is mana to pay for it. Released, it
@@ -842,7 +853,8 @@ func _update_charge(delta: float, holding: bool) -> void:
 		charging = true
 		var cap := charge_cap()
 		if charge < cap and mana > 0.0:
-			var want := CHARGE_TTL_RATE * delta
+			# QUICK CHARGE builds it faster; the mana goes as fast as it builds.
+			var want := CHARGE_TTL_RATE * _charge_mul * delta
 			var afford := mana / MANA_PER_TTL
 			var gained := minf(minf(want, afford), cap - charge)
 			charge += gained
@@ -869,8 +881,20 @@ func can_dash() -> bool:
 ##
 ## Nor can a rock that is not in the hand: there is nothing to throw at the end
 ## of the hold — unless the graph only headbutts, which needs no rock to.
+##
+## Nor anything while magic is off: the life a hold buys is spent by the parts
+## round the board, and with forms alone there is nothing to spend it. A
+## release still casts, as a tap does.
 func can_charge() -> bool:
-	return runner != null and runner.is_ready() and can_cast()
+	return Magic.on and runner != null and runner.is_ready() and can_cast()
+
+## Magic went off, or came back: every graph carried is cast as its forms
+## alone, or whole again (`SkillRunner.forms_only`), and what counts as
+## bare-handed is asked again, since it was walked the other way.
+func _on_magic(on: bool) -> void:
+	for r in _every_runner():
+		r.forms_only = not on
+	_bare.clear()
 
 ## A graph was edited under its runner: every weapon carried walks its own
 ## again. Assembly only ever opens the one in hand, and the rest cost nothing

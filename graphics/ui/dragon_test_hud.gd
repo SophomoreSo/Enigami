@@ -126,7 +126,7 @@ func _draw_skill(vp: Vector2) -> void:
 		CYAN if enough else CHARGE)
 	var need := screen.charge_to_clear()
 	if need >= 0:
-		var nx := bar.position.x + bar.size.x * float(need) / Player.MAX_CHARGE_TTL
+		var nx := bar.position.x + bar.size.x * float(need) / p.charge_cap()
 		draw_rect(Rect2(nx - 1.0, bar.position.y - 5.0, 3.0, bar.size.y + 10.0), AMBER)
 	draw_rect(bar, Color(0.5, 0.45, 0.72), false, 2.0)
 	var mana := Rect2(316, y + 26, 320, 8)

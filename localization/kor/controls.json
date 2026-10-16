@@ -55,6 +55,7 @@
 		"open_editor": "스킬 조립",
 		"open_map": "지도",
 		"interact": "상호작용 / 탈출",
+		"magic_toggle": "마법 켜기 / 끄기",
 		"pause": "일시정지"
 	}
 }

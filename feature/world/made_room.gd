@@ -14,7 +14,9 @@ extends HandLaidRoom
 ##
 ##   plan      the ground, and what stands on it: the one layer the rules
 ##             read. A cell of it is open, or ground (`GROUND`), which is solid
-##             whatever kind it is; or what is put in it — `P` where the player
+##             whatever kind it is, or magic stone (`MAGIC`), which is ground
+##             while magic is on and nothing while it is off; or what is put
+##             in it — `P` where the player
 ##             starts, `T` the room's treasure box, `x` ground worth digging,
 ##             `_` a bench, and a letter of `MONSTERS` a monster's post. A
 ##             monster stands in its cell, on whatever is under it, and one
@@ -39,6 +41,10 @@ extends HandLaidRoom
 ##
 ## Nothing here draws.
 
+## The ground changed under everything in the room: the magic stone went, or
+## came back (`_on_magic`). For the picture, which draws the ground once.
+signal ground_changed()
+
 ## The ground every hand-laid room is cut from: stone.
 const ROCK := "#"
 const OPEN := "."
@@ -51,6 +57,11 @@ const BENCH := "_"
 ## and cannot go through, and what either shows is the picture's.
 const GROUND := {"#": "stone", "%": "earth", "|": "bark", "=": "wood", "*": "leaves",
 	"o": "glass", "@": "mirror"}
+## Magic stone: ground — solid, and drawn — while magic is on (`Magic`), and
+## nothing at all while it is off. The one kind of ground that is not in
+## `GROUND`, since `GROUND` is what is always there: what a thing laid over
+## it comes to rest on (`_put_down`) is the ground under it.
+const MAGIC := "~"
 ## A monster's post, by the letter that marks it.
 const MONSTERS := {
 	"c": "CRAWLER", "s": "SENTRY", "l": "LOBBER", "h": "HOPPER", "d": "DRIFTER",
@@ -130,9 +141,10 @@ static func _in(layer: PackedStringArray, x: int, y: int) -> String:
 		return OPEN
 	return layer[y][x]
 
-## Whether `mark` is ground: solid, whatever kind it is.
+## Whether `mark` is ground: solid, whatever kind it is — and magic stone, for
+## as long as magic is on.
 static func is_ground(mark: String) -> bool:
-	return GROUND.has(mark)
+	return GROUND.has(mark) or (mark == MAGIC and Magic.on)
 
 ## Everything that can be put in a cell of the plan that is not ground, in the
 ## order the map creator offers it: the player's start, each monster, the box,
@@ -160,8 +172,28 @@ func _generate() -> void:
 	for y in rows:
 		var row := plan[y] if y < plan.size() else ""
 		for x in cols:
-			if x >= row.length() or GROUND.has(row[x]):
+			if x >= row.length() or is_ground(row[x]):
 				solid[_idx(x, y)] = 1
+
+func _ready() -> void:
+	Magic.changed.connect(_on_magic)
+
+## Magic went off, or came back: the magic stone goes, or stands again. The
+## grid is read again, the rock the bodies stand on is built again, and the
+## paths through the room are forgotten; the picture hears `ground_changed`. A
+## body standing where stone comes back is pushed out of it by the engine, as
+## out of any rock it ends up in. A room not yet stood has nothing to do: it is
+## read as it stands when it is.
+func _on_magic(_on: bool) -> void:
+	if solid.is_empty():
+		return
+	_generate()
+	if body != null and is_instance_valid(body):
+		body.collision_layer = 0
+		body.queue_free()
+	_build_collision()
+	_paths = null
+	ground_changed.emit()
 
 ## Stands the room up out of its own plan: the grid, the rock, and whatever
 ## the marks say is in it.

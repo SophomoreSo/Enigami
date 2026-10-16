@@ -5,6 +5,7 @@
 	"wet": "WET",
 	"frozen": "FROZEN",
 	"stunned": "STUNNED",
+	"magic_off": "MAGIC OFF",
 	"possessing": "IN THE %s %ds",
 	"thrown": "%s (THROWN)",
 	"stock": "%s x%d",
@@ -155,6 +156,7 @@
 			"clear": "TRANSPARENT GLASS",
 			"mirror": "REFLECTIVE GLASS"
 		},
+		"magic": "MAGIC STONE",
 		"prop": {
 			"lantern": "LANTERN",
 			"lightbulb": "LIGHTBULB",

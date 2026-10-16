@@ -12,12 +12,23 @@ extends Node
 ## ask, and the rules never name them. That is the one way in, so the perks can
 ## be changed — a step dearer, a perk more — without a rule changing under them.
 ##
+## On the bench nothing is bought (`trial`): every perk is on or off, all of its
+## steps or none, a press flipping it, for nothing. What the profile has bought
+## is left as it was, and what is toggled there is never saved.
+##
 ## The page they are bought on is the module's other half, perks/view
 ## (`PerkPage`). Nothing here draws.
 
 ## id -> {name, stat, per_step, desc, costs}, in the order the page lists them:
 ## the table's. `name` and `desc` are the English, under the translations.
 var _defs: Dictionary = {}
+## Whether perks are toggled rather than bought: true on the bench and the
+## tests opened from it, which the shell says (`set_trial`). While it is, what
+## the perks add is what is toggled on, not what the profile has bought.
+var trial: bool = false
+## id -> true, for every perk toggled on. Kept for as long as the game runs, so
+## the bench comes back as it was left, and never written to a save.
+var _on: Dictionary = {}
 
 func _ready() -> void:
 	_read()
@@ -58,9 +69,38 @@ func next_cost(id: String) -> int:
 	return int(get_def(id)["costs"][n])
 
 ## Whether the next step of `id` can be bought: there is one, and the gold for it.
+## Never while perks are toggled instead.
 func can_buy(id: String) -> bool:
 	var cost := next_cost(id)
-	return cost >= 0 and GameState.scrap >= cost
+	return not trial and cost >= 0 and GameState.scrap >= cost
+
+## How many of `id`'s steps count: every one while it is toggled on, none while
+## it is off, and what the profile has bought when nothing is toggled.
+func active(id: String) -> int:
+	if trial:
+		return steps(id) if is_on(id) else 0
+	return owned(id)
+
+## Whether `id` is toggled on, for while perks are toggled.
+func is_on(id: String) -> bool:
+	return bool(_on.get(id, false))
+
+## Turns perks being toggled on or off. Whatever holds one of the player's
+## numbers takes it again, since what the perks add has changed with it.
+func set_trial(on: bool) -> void:
+	if trial == on:
+		return
+	trial = on
+	GameState.boosts_changed.emit()
+
+## Flips `id` on or off, all of its steps at once, for nothing. Only while perks
+## are toggled. Whether it did.
+func toggle(id: String) -> bool:
+	if not trial or not exists(id):
+		return false
+	_on[id] = not is_on(id)
+	GameState.boosts_changed.emit()
+	return true
 
 ## Buys the next step of `id`. The gold goes, the step is the profile's and is
 ## kept at once — a step bought is never lost to a quit — and whatever holds
@@ -77,12 +117,13 @@ func buy(id: String) -> bool:
 	GameState.boosts_changed.emit()
 	return true
 
-## What the steps bought add to `stat`, for `GameState.boost`.
+## What the steps that count add to `stat`, for `GameState.boost`: the ones
+## bought, or the ones toggled on while perks are toggled (`active`).
 func boost(stat: String) -> float:
 	var total := 0.0
 	for id in _defs:
 		if String(_defs[id]["stat"]) == stat:
-			total += float(_defs[id]["per_step"]) * float(owned(id))
+			total += float(_defs[id]["per_step"]) * float(active(id))
 	return total
 
 ## --- reading the tables -------------------------------------------------------

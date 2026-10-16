@@ -114,7 +114,9 @@ func paint_beyond(c: CanvasItem, cells: MapCells, x: int, y: int) -> void:
 		kind = "earth"
 	else:
 		var edge := cells.ground(clampi(x, 0, cells.cols - 1), y)
-		if MadeRoom.is_ground(edge) and not GLASS.has(edge):
+		# Of the kinds that are always there: magic stone at the edge is read as
+		# the trunk, since past the map there is no magic.
+		if MadeRoom.GROUND.has(edge) and not GLASS.has(edge):
 			kind = String(MadeRoom.GROUND[edge])
 	_kind(c, cells, x, y, kind)
 

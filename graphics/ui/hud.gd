@@ -61,6 +61,9 @@ const BAR_EDGE := Color(0.5, 0.6, 0.7, 0.8)
 ## back once it is over: about as long as the box takes to open.
 const STEP_ASIDE := 0.14
 
+## The grey MAGIC OFF is written in: the colour the world has gone.
+const MAGIC_OFF_INK := Color(0.72, 0.72, 0.76)
+
 var player: Player = null
 var prompt: String = ""
 ## Whether the player stands in an exit that will take them. The HUD writes the
@@ -112,6 +115,11 @@ func _draw_health() -> void:
 	# name in any language pushes them along rather than being written over.
 	var at := Vector2(BAR_AT.x, WEAPON_LINE)
 	at.x = _draw_kit(at)
+	# Magic off stands first on the line: it is what every weapon on it casts as.
+	if not Magic.on:
+		var off := Loc.t("hud.magic_off")
+		_px.text(at, off, MAGIC_OFF_INK)
+		at.x += PixelDraw.text_width(off) + 16.0
 	if player.vessel() != player:
 		var inside := Loc.t("hud.possessing", [Monsters.name_for(player.possessing.kind).to_upper(),
 			ceili(player.possess_left)])

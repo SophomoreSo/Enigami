@@ -139,6 +139,7 @@ func chain_length(bonus: int) -> int:
 	if not _chain_cache.has(key):
 		var sim := SkillRunner.new(player.runner.board)
 		sim.base_payload_provider = func() -> Payload: return Weapons.base_payload(WEAPON)
+		sim.forms_only = player.runner.forms_only
 		sim.ttl_bonus = bonus
 		var walk := sim.simulate()
 		var follow := 0
@@ -152,7 +153,7 @@ func chain_length(bonus: int) -> int:
 ## The least charge whose chain reaches every guard on the floor, or -1 when no
 ## charge the player can hold does.
 func charge_to_clear() -> int:
-	for bonus in SkillRunner.MAX_TTL_BONUS + 1:
+	for bonus in int(player.charge_cap()) + 1:
 		if chain_length(bonus) >= total_guards:
 			return bonus
 	return -1

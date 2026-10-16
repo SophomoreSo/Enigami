@@ -39,6 +39,10 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 			Fx.shake(6.0)
 		&"lunge_cut":
 			Fx.shake(4.0)
+		&"magic":
+			# The world's colour going, or coming back: a small shake under it.
+			# The grey itself is the pixel camera's, every frame.
+			Fx.shake(2.0)
 		&"death":
 			Fx.burst(pos, _death_color(d.get("actor")), 14, 230.0)
 		&"jump":

@@ -15,6 +15,14 @@
 		"name": "FOCUS",
 		"desc": "More mana to charge a cast with: 20 more for every step."
 	},
+	"QUICK_CHARGE": {
+		"name": "QUICK CHARGE",
+		"desc": "Holding the cast button charges faster: every step adds 20%. The mana goes as fast as the charge builds."
+	},
+	"DEEP_CHARGE": {
+		"name": "DEEP CHARGE",
+		"desc": "A hold charges further before it is full: every step adds a quarter more, and costs the mana it buys."
+	},
 	"QUICK_HANDS": {
 		"name": "QUICK HANDS",
 		"desc": "A shorter wait between casts: every step takes off 6%."
@@ -25,6 +33,9 @@
 	},
 	"page": {
 		"row": "%s %d/%d",
-		"all": "ALL BOUGHT"
+		"all": "ALL BOUGHT",
+		"on": "ON",
+		"off": "OFF",
+		"trial": "FREE IN THE SANDBOX"
 	}
 }

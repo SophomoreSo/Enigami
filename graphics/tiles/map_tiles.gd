@@ -122,12 +122,13 @@ func id() -> String:
 func title() -> String:
 	return id().to_upper()
 
-## The ground it offers, by mark, in the order offered: its own kinds, and then
-## the glass every tileset has.
+## The ground it offers, by mark, in the order offered: its own kinds, then
+## the glass every tileset has, and the magic stone every tileset has.
 func ground_marks() -> PackedStringArray:
 	var marks := kind_marks()
 	for mark: String in GLASS:
 		marks.append(mark)
+	marks.append(MadeRoom.MAGIC)
 	return marks
 
 ## Its own kinds of ground, by mark.
@@ -146,11 +147,13 @@ func back_marks() -> PackedStringArray:
 func back_kind_marks() -> PackedStringArray:
 	return PackedStringArray()
 
-## What a mark of its ground is called: glass alike in every tileset, and its
-## own kinds as it calls them.
+## What a mark of its ground is called: glass and magic stone alike in every
+## tileset, and its own kinds as it calls them.
 func ground_name(mark: String) -> String:
 	if GLASS.has(mark):
 		return Loc.t("hud.maker.glass.%s" % String(GLASS[mark]))
+	if mark == MadeRoom.MAGIC:
+		return Loc.t("hud.maker.magic")
 	return kind_name(mark)
 
 func kind_name(mark: String) -> String:
@@ -200,8 +203,26 @@ func hangs_from(_mark: String) -> int:
 func paint_ground(c: CanvasItem, cells: MapCells, x: int, y: int) -> void:
 	if GLASS.has(cells.ground(x, y)):
 		paint_glass(c, cells, x, y)
+	elif cells.ground(x, y) == MadeRoom.MAGIC:
+		paint_magic(c, cells, x, y)
 	else:
 		paint_kind(c, cells, x, y)
+
+## Magic stone (`MadeRoom.MAGIC`), the same in every tileset: violet, lit along
+## its top and dark along its foot, with a glint in it. Whether it is there to
+## draw is the room's to say — it is drawn as ground only while it is ground
+## (`MapCells.solid`) — but the creator's table draws it whatever the state, so
+## what was laid can be seen.
+func paint_magic(c: CanvasItem, cells: MapCells, x: int, y: int) -> void:
+	var px := x * C
+	var py := y * C
+	box(c, px, py, C, C, MAGIC_STONE)
+	if not cells.solid(x, y - 1):
+		box(c, px, py, C, 2, MAGIC_LIT)
+	if not cells.solid(x, y + 1):
+		box(c, px, py + C - 1, C, 1, MAGIC_DARK)
+	# A glint, somewhere in it, in the same place every time.
+	box(c, px + 2 + odd(x, y, 7) % (C - 4), py + 3 + odd(x, y, 8) % (C - 5), 1, 1, MAGIC_GLINT)
 
 ## Cell (x, y)'s ground, of one of the tileset's own kinds.
 func paint_kind(_c: CanvasItem, _cells: MapCells, _x: int, _y: int) -> void:
@@ -275,6 +296,11 @@ class Chunk extends Node2D:
 ## it, rising to the right, that run on from one cell into the next; and
 ## behind a mirror, its dark.
 const GLASS := {"o": "clear", "@": "mirror"}
+## Magic stone's colours (`paint_magic`).
+const MAGIC_STONE := Color(0.36, 0.26, 0.58)
+const MAGIC_LIT := Color(0.68, 0.54, 0.95)
+const MAGIC_DARK := Color(0.22, 0.14, 0.38)
+const MAGIC_GLINT := Color(0.92, 0.86, 1.0)
 const GLASS_LIT := Color(0.80, 0.94, 0.97)
 const GLASS_SHADE := Color(0.42, 0.58, 0.64)
 const GLASS_SHINE := Color(0.88, 0.98, 1.0, 0.30)

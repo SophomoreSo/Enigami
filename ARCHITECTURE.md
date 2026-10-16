@@ -37,7 +37,7 @@ story/rules/   the conversation and the staging. What is said, and what follows.
 story/view/    the box, the portraits, the camera. What that looks like.
 mobile/input/  whether the console is up, and the actions a thumb holds down.
 mobile/view/   the console drawn on the glass, and the screen that moves its buttons.
-perks/rules/   what each perk adds and costs, which a profile has bought, the buying.
+perks/rules/   what each perk adds and costs, which a profile has bought, the buying, the bench's toggles.
 perks/view/    the page they are bought on, at the hideout's perk station.
 ```
 

@@ -11,7 +11,14 @@ extends Node
 
 enum State { TITLE, HIDEOUT, RAID, SANDBOX, RESULTS, DRAGON_TEST, INTRO, JEAN_GREY_TEST, MAP_MAKER, STORY_MAKER, LIGHTING_TEST }
 
-var state: int = State.TITLE
+var state: int = State.TITLE:
+	set(v):
+		state = v
+		# On the bench, and the tests opened from it, perks are toggled rather
+		# than bought; everywhere else they are the profile's.
+		Perks.set_trial(v in [State.SANDBOX, State.DRAGON_TEST, State.JEAN_GREY_TEST,
+			State.LIGHTING_TEST])
+
 var current: Node = null
 var ui_layer: CanvasLayer
 ## The windows the shell raises over a screen — the hideout's workbench — and
@@ -257,6 +264,8 @@ func _clear() -> void:
 	_close_editor()
 	_close_perks()
 	TimeCtl.clear()
+	# A state of the screen that was, like the dilation: the next starts in magic.
+	Magic.set_on(true)
 
 ## --- screens ----------------------------------------------------------------
 func goto_title() -> void:
@@ -855,6 +864,9 @@ func _pause_heading(text: String, back: Callable) -> Control:
 	return h
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("magic_toggle"):
+		_toggle_magic()
+		return
 	if not event.is_action_pressed("pause"):
 		return
 	# Every screen the player lives on: a raid, the bench, and the hideout —
@@ -873,6 +885,19 @@ func _unhandled_input(event: InputEvent) -> void:
 	if state == State.RAID or state == State.SANDBOX or state == State.HIDEOUT \
 			or state == State.MAP_MAKER or state == State.STORY_MAKER:
 		_pause()
+		get_viewport().set_input_as_handled()
+
+## Y: magic off, or back on (`Magic`) — wherever the player stands: a raid,
+## the bench and the tests off it, the hideout, and the map creator, where a
+## map is laid and played. Not while the game is paused, which is the menu's,
+## and not on the title or the screens hanging off it, where there is no world
+## for it to be the state of.
+func _toggle_magic() -> void:
+	if get_tree().paused:
+		return
+	if state in [State.RAID, State.SANDBOX, State.HIDEOUT, State.DRAGON_TEST,
+			State.JEAN_GREY_TEST, State.LIGHTING_TEST, State.MAP_MAKER]:
+		Magic.toggle()
 		get_viewport().set_input_as_handled()
 
 func _pause() -> void:
