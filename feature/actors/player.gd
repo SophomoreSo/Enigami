@@ -441,6 +441,7 @@ func _ready() -> void:
 	current_state = machine.start
 	_reboost()
 	GameState.boosts_changed.connect(_reboost)
+	Magic.changed.connect(_on_magic)
 
 func _notification(what: int) -> void:
 	# Not _exit_tree: a player carried between rooms leaves the tree and comes
@@ -552,6 +553,7 @@ func empty_handed() -> bool:
 func _make_runner(weapon: String, board: SkillBoard) -> SkillRunner:
 	var r := SkillRunner.new(board)
 	r.cooldown_mul = _cast_mul()
+	r.forms_only = not Magic.on
 	r.base_payload_provider = func() -> Payload: return Weapons.base_payload(weapon)
 	r.fired.connect(_on_fired.bind(weapon))
 	r.cycle_started.connect(_on_cycle_started)
@@ -621,6 +623,7 @@ func bare_handed() -> bool:
 	if not _bare.has(key):
 		var dry := SkillRunner.new(runner.board)
 		dry.base_payload_provider = runner.base_payload_provider
+		dry.forms_only = runner.forms_only
 		var outs: Array = dry.simulate()["outputs"]
 		var bare := not outs.is_empty()
 		for p: Payload in outs:
@@ -878,8 +881,20 @@ func can_dash() -> bool:
 ##
 ## Nor can a rock that is not in the hand: there is nothing to throw at the end
 ## of the hold — unless the graph only headbutts, which needs no rock to.
+##
+## Nor anything while magic is off: the life a hold buys is spent by the parts
+## round the board, and with forms alone there is nothing to spend it. A
+## release still casts, as a tap does.
 func can_charge() -> bool:
-	return runner != null and runner.is_ready() and can_cast()
+	return Magic.on and runner != null and runner.is_ready() and can_cast()
+
+## Magic went off, or came back: every graph carried is cast as its forms
+## alone, or whole again (`SkillRunner.forms_only`), and what counts as
+## bare-handed is asked again, since it was walked the other way.
+func _on_magic(on: bool) -> void:
+	for r in _every_runner():
+		r.forms_only = not on
+	_bare.clear()
 
 ## A graph was edited under its runner: every weapon carried walks its own
 ## again. Assembly only ever opens the one in hand, and the rest cost nothing

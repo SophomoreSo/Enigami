@@ -49,6 +49,7 @@ godot res://tests/feature/sprint_test.tscn  # the sprint: a run half as fast aga
 godot res://tests/feature/swing_test.tscn   # a rope: taken hold of with up, swung on, climbed, leapt off and dropped off, and where a room hangs its ropes
 godot res://tests/feature/bench_test.tscn   # a bench: sat down on with F, stood up off by a step, a jump, F or a blow; laid in a map, and the hideout's
 godot res://tests/feature/pool_test.tscn    # pooling: lent, played out and handed back, and taken back when a screen goes
+godot res://tests/feature/magic_test.tscn   # magic off: every graph cast as its forms alone, no charging, and the magic stone gone and back
 godot res://tests/perks/perks_test.tscn     # the perks: bought with gold a step at a time, kept with the profile, and what they add reaching the player
 godot res://tests/graphics/fx_pool_test.tscn # sparks, rings and floating numbers come out of pools, never out of nothing
 godot res://tests/graphics/menu_fit_test.tscn # menus stay on screen and scroll the rest
@@ -141,6 +142,7 @@ not a thing to reach for once it errors.
 | 1 / 2 / 3 / 4 | put that slot in hand — at once, and whatever was being charged is let go of: the weapon carried in it, or an empty hand in a slot no weapon is in — the fourth always, and the second and third while fewer are carried — which casts the empty hand's own graph, a PUNCH at its root |
 | mouse wheel | the next slot in hand, a notch down, or the one before, a notch up — all four, empty or not, and round from the fourth to the first |
 | Q | leave the monster you are possessing, back into your own body |
+| Y | magic off, and back on: every graph cast as its forms alone, no charging, the world grey, and the magic stone gone — see [Magic off](#magic-off) |
 | mouse / right stick | aim, and where a lunge lands. A stick's aim is bent toward a monster it is near — never snapped, and never the mouse's; how much is AIM ASSIST in the control settings |
 | TAB, G | open assembly — **the raid keeps running**; the weapons carried stand down the board's left — one alone as well — and a click on one opens its graph, the weapon in hand staying in hand; a bare plate for each slot no weapon is in, and the empty hand's last, open the empty hand's graph, all of them lit while it is open. It is the GRAPH tab of a screen with tabs along its top, like a browser's: a click on MAP beside it puts the map up in its place, and one on FOES the monster dictionary — every monster a raid has, `??` until it has been met, and each one's skills `??` until it has been seen using them, then drawn as the graph each is. At the hideout's workbench, on the bench and in a raid a last tab, PERKS, puts up the perks (see [Perks](#perks)). The HUD is put away while the screen is up; TAB, G, ESC or the back arrow in its corner leaves it |
 | M | the map — the MAP tab of the same screen: in a raid the floor plan, the raid running on behind it as well, and on the bench, in the hideout and anywhere else with no map a page saying so. A click on GRAPH, or TAB or G, puts the board up in its place, and M, ESC or the back arrow leaves it |
@@ -771,6 +773,34 @@ you are not using. One you cannot afford changes nothing and says what it is
 short of. A death takes the graph on the weapon and what it was built of, as
 ever; the presets put away are only how to build them, and stay.
 
+## Magic off
+
+Y turns magic off, and again turns it back on — in a raid, on the bench and
+in the tests off it, in the hideout, and in the map creator. While it is off:
+
+- **every graph in the game is cast as its forms alone.** The flow walks the
+  board as it always does, but only a form — `PROJECTILE`, `SLASH`,
+  `SWIFT STRIKE`, `PUNCH` — does anything to it: the weapon's own attack goes
+  out with the weapon's own numbers, and nothing a `DAMAGE`, a `FIRE`, a
+  `DUPLICATE` or an `OVERCLOCK` would do to it is done; a trigger's branch is
+  not walked, so there are no follow-ups; the board's clock runs at its base.
+  The monsters' boards are held to the same: a Bomber's blow is a punch that
+  neither burns nor bursts. Where the board forks the flow still forks — that
+  is wiring, not a part's work — so a `SPLIT` is two flows at full damage
+  rather than two at half.
+- **a hold charges nothing.** RMB casts the graph as a tap would.
+- **the world goes grey** — the room and everyone in it, not the HUD, which
+  says MAGIC OFF on the weapons' line — and **what is only there in magic is
+  gone**: the map creator's MAGIC STONE is neither drawn nor solid, and is
+  both again the moment magic is back. A body standing where it comes back is
+  pushed out of it.
+
+It is a state of the world, not of the profile: never saved, and a change of
+screen puts magic back on, so a raid always starts in magic. The key is
+`magic_toggle`, remappable like the rest. The rule is `Magic`
+(`feature/core/magic.gd`), which the runner (`SkillRunner.forms_only`), the
+player, the monsters and the made rooms read; the grey is the pixel camera's.
+
 ## The dragon test
 
 Title → SANDBOX → **DRAGON TEST**. A four-storey tower with eight guards posted
@@ -839,7 +869,7 @@ under each tab are drawn by the tileset the map is in.
 
 | Tab | What it lays |
 |---|---|
-| GROUND | the ground, in the tileset's kinds of it, and glass. Every kind is as solid as the next: the kind is only how it looks |
+| GROUND | the ground, in the tileset's kinds of it, glass, and MAGIC STONE. Every kind is as solid as the next: the kind is only how it looks — but for the magic stone, which is ground only while magic is on, and nothing while it is off (see [Magic off](#magic-off)). The table shows it either way |
 | BACK | what stands behind: a ruin's wall, a column, a stone lintel, a tree, the undergrowth, a rail to hang lanterns from, and glass |
 | THINGS | where the player starts, a post for each of the monsters, the treasure box, ground to dig, a bench to sit on — on the ground's layer |
 | PROPS | what is put about: a lantern, a campfire, glowing caps, fireflies, grass, flowers, a bush, a fern, a vine, a rope |

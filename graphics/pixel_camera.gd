@@ -60,6 +60,11 @@ const WORLD_LAYER := 1 << 19
 ## The pixel font world text is set in, and its native size in buffer pixels.
 const FONT := preload("res://graphics/assets/fonts/Silkscreen-Regular.ttf")
 const TEXT_SIZE := 8
+## The grey the world goes while magic is off (`Magic`), laid over the picture
+## as it is shown; and how fast it drains in and comes back, in full greys a
+## second — a few frames, so it reads as the colour going rather than a cut.
+const GREY := preload("res://graphics/assets/shaders/greyscale.gdshader")
+const GREY_SPEED := 5.0
 
 ## Pixel cameras currently up. A screen swap frees the old one at the end of the
 ## frame the new one arrived in, and the old one must not hand the world layer
@@ -68,6 +73,9 @@ static var _live := 0
 
 var _view: SubViewport
 var _image: Sprite2D
+## How far the picture has gone grey: 0 in magic, 1 with it off.
+var _grey := 0.0
+var _grey_mat: ShaderMaterial
 ## What everything moving does to the air in the picture, on its grid.
 var velocity: VelocityBuffer
 ## The light the picture is shown in, on its grid.
@@ -137,10 +145,19 @@ func _ready() -> void:
 	_image.centered = false
 	_image.texture = _view.get_texture()
 	_image.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_grey_mat = ShaderMaterial.new()
+	_grey_mat.shader = GREY
+	_grey = 0.0 if Magic.on else 1.0
+	_grey_mat.set_shader_parameter("amount", _grey)
+	_image.material = _grey_mat
 	add_child(_image)
 	_follow()
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var want := 0.0 if Magic.on else 1.0
+	if _grey != want:
+		_grey = move_toward(_grey, want, delta * GREY_SPEED)
+		_grey_mat.set_shader_parameter("amount", _grey)
 	_follow()
 
 func _follow() -> void:

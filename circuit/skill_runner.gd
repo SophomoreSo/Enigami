@@ -94,6 +94,21 @@ var cooldown: int = 0
 ## Stretches the whole wait between casts — the walk and the recovery together —
 ## so a runner can be made slower without touching its board.
 var cooldown_mul: float = 1.0
+## Whether only the forms do anything: what a graph is cast as while magic is
+## off. The flow walks the board as it always does — every part a tick, every
+## fork a fork, since that is wiring — but a part that is not a form does
+## nothing to it and costs no heat, a trigger's branch is not walked, and the
+## clock runs at its base whatever OVERCLOCKs are on the board. The weapon's
+## own attack, then, with the weapon's own numbers. Whoever owns the runner
+## sets it, from the rule that knows; the walks banked are forgotten when it
+## changes, since they were walked the other way.
+var forms_only: bool = false:
+	set(v):
+		if v == forms_only:
+			return
+		forms_only = v
+		_cycle_at_life.clear()
+		_triggers_at_life.clear()
 ## Ticks advanced by the cycle now running, lead included.
 var _cycle_ticks: int = 0
 var cycle_heat: float = 0.0
@@ -164,7 +179,14 @@ func refresh() -> void:
 	_triggers_at_life.clear()
 
 func tick_time() -> float:
-	return BASE_TICK / maxf(float(_analysis.get("speed_mul", 1.0)), 0.05)
+	return BASE_TICK / _clock()
+
+## How many times the base clock this board runs at: what its OVERCLOCKs make
+## it, or the base with forms alone.
+func _clock() -> float:
+	if forms_only:
+		return 1.0
+	return maxf(float(_analysis.get("speed_mul", 1.0)), 0.05)
 
 func is_idle() -> bool:
 	return pulses.is_empty()
@@ -392,7 +414,8 @@ func _exit(p: Pulse) -> Array[Pulse]:
 	var ex: Vector2i = Components.exit_cell(id, p.cell, rot)
 
 	var pay_dir := Components.world_payload_out(id, rot)
-	if pay_dir >= 0:
+	# A trigger's branch is a part's work, and with forms alone no part works.
+	if pay_dir >= 0 and not forms_only:
 		# A trigger's branch starts a flow of its own: it inherits the numbers
 		# but not the attack form, so the branch defines its own payload. Nor
 		# an EXPLODE, which on a flow with no form is an attack of its own: kept,
@@ -455,6 +478,10 @@ func _send(from: Vector2i, dir: int, payload: Payload, result: Array[Pulse], ttl
 ## whether it did its work, which an INVERT straight after needs to know.
 func _apply(id: String, p: Payload, came: Dictionary = {}) -> bool:
 	var def := Components.get_def(id)
+	# With forms alone a part that is not a form is wire: crossed, and nothing
+	# done — not its effects, not its heat.
+	if forms_only and String(def.get("cat", "")) != Components.CAT_FORM:
+		return false
 	p.heat += float(def.get("heat", 0.0))
 	cycle_heat += float(def.get("heat", 0.0))
 	var limit := int(def.get("limit", 0))
@@ -592,7 +619,7 @@ func consume_parry() -> Payload:
 ## word.
 func simulate() -> Dictionary:
 	var a := board.analyze()
-	var speed := maxf(float(a.get("speed_mul", 1.0)), 0.05)
+	var speed := 1.0 if forms_only else maxf(float(a.get("speed_mul", 1.0)), 0.05)
 	var blank := {
 		"outputs": [] as Array[Payload], "triggers": {}, "ticks": 0,
 		"speed_mul": speed,
@@ -608,6 +635,7 @@ func simulate() -> Dictionary:
 	dry.base_payload_provider = base_payload_provider
 	dry.ttl_bonus = ttl_bonus
 	dry.cooldown_mul = cooldown_mul
+	dry.forms_only = forms_only
 	var outs: Array[Payload] = []
 	dry.fired.connect(func(p: Payload) -> void: outs.append(p))
 	dry.active = true

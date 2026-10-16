@@ -5,6 +5,7 @@
 	"wet": "젖음",
 	"frozen": "얼어붙음",
 	"stunned": "기절",
+	"magic_off": "마법 차단",
 	"possessing": "%s 빙의 %d초",
 	"thrown": "%s (던짐)",
 	"stock": "%s x%d",
@@ -150,6 +151,7 @@
 			"clear": "투명 유리",
 			"mirror": "반사 유리"
 		},
+		"magic": "마법 돌",
 		"prop": {
 			"lantern": "랜턴",
 			"lightbulb": "전구",

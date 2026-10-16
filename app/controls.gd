@@ -26,6 +26,7 @@ const ACTIONS := [
 	["open_editor", "Skill assembly"],
 	["open_map", "Map"],
 	["interact", "Interact / extract"],
+	["magic_toggle", "Magic on / off"],
 	["pause", "Pause"],
 ]
 

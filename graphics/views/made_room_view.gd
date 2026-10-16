@@ -127,6 +127,10 @@ func _ready() -> void:
 	super._ready()
 	made = room as MadeRoom
 	tiles = MapTiles.of(made.tileset if made != null else "")
+	# The magic stone went, or came back: the tile field, the faces the light
+	# falls on and the depths are drawn again, as for a screen of a new shape.
+	if made != null:
+		made.ground_changed.connect(_on_reshaped)
 	_still = _layer(_paint_still, false)
 	_life = _layer(_paint_life, true)
 

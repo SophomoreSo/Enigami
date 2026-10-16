@@ -139,6 +139,7 @@ func chain_length(bonus: int) -> int:
 	if not _chain_cache.has(key):
 		var sim := SkillRunner.new(player.runner.board)
 		sim.base_payload_provider = func() -> Payload: return Weapons.base_payload(WEAPON)
+		sim.forms_only = player.runner.forms_only
 		sim.ttl_bonus = bonus
 		var walk := sim.simulate()
 		var follow := 0

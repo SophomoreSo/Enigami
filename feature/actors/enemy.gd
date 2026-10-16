@@ -145,6 +145,7 @@ func _ready() -> void:
 func _make_runner() -> void:
 	runner = SkillRunner.new(board)
 	runner.cooldown_mul = ATTACK_COOLDOWN_MUL
+	runner.forms_only = not Magic.on
 	var dmg_scale := 1.0 + 0.14 * float(max(_danger - 1, 0))
 	if modifier == "armored":
 		dmg_scale *= 1.15
@@ -203,6 +204,10 @@ func _go_up(p: Payload) -> void:
 
 func _process(delta: float) -> void:
 	_process_status(delta)
+	# Its board follows magic as the player's does: cast whole, or as its forms
+	# alone. Asked every frame rather than heard, since a monster comes and goes
+	# and the runner says nothing when it is told what it already is.
+	runner.forms_only = not Magic.on
 	_bob += delta
 	if telegraph > 0.0:
 		telegraph -= delta
