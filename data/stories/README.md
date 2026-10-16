@@ -38,7 +38,7 @@ going along the links.
 
 | Key | Meaning |
 |---|---|
-| `map` | The map it is set on, by id — one made in the map creator (`data/maps/`). Leave it out, or name one that is not there, and it is played on whichever map there is. |
+| `map` | The map it is set on, by id — one made in the map creator (`Maps`). Leave it out, or name one that is not there, and it is played on whichever map there is. |
 | `mode` | How it is played: `free`, `frozen` or `novel` — see below. Default `frozen`. |
 | `name` | The character's name, on the tab when they speak. |
 | `sprite` | What they look like: one from the sprite atlas — `wizzard_m`, `knight_f`, `elf_m`… — or the game's own, `player`. |

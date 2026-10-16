@@ -57,6 +57,9 @@ var rows: int = NEW_SIZE.y
 ## (`MadeRoom.tileset`, `MadeRoom.region`).
 var tileset: String = NEW_TILESET
 var region: int = 0
+## The picture each layer is laid over, by the layer's name, as `MadeRoom` has
+## it: kept with the map, and nothing on the table draws it yet.
+var references: Dictionary = {}
 ## Whether the map has changed since it was last saved or opened.
 var unsaved: bool = false
 
@@ -147,6 +150,7 @@ func made() -> MadeRoom:
 	r.dressing = _dressing.duplicate()
 	r.tileset = tileset
 	r.region = region
+	r.references = references.duplicate()
 	return r
 
 ## A map nobody has laid anything on: a clearing — leaves overhead, a tree
@@ -172,6 +176,7 @@ func new_map() -> void:
 	_write(PLAN, Vector2i(4, rows - 3), MadeRoom.START)
 	begin_stroke()
 	region = 0
+	references = {}
 	map_id = ""
 	unsaved = false
 
@@ -317,7 +322,8 @@ static func _swap(row: String, x: int, mark: String) -> String:
 ## its own name.
 func _shot() -> Dictionary:
 	return {"plan": _plan.duplicate(), "back": _back.duplicate(), "dressing": _dressing.duplicate(),
-		"cols": cols, "rows": rows, "tileset": tileset, "region": region, "map_id": map_id}
+		"cols": cols, "rows": rows, "tileset": tileset, "region": region, "map_id": map_id,
+		"references": references.duplicate()}
 
 func _take(shot: Dictionary) -> void:
 	cols = int(shot["cols"])
@@ -327,6 +333,7 @@ func _take(shot: Dictionary) -> void:
 	_dressing = _sized(shot.get("dressing", PackedStringArray()), Vector2i(cols, rows))
 	tileset = String(shot.get("tileset", NEW_TILESET))
 	region = int(shot["region"])
+	references = (shot.get("references", {}) as Dictionary).duplicate()
 	map_id = String(shot["map_id"])
 	_remembered = false
 
@@ -379,6 +386,7 @@ func open(id: String) -> bool:
 	rows = size.y
 	tileset = found.tileset
 	region = found.region
+	references = found.references.duplicate()
 	found.free()
 	begin_stroke()
 	map_id = id

@@ -22,7 +22,7 @@ CREATE TABLE meta (
 );
 -- `Db.SCHEMA_VERSION` in app/db.gd is the same number: bump both when a
 -- change is one older code could not read. build.sh adds `source_hash`.
-INSERT INTO meta (key, value) VALUES ('schema_version', '14');
+INSERT INTO meta (key, value) VALUES ('schema_version', '15');
 
 -- How a portrait and the letters behave while a line is said: the ids
 -- `Style.EMOTIONS` (graphics/style.gd) draws. A line naming one not here
@@ -679,4 +679,47 @@ CREATE TABLE perk_steps (
 	step    INTEGER NOT NULL CHECK (step >= 1),
 	cost    INTEGER NOT NULL CHECK (cost > 0),
 	PRIMARY KEY (perk_id, step)
+);
+
+-- ---- maps ------------------------------------------------------------------
+-- The rooms made in the map creator (`MapMaker`) that the game ships with: a
+-- map is its level's info, its layers, and each layer's grid of cells, a row
+-- of the grid a row here. `Maps` (feature/world/maps.gd) reads them, and the
+-- maps a player makes are kept in the same three tables in a database of
+-- their own, `user://maps.db`, which the game writes. Run from the project,
+-- the creator writes each map it saves as a .sql file under maps/ as well,
+-- to build in here and ship; the README's **A map** says what is in one.
+--
+-- The level: its id, the tileset that draws it — `grove`, or `rock` or ''
+-- for the plain rock a raid's rooms are cut from — which region's rock that
+-- is, and its size in cells, which every layer's grid is.
+CREATE TABLE maps (
+	id      TEXT PRIMARY KEY CHECK (id <> '' AND id = lower(id)),
+	tileset TEXT NOT NULL DEFAULT '',
+	region  INTEGER NOT NULL DEFAULT 0 CHECK (region BETWEEN 0 AND 3),
+	width   INTEGER NOT NULL CHECK (width >= 1),
+	height  INTEGER NOT NULL CHECK (height >= 1)
+);
+
+-- A map's layers: `plan`, the ground and what stands on it; `back`, what
+-- stands behind; `dressing`, what is put about. `level` is the layer's place
+-- from the back forward — back 0, plan 1, dressing 2 — and `reference` the
+-- picture the layer was laid over, a res:// or user:// path, NULL for none.
+CREATE TABLE map_layers (
+	map_id    TEXT NOT NULL REFERENCES maps (id) ON DELETE CASCADE,
+	layer     TEXT NOT NULL CHECK (layer IN ('plan', 'back', 'dressing')),
+	level     INTEGER NOT NULL,
+	reference TEXT CHECK (reference IS NULL OR reference <> ''),
+	PRIMARY KEY (map_id, layer)
+);
+
+-- A layer's grid: a row of cells a row here, top to bottom from 0, a character
+-- a cell and `.` for nothing, as the map creator lays them.
+CREATE TABLE map_rows (
+	map_id TEXT NOT NULL,
+	layer  TEXT NOT NULL,
+	y      INTEGER NOT NULL CHECK (y >= 0),
+	cells  TEXT NOT NULL,
+	PRIMARY KEY (map_id, layer, y),
+	FOREIGN KEY (map_id, layer) REFERENCES map_layers (map_id, layer) ON DELETE CASCADE
 );
