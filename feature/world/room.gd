@@ -476,7 +476,7 @@ func _spawn_gates() -> void:
 	gates.clear()
 	for dir in _gate_dirs:
 		var g := Gate.new()
-		g.setup(dir, arrival_point(dir))
+		g.setup(dir, arrival_at(dir))
 		g.player = player
 		g.entered.connect(func(way: int) -> void: gate_entered.emit(way))
 		add_child(g)
@@ -742,7 +742,7 @@ func door_rect(dir: int) -> Rect2:
 ## wall, or the gate on the floor that leads up or down.
 func way_point(dir: int) -> Vector2:
 	if dir == Components.N or dir == Components.S:
-		return arrival_point(dir)
+		return arrival_at(dir)
 	return door_rect(dir).get_center()
 
 ## Where a body arriving through `from_dir` is put down: in from the doorway on
@@ -765,7 +765,13 @@ static func arrival_point(from_dir: int) -> Vector2:
 ## or the gate's own arrival point, or the nearest floor to it should nothing
 ## under that point catch them.
 func entry_point(from_dir: int) -> Vector2:
-	return standing_near(arrival_point(from_dir))
+	return standing_near(arrival_at(from_dir))
+
+## The same, for this room: where its doorways and gates are. A room carved to
+## the raid's one shape answers `arrival_point`; one laid by hand says where
+## its own are (`MadeRoom`).
+func arrival_at(from_dir: int) -> Vector2:
+	return arrival_point(from_dir)
 
 func spawn_point() -> Vector2:
 	@warning_ignore("integer_division")

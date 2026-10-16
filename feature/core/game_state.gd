@@ -108,7 +108,7 @@ var raid_carried_weapons: Array[String] = []
 ## A raid put down mid-run, or {}. MAIN MENU inside a raid writes the run here
 ## instead of ending it, and opening the slot again walks back into it.
 ##
-## The map is rebuilt from `raid_seed`, so none of it is in here: what a run
+## The map is laid again from the content database, so none of it is in here: what a run
 ## changes is which rooms hold what, where the player is standing and how they
 ## are doing, and the clock. See `Raid.park` for the shape, `RaidMap.to_save`
 ## for the rooms inside it.

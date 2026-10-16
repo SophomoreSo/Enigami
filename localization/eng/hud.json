@@ -124,7 +124,12 @@
 			"start": "START",
 			"box": "TREASURE BOX",
 			"dig": "DIG SPOT",
-			"bench": "BENCH"
+			"bench": "BENCH",
+			"door_west": "DOORWAY WEST",
+			"door_east": "DOORWAY EAST",
+			"gate_up": "GATE UP",
+			"gate_down": "GATE DOWN",
+			"exit": "EXIT"
 		},
 		"tiles": {
 			"grove": {
