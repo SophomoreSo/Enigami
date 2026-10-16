@@ -25,12 +25,9 @@ signal cycle_started()
 ## skill in the game, the player's and the monsters' alike, because it is the
 ## only thing converting a board's length into time.
 ##
-## Costs denominated in real seconds — the overclock settling delay and the
-## parry window — deliberately do not move with it, so changing it shifts the
-## balance between walking a board and paying those: at half the tick, a board's
-## own length is half as expensive while an overclock's settling delay costs
-## exactly what it did, which makes stacking overclocks a worse trade than it
-## was.
+## Costs denominated in real seconds — the parry window — deliberately do not
+## move with it, so changing it shifts the balance between walking a board and
+## paying those.
 const BASE_TICK := 0.005
 ## What every cast waits before the next, whatever its board. One of the four
 ## is the tick a flow used to spend inside an OUTPUT, back when the way out was
@@ -45,6 +42,12 @@ const HEAT_TO_TICKS := 2.2
 ## overclocked board wants a dozen ticks inside a sixtieth of a second and would
 ## quietly have run slower than its own preview promised.
 const MAX_TICKS_PER_UPDATE := 64
+## The parts a flow goes straight through, spending none of the tick every other
+## part costs. It is still a part entered, and the life it spends is counted the
+## same. OVERCLOCK is one: the speed it buys the board's clock is all it does,
+## and the tick it would cost to cross outweighs what one is worth on a short
+## board — so stacking them would make the board slower.
+const NO_TICK := ["OVERCLOCK"]
 ## Every pulse carries a time to live, counted in parts it may still enter, and
 ## dies when it runs out. That is what keeps a cycle in the board from running
 ## forever. It is per pulse rather than shared across the cast on purpose: with
@@ -162,14 +165,6 @@ func refresh() -> void:
 
 func tick_time() -> float:
 	return BASE_TICK / maxf(float(_analysis.get("speed_mul", 1.0)), 0.05)
-
-## The settling delay overclocking charges, converted into ticks of the current
-## (faster) clock so that it stays the same number of real seconds.
-func _penalty_ticks() -> int:
-	var secs := float(_analysis.get("penalty_seconds", 0.0))
-	if secs <= 0.0:
-		return 0
-	return int(round(secs / tick_time()))
 
 func is_idle() -> bool:
 	return pulses.is_empty()
@@ -291,8 +286,7 @@ func _advance() -> void:
 	pulses = next
 
 	if pulses.is_empty():
-		cooldown = (BASE_COOLDOWN_TICKS + int(round(cycle_heat * HEAT_TO_TICKS))
-			+ _penalty_ticks() + _lead)
+		cooldown = BASE_COOLDOWN_TICKS + int(round(cycle_heat * HEAT_TO_TICKS)) + _lead
 		if cooldown_mul != 1.0:
 			# The ticks already walked in real time are part of the wait too, so the
 			# whole cycle is scaled and the walk is taken back off the remainder.
@@ -444,6 +438,11 @@ func _send(from: Vector2i, dir: int, payload: Payload, result: Array[Pulse], ttl
 	var took := _apply(tid, payload, came)
 	var next := Pulse.new(port["to"], Components.tick_cost(tid), payload, ttl - 1)
 	next.undo = {"id": tid, "before": before, "took": took}
+	if tid in NO_TICK:
+		# Through and out in the same tick it was entered on, so a row of them
+		# speeds the clock without adding to the walk the clock runs.
+		result.append_array(_exit(next))
+		return
 	result.append(next)
 
 ## Mutate the payload as it enters a component: its heat, then each of its
@@ -594,10 +593,9 @@ func consume_parry() -> Payload:
 func simulate() -> Dictionary:
 	var a := board.analyze()
 	var speed := maxf(float(a.get("speed_mul", 1.0)), 0.05)
-	var penalty := float(a.get("penalty_seconds", 0.0))
 	var blank := {
 		"outputs": [] as Array[Payload], "triggers": {}, "ticks": 0,
-		"speed_mul": speed, "penalty_seconds": penalty,
+		"speed_mul": speed,
 		"overclock": int(a.get("overclock", 0)), "cycle_seconds": 0.0, "heat": 0.0,
 		"ttl": cycle_ttl(), "expired": false, "error": "",
 	}

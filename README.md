@@ -438,8 +438,9 @@ mind never touches it. The pack has no stone, so the rock is drawn in code, a
 letter a pixel (`Style.DRAWN_TILES`).
 
 **A punch needs no weapon.** `PUNCH` (its id is `HEADBUTT`) is the one form with
-nothing in the hand: a short lunge along the aim that drives a fist into the first enemy in
-the way and stops against it — `PIERCE` carries it on into the next. A graph
+nothing in the hand: a fist thrown a short way along the aim from where you
+stand, into the first enemy in the way and no further — `PIERCE` carries it on
+into the next. You do not move with it; `SWIFT STRIKE` is the form that does. A graph
 whose every attack is a punch goes off whether its weapon is in hand or not:
 the rock lying across the room, every shuriken thrown, your hands in a monster
 that has not taken the weapon, which then punches with your graph instead of
@@ -518,12 +519,11 @@ giving it further to walk.
   attack again and again rather than one strike carrying every lap's stats.
   The workbench lists the whole chain under the trigger.
 - Heat accumulated along the path is added to the cycle cooldown.
-- `OVERCLOCK` runs the board on a faster clock and charges a settling delay
-  between cycles. Each stack adds less speed than the last while the delay grows
-  with the square of the count, so two or three pay off, six is about break-even
-  and a wall of them is far worse than none. The delay is measured in real
-  seconds rather than ticks on purpose: a tick-denominated cost would be shrunk
-  by the very speed-up it pays for, and the two would cancel.
+- `OVERCLOCK` runs the board on a faster clock. Every one takes the same 5% of
+  the board's own cycle off the wait between casts, so the tenth is worth what
+  the first was, until twelve have brought it down to 40% and a thirteenth does
+  nothing. A flow goes through one without spending a tick, so a row of them
+  never adds back the time it saves.
 - `BRIDGE` carries a flow one cell and does nothing else: it turns the flow
   and leaves it as it was, which makes it the part for steering a branch round
   to the way out — and, since every part is a tick, for staggering one branch

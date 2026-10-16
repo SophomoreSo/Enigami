@@ -40,6 +40,13 @@ const VERSION := 2
 ## The parts that covered two cells until every part came to cover one.
 const ONCE_TWO_CELLS := ["DASHSLASH", "EXPLODE"]
 
+## What one OVERCLOCK takes off a board's cycle, as a share of the cycle with
+## none: the same for the first as for the tenth.
+const OVERCLOCK_STEP := 0.05
+## The least a board's cycle can be brought down to by OVERCLOCKs, as a share of
+## the cycle with none. Reached at twelve; a thirteenth does nothing.
+const OVERCLOCK_FLOOR := 0.4
+
 var width: int = 7
 var height: int = 5
 var skill_name: String = "Skill"
@@ -341,22 +348,14 @@ func used_components() -> Dictionary:
 
 ## Static properties the runner and the editor both need.
 ##
-## Overclock speeds the board's clock up and charges a settling delay between
-## cycles. The delay is real time, deliberately NOT measured in ticks: a cost
-## denominated in ticks would be shrunk by the very speed-up it is meant to pay
-## for, and the two would cancel out.
+## Overclock speeds the board's clock up. Every one takes the same share of the
+## board's own cycle off, OVERCLOCK_STEP, until the cycle is down to
+## OVERCLOCK_FLOOR of what it was; past that one more does nothing. The clock is
+## what carries it, so the walk and the wait after it shrink together and the
+## preview reads it off the same walk as the game.
 func analyze() -> Dictionary:
 	var oc := _count_of("OVERCLOCK")
-	# Each stack adds less than the one before, so the sum converges and speed
-	# stays bounded however many are placed.
-	var speed := 1.0
-	var gain := 0.5
-	for i in oc:
-		speed += gain
-		gain *= 0.85
-	# The delay grows with the square of the count, so it overtakes the speed
-	# gain after a handful: a few pay off, a wall of them does not.
-	var penalty := 0.004 * float(oc) * float(oc)
+	var speed := 1.0 / maxf(1.0 - OVERCLOCK_STEP * float(oc), OVERCLOCK_FLOOR)
 	var forms := 0
 	for c in cells:
 		if Components.get_def(cells[c]["id"]).get("cat", "") == Components.CAT_FORM:
@@ -364,7 +363,6 @@ func analyze() -> Dictionary:
 	return {
 		"overclock": oc,
 		"speed_mul": speed,
-		"penalty_seconds": penalty,
 		"forms": forms,
 		"cells_used": occupancy.size(),
 		"has_root": has_root(),
