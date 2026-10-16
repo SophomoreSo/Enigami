@@ -1071,6 +1071,8 @@ hideout there and then.
 | ENDURANCE | 25 more stamina: one more dash before the bar runs dry |
 | SWIFTNESS | runs and sprints 6% faster |
 | FOCUS | 20 more mana to charge a cast with |
+| QUICK CHARGE | holding the cast button charges 20% faster, spending its mana as fast |
+| DEEP CHARGE | a quarter more charge before the hold is full, for the mana it buys |
 | QUICK HANDS | 6% off the wait between casts |
 | SCAVENGER | 15% more gold from everything found in a raid |
 
@@ -1080,8 +1082,8 @@ hideout's workbench, on the bench and in a raid — always spending the gold
 banked at home, not the raid's, and buying for the profile, even from the
 bench. The dragon test, the Jean Grey test and a played map have no PERKS tab.
 
-Three steps each, for 60, 140 and 260 gold — QUICK HANDS and SCAVENGER for 80,
-180 and 320. The perks, their steps and their prices are rows in the content
+Three steps each, for 60, 140 and 260 gold — QUICK CHARGE, DEEP CHARGE, QUICK
+HANDS and SCAVENGER for 80, 180 and 320. The perks, their steps and their prices are rows in the content
 database (`data/db/perks/perks.sql`), and the code is a module of its own,
 `perks/`, which the rules hear from only through `GameState.boost` — see
 [ARCHITECTURE.md](ARCHITECTURE.md).

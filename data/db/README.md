@@ -886,7 +886,7 @@ INSERT INTO perk_steps (perk_id, step, cost) VALUES
 
 | Table · column | Meaning |
 |---|---|
-| `perks.stat` | Which of the player's own numbers it raises, by the word the rules ask `GameState.boost` for it by: `max_health`, `max_stamina`, `max_mana` in points, `move_speed` and `gold` as a share more, `cast_speed` as a share off the wait between casts. The schema holds it to those six. |
+| `perks.stat` | Which of the player's own numbers it raises, by the word the rules ask `GameState.boost` for it by: `max_health`, `max_stamina`, `max_mana` in points, `max_charge` in the life a hold can buy, `move_speed`, `charge_speed` and `gold` as a share more, `cast_speed` as a share off the wait between casts. The schema holds it to those eight. |
 | `perks.per_step` | What every step bought adds to its stat. |
 | `perks.name` `description` | The English, laid under `localization/<lang>/perks.json`; `loc_test` fails if the two drift. |
 | `perk_steps` | Its steps from the first, and what each costs in gold. A step is only ever bought after the one before it, so they run 1, 2, 3 with none missed; `tests/perks/perks_test` holds them to it. |

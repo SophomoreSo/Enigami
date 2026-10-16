@@ -659,14 +659,14 @@ CREATE TABLE lights (
 -- (perks/rules, `Perks`). A perk raises one of the player's own numbers — its
 -- `stat`, by the name the rules ask `GameState.boost` for it — by `per_step`
 -- for every step bought: `max_health`, `max_stamina` and `max_mana` in points,
--- `move_speed` and `gold` as a share more, `cast_speed` as a share off the
--- wait between casts. The `name` and `description` are the English, laid
+-- `max_charge` in the life a hold can buy, `move_speed`, `charge_speed` and
+-- `gold` as a share more, `cast_speed` as a share off the wait between casts. The `name` and `description` are the English, laid
 -- under localization/<lang>/perks.json.
 CREATE TABLE perks (
 	id          TEXT PRIMARY KEY CHECK (id <> '' AND id = upper(id)),
 	name        TEXT NOT NULL CHECK (name <> ''),
 	stat        TEXT NOT NULL CHECK (stat IN ('max_health', 'max_stamina', 'max_mana',
-	            'move_speed', 'cast_speed', 'gold')),
+	            'max_charge', 'move_speed', 'charge_speed', 'cast_speed', 'gold')),
 	per_step    REAL NOT NULL CHECK (per_step > 0),
 	description TEXT NOT NULL CHECK (description <> '')
 );

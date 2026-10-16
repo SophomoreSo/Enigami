@@ -246,8 +246,9 @@ func max_health() -> float:
 	return 80.0 + 20.0 * float(facilities["medbay"]) + boost("max_health")
 
 ## What everything in `boost_sources` adds to `stat`: `max_health`,
-## `max_stamina` and `max_mana` in points, `move_speed` and `gold` as a share
-## more, `cast_speed` as a share off the wait between casts.
+## `max_stamina` and `max_mana` in points, `max_charge` in the life a hold can
+## buy, `move_speed`, `charge_speed` and `gold` as a share more, `cast_speed`
+## as a share off the wait between casts.
 func boost(stat: String) -> float:
 	var total := 0.0
 	for source in boost_sources:

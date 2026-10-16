@@ -152,7 +152,7 @@ func chain_length(bonus: int) -> int:
 ## The least charge whose chain reaches every guard on the floor, or -1 when no
 ## charge the player can hold does.
 func charge_to_clear() -> int:
-	for bonus in SkillRunner.MAX_TTL_BONUS + 1:
+	for bonus in int(player.charge_cap()) + 1:
 		if chain_length(bonus) >= total_guards:
 			return bonus
 	return -1

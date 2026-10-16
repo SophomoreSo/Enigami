@@ -7,7 +7,8 @@ extends Node
 ## at the end, so no test after this one walks in with perks bought.
 
 ## The stats a perk may raise, and that the rules ask `GameState.boost` for.
-const STATS := ["max_health", "max_stamina", "max_mana", "move_speed", "cast_speed", "gold"]
+const STATS := ["max_health", "max_stamina", "max_mana", "max_charge", "move_speed", "charge_speed",
+	"cast_speed", "gold"]
 
 var fails := 0
 
@@ -124,6 +125,33 @@ func _the_player() -> void:
 			and is_equal_approx(p.runner.cooldown_mul,
 				Player.CAST_COOLDOWN_MUL * (1.0 - float(Perks.get_def("QUICK_HANDS")["per_step"]))),
 		"and QUICK HANDS shortens the wait between its casts (%.2f from %.2f)" % [p.runner.cooldown_mul, wait_was])
+
+	# A hold, a tenth of a second of it, on a graph free to be charged.
+	var built := func() -> float:
+		p.charge = 0.0
+		p.mana = p.max_mana
+		p._update_charge(0.1, true)
+		return p.charge
+	var slow: float = built.call()
+	Perks.buy("QUICK_CHARGE")
+	var fast: float = built.call()
+	var quicker := 1.0 + float(Perks.get_def("QUICK_CHARGE")["per_step"])
+	check(slow > 0.0 and is_equal_approx(fast, slow * quicker),
+		"QUICK CHARGE builds a hold that much faster (%.2f from %.2f)" % [fast, slow])
+	check(is_equal_approx(p.max_mana - p.mana, fast * Player.MANA_PER_TTL),
+		"and spends the same mana for every bit of it")
+
+	var cap_was := p.charge_cap()
+	Perks.buy("DEEP_CHARGE")
+	check(is_equal_approx(p.charge_cap(), cap_was + float(Perks.get_def("DEEP_CHARGE")["per_step"])),
+		"DEEP CHARGE lets a hold go further (%.0f from %.0f)" % [p.charge_cap(), cap_was])
+	p.charge = 0.0
+	p.mana = p.max_mana
+	for i in 200:
+		p._update_charge(0.05, true)
+	check(is_equal_approx(p.charge, p.charge_cap()) and p.charge > cap_was
+			and is_equal_approx(p.charge_ratio(), 1.0),
+		"and a long hold fills up to it, past where it used to stop (%.1f)" % p.charge)
 	p.queue_free()
 	await frames(1)
 
