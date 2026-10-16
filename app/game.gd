@@ -11,7 +11,14 @@ extends Node
 
 enum State { TITLE, HIDEOUT, RAID, SANDBOX, RESULTS, DRAGON_TEST, INTRO, JEAN_GREY_TEST, MAP_MAKER, STORY_MAKER, LIGHTING_TEST }
 
-var state: int = State.TITLE
+var state: int = State.TITLE:
+	set(v):
+		state = v
+		# On the bench, and the tests opened from it, perks are toggled rather
+		# than bought; everywhere else they are the profile's.
+		Perks.set_trial(v in [State.SANDBOX, State.DRAGON_TEST, State.JEAN_GREY_TEST,
+			State.LIGHTING_TEST])
+
 var current: Node = null
 var ui_layer: CanvasLayer
 ## The windows the shell raises over a screen — the hideout's workbench — and

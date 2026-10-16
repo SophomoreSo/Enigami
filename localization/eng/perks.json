@@ -33,6 +33,9 @@
 	},
 	"page": {
 		"row": "%s %d/%d",
-		"all": "ALL BOUGHT"
+		"all": "ALL BOUGHT",
+		"on": "ON",
+		"off": "OFF",
+		"trial": "FREE IN THE SANDBOX"
 	}
 }

@@ -58,6 +58,7 @@ func _fill() -> void:
 		_page.queue_free()
 	_page = PerkPage.new()
 	_page.bought.connect(func(_id: String) -> void: _fill.call_deferred())
+	_page.toggled.connect(func(_id: String) -> void: _fill.call_deferred())
 	_scroll.add_child(_page)
 	_laid = Rect2()
 
@@ -132,6 +133,9 @@ func _draw() -> void:
 	_px.frame(win, EDGE)
 	var base := win.position.y + PAD + 10.0
 	_px.text(Vector2(win.position.x + PAD, base), ScreenTabs.title(ScreenTabs.PERKS), UiKit.TEXT)
-	var gold := Loc.t("hideout.scrap", [GameState.scrap])
-	_px.text(Vector2(win.end.x - PAD - PixelDraw.ink_width(gold), base), gold, UiKit.WARN)
+	# On the bench nothing is spent, so in the gold's place it says the perks
+	# are toggled there.
+	var gold := Loc.t("perks.page.trial") if Perks.trial else Loc.t("hideout.scrap", [GameState.scrap])
+	_px.text(Vector2(win.end.x - PAD - PixelDraw.ink_width(gold), base), gold,
+		UiKit.GOOD if Perks.trial else UiKit.WARN)
 	ScreenTabs.draw(_px, pages, ScreenTabs.PERKS, _back_hot, _page_hot, UiKit.mobile())

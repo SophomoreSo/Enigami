@@ -29,6 +29,7 @@ func _ready() -> void:
 	_buying()
 	await _the_player()
 	_gold()
+	await _toggled()
 	_kept()
 	# Nothing bought is left behind for whatever runs next.
 	GameState.reset_profile()
@@ -162,6 +163,51 @@ func _gold() -> void:
 	var more := float(Perks.get_def("SCAVENGER")["per_step"])
 	check(GameState.gold_found(100) == roundi(100.0 * (1.0 + more)),
 		"with a step of it, that much more (%d of 100)" % GameState.gold_found(100))
+
+## On the bench perks are toggled, not bought: every step of one or none, for
+## nothing, and what the profile bought is left as it was — and counts again
+## once the bench is left.
+func _toggled() -> void:
+	var p := Player.new()
+	add_child(p)
+	await frames(2)
+	var bought := GameState.perks.duplicate()
+	var gold := GameState.scrap
+	var health_bought := p.max_health
+	Perks.set_trial(true)
+	var nothing := true
+	for stat in STATS:
+		nothing = nothing and is_zero_approx(GameState.boost(stat))
+	check(nothing and Perks.active("TOUGHNESS") == 0,
+		"on the bench every perk starts off, whatever the profile bought")
+	check(p.max_health < health_bought, "and the body there goes without them (%.0f)" % p.max_health)
+	check(not Perks.can_buy("SWIFTNESS") and not Perks.buy("SWIFTNESS"), "nothing is bought there")
+
+	check(Perks.toggle("DEEP_CHARGE") and Perks.is_on("DEEP_CHARGE")
+			and Perks.active("DEEP_CHARGE") == Perks.steps("DEEP_CHARGE"),
+		"a press turns a perk on, every step of it")
+	var deep := float(Perks.get_def("DEEP_CHARGE")["per_step"]) * Perks.steps("DEEP_CHARGE")
+	check(is_equal_approx(GameState.boost("max_charge"), deep)
+			and is_equal_approx(p.charge_cap(), Player.MAX_CHARGE_TTL + deep),
+		"and the body standing there has all of it at once (%.0f)" % p.charge_cap())
+	check(GameState.scrap == gold and GameState.perks == bought,
+		"for nothing: no gold goes, and the profile's steps are as they were")
+	check(Perks.toggle("DEEP_CHARGE") and not Perks.is_on("DEEP_CHARGE")
+			and is_zero_approx(GameState.boost("max_charge")),
+		"and another turns it off again")
+
+	Perks.toggle("TOUGHNESS")
+	Perks.set_trial(false)
+	check(Perks.active("TOUGHNESS") == Perks.owned("TOUGHNESS")
+			and is_equal_approx(p.max_health, health_bought),
+		"off the bench the profile's own steps count again (%.0f)" % p.max_health)
+	check(not Perks.toggle("TOUGHNESS"), "and nothing is toggled there")
+	Perks.set_trial(true)
+	check(Perks.is_on("TOUGHNESS"), "back on the bench, it is as it was left")
+	Perks.toggle("TOUGHNESS")
+	Perks.set_trial(false)
+	p.queue_free()
+	await frames(1)
 
 ## What is bought is the profile's: read back with it, and gone with it.
 func _kept() -> void:

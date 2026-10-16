@@ -1078,9 +1078,13 @@ hideout there and then.
 
 The same page is a tab of the screen the graph, the map and the monster
 dictionary are pages of: **PERKS**, after GRAPH, MAP and FOES on the
-hideout's workbench, on the bench and in a raid — always spending the gold
-banked at home, not the raid's, and buying for the profile, even from the
-bench. The dragon test, the Jean Grey test and a played map have no PERKS tab.
+hideout's workbench, on the bench and in a raid — spending the gold banked at
+home, not the raid's, and buying for the profile. On the bench nothing is
+bought: each perk is ON or OFF, every step of it or none, and a press flips it
+for nothing. What the profile has bought is left as it was, the toggles hold
+for the dragon, Jean Grey and lighting tests opened from the bench, and they
+are kept until the game is closed, never saved. The dragon test, the Jean Grey
+test and a played map have no PERKS tab.
 
 Three steps each, for 60, 140 and 260 gold — QUICK CHARGE, DEEP CHARGE, QUICK
 HANDS and SCAVENGER for 80, 180 and 320. The perks, their steps and their prices are rows in the content

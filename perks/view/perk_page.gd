@@ -8,11 +8,16 @@ extends VBoxContainer
 ## and at a thumb's size in mobile mode as every station's panel is
 ## (`UiKit.text`).
 ##
-## It only buys. The gold in the corner and everything else round it is the
-## frame's, which a station's panel stands in (`HideoutWorldView`): a step
-## bought says so (`bought`), and the frame is built again round a new page.
+## On the bench (`Perks.trial`) nothing is bought: each row's button says ON or
+## OFF, and a press flips every step of the perk at once, for nothing.
+##
+## It only buys, or toggles. The gold in the corner and everything else round it
+## is the frame's, which a station's panel stands in (`HideoutWorldView`): a step
+## bought says so (`bought`), as does a perk toggled (`toggled`), and the frame
+## is built again round a new page.
 
 signal bought(id: String)
+signal toggled(id: String)
 
 func _ready() -> void:
 	add_theme_constant_override("separation", 10)
@@ -27,12 +32,21 @@ func _row(id: String) -> Control:
 	v.add_theme_constant_override("separation", 2)
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 6)
-	var title := UiKit.label(Loc.t("perks.page.row", [Perks.name_for(id), Perks.owned(id), Perks.steps(id)]),
+	var title := UiKit.label(Loc.t("perks.page.row", [Perks.name_for(id), Perks.active(id), Perks.steps(id)]),
 		UiKit.text(UiKit.PIXEL_TEXT), UiKit.TEXT, true)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(title)
 	var cost := Perks.next_cost(id)
-	if cost < 0:
+	if Perks.trial:
+		var on := Perks.is_on(id)
+		var t := UiKit.button(Loc.t("perks.page.on" if on else "perks.page.off"),
+			UiKit.GOOD if on else UiKit.DIM, true)
+		t.pressed.connect(func() -> void:
+			if Perks.toggle(id):
+				Audio.play("ui")
+				toggled.emit(id))
+		head.add_child(t)
+	elif cost < 0:
 		head.add_child(UiKit.label(Loc.t("perks.page.all"), UiKit.text(UiKit.PIXEL_TEXT), UiKit.DIM, true))
 	else:
 		var b := UiKit.button("%d" % cost, UiKit.WARN, true)
