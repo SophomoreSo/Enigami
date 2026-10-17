@@ -29,9 +29,9 @@ const CAT_NAME := {
 	Components.CAT_FORM: "FORM",
 	Components.CAT_ELEMENT: "ELEMENT",
 	Components.CAT_STAT: "STAT",
-	Components.CAT_BEHAVIOR: "COMMON BEHAVIOR",
-	Components.CAT_PROJECTILE_BEHAVIOR: "PROJECTILE BEHAVIOR",
-	Components.CAT_SUMMON_BEHAVIOR: "SUMMON BEHAVIOR",
+	Components.CAT_BEHAVIOR: "COMMON MODIFIER",
+	Components.CAT_PROJECTILE_BEHAVIOR: "PROJECTILE MODIFIER",
+	Components.CAT_SUMMON_BEHAVIOR: "SUMMON MODIFIER",
 	Components.CAT_FLOW: "FLOW",
 	Components.CAT_TRIGGER: "TRIGGER",
 }
@@ -93,8 +93,8 @@ static func category_name(cat: String) -> String:
 	return String(CAT_NAME.get(cat, cat.to_upper()))
 
 ## A category's name in as few lines as fit `width` at the pixel font's size,
-## broken between its words: COMMON BEHAVIOR in a narrow gutter is COMMON over
-## BEHAVIOR. A word wider than the width on its own is cut, as `PixelDraw.clip`
+## broken between its words: COMMON MODIFIER in a narrow gutter is COMMON over
+## MODIFIER. A word wider than the width on its own is cut, as `PixelDraw.clip`
 ## cuts it.
 static func category_lines(cat: String, width: float) -> PackedStringArray:
 	var lines := PackedStringArray()

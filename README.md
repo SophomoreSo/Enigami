@@ -590,7 +590,7 @@ giving it further to walk.
   Lobber's, a weapon's that arcs — flies straight instead, and a bolt
   `SUMMON BOLT` calls hangs where it was called instead of falling, until
   its three seconds are up. One is all it takes; more do no more.
-- `SUMMON BOLT` and `SUMMON PET`, the SUMMON BEHAVIOR block, call
+- `SUMMON BOLT` and `SUMMON PET`, the SUMMON MODIFIER block, call
   something up beside the attack every time a flow carrying them goes off,
   whatever its form, and with none. `SUMMON BOLT` (its id is `SUMMON_PROJECTILE`) hangs a bolt in the air
   over where you aim — as far as some eight cells off, and up to three and a
@@ -607,7 +607,7 @@ giving it further to walk.
   triggers: its `ON HIT` goes off once, on the hit itself. Every one stacked
   makes the blast wider: two reach half as far again as one, three twice as
   far.
-  It was a form until it was made a behaviour — an attack of its own, a burst
+  It was a form until it was made a modifier — an attack of its own, a burst
   round the caster — and on a flow with no form it still is: the Hopper's
   attack, the Arbiter's second form, and a trigger's branch with an `EXPLODE`
   on it and no form, which bursts where the hit that set it off landed. A
@@ -656,7 +656,10 @@ giving it further to walk.
 
 The palette beside the board shows one category at a time: the categories
 stand down its left as tabs, and a click on one puts up that category's parts
-and only those. A thumb's palette works the same way.
+and only those. A thumb's palette works the same way. At a desk each part is
+shown as its icon alone, on a tile the size it stands on the board — a cell,
+or two for a two-cell part — with how many you have in its corner; hover one
+for its name and what it does.
 
 Parts are placed by dragging: press a palette entry and drop it on the grid, or
 lift a placed part and drop it somewhere else. The mouse wheel turns whatever
