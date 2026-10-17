@@ -378,5 +378,35 @@
 		"arbiter": "ARBITER GATE",
 		"toll": "TOLL GATE",
 		"crack": "CRACK IN THE WALL"
+	},
+	"phone": {
+		"app": {
+			"gallery": "GALLERY",
+			"camera": "CAMERA",
+			"alarm": "ALARM",
+			"settings": "SETTINGS"
+		},
+		"gallery": {
+			"empty": "NO PHOTOS YET",
+			"count": "%d PHOTOS",
+			"delete": "DELETE"
+		},
+		"camera": {
+			"snap": "SNAP",
+			"saved": "SAVED"
+		},
+		"alarm": {
+			"pick": "SET AN ALARM. IT RINGS WHERE THE PHONE IS, AND WHATEVER IS NEAR COMES TO SEE.",
+			"set": "SET",
+			"stop": "STOP",
+			"down": "PUT IT DOWN",
+			"ringing": "RINGING",
+			"lying": "LYING ON THE FLOOR"
+		},
+		"hud": {
+			"alarm": "ALARM %s",
+			"ringing": "RINGING",
+			"down": "PHONE ON THE FLOOR"
+		}
 	}
 }

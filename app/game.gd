@@ -42,6 +42,9 @@ var editor_pages: ScreenPages = null
 ## The perks' page over the hideout: the workbench's screen's last tab
 ## (`PerkScreen`), or null while it is not up.
 var perk_screen: PerkScreen = null
+## The phone (`PhoneScreen`), built the first time it is brought up and kept,
+## over a raid or the hideout; see `_toggle_phone`.
+var phone: PhoneScreen = null
 var pause_menu: Control = null
 ## The pause menu's two pages: PAUSED, and the rebinding list behind its
 ## CONTROL SETTINGS button. Exactly one of them is on screen; see
@@ -193,7 +196,7 @@ func _process(_delta: float) -> void:
 func _touch_face() -> int:
 	if state == State.INTRO or _reading():
 		return TouchPad.Face.TALK
-	if _assembling() or _mapping() or _paneled():
+	if _assembling() or _mapping() or _paneled() or _phoning():
 		return TouchPad.Face.CLEAR
 	for p in get_tree().get_nodes_in_group("player"):
 		if not p.controls_locked():
@@ -263,6 +266,11 @@ func _clear() -> void:
 	current = null
 	_close_editor()
 	_close_perks()
+	if _phoning():
+		phone.close()
+	# The phone goes with the player wherever they go next, whatever floor it
+	# was lying on.
+	Phone.recover()
 	TimeCtl.clear()
 	# A state of the screen that was, like the dilation: the next starts in magic.
 	Magic.set_on(true)
@@ -303,6 +311,11 @@ func _resume_raid() -> void:
 	state = State.RAID
 	var r := Raid.new()
 	r.finished.connect(_raid_finished)
+	# A page of the raid's screen going up puts the phone away, the way the
+	# pages put each other away.
+	r.on_phone_changed.connect(func(on: bool) -> void:
+		if not on and _phoning():
+			phone.close())
 	add_child(r)
 	current = r
 
@@ -419,6 +432,11 @@ func _deploy(weapon: String) -> void:
 	state = State.RAID
 	var r := Raid.new()
 	r.finished.connect(_raid_finished)
+	# A page of the raid's screen going up puts the phone away, the way the
+	# pages put each other away.
+	r.on_phone_changed.connect(func(on: bool) -> void:
+		if not on and _phoning():
+			phone.close())
 	add_child(r)
 	current = r
 
@@ -867,6 +885,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("magic_toggle"):
 		_toggle_magic()
 		return
+	if event.is_action_pressed("open_phone"):
+		_toggle_phone()
+		return
 	if not event.is_action_pressed("pause"):
 		return
 	# Every screen the player lives on: a raid, the bench, and the hideout —
@@ -899,6 +920,91 @@ func _toggle_magic() -> void:
 			State.JEAN_GREY_TEST, State.LIGHTING_TEST, State.MAP_MAKER]:
 		Magic.toggle()
 		get_viewport().set_input_as_handled()
+
+## --- the phone ------------------------------------------------------------------
+## P: the phone up over the raid or the hideout (`PhoneScreen`, `Phone`) —
+## where there is a player to be carrying it — sliding up from the bottom,
+## and away again on the same key. Not over the pause menu, and not over a
+## page of the screen or a station's panel: those have the screen. The phone
+## puts itself away through `closed`, and its apps open the pages of the
+## screen in its place (`_phone_app`) or put it down on the floor
+## (`_phone_down`).
+func _toggle_phone() -> void:
+	if get_tree().paused or not (state == State.RAID or state == State.HIDEOUT):
+		return
+	if _phoning():
+		_close_phone()
+	elif not (_assembling() or _mapping() or _paneled() or _reading()):
+		_open_phone()
+	get_viewport().set_input_as_handled()
+
+## Whether the phone is up.
+func _phoning() -> bool:
+	return phone != null and is_instance_valid(phone) and phone.up()
+
+func _open_phone() -> void:
+	if phone == null or not is_instance_valid(phone):
+		phone = PhoneScreen.new()
+		phone.closed.connect(_close_phone)
+		phone.app_opened.connect(_phone_app)
+		phone.put_down_requested.connect(_phone_down)
+		window_layer.add_child(phone)
+	phone.picture = _world_picture()
+	phone.can_put_down = true
+	phone.open()
+	_hold_for_phone(true)
+
+func _close_phone() -> void:
+	if not _phoning():
+		return
+	phone.close()
+	_hold_for_phone(false)
+
+## The world holds the player still under the phone, as under the board: a
+## raid by a state of its own, since its board is another thing; the hideout
+## by the hold it has for anything up over it.
+func _hold_for_phone(on: bool) -> void:
+	if state == State.RAID and current is Raid and is_instance_valid(current):
+		(current as Raid).set_on_phone(on)
+	elif state == State.HIDEOUT and hideout_ref != null and is_instance_valid(hideout_ref):
+		hideout_ref.set_editing(on)
+
+## An app of the phone's that is a page of the screen over the world: the
+## phone goes, and the screen comes up on that page.
+func _phone_app(id: String) -> void:
+	_close_phone()
+	if state == State.RAID and current is Raid and is_instance_valid(current):
+		var r := current as Raid
+		match id:
+			ScreenTabs.GRAPH:
+				r.set_editing(true)
+			ScreenTabs.MAP:
+				r.set_reading_map(true)
+			ScreenTabs.DEX:
+				r.set_reading_dex(true)
+	elif state == State.HIDEOUT:
+		_edit_weapon_graph(id)
+
+## PUT IT DOWN on the alarm's page: the phone put down where the player
+## stands, and away.
+func _phone_down() -> void:
+	var done := false
+	if state == State.RAID and current is Raid and is_instance_valid(current):
+		done = (current as Raid).put_phone_down()
+	elif state == State.HIDEOUT and hideout_ref != null and is_instance_valid(hideout_ref):
+		done = hideout_ref.put_phone_down()
+	if done:
+		_close_phone()
+
+## The world's picture, for the phone's camera: what the pixel camera over
+## the world that is up shows, or null with none.
+func _world_picture() -> Texture2D:
+	if current == null or not is_instance_valid(current):
+		return null
+	var view := Views.of(current)
+	if view != null and "pixels" in view and view.pixels is PixelCamera:
+		return (view.pixels as PixelCamera).picture()
+	return null
 
 func _pause() -> void:
 	# In the layout the mode in force asks for, whichever it was built in.

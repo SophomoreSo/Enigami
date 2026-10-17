@@ -98,6 +98,26 @@ func _draw() -> void:
 	var vp := get_viewport_rect().size
 	_draw_health()
 	_draw_prompts(vp)
+	_draw_phone(vp)
+
+## The phone's alarm, while one is set or ringing: along the top of the
+## screen, in the middle, where neither the bars nor the console's plates
+## stand — and that the phone is lying on a floor somewhere, while it is.
+func _draw_phone(vp: Vector2) -> void:
+	if not (Phone.alarm_set() or Phone.ringing > 0.0):
+		return
+	var band := 400.0
+	var line := ""
+	var ink := Color(0.85, 0.9, 0.95)
+	if Phone.ringing > 0.0:
+		line = Loc.t("hud.phone.hud.ringing")
+		ink = UiKit.WARN
+		ink.a = 0.55 + 0.45 * absf(sin(float(Time.get_ticks_msec()) / 90.0))
+	else:
+		line = Loc.t("hud.phone.hud.alarm", [PhoneScreen._clock(Phone.alarm)])
+	if not Phone.carried():
+		line += "  " + Loc.t("hud.phone.hud.down")
+	_px.text_centered(Vector2((vp.x - band) * 0.5, 40.0), line, ink, band)
 
 func _draw_health() -> void:
 	var bar := Rect2(BAR_AT, Vector2(BAR_W, HEALTH_H))

@@ -271,6 +271,44 @@ func _hold() -> void:
 		player.velocity.x = 0.0
 	player.input_locked = held
 
+## --- the phone ----------------------------------------------------------------
+## The phone's clock runs on the hideout's: an alarm set in here rings in
+## here, with nothing much to hear it. Put down, it lies on the room's floor
+## (`PhoneProp`) — until the hideout is left, when it is back in the hand
+## (`Phone.recover`).
+func _process(delta: float) -> void:
+	Phone.tick(delta, _phone_here())
+
+## Where the phone is, for its clock: in the player's hand or on the floor.
+func _phone_here() -> Variant:
+	var here: Variant = null
+	if Phone.carried():
+		if player != null and is_instance_valid(player):
+			here = player.global_position
+	else:
+		var prop := phone_prop()
+		if prop != null:
+			here = prop.global_position
+	return here
+
+## The phone lying on the floor, or null.
+func phone_prop() -> PhoneProp:
+	if room == null or not is_instance_valid(room):
+		return null
+	for c in room.get_children():
+		if c is PhoneProp and not c.is_queued_for_deletion():
+			return c
+	return null
+
+## The phone put down where the player stands, to be walked away from.
+func put_phone_down() -> bool:
+	if room == null or player == null or not is_instance_valid(player) or not Phone.carried():
+		return false
+	var at := player.standing_position() + Vector2(0.0, Player.BODY.y * 0.5 - 4.0)
+	Phone.put_down_at("hideout", Vector2i.ZERO, at)
+	PhoneProp.lay(room, player, at)
+	return true
+
 ## Takes `id` in hand: the rack is left on it, and it is carried — in a free
 ## slot, or in the slot of the weapon that was in hand when the kit is full. A
 ## weapon the vault has lost can still be what the rack is on, but it is not
@@ -332,6 +370,6 @@ func use_nearby() -> bool:
 	for s in stations.values():
 		if (s as Station).near and (s as Station).open:
 			return true
-	if room != null and is_instance_valid(room) and room.bench_offered():
+	if room != null and is_instance_valid(room) and (room.bench_offered() or room.phone_offered()):
 		return true
 	return false

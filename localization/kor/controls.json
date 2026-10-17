@@ -34,6 +34,7 @@
 		"open_editor": "조립",
 		"open_map": "지도",
 		"magic_toggle": "마법",
+		"open_phone": "전화",
 		"pause": "메뉴"
 	},
 	"action": {
@@ -57,6 +58,7 @@
 		"open_map": "지도",
 		"interact": "상호작용 / 탈출",
 		"magic_toggle": "마법 켜기 / 끄기",
+		"open_phone": "전화기",
 		"pause": "일시정지"
 	}
 }

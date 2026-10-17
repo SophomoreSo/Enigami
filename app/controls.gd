@@ -27,6 +27,7 @@ const ACTIONS := [
 	["open_map", "Map"],
 	["interact", "Interact / extract"],
 	["magic_toggle", "Magic on / off"],
+	["open_phone", "Phone"],
 	["pause", "Pause"],
 ]
 

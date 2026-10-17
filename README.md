@@ -51,6 +51,8 @@ godot res://tests/feature/swing_test.tscn   # a rope: taken hold of with up, swu
 godot res://tests/feature/bench_test.tscn   # a bench: sat down on with F, stood up off by a step, a jump, F or a blow; laid in a map, and the hideout's
 godot res://tests/feature/pool_test.tscn    # pooling: lent, played out and handed back, and taken back when a screen goes
 godot res://tests/feature/magic_test.tscn   # magic off: every graph cast as its forms alone, no charging, and the magic stone gone and back
+godot res://tests/feature/phone_test.tscn   # the phone: an alarm that counts down and rings, the monsters it calls, the phone put down on a floor and picked up, and its photos
+godot res://tests/graphics/phone_test.tscn  # the phone on the screen: up on P over a raid and the hideout, its apps, its camera and gallery, and the alarm's page
 godot res://tests/perks/perks_test.tscn     # the perks: bought with gold a step at a time, kept with the profile, and what they add reaching the player
 godot res://tests/graphics/fx_pool_test.tscn # sparks, rings and floating numbers come out of pools, never out of nothing
 godot res://tests/graphics/menu_fit_test.tscn # menus stay on screen and scroll the rest
@@ -144,6 +146,7 @@ not a thing to reach for once it errors.
 | mouse wheel | the next slot in hand, a notch down, or the one before, a notch up — all four, empty or not, and round from the fourth to the first |
 | Q | leave the monster you are possessing, back into your own body |
 | Y | magic off, and back on: every graph cast as its forms alone, no charging, the world grey, and the magic stone gone — see [Magic off](#magic-off) |
+| P | the phone, up from the bottom of the screen over a raid or the hideout, and away again — see [The phone](#the-phone) |
 | mouse / right stick | aim, and where a lunge lands. A stick's aim is bent toward a monster it is near — never snapped, and never the mouse's; how much is AIM ASSIST in the control settings |
 | TAB, G | open assembly — **the raid keeps running**; the weapons carried stand down the board's left — one alone as well — and a click on one opens its graph, the weapon in hand staying in hand; a bare plate for each slot no weapon is in, and the empty hand's last, open the empty hand's graph, all of them lit while it is open. It is the GRAPH tab of a screen with tabs along its top, like a browser's: a click on MAP beside it puts the map up in its place, and one on FOES the monster dictionary — every monster a raid has, `??` until it has been met, and each one's skills `??` until it has been seen using them, then drawn as the graph each is. At the hideout's workbench, on the bench and in a raid a last tab, PERKS, puts up the perks (see [Perks](#perks)). The HUD is put away while the screen is up; TAB, G, ESC or the back arrow in its corner leaves it |
 | M | the map — the MAP tab of the same screen: in a raid the floor plan, the raid running on behind it as well, and on the bench, in the hideout and anywhere else with no map a page saying so. A click on GRAPH, or TAB or G, puts the board up in its place, and M, ESC or the back arrow leaves it |
@@ -607,7 +610,10 @@ giving it further to walk.
   before the hit and never what the hit itself brings. After a part with no
   opposite — a form, a trigger — it does nothing.
 - `TIME DILATION` slows the world *and* the board together — it changes the
-  pace of a fight rather than buffing attack speed.
+  pace of a fight rather than buffing attack speed. While it lasts the picture
+  goes the way Katana Zero's slow motion does: the room sinks into a deep
+  indigo-to-cyan tone, the colours split a pixel apart along the row and the
+  corners darken, while bodies, blasts and bolts keep most of their own colour.
 
 Parts are placed by dragging: press a palette entry and drop it on the grid, or
 lift a placed part and drop it somewhere else. The mouse wheel turns whatever
@@ -800,7 +806,53 @@ It is a state of the world, not of the profile: never saved, and a change of
 screen puts magic back on, so a raid always starts in magic. The key is
 `magic_toggle`, remappable like the rest. The rule is `Magic`
 (`feature/core/magic.gd`), which the runner (`SkillRunner.forms_only`), the
-player, the monsters and the made rooms read; the grey is the pixel camera's.
+player, the monsters and the made rooms read; the grey is the pixel camera's
+(`graphics/assets/shaders/picture_grade.gdshader`, which also gives time
+dilation its slow-motion look).
+
+## The phone
+
+P slides a phone up from the bottom of the screen — in a raid and in the
+hideout, wherever there is a player to be carrying one — and P or ESC slides
+it down again. **The raid keeps running** behind it, as it does behind the
+assembly board, and the player stands still while they look at it. It has a
+home screen of apps, a status bar with the time along its top and a bar along
+its bottom that goes home from any app:
+
+- **GALLERY** — the photos it has taken, one a tile; press one to see it, and
+  DELETE to throw it away.
+- **CAMERA** — what the phone sees, the world behind it, and SNAP takes a
+  photo of the screen with the phone out of the way. Photos are files beside
+  the save, in `user://photos/`.
+- **ALARM** — set for so many minutes, with the buttons either side of the
+  time, and SET. It counts down on the clock of the world the phone is in,
+  and rings for twelve seconds when it runs out — **and whatever is near
+  comes to see**: every monster in earshot that goes anywhere (a Crawler, a
+  Hopper, a Drifter, the Arbiter — not a Sentry, which holds its ground, and
+  not a Lobber, which walks its beat) goes to where the ringing is and
+  stands over it until the ringing stops. That is the point of **PUT IT
+  DOWN**, which puts the phone down on the floor where you stand and puts
+  the screen away: walk off, and when it rings the room's monsters gather
+  round the phone instead of you. A phone in your hand rings in your hand,
+  and they come to you. The phone on the floor is picked up again by
+  standing over it and pressing F, the way a gate is gone through; it is
+  still there when you walk back into its room, goes with a parked raid, and
+  is back in your hand when the raid is over or you leave the hideout. STOP
+  takes the alarm off, set or ringing. The HUD says along its top what the
+  alarm has left, and when the phone is lying on a floor.
+- **SETTINGS** — the volumes, the language and the video settings the pause
+  menu has, on rows narrow enough for a phone.
+- **KIT**, **MAP** and **FOES** — the pages of the screen with the tabs, put
+  up in the phone's place; TAB and M do the same from the phone.
+
+The key is `open_phone`, remappable like the rest, and on the on-screen
+console a PHONE plate under MAGIC. The rule is `Phone`
+(`feature/core/phone.gd`): the alarm, the ringing and the calling of monsters
+(`Enemy.lure_to`), where the phone lies (`PhoneProp`, `feature/world/
+phone_prop.gd`) and the photos as files. The screen is `PhoneScreen`
+(`graphics/ui/phone_screen.gd`), put up and taken down by the shell
+(`app/game.gd`, `_toggle_phone`); the phone on the floor is drawn by
+`graphics/views/phone_prop_view.gd`.
 
 ## The dragon test
 

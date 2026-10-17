@@ -60,11 +60,15 @@ const WORLD_LAYER := 1 << 19
 ## The pixel font world text is set in, and its native size in buffer pixels.
 const FONT := preload("res://graphics/assets/fonts/Silkscreen-Regular.ttf")
 const TEXT_SIZE := 8
-## The grey the world goes while magic is off (`Magic`), laid over the picture
-## as it is shown; and how fast it drains in and comes back, in full greys a
-## second — a few frames, so it reads as the colour going rather than a cut.
-const GREY := preload("res://graphics/assets/shaders/greyscale.gdshader")
+## How the picture is graded as it is shown: grey while magic is off
+## (`Magic`), and the slow-motion look while time is dilated (`TimeCtl`) — see
+## the shader. And how fast each goes in and comes back, in wholes a second:
+## the grey over a few frames, so it reads as the colour going rather than a
+## cut, and the slow faster, so it lands with the slowing it is the look of.
+const GRADE := preload("res://graphics/assets/shaders/picture_grade.gdshader")
 const GREY_SPEED := 5.0
+const SLOW_IN := 12.0
+const SLOW_OUT := 6.0
 
 ## Pixel cameras currently up. A screen swap frees the old one at the end of the
 ## frame the new one arrived in, and the old one must not hand the world layer
@@ -75,7 +79,12 @@ var _view: SubViewport
 var _image: Sprite2D
 ## How far the picture has gone grey: 0 in magic, 1 with it off.
 var _grey := 0.0
-var _grey_mat: ShaderMaterial
+## How far it has gone into the slow-motion look: 0 at full speed, 1 dilated.
+var _slow := 0.0
+var _grade: ShaderMaterial
+## The wall clock at the last frame, in microseconds: the slow eases on it,
+## since the frame's own delta is the dilated one.
+var _clock := 0
 ## What everything moving does to the air in the picture, on its grid.
 var velocity: VelocityBuffer
 ## The light the picture is shown in, on its grid.
@@ -145,11 +154,14 @@ func _ready() -> void:
 	_image.centered = false
 	_image.texture = _view.get_texture()
 	_image.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_grey_mat = ShaderMaterial.new()
-	_grey_mat.shader = GREY
+	_grade = ShaderMaterial.new()
+	_grade.shader = GRADE
 	_grey = 0.0 if Magic.on else 1.0
-	_grey_mat.set_shader_parameter("amount", _grey)
-	_image.material = _grey_mat
+	_slow = 1.0 if TimeCtl.is_dilated() else 0.0
+	_grade.set_shader_parameter("grey", _grey)
+	_grade.set_shader_parameter("slow", _slow)
+	_image.material = _grade
+	_clock = Time.get_ticks_usec()
 	add_child(_image)
 	_follow()
 
@@ -157,8 +169,19 @@ func _process(delta: float) -> void:
 	var want := 0.0 if Magic.on else 1.0
 	if _grey != want:
 		_grey = move_toward(_grey, want, delta * GREY_SPEED)
-		_grey_mat.set_shader_parameter("amount", _grey)
+		_grade.set_shader_parameter("grey", _grey)
+	var now := Time.get_ticks_usec()
+	var real := minf(float(now - _clock) / 1000000.0, 0.1)
+	_clock = now
+	var slowed := 1.0 if TimeCtl.is_dilated() else 0.0
+	if _slow != slowed:
+		_slow = move_toward(_slow, slowed, real * (SLOW_IN if slowed > _slow else SLOW_OUT))
+		_grade.set_shader_parameter("slow", _slow)
 	_follow()
+
+## How far the picture has gone into the slow-motion look, 0 to 1.
+func slow() -> float:
+	return _slow
 
 func _follow() -> void:
 	var vp := get_viewport()
@@ -185,3 +208,8 @@ func _follow() -> void:
 	# not, and the standing check deletes the graphics autoloads this file needs.
 	# See `Pointer.on_grid`.
 	Pointer.pixel_origin = _image.position
+
+## The picture as it is shown, lit and glazed: what the phone's camera sees
+## (`PhoneScreen`).
+func picture() -> Texture2D:
+	return _image.texture if _image != null else null

@@ -54,6 +54,14 @@ var runner: SkillRunner
 var room = null
 var target: Actor = null
 var modifier: String = ""
+## Something loud it has been called to (`lure_to`): where, and for how much
+## longer it keeps coming. One that goes anywhere goes to it as it would to
+## what it hunts, until it notices somebody — hunting comes first — or the
+## call stops; and stands over it when it gets there.
+var lure := Vector2.INF
+var lure_for := 0.0
+## How near the call it stands over it rather than walking on through.
+const LURE_STOP := 24.0
 
 ## Half the silhouette: the hurt radius, and what the collider is built from.
 var size: float = 14.0
@@ -219,6 +227,7 @@ func _process(delta: float) -> void:
 			runner.update(delta)
 		return
 	alert = maxf(alert - delta, 0.0)
+	lure_for = maxf(lure_for - delta, 0.0)
 	_acquire()
 	var want_attack := aggro and target != null and _in_range()
 	if def.get("boss", false):
@@ -237,6 +246,8 @@ func _process(delta: float) -> void:
 func _update_facing(delta: float) -> void:
 	if aggro and target != null and is_instance_valid(target):
 		_face_target()
+	elif lured():
+		face(signi(int(signf(lure.x - global_position.x))))
 	elif absf(velocity.x) > 4.0:
 		face(signi(int(signf(velocity.x))))
 	elif not stunned():
@@ -257,6 +268,42 @@ func hear(at: Vector2) -> void:
 		return
 	face(signi(int(signf(at.x - global_position.x))))
 	_glance = GLANCE_MAX
+
+## Called to `at` — a phone ringing (`Phone.call_monsters`) — for `seconds`:
+## it goes there, if it is one that goes anywhere, and stands over it when it
+## gets there. Hunting comes first: one that has noticed somebody keeps after
+## them, and one that notices somebody on the way goes after them instead.
+func lure_to(at: Vector2, seconds: float) -> void:
+	if dead or piloted() or stunned() or not moves():
+		return
+	lure = at
+	lure_for = maxf(lure_for, seconds)
+	if not aggro:
+		face(signi(int(signf(at.x - global_position.x))))
+		_glance = GLANCE_MAX
+
+## Whether it is on its way to a call, with nothing to hunt.
+func lured() -> bool:
+	return lure_for > 0.0 and not (aggro and target != null)
+
+## Whether its kind goes anywhere of its own accord: a turret holds its ground
+## and a walker its beat, whatever they hear.
+func moves() -> bool:
+	return String(def.get("ai", "")) in ["runner", "jumper", "flyer", "boss"]
+
+## Whether it is going somewhere — after what it hunts, or to a call — and
+## where that is.
+func _driven() -> bool:
+	return (aggro and target != null) or lured()
+
+func _goal() -> Vector2:
+	if aggro and target != null:
+		return target.global_position
+	return lure
+
+## Whether it has got to the call it is going to, and stands over it.
+func _at_goal() -> bool:
+	return lured() and absf(lure.x - global_position.x) <= LURE_STOP
 
 ## Whether the target is on the side this monster is looking at. A boss is
 ## never crept up on: its room is its own, and it knows who is in it.
@@ -448,8 +495,8 @@ func _fall(delta: float) -> void:
 
 func _ai_runner(delta: float, spd: float) -> void:
 	_fall(delta)
-	if aggro and target != null:
-		var dir := signf(target.global_position.x - global_position.x)
+	if _driven() and not _at_goal():
+		var dir := signf(_goal().x - global_position.x)
 		velocity.x = move_toward(velocity.x, dir * spd, 1400.0 * delta)
 		# Hop over anything in the way, including gaps in the floor.
 		if is_on_floor() and (is_on_wall() or _gap_ahead(dir)):
@@ -468,9 +515,9 @@ func _ai_jumper(delta: float, spd: float) -> void:
 	_jump_cd -= delta
 	if is_on_floor():
 		velocity.x = move_toward(velocity.x, 0.0, 1600.0 * delta)
-		if aggro and target != null and _jump_cd <= 0.0:
+		if _driven() and not _at_goal() and _jump_cd <= 0.0:
 			_jump_cd = 1.3
-			var dir := signf(target.global_position.x - global_position.x)
+			var dir := signf(_goal().x - global_position.x)
 			velocity = Vector2(dir * spd * 1.4, -560.0)
 			telegraph = 0.2
 
@@ -483,8 +530,8 @@ func _ai_turret(delta: float) -> void:
 	_fall(delta)
 
 func _ai_flyer(delta: float, spd: float) -> void:
-	if aggro and target != null:
-		var to: Vector2 = target.global_position + Vector2(0, -60) - global_position
+	if _driven():
+		var to: Vector2 = _goal() + Vector2(0, -60) - global_position
 		var want := to.normalized() * spd
 		want.y += sin(_bob * 3.0) * 40.0
 		velocity = velocity.lerp(want, clampf(2.0 * delta, 0.0, 1.0))
@@ -493,14 +540,17 @@ func _ai_flyer(delta: float, spd: float) -> void:
 
 func _ai_boss(delta: float, spd: float) -> void:
 	_fall(delta)
-	if not aggro or target == null:
+	if not _driven() or _at_goal():
 		velocity.x = move_toward(velocity.x, 0.0, 800.0 * delta)
 		return
-	var dir := signf(target.global_position.x - global_position.x)
-	var dist := absf(target.global_position.x - global_position.x)
-	# Phase one keeps its distance; phase two closes and pressures.
+	var dir := signf(_goal().x - global_position.x)
+	var dist := absf(_goal().x - global_position.x)
+	# Phase one keeps its distance; phase two closes and pressures. A call it
+	# is going to it just goes to.
 	var want := 0.0
-	if phase == 1:
+	if lured():
+		want = dir * spd * 0.7
+	elif phase == 1:
 		want = dir * spd * (-0.6 if dist < 200.0 else 0.7)
 	else:
 		want = dir * spd * 1.25

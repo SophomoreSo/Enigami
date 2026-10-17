@@ -74,6 +74,7 @@ func _ready() -> void:
 	raid.editing_changed.connect(_on_editing)
 	raid.reading_map_changed.connect(_on_reading_map)
 	raid.reading_dex_changed.connect(_on_reading_dex)
+	raid.on_phone_changed.connect(func(_on: bool) -> void: _put_hud_away())
 	raid.reading_perks_changed.connect(_on_reading_perks)
 
 func _process(delta: float) -> void:
@@ -170,6 +171,7 @@ func _on_reading_perks(on: bool) -> void:
 	_put_hud_away()
 
 ## The HUD is away while any page of the screen is up: it has the screen, and
-## its top stands where the HUD's bars do.
+## its top stands where the HUD's bars do. And while the phone is.
 func _put_hud_away() -> void:
-	hud.visible = not (raid.editing or raid.reading_map or raid.reading_dex or raid.reading_perks)
+	hud.visible = not (raid.editing or raid.reading_map or raid.reading_dex or raid.reading_perks
+		or raid.on_phone)

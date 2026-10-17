@@ -84,6 +84,21 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 			Audio.play("extract")
 		&"ui":
 			Audio.play("ui", UI_PITCH.get(String(d.get("kind", "")), 1.0))
+		&"phone":
+			# The phone: up with a click, away with a lower one, an alarm set
+			# with a chime, put down with a tap and picked up with the chime
+			# again, and the shutter's snap.
+			match String(d.get("kind", "")):
+				"open": Audio.play("ui", 1.1)
+				"close": Audio.play("ui", 0.85)
+				"set": Audio.play("pickup", 1.3)
+				"stop": Audio.play("ui", 0.7)
+				"down": Audio.play("place")
+				"up": Audio.play("pickup", 1.1)
+				"shutter": Audio.play("place", 1.6)
+		&"phone_ring":
+			# The ring itself, every call while it rings: a high chirp.
+			Audio.play("pickup", 1.6)
 		&"possess":
 			Audio.play("parry", 0.75)
 		&"possess_end":

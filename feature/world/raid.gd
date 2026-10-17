@@ -17,6 +17,8 @@ signal reading_map_changed(on: bool)
 signal reading_dex_changed(on: bool)
 ## The perks' page opened or closed, the screen's fourth. The same again.
 signal reading_perks_changed(on: bool)
+## The phone came up over the raid, or went away (`Phone`). The same again.
+signal on_phone_changed(on: bool)
 ## A new room is live and populated.
 signal room_changed(room: Room)
 
@@ -26,6 +28,9 @@ var player: Player
 var reading_map: bool = false
 var reading_dex: bool = false
 var reading_perks: bool = false
+## Whether the phone is up over the raid, holding the player still as a page
+## of the screen does; what is on it is the shell's (`PhoneScreen`).
+var on_phone: bool = false
 var ended: bool = false
 ## What stands between the player and the exit they are standing in — a toll,
 ## a seal — or "" when nothing does, or they are not in one. An exit that will
@@ -46,6 +51,9 @@ func _ready() -> void:
 	var parked: Dictionary = GameState.raid_progress if GameState.has_parked_raid() else {}
 	if not parked.is_empty():
 		map.restore(parked)
+		# And the phone as the run had it: its alarm, and where it was lying.
+		if parked.has("phone"):
+			Phone.restore(parked["phone"])
 	# After the restore, so a run that is being walked back into finds the drop
 	# in the room the map says it is in rather than in whatever the save last
 	# wrote there. Collecting it clears it from both at once, so this can never
@@ -147,12 +155,15 @@ func park() -> Dictionary:
 	saved["pos"] = [at.x, at.y]
 	saved["health"] = player.health
 	saved["stock"] = player.stock.duplicate()
+	saved["phone"] = Phone.to_save()
 	return saved
 
 func _process(delta: float) -> void:
 	if ended:
 		return
 	map.advance(delta)
+	# The phone's clock runs on the raid's: an alarm set in here rings in here.
+	Phone.tick(delta, _phone_here())
 	if room != null:
 		var dir := room.check_doors(player)
 		if dir >= 0 and _pending_dir < 0:
@@ -310,6 +321,9 @@ func _enter_room(coord: Vector2i, from_dir: int) -> void:
 	else:
 		player.global_position = room.entry_point(RaidMap.opposite(from_dir))
 	player.velocity = Vector2.ZERO
+	# The phone, if it was put down in here, lying where it was left.
+	if Phone.lies_in("raid", coord):
+		PhoneProp.lay(room, player, Phone.placed_pos())
 	for c in room.get_children():
 		if c is Enemy:
 			c.room = room
@@ -408,6 +422,7 @@ func set_editing(on: bool) -> void:
 		set_reading_map(false)
 		set_reading_dex(false)
 		set_reading_perks(false)
+		set_on_phone(false)
 	editing = on
 	player.input_locked = _held()
 	Cues.emit_cue(&"ui", {"kind": "editor"})
@@ -425,6 +440,7 @@ func set_reading_map(on: bool) -> void:
 		set_editing(false)
 		set_reading_dex(false)
 		set_reading_perks(false)
+		set_on_phone(false)
 	reading_map = on
 	player.input_locked = _held()
 	Cues.emit_cue(&"ui", {"kind": "map"})
@@ -439,6 +455,7 @@ func set_reading_dex(on: bool) -> void:
 		set_editing(false)
 		set_reading_map(false)
 		set_reading_perks(false)
+		set_on_phone(false)
 	reading_dex = on
 	player.input_locked = _held()
 	Cues.emit_cue(&"ui", {"kind": "map"})
@@ -456,14 +473,64 @@ func set_reading_perks(on: bool) -> void:
 		set_editing(false)
 		set_reading_map(false)
 		set_reading_dex(false)
+		set_on_phone(false)
 	reading_perks = on
 	player.input_locked = _held()
 	Cues.emit_cue(&"ui", {"kind": "perks"})
 	reading_perks_changed.emit(on)
 
-## Whether a page of the screen is up over the raid, holding the player still.
+## --- the phone ----------------------------------------------------------------
+## The phone up over the raid (`Phone`, `PhoneScreen`): it costs what a page
+## of the screen costs — the raid runs on, the clock keeps climbing, and the
+## player stands still looking at it — and it takes over from any page the way
+## they take over from each other. The shell puts it up and says so here.
+func set_on_phone(on: bool) -> void:
+	if on_phone == on:
+		return
+	if on:
+		set_editing(false)
+		set_reading_map(false)
+		set_reading_dex(false)
+		set_reading_perks(false)
+	on_phone = on
+	player.input_locked = _held()
+	on_phone_changed.emit(on)
+
+## Where the phone is, for its clock (`Phone.tick`): in the player's hand,
+## lying in this room, or null for one lying in a room out of sight.
+func _phone_here() -> Variant:
+	var here: Variant = null
+	if Phone.carried():
+		if player != null and is_instance_valid(player):
+			here = player.global_position
+	elif room != null and is_instance_valid(room) and Phone.lies_in("raid", room.coord):
+		var prop := phone_prop()
+		here = prop.global_position if prop != null else Phone.placed_pos()
+	return here
+
+## The phone lying in the room being stood in, or null.
+func phone_prop() -> PhoneProp:
+	if room == null or not is_instance_valid(room):
+		return null
+	for c in room.get_children():
+		if c is PhoneProp and not c.is_queued_for_deletion():
+			return c
+	return null
+
+## The phone put down where the player stands, on this room's floor, to be
+## walked away from. Nothing happens with it already lying somewhere.
+func put_phone_down() -> bool:
+	if ended or room == null or player == null or not Phone.carried():
+		return false
+	var at := player.standing_position() + Vector2(0.0, Player.BODY.y * 0.5 - 4.0)
+	Phone.put_down_at("raid", room.coord, at)
+	PhoneProp.lay(room, player, at)
+	return true
+
+## Whether a page of the screen, or the phone, is up over the raid, holding
+## the player still.
 func _held() -> bool:
-	return editing or reading_map or reading_dex or reading_perks
+	return editing or reading_map or reading_dex or reading_perks or on_phone
 
 ## A monster in the room just come into: met, for the monster dictionary, and
 ## heard from whenever its attack goes off, which is its skill seen. A room is
@@ -484,4 +551,5 @@ func use_nearby() -> bool:
 	if player != null and player.can_take_weapon():
 		return true
 	return room != null and is_instance_valid(room) \
-		and (room.extract_offered or room.gate_offered() or room.box_offered() or room.dig_offered())
+		and (room.extract_offered or room.gate_offered() or room.box_offered() or room.dig_offered()
+			or room.phone_offered())
