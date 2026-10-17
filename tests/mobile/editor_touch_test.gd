@@ -479,7 +479,9 @@ func _at_a_desk() -> void:
 	check(not ed.thumb() and ed.cell_size() == float(ed._desk_layout()["cell"])
 			and ed.cell_size() >= float(SkillEditor.CELL) and ed.board_origin() == ed._desk_layout()["board"],
 		"at a desk the board is a desk's: its cell, in its place")
-	check(ed._palette_ids().size() == ed._pool_ids().size(), "with every part in its rows at once")
+	check(ed._pal_tabs.size() == ed._pal_groups().size()
+			and ed._palette_ids() == (ed._pal_groups()[ed._tab]["ids"] as Array),
+		"with a tab a category down the palette's left, and the parts of the one that is up")
 	check(ed._close_rect() == Rect2(SkillEditor.CORNER, Vector2.ONE * SkillEditor.CLOSE_SIDE),
 		"and the back arrow a desk's, in its corner")
 	Touch.set_mode(Touch.ON)

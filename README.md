@@ -624,6 +624,10 @@ giving it further to walk.
   indigo-to-cyan tone, the colours split a pixel apart along the row and the
   corners darken, while bodies, blasts and bolts keep most of their own colour.
 
+The palette beside the board shows one category at a time: the categories
+stand down its left as tabs, and a click on one puts up that category's parts
+and only those. A thumb's palette works the same way.
+
 Parts are placed by dragging: press a palette entry and drop it on the grid, or
 lift a placed part and drop it somewhere else. The mouse wheel turns whatever
 the cursor is on — a part already on the board rotates in place, otherwise the
