@@ -1001,7 +1001,12 @@ func _phone_down() -> void:
 func _world_picture() -> Texture2D:
 	if current == null or not is_instance_valid(current):
 		return null
-	var view := Views.of(current)
+	# Asked for by path, not by name: the rules' tests run the shell with the
+	# picture's autoloads taken out, and there the camera has nothing to show.
+	var views := get_node_or_null("/root/Views")
+	if views == null:
+		return null
+	var view = views.of(current)
 	if view != null and "pixels" in view and view.pixels is PixelCamera:
 		return (view.pixels as PixelCamera).picture()
 	return null

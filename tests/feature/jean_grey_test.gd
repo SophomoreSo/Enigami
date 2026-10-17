@@ -272,7 +272,7 @@ func _shot_down() -> void:
 ## --- one way through, played --------------------------------------------------
 ## Throws the rock from the monster the player is in, `back` px to the side of
 ## `target`, into it. Whether the hands went in.
-func hop(target: Enemy, back: float, aim_up: float = 40.0) -> bool:
+func hop(target: Enemy, back: float, aim_up: float = 10.0) -> bool:
 	var p := screen.player
 	await walk_to(target.global_position.x + back)
 	await throw_at(target.global_position + Vector2(0, -aim_up))
@@ -309,7 +309,7 @@ func _the_theft() -> void:
 	hands.jump()
 	await walk_to(g1.global_position.x - 96.0)
 	check(screen.alerted() == 0, "out of the pit and up behind it, unseen")
-	await throw_at(g1.global_position + Vector2(0, -40))
+	await throw_at(g1.global_position + Vector2(0, -10))
 	check(await until(func() -> bool: return p.possessing == g1, 1.5),
 		"the rock in its back puts the player's hands into it")
 
@@ -337,7 +337,7 @@ func _the_theft() -> void:
 	check(await until(func() -> bool: return p.holds("ROCK") and p.weapon_hands() == flyer, 1.0),
 		"and the rock off the floor (%.1fs left)" % p.possess_left)
 	await fly_to(Vector2(gm2.global_position.x + 112.0, gm2.global_position.y - 24.0), 16.0)
-	await throw_at(gm2.global_position + Vector2(0, -30))
+	await throw_at(gm2.global_position + Vector2(0, -10))
 	check(await until(func() -> bool: return p.possessing == gm2, 1.5),
 		"flown back down the hall and thrown into the Gunman (%.1fs were left)" % last_left)
 
