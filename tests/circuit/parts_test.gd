@@ -47,13 +47,14 @@ func _ready() -> void:
 	# no part's own: they are the board's root and its way out, and INPUT and
 	# OUTPUT, which were those, are retired. So is DASH, which the player's own
 	# dash key and SWIFT STRIKE left with nothing to do, SPLIT and TEE, whose
-	# forks a trigger's branch does instead, REVERSE and BLINK.
+	# forks a trigger's branch does instead, REVERSE and BLINK, and SUMMON BOLT,
+	# whose place KAMIKAZE took.
 	var retired: Array = []
-	for id in ["INPUT", "OUTPUT", "WIRE", "BEND", "DASH", "SPLIT", "TEE", "REVERSE", "BLINK"]:
+	for id in ["INPUT", "OUTPUT", "WIRE", "BEND", "DASH", "SPLIT", "TEE", "REVERSE", "BLINK", "SUMMON_PROJECTILE"]:
 		if Components.exists(id) or not Components.is_retired(id) or Components.code_of(id) < 0:
 			retired.append(id)
 	check(retired.is_empty(),
-		"INPUT, OUTPUT, WIRE, BEND, DASH, SPLIT, TEE, REVERSE and BLINK are retired: each keeps its number, and is no part (%s)" % str(retired))
+		"INPUT, OUTPUT, WIRE, BEND, DASH, SPLIT, TEE, REVERSE, BLINK and SUMMON BOLT are retired: each keeps its number, and is no part (%s)" % str(retired))
 	check(Components.world_inputs("SLASH", 0) == [Components.S, Components.W, Components.N],
 		"no part is a source: every part takes flow on every side but its own outputs, the root's included")
 	var nowhere: Array = []

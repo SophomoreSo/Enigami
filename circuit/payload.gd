@@ -53,12 +53,14 @@ var stun: float = 0.0              ## seconds the struck enemy stands stunned
 ## Seconds the player's hands go into the monster struck (`Player.possess`).
 var possess: float = 0.0
 ## What the attack calls up beside itself as it goes off (`Attacks.spawn`): a
-## bolt in the air for each SUMMON PROJECTILE, and a pet for a SUMMON PET.
-var summon_projectile: int = 0
+## pet for a SUMMON PET.
 var summon_pet: int = 0
 ## What a pet this flow summons does (`Pet`): with OFFENSIVE it goes for the
-## nearest enemy near its summoner and strikes it, more often for each one.
+## nearest enemy near its summoner and strikes it, more often for each one;
+## with KAMIKAZE it goes for that enemy and blows itself up against it, wider
+## for each one.
 var pet_offensive: int = 0
+var pet_kamikaze: int = 0
 ## What an INVERT makes of the part before it (the `inversions` rows), each
 ## landing on the struck enemy once the hit has: health given back, every burn,
 ## chill and stun it was carrying ended — though not what this same hit brings
@@ -107,9 +109,9 @@ func clone() -> Payload:
 	p.health_drain = health_drain
 	p.stun = stun
 	p.possess = possess
-	p.summon_projectile = summon_projectile
 	p.summon_pet = summon_pet
 	p.pet_offensive = pet_offensive
+	p.pet_kamikaze = pet_kamikaze
 	p.heal = heal
 	p.cleanse = cleanse
 	p.repel = repel
