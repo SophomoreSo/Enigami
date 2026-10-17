@@ -109,11 +109,7 @@
 	},
 	"ANTI_GRAVITY": {
 		"name": "ANTI-GRAVITY",
-		"desc": "Bolts fly with no weight on them: a lobbed shot goes straight instead of arcing, and a summoned bolt hangs where it was called instead of falling. One is all it takes."
-	},
-	"SUMMON_PROJECTILE": {
-		"name": "SUMMON BOLT",
-		"desc": "Summons a bolt in the air over where you aim. It falls, strikes whatever it touches with the attack's numbers, and is gone a few seconds later. Each one stacked summons one more."
+		"desc": "Bolts fly with no weight on them: a lobbed shot goes straight instead of arcing. One is all it takes."
 	},
 	"SUMMON_PET": {
 		"name": "SUMMON PET",
@@ -122,6 +118,10 @@
 	"OFFENSIVE": {
 		"name": "OFFENSIVE",
 		"desc": "A pet summoned with it goes for the nearest enemy near you and strikes it with the attack's numbers. Each one stacked strikes more often. Does nothing without a SUMMON PET."
+	},
+	"KAMIKAZE": {
+		"name": "KAMIKAZE",
+		"desc": "A pet summoned with it flies at the nearest enemy near you and blows itself up against it: everything round it takes the attack's numbers, and the pet is gone. Each one stacked bursts wider. Does nothing without a SUMMON PET."
 	},
 	"BRIDGE": {
 		"name": "BRIDGE",

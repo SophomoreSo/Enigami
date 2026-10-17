@@ -52,7 +52,8 @@ INSERT INTO codes (code, id) VALUES
 	(41, 'HEADBUTT'),
 	(42, 'SUMMON_PROJECTILE'), (43, 'SUMMON_PET'),
 	(44, 'ANTI_GRAVITY'),
-	(45, 'OFFENSIVE');
+	(45, 'OFFENSIVE'),
+	(46, 'KAMIKAZE');
 
 -- WIRE and BEND carried a flow one cell and did nothing else to it, which
 -- every part already does: any part takes flow on any side and sends it where
@@ -78,8 +79,12 @@ INSERT INTO codes (code, id) VALUES
 --
 -- BLINK put the caster behind the nearest enemy in sight as the attack went
 -- off, once a cast.
+--
+-- SUMMON_PROJECTILE, SUMMON BOLT, hung a bolt in the air over where the attack
+-- was aimed, which fell and struck what it touched once. KAMIKAZE took its
+-- place in the summon block.
 INSERT INTO retired_parts (id) VALUES ('WIRE'), ('BEND'), ('INPUT'), ('OUTPUT'), ('DASH'),
-	('SPLIT'), ('TEE'), ('REVERSE'), ('BLINK');
+	('SPLIT'), ('TEE'), ('REVERSE'), ('BLINK'), ('SUMMON_PROJECTILE');
 
 -- DASHSLASH_AUTO, SWIFT STRIKE+, was SWIFT STRIKE with AUTO-AIM built into it:
 -- it lunged at the nearest enemy and through. AUTO-AIM is a part now, and does
@@ -209,7 +214,7 @@ INSERT INTO parts (id, name, category, heat, description) VALUES
 	('STUN', 'STUN', 'behavior', 0.6, 'Struck enemies are stunned: for a moment they stand where they are and cannot attack. Each one stacked holds them longer. Once it wears off, an enemy shrugs off the next stun for a while.'),
 	('POSSESS', 'POSSESS', 'behavior', 0.9, 'Takes over the monster struck for 5 seconds, unharmed, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, left behind and still hunted. Bosses resist it.'),
 	('AUTO_AIM', 'AUTO-AIM', 'projectile_behavior', 0.4, 'Aims the attack at the nearest enemy, wherever you point: bolts go straight at it and SWIFT STRIKE lunges through it, as far as each reaches, and a swing turns to it. Each one stacked looks further for one.'),
-	('ANTI_GRAVITY', 'ANTI-GRAVITY', 'projectile_behavior', 0.4, 'Bolts fly with no weight on them: a lobbed shot goes straight instead of arcing, and a summoned bolt hangs where it was called instead of falling. One is all it takes.');
+	('ANTI_GRAVITY', 'ANTI-GRAVITY', 'projectile_behavior', 0.4, 'Bolts fly with no weight on them: a lobbed shot goes straight instead of arcing. One is all it takes.');
 
 -- EXPLODE was a form, an attack of its own — a burst round the caster — and a
 -- flow it was placed on was that burst instead of whatever its form had made
@@ -244,26 +249,26 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 
 -- ---- summon ---------------------------------------------------------------------
 -- What an attack calls up beside itself, every time a flow carrying one goes
--- off (`Attacks.spawn`), whatever its form, and with none. SUMMON BOLT
--- hangs a bolt in the air over where the attack is aimed, which falls, strikes
--- what it touches with the flow's numbers and is gone a few seconds later
--- (`SummonedProjectile`); each one stacked calls one more. SUMMON PET calls a
+-- off (`Attacks.spawn`), whatever its form, and with none. SUMMON PET calls a
 -- pet that follows its summoner (`Pet`): one to a summoner, so a cast with one
 -- already there calls no other, but tells the one there again what it does.
 -- What it does is what the rest of the block on the same flow says: OFFENSIVE
--- sends it at the nearest enemy near its summoner, to strike it with the flow.
+-- sends it at the nearest enemy near its summoner, to strike it with the flow;
+-- KAMIKAZE sends it at that enemy to blow itself up against it, the flow going
+-- off as a burst round it (`Attacks.kamikaze`), and the pet is gone until a
+-- cast calls another.
 INSERT INTO parts (id, name, category, heat, description) VALUES
-	('SUMMON_PROJECTILE', 'SUMMON BOLT', 'summon_behavior', 0.6, 'Summons a bolt in the air over where you aim. It falls, strikes whatever it touches with the attack''s numbers, and is gone a few seconds later. Each one stacked summons one more.'),
 	('SUMMON_PET', 'SUMMON PET', 'summon_behavior', 0.8, 'Summons a pet that follows you about. On its own it does nothing else. One at a time: a cast while it is there summons no other, but tells it again what it does.'),
-	('OFFENSIVE', 'OFFENSIVE', 'summon_behavior', 0.6, 'A pet summoned with it goes for the nearest enemy near you and strikes it with the attack''s numbers. Each one stacked strikes more often. Does nothing without a SUMMON PET.');
+	('OFFENSIVE', 'OFFENSIVE', 'summon_behavior', 0.6, 'A pet summoned with it goes for the nearest enemy near you and strikes it with the attack''s numbers. Each one stacked strikes more often. Does nothing without a SUMMON PET.'),
+	('KAMIKAZE', 'KAMIKAZE', 'summon_behavior', 0.8, 'A pet summoned with it flies at the nearest enemy near you and blows itself up against it: everything round it takes the attack''s numbers, and the pet is gone. Each one stacked bursts wider. Does nothing without a SUMMON PET.');
 
 INSERT INTO ports (part_id, side) VALUES
-	('SUMMON_PROJECTILE', 'E'), ('SUMMON_PET', 'E'), ('OFFENSIVE', 'E');
+	('SUMMON_PET', 'E'), ('OFFENSIVE', 'E'), ('KAMIKAZE', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
-	('SUMMON_PROJECTILE', 0, 'summon_projectile', 'add', 1),
 	('SUMMON_PET', 0, 'summon_pet', 'add', 1),
-	('OFFENSIVE', 0, 'pet_offensive', 'add', 1);
+	('OFFENSIVE', 0, 'pet_offensive', 'add', 1),
+	('KAMIKAZE', 0, 'pet_kamikaze', 'add', 1);
 
 
 -- ---- flow ---------------------------------------------------------------------

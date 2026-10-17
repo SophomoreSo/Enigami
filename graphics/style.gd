@@ -47,9 +47,9 @@ const COMPONENT := {
 	"HEADBUTT": {"glyph": "☻"},
 
 	"ANTI_GRAVITY": {"glyph": "⇡"},
-	"SUMMON_PROJECTILE": {"glyph": "⇓"},
 	"SUMMON_PET": {"glyph": "✿"},
 	"OFFENSIVE": {"glyph": "⚔"},
+	"KAMIKAZE": {"glyph": "✸"},
 
 	"FIRE": {"glyph": "🔥"},
 	"ICE": {"glyph": "❄", "color": Color(0.45, 0.8, 0.98)},
@@ -138,15 +138,15 @@ const COMPONENT_ICON := {
 		".......",
 		"#######",
 	],
-	# A ring in the air, and a bolt dropping out of it.
-	"SUMMON_PROJECTILE": [
+	# The pet's round face under a lit fuse.
+	"KAMIKAZE": [
+		"...#.#.",
+		"....#..",
+		"...#...",
 		".#####.",
-		"#.....#",
+		"##.#.##",
+		"#######",
 		".#####.",
-		"...#...",
-		"...#...",
-		"..###..",
-		"...#...",
 	],
 	# The pet's face, scowling, teeth bared.
 	"OFFENSIVE": [
@@ -742,15 +742,15 @@ const COMPONENT_MOTION := {
 		"....... ....... ....... #.#.#.#",
 		"####### ####### ####### #######",
 	]},
-	# The bolt drops out of the ring and another comes through after it.
-	"SUMMON_PROJECTILE": {"fps": 10, "hold": [4, 1, 1, 1], "strip": [
-		".#####. .#####. .#####. .#####.",
-		"#.....# #.....# #.....# #.....#",
-		".#####. .#####. .#####. .#####.",
-		"...#... ....... ....... ...#...",
-		"...#... ...#... ....... .......",
-		"..###.. ...#... ...#... .......",
-		"...#... ..###.. ...#... .......",
+	# The fuse burns down, the pet screws its eyes shut, and it goes off.
+	"KAMIKAZE": {"fps": 8, "hold": [3, 3, 2, 3], "strip": [
+		"...#.#. ..#.#.. ....... #..#..#",
+		"....#.. ...#... ..#.#.. .#.#.#.",
+		"...#... ...#... ...#... ..###..",
+		".#####. .#####. .#####. #######",
+		"##.#.## ##.#.## ####### ..###..",
+		"####### ####### ####### .#.#.#.",
+		".#####. .#####. .#####. #..#..#",
 	]},
 	# It snaps its teeth shut.
 	"OFFENSIVE": {"fps": 8, "hold": [5, 2], "strip": [

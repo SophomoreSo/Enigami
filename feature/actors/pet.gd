@@ -11,7 +11,10 @@ extends Node2D
 ## later cast tells it again. OFFENSIVE: it darts at the nearest enemy within
 ## SIGHT of its summoner and strikes it with that flow, as often as
 ## STRIKE_EVERY lets it — more often for each one stacked — and comes back
-## between strikes.
+## between strikes. KAMIKAZE: it darts at that enemy as soon as there is one,
+## and blows itself up against it, the flow going off round it as a burst
+## (`Attacks.kamikaze`); then it is gone, and the next cast with a SUMMON PET
+## calls another.
 
 ## Where it hovers, from its summoner's middle: behind them, and up by their
 ## shoulder.
@@ -38,6 +41,8 @@ var facing := 1
 var payload: Payload = null
 ## How many OFFENSIVEs that flow carried: 0, and it never strikes.
 var offensive := 0
+## How many KAMIKAZEs it carried: 0, and it never blows itself up.
+var kamikaze := 0
 ## The enemy it is going for, or null.
 var target: Actor = null
 var _cool := 0.0
@@ -56,6 +61,7 @@ func home() -> Vector2:
 func take(p: Payload) -> void:
 	payload = p
 	offensive = p.pet_offensive if p != null else 0
+	kamikaze = p.pet_kamikaze if p != null else 0
 
 func _process(delta: float) -> void:
 	if summoner == null or not is_instance_valid(summoner) or bool(summoner.get("dead")):
@@ -65,13 +71,17 @@ func _process(delta: float) -> void:
 	_cool = maxf(0.0, _cool - delta)
 	var want := home() + Vector2(0, sin(_t * BOB_SPEED) * BOB)
 	var rate := FOLLOW
-	target = _pick() if offensive > 0 and payload != null else null
-	if target != null and _cool <= 0.0:
+	target = _pick() if (offensive > 0 or kamikaze > 0) and payload != null else null
+	# A kamikaze one waits for nothing: it has only the one blow.
+	var going := target != null and (kamikaze > 0 or _cool <= 0.0)
+	if going:
 		want = target.global_position
 		rate = DART
 	global_position = global_position.lerp(want, 1.0 - exp(-rate * delta))
-	if target != null and _cool <= 0.0 \
-			and global_position.distance_to(target.global_position) <= REACH + target.hurt_radius:
+	if going and global_position.distance_to(target.global_position) <= REACH + target.hurt_radius:
+		if kamikaze > 0:
+			_blow_up()
+			return
 		_strike(target)
 	var way = summoner.get("facing")
 	if target != null:
@@ -101,6 +111,13 @@ func _strike(a: Actor) -> void:
 	Attacks.resolve_hit(payload.clone(), a, global_position, dir, atk, summoner.get("room"),
 		int(summoner.get("team")) if summoner.get("team") != null else 0)
 	_cool = STRIKE_EVERY / float(maxi(offensive, 1))
+
+## KAMIKAZE: it goes off where it is — the flow it was summoned with bursting
+## on everything round it, as its summoner's blow — and is gone.
+func _blow_up() -> void:
+	Attacks.kamikaze(payload.clone(), global_position,
+		int(summoner.get("team")) if summoner.get("team") != null else 0, summoner as Actor, summoner.get("room"))
+	queue_free()
 
 ## The pet `summoner` has, or null.
 static func of(summoner: Node, tree: SceneTree) -> Pet:

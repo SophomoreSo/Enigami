@@ -3,10 +3,15 @@ extends Node2D
 
 ## A pet (`Pet`): a small round thing with two eyes and a pair of ears, in the
 ## summon colour, glowing a little, facing the way its summoner does. It blinks.
-## An OFFENSIVE one wears a scowl, and reddens as it goes for an enemy.
+## An OFFENSIVE one wears a scowl, and reddens as it goes for an enemy. A
+## KAMIKAZE one carries a lit fuse on its head, and flashes hot as it flies at
+## the one it is going to blow itself up against.
 
 const BODY := Color(0.62, 0.86, 0.42)
 const DARK := Color(0.10, 0.12, 0.10)
+const FUSE := Color(0.55, 0.42, 0.30)
+const SPARK := Color(1.0, 0.85, 0.35)
+const HOT := Color(1.0, 0.55, 0.25)
 const BLINK_EVERY := 3.0
 const BLINK_FOR := 0.12
 
@@ -43,5 +48,14 @@ func _draw() -> void:
 		if pet.offensive > 0:
 			var inward := 1.0 if x > 3.0 else -1.0
 			draw_line(at + Vector2(-2.0, -5.0 - inward), at + Vector2(2.0, -5.0 + inward), DARK, 2.0)
-	if pet.target != null:
+	if pet.kamikaze > 0:
+		# A fuse out of the top of its head, and a spark on the end that
+		# flickers as it burns.
+		draw_line(Vector2(0, -10), Vector2(2, -15), FUSE, 2.0)
+		var lit := 0.6 + 0.4 * sin(_t * 30.0)
+		draw_circle(Vector2(3, -17), 1.5 + lit, Color(SPARK.r, SPARK.g, SPARK.b, lit))
+		if pet.target != null:
+			var flash := 0.5 + 0.5 * sin(_t * 40.0)
+			draw_circle(Vector2.ZERO, 13.0, Color(HOT.r, HOT.g, HOT.b, 0.2 + 0.35 * flash))
+	elif pet.target != null:
 		draw_circle(Vector2.ZERO, 12.0, Color(1.0, 0.35, 0.3, 0.25))

@@ -78,7 +78,7 @@ godot res://tests/graphics/glass_test.tscn  # glass: what is behind clear glass 
 godot res://tests/graphics/bolt_view_test.tscn # a bolt's trail: the gaps between its beads drawn in, and a laser's beam from the muzzle
 godot res://tests/graphics/rock_view_test.tscn # the rock, drawn: a stone of the game's own and not the pack's morning star, held upright, turning over in the air, and marked where it lies
 godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
-godot res://tests/feature/summon_test.tscn  # SUMMON BOLT's bolt in the air, falling, striking once and gone; SUMMON PET's pet following, one to a summoner, and with OFFENSIVE going for an enemy
+godot res://tests/feature/summon_test.tscn  # SUMMON PET's pet following, one to a summoner, with OFFENSIVE going for an enemy, and with KAMIKAZE blowing itself up against one
 godot res://tests/feature/slam_test.tscn    # KNOCKBACK into a wall: cracked, hurt and stunned past a speed, and nothing under it
 godot res://tests/graphics/crack_test.tscn  # the crack a slam leaves: it stays, it is the room's, and it is there again when the room is walked back into
 godot res://tests/feature/stack_test.tscn   # parts stack: what each one more is worth, where a part stops, laser speed, and HOMING round a wall
@@ -587,23 +587,25 @@ giving it further to walk.
   is still there when you walk back into the room — up to 24 a room, the
   oldest going first — until the raid is over or you leave the hideout.
 - `ANTI-GRAVITY` takes the weight off a bolt: a lobbed or thrown shot — a
-  Lobber's, a weapon's that arcs — flies straight instead, and a bolt
-  `SUMMON BOLT` calls hangs where it was called instead of falling, until
-  its three seconds are up. One is all it takes; more do no more.
-- `SUMMON BOLT` and `SUMMON PET`, the SUMMON MODIFIER block, call
-  something up beside the attack every time a flow carrying them goes off,
-  whatever its form, and with none. `SUMMON BOLT` (its id is `SUMMON_PROJECTILE`) hangs a bolt in the air
-  over where you aim — as far as some eight cells off, and up to three and a
-  half over it, short of the rock — which falls under its own weight, strikes
-  whatever it touches once with the attack's numbers, lies where it lands, and
-  is gone three seconds after it was called. Each one stacked calls one more,
-  side by side. `SUMMON PET` calls a pet that hovers behind your shoulder and
+  Lobber's, a weapon's that arcs — flies straight instead. One is all it
+  takes; more do no more.
+- `SUMMON PET`, in the SUMMON MODIFIER block with `OFFENSIVE` and `KAMIKAZE`,
+  calls something up beside the attack every time a flow carrying it goes off,
+  whatever its form, and with none — a pet that hovers behind your shoulder and
   follows you about: one at a time, so a cast while it is there calls no
   other, but tells the one there again what it does; it goes when you do. On
   its own it does nothing else. With `OFFENSIVE` on the same flow it goes for
   the nearest enemy within seven cells of you, darts at it and strikes it with
   the flow's numbers — everything the board built into it — once every 1.2
   seconds, and more often for each one stacked, coming back between strikes.
+  With `KAMIKAZE` it flies at that enemy as soon as there is one and blows
+  itself up against it: the flow goes off there as a burst, as one with no
+  form but an `EXPLODE` does, and everything round it takes the attack's
+  numbers — the pet's summoner's blow, triggers and all. Then the pet is gone,
+  and the next cast with `SUMMON PET` calls another. Each one stacked bursts
+  wider, as each `EXPLODE` does. `SUMMON BOLT`, which hung a bolt in the air
+  over where you aimed, is retired: a board or a code with one on it reads
+  with it left out.
 - `EXPLODE` bursts every hit. The enemy an attack strikes is the middle of a
   blast that lands the same hit on everything round it — its damage, its
   elements, its `STUN`, a `KNOCKBACK` out from the middle — though not on that

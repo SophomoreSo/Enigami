@@ -58,9 +58,9 @@
 		"repel": "밀어냄",
 		"hook": "끌어옴",
 		"anti_gravity": "무중력",
-		"summon_projectile": "투사체 소환",
 		"summon_pet": "펫 소환",
 		"pet_offensive": "펫 공격",
+		"pet_kamikaze": "펫 자폭",
 		"separator": ", ",
 		"then": "그다음"
 	}

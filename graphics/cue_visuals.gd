@@ -39,11 +39,10 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 			Fx.shake(6.0)
 		&"lunge_cut":
 			Fx.shake(4.0)
-		&"summon_projectile":
-			# Called up out of the air: a ring opens where it hangs.
-			Fx.ring(pos, Style.element_color(d.get("payload")), 22.0)
-		&"summon_landed":
-			Fx.burst(pos, Style.element_color(d.get("payload")), 4, 70.0)
+		&"pet_kamikaze":
+			# The pet goes up in pieces where it struck; the burst's own ring and
+			# shake come with the blast (`area_blast`).
+			Fx.burst(pos, Style.category_color(Components.CAT_SUMMON_BEHAVIOR), 14, 160.0)
 		&"summon_pet":
 			Fx.ring(pos, Style.category_color(Components.CAT_SUMMON_BEHAVIOR), 30.0)
 			Fx.burst(pos, Style.category_color(Components.CAT_SUMMON_BEHAVIOR), 8, 90.0)
