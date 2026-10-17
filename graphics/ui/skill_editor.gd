@@ -120,18 +120,18 @@ const PAL_W := 244
 ## grew to four rows. A row is PAL_H - 4 tall, which still clears the 14-PIXEL
 ## icon inside it.
 const PAL_H := 24
-## A category's name is written down the gutter beside its block rather than on
-## a header row above it: there are six of them, and six more rows do not
-## fit between the header and the info panel. The spine is the rule the name
-## and the block hang off, PAL_SPINE short of the first column.
+## The categories stand down the palette's left, a tab each, and the parts of
+## the one whose tab is up stand beside them — the way mobile mode's column
+## is, and for the same reason: a category's parts are what is looked through,
+## and the rest are a press away. The tabs take PAL_TAB_W of the gutter and
+## the parts start PAL_GUTTER in.
 const PAL_GUTTER := 122.0
-const PAL_SPINE := 10.0
-## The space between one category's block and the next. Cut from 6 to 4 when the
-## stat block took a fifth part and grew a row: a block is already told apart by
-## its spine and its name, so the gap is the first thing worth spending when the
-## palette has to find another row's height. `editor_pixel_test` is what says
-## when it has run out — it fails the moment the rows reach the info panel.
+const PAL_TAB_W := 112.0
+## The space between one tab and the next.
 const PAL_GROUP_GAP := 4.0
+## The least a tab stands tall: two lines of its name, a long one wrapping
+## onto the second.
+const PAL_TAB_LEAST := 48.0
 ## The baseline of a row's text, from the top of the row: capitals stand 10
 ## tall, so this leaves 6 above them and 4 under.
 const PAL_TEXT_Y := 16.0
@@ -278,11 +278,13 @@ var _message: String = ""
 var _message_time: float = 0.0
 ## Whether the message is news rather than a refusal: what COPY and PASTE did.
 var _message_good: bool = false
-## The palette, laid out once per shape of screen and size of board: a row per
-## part and a block per category, both drawn and hit-tested from the same
-## rects. See `_build_palette`.
+## The palette, laid out once per shape of screen, size of board and tab: a
+## row per part of the category whose tab is up and, at a desk, a tab per
+## category, both drawn and hit-tested from the same rects. See
+## `_build_palette`.
 var _pal_rows: Array = []
-var _pal_blocks: Array = []
+## A desk's category tabs, down the palette's left, by index into `_pal_groups`.
+var _pal_tabs: Array = []
 var _pal_height: float = 0.0
 ## Where the palette was laid out from: its first row's top-left, the gutter
 ## included.
@@ -796,6 +798,12 @@ func _update_hover(pos: Vector2) -> void:
 		if _shelf_rect(i).has_point(pos):
 			_hover_shelf = i
 			return
+	if not thumb():
+		_pal_list()
+		for i in _pal_tabs.size():
+			if (_pal_tabs[i] as Rect2).has_point(pos):
+				_hover_tab = i
+				return
 	if thumb():
 		var l := _thumb_layout()
 		var tabs: Array = l["tabs"]
@@ -2933,35 +2941,34 @@ func _pal_groups() -> Array:
 		(_groups[int(at[cat])]["ids"] as Array).append(id)
 	return _groups
 
-## Every row and every block placed, once. The pool is a constant, so this is
-## worked out on first use and kept: the rows the palette draws and the rects
-## the cursor is tested against are then the same numbers, and a block that
-## grows a part pushes the ones under it down on its own.
+## A desk's palette placed: the tabs down its left, each as tall as the panel
+## shares out between them, and beside them the rows of the category whose tab
+## is up and no others. `_pal_rows` is what the rest of the screen asks — what
+## is under a press, what is in the hand's reach — so the parts behind the
+## other tabs are not there to be pressed. Worked out again when the tab
+## changes (`_layout_key`).
 func _build_palette() -> void:
 	_pal_rows = []
-	_pal_blocks = []
+	_pal_tabs = []
 	var origin: Vector2 = _desk_layout()["parts"]
 	_pal_origin = origin
+	var groups := _pal_groups()
+	_pal_height = _pal_panel_size().y - 20.0
+	if groups.is_empty():
+		return
+	var n := float(groups.size())
+	var tall := maxf(PAL_TAB_LEAST, floorf((_pal_height - (n - 1.0) * PAL_GROUP_GAP) / n / PX) * PX)
+	for i in groups.size():
+		_pal_tabs.append(Rect2(origin.x, origin.y + float(i) * (tall + PAL_GROUP_GAP), PAL_TAB_W, tall))
+	_pal_height = maxf(_pal_height, n * tall + (n - 1.0) * PAL_GROUP_GAP)
+	_tab = clampi(_tab, 0, groups.size() - 1)
+	var ids: Array = groups[_tab]["ids"]
 	var x := origin.x + PAL_GUTTER
-	var y := origin.y
-	for group in _pal_groups():
-		var ids: Array = group["ids"]
-		var rows := int(ceil(float(ids.size()) / float(PAL_COLS)))
-		var cat := String(group["cat"])
-		_pal_blocks.append({
-			"name": Style.category_name(cat),
-			"col": Style.category_color(cat),
-			# The name is right-aligned on the spine, on the first row's baseline.
-			"baseline": Vector2(x - PAL_SPINE - 8.0, y + PAL_TEXT_Y),
-			"spine": Rect2(x - PAL_SPINE, y, PX, rows * PAL_H - 4.0),
-		})
-		for i in ids.size():
-			@warning_ignore("integer_division")
-			_pal_rows.append({"id": String(ids[i]), "rect": Rect2(
-				Vector2(x + (i % PAL_COLS) * PAL_W, y + int(i / PAL_COLS) * PAL_H),
-				Vector2(PAL_W - 4, PAL_H - 4))})
-		y += rows * PAL_H + PAL_GROUP_GAP
-	_pal_height = y - PAL_GROUP_GAP - origin.y
+	for i in ids.size():
+		@warning_ignore("integer_division")
+		_pal_rows.append({"id": String(ids[i]), "rect": Rect2(
+			Vector2(x + (i % PAL_COLS) * PAL_W, origin.y + int(i / PAL_COLS) * PAL_H),
+			Vector2(PAL_W - 4, PAL_H - 4))})
 
 ## Laid out again when the screen has changed shape under it, since every rect
 ## in it carries where it was worked out for — and when the mode has, or mobile
@@ -2982,7 +2989,7 @@ func _pal_list() -> Array:
 ## parts on the other tabs are not there to be pressed.
 func _build_thumb_parts() -> void:
 	_pal_rows = []
-	_pal_blocks = []
+	_pal_tabs = []
 	var groups := _pal_groups()
 	if groups.is_empty():
 		return
@@ -3009,8 +3016,11 @@ func _pal_panel() -> Rect2:
 		Vector2(PAL_GUTTER + PAL_COLS * PAL_W - 4 + 20, maxf(_pal_height + 20, float(_desk_layout()["tall"]))))
 
 ## How big a desk's parts panel stands: 10 clear of its rows on every side, the
-## gutter included. Counted off the blocks rather than off the rows, since
-## where the rows go is worked out from it.
+## gutter included. As tall as every category's rows would be stacked one
+## under the other, the way the palette was before it had tabs — so the board,
+## which is sized to stand as tall as the panel, is the size it always was —
+## and the tabs share that out. Counted off the categories rather than off the
+## rows, since where the rows go is worked out from it.
 func _pal_panel_size() -> Vector2:
 	var tall := -PAL_GROUP_GAP
 	for group in _pal_groups():
@@ -3022,12 +3032,7 @@ func _draw_palette() -> void:
 	_px.rect(panel, Color(0.08, 0.09, 0.12, 0.92))
 	_px.frame(panel, Color(0.3, 0.45, 0.6, 0.7))
 
-	for block in _pal_blocks:
-		var col: Color = block["col"]
-		_px.rect(block["spine"], Color(col.r, col.g, col.b, 0.7))
-		var label := PixelDraw.clip(String(block["name"]), PAL_GUTTER - PAL_SPINE - 8.0)
-		var at: Vector2 = block["baseline"] - Vector2(PixelDraw.ink_width(label), 0.0)
-		_px.text(at, label, col)
+	_draw_pal_tabs()
 
 	var ids := _palette_ids()
 	for i in ids.size():
@@ -3046,6 +3051,33 @@ func _draw_palette() -> void:
 			Color(0.92, 0.95, 1.0) if have else Color(0.45, 0.48, 0.52), _pal_name_width(i))
 		if i == _hover_pal:
 			_px.frame(r, Color(1, 1, 1, 0.5))
+
+## A desk's category tabs: each in its category's colour, the one that is up
+## lit and filled, its name centred on it a word a line where it is wider than
+## the tab.
+func _draw_pal_tabs() -> void:
+	var groups := _pal_groups()
+	for i in mini(groups.size(), _pal_tabs.size()):
+		var r: Rect2 = _pal_tabs[i]
+		var cat := String(groups[i]["cat"])
+		var col := Style.category_color(cat)
+		var up := i == _tab
+		_px.rect(r, Color(col.r, col.g, col.b, 0.34) if up else Color(0.08, 0.09, 0.12, 0.92))
+		_px.frame(r, col if up else Color(col.r, col.g, col.b, 0.45))
+		if up:
+			_px.frame(r.grow(-PX), col)
+		if i == _hover_tab:
+			_px.frame(r, Color(1, 1, 1, 0.5))
+		var lines := _tab_lines(cat, r.size.x - 12.0)
+		var top := r.position.y + (r.size.y + 10.0) * 0.5 - PixelDraw.LINE * 0.5 * float(lines.size() - 1)
+		for k in lines.size():
+			_px.text_centered(Vector2(r.position.x + 6.0, top + PixelDraw.LINE * k),
+				lines[k], Color.WHITE if up else col, r.size.x - 12.0)
+
+## A category's name in lines `wide` across — two at most, the rest cut short.
+static func _tab_lines(cat: String, wide: float) -> PackedStringArray:
+	var lines := PixelDraw.wrap(Style.category_name(cat), wide, 2)
+	return lines if not lines.is_empty() else PackedStringArray([""])
 
 ## The room a palette row leaves its part's name: after the icon, and short of
 ## the count.

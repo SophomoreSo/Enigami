@@ -47,7 +47,10 @@ func button(p: Vector2, idx: int, pressed: bool) -> void:
 func cell_pos(c: Vector2i) -> Vector2:
 	return ed._cell_center(c)
 
+## Where `id` stands in the palette, with its category's tab put up first: the
+## palette shows one category's parts at a time.
 func pal_pos(id: String) -> Vector2:
+	ed._show_tab(ed._tab_of(id), false)
 	return ed._pal_rect(ed._palette_ids().find(id)).get_center()
 
 func _ready() -> void:

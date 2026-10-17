@@ -9,8 +9,9 @@ extends Node
 ## the right edge, lit by a flow that reaches it, drained by one only a trigger
 ## sends, and red with none. On the layout: the board and the palette stand side
 ## by side in the middle of the screen, the biggest board a Workbench grows
-## included; the palette is one block a part category with its name beside it in
-## the gutter, every part's name fits its palette row, every part's description
+## included; the palette is a tab a part category down its left, a press on
+## one putting up that category's parts and only those, every category's name
+## fits its tab, every part's name fits its palette row, every part's description
 ## fits its card, the back arrow stands in the screen's corner and COPY and
 ## PASTE under the board, clear of the parts in every language, and a preview
 ## with more to say than rows to say it in is cut short and says so.
@@ -236,7 +237,10 @@ func _ready() -> void:
 	# Row by row in palette order, so every icon is on the board at once and the
 	# parts meet in joints, breaks and dead ends.
 	var at := Vector2i.ZERO
-	for id in ed._palette_ids():
+	var every: Array = []
+	for group in ed._pal_groups():
+		every.append_array(group["ids"])
+	for id in every:
 		var w := int(Components.get_def(id).get("cells", 1))
 		if at.x + w > b.width:
 			at = Vector2i(0, at.y + 1)
@@ -283,15 +287,23 @@ func _ready() -> void:
 	await frames(4)
 	var red: SkillEditor = Views.of(raid).editor
 	red.selected = "SLASH"
-	red._hover_pal = 5
+	# The tab with the most parts up, and one of its parts hovered.
+	var fullest := 0
+	for t in red._pal_groups().size():
+		if (red._pal_groups()[t]["ids"] as Array).size() > (red._pal_groups()[fullest]["ids"] as Array).size():
+			fullest = t
+	red._show_tab(fullest, false)
+	var hovered := mini(5, red._palette_ids().size() - 1)
+	red._hover_pal = hovered
+	red._hover_tab = (fullest + 1) % red._pal_groups().size()
 	red._hover_close = true
 	red._hover_copy = true
 	# The card says what the part under the cursor is and does, hung off its
 	# row rather than over it.
-	var row := red._pal_rect(5)
-	var said := red._hint_rows(String(red._palette_ids()[5]), false)
+	var row := red._pal_rect(hovered)
+	var said := red._hint_rows(String(red._palette_ids()[hovered]), false)
 	var card := red._hint_box(get_viewport().get_visible_rect().size, row, said.size())
-	check(said.size() >= 2 and String(said[0][0]) == Components.name_for(String(red._palette_ids()[5])),
+	check(said.size() >= 2 and String(said[0][0]) == Components.name_for(String(red._palette_ids()[hovered])),
 		"hovering a part in the palette names it and says what it does (%d rows)" % said.size())
 	check(not card.intersects(row), "and its card sits clear of the row it names")
 	hidden = isolate(red)
@@ -629,47 +641,57 @@ func _ready() -> void:
 			and absf(panel.position.y - (vp.y - panel.end.y)) <= SkillEditor.PX,
 		"and each is halfway down (the board %.0f over and %.0f under, the palette %.0f and %.0f)"
 			% [biggest.position.y, vp.y - foot, panel.position.y, vp.y - panel.end.y])
-	# The palette's panel runs 10 past its rows on every side.
-	var ids := wb._palette_ids()
-	# One block a category, every part of a category inside its own block, and
-	# every block's name written in the gutter beside it rather than over it.
-	var blocks := wb._pal_blocks
-	var cats: Array = []
-	for id in ids:
-		var cat := String(Components.get_def(id).get("cat", ""))
-		if not cats.has(cat):
-			cats.append(cat)
-	check(blocks.size() == cats.size(), "the palette is %d blocks, one a category (%d)"
-		% [cats.size(), blocks.size()])
-	var split: Array = []
-	for cat in cats:
-		var rows: Array = []
-		for i in ids.size():
-			if String(Components.get_def(ids[i]).get("cat", "")) == cat:
-				rows.append(i)
-		if int(rows[-1]) - int(rows[0]) != rows.size() - 1:
-			split.append(cat)
-	check(split.is_empty(), "every category's parts are one run of rows (split: %s)" % str(split))
+	# A tab a category down the palette's left, inside its panel, none on
+	# another; and under each, that category's parts and no others, in rows
+	# beside the tabs that none of them overlaps.
+	var groups := wb._pal_groups()
+	wb._pal_list()
+	var tabs: Array = wb._pal_tabs
+	check(tabs.size() == groups.size(), "the palette has a tab a category (%d of %d)" % [tabs.size(), groups.size()])
+	var stray: Array = []
+	for i in tabs.size():
+		var t: Rect2 = tabs[i]
+		if not panel.encloses(t):
+			stray.append("%s off the panel" % groups[i]["cat"])
+		for j in range(i + 1, tabs.size()):
+			if t.intersects(tabs[j]):
+				stray.append("%s/%s" % [groups[i]["cat"], groups[j]["cat"]])
+	check(stray.is_empty(), "every tab is on the panel and none on another (%s)" % str(stray))
 	var wide: Array = []
-	var room := SkillEditor.PAL_GUTTER - SkillEditor.PAL_SPINE - 8.0
-	for block in blocks:
-		if PixelDraw.text_width(String(block["name"])) > room:
-			wide.append("%s (%.0f of %.0f)" % [block["name"], PixelDraw.text_width(String(block["name"])), room])
-	check(wide.is_empty(), "every category name fits the gutter (too wide: %s)" % str(wide))
+	for i in tabs.size():
+		var cat := String(groups[i]["cat"])
+		var room := (tabs[i] as Rect2).size.x - 12.0
+		if " ".join(SkillEditor._tab_lines(cat, room)) != Style.category_name(cat):
+			wide.append("%s (%.0f)" % [Style.category_name(cat), room])
+	check(wide.is_empty(), "every category's name fits its tab whole, in two lines at most (cut: %s)" % str(wide))
+	var was_tab := wb._tab
+	var wrong: Array = []
 	var overlap: Array = []
-	for i in ids.size():
-		for j in range(i + 1, ids.size()):
-			if wb._pal_rect(i).intersects(wb._pal_rect(j)):
-				overlap.append("%s/%s" % [ids[i], ids[j]])
-	check(overlap.is_empty(), "no two palette rows overlap (%s)" % str(overlap))
 	var tight: Array = []
-	for i in ids.size():
-		var id: String = ids[i]
-		# The widest count a row can show.
-		wb.inventory[id] = 99
-		var part_name := Components.name_for(id)
-		if PixelDraw.text_width(part_name) > wb._pal_name_width(i):
-			tight.append("%s (%.0f of %.0f)" % [part_name, PixelDraw.text_width(part_name), wb._pal_name_width(i)])
+	for t in groups.size():
+		wb._show_tab(t, false)
+		var ids := wb._palette_ids()
+		if ids != (groups[t]["ids"] as Array):
+			wrong.append(String(groups[t]["cat"]))
+		for i in ids.size():
+			var r := wb._pal_rect(i)
+			if not panel.encloses(r):
+				overlap.append("%s off the panel" % ids[i])
+			for tab in tabs:
+				if r.intersects(tab):
+					overlap.append("%s on a tab" % ids[i])
+			for j in range(i + 1, ids.size()):
+				if r.intersects(wb._pal_rect(j)):
+					overlap.append("%s/%s" % [ids[i], ids[j]])
+			var id: String = ids[i]
+			# The widest count a row can show.
+			wb.inventory[id] = 99
+			var part_name := Components.name_for(id)
+			if PixelDraw.text_width(part_name) > wb._pal_name_width(i):
+				tight.append("%s (%.0f of %.0f)" % [part_name, PixelDraw.text_width(part_name), wb._pal_name_width(i)])
+	wb._show_tab(was_tab, false)
+	check(wrong.is_empty(), "each tab puts up its category's parts and only those (wrong: %s)" % str(wrong))
+	check(overlap.is_empty(), "every row is on the panel, beside the tabs, and none on another (%s)" % str(overlap))
 	check(tight.is_empty(), "every part's name fits its palette row beside a count of 99 (too tight: %s)" % str(tight))
 
 	GameState.facilities = facilities_before

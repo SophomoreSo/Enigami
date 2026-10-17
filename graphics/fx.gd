@@ -128,7 +128,15 @@ func _framed(at: Vector2, zoom: Vector2) -> Vector2:
 var sparks := Pool.new(Spark, 64)
 var rings := Pool.new(Ring, 16)
 var words := Pool.new(FloatText, 24)
-var cracks := Pool.new(Crack, 12)
+
+## The cracks slams have left in the rock, which are not lent and given back
+## like the rest: a crack is a mark on the room, and stays. They are kept for
+## as long as the world they were made in, by that world and the room in it —
+## each [where, facing, force], where in the room's own space — so a room
+## walked out of and back into has them where they were (`lay_cracks`). The
+## oldest goes when a room has more than CRACKS_A_ROOM.
+const CRACKS_A_ROOM := 24
+var _marks: Dictionary = {}
 
 func _world() -> Node:
 	return Arena.current()
@@ -151,14 +159,69 @@ func ring(pos: Vector2, color: Color, radius: float) -> void:
 
 ## A crack in the rock at `pos`, on a face turned to `normal`, as wide as
 ## `force` says — what a body slammed into a wall leaves (`Actor.SLAM_SPEED`).
-## It stays a while and fades.
+## It stays: in the room the world is standing in, for as long as that world
+## is up, and it is still there when the room is walked back into.
 func crack(pos: Vector2, normal: Vector2, force: float) -> void:
 	var world := _world()
 	if world == null:
 		return
-	var n := cracks.borrow(world) as Crack
-	n.setup(pos, normal, force)
-	cracks.dispose(n)
+	var room = world.get("room")
+	if not (room is Node2D) or not is_instance_valid(room):
+		return
+	var here := (room as Node2D).to_local(pos)
+	var key := _room_key(room)
+	var marks: Array = _marks.get(key, [])
+	marks.append([here, normal, force])
+	while marks.size() > CRACKS_A_ROOM:
+		marks.pop_front()
+	_marks[key] = marks
+	_forget_gone_worlds()
+	_lay_crack(room, here, normal, force)
+
+## Every crack `room` has had made in it, laid again: a room's view asks once
+## the room has been built (`RoomView._on_built`).
+func lay_cracks(room: Node2D) -> void:
+	for m: Array in _marks.get(_room_key(room), []):
+		_lay_crack(room, m[0], m[1], float(m[2]))
+
+## The cracks in `room` as they stand, for a test to count.
+func cracks_in(room: Node2D) -> Array:
+	var view := Views.of(room)
+	var on: Node = view if view != null else room
+	return on.get_children().filter(func(c: Node) -> bool: return c is Crack and not c.is_queued_for_deletion())
+
+## A crack put in `room`'s picture, over its rock and under everything that
+## stands in front of it: a made room's ground is drawn at -7, the old rooms'
+## rock at -1 — where the crack goes after it — and the rest draw their rock
+## under their own view.
+func _lay_crack(room: Node2D, here: Vector2, normal: Vector2, force: float) -> void:
+	var view := Views.of(room)
+	var on: Node = view if view != null else room
+	var there := cracks_in(room)
+	if there.size() >= CRACKS_A_ROOM:
+		(there[0] as Node).queue_free()
+	var z := 0
+	if view is MadeRoomView:
+		z = -6
+	elif view is RoomView:
+		z = -1
+	var n := Crack.new()
+	n.setup(here, normal, force, z)
+	on.add_child(n)
+
+## Which room of which world `room` is: the world it stands in, and its place
+## on that world's floor.
+static func _room_key(room: Node) -> String:
+	var world := room.get_parent()
+	var coord = room.get("coord")
+	return "%d|%s" % [world.get_instance_id() if world != null else 0,
+		str(coord) if coord != null else ""]
+
+## The cracks of worlds that are gone — a raid over, the hideout left.
+func _forget_gone_worlds() -> void:
+	for key: String in _marks.keys():
+		if not is_instance_id_valid(int(key.get_slice("|", 0))):
+			_marks.erase(key)
 
 func damage_number(pos: Vector2, amount: float, color: Color = Color(1, 1, 1)) -> void:
 	text(pos, "%d" % int(round(amount)), color)
@@ -259,21 +322,17 @@ class Ring extends Node2D:
 
 ## A crack in rock: jagged lines out from where a body struck it, into the rock
 ## and along its face, drawn on the world's pixel grid. It is a mark on the
-## rock, not a light: dark, and lit as the rock is.
+## rock, not a light: dark, and lit as the rock is. It does not fade: it is
+## the room's for as long as the room is (`Fx.crack`).
 class Crack extends Node2D:
-	const LIFE := 6.0
-	const FADE := 1.5
 	const INK := Color(0.04, 0.03, 0.03, 0.85)
 	const EDGE := Color(1.0, 1.0, 1.0, 0.18)
-	var pool: Pool = null
-	var life: float = LIFE
 	var lines: Array = []
 
-	func setup(pos: Vector2, normal: Vector2, force: float) -> void:
+	## At `pos` in the room, `z` deep among what the room's view draws.
+	func setup(pos: Vector2, normal: Vector2, force: float, z: int) -> void:
 		position = pos
-		# Over the rock and under the bodies (`MadeRoomView`'s tile field is -7).
-		z_index = -6
-		life = LIFE
+		z_index = z
 		lines.clear()
 		var reach := clampf(10.0 + 10.0 * force, 12.0, 34.0)
 		var into := -normal.normalized() if normal.length() > 0.01 else Vector2.RIGHT
@@ -287,7 +346,7 @@ class Crack extends Node2D:
 			var path := _walk(Vector2.ZERO, a, length, dice)
 			lines.append(path)
 			if dice.randf() < 0.6 and path.size() > 2:
-				var from: Vector2 = path[path.size() / 2]
+				var from: Vector2 = path[int(path.size() / 2.0)]
 				lines.append(_walk(from, a + dice.randf_range(-0.9, 0.9), length * 0.45, dice))
 		queue_redraw()
 
@@ -301,31 +360,15 @@ class Crack extends Node2D:
 			path.append(at.round())
 		return path
 
-	func _disposed() -> void:
-		pass
-
-	func _process(delta: float) -> void:
-		life -= delta
-		if life <= 0.0:
-			pool.give_back(self)
-			return
-		if life < FADE:
-			queue_redraw()
-
 	func _draw() -> void:
-		var a := clampf(life / FADE, 0.0, 1.0)
-		var ink := INK
-		ink.a *= a
-		var edge := EDGE
-		edge.a *= a
 		# Lines at least the pixel camera's SCALE wide, or they cover no pixel.
 		for path: PackedVector2Array in lines:
 			var lit := PackedVector2Array()
 			for pt in path:
 				lit.append(pt + Vector2(0, 2))
-			draw_polyline(lit, edge, 2.0)
-			draw_polyline(path, ink, 2.0)
-		draw_circle(Vector2.ZERO, 3.0, ink)
+			draw_polyline(lit, EDGE, 2.0)
+			draw_polyline(path, INK, 2.0)
+		draw_circle(Vector2.ZERO, 3.0, INK)
 
 class FloatText extends Node2D:
 	var pool: Pool = null
