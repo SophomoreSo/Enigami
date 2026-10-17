@@ -37,6 +37,9 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 			Audio.play("explode")
 		&"lunge_cut", &"dash":
 			Audio.play("dash")
+		&"wall_slam":
+			# A thud, heavier than a hit.
+			Audio.play("hit", 0.55)
 		&"magic":
 			# Off, a low crackle as it goes; on, a bright note as it comes back.
 			if bool(d.get("on", true)):

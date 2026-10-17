@@ -148,7 +148,8 @@ const PULL_REACH_PER := 0.25
 ## way the attack was going — on top of the hit's own shove, not instead of it.
 ## Bled off at `Actor.SHOVE_DECAY`, it carries an enemy that stands its ground
 ## some five cells, where an ordinary hit moves one less than a cell. Every
-## KNOCKBACK stacked pushes as hard again.
+## KNOCKBACK stacked pushes as hard again. Thrown into a wall hard enough, the
+## enemy cracks it and is hurt and stunned (`Actor.SLAM_SPEED`).
 const KNOCKBACK_FORCE := 300.0
 
 ## EXPLODE. How far a burst reaches at size 1, and how much further every
@@ -623,8 +624,10 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 	# blast, down the line of a lunge. It adds to whatever the hit did above,
 	# GRAVITY's pin included, so a board with both gathers the room and sends
 	# the one it struck flying out of the middle of it.
+	# Thrown so, it can be slammed into a wall (`Actor.SLAM_SPEED`), and the
+	# slam is the thrower's side's.
 	if p.knockback:
-		target.knockback(dir, KNOCKBACK_FORCE * float(p.knockback))
+		target.knockback(dir, KNOCKBACK_FORCE * float(p.knockback), team)
 	# What an INVERT made of KNOCKBACK: the struck enemy is hauled back the way
 	# the attack came, as hard as KNOCKBACK throws it on — and in place of the
 	# shove every hit gives (above), or a heavy blow's would cancel the pull.
