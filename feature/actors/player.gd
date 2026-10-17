@@ -607,7 +607,8 @@ func holds(id: String) -> bool:
 func can_cast() -> bool:
 	if runner == null:
 		return false
-	# A spent rune is a dead stone until it is filled again.
+	# A spent rune's graph casts nothing until it is filled again; the stone is
+	# thrown bare instead (`_throw_bare`).
 	if rune_spent_in_hand():
 		return false
 	# An empty hand has nothing in it to strike with but the fist.
@@ -905,8 +906,9 @@ func can_charge() -> bool:
 func rune_in_hand() -> bool:
 	return not empty_handed() and Weapons.is_rune(weapon_id)
 
-## Whether the weapon in hand is the rune and it is spent: it casts nothing
-## until it is filled again (`refill_rune`).
+## Whether the weapon in hand is the rune and it is spent: its graph casts
+## nothing until it is filled again (`refill_rune`), though the stone can still
+## be thrown bare (`_throw_bare`).
 func rune_spent_in_hand() -> bool:
 	return rune_in_hand() and GameState.rune_spent
 
@@ -941,6 +943,16 @@ func refill_rune(delta: float, holding: bool) -> bool:
 		refilling = false
 		Cues.at(&"rune_lit", global_position, {"weapon": weapon_id})
 	return true
+
+## Throws the weapon in hand bare: the stone itself, with the weapon's own
+## numbers and nothing its graph would build into it — no part's work, no
+## follow-up, no charge. What a spent rune is: still a stone to throw, its skill
+## gone out of it until it is filled again. The throw goes the way any throw of
+## it does (`_on_fired`), out of the hand and onto the floor to be picked up.
+func _throw_bare() -> void:
+	var p := Weapons.base_payload(weapon_id)
+	p.form = "PROJECTILE"
+	_on_fired(p, weapon_id)
 
 ## Magic went off, or came back: every graph carried is cast as its forms
 ## alone, or whole again (`SkillRunner.forms_only`), and what counts as
@@ -1097,11 +1109,13 @@ func _process(delta: float) -> void:
 	# the attack button throws it.
 	var rune := rune_in_hand()
 	refill_rune(delta, s.cast)
-	if not castable and not empty_handed() and (pressed or (s.cast_released and not rune)):
-		if rune_spent_in_hand():
-			Cues.at(&"refused", global_position, {"kind": "rune", "weapon": weapon_id})
-		else:
-			Cues.at(&"refused", global_position, {"kind": "thrown", "weapon": weapon_id})
+	# A spent rune in the body's hand is still a stone: the attack button throws
+	# it bare (`_throw_bare`), its graph cast not at all.
+	if pressed and rune_spent_in_hand() and possessing == null and holds(weapon_id) \
+			and holders[weapon_id] == self:
+		_throw_bare()
+	elif not castable and not empty_handed() and (pressed or (s.cast_released and not rune)):
+		Cues.at(&"refused", global_position, {"kind": "thrown", "weapon": weapon_id})
 	# Holding the cast button charges; letting go is what fires it. A tap is
 	# simply a charge of nothing, so a quick press still casts as it always did.
 	var holding := s.cast and not rune

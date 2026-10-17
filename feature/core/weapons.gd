@@ -32,8 +32,9 @@ extends RefCounted
 ## A weapon can be a `rune`: a rock with mana in it. It is thrown and picked
 ## back up the way the rock is, by the attack button alone, and a throw of it
 ## carries the charge stored in it for nothing (`GameState.rune_mana`). A throw
-## spends it: it casts nothing at all until it is filled again — by holding the
-## cast button with it in hand, which pours the player's own mana into it
+## spends it: it is still a stone to throw, but bare, its graph cast not at all
+## (`Player._throw_bare`), until it is filled again — by holding the cast button
+## with it in hand, which pours the player's own mana into it
 ## (`Player.refill_rune`) and never casts it.
 ##
 ## Numbers only: the colour a weapon is named in, and the tile it is drawn
@@ -74,10 +75,11 @@ const DEFS := {
 		"base_damage": 7.5,
 		"melee_mul": 1.1,
 		"ranged_mul": 1.15,
-		"projectile_speed": 0.9,
+		# Thrown as fast and as flat as a shuriken: no lob.
+		"projectile_speed": 1.4,
 		"reach_mul": 1.0,
 		"size_mul": 1.25,
-		"gravity_shots": true,
+		"gravity_shots": false,
 		"thrown": true,
 	},
 	"SHOVEL": {
@@ -96,16 +98,17 @@ const DEFS := {
 	},
 	"RUNE": {
 		"name": "Rune",
-		"desc": "A stone with a charge stored in it, thrown as the rock is: the throw goes out charged, and costs you nothing. Thrown, it is spent, and does nothing until you hold the cast button with it in hand to pour your own mana back in.",
+		"desc": "A stone with a charge stored in it, thrown as the rock is: the throw goes out charged, and costs you nothing. Thrown, it is spent: still a stone to throw, but bare, its skill gone out of it until you hold the cast button with it in hand to pour your own mana back in.",
 		"root": "PROJECTILE",
 		"board": "rune",
 		"base_damage": 7.0,
 		"melee_mul": 1.0,
 		"ranged_mul": 1.15,
-		"projectile_speed": 0.9,
+		# As the rock: as fast and as flat as a shuriken.
+		"projectile_speed": 1.4,
 		"reach_mul": 1.0,
 		"size_mul": 1.15,
-		"gravity_shots": true,
+		"gravity_shots": false,
 		"thrown": true,
 		"rune": true,
 	},

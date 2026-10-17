@@ -16,8 +16,7 @@
 		"winded": "탈진",
 		"parry": "막아냄",
 		"boss_phase": "%s: 제2형태",
-		"no_weapon": "%s 없음",
-		"rune_spent": "룬 소진: %s 눌러 채우기"
+		"no_weapon": "%s 없음"
 	},
 	"map": {
 		"title": "지도",

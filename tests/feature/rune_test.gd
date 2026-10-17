@@ -1,10 +1,11 @@
 extends Node
 ## The rune (`Weapons.is_rune`): a rock with a charge stored in it. The attack
 ## button throws it, and the throw carries the stored charge for nothing; the
-## cast button never throws it and never charges it. Thrown, it is spent, and
-## casts nothing — picked back up or not — until a hold of the cast button with
-## it in hand has poured the player's own mana into it to the full, and it is
-## lit again. What is in it is kept with the profile.
+## cast button never throws it and never charges it. Thrown, it is spent:
+## picked back up, the attack button still throws it, but bare — its graph cast
+## not at all — until a hold of the cast button with it in hand has poured the
+## player's own mana into it to the full, and it is lit again. What is in it is
+## kept with the profile.
 ##
 ## Played in the hideout with the computer's hands, the way the rock's test is.
 ## Headless: nothing here is looked at.
@@ -82,7 +83,12 @@ func _played() -> void:
 	add_child(h)
 	await frames(4)
 	var p := h.player
-	p.setup_kit(["RUNE"], [Weapons.make_board("RUNE")])
+	# A DAMAGE on its graph, so a throw with the skill and one without it can be
+	# told apart.
+	var graph := SkillBoard.new(7, 5, "rune")
+	graph.set_root("PROJECTILE", Vector2i(5, 2))
+	graph.place("DAMAGE", Vector2i(6, 2), 0)
+	p.setup_kit(["RUNE"], [graph])
 	p.global_position.x = 400.0
 	await frames(3)
 	bot = ComputerHands.new()
@@ -113,6 +119,7 @@ func _played() -> void:
 	var flying := bolts(h)
 	check(flying.size() >= 1 and (flying[0] as Projectile).thrown == "RUNE" and not p.holds("RUNE"),
 		"the attack button throws the rune itself (%d bolts)" % flying.size())
+	var lit_damage := (flying[0] as Projectile).payload.damage if not flying.is_empty() else 0.0
 	check(p.runner._cycle_life >= p.runner.pass_cost + int(p.charge_cap()),
 		"carrying the charge stored in it (a life of %d)" % p.runner._cycle_life)
 	check(GameState.rune_spent and is_zero_approx(GameState.rune_mana) and heard(&"rune_spent") == 1,
@@ -130,14 +137,31 @@ func _played() -> void:
 		p.velocity = Vector2.ZERO
 		await until(func() -> bool: return p.holds("RUNE"), 2.0)
 	check(p.holds("RUNE") and p.rune_spent_in_hand() and not p.can_cast() and not p.can_charge(),
-		"picked back up, it is still spent: it casts nothing and charges nothing")
+		"picked back up, it is still spent: its graph casts nothing, and it charges nothing")
 	cues.clear()
 	bot.attack = true
 	await frames(3)
 	bot.attack = false
 	await frames(2)
-	check(bolts(h).is_empty() and heard(&"refused", "rune") == 1,
-		"reached for, it throws nothing, and says it is spent")
+	var bare := bolts(h)
+	check(bare.size() == 1 and (bare[0] as Projectile).thrown == "RUNE" and not p.holds("RUNE"),
+		"the attack button still throws it, the stone itself (%d bolts)" % bare.size())
+	if bare.size() == 1:
+		var dmg := (bare[0] as Projectile).payload.damage
+		check(dmg < lit_damage and is_equal_approx(dmg, Weapons.finalize("RUNE", _bare_payload()).damage),
+			"but bare: the rune's own numbers, nothing its graph builds in (%.1f, %.1f lit)" % [dmg, lit_damage])
+	check(heard(&"refused") == 0 and GameState.rune_spent and is_zero_approx(GameState.rune_mana),
+		"it goes with no warning, and stays spent")
+	# Fetched again, to fill.
+	landed = await until(func() -> bool:
+		var all := rocks()
+		return all.size() == 1 and (all[0] as LooseRock).resting, 6.0)
+	if landed:
+		var r2: LooseRock = rocks()[0]
+		p.global_position = Vector2(r2.global_position.x, r2.global_position.y - 6.0)
+		p.velocity = Vector2.ZERO
+		await until(func() -> bool: return p.holds("RUNE"), 2.0)
+	check(p.holds("RUNE"), "and is picked up again")
 
 	# A hold short of full: it keeps what was poured, and stays spent.
 	p.mana = 20.0
@@ -164,6 +188,12 @@ func _played() -> void:
 		"for the mana poured into it (%.0f of the player's)" % (p.max_mana - p.mana))
 	h.queue_free()
 	await frames(2)
+
+## What a bare throw of the rune carries: its own numbers, as a bolt.
+func _bare_payload() -> Payload:
+	var p := Weapons.base_payload("RUNE")
+	p.form = "PROJECTILE"
+	return p
 
 ## What is in it, and whether it is spent, goes with the profile.
 func _kept() -> void:

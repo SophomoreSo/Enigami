@@ -73,9 +73,6 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 			var text := String(d.get("text", ""))
 			if kind == "stamina":
 				text = Loc.t("hud.fx.winded")
-			elif kind == "rune":
-				# The rune in hand is spent: say so, and what fills it.
-				text = Loc.t("hud.fx.rune_spent", [Controls.short_label_for("cast_skill")])
 			elif kind == "thrown":
 				# The rock is not in the hand: NO ROCK, over whoever reached for it.
 				text = Loc.t("hud.fx.no_weapon", [Weapons.name_for(String(d.get("weapon", ""))).to_upper()])

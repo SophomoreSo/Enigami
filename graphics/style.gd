@@ -1269,7 +1269,6 @@ static func pickup_color(p: Pickup) -> Color:
 const REFUSE_COLOR := {
 	"weapon": Color(1.0, 0.55, 0.5),
 	"stamina": Color(0.95, 0.7, 0.35),
-	"rune": Color(0.78, 0.66, 1.0),
 }
 
 static func refuse_color(kind: String) -> Color:

@@ -16,8 +16,7 @@
 		"winded": "WINDED",
 		"parry": "PARRY",
 		"boss_phase": "%s: SECOND FORM",
-		"no_weapon": "NO %s",
-		"rune_spent": "RUNE SPENT: HOLD %s TO FILL"
+		"no_weapon": "NO %s"
 	},
 	"map": {
 		"title": "MAP",

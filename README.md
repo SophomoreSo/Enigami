@@ -39,7 +39,7 @@ godot res://tests/feature/floor_test.tscn   # the raid's floor laid by hand hold
 godot res://tests/feature/bestiary_test.tscn # the monster dictionary: a monster met by walking into its room, a skill seen by its going off, and both kept with the save
 godot res://tests/feature/possess_test.tscn # POSSESS: into a monster and out again, the body left behind, passing for one of them, the weapon, talking
 godot res://tests/feature/kit_test.tscn     # up to three weapons carried, one in hand: the rack, the keys and the wheel, and what walking out and dying do to the lot
-godot res://tests/feature/rune_test.tscn    # the rune: thrown charged for nothing, spent once thrown, filled again by a hold of the cast button
+godot res://tests/feature/rune_test.tscn    # the rune: thrown charged for nothing, spent once thrown and then thrown bare, filled again by a hold of the cast button
 godot res://tests/feature/rock_test.tscn    # the rock: one stone, thrown with its graph in it, lying where it lands until it is picked back up — by the body, or a monster the player is in
 godot res://tests/feature/gate_test.tscn    # a gate on the floor, up a room and back down with F, and no hole to jump into
 godot res://tests/feature/cast_test.tscn    # the two buttons: attack casts the graph, cast charges it
@@ -448,9 +448,10 @@ letter a pixel (`Style.DRAWN_TILES`).
 **The rune is a rock with a charge stored in it.** It is thrown, lies where it
 lands and is picked back up exactly as the rock is — by the attack button; the
 cast button never throws it — and its throw goes out carrying a full charge,
-paid for by the mana stored in it and not by yours. Thrown, it is spent: it
-casts nothing at all, picked back up or not, and says RUNE SPENT when you reach
-for it. Holding the cast button with the spent rune in hand pours your own mana
+paid for by the mana stored in it and not by yours. Thrown, it is spent:
+picked back up, it is still a stone to throw, but bare — the rune's own numbers
+and nothing its graph would build into it, no charge, no follow-up. Both the
+rune and the rock are thrown as fast and as flat as a shuriken: no lob. Holding the cast button with the spent rune in hand pours your own mana
 into it, 60 a second for as long as you have any to pour — in a raid or in the
 hideout alike — until it holds a full charge (50 mana, more with
 `DEEP CHARGE`), and then it lights again. Short of that it keeps what was

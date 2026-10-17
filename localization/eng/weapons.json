@@ -13,7 +13,7 @@
 	},
 	"RUNE": {
 		"name": "Rune",
-		"desc": "A stone with a charge stored in it, thrown as the rock is: the throw goes out charged, and costs you nothing. Thrown, it is spent, and does nothing until you hold the cast button with it in hand to pour your own mana back in."
+		"desc": "A stone with a charge stored in it, thrown as the rock is: the throw goes out charged, and costs you nothing. Thrown, it is spent: still a stone to throw, but bare, its skill gone out of it until you hold the cast button with it in hand to pour your own mana back in."
 	},
 	"SHOVEL": {
 		"name": "Shovel",
