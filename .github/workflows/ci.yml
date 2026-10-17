@@ -12,6 +12,19 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      title:
+        description: 'What this run is checking: its name in the Actions list'
+        required: false
+        type: string
+
+# A run started by hand has no commit message for GitHub to name it by, so it
+# is named "CI" like every other one — a list of runs nobody can tell apart.
+# It is named by the title it is given (`gh workflow run CI --ref master -f
+# title="..."`), and with none by the branch and commit it ran on. A tag's run
+# is left to GitHub, which names it by its commit: an empty name falls back to
+# the default.
+run-name: "${{ github.event_name == 'workflow_dispatch' && (inputs.title || format('{0} at {1}', github.ref_name, github.sha)) || '' }}"
 
 concurrency:
   group: ci-${{ github.ref }}

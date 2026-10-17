@@ -17,7 +17,13 @@ A branch being worked on is not run here: it is tested at the desk with
 A push to `master` does not start a run for now: master is tested at the desk
 as it is merged. The **Run workflow** button (`workflow_dispatch`) is there for
 the odd time a run of master or a branch is wanted anyway, and what the table
-says of master is what a job does when it is run there by hand.
+says of master is what a job does when it is run there by hand. Give a run
+started by hand a title, so it can be told apart in the list, or it is named
+by the branch and commit it ran on:
+
+```
+gh workflow run CI --ref master -f title="What this run is checking"
+```
 
 | Job | Runs on | What it is |
 |---|---|---|
