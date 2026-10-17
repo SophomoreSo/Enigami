@@ -110,31 +110,28 @@ const SHELF_AWAY := 12.0
 ## slot of a kit no weapon is in — when the screen is given no graph for it: no
 ## weapon, and so no picture, and nothing to open.
 const EMPTY_HAND := {"id": "", "board": null, "runner": null}
-## Two wide columns of one-line rows rather than four of two-line tiles: the
-## pixel face runs up to twice as wide as the one the palette was laid out for,
-## and the longest part name takes 130 of a row.
-const PAL_COLS := 2
-const PAL_W := 244
-## Row pitch. Seventeen rows of parts have to end above the info panel, and at
-## the 26 this was they do not: a row lost two PIXELs when the behaviour block
-## grew to four rows. A row is PAL_H - 4 tall, which still clears the 14-PIXEL
-## icon inside it.
-const PAL_H := 24
+## How wide the room beside the tabs is, where a category's parts are laid: as
+## wide as the two columns of named rows it held when parts had their names
+## written on them, so the panel and the board beside it stand where they did.
+const PAL_ROOM := 484.0
 ## The categories stand down the palette's left, a tab each, and the parts of
 ## the one whose tab is up stand beside them — the way mobile mode's column
 ## is, and for the same reason: a category's parts are what is looked through,
-## and the rest are a press away. The tabs take PAL_TAB_W of the gutter and
-## the parts start PAL_GUTTER in.
-const PAL_GUTTER := 122.0
+## and the rest are a press away. A tab is at least PAL_TAB_W across, and as
+## wide as the widest word of any category's name, so none is cut
+## (`_pal_tab_w`); the parts start PAL_TAB_GAP past the tabs.
 const PAL_TAB_W := 112.0
+const PAL_TAB_GAP := 10.0
 ## The space between one tab and the next.
 const PAL_GROUP_GAP := 4.0
 ## The least a tab stands tall: two lines of its name, a long one wrapping
-## onto the second.
-const PAL_TAB_LEAST := 48.0
-## The baseline of a row's text, from the top of the row: capitals stand 10
-## tall, so this leaves 6 above them and 4 under.
-const PAL_TEXT_Y := 16.0
+## onto the second. Taller where the panel is — stretched down to the foot of
+## a bigger board — since the tabs share out whatever it stands.
+const PAL_TAB_LEAST := 46.0
+## The space between one part's tile and the next, at a desk. A tile is a cell
+## of the board across, two for a two-cell part — the part as it will stand
+## on the board, with no name: hovering it names it on its card.
+const PAL_TILE_GAP := 6.0
 
 ## No cell of the board: nothing hovered, nothing picked.
 const NOWHERE := Vector2i(-1, -1)
@@ -2959,22 +2956,36 @@ func _build_palette() -> void:
 	var origin: Vector2 = _desk_layout()["parts"]
 	_pal_origin = origin
 	var groups := _pal_groups()
-	_pal_height = _pal_panel_size().y - 20.0
+	_pal_height = maxf(_pal_panel_size().y, float(_desk_layout()["tall"])) - 20.0
 	if groups.is_empty():
 		return
 	var n := float(groups.size())
 	var tall := maxf(PAL_TAB_LEAST, floorf((_pal_height - (n - 1.0) * PAL_GROUP_GAP) / n / PX) * PX)
 	for i in groups.size():
-		_pal_tabs.append(Rect2(origin.x, origin.y + float(i) * (tall + PAL_GROUP_GAP), PAL_TAB_W, tall))
+		_pal_tabs.append(Rect2(origin.x, origin.y + float(i) * (tall + PAL_GROUP_GAP), _pal_tab_w(), tall))
 	_pal_height = maxf(_pal_height, n * tall + (n - 1.0) * PAL_GROUP_GAP)
 	_tab = clampi(_tab, 0, groups.size() - 1)
-	var ids: Array = groups[_tab]["ids"]
-	var x := origin.x + PAL_GUTTER
-	for i in ids.size():
-		@warning_ignore("integer_division")
-		_pal_rows.append({"id": String(ids[i]), "rect": Rect2(
-			Vector2(x + (i % PAL_COLS) * PAL_W, origin.y + int(i / PAL_COLS) * PAL_H),
-			Vector2(PAL_W - 4, PAL_H - 4))})
+	# The tiles, a board cell each, laid along a row as far as the room beside
+	# the tabs goes and on to the next.
+	var cell := float(_desk_layout()["cell"])
+	var left := origin.x + _pal_gutter()
+	var room := PAL_ROOM
+	var at := Vector2(left, origin.y)
+	for id in groups[_tab]["ids"]:
+		var tile := Vector2(_tile_cells(String(id))) * cell
+		if at.x > left and at.x + tile.x > left + room:
+			at = Vector2(left, at.y + cell + PAL_TILE_GAP)
+		_pal_rows.append({"id": String(id), "rect": Rect2(at, tile)})
+		at.x += tile.x + PAL_TILE_GAP
+	_pal_height = maxf(_pal_height, at.y + cell - origin.y)
+
+## How many cells across and down a part stands, unturned: its tile's size in
+## the palette, in cells of the board.
+static func _tile_cells(id: String) -> Vector2i:
+	var most := Vector2i.ZERO
+	for c: Vector2i in Components.footprint(id, Vector2i.ZERO, 0):
+		most = most.max(c)
+	return most + Vector2i.ONE
 
 ## Laid out again when the screen has changed shape under it, since every rect
 ## in it carries where it was worked out for — and when the mode has, or mobile
@@ -3019,19 +3030,41 @@ func _pal_panel() -> Rect2:
 	_pal_list()   # for _pal_height and _pal_origin, which the layout works out
 	# Down to the board's foot where the board stands taller than the rows.
 	return Rect2(_pal_origin - Vector2(10, 10),
-		Vector2(PAL_GUTTER + PAL_COLS * PAL_W - 4 + 20, maxf(_pal_height + 20, float(_desk_layout()["tall"]))))
+		Vector2(_pal_gutter() + PAL_ROOM + 20, maxf(_pal_height + 20, float(_desk_layout()["tall"]))))
 
 ## How big a desk's parts panel stands: 10 clear of its rows on every side, the
-## gutter included. As tall as every category's rows would be stacked one
-## under the other, the way the palette was before it had tabs — so the board,
-## which is sized to stand as tall as the panel, is the size it always was —
-## and the tabs share that out. Counted off the categories rather than off the
-## rows, since where the rows go is worked out from it.
+## gutter included. As tall as the tabs are at their least, a tab a category,
+## or as the category with the most parts is in rows, whichever is taller —
+## not as every category stacked, which is what it was before the tabs and
+## which, at eight categories, stood taller than the board beside it can grow
+## to (the board is sized to stand as tall as the panel). Counted off the
+## categories rather than off the rows, since where the rows go is worked out
+## from it.
 func _pal_panel_size() -> Vector2:
-	var tall := -PAL_GROUP_GAP
+	var groups := _pal_groups()
+	var n := float(groups.size())
+	var tall := maxf(n * PAL_TAB_LEAST + (n - 1.0) * PAL_GROUP_GAP, 0.0)
+	# The tiles at the least cell there is: a bigger cell, which is worked out
+	# from this, only stretches the panel down to the board's foot.
+	var across := maxi(1, int((PAL_ROOM + PAL_TILE_GAP) / (CELL + PAL_TILE_GAP)))
+	for group in groups:
+		var rows := ceilf(float((group["ids"] as Array).size()) / float(across))
+		tall = maxf(tall, rows * (CELL + PAL_TILE_GAP) - PAL_TILE_GAP)
+	return Vector2(_pal_gutter() + PAL_ROOM + 20, tall + 20)
+
+## How wide a desk's category tabs are: PAL_TAB_W, or wider where a word of a
+## category's name — which wraps between its words, two lines at most — would
+## not otherwise fit whole, with 6 clear either side. On the PIXEL grid.
+func _pal_tab_w() -> float:
+	var most := PAL_TAB_W
 	for group in _pal_groups():
-		tall += ceilf(float((group["ids"] as Array).size()) / float(PAL_COLS)) * PAL_H + PAL_GROUP_GAP
-	return Vector2(PAL_GUTTER + PAL_COLS * PAL_W - 4 + 20, tall + 20)
+		for word in Style.category_name(String(group["cat"])).split(" ", false):
+			most = maxf(most, PixelDraw.text_width(word) + 12.0)
+	return ceilf(most / PX) * PX
+
+## Where the parts start, from the panel's inside edge: past the tabs.
+func _pal_gutter() -> float:
+	return _pal_tab_w() + PAL_TAB_GAP
 
 func _draw_palette() -> void:
 	var panel := _pal_panel()
@@ -3040,21 +3073,25 @@ func _draw_palette() -> void:
 
 	_draw_pal_tabs()
 
+	# Each part as it stands on the board, a cell of it across, its icon at the
+	# board's size, and how many there are in its corner. One there are none of
+	# is drained, and the one in hand lit.
 	var ids := _palette_ids()
+	var zoom := _icon_zoom()
 	for i in ids.size():
 		var id: String = ids[i]
 		var r := _pal_rect(i)
 		var have := unlimited or int(inventory.get(id, 0)) > 0
 		var c := Style.component_color(id)
-		var bg := Color(c.r, c.g, c.b, 0.18 if have else 0.05)
+		_px.rect(r, CELL_FILL)
+		_px.rect(r, Color(c.r, c.g, c.b, (0.42 if id == selected else 0.28) if have else 0.06))
+		var edge := c.lightened(0.45) if have else Color(0.3, 0.32, 0.36)
+		_px.frame(r, edge)
 		if id == selected:
-			bg = Color(c.r, c.g, c.b, 0.42)
-		_px.rect(r, bg)
-		_px.frame(r, c if have else Color(0.3, 0.32, 0.36))
-		_px.icon(r.position + Vector2(8, 4), _icon(id, _drag_id == "" and i == _hover_pal), c)
-		_draw_count(r.end - Vector2(8, 6), id)
-		_px.text(r.position + Vector2(30, PAL_TEXT_Y), Components.name_for(id),
-			Color(0.92, 0.95, 1.0) if have else Color(0.45, 0.48, 0.52), _pal_name_width(i))
+			_px.frame(r.grow(-PX), edge)
+		var ink := c.lightened(0.3) if have else Color(c.r, c.g, c.b, 0.35)
+		_px.icon_centered(r.get_center(), _icon(id, _drag_id == "" and i == _hover_pal), ink, zoom)
+		_draw_count(r.end - Vector2(6, 6), id)
 		if i == _hover_pal:
 			_px.frame(r, Color(1, 1, 1, 0.5))
 
@@ -3084,11 +3121,6 @@ func _draw_pal_tabs() -> void:
 static func _tab_lines(cat: String, wide: float) -> PackedStringArray:
 	var lines := PixelDraw.wrap(Style.category_name(cat), wide, 2)
 	return lines if not lines.is_empty() else PackedStringArray([""])
-
-## The room a palette row leaves its part's name: after the icon, and short of
-## the count.
-func _pal_name_width(i: int) -> float:
-	return _pal_rect(i).size.x - 46.0 - _count_width(String(_pal_list()[i]["id"]))
 
 ## Where there is no end of parts — the bench — a part shows an infinity sign
 ## instead of a count, drawn because the pixel face has none. On its own,

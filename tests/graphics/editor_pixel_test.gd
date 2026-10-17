@@ -11,7 +11,7 @@ extends Node
 ## by side in the middle of the screen, the biggest board a Workbench grows
 ## included; the palette is a tab a part category down its left, a press on
 ## one putting up that category's parts and only those, every category's name
-## fits its tab, every part's name fits its palette row, every part's description
+## fits its tab, every part's tile is the size the part stands on the board, every part's description
 ## fits its card, the back arrow stands in the screen's corner and COPY and
 ## PASTE under the board, clear of the parts in every language, and a preview
 ## with more to say than rows to say it in is cut short and says so.
@@ -661,13 +661,17 @@ func _ready() -> void:
 	for i in tabs.size():
 		var cat := String(groups[i]["cat"])
 		var room := (tabs[i] as Rect2).size.x - 12.0
-		if " ".join(SkillEditor._tab_lines(cat, room)) != Style.category_name(cat):
+		var lines := SkillEditor._tab_lines(cat, room)
+		var cut := " ".join(lines) != Style.category_name(cat)
+		for line in lines:
+			cut = cut or PixelDraw.text_width(line) > room
+		if cut:
 			wide.append("%s (%.0f)" % [Style.category_name(cat), room])
 	check(wide.is_empty(), "every category's name fits its tab whole, in two lines at most (cut: %s)" % str(wide))
 	var was_tab := wb._tab
 	var wrong: Array = []
 	var overlap: Array = []
-	var tight: Array = []
+	var odd: Array = []
 	for t in groups.size():
 		wb._show_tab(t, false)
 		var ids := wb._palette_ids()
@@ -684,15 +688,15 @@ func _ready() -> void:
 				if r.intersects(wb._pal_rect(j)):
 					overlap.append("%s/%s" % [ids[i], ids[j]])
 			var id: String = ids[i]
-			# The widest count a row can show.
-			wb.inventory[id] = 99
-			var part_name := Components.name_for(id)
-			if PixelDraw.text_width(part_name) > wb._pal_name_width(i):
-				tight.append("%s (%.0f of %.0f)" % [part_name, PixelDraw.text_width(part_name), wb._pal_name_width(i)])
+			# A part's tile is the part as it stands on the board: a cell across,
+			# two for a two-cell part.
+			var want := Vector2(SkillEditor._tile_cells(id)) * wb.cell_size()
+			if not r.size.is_equal_approx(want):
+				odd.append("%s %s, not %s" % [id, str(r.size), str(want)])
 	wb._show_tab(was_tab, false)
 	check(wrong.is_empty(), "each tab puts up its category's parts and only those (wrong: %s)" % str(wrong))
 	check(overlap.is_empty(), "every row is on the panel, beside the tabs, and none on another (%s)" % str(overlap))
-	check(tight.is_empty(), "every part's name fits its palette row beside a count of 99 (too tight: %s)" % str(tight))
+	check(odd.is_empty(), "every part's tile is the part's own size on the board, a cell of it across (%s)" % str(odd))
 
 	GameState.facilities = facilities_before
 	GameState.save_game()

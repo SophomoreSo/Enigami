@@ -18,7 +18,7 @@
 -- own. They are the board's: its root, and its way out in the middle of its
 -- right edge (circuit/skill_board.gd).
 
--- In the order the palette lays its blocks out. `behavior` is COMMON BEHAVIOR
+-- In the order the palette lays its blocks out. `behavior` is COMMON MODIFIER
 -- on screen; the two after it are what a bolt is steered and carried by —
 -- PIERCE, HOMING, AUTO-AIM and ANTI-GRAVITY — and what an attack calls up beside itself:
 -- a bolt in the air, a pet.

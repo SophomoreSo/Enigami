@@ -1,5 +1,5 @@
 extends Node2D
-## SUMMON BEHAVIOR: what an attack calls up beside itself as it goes off.
+## SUMMON MODIFIER: what an attack calls up beside itself as it goes off.
 ## SUMMON PROJECTILE hangs a bolt in the air over where the attack is aimed,
 ## which falls, strikes what it touches once with the flow, and is gone after
 ## its life; each one stacked calls one more. SUMMON PET calls a pet that
@@ -53,7 +53,7 @@ func _ready() -> void:
 	print("[SUMMON] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)
 
-## Two parts in the SUMMON BEHAVIOR block, with numbers of their own, that put
+## Two parts in the SUMMON MODIFIER block, with numbers of their own, that put
 ## their counts on a flow.
 func _the_parts() -> void:
 	for id in ["SUMMON_PROJECTILE", "SUMMON_PET"]:
@@ -62,7 +62,7 @@ func _the_parts() -> void:
 			"%s is a summon part with a number of its own" % id)
 	check(Components.categories().has(Components.CAT_SUMMON_BEHAVIOR)
 			and not Components.categories().has("pet_behavior"),
-		"the block is SUMMON BEHAVIOR, and PET BEHAVIOR is gone")
+		"the block is SUMMON MODIFIER, and PET BEHAVIOR is gone")
 	var b := SkillBoard.new(4, 5, "s")
 	b.set_root("PROJECTILE")
 	b.place("SUMMON_PROJECTILE", Vector2i(1, 2), 0)
