@@ -56,6 +56,9 @@ var possess: float = 0.0
 ## bolt in the air for each SUMMON PROJECTILE, and a pet for a SUMMON PET.
 var summon_projectile: int = 0
 var summon_pet: int = 0
+## What a pet this flow summons does (`Pet`): with OFFENSIVE it goes for the
+## nearest enemy near its summoner and strikes it, more often for each one.
+var pet_offensive: int = 0
 ## What an INVERT makes of the part before it (the `inversions` rows), each
 ## landing on the struck enemy once the hit has: health given back, every burn,
 ## chill and stun it was carrying ended — though not what this same hit brings
@@ -106,6 +109,7 @@ func clone() -> Payload:
 	p.possess = possess
 	p.summon_projectile = summon_projectile
 	p.summon_pet = summon_pet
+	p.pet_offensive = pet_offensive
 	p.heal = heal
 	p.cleanse = cleanse
 	p.repel = repel

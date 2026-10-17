@@ -311,7 +311,7 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 	if payload.summon_projectile > 0:
 		_summon_projectiles(payload, origin, aim, attacker, room, team)
 	if payload.summon_pet > 0:
-		_summon_pet(attacker)
+		_summon_pet(payload, attacker)
 
 	var count: int = clampi(payload.duplicates, 1, 9)
 	# A thrown weapon throws itself (`Weapons.is_thrown`): the first of the
@@ -520,15 +520,22 @@ static func _summon_projectiles(p: Payload, origin: Vector2, aim: Vector2, atk: 
 		w.add_child(b)
 		Cues.at(&"summon_projectile", b.global_position, {"payload": p})
 
-## A pet for whoever cast the flow, if they have none: one to a summoner.
-static func _summon_pet(atk: Actor) -> void:
+## A pet for whoever cast the flow, if they have none: one to a summoner. One
+## already there is told again what it does — what this flow says (`Pet.take`).
+static func _summon_pet(p: Payload, atk: Actor) -> void:
 	var w := container()
 	if w == null or not is_instance_valid(w) or atk == null or not is_instance_valid(atk):
 		return
-	if Pet.of(atk, w.get_tree()) != null:
+	var carried := p.clone()
+	carried.summon_projectile = 0
+	carried.summon_pet = 0
+	var there := Pet.of(atk, w.get_tree())
+	if there != null:
+		there.take(carried)
 		return
 	var pet := Pet.new()
 	pet.summoner = atk
+	pet.take(carried)
 	w.add_child(pet)
 	pet.global_position = pet.home()
 	Cues.at(&"summon_pet", pet.global_position, {})
@@ -611,6 +618,8 @@ static func summary(p: Payload) -> String:
 		parts.append(_stacked(Loc.t("editor.payload.summon_projectile"), p.summon_projectile))
 	if p.summon_pet:
 		parts.append(Loc.t("editor.payload.summon_pet"))
+	if p.pet_offensive:
+		parts.append(_stacked(Loc.t("editor.payload.pet_offensive"), p.pet_offensive))
 	if p.heal > 0.0:
 		parts.append(Loc.t("editor.payload.heal", [p.heal]))
 	if p.cleanse:

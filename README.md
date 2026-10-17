@@ -78,7 +78,7 @@ godot res://tests/graphics/glass_test.tscn  # glass: what is behind clear glass 
 godot res://tests/graphics/bolt_view_test.tscn # a bolt's trail: the gaps between its beads drawn in, and a laser's beam from the muzzle
 godot res://tests/graphics/rock_view_test.tscn # the rock, drawn: a stone of the game's own and not the pack's morning star, held upright, turning over in the air, and marked where it lies
 godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
-godot res://tests/feature/summon_test.tscn  # SUMMON BOLT's bolt in the air, falling, striking once and gone; SUMMON PET's pet following, one to a summoner
+godot res://tests/feature/summon_test.tscn  # SUMMON BOLT's bolt in the air, falling, striking once and gone; SUMMON PET's pet following, one to a summoner, and with OFFENSIVE going for an enemy
 godot res://tests/feature/slam_test.tscn    # KNOCKBACK into a wall: cracked, hurt and stunned past a speed, and nothing under it
 godot res://tests/graphics/crack_test.tscn  # the crack a slam leaves: it stays, it is the room's, and it is there again when the room is walked back into
 godot res://tests/feature/stack_test.tscn   # parts stack: what each one more is worth, where a part stops, laser speed, and HOMING round a wall
@@ -598,8 +598,12 @@ giving it further to walk.
   whatever it touches once with the attack's numbers, lies where it lands, and
   is gone three seconds after it was called. Each one stacked calls one more,
   side by side. `SUMMON PET` calls a pet that hovers behind your shoulder and
-  follows you about, and does nothing else yet: one at a time, so a cast while
-  it is there calls no other; it goes when you do.
+  follows you about: one at a time, so a cast while it is there calls no
+  other, but tells the one there again what it does; it goes when you do. On
+  its own it does nothing else. With `OFFENSIVE` on the same flow it goes for
+  the nearest enemy within seven cells of you, darts at it and strikes it with
+  the flow's numbers — everything the board built into it — once every 1.2
+  seconds, and more often for each one stacked, coming back between strikes.
 - `EXPLODE` bursts every hit. The enemy an attack strikes is the middle of a
   blast that lands the same hit on everything round it — its damage, its
   elements, its `STUN`, a `KNOCKBACK` out from the middle — though not on that

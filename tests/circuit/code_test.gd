@@ -32,6 +32,7 @@ const GIVEN := [
 	"HEADBUTT",
 	"SUMMON_PROJECTILE", "SUMMON_PET",
 	"ANTI_GRAVITY",
+	"OFFENSIVE",
 ]
 
 var fails := 0

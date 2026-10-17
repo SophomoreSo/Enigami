@@ -60,6 +60,7 @@
 		"anti_gravity": "weightless",
 		"summon_projectile": "summons a bolt",
 		"summon_pet": "summons a pet",
+		"pet_offensive": "pet attacks",
 		"separator": ", ",
 		"then": "then"
 	}
