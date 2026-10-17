@@ -194,7 +194,8 @@ func _the_table() -> void:
 		for entry: String in table._palette:
 			inside = inside and column.encloses(tile(entry).get_global_rect())
 			named = named and table.name_of(entry) != "" and table.name_of(entry) != entry
-	check(offered == [MadeRoom.GROUND.size(), GroveTiles.BACK.size() + MapTiles.GLASS.size(), MadeRoom.things().size(), MapTiles.PROPS.size()],
+	# The ground's tab has the magic stone besides, which is not in GROUND.
+	check(offered == [MadeRoom.GROUND.size() + 1, GroveTiles.BACK.size() + MapTiles.GLASS.size(), MadeRoom.things().size(), MapTiles.PROPS.size()],
 		"every kind of ground, everything that can stand behind it, in it and about it (%s)" % str(offered))
 	check(inside, "every one of them in the column, none of them scrolled out of it")
 	check(named, "and every one with a name")
@@ -351,14 +352,14 @@ func _keeping() -> void:
 		(rock[0] as Button).pressed.emit()
 	await frames(3)
 	check(maker.tileset == "rock" and table.tiles.id() == "rock"
-			and table.entries(MapTable.Tab.GROUND) == PackedStringArray([MadeRoom.ROCK] + MapTiles.GLASS.keys())
+			and table.entries(MapTable.Tab.GROUND) == PackedStringArray([MadeRoom.ROCK] + MapTiles.GLASS.keys() + [MadeRoom.MAGIC])
 			and is_instance_valid(table._region),
-		"pressed, the map is drawn in it, the tabs offer what it has — its rock, and glass — and the rock's tint is offered")
+		"pressed, the map is drawn in it, the tabs offer what it has — its rock, glass and magic stone — and the rock's tint is offered")
 	var grove: Array = popup_buttons(MapTiles.of("grove").title())
 	if not grove.is_empty():
 		(grove[0] as Button).pressed.emit()
 	await frames(3)
-	check(maker.tileset == "grove" and table.tiles.id() == "grove" and table.entries(MapTable.Tab.GROUND).size() == MadeRoom.GROUND.size(),
+	check(maker.tileset == "grove" and table.tiles.id() == "grove" and table.entries(MapTable.Tab.GROUND).size() == MadeRoom.GROUND.size() + 1,
 		"and back in the grove")
 	# A size, from MAP.
 	table._resize(Vector2i(10, 0))

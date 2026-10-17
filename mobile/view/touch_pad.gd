@@ -168,6 +168,10 @@ const CONTROLS := [
 	# while more than one weapon is carried (`kit`).
 	{"kind": Kind.KEY, "action": "weapon_next", "rect": Rect2(696, 24, 128, 88),
 		"pin": Vector2(1, 0), "faces": [Face.PLAY], "kit": true},
+	# Magic on and off, under the screens: a plate, since it takes no direction,
+	# and out of the way of the hand, since a press of it changes the world.
+	{"kind": Kind.KEY, "action": "magic_toggle", "rect": Rect2(840, 128, 128, 88),
+		"pin": Vector2(1, 0), "faces": [Face.PLAY]},
 	# The screens, in the far corner where nothing is reached for by accident.
 	{"kind": Kind.KEY, "action": "open_editor", "rect": Rect2(840, 24, 128, 88),
 		"pin": Vector2(1, 0), "faces": [Face.PLAY, Face.SCREEN]},

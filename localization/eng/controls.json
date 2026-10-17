@@ -33,6 +33,7 @@
 		"interact": "USE",
 		"open_editor": "KIT",
 		"open_map": "MAP",
+		"magic_toggle": "MAGIC",
 		"pause": "MENU"
 	},
 	"action": {

@@ -246,7 +246,7 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 
 INSERT INTO parts (id, name, category, heat, description) VALUES
 	('DUPLICATE', 'DUPLICATE x3', 'flow', 3.0, 'Produces the same result three times at full damage. Generates a lot of heat.'),
-	('OVERCLOCK', 'OVERCLOCK', 'flow', 0.0, 'Runs the whole board on a faster clock. Each one takes the same 5% off the wait between casts, down to 40% of it at twelve, and a flow goes through it without spending a tick.'),
+	('OVERCLOCK', 'OVERCLOCK', 'flow', 0.0, 'Runs the whole board on a faster clock. Each one cuts the wait between casts by the same 5%; twelve bring it down to 40%, and it goes no lower. A flow goes through it without spending a tick.'),
 	('DELAY', 'DELAY', 'flow', 2.0, 'Makes every cast that passes through it wait longer before the next, and each one more adds as much again. It does nothing else: it turns a flow and leaves it as it was.'),
 	('TIME_DILATION', 'TIME DILATION', 'flow', 2.0, 'Slows the world and the board alike. Not a speed buff — a change in the pace of the fight.'),
 	('INVERT', 'INVERT', 'flow', 0.4, 'Turns the part right before it inside out: DAMAGE heals what it strikes, FIRE, ICE and STUN cleanse it, GRAVITY pushes away, KNOCKBACK pulls in, and SIZE, SPEED and RANGE shrink. After anything else it does nothing.'),
