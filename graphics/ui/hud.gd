@@ -197,6 +197,14 @@ func _draw_kit(at: Vector2) -> float:
 			label = Loc.t("hud.stock", [label, player.stock_of(id)])
 			if player.stock_of(id) <= 0:
 				ink.a *= AWAY
+		# The rune says how much mana is left in it, and when there is none, that
+		# it is spent: dimmed, as a weapon that casts nothing is.
+		if Weapons.is_rune(id):
+			if GameState.rune_spent:
+				label = Loc.t("hud.rune_spent", [label, int(GameState.rune_mana)])
+				ink.a *= AWAY
+			else:
+				label = Loc.t("hud.rune", [label, int(round(GameState.rune_mana))])
 		_px.text(at, label, ink)
 		at.x += PixelDraw.text_width(label) + 16.0
 	return at.x

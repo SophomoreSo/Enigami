@@ -9,12 +9,15 @@
 	"possessing": "%s 빙의 %d초",
 	"thrown": "%s (던짐)",
 	"stock": "%s x%d",
+	"rune": "%s %d",
+	"rune_spent": "%s 소진 %d",
 	"empty_hand": "빈손",
 	"fx": {
 		"winded": "탈진",
 		"parry": "막아냄",
 		"boss_phase": "%s: 제2형태",
-		"no_weapon": "%s 없음"
+		"no_weapon": "%s 없음",
+		"rune_spent": "룬 소진: %s 눌러 채우기"
 	},
 	"map": {
 		"title": "지도",

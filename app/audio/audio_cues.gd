@@ -37,6 +37,10 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 			Audio.play("explode")
 		&"lunge_cut", &"dash":
 			Audio.play("dash")
+		&"rune_lit":
+			Audio.play("pickup", 1.6)
+		&"rune_spent":
+			Audio.play("zap", 0.7)
 		&"wall_slam":
 			# A thud, heavier than a hit.
 			Audio.play("hit", 0.55)

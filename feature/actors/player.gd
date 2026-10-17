@@ -369,6 +369,16 @@ var _mana_pause: float = 0.0
 ## True while the cast button is actually buying life. Read rather than
 ## announced: it is a state that lasts, not a moment that happens.
 var charging: bool = false
+## True while the cast button is pouring the player's mana into a spent rune
+## (`refill_rune`), the same way.
+var refilling: bool = false
+## A hold that filled the rune is spent on filling it: it charges nothing more
+## and its release casts nothing, until the button has been let go.
+var _hold_filled: bool = false
+
+## How fast a hold pours mana into a spent rune, in mana a second: a full bar
+## into an empty rune in under two seconds.
+const RUNE_FILL := 60.0
 var parry_time: float = 0.0
 ## Everything the player is asked to do comes down this line: their own hands
 ## at the head of it, then whatever else wants a say — a screen that takes the
@@ -599,6 +609,9 @@ func holds(id: String) -> bool:
 ## none of that (`bare_handed`): the head is always there.
 func can_cast() -> bool:
 	if runner == null:
+		return false
+	# A spent rune is a dead stone until it is filled again.
+	if rune_spent_in_hand():
 		return false
 	# An empty hand has nothing in it to strike with but the fist.
 	if empty_handed():
@@ -852,18 +865,27 @@ func _update_charge(delta: float, holding: bool) -> void:
 	if holding and can_charge():
 		charging = true
 		var cap := charge_cap()
-		if charge < cap and mana > 0.0:
+		# The rune in hand pays out of its own mana, and the player's goes on
+		# coming back as if nothing were being charged.
+		var rune := _charging_rune()
+		var pool := GameState.rune_mana if rune else mana
+		if charge < cap and pool > 0.0:
 			# QUICK CHARGE builds it faster; the mana goes as fast as it builds.
 			var want := CHARGE_TTL_RATE * _charge_mul * delta
-			var afford := mana / MANA_PER_TTL
+			var afford := pool / MANA_PER_TTL
 			var gained := minf(minf(want, afford), cap - charge)
 			charge += gained
-			mana = maxf(0.0, mana - gained * MANA_PER_TTL)
-		_mana_pause = MANA_PAUSE
-		return
-	# Let go, or hold a graph still recovering, and it bleeds off.
-	charging = false
-	charge = maxf(0.0, charge - CHARGE_DECAY * delta)
+			if rune:
+				GameState.rune_mana = maxf(0.0, GameState.rune_mana - gained * MANA_PER_TTL)
+			else:
+				mana = maxf(0.0, mana - gained * MANA_PER_TTL)
+		if not rune:
+			_mana_pause = MANA_PAUSE
+			return
+	else:
+		# Let go, or hold a graph still recovering, and it bleeds off.
+		charging = false
+		charge = maxf(0.0, charge - CHARGE_DECAY * delta)
 	if _mana_pause > 0.0:
 		_mana_pause = maxf(0.0, _mana_pause - delta)
 	elif mana < max_mana:
@@ -887,6 +909,37 @@ func can_dash() -> bool:
 ## release still casts, as a tap does.
 func can_charge() -> bool:
 	return Magic.on and runner != null and runner.is_ready() and can_cast()
+
+## Whether the weapon in hand is the rune and it is spent: it casts nothing
+## until it is filled again (`refill_rune`).
+func rune_spent_in_hand() -> bool:
+	return not empty_handed() and Weapons.is_rune(weapon_id) and GameState.rune_spent
+
+## Whether the weapon in hand is the rune with mana in it: what a hold charges
+## out of then is the rune's, not the player's.
+func _charging_rune() -> bool:
+	return not empty_handed() and Weapons.is_rune(weapon_id) and not GameState.rune_spent
+
+## A hold on a spent rune pours the player's own mana into it, as fast as
+## RUNE_FILL and as long as there is mana to pour, from the body that holds it.
+## Full, it is lit again and casts as it always did — but not on the hold that
+## filled it, whose release casts nothing. Whether the hold went into the rune.
+func refill_rune(delta: float, holding: bool) -> bool:
+	refilling = false
+	if not holding or not rune_spent_in_hand() or possessing != null or not holds(weapon_id):
+		return false
+	refilling = true
+	_mana_pause = MANA_PAUSE
+	var pour := minf(minf(RUNE_FILL * delta, mana), GameState.RUNE_MANA - GameState.rune_mana)
+	mana -= pour
+	GameState.rune_mana += pour
+	if GameState.rune_mana >= GameState.RUNE_MANA - 0.001:
+		GameState.rune_mana = GameState.RUNE_MANA
+		GameState.rune_spent = false
+		refilling = false
+		_hold_filled = true
+		Cues.at(&"rune_lit", global_position, {"weapon": weapon_id})
+	return true
 
 ## Magic went off, or came back: every graph carried is cast as its forms
 ## alone, or whole again (`SkillRunner.forms_only`), and what counts as
@@ -913,6 +966,12 @@ func _on_parry_opened(seconds: float) -> void:
 ## there is no asking whose it was.
 func _on_cycle_started() -> void:
 	_cast_buffer = 0.0
+	# The rune is spent the moment a cast of it starts with nothing left in it:
+	# the cast that drained it goes out with what it bought, and nothing after it.
+	if _charging_rune() and GameState.rune_mana <= 0.01:
+		GameState.rune_mana = 0.0
+		GameState.rune_spent = true
+		Cues.at(&"rune_spent", global_position, {"weapon": weapon_id})
 
 ## A graph's flow left its board: the attack. `weapon` is whose graph it was —
 ## the weapon in hand, unless it says — since a cast still in flight when the
@@ -1031,15 +1090,24 @@ func _process(delta: float) -> void:
 	# The body's hand is empty — the rock is out — and nothing goes off. Said
 	# once a press, so it does not read as a dropped input. The empty hand's
 	# graph that wants a weapon has nothing to say it about.
-	if not castable and not empty_handed() and (pressed or s.cast_released):
-		Cues.at(&"refused", global_position, {"kind": "thrown", "weapon": weapon_id})
+	# A spent rune in hand: the cast button pours mana into it rather than
+	# charging anything, and a hold that has just filled it is spent on that
+	# until the button is let go.
+	if not s.cast:
+		_hold_filled = false
+	var filling := refill_rune(delta, s.cast)
+	if not castable and not empty_handed() and (pressed or (s.cast_released and not filling)):
+		if rune_spent_in_hand():
+			Cues.at(&"refused", global_position, {"kind": "rune", "weapon": weapon_id})
+		else:
+			Cues.at(&"refused", global_position, {"kind": "thrown", "weapon": weapon_id})
 	# Holding the cast button charges; letting go is what fires it. A tap is
 	# simply a charge of nothing, so a quick press still casts as it always did.
-	var holding := s.cast
+	var holding := s.cast and not _hold_filled and not filling
 	# Taken before the charge is touched: on the frame of the release the button
 	# already reads as up, and letting the bleed-off run first shaved a fifth
 	# off what the player had actually paid for.
-	if s.cast_released and castable:
+	if s.cast_released and castable and not _hold_filled and not filling:
 		cast_charge = charge
 		charge = 0.0
 		# Held over a few frames, so a release landing on the tail of the last

@@ -29,6 +29,12 @@ extends RefCounted
 ## behind in a room walked out of is gone. With none left the weapon casts
 ## nothing. See `Player.stock`, and `StuckShuriken` for one where it struck.
 ##
+## A weapon can be a `rune`: a rock with mana in it. It is thrown and picked
+## back up the way the rock is, and a hold charges its graph out of the mana in
+## it rather than the player's (`GameState.rune_mana`). Spent, it casts nothing
+## at all until it is filled again — by holding the cast button with it in
+## hand, which pours the player's own mana into it (`Player.refill_rune`).
+##
 ## Numbers only: the colour a weapon is named in, and the tile it is drawn
 ## with, are in `graphics/style.gd`.
 
@@ -86,6 +92,21 @@ const DEFS := {
 		"size_mul": 1.1,
 		"gravity_shots": false,
 		"digs": true,
+	},
+	"RUNE": {
+		"name": "Rune",
+		"desc": "A stone with mana in it, thrown as the rock is. A hold charges it out of its own mana and not yours; spent, it does nothing until you pour yours back in by holding the cast button.",
+		"root": "PROJECTILE",
+		"board": "rune",
+		"base_damage": 7.0,
+		"melee_mul": 1.0,
+		"ranged_mul": 1.15,
+		"projectile_speed": 0.9,
+		"reach_mul": 1.0,
+		"size_mul": 1.15,
+		"gravity_shots": true,
+		"thrown": true,
+		"rune": true,
 	},
 	"SHURIKEN": {
 		"name": "Shuriken",
@@ -197,6 +218,11 @@ static func uses_gravity_shots(weapon_id: String) -> bool:
 ## been picked back up.
 static func is_thrown(weapon_id: String) -> bool:
 	return bool(get_def(weapon_id).get("thrown", false))
+
+## Whether the weapon is a rune: a thrown stone with mana in it, which a hold
+## charges out of (`GameState.rune_mana`).
+static func is_rune(weapon_id: String) -> bool:
+	return bool(get_def(weapon_id).get("rune", false))
 
 ## How many of the weapon a raid walks in with, when it is a stack of the same
 ## thing spent a throw at a time — the shuriken — or 0 for any other weapon.

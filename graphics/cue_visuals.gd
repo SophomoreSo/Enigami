@@ -39,6 +39,13 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 			Fx.shake(6.0)
 		&"lunge_cut":
 			Fx.shake(4.0)
+		&"rune_lit":
+			# Filled to the top: it lights again.
+			Fx.ring(pos, Style.RUNE_GLOW, 46.0)
+			Fx.burst(pos, Style.RUNE_GLOW, 10, 140.0)
+		&"rune_spent":
+			# The last of its mana gone out with the cast that drained it.
+			Fx.burst(pos, Style.RUNE_GLOW.darkened(0.4), 6, 60.0)
 		&"wall_slam":
 			# The rock cracks where the body struck it, and dust comes off it.
 			var force := float(d.get("force", 1.0))
@@ -66,6 +73,9 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 			var text := String(d.get("text", ""))
 			if kind == "stamina":
 				text = Loc.t("hud.fx.winded")
+			elif kind == "rune":
+				# The rune in hand is spent: say so, and what fills it.
+				text = Loc.t("hud.fx.rune_spent", [Controls.short_label_for("cast_skill")])
 			elif kind == "thrown":
 				# The rock is not in the hand: NO ROCK, over whoever reached for it.
 				text = Loc.t("hud.fx.no_weapon", [Weapons.name_for(String(d.get("weapon", ""))).to_upper()])

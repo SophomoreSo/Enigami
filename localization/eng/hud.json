@@ -9,12 +9,15 @@
 	"possessing": "IN THE %s %ds",
 	"thrown": "%s (THROWN)",
 	"stock": "%s x%d",
+	"rune": "%s %d",
+	"rune_spent": "%s SPENT %d",
 	"empty_hand": "EMPTY",
 	"fx": {
 		"winded": "WINDED",
 		"parry": "PARRY",
 		"boss_phase": "%s: SECOND FORM",
-		"no_weapon": "NO %s"
+		"no_weapon": "NO %s",
+		"rune_spent": "RUNE SPENT: HOLD %s TO FILL"
 	},
 	"map": {
 		"title": "MAP",

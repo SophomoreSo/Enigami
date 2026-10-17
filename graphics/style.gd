@@ -778,7 +778,12 @@ const WEAPON := {
 	"ROCK": {"color": Color(0.95, 0.82, 0.55), "art": "rock", "grip": 0.5, "upright": true},
 	"SHOVEL": {"color": Color(0.78, 0.66, 0.46), "art": "shovel"},
 	"SHURIKEN": {"color": Color(0.72, 0.8, 0.9), "art": "shuriken", "grip": 0.5, "upright": true},
+	"RUNE": {"color": Color(0.74, 0.62, 1.0), "art": "rune", "grip": 0.5, "upright": true},
 }
+
+## The rune's glow: the mark cut into it, and what bursts off it when it is
+## filled again or spent.
+const RUNE_GLOW := Color(0.74, 0.58, 1.0)
 
 static func weapon_color(id: String) -> Color:
 	return WEAPON.get(id, {}).get("color", Color(0.85, 0.9, 1.0))
@@ -876,6 +881,26 @@ const DRAWN_TILES := {
 			"s": Color(0.30, 0.30, 0.33),
 			"w": Color(0.56, 0.39, 0.22),
 			"o": Color(0.36, 0.24, 0.13),
+		},
+	},
+	"rune": {
+		"rows": [
+			"...ooo....",
+			".oohhlooo.",
+			"ohhhlgllmo",
+			"ohllgggmdo",
+			"ollmmgmmdo",
+			"olmmgmgddo",
+			".ommmmdddo",
+			"..ooooooo.",
+		],
+		"inks": {
+			"o": Color(0.11, 0.10, 0.14),
+			"d": Color(0.27, 0.25, 0.32),
+			"m": Color(0.40, 0.38, 0.46),
+			"l": Color(0.54, 0.52, 0.60),
+			"h": Color(0.72, 0.70, 0.78),
+			"g": Color(0.80, 0.66, 1.0),
 		},
 	},
 	"rock": {
@@ -1244,6 +1269,7 @@ static func pickup_color(p: Pickup) -> Color:
 const REFUSE_COLOR := {
 	"weapon": Color(1.0, 0.55, 0.5),
 	"stamina": Color(0.95, 0.7, 0.35),
+	"rune": Color(0.78, 0.66, 1.0),
 }
 
 static func refuse_color(kind: String) -> Color:

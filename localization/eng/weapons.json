@@ -11,6 +11,10 @@
 		"name": "Rock",
 		"desc": "One stone, thrown with everything built into it. It lands where it lands, and does nothing more until you pick it up."
 	},
+	"RUNE": {
+		"name": "Rune",
+		"desc": "A stone with mana in it, thrown as the rock is. A hold charges it out of its own mana and not yours; spent, it does nothing until you pour yours back in by holding the cast button."
+	},
 	"SHOVEL": {
 		"name": "Shovel",
 		"desc": "A spade for a blade: it swings like anything heavy, and it digs. Hold the use key on lit ground to bring up what is buried there — loudly."
