@@ -209,8 +209,34 @@ const SHOVE_DECAY := 620.0
 ## Below this there is no push left worth moving anything for.
 const SHOVE_MIN := 8.0
 
-func knockback(dir: Vector2, force: float) -> void:
+## A wall slam: an actor KNOCKBACK threw (`knockback`'s `slam_by`) that meets
+## rock still going at least SLAM_SPEED into it, in pixels a second, cracks the
+## rock (the `wall_slam` cue, which is the picture's) and is hurt and stunned
+## by it. The hurt is SLAM_DAMAGE at that speed and as much more again as it was
+## going faster, so a throw that has further to fly hits softer; the stun is
+## SLAM_STUN, and is held to the same guard as any other. One slam to a throw:
+## the push that is left runs along the wall as it always did.
+##
+## At this speed one KNOCKBACK on an ordinary hit slams into a wall up to about
+## three cells away, and two up to twelve; a hit with no KNOCKBACK never does,
+## however hard, nor does GRAVITY's drag.
+const SLAM_SPEED := 260.0
+const SLAM_DAMAGE := 10.0
+const SLAM_STUN := 0.8
+## The clock stops a moment on a slam, as on a hit (`Attacks.HITSTOP`).
+const SLAM_HITSTOP := 0.05
+
+## The side that threw this actor with KNOCKBACK, for as long as that throw is
+## still carrying it — or -1 for a push that slams nothing. A kill a slam makes
+## is that side's: one the player threw counts as the player's.
+var slam_by: int = -1
+
+## `slam_by` is the side throwing it with KNOCKBACK, whose throw can slam it into
+## a wall; -1 for every other push.
+func knockback(dir: Vector2, force: float, thrower: int = -1) -> void:
 	shove += dir.normalized() * force
+	if thrower >= 0:
+		slam_by = thrower
 
 ## Moves the body by whatever the world is pushing it with, and lets that push
 ## die down. A body calls this once a physics frame, straight after its own
@@ -219,13 +245,39 @@ func knockback(dir: Vector2, force: float) -> void:
 func apply_shove(delta: float) -> void:
 	if shove.length() < SHOVE_MIN:
 		shove = Vector2.ZERO
+		slam_by = -1
 		return
 	var hit := move_and_collide(shove * delta)
 	if hit != null:
+		var into := shove.dot(-hit.get_normal())
+		if slam_by >= 0 and into >= SLAM_SPEED and _is_rock(hit.get_collider()):
+			_slam(hit.get_position(), hit.get_normal(), into)
 		# Run along whatever stopped it rather than sticking to it, so a drag
 		# that meets a wall still gathers the room along that wall.
 		shove = shove.slide(hit.get_normal())
 	shove = shove.move_toward(Vector2.ZERO, SHOVE_DECAY * delta)
+
+## Whether what stopped a push is the world's rock — a room's, on the world's
+## collision layer — and not another body.
+static func _is_rock(c: Object) -> bool:
+	return c is StaticBody2D and ((c as StaticBody2D).collision_layer & 1) != 0
+
+## Thrown into rock at `speed`, meeting it at `at` on a face turned to `facing`:
+## the rock cracks, and this actor is hurt and stunned (`SLAM_SPEED`). The throw
+## is spent on it.
+func _slam(at: Vector2, facing: Vector2, speed: float) -> void:
+	var by := slam_by
+	slam_by = -1
+	var force := speed / SLAM_SPEED
+	Cues.at(&"wall_slam", at, {"normal": facing, "force": force, "target_team": team})
+	TimeCtl.hitstop(SLAM_HITSTOP)
+	var dealt := apply_damage(SLAM_DAMAGE * force)
+	if dead:
+		if dealt > 0.0 and by == 0 and team != 0:
+			GameState.register_kill()
+		return
+	if stun(SLAM_STUN):
+		Cues.at(&"stun", global_position, {"seconds": SLAM_STUN, "target_team": team})
 
 func _kill() -> void:
 	if dead:

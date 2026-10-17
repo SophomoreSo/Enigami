@@ -39,6 +39,12 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 			Fx.shake(6.0)
 		&"lunge_cut":
 			Fx.shake(4.0)
+		&"wall_slam":
+			# The rock cracks where the body struck it, and dust comes off it.
+			var force := float(d.get("force", 1.0))
+			Fx.crack(pos, d.get("normal", Vector2.LEFT), force)
+			Fx.burst(pos, Style.WALL_DUST, 8, 120.0)
+			Fx.shake(4.0 + 2.0 * minf(force, 2.0))
 		&"magic":
 			# The world's colour going, or coming back: a small shake under it.
 			# The grey itself is the pixel camera's, every frame.

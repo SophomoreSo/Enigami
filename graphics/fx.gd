@@ -128,6 +128,7 @@ func _framed(at: Vector2, zoom: Vector2) -> Vector2:
 var sparks := Pool.new(Spark, 64)
 var rings := Pool.new(Ring, 16)
 var words := Pool.new(FloatText, 24)
+var cracks := Pool.new(Crack, 12)
 
 func _world() -> Node:
 	return Arena.current()
@@ -147,6 +148,17 @@ func ring(pos: Vector2, color: Color, radius: float) -> void:
 	var n := rings.borrow(world) as Ring
 	n.setup(pos, color, radius)
 	rings.dispose(n)
+
+## A crack in the rock at `pos`, on a face turned to `normal`, as wide as
+## `force` says — what a body slammed into a wall leaves (`Actor.SLAM_SPEED`).
+## It stays a while and fades.
+func crack(pos: Vector2, normal: Vector2, force: float) -> void:
+	var world := _world()
+	if world == null:
+		return
+	var n := cracks.borrow(world) as Crack
+	n.setup(pos, normal, force)
+	cracks.dispose(n)
 
 func damage_number(pos: Vector2, amount: float, color: Color = Color(1, 1, 1)) -> void:
 	text(pos, "%d" % int(round(amount)), color)
@@ -244,6 +256,76 @@ class Ring extends Node2D:
 		var c := color
 		c.a = 1.0 - t
 		draw_arc(Vector2.ZERO, radius * (0.3 + t), 0, TAU, 28, c, 2.5 + 3.0 * (1.0 - t))
+
+## A crack in rock: jagged lines out from where a body struck it, into the rock
+## and along its face, drawn on the world's pixel grid. It is a mark on the
+## rock, not a light: dark, and lit as the rock is.
+class Crack extends Node2D:
+	const LIFE := 6.0
+	const FADE := 1.5
+	const INK := Color(0.04, 0.03, 0.03, 0.85)
+	const EDGE := Color(1.0, 1.0, 1.0, 0.18)
+	var pool: Pool = null
+	var life: float = LIFE
+	var lines: Array = []
+
+	func setup(pos: Vector2, normal: Vector2, force: float) -> void:
+		position = pos
+		# Over the rock and under the bodies (`MadeRoomView`'s tile field is -7).
+		z_index = -6
+		life = LIFE
+		lines.clear()
+		var reach := clampf(10.0 + 10.0 * force, 12.0, 34.0)
+		var into := -normal.normalized() if normal.length() > 0.01 else Vector2.RIGHT
+		var dice := RandomNumberGenerator.new()
+		dice.seed = hash(pos.round())
+		# Five main lines, fanned over the half the rock is in, each walked out
+		# in jagged steps, and a branch off some of them.
+		for i in 5:
+			var a := into.angle() + lerpf(-1.35, 1.35, (float(i) + dice.randf_range(0.2, 0.8)) / 5.0)
+			var length := reach * dice.randf_range(0.55, 1.0)
+			var path := _walk(Vector2.ZERO, a, length, dice)
+			lines.append(path)
+			if dice.randf() < 0.6 and path.size() > 2:
+				var from: Vector2 = path[path.size() / 2]
+				lines.append(_walk(from, a + dice.randf_range(-0.9, 0.9), length * 0.45, dice))
+		queue_redraw()
+
+	static func _walk(from: Vector2, angle: float, length: float, dice: RandomNumberGenerator) -> PackedVector2Array:
+		var path := PackedVector2Array([from])
+		var at := from
+		var steps := maxi(2, int(length / 5.0))
+		for k in steps:
+			var turn := angle + dice.randf_range(-0.6, 0.6)
+			at += Vector2.from_angle(turn) * (length / steps)
+			path.append(at.round())
+		return path
+
+	func _disposed() -> void:
+		pass
+
+	func _process(delta: float) -> void:
+		life -= delta
+		if life <= 0.0:
+			pool.give_back(self)
+			return
+		if life < FADE:
+			queue_redraw()
+
+	func _draw() -> void:
+		var a := clampf(life / FADE, 0.0, 1.0)
+		var ink := INK
+		ink.a *= a
+		var edge := EDGE
+		edge.a *= a
+		# Lines at least the pixel camera's SCALE wide, or they cover no pixel.
+		for path: PackedVector2Array in lines:
+			var lit := PackedVector2Array()
+			for pt in path:
+				lit.append(pt + Vector2(0, 2))
+			draw_polyline(lit, edge, 2.0)
+			draw_polyline(path, ink, 2.0)
+		draw_circle(Vector2.ZERO, 3.0, ink)
 
 class FloatText extends Node2D:
 	var pool: Pool = null

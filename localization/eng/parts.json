@@ -61,7 +61,7 @@
 	},
 	"KNOCKBACK": {
 		"name": "KNOCKBACK",
-		"desc": "Hits throw the enemy back the way the attack was going. Buys room, but can put it out of reach. Each one stacked throws harder."
+		"desc": "Hits throw the enemy back the way the attack was going. Thrown hard into a wall, it cracks the wall and is hurt and stunned. Buys room, but can put it out of reach. Each one stacked throws harder."
 	},
 	"MANA_DRAIN": {
 		"name": "MANA DRAIN",
