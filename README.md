@@ -78,6 +78,7 @@ godot res://tests/graphics/bolt_view_test.tscn # a bolt's trail: the gaps betwee
 godot res://tests/graphics/rock_view_test.tscn # the rock, drawn: a stone of the game's own and not the pack's morning star, held upright, turning over in the air, and marked where it lies
 godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
 godot res://tests/feature/slam_test.tscn    # KNOCKBACK into a wall: cracked, hurt and stunned past a speed, and nothing under it
+godot res://tests/graphics/crack_test.tscn  # the crack a slam leaves: it stays, it is the room's, and it is there again when the room is walked back into
 godot res://tests/feature/stack_test.tscn   # parts stack: what each one more is worth, where a part stops, laser speed, and HOMING round a wall
 godot res://tests/feature/invert_hit_test.tscn # a stun, a heal, a cleanse, a push away and a haul back, as they land
 godot res://tests/feature/reach_test.tscn   # how far an attack goes when the stick says how far
@@ -565,7 +566,10 @@ giving it further to walk.
   a second or more, which one `KNOCKBACK` does from up to about three cells
   off and two from up to twelve — it cracks the rock and is hurt by it, 10 at
   that speed and more the harder it hits, and stunned for 0.8s. One slam to a
-  throw; a hit with no `KNOCKBACK` never slams, nor does `GRAVITY`'s drag.
+  throw; a hit with no `KNOCKBACK` never slams, nor does `GRAVITY`'s drag. The
+  crack stays in the wall, wider the harder the slam: it does not fade, and it
+  is still there when you walk back into the room — up to 24 a room, the
+  oldest going first — until the raid is over or you leave the hideout.
 - `EXPLODE` bursts every hit. The enemy an attack strikes is the middle of a
   blast that lands the same hit on everything round it — its damage, its
   elements, its `STUN`, a `KNOCKBACK` out from the middle — though not on that

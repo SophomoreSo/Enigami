@@ -110,6 +110,8 @@ func _on_built() -> void:
 	_hang_lines()
 	_grow_foliage()
 	_light_exit()
+	# The cracks slams have left in this room, walked back into.
+	Fx.lay_cracks(room)
 
 ## The rock as far as the screen shows it: its picture, how it faces, and the
 ## edges it throws shadows off.
