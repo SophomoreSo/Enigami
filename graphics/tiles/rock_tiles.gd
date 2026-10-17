@@ -34,7 +34,10 @@ func paint_kind(c: CanvasItem, cells: MapCells, x: int, y: int) -> void:
 	c.draw_rect(r, tint)
 	if not cells.solid(x, y - 1):
 		c.draw_rect(Rect2(r.position, Vector2(Room.CELL, 4)), tint.lightened(0.35))
-	c.draw_rect(r, Color(0, 0, 0, 0.22), false, 2.0)
+	# Out of filled rects, as a raid's own rock is (`RoomView._outline`): an
+	# unfilled one is drawn on its own and cuts the field's run of rects in two
+	# at every cell, a thousand draws a frame for a room a screen across.
+	RoomView._outline(c, r, Color(0, 0, 0, 0.22))
 
 ## The same rock, set back in the dark: coursed, and darker.
 func paint_back_kind(c: CanvasItem, cells: MapCells, x: int, y: int) -> void:
