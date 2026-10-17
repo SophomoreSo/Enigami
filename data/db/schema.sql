@@ -340,7 +340,8 @@ END;
 -- board's way out, the middle of its right edge (`SkillBoard.way_out`). INPUT
 -- and OUTPUT, which used to be those two, are retired and keep their numbers.
 
--- The kinds of part, which the palette groups them by.
+-- The kinds of part, which the palette groups them by, in the order it lays
+-- their blocks out (`Components.categories`). A kind no part is of has no block.
 CREATE TABLE categories (
 	id TEXT PRIMARY KEY CHECK (id <> '' AND id = lower(id))
 );

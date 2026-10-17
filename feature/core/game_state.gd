@@ -390,6 +390,8 @@ const SHOP_PRICES := {
 	Components.CAT_ELEMENT: 55,
 	Components.CAT_STAT: 40,
 	Components.CAT_BEHAVIOR: 65,
+	Components.CAT_PROJECTILE_BEHAVIOR: 65,
+	Components.CAT_SUMMON_BEHAVIOR: 65,
 	Components.CAT_FLOW: 70,
 	Components.CAT_TRIGGER: 55,
 }

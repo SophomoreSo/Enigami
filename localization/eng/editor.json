@@ -57,6 +57,9 @@
 		"cleanse": "cleanses",
 		"repel": "pushes away",
 		"hook": "hauls back",
+		"anti_gravity": "weightless",
+		"summon_projectile": "summons a bolt",
+		"summon_pet": "summons a pet",
 		"separator": ", ",
 		"then": "then"
 	}

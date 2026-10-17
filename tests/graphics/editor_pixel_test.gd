@@ -652,10 +652,13 @@ func _ready() -> void:
 	check(split.is_empty(), "every category's parts are one run of rows (split: %s)" % str(split))
 	var wide: Array = []
 	var room := SkillEditor.PAL_GUTTER - SkillEditor.PAL_SPINE - 8.0
+	# A long name is broken onto lines (`Style.category_lines`): each line fits,
+	# and none is cut short.
 	for block in blocks:
-		if PixelDraw.text_width(String(block["name"])) > room:
-			wide.append("%s (%.0f of %.0f)" % [block["name"], PixelDraw.text_width(String(block["name"])), room])
-	check(wide.is_empty(), "every category name fits the gutter (too wide: %s)" % str(wide))
+		for line: String in (block["name"] as PackedStringArray):
+			if PixelDraw.ink_width(line) > room or line.ends_with("…"):
+				wide.append("%s (%.0f of %.0f)" % [line, PixelDraw.ink_width(line), room])
+	check(wide.is_empty(), "every category name fits the gutter, a line at a time (too wide: %s)" % str(wide))
 	var overlap: Array = []
 	for i in ids.size():
 		for j in range(i + 1, ids.size()):

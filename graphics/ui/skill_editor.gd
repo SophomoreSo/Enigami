@@ -117,9 +117,10 @@ const PAL_COLS := 2
 const PAL_W := 244
 ## Row pitch. Seventeen rows of parts have to end above the info panel, and at
 ## the 26 this was they do not: a row lost two PIXELs when the behaviour block
-## grew to four rows. A row is PAL_H - 4 tall, which still clears the 14-PIXEL
-## icon inside it.
-const PAL_H := 24
+## grew to four rows, and another when it was split three ways — COMMON,
+## PROJECTILE and SUMMON BEHAVIOR — and the palette came to nineteen. A row is
+## PAL_H - 4 tall, which still clears the 14-pixel icon inside it.
+const PAL_H := 22
 ## A category's name is written down the gutter beside its block rather than on
 ## a header row above it: there are six of them, and six more rows do not
 ## fit between the header and the info panel. The spine is the rule the name
@@ -127,11 +128,18 @@ const PAL_H := 24
 const PAL_GUTTER := 122.0
 const PAL_SPINE := 10.0
 ## The space between one category's block and the next. Cut from 6 to 4 when the
-## stat block took a fifth part and grew a row: a block is already told apart by
-## its spine and its name, so the gap is the first thing worth spending when the
-## palette has to find another row's height. `editor_pixel_test` is what says
-## when it has run out — it fails the moment the rows reach the info panel.
-const PAL_GROUP_GAP := 4.0
+## stat block took a fifth part and grew a row, and to none when behaviour was
+## split in three: a block is already told apart by its spine, which stops 4
+## short of the next, and its name, so the gap is the first thing worth spending
+## when the palette has to find another row's height. `editor_pixel_test` is
+## what says when it has run out — it fails the moment the rows reach the info
+## panel.
+const PAL_GROUP_GAP := 0.0
+## A block's name on more lines than it has rows for — SUMMON BEHAVIOR, two
+## lines beside one row — is set this close, line to line, from this baseline,
+## so it stays beside its own block.
+const PAL_TIGHT_LINE := 12.0
+const PAL_TIGHT_Y := 10.0
 ## The baseline of a row's text, from the top of the row: capitals stand 10
 ## tall, so this leaves 6 above them and 4 under.
 const PAL_TEXT_Y := 16.0
@@ -2913,9 +2921,9 @@ func _draw_live_flow(b: SkillBoard) -> void:
 		_px.diamond(box.get_center(), 3 + int(round(2.0 * sin(k * PI))), Color(0.6, 1.0, 0.85, 0.85))
 		_px.lap(box, k, Color(0.5, 1.0, 0.8, 0.7))
 
-## The parts, in blocks — one a category, in the order the pool brings them: a
-## category's block starts where its first part does, and every later part of
-## the same category joins it rather than starting a second block of its own.
+## The parts, in blocks — one a category, in the order the categories table
+## lists them (`Components.categories`), each holding its parts in the pool's
+## order. A category no part is of has no block.
 ##
 ## Worked out on first use and kept, the pool being a constant: a thumb's layout
 ## is checked against how many blocks there are every time anything asks where
@@ -2924,13 +2932,19 @@ func _draw_live_flow(b: SkillBoard) -> void:
 func _pal_groups() -> Array:
 	if not _groups.is_empty():
 		return _groups
-	var at := {}
+	var by_cat := {}
+	var order: Array = Components.categories()
 	for id in _pool_ids():
 		var cat := String(Components.get_def(id).get("cat", ""))
-		if not at.has(cat):
-			at[cat] = _groups.size()
-			_groups.append({"cat": cat, "ids": []})
-		(_groups[int(at[cat])]["ids"] as Array).append(id)
+		if not by_cat.has(cat):
+			by_cat[cat] = []
+			# One the table does not list goes after those it does.
+			if not order.has(cat):
+				order.append(cat)
+		(by_cat[cat] as Array).append(id)
+	for cat in order:
+		if by_cat.has(cat):
+			_groups.append({"cat": cat, "ids": by_cat[cat]})
 	return _groups
 
 ## Every row and every block placed, once. The pool is a constant, so this is
@@ -2948,11 +2962,15 @@ func _build_palette() -> void:
 		var ids: Array = group["ids"]
 		var rows := int(ceil(float(ids.size()) / float(PAL_COLS)))
 		var cat := String(group["cat"])
+		var lines := Style.category_lines(cat, PAL_GUTTER - PAL_SPINE - 8.0)
+		# Lines a row apart where the block is tall enough, and closer where not.
+		var roomy := PAL_TEXT_Y + PixelDraw.LINE * float(lines.size() - 1) <= rows * PAL_H - 4.0
 		_pal_blocks.append({
-			"name": Style.category_name(cat),
+			"name": lines,
+			"line": PixelDraw.LINE if roomy else PAL_TIGHT_LINE,
 			"col": Style.category_color(cat),
 			# The name is right-aligned on the spine, on the first row's baseline.
-			"baseline": Vector2(x - PAL_SPINE - 8.0, y + PAL_TEXT_Y),
+			"baseline": Vector2(x - PAL_SPINE - 8.0, y + (PAL_TEXT_Y if roomy else PAL_TIGHT_Y)),
 			"spine": Rect2(x - PAL_SPINE, y, PX, rows * PAL_H - 4.0),
 		})
 		for i in ids.size():
@@ -3025,9 +3043,12 @@ func _draw_palette() -> void:
 	for block in _pal_blocks:
 		var col: Color = block["col"]
 		_px.rect(block["spine"], Color(col.r, col.g, col.b, 0.7))
-		var label := PixelDraw.clip(String(block["name"]), PAL_GUTTER - PAL_SPINE - 8.0)
-		var at: Vector2 = block["baseline"] - Vector2(PixelDraw.ink_width(label), 0.0)
-		_px.text(at, label, col)
+		# A line a row, from the first row's baseline down: a long name runs onto
+		# a second line rather than being cut.
+		var lines: PackedStringArray = block["name"]
+		for k in lines.size():
+			var at: Vector2 = block["baseline"] + Vector2(-PixelDraw.ink_width(lines[k]), float(block["line"]) * k)
+			_px.text(at, lines[k], col)
 
 	var ids := _palette_ids()
 	for i in ids.size():
@@ -3108,8 +3129,12 @@ func _draw_thumb_parts() -> void:
 			_px.frame(r.grow(-PX), col)
 		if i == _hover_tab:
 			_px.frame(r, Color(1, 1, 1, 0.5))
-		_px.text_centered(Vector2(r.position.x + 4.0, r.position.y + (r.size.y + 10.0) * 0.5),
-			Style.category_name(cat), Color.WHITE if up else col, r.size.x - 8.0)
+		# Centred down the tab, a line a word where the name is wider than it.
+		var lines := Style.category_lines(cat, r.size.x - 8.0)
+		var top := r.position.y + (r.size.y + 10.0) * 0.5 - PixelDraw.LINE * 0.5 * float(lines.size() - 1)
+		for k in lines.size():
+			_px.text_centered(Vector2(r.position.x + 4.0, top + PixelDraw.LINE * k),
+				lines[k], Color.WHITE if up else col, r.size.x - 8.0)
 
 	var ids := _palette_ids()
 	var big := UiKit.THUMB_TEXT

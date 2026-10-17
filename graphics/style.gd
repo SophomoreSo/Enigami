@@ -17,6 +17,8 @@ const CAT_COLOR := {
 	Components.CAT_ELEMENT: Color(0.95, 0.42, 0.32),
 	Components.CAT_STAT: Color(0.45, 0.85, 0.62),
 	Components.CAT_BEHAVIOR: Color(0.42, 0.72, 0.98),
+	Components.CAT_PROJECTILE_BEHAVIOR: Color(0.38, 0.88, 0.92),
+	Components.CAT_SUMMON_BEHAVIOR: Color(0.62, 0.86, 0.42),
 	Components.CAT_FLOW: Color(0.75, 0.52, 0.95),
 	Components.CAT_TRIGGER: Color(0.98, 0.55, 0.78),
 }
@@ -27,7 +29,9 @@ const CAT_NAME := {
 	Components.CAT_FORM: "FORM",
 	Components.CAT_ELEMENT: "ELEMENT",
 	Components.CAT_STAT: "STAT",
-	Components.CAT_BEHAVIOR: "BEHAVIOR",
+	Components.CAT_BEHAVIOR: "COMMON BEHAVIOR",
+	Components.CAT_PROJECTILE_BEHAVIOR: "PROJECTILE BEHAVIOR",
+	Components.CAT_SUMMON_BEHAVIOR: "SUMMON BEHAVIOR",
 	Components.CAT_FLOW: "FLOW",
 	Components.CAT_TRIGGER: "TRIGGER",
 }
@@ -41,6 +45,10 @@ const COMPONENT := {
 	"EXPLODE": {"glyph": "◎"},
 	"DASHSLASH": {"glyph": "»"},
 	"HEADBUTT": {"glyph": "☻"},
+
+	"ANTI_GRAVITY": {"glyph": "⇡"},
+	"SUMMON_PROJECTILE": {"glyph": "⇓"},
+	"SUMMON_PET": {"glyph": "✿"},
 
 	"FIRE": {"glyph": "🔥"},
 	"ICE": {"glyph": "❄", "color": Color(0.45, 0.8, 0.98)},
@@ -84,6 +92,27 @@ static func category_color(cat: String) -> Color:
 static func category_name(cat: String) -> String:
 	return String(CAT_NAME.get(cat, cat.to_upper()))
 
+## A category's name in as few lines as fit `width` at the pixel font's size,
+## broken between its words: COMMON BEHAVIOR in a narrow gutter is COMMON over
+## BEHAVIOR. A word wider than the width on its own is cut, as `PixelDraw.clip`
+## cuts it.
+static func category_lines(cat: String, width: float) -> PackedStringArray:
+	var lines := PackedStringArray()
+	var line := ""
+	for word in category_name(cat).split(" ", false):
+		var tried := word if line == "" else line + " " + word
+		if line == "" or PixelDraw.ink_width(tried) <= width:
+			line = tried
+		else:
+			lines.append(line)
+			line = word
+	if line != "":
+		lines.append(line)
+	for i in lines.size():
+		if PixelDraw.ink_width(lines[i]) > width:
+			lines[i] = PixelDraw.clip(lines[i], width)
+	return lines
+
 static func component_color(id: String) -> Color:
 	var look: Dictionary = COMPONENT.get(id, {})
 	if look.has("color"):
@@ -98,6 +127,36 @@ static func component_glyph(id: String) -> String:
 ## `#` for a pixel, drawn a `UiKit.PIXEL` block each. A part without one draws
 ## ICON_FALLBACK.
 const COMPONENT_ICON := {
+	# A bolt held up off the ground, lines of lift under it.
+	"ANTI_GRAVITY": [
+		"...#...",
+		"..###..",
+		".#####.",
+		".......",
+		"#.#.#.#",
+		".......",
+		"#######",
+	],
+	# A ring in the air, and a bolt dropping out of it.
+	"SUMMON_PROJECTILE": [
+		".#####.",
+		"#.....#",
+		".#####.",
+		"...#...",
+		"...#...",
+		"..###..",
+		"...#...",
+	],
+	# A small round thing with ears and two eyes.
+	"SUMMON_PET": [
+		".#...#.",
+		".##.##.",
+		"#######",
+		"##.#.##",
+		"#######",
+		".#####.",
+		"..#.#..",
+	],
 	"PROJECTILE": [
 		".......",
 		"....#..",
@@ -661,6 +720,36 @@ const COMPONENT_MOTION := {
 		"....#.. .....#. ......# #...... .#..... ..#.... ...#...",
 		"######. .###### #.##### ##.#### ###.### ####.## #####.#",
 		"....#.. .....#. ......# #...... .#..... ..#.... ...#...",
+	]},
+	# The bolt bobs up off the ground and settles back, the lift flickering.
+	"ANTI_GRAVITY": {"fps": 6, "hold": [3, 1, 2, 1], "strip": [
+		"...#... ..###.. ...#... .......",
+		"..###.. .#####. ..###.. ...#...",
+		".#####. ....... .#####. ..###..",
+		"....... #.#.#.# ....... .#####.",
+		"#.#.#.# ....... .#.#.#. .......",
+		"....... ....... ....... #.#.#.#",
+		"####### ####### ####### #######",
+	]},
+	# The bolt drops out of the ring and another comes through after it.
+	"SUMMON_PROJECTILE": {"fps": 10, "hold": [4, 1, 1, 1], "strip": [
+		".#####. .#####. .#####. .#####.",
+		"#.....# #.....# #.....# #.....#",
+		".#####. .#####. .#####. .#####.",
+		"...#... ....... ....... ...#...",
+		"...#... ...#... ....... .......",
+		"..###.. ...#... ...#... .......",
+		"...#... ..###.. ...#... .......",
+	]},
+	# It blinks.
+	"SUMMON_PET": {"fps": 8, "hold": [8, 2], "strip": [
+		".#...#. .#...#.",
+		".##.##. .##.##.",
+		"####### #######",
+		"##.#.## #######",
+		"####### #######",
+		".#####. .#####.",
+		"..#.#.. ..#.#..",
 	]},
 	"BRIDGE": {"fps": 10, "hold": [4, 1, 1, 1, 1], "strip": [
 		"....... ....... ....... ....... .......",

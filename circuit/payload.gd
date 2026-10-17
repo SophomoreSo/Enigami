@@ -32,6 +32,10 @@ var pierce: int = 0                ## extra targets an attack passes through
 ## thing harder — a tighter turn, a stronger drag, a longer throw.
 var homing: int = 0                ## tracks the nearest enemy, and finds its way round walls
 var auto_aim: int = 0              ## goes at the nearest enemy, wherever it was aimed
+## Weightless: a bolt flies with no gravity on it — a thrown or lobbed one goes
+## straight rather than arcing, and a summoned one hangs where it was called
+## rather than falling (ANTI-GRAVITY).
+var anti_gravity: int = 0
 ## Drags nearby enemies into the impact instead of knocking the struck one back.
 ## Not to be confused with a thrown weapon's `gravity_shots`, which arcs the
 ## bolt: that one is a property of the weapon and rides in the spawn context.
@@ -48,6 +52,10 @@ var health_drain: int = 0          ## every hit that hurts heals the caster a sh
 var stun: float = 0.0              ## seconds the struck enemy stands stunned
 ## Seconds the player's hands go into the monster struck (`Player.possess`).
 var possess: float = 0.0
+## What the attack calls up beside itself as it goes off (`Attacks.spawn`): a
+## bolt in the air for each SUMMON PROJECTILE, and a pet for a SUMMON PET.
+var summon_projectile: int = 0
+var summon_pet: int = 0
 ## What an INVERT makes of the part before it (the `inversions` rows), each
 ## landing on the struck enemy once the hit has: health given back, every burn,
 ## chill and stun it was carrying ended — though not what this same hit brings
@@ -87,6 +95,7 @@ func clone() -> Payload:
 	p.pierce = pierce
 	p.homing = homing
 	p.auto_aim = auto_aim
+	p.anti_gravity = anti_gravity
 	p.pull = pull
 	p.knockback = knockback
 	p.explode = explode
@@ -95,6 +104,8 @@ func clone() -> Payload:
 	p.health_drain = health_drain
 	p.stun = stun
 	p.possess = possess
+	p.summon_projectile = summon_projectile
+	p.summon_pet = summon_pet
 	p.heal = heal
 	p.cleanse = cleanse
 	p.repel = repel

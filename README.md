@@ -78,6 +78,7 @@ godot res://tests/graphics/glass_test.tscn  # glass: what is behind clear glass 
 godot res://tests/graphics/bolt_view_test.tscn # a bolt's trail: the gaps between its beads drawn in, and a laser's beam from the muzzle
 godot res://tests/graphics/rock_view_test.tscn # the rock, drawn: a stone of the game's own and not the pack's morning star, held upright, turning over in the air, and marked where it lies
 godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
+godot res://tests/feature/summon_test.tscn  # SUMMON BOLT's bolt in the air, falling, striking once and gone; SUMMON PET's pet following, one to a summoner
 godot res://tests/feature/slam_test.tscn    # KNOCKBACK into a wall: cracked, hurt and stunned past a speed, and nothing under it
 godot res://tests/feature/stack_test.tscn   # parts stack: what each one more is worth, where a part stops, laser speed, and HOMING round a wall
 godot res://tests/feature/invert_hit_test.tscn # a stun, a heal, a cleanse, a push away and a haul back, as they land
@@ -581,6 +582,20 @@ giving it further to walk.
   off and two from up to twelve — it cracks the rock and is hurt by it, 10 at
   that speed and more the harder it hits, and stunned for 0.8s. One slam to a
   throw; a hit with no `KNOCKBACK` never slams, nor does `GRAVITY`'s drag.
+- `ANTI-GRAVITY` takes the weight off a bolt: a lobbed or thrown shot — a
+  Lobber's, a weapon's that arcs — flies straight instead, and a bolt
+  `SUMMON BOLT` calls hangs where it was called instead of falling, until
+  its three seconds are up. One is all it takes; more do no more.
+- `SUMMON BOLT` and `SUMMON PET`, the SUMMON BEHAVIOR block, call
+  something up beside the attack every time a flow carrying them goes off,
+  whatever its form, and with none. `SUMMON BOLT` (its id is `SUMMON_PROJECTILE`) hangs a bolt in the air
+  over where you aim — as far as some eight cells off, and up to three and a
+  half over it, short of the rock — which falls under its own weight, strikes
+  whatever it touches once with the attack's numbers, lies where it lands, and
+  is gone three seconds after it was called. Each one stacked calls one more,
+  side by side. `SUMMON PET` calls a pet that hovers behind your shoulder and
+  follows you about, and does nothing else yet: one at a time, so a cast while
+  it is there calls no other; it goes when you do.
 - `EXPLODE` bursts every hit. The enemy an attack strikes is the middle of a
   blast that lands the same hit on everything round it — its damage, its
   elements, its `STUN`, a `KNOCKBACK` out from the middle — though not on that

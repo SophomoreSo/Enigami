@@ -287,6 +287,7 @@ class Crack extends Node2D:
 			var path := _walk(Vector2.ZERO, a, length, dice)
 			lines.append(path)
 			if dice.randf() < 0.6 and path.size() > 2:
+				@warning_ignore("integer_division")
 				var from: Vector2 = path[path.size() / 2]
 				lines.append(_walk(from, a + dice.randf_range(-0.9, 0.9), length * 0.45, dice))
 		queue_redraw()

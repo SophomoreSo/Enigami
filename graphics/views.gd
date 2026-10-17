@@ -44,6 +44,10 @@ func view_script_for(n: Node) -> GDScript:
 		return EnemyView
 	if n is Projectile:
 		return ProjectileView
+	if n is SummonedProjectile:
+		return SummonedProjectileView
+	if n is Pet:
+		return PetView
 	if n is MeleeArc:
 		return MeleeArcView
 	if n is AreaBurst:
