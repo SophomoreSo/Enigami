@@ -18,8 +18,13 @@
 -- own. They are the board's: its root, and its way out in the middle of its
 -- right edge (circuit/skill_board.gd).
 
+-- In the order the palette lays its blocks out. `behavior` is COMMON BEHAVIOR
+-- on screen; the two after it are what a bolt is steered and carried by —
+-- PIERCE, HOMING, AUTO-AIM and ANTI-GRAVITY — and what an attack calls up beside itself:
+-- a bolt in the air, a pet.
 INSERT INTO categories (id) VALUES
-	('form'), ('element'), ('stat'), ('behavior'), ('flow'), ('trigger');
+	('form'), ('element'), ('stat'), ('behavior'), ('projectile_behavior'), ('summon_behavior'),
+	('flow'), ('trigger');
 
 -- Every number a part has ever had in a shared code, in order. **Only ever
 -- add to the end.** A code written today has to mean the same board next
@@ -44,7 +49,9 @@ INSERT INTO codes (code, id) VALUES
 	(38, 'HEALTH_DRAIN'),
 	(39, 'WATER'),
 	(40, 'BRIDGE'),
-	(41, 'HEADBUTT');
+	(41, 'HEADBUTT'),
+	(42, 'SUMMON_PROJECTILE'), (43, 'SUMMON_PET'),
+	(44, 'ANTI_GRAVITY');
 
 -- WIRE and BEND carried a flow one cell and did nothing else to it, which
 -- every part already does: any part takes flow on any side and sends it where
@@ -192,15 +199,16 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 -- Every one of these stacks: each is a count on the payload, and what reads it
 -- (feature/attacks/) does more for a higher one.
 INSERT INTO parts (id, name, category, heat, description) VALUES
-	('PIERCE', 'PIERCE', 'behavior', 0.5, 'The attack passes through one enemy and carries on to the next. Each one stacked is one more enemy it passes through.'),
-	('HOMING', 'HOMING', 'behavior', 0.6, 'Tracks the nearest enemy. Bolts curve and find their way round walls; melee forms re-aim themselves. Each one stacked turns a bolt tighter, so it holds a winding path it would otherwise fly wide of.'),
+	('PIERCE', 'PIERCE', 'projectile_behavior', 0.5, 'The attack passes through one enemy and carries on to the next. Each one stacked is one more enemy it passes through.'),
+	('HOMING', 'HOMING', 'projectile_behavior', 0.6, 'Tracks the nearest enemy. Bolts curve and find their way round walls; melee forms re-aim themselves. Each one stacked turns a bolt tighter, so it holds a winding path it would otherwise fly wide of.'),
 	('GRAVITY', 'GRAVITY', 'behavior', 0.7, 'The enemy struck is not knocked back but pinned, and every other enemy nearby is dragged onto it. Gathers a room into one place for whatever comes next. Each one stacked drags harder.'),
 	('KNOCKBACK', 'KNOCKBACK', 'behavior', 0.5, 'Hits throw the enemy back the way the attack was going. Thrown hard into a wall, it cracks the wall and is hurt and stunned. Buys room, but can put it out of reach. Each one stacked throws harder.'),
 	('MANA_DRAIN', 'MANA DRAIN', 'behavior', 0.5, 'Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting. Each one stacked drains more.'),
 	('HEALTH_DRAIN', 'HEALTH DRAIN', 'behavior', 0.6, 'Every enemy this attack hurts gives health back to the caster: a fifth of the damage dealt, and a fifth more for each one stacked. What keeps you standing is landing hits.'),
 	('STUN', 'STUN', 'behavior', 0.6, 'Struck enemies are stunned: for a moment they stand where they are and cannot attack. Each one stacked holds them longer. Once it wears off, an enemy shrugs off the next stun for a while.'),
 	('POSSESS', 'POSSESS', 'behavior', 0.9, 'Takes over the monster struck for 5 seconds, unharmed, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, left behind and still hunted. Bosses resist it.'),
-	('AUTO_AIM', 'AUTO-AIM', 'behavior', 0.4, 'Aims the attack at the nearest enemy, wherever you point: bolts go straight at it and SWIFT STRIKE lunges through it, as far as each reaches, and a swing turns to it. Each one stacked looks further for one.');
+	('AUTO_AIM', 'AUTO-AIM', 'projectile_behavior', 0.4, 'Aims the attack at the nearest enemy, wherever you point: bolts go straight at it and SWIFT STRIKE lunges through it, as far as each reaches, and a swing turns to it. Each one stacked looks further for one.'),
+	('ANTI_GRAVITY', 'ANTI-GRAVITY', 'projectile_behavior', 0.4, 'Bolts fly with no weight on them: a lobbed shot goes straight instead of arcing, and a summoned bolt hangs where it was called instead of falling. One is all it takes.');
 
 -- EXPLODE was a form, an attack of its own — a burst round the caster — and a
 -- flow it was placed on was that burst instead of whatever its form had made
@@ -217,7 +225,7 @@ INSERT INTO parts (id, name, category, heat, tag, description) VALUES
 INSERT INTO ports (part_id, side) VALUES
 	('PIERCE', 'E'), ('HOMING', 'E'),
 	('GRAVITY', 'E'), ('KNOCKBACK', 'E'), ('MANA_DRAIN', 'E'), ('HEALTH_DRAIN', 'E'),
-	('STUN', 'E'), ('POSSESS', 'E'), ('AUTO_AIM', 'E'), ('EXPLODE', 'E');
+	('STUN', 'E'), ('POSSESS', 'E'), ('AUTO_AIM', 'E'), ('ANTI_GRAVITY', 'E'), ('EXPLODE', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('PIERCE', 0, 'pierce', 'add', 1),
@@ -229,7 +237,28 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('STUN', 0, 'stun', 'add', 0.8),
 	('POSSESS', 0, 'possess', 'add', 5),
 	('AUTO_AIM', 0, 'auto_aim', 'add', 1),
+	('ANTI_GRAVITY', 0, 'anti_gravity', 'add', 1),
 	('EXPLODE', 0, 'explode', 'add', 1);
+
+
+-- ---- summon ---------------------------------------------------------------------
+-- What an attack calls up beside itself, every time a flow carrying one goes
+-- off (`Attacks.spawn`), whatever its form, and with none. SUMMON BOLT
+-- hangs a bolt in the air over where the attack is aimed, which falls, strikes
+-- what it touches with the flow's numbers and is gone a few seconds later
+-- (`SummonedProjectile`); each one stacked calls one more. SUMMON PET calls a
+-- pet that follows its summoner and does nothing else yet (`Pet`): one to a
+-- summoner, so a cast with one already there calls no other.
+INSERT INTO parts (id, name, category, heat, description) VALUES
+	('SUMMON_PROJECTILE', 'SUMMON BOLT', 'summon_behavior', 0.6, 'Summons a bolt in the air over where you aim. It falls, strikes whatever it touches with the attack''s numbers, and is gone a few seconds later. Each one stacked summons one more.'),
+	('SUMMON_PET', 'SUMMON PET', 'summon_behavior', 0.8, 'Summons a pet that follows you about. It does nothing else yet. One at a time: a cast while it is there summons no other.');
+
+INSERT INTO ports (part_id, side) VALUES
+	('SUMMON_PROJECTILE', 'E'), ('SUMMON_PET', 'E');
+
+INSERT INTO effects (part_id, position, field, op, value) VALUES
+	('SUMMON_PROJECTILE', 0, 'summon_projectile', 'add', 1),
+	('SUMMON_PET', 0, 'summon_pet', 'add', 1);
 
 
 -- ---- flow ---------------------------------------------------------------------

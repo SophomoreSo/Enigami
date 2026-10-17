@@ -41,7 +41,7 @@ var owned_weapons: Array[String] = []
 ## Weapons every profile is handed, once: a new one starts with them, and one
 ## saved before a weapon was in the game is given it the first time it loads
 ## (`_hand_out`). Once only, so a weapon lost to a death since is not given back.
-const HANDED_OUT := ["SHOVEL", "SHURIKEN"]
+const HANDED_OUT := ["SHOVEL", "SHURIKEN", "RUNE"]
 ## Which of them this profile has been handed.
 var handed_out: Array[String] = []
 ## weapon id -> the graph on it. A weapon is its graph: the weapon's own part
@@ -158,6 +158,16 @@ var bestiary: Dictionary = {"monsters": [], "skills": []}
 ## here reads it. It is kept with the profile for the reason `memory` is.
 var perks: Dictionary = {}
 
+## The rune's mana (`Weapons.is_rune`): the charge stored in it, which its
+## next throw carries for nothing. There is one rune, so one store of it, kept
+## with the profile wherever the rune is — in hand, lying in a room, or dropped
+## with the kit. A throw spends it all (`rune_spent`): the rune casts nothing
+## until the player's own mana has filled it again (`Player.refill_rune`). It
+## starts lit, with one full charge of a player with no perks in it.
+const RUNE_MANA := Player.MAX_CHARGE_TTL * Player.MANA_PER_TTL
+var rune_mana: float = RUNE_MANA
+var rune_spent: bool = false
+
 ## Whatever adds to the player's own numbers from outside the rules: functions
 ## from a stat's name to what they add to it, each asked in turn by `boost`.
 ## The perks put theirs here (perks/rules), which is how what they add reaches
@@ -228,7 +238,9 @@ func _new_profile() -> void:
 	memory = {}
 	bestiary = {"monsters": [], "skills": []}
 	perks = {}
-	owned_weapons = ["ROCK", "SWORD", "GUN", "SHOVEL", "SHURIKEN"]
+	rune_mana = RUNE_MANA
+	rune_spent = false
+	owned_weapons = ["ROCK", "SWORD", "GUN", "SHOVEL", "SHURIKEN", "RUNE"]
 	handed_out.assign(HANDED_OUT)
 	loadout = []
 	weapon_boards.clear()
@@ -378,6 +390,8 @@ const SHOP_PRICES := {
 	Components.CAT_ELEMENT: 55,
 	Components.CAT_STAT: 40,
 	Components.CAT_BEHAVIOR: 65,
+	Components.CAT_PROJECTILE_BEHAVIOR: 65,
+	Components.CAT_SUMMON_BEHAVIOR: 65,
 	Components.CAT_FLOW: 70,
 	Components.CAT_TRIGGER: 55,
 }
@@ -932,6 +946,8 @@ func save_game() -> void:
 		"memory": memory,
 		"bestiary": bestiary,
 		"perks": perks,
+		"rune_mana": rune_mana,
+		"rune_spent": rune_spent,
 		# The raid in progress, if there is one. It used to be left out, so a
 		# profile saved mid-raid came back with the weapon gone from the vault
 		# and no raid to account for it.
@@ -1024,6 +1040,9 @@ func _read_save(path: String) -> bool:
 	if bought is Dictionary:
 		for k in bought:
 			perks[String(k)] = int(bought[k])
+	# A save from before the rune has it full.
+	rune_mana = maxf(float(parsed.get("rune_mana", RUNE_MANA)), 0.0)
+	rune_spent = bool(parsed.get("rune_spent", false))
 	# The same for the records: one the save does not mention is nought.
 	var rec: Dictionary = parsed.get("records", {})
 	for k in records:

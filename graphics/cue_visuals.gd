@@ -39,6 +39,21 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 			Fx.shake(6.0)
 		&"lunge_cut":
 			Fx.shake(4.0)
+		&"summon_projectile":
+			# Called up out of the air: a ring opens where it hangs.
+			Fx.ring(pos, Style.element_color(d.get("payload")), 22.0)
+		&"summon_landed":
+			Fx.burst(pos, Style.element_color(d.get("payload")), 4, 70.0)
+		&"summon_pet":
+			Fx.ring(pos, Style.category_color(Components.CAT_SUMMON_BEHAVIOR), 30.0)
+			Fx.burst(pos, Style.category_color(Components.CAT_SUMMON_BEHAVIOR), 8, 90.0)
+		&"rune_lit":
+			# Filled to the top: it lights again.
+			Fx.ring(pos, Style.RUNE_GLOW, 46.0)
+			Fx.burst(pos, Style.RUNE_GLOW, 10, 140.0)
+		&"rune_spent":
+			# The last of its mana gone out with the cast that drained it.
+			Fx.burst(pos, Style.RUNE_GLOW.darkened(0.4), 6, 60.0)
 		&"wall_slam":
 			# The rock cracks where the body struck it, and dust comes off it.
 			var force := float(d.get("force", 1.0))

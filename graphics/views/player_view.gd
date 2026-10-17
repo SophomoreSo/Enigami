@@ -159,6 +159,12 @@ func _draw() -> void:
 		draw_arc(Vector2.ZERO, 34.0 - 10.0 * ct, 0, TAU, 28,
 			Color(CHARGE_COLOR.r, CHARGE_COLOR.g, CHARGE_COLOR.b, 0.30 + 0.55 * ct), 2.0 + 2.0 * ct)
 		_draw_charge_bar(ct)
+	elif player.refilling:
+		# Mana poured into a spent rune: the ring closes in as the rune fills.
+		var rt := clampf(GameState.rune_mana / maxf(player.rune_full(), 1.0), 0.0, 1.0)
+		draw_arc(Vector2.ZERO, 34.0 - 10.0 * rt, -PI * 0.5, -PI * 0.5 + TAU * rt, 28,
+			Color(Style.RUNE_GLOW, 0.4 + 0.5 * rt), 3.0)
+		_draw_charge_bar(rt)
 	if player.parry_time > 0.0:
 		draw_arc(Vector2.ZERO, 24.0, 0, TAU, 24, Color(PARRY_COLOR.r, PARRY_COLOR.g, PARRY_COLOR.b, 0.9), 2.5)
 	var held := player.vessel()

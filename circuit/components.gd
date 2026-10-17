@@ -46,6 +46,8 @@ const CAT_FORM := "form"
 const CAT_ELEMENT := "element"
 const CAT_STAT := "stat"
 const CAT_BEHAVIOR := "behavior"
+const CAT_PROJECTILE_BEHAVIOR := "projectile_behavior"
+const CAT_SUMMON_BEHAVIOR := "summon_behavior"
 const CAT_FLOW := "flow"
 const CAT_TRIGGER := "trigger"
 
@@ -62,6 +64,8 @@ const KEPT := ["heat", "branch", "follow_up", "stacks", "on_hit", "on_kill", "on
 ##   does, see `_effect`), acts_on_entry (it does its work on the way in; see
 ##   below), code (its number in a shared code), desc
 static var _defs: Dictionary = {}
+## The categories, in the order the palette lays them out: the table's.
+static var _cats: Array = []
 ## code -> id, a retired part's included.
 static var _codes: Dictionary = {}
 ## Retired id -> true.
@@ -79,6 +83,12 @@ static func get_def(id: String) -> Dictionary:
 static func ids() -> Array:
 	_ensure()
 	return _defs.keys()
+
+## Every category, in the order the palette lays its blocks out — whether or
+## not any part is of it yet.
+static func categories() -> Array:
+	_ensure()
+	return _cats.duplicate()
 
 ## The parts that drop, forge, sell and are spent from a stash, in the order
 ## the palette shows them: every part there is. Nothing is handed out for
@@ -267,6 +277,9 @@ static func _load() -> void:
 	_faults.clear()
 	for c in Db.records("codes", "", [], "code"):
 		_codes[int(c["code"])] = String(c["id"])
+	_cats.clear()
+	for c in Db.records("categories", "", [], "rowid"):
+		_cats.append(String(c["id"]))
 	for p in Db.records("parts", "", [], "rowid"):
 		var id := String(p["id"])
 		_defs[id] = {

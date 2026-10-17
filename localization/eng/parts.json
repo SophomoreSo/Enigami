@@ -107,6 +107,18 @@
 		"name": "INVERT",
 		"desc": "Turns the part right before it inside out: DAMAGE heals what it strikes, FIRE, ICE and STUN cleanse it, GRAVITY pushes away, KNOCKBACK pulls in, and SIZE, SPEED and RANGE shrink. After anything else it does nothing."
 	},
+	"ANTI_GRAVITY": {
+		"name": "ANTI-GRAVITY",
+		"desc": "Bolts fly with no weight on them: a lobbed shot goes straight instead of arcing, and a summoned bolt hangs where it was called instead of falling. One is all it takes."
+	},
+	"SUMMON_PROJECTILE": {
+		"name": "SUMMON BOLT",
+		"desc": "Summons a bolt in the air over where you aim. It falls, strikes whatever it touches with the attack's numbers, and is gone a few seconds later. Each one stacked summons one more."
+	},
+	"SUMMON_PET": {
+		"name": "SUMMON PET",
+		"desc": "Summons a pet that follows you about. It does nothing else yet. One at a time: a cast while it is there summons no other."
+	},
 	"BRIDGE": {
 		"name": "BRIDGE",
 		"desc": "Carries a flow one cell and does nothing else: it turns the flow and leaves it as it was. Steer a flow round to the way out with it, or walk a trigger's branch round a ring and back."

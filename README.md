@@ -39,6 +39,7 @@ godot res://tests/feature/floor_test.tscn   # the raid's floor laid by hand hold
 godot res://tests/feature/bestiary_test.tscn # the monster dictionary: a monster met by walking into its room, a skill seen by its going off, and both kept with the save
 godot res://tests/feature/possess_test.tscn # POSSESS: into a monster and out again, the body left behind, passing for one of them, the weapon, talking
 godot res://tests/feature/kit_test.tscn     # up to three weapons carried, one in hand: the rack, the keys and the wheel, and what walking out and dying do to the lot
+godot res://tests/feature/rune_test.tscn    # the rune: thrown charged for nothing, spent once thrown and then thrown bare, filled again by a hold of the cast button
 godot res://tests/feature/rock_test.tscn    # the rock: one stone, thrown with its graph in it, lying where it lands until it is picked back up — by the body, or a monster the player is in
 godot res://tests/feature/gate_test.tscn    # a gate on the floor, up a room and back down with F, and no hole to jump into
 godot res://tests/feature/cast_test.tscn    # the two buttons: attack casts the graph, cast charges it
@@ -77,6 +78,7 @@ godot res://tests/graphics/glass_test.tscn  # glass: what is behind clear glass 
 godot res://tests/graphics/bolt_view_test.tscn # a bolt's trail: the gaps between its beads drawn in, and a laser's beam from the muzzle
 godot res://tests/graphics/rock_view_test.tscn # the rock, drawn: a stone of the game's own and not the pack's morning star, held upright, turning over in the air, and marked where it lies
 godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
+godot res://tests/feature/summon_test.tscn  # SUMMON BOLT's bolt in the air, falling, striking once and gone; SUMMON PET's pet following, one to a summoner
 godot res://tests/feature/slam_test.tscn    # KNOCKBACK into a wall: cracked, hurt and stunned past a speed, and nothing under it
 godot res://tests/graphics/crack_test.tscn  # the crack a slam leaves: it stays, it is the room's, and it is there again when the room is walked back into
 godot res://tests/feature/stack_test.tscn   # parts stack: what each one more is worth, where a part stops, laser speed, and HOMING round a wall
@@ -445,6 +447,20 @@ stepping out, the monster lets it fall where it stands. A monster with its own
 mind never touches it. The pack has no stone, so the rock is drawn in code, a
 letter a pixel (`Style.DRAWN_TILES`).
 
+**The rune is a rock with a charge stored in it.** It is thrown, lies where it
+lands and is picked back up exactly as the rock is — by the attack button; the
+cast button never throws it — and its throw goes out carrying a full charge,
+paid for by the mana stored in it and not by yours. Thrown, it is spent:
+picked back up, it is still a stone to throw, but bare — the rune's own numbers
+and nothing its graph would build into it, no charge, no follow-up. Both the
+rune and the rock are thrown as fast and as flat as a shuriken: no lob. Holding the cast button with the spent rune in hand pours your own mana
+into it, 60 a second for as long as you have any to pour — in a raid or in the
+hideout alike — until it holds a full charge (50 mana, more with
+`DEEP CHARGE`), and then it lights again. Short of that it keeps what was
+poured, and stays spent. The HUD's weapon line says RUNE READY, or how full
+the spent one is. There is one rune, it starts lit, and what is in it is kept
+with the profile wherever the rune is.
+
 **A punch needs no weapon.** `PUNCH` (its id is `HEADBUTT`) is the one form with
 nothing in the hand: a fist thrown a short way along the aim from where you
 stand, into the first enemy in the way and no further — `PIERCE` carries it on
@@ -570,6 +586,20 @@ giving it further to walk.
   crack stays in the wall, wider the harder the slam: it does not fade, and it
   is still there when you walk back into the room — up to 24 a room, the
   oldest going first — until the raid is over or you leave the hideout.
+- `ANTI-GRAVITY` takes the weight off a bolt: a lobbed or thrown shot — a
+  Lobber's, a weapon's that arcs — flies straight instead, and a bolt
+  `SUMMON BOLT` calls hangs where it was called instead of falling, until
+  its three seconds are up. One is all it takes; more do no more.
+- `SUMMON BOLT` and `SUMMON PET`, the SUMMON BEHAVIOR block, call
+  something up beside the attack every time a flow carrying them goes off,
+  whatever its form, and with none. `SUMMON BOLT` (its id is `SUMMON_PROJECTILE`) hangs a bolt in the air
+  over where you aim — as far as some eight cells off, and up to three and a
+  half over it, short of the rock — which falls under its own weight, strikes
+  whatever it touches once with the attack's numbers, lies where it lands, and
+  is gone three seconds after it was called. Each one stacked calls one more,
+  side by side. `SUMMON PET` calls a pet that hovers behind your shoulder and
+  follows you about, and does nothing else yet: one at a time, so a cast while
+  it is there calls no other; it goes when you do.
 - `EXPLODE` bursts every hit. The enemy an attack strikes is the middle of a
   blast that lands the same hit on everything round it — its damage, its
   elements, its `STUN`, a `KNOCKBACK` out from the middle — though not on that

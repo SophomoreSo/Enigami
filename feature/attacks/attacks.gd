@@ -63,7 +63,8 @@ static func clear_in_flight(w: Node = null) -> void:
 	if host == null or not is_instance_valid(host):
 		return
 	for c in host.get_children():
-		if c is Projectile or c is MeleeArc or c is DashSlash or c is AreaBurst or c is Deferred:
+		if c is Projectile or c is MeleeArc or c is DashSlash or c is AreaBurst or c is Deferred \
+				or c is SummonedProjectile:
 			# Silenced as well as freed. A node queued for deletion still runs
 			# out the frame it was queued in, and one of these taking a last
 			# turn is not harmless: a follow-up coming due in those milliseconds
@@ -305,6 +306,13 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 			at = Projectile.way_toward(room, origin, at)
 		aim = (at - origin).normalized()
 
+	# What the attack calls up beside itself: a bolt in the air, a pet. Whatever
+	# the form, and with none.
+	if payload.summon_projectile > 0:
+		_summon_projectiles(payload, origin, aim, attacker, room, team)
+	if payload.summon_pet > 0:
+		_summon_pet(attacker)
+
 	var count: int = clampi(payload.duplicates, 1, 9)
 	# A thrown weapon throws itself (`Weapons.is_thrown`): the first of the
 	# volley is the weapon, unless the flow says it is a copy, and the rest are
@@ -322,8 +330,9 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 		"PROJECTILE":
 			for i in count:
 				var spread := 0.0 if count == 1 else deg_to_rad(lerpf(-16.0, 16.0, float(i) / float(count - 1)))
+				# ANTI-GRAVITY takes the weight off a bolt that would have arced.
 				var n := _projectile(payload, origin, aim.rotated(spread), team, attacker, room,
-					bool(ctx.get("gravity", false)), far)
+					bool(ctx.get("gravity", false)) and payload.anti_gravity <= 0, far)
 				if thrown != "":
 					n.thrown = thrown
 					n.thrower = ctx.get("thrower", null)
@@ -472,6 +481,61 @@ static func _dash_slash(p: Payload, aim: Vector2, team: int, atk: Actor, room, f
 	container().add_child(n)
 	Cues.at(&"lunge_cut", start, {"payload": p, "to": dest})
 
+## SUMMON PROJECTILE. How far from the caster the bolts are called at most —
+## over where the attack is aimed, as far as this — and how high over it they
+## hang, short of the rock; and how far apart, side by side, a stack of them is.
+const SUMMON_REACH := 260.0
+const SUMMON_LIFT := 110.0
+const SUMMON_SPREAD := 26.0
+
+## A bolt for every SUMMON PROJECTILE on the flow, called in the air over where
+## the attack is aimed — the attacker's own aim point where it has one, down the
+## aim otherwise — and side by side. Each carries the flow without its summons,
+## so a bolt calls nothing up when it strikes.
+static func _summon_projectiles(p: Payload, origin: Vector2, aim: Vector2, atk: Actor, room, team: int) -> void:
+	var w := container()
+	if w == null or not is_instance_valid(w):
+		return
+	if room != null and not is_instance_valid(room):
+		room = null
+	var want := origin + aim * SUMMON_REACH * 0.5
+	var pt = atk.get("aim_point") if atk != null and is_instance_valid(atk) else null
+	if pt is Vector2:
+		want = pt
+	var under := origin + (want - origin).limit_length(SUMMON_REACH)
+	if _rock(room, under):
+		under = origin
+	var carried := p.clone()
+	carried.summon_projectile = 0
+	carried.summon_pet = 0
+	var n := p.summon_projectile
+	for i in n:
+		var at := under + Vector2((float(i) - float(n - 1) * 0.5) * SUMMON_SPREAD, 0.0)
+		# Up from there as far as SUMMON_LIFT, and no nearer the rock than a bolt.
+		var lift := 0.0
+		while lift < SUMMON_LIFT and not _rock(room, at - Vector2(0, lift + 8.0 + SummonedProjectile.RADIUS)):
+			lift += 8.0
+		var b := SummonedProjectile.new()
+		b.setup(carried, at - Vector2(0, lift), team, atk, room)
+		w.add_child(b)
+		Cues.at(&"summon_projectile", b.global_position, {"payload": p})
+
+## A pet for whoever cast the flow, if they have none: one to a summoner.
+static func _summon_pet(atk: Actor) -> void:
+	var w := container()
+	if w == null or not is_instance_valid(w) or atk == null or not is_instance_valid(atk):
+		return
+	if Pet.of(atk, w.get_tree()) != null:
+		return
+	var pet := Pet.new()
+	pet.summoner = atk
+	w.add_child(pet)
+	pet.global_position = pet.home()
+	Cues.at(&"summon_pet", pet.global_position, {})
+
+static func _rock(room, at: Vector2) -> bool:
+	return room != null and room.has_method("is_solid_at") and room.is_solid_at(at)
+
 ## HEADBUTT, PUNCH to a player: a fist thrown a short way down the aim from
 ## where the attacker stands — no further than the first wall — that stops on
 ## the first enemy it meets (`Headbutt`). The attacker does not move with it.
@@ -541,6 +605,12 @@ static func summary(p: Payload) -> String:
 		parts.append(Loc.t("editor.payload.stun", [p.stun]))
 	if p.possess > 0.0:
 		parts.append(Loc.t("editor.payload.possess", [p.possess]))
+	if p.anti_gravity:
+		parts.append(Loc.t("editor.payload.anti_gravity"))
+	if p.summon_projectile:
+		parts.append(_stacked(Loc.t("editor.payload.summon_projectile"), p.summon_projectile))
+	if p.summon_pet:
+		parts.append(Loc.t("editor.payload.summon_pet"))
 	if p.heal > 0.0:
 		parts.append(Loc.t("editor.payload.heal", [p.heal]))
 	if p.cleanse:

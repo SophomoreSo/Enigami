@@ -10,7 +10,7 @@
 -- The empty hand has one too (`Weapons.HAND`): what every slot of a kit no
 -- weapon is in casts, a PUNCH (`HEADBUTT`) at its root.
 
-INSERT INTO boards (id) VALUES ('sword'), ('gun'), ('rock'), ('shovel'), ('shuriken'), ('hand');
+INSERT INTO boards (id) VALUES ('sword'), ('gun'), ('rock'), ('shovel'), ('shuriken'), ('rune'), ('hand');
 
 INSERT INTO board_parts (board_id, x, y, part, root) VALUES
 	('sword', 6, 2, 'DASHSLASH', 1),
@@ -18,4 +18,5 @@ INSERT INTO board_parts (board_id, x, y, part, root) VALUES
 	('rock', 6, 2, 'PROJECTILE', 1),
 	('shovel', 6, 2, 'SLASH', 1),
 	('shuriken', 6, 2, 'PROJECTILE', 1),
+	('rune', 6, 2, 'PROJECTILE', 1),
 	('hand', 6, 2, 'HEADBUTT', 1);

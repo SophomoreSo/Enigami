@@ -9,6 +9,8 @@
 	"possessing": "IN THE %s %ds",
 	"thrown": "%s (THROWN)",
 	"stock": "%s x%d",
+	"rune": "%s READY",
+	"rune_spent": "%s SPENT %d%%",
 	"empty_hand": "EMPTY",
 	"fx": {
 		"winded": "WINDED",

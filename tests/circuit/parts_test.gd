@@ -89,7 +89,8 @@ func _ready() -> void:
 	for r in Db.rows("SELECT id FROM categories"):
 		categories.append(String(r["id"]))
 	var named_cats := [Components.CAT_FORM, Components.CAT_ELEMENT, Components.CAT_STAT,
-		Components.CAT_BEHAVIOR, Components.CAT_FLOW, Components.CAT_TRIGGER]
+		Components.CAT_BEHAVIOR, Components.CAT_PROJECTILE_BEHAVIOR, Components.CAT_SUMMON_BEHAVIOR,
+		Components.CAT_FLOW, Components.CAT_TRIGGER]
 	var unknown_cats: Array = []
 	for cat in named_cats:
 		if not categories.has(cat):

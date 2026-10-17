@@ -2921,9 +2921,9 @@ func _draw_live_flow(b: SkillBoard) -> void:
 		_px.diamond(box.get_center(), 3 + int(round(2.0 * sin(k * PI))), Color(0.6, 1.0, 0.85, 0.85))
 		_px.lap(box, k, Color(0.5, 1.0, 0.8, 0.7))
 
-## The parts, in blocks — one a category, in the order the pool brings them: a
-## category's block starts where its first part does, and every later part of
-## the same category joins it rather than starting a second block of its own.
+## The parts, in blocks — one a category, in the order the categories table
+## lists them (`Components.categories`), each holding its parts in the pool's
+## order. A category no part is of has no block.
 ##
 ## Worked out on first use and kept, the pool being a constant: a thumb's layout
 ## is checked against how many blocks there are every time anything asks where
@@ -2932,13 +2932,19 @@ func _draw_live_flow(b: SkillBoard) -> void:
 func _pal_groups() -> Array:
 	if not _groups.is_empty():
 		return _groups
-	var at := {}
+	var by_cat := {}
+	var order: Array = Components.categories()
 	for id in _pool_ids():
 		var cat := String(Components.get_def(id).get("cat", ""))
-		if not at.has(cat):
-			at[cat] = _groups.size()
-			_groups.append({"cat": cat, "ids": []})
-		(_groups[int(at[cat])]["ids"] as Array).append(id)
+		if not by_cat.has(cat):
+			by_cat[cat] = []
+			# One the table does not list goes after those it does.
+			if not order.has(cat):
+				order.append(cat)
+		(by_cat[cat] as Array).append(id)
+	for cat in order:
+		if by_cat.has(cat):
+			_groups.append({"cat": cat, "ids": by_cat[cat]})
 	return _groups
 
 ## A desk's palette placed: the tabs down its left, each as tall as the panel
@@ -3140,8 +3146,12 @@ func _draw_thumb_parts() -> void:
 			_px.frame(r.grow(-PX), col)
 		if i == _hover_tab:
 			_px.frame(r, Color(1, 1, 1, 0.5))
-		_px.text_centered(Vector2(r.position.x + 4.0, r.position.y + (r.size.y + 10.0) * 0.5),
-			Style.category_name(cat), Color.WHITE if up else col, r.size.x - 8.0)
+		# Centred down the tab, a line a word where the name is wider than it.
+		var lines := Style.category_lines(cat, r.size.x - 8.0)
+		var top := r.position.y + (r.size.y + 10.0) * 0.5 - PixelDraw.LINE * 0.5 * float(lines.size() - 1)
+		for k in lines.size():
+			_px.text_centered(Vector2(r.position.x + 4.0, top + PixelDraw.LINE * k),
+				lines[k], Color.WHITE if up else col, r.size.x - 8.0)
 
 	var ids := _palette_ids()
 	var big := UiKit.THUMB_TEXT
