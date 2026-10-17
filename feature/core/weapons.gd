@@ -30,10 +30,11 @@ extends RefCounted
 ## nothing. See `Player.stock`, and `StuckShuriken` for one where it struck.
 ##
 ## A weapon can be a `rune`: a rock with mana in it. It is thrown and picked
-## back up the way the rock is, and a hold charges its graph out of the mana in
-## it rather than the player's (`GameState.rune_mana`). Spent, it casts nothing
-## at all until it is filled again — by holding the cast button with it in
-## hand, which pours the player's own mana into it (`Player.refill_rune`).
+## back up the way the rock is, by the attack button alone, and a throw of it
+## carries the charge stored in it for nothing (`GameState.rune_mana`). A throw
+## spends it: it casts nothing at all until it is filled again — by holding the
+## cast button with it in hand, which pours the player's own mana into it
+## (`Player.refill_rune`) and never casts it.
 ##
 ## Numbers only: the colour a weapon is named in, and the tile it is drawn
 ## with, are in `graphics/style.gd`.
@@ -95,7 +96,7 @@ const DEFS := {
 	},
 	"RUNE": {
 		"name": "Rune",
-		"desc": "A stone with mana in it, thrown as the rock is. A hold charges it out of its own mana and not yours; spent, it does nothing until you pour yours back in by holding the cast button.",
+		"desc": "A stone with a charge stored in it, thrown as the rock is: the throw goes out charged, and costs you nothing. Thrown, it is spent, and does nothing until you hold the cast button with it in hand to pour your own mana back in.",
 		"root": "PROJECTILE",
 		"board": "rune",
 		"base_damage": 7.0,

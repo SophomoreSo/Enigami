@@ -201,10 +201,11 @@ func _draw_kit(at: Vector2) -> float:
 		# it is spent: dimmed, as a weapon that casts nothing is.
 		if Weapons.is_rune(id):
 			if GameState.rune_spent:
-				label = Loc.t("hud.rune_spent", [label, int(GameState.rune_mana)])
+				var filled := clampf(GameState.rune_mana / maxf(player.rune_full(), 1.0), 0.0, 1.0)
+				label = Loc.t("hud.rune_spent", [label, int(filled * 100.0)])
 				ink.a *= AWAY
 			else:
-				label = Loc.t("hud.rune", [label, int(round(GameState.rune_mana))])
+				label = Loc.t("hud.rune", [label])
 		_px.text(at, label, ink)
 		at.x += PixelDraw.text_width(label) + 16.0
 	return at.x

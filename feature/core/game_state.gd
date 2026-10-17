@@ -158,12 +158,13 @@ var bestiary: Dictionary = {"monsters": [], "skills": []}
 ## here reads it. It is kept with the profile for the reason `memory` is.
 var perks: Dictionary = {}
 
-## The rune's mana (`Weapons.is_rune`): what a hold charges its graph out of,
-## and as much as a full bar holds. There is one rune, so one store of it, kept
+## The rune's mana (`Weapons.is_rune`): the charge stored in it, which its
+## next throw carries for nothing. There is one rune, so one store of it, kept
 ## with the profile wherever the rune is — in hand, lying in a room, or dropped
-## with the kit. `rune_spent` is the rune spent: it casts nothing at all until it
-## has been filled to the top again (`Player.refill_rune`).
-const RUNE_MANA := 100.0
+## with the kit. A throw spends it all (`rune_spent`): the rune casts nothing
+## until the player's own mana has filled it again (`Player.refill_rune`). It
+## starts lit, with one full charge of a player with no perks in it.
+const RUNE_MANA := Player.MAX_CHARGE_TTL * Player.MANA_PER_TTL
 var rune_mana: float = RUNE_MANA
 var rune_spent: bool = false
 
@@ -1038,7 +1039,7 @@ func _read_save(path: String) -> bool:
 		for k in bought:
 			perks[String(k)] = int(bought[k])
 	# A save from before the rune has it full.
-	rune_mana = clampf(float(parsed.get("rune_mana", RUNE_MANA)), 0.0, RUNE_MANA)
+	rune_mana = maxf(float(parsed.get("rune_mana", RUNE_MANA)), 0.0)
 	rune_spent = bool(parsed.get("rune_spent", false))
 	# The same for the records: one the save does not mention is nought.
 	var rec: Dictionary = parsed.get("records", {})

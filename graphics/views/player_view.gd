@@ -161,7 +161,7 @@ func _draw() -> void:
 		_draw_charge_bar(ct)
 	elif player.refilling:
 		# Mana poured into a spent rune: the ring closes in as the rune fills.
-		var rt := clampf(GameState.rune_mana / GameState.RUNE_MANA, 0.0, 1.0)
+		var rt := clampf(GameState.rune_mana / maxf(player.rune_full(), 1.0), 0.0, 1.0)
 		draw_arc(Vector2.ZERO, 34.0 - 10.0 * rt, -PI * 0.5, -PI * 0.5 + TAU * rt, 28,
 			Color(Style.RUNE_GLOW, 0.4 + 0.5 * rt), 3.0)
 		_draw_charge_bar(rt)

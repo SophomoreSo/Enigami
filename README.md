@@ -39,7 +39,7 @@ godot res://tests/feature/floor_test.tscn   # the raid's floor laid by hand hold
 godot res://tests/feature/bestiary_test.tscn # the monster dictionary: a monster met by walking into its room, a skill seen by its going off, and both kept with the save
 godot res://tests/feature/possess_test.tscn # POSSESS: into a monster and out again, the body left behind, passing for one of them, the weapon, talking
 godot res://tests/feature/kit_test.tscn     # up to three weapons carried, one in hand: the rack, the keys and the wheel, and what walking out and dying do to the lot
-godot res://tests/feature/rune_test.tscn    # the rune: a hold charges out of its own mana, spent it casts nothing, and a hold fills it again from yours
+godot res://tests/feature/rune_test.tscn    # the rune: thrown charged for nothing, spent once thrown, filled again by a hold of the cast button
 godot res://tests/feature/rock_test.tscn    # the rock: one stone, thrown with its graph in it, lying where it lands until it is picked back up — by the body, or a monster the player is in
 godot res://tests/feature/gate_test.tscn    # a gate on the floor, up a room and back down with F, and no hole to jump into
 godot res://tests/feature/cast_test.tscn    # the two buttons: attack casts the graph, cast charges it
@@ -445,18 +445,18 @@ stepping out, the monster lets it fall where it stands. A monster with its own
 mind never touches it. The pack has no stone, so the rock is drawn in code, a
 letter a pixel (`Style.DRAWN_TILES`).
 
-**The rune is a rock with mana in it.** It is thrown, lies where it lands and
-is picked back up exactly as the rock is, but it holds a full bar of mana of
-its own, 100, and a hold charges its graph out of that and not out of yours —
-your bar goes on filling while you charge it. The cast that takes the last of
-it goes out with what it bought, and then the rune is spent: it casts nothing
-at all, says RUNE SPENT when you reach for it, and stays so until it is full
-again. Holding the cast button with a spent rune in hand pours your own mana
+**The rune is a rock with a charge stored in it.** It is thrown, lies where it
+lands and is picked back up exactly as the rock is — by the attack button; the
+cast button never throws it — and its throw goes out carrying a full charge,
+paid for by the mana stored in it and not by yours. Thrown, it is spent: it
+casts nothing at all, picked back up or not, and says RUNE SPENT when you reach
+for it. Holding the cast button with the spent rune in hand pours your own mana
 into it, 60 a second for as long as you have any to pour — in a raid or in the
-hideout alike — and once it is full it lights again; that hold casts nothing,
-and the next one charges out of the rune as before. The HUD's weapon line says
-how much is in it. There is one rune, and what is in it is kept with the
-profile wherever the rune is.
+hideout alike — until it holds a full charge (50 mana, more with
+`DEEP CHARGE`), and then it lights again. Short of that it keeps what was
+poured, and stays spent. The HUD's weapon line says RUNE READY, or how full
+the spent one is. There is one rune, it starts lit, and what is in it is kept
+with the profile wherever the rune is.
 
 **A punch needs no weapon.** `PUNCH` (its id is `HEADBUTT`) is the one form with
 nothing in the hand: a fist thrown a short way along the aim from where you

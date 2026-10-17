@@ -13,7 +13,7 @@
 	},
 	"RUNE": {
 		"name": "Rune",
-		"desc": "A stone with mana in it, thrown as the rock is. A hold charges it out of its own mana and not yours; spent, it does nothing until you pour yours back in by holding the cast button."
+		"desc": "A stone with a charge stored in it, thrown as the rock is: the throw goes out charged, and costs you nothing. Thrown, it is spent, and does nothing until you hold the cast button with it in hand to pour your own mana back in."
 	},
 	"SHOVEL": {
 		"name": "Shovel",

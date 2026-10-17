@@ -1,15 +1,17 @@
 extends Node
-## The rune (`Weapons.is_rune`): a rock with mana in it. A hold charges its
-## graph out of the rune's mana and not the player's; the cast that takes the
-## last of it spends it; spent, it casts nothing and charges nothing; and a
-## hold with it in hand pours the player's own mana into it until it is full
-## and lit again. What is in it is kept with the profile.
+## The rune (`Weapons.is_rune`): a rock with a charge stored in it. The attack
+## button throws it, and the throw carries the stored charge for nothing; the
+## cast button never throws it and never charges it. Thrown, it is spent, and
+## casts nothing — picked back up or not — until a hold of the cast button with
+## it in hand has poured the player's own mana into it to the full, and it is
+## lit again. What is in it is kept with the profile.
 ##
-## Headless: nothing here is looked at. The profile it plays with is wiped at
-## the end, so nothing after it walks in with a spent rune.
+## Played in the hideout with the computer's hands, the way the rock's test is.
+## Headless: nothing here is looked at.
 
 var fails := 0
 var cues: Array = []
+var bot: ComputerHands
 
 func check(ok: bool, what: String) -> void:
 	if ok:
@@ -22,17 +24,49 @@ func frames(n: int) -> void:
 	for i in n:
 		await get_tree().process_frame
 
+func wait(secs: float) -> void:
+	var t := 0.0
+	while t < secs:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+
+func until(cond: Callable, secs: float) -> bool:
+	var t := 0.0
+	while t < secs:
+		if cond.call():
+			return true
+		await get_tree().process_frame
+		t += get_process_delta_time()
+	return bool(cond.call())
+
+func heard(cue: StringName, kind: String = "") -> int:
+	var n := 0
+	for c in cues:
+		if c[0] == cue and (kind == "" or String((c[1] as Dictionary).get("kind", "")) == kind):
+			n += 1
+	return n
+
+func rocks() -> Array:
+	return get_tree().get_nodes_in_group("loose_rocks").filter(
+		func(r: Node) -> bool: return not r.is_queued_for_deletion())
+
+func bolts(world: Node) -> Array:
+	return world.get_children().filter(
+		func(c: Node) -> bool: return c is Projectile and not c.is_queued_for_deletion())
+
 func _ready() -> void:
 	GameState.reset_profile()
-	Cues.fired.connect(func(cue: StringName, _d: Dictionary) -> void: cues.append(cue))
+	for n in range(1, GameState.SAVE_SLOTS + 1):
+		GameState.delete_slot(n)
+	Cues.fired.connect(func(cue: StringName, d: Dictionary) -> void: cues.append([cue, d]))
 	_the_weapon()
-	await _the_player()
+	await _played()
 	_kept()
 	GameState.reset_profile()
 	print("[RUNE] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)
 
-## A thrown weapon like the rock, with mana in it, that every profile has.
+## A thrown weapon like the rock, with a charge in it, that every profile has.
 func _the_weapon() -> void:
 	check(Weapons.is_rune("RUNE") and Weapons.is_thrown("RUNE") and not Weapons.is_rune("ROCK"),
 		"the rune is thrown as the rock is, and the rock is no rune")
@@ -41,77 +75,103 @@ func _the_weapon() -> void:
 	check(GameState.owned_weapons.has("RUNE") and GameState.HANDED_OUT.has("RUNE"),
 		"a new profile has one, and an old one is handed it")
 	check(is_equal_approx(GameState.rune_mana, GameState.RUNE_MANA) and not GameState.rune_spent,
-		"full, to begin with (%.0f)" % GameState.rune_mana)
+		"it starts lit, with one full charge in it (%.1f)" % GameState.rune_mana)
 
-func _the_player() -> void:
-	var p := Player.new()
-	add_child(p)
-	await frames(2)
+func _played() -> void:
+	var h := HideoutWorld.new()
+	add_child(h)
+	await frames(4)
+	var p := h.player
 	p.setup_kit(["RUNE"], [Weapons.make_board("RUNE")])
-	check(p.holds("RUNE") and p.can_cast() and p.can_charge(), "in hand, it casts and charges")
+	p.global_position.x = 400.0
+	await frames(3)
+	bot = ComputerHands.new()
+	p.input.add(bot)
+	bot.point_at(p.global_position + Vector2(260.0, -120.0))
+	check(p.holds("RUNE") and p.can_cast() and not p.can_charge(),
+		"in hand and lit it casts, and the cast button does not charge it")
+	check(p.rune_charge() == int(p.charge_cap()), "a full rune is a full charge (%d)" % p.rune_charge())
 
-	# A hold charges out of the rune, and the player's bar is not touched.
-	p.mana = p.max_mana
-	p.charge = 0.0
-	p._update_charge(0.5, true)
-	var spent := GameState.RUNE_MANA - GameState.rune_mana
-	check(p.charge > 0.0 and is_equal_approx(spent, p.charge * Player.MANA_PER_TTL),
-		"a hold charges out of the rune's mana (%.1f gone for %.1f of charge)" % [spent, p.charge])
-	check(is_equal_approx(p.mana, p.max_mana), "and not the player's (%.0f)" % p.mana)
-
-	# Down to nothing: the hold stops where the rune ran out.
-	GameState.rune_mana = 2.0
-	p.charge = 0.0
-	for i in 20:
-		p._update_charge(0.1, true)
-	check(is_zero_approx(GameState.rune_mana) and is_equal_approx(p.charge, 2.0 / Player.MANA_PER_TTL),
-		"it charges as far as the rune's mana goes, and no further (%.2f)" % p.charge)
-	check(not GameState.rune_spent and p.can_cast(),
-		"empty, it is not spent yet: the cast that drained it still goes out")
+	# The cast button never throws it.
+	var mana_was := p.mana
 	cues.clear()
-	p._on_cycle_started()
-	check(GameState.rune_spent and cues.has(&"rune_spent"), "that cast starting spends it")
+	bot.cast = true
+	await wait(0.6)
+	bot.cast = false
+	await frames(3)
+	check(bolts(h).is_empty() and p.holds("RUNE") and heard(&"attack") == 0,
+		"held and let go, the cast button throws nothing")
+	check(is_zero_approx(p.charge) and not GameState.rune_spent and is_equal_approx(p.mana, mana_was),
+		"and charges nothing, spends nothing of the rune or the player")
 
-	# Spent: a dead stone.
-	check(p.rune_spent_in_hand() and not p.can_cast() and not p.can_charge(),
-		"spent, it casts nothing and charges nothing")
+	# The attack button throws it, charged, and it is spent.
+	cues.clear()
+	bot.attack = true
+	await frames(3)
+	bot.attack = false
+	await frames(2)
+	var flying := bolts(h)
+	check(flying.size() >= 1 and (flying[0] as Projectile).thrown == "RUNE" and not p.holds("RUNE"),
+		"the attack button throws the rune itself (%d bolts)" % flying.size())
+	check(p.runner._cycle_life >= p.runner.pass_cost + int(p.charge_cap()),
+		"carrying the charge stored in it (a life of %d)" % p.runner._cycle_life)
+	check(GameState.rune_spent and is_zero_approx(GameState.rune_mana) and heard(&"rune_spent") == 1,
+		"and thrown, it is spent")
+	check(is_equal_approx(p.mana, mana_was), "the player paid nothing for the charge (%.0f)" % p.mana)
 
-	# A hold pours the player's own mana into it, as long as there is any.
-	p.mana = 30.0
-	check(p.refill_rune(1.0, true) and p.refilling, "a hold with it in hand pours mana into it")
-	check(is_zero_approx(p.mana) and is_equal_approx(GameState.rune_mana, 30.0) and GameState.rune_spent,
-		"the player's as far as it goes, and it stays spent short of full (%.0f in it)" % GameState.rune_mana)
-	check(not p.refill_rune(1.0, false) and not p.refilling, "let go, nothing is poured")
+	# Picked back up, it is still spent: a dead stone.
+	var landed := await until(func() -> bool:
+		var all := rocks()
+		return all.size() == 1 and (all[0] as LooseRock).resting, 6.0)
+	check(landed, "it comes down and lies still")
+	if landed:
+		var r: LooseRock = rocks()[0]
+		p.global_position = Vector2(r.global_position.x, r.global_position.y - 6.0)
+		p.velocity = Vector2.ZERO
+		await until(func() -> bool: return p.holds("RUNE"), 2.0)
+	check(p.holds("RUNE") and p.rune_spent_in_hand() and not p.can_cast() and not p.can_charge(),
+		"picked back up, it is still spent: it casts nothing and charges nothing")
+	cues.clear()
+	bot.attack = true
+	await frames(3)
+	bot.attack = false
+	await frames(2)
+	check(bolts(h).is_empty() and heard(&"refused", "rune") == 1,
+		"reached for, it throws nothing, and says it is spent")
+
+	# A hold short of full: it keeps what was poured, and stays spent.
+	p.mana = 20.0
+	bot.cast = true
+	await wait(0.8)
+	bot.cast = false
+	await frames(2)
+	check(p.mana < 1.0 and absf(GameState.rune_mana - 20.0) < 1.5 and GameState.rune_spent,
+		"a hold pours the player's mana in as far as it goes, and short of full it stays spent (%.1f in it)" % GameState.rune_mana)
+
+	# A hold with mana enough fills it, and it is lit again — and that hold
+	# throws nothing.
 	p.mana = p.max_mana
 	cues.clear()
-	var steps := 0
-	while GameState.rune_spent and steps < 200:
-		p.refill_rune(0.1, true)
-		steps += 1
-	check(not GameState.rune_spent and is_equal_approx(GameState.rune_mana, GameState.RUNE_MANA)
-			and cues.has(&"rune_lit"),
-		"full, it lights again (%d steps of a tenth of a second)" % steps)
-	check(is_equal_approx(p.mana, p.max_mana - 70.0), "for the mana poured into it (%.0f left)" % p.mana)
-	check(p._hold_filled and p.can_cast(), "it casts again, but the hold that filled it is spent on that")
-
-	# Away from the hand, nothing is poured: the rune lying on the floor.
-	GameState.rune_spent = true
-	GameState.rune_mana = 0.0
-	p.let_go("RUNE")
-	check(not p.refill_rune(1.0, true), "with the rune out of hand, nothing is poured into it")
-	p.take_back("RUNE", p)
-	GameState.rune_spent = false
-	GameState.rune_mana = 64.0
-	p.queue_free()
-	await frames(1)
+	bot.cast = true
+	var lit := await until(func() -> bool: return not GameState.rune_spent, 3.0)
+	bot.cast = false
+	await frames(3)
+	check(lit and is_equal_approx(GameState.rune_mana, p.rune_full()) and heard(&"rune_lit") == 1,
+		"held long enough, it is filled and lit again (%.1f)" % GameState.rune_mana)
+	check(bolts(h).is_empty() and p.holds("RUNE") and p.can_cast(),
+		"the hold that filled it throws nothing, and it casts again")
+	check(absf((p.max_mana - p.mana) - (p.rune_full() - 20.0)) < 3.0,
+		"for the mana poured into it (%.0f of the player's)" % (p.max_mana - p.mana))
+	h.queue_free()
+	await frames(2)
 
 ## What is in it, and whether it is spent, goes with the profile.
 func _kept() -> void:
-	GameState.rune_mana = 64.0
+	GameState.rune_mana = 12.0
 	GameState.rune_spent = true
 	GameState.save_game()
 	GameState.rune_mana = 0.0
 	GameState.rune_spent = false
 	GameState.load_slot(GameState.slot)
-	check(is_equal_approx(GameState.rune_mana, 64.0) and GameState.rune_spent,
+	check(is_equal_approx(GameState.rune_mana, 12.0) and GameState.rune_spent,
 		"what is in the rune comes back with the profile (%.0f, spent %s)" % [GameState.rune_mana, GameState.rune_spent])
