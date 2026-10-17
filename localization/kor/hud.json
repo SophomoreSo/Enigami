@@ -378,5 +378,35 @@
 		"arbiter": "중재자의 관문",
 		"toll": "통행료 관문",
 		"crack": "벽의 틈"
+	},
+	"phone": {
+		"app": {
+			"gallery": "갤러리",
+			"camera": "카메라",
+			"alarm": "알람",
+			"settings": "설정"
+		},
+		"gallery": {
+			"empty": "아직 사진이 없습니다",
+			"count": "사진 %d장",
+			"delete": "삭제"
+		},
+		"camera": {
+			"snap": "촬영",
+			"saved": "저장됨"
+		},
+		"alarm": {
+			"pick": "알람을 맞추세요. 전화기가 있는 곳에서 울리고, 근처의 것들이 보러 옵니다.",
+			"set": "설정",
+			"stop": "정지",
+			"down": "바닥에 내려놓기",
+			"ringing": "울리는 중",
+			"lying": "바닥에 놓여 있음"
+		},
+		"hud": {
+			"alarm": "알람 %s",
+			"ringing": "울리는 중",
+			"down": "전화기를 바닥에 둠"
+		}
 	}
 }

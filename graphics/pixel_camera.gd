@@ -185,3 +185,8 @@ func _follow() -> void:
 	# not, and the standing check deletes the graphics autoloads this file needs.
 	# See `Pointer.on_grid`.
 	Pointer.pixel_origin = _image.position
+
+## The picture as it is shown, lit and glazed: what the phone's camera sees
+## (`PhoneScreen`).
+func picture() -> Texture2D:
+	return _image.texture if _image != null else null

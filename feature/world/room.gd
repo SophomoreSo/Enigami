@@ -651,6 +651,14 @@ func dig_offered() -> bool:
 func box_offered() -> bool:
 	return box != null and is_instance_valid(box) and box.offered()
 
+## Whether a press of interact would pick the phone up off this room's floor
+## (`PhoneProp`).
+func phone_offered() -> bool:
+	for c in get_children():
+		if c is PhoneProp and (c as PhoneProp).offered():
+			return true
+	return false
+
 ## The kit a death left here, on the spot it fell on. That spot was somewhere
 ## the player was standing, so it is open floor — but a drop carried across a
 ## change to how rooms are built could land inside the rock, and a drop nobody

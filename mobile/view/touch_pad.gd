@@ -172,6 +172,11 @@ const CONTROLS := [
 	# and out of the way of the hand, since a press of it changes the world.
 	{"kind": Kind.KEY, "action": "magic_toggle", "rect": Rect2(840, 128, 128, 88),
 		"pin": Vector2(1, 0), "faces": [Face.PLAY]},
+	# The phone, under it: a plate like the screens', since it is one more
+	# thing that comes up over the world — and under rather than beside,
+	# since beside is where the cast stick's thumb lands.
+	{"kind": Kind.KEY, "action": "open_phone", "rect": Rect2(840, 232, 128, 88),
+		"pin": Vector2(1, 0), "faces": [Face.PLAY]},
 	# The screens, in the far corner where nothing is reached for by accident.
 	{"kind": Kind.KEY, "action": "open_editor", "rect": Rect2(840, 24, 128, 88),
 		"pin": Vector2(1, 0), "faces": [Face.PLAY, Face.SCREEN]},

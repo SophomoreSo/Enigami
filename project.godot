@@ -29,6 +29,7 @@ Video="*res://app/video.gd"
 Arena="*res://feature/core/arena.gd"
 TimeCtl="*res://feature/core/time_control.gd"
 Magic="*res://feature/core/magic.gd"
+Phone="*res://feature/core/phone.gd"
 GameState="*res://feature/core/game_state.gd"
 Perks="*res://perks/rules/perks.gd"
 Sprites="*res://graphics/sprites.gd"
@@ -167,6 +168,11 @@ step_out={
 magic_toggle={
 "deadzone": 0.2,
 "events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":89,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+]
+}
+open_phone={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":80,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
 ]
 }
 pause={
