@@ -610,7 +610,10 @@ giving it further to walk.
   before the hit and never what the hit itself brings. After a part with no
   opposite — a form, a trigger — it does nothing.
 - `TIME DILATION` slows the world *and* the board together — it changes the
-  pace of a fight rather than buffing attack speed.
+  pace of a fight rather than buffing attack speed. While it lasts the picture
+  goes the way Katana Zero's slow motion does: the room sinks into a deep
+  indigo-to-cyan tone, the colours split a pixel apart along the row and the
+  corners darken, while bodies, blasts and bolts keep most of their own colour.
 
 Parts are placed by dragging: press a palette entry and drop it on the grid, or
 lift a placed part and drop it somewhere else. The mouse wheel turns whatever
@@ -803,7 +806,9 @@ It is a state of the world, not of the profile: never saved, and a change of
 screen puts magic back on, so a raid always starts in magic. The key is
 `magic_toggle`, remappable like the rest. The rule is `Magic`
 (`feature/core/magic.gd`), which the runner (`SkillRunner.forms_only`), the
-player, the monsters and the made rooms read; the grey is the pixel camera's.
+player, the monsters and the made rooms read; the grey is the pixel camera's
+(`graphics/assets/shaders/picture_grade.gdshader`, which also gives time
+dilation its slow-motion look).
 
 ## The phone
 

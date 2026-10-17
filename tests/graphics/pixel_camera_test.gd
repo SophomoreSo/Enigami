@@ -4,7 +4,8 @@ extends Node
 ## picture covers the screen, a world point lands where the real camera puts it
 ## (to the half pixel the slide is rounded to), the slide is whole pixels, and
 ## what reaches the screen really is 2× pixels. And the picture is drawn in a
-## few dozen draws, not one or two for every cell of rock in the room.
+## few dozen draws, not one or two for every cell of rock in the room. And time
+## dilated, the picture goes into the slow-motion look and comes back out.
 ##
 ## Needs a real renderer: the block check reads the frame back.
 
@@ -149,6 +150,23 @@ func draws(screen: String, pixels: PixelCamera) -> void:
 	var n := pixels._view.get_render_info(Viewport.RENDER_INFO_TYPE_CANVAS, Viewport.RENDER_INFO_DRAW_CALLS_IN_FRAME)
 	check(n > 0 and n <= DRAWS, "%s: the world's picture is drawn in %d draws, of the %d it may" % [screen, n, DRAWS])
 
+## Time dilated, the picture goes into the slow-motion look, all the way in
+## while it lasts; and comes back out once time is running again. Waited on
+## by the wall clock, since the frames come slower on CI's screen.
+func slowed(pixels: PixelCamera) -> void:
+	TimeCtl.dilate(5.0, 0.42)
+	var t0 := Time.get_ticks_msec()
+	while pixels.slow() < 1.0 and Time.get_ticks_msec() - t0 < 2000:
+		await get_tree().process_frame
+	check(pixels.slow() == 1.0 and is_equal_approx(float(pixels._grade.get_shader_parameter("slow")), 1.0),
+		"time dilated, the picture goes into the slow-motion look")
+	TimeCtl.clear()
+	t0 = Time.get_ticks_msec()
+	while pixels.slow() > 0.0 and Time.get_ticks_msec() - t0 < 2000:
+		await get_tree().process_frame
+	check(pixels.slow() == 0.0 and is_equal_approx(float(pixels._grade.get_shader_parameter("slow")), 0.0),
+		"and comes back out of it with time running again")
+
 func frame_ms(n: int = 240) -> float:
 	await frames(30)
 	var t0 := Time.get_ticks_usec()
@@ -178,6 +196,7 @@ func _ready() -> void:
 	await audit("raid", rv.pixels)
 	await blocks("raid", rv.pixels, rv.hud.get_parent() as CanvasLayer)
 	await draws("raid", rv.pixels)
+	await slowed(rv.pixels)
 
 	# The bench never ends on its own, so the timing runs there.
 	game.goto_sandbox()

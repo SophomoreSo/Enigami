@@ -447,7 +447,10 @@ Hitstop and time dilation scale `Engine.time_scale`, so they move the
 simulation: a dilated fight really is slower for everything in it, which is the
 whole point of the `TIME DILATION` part. They are a rule, and they live in
 `feature/core/time_control.gd`. Screen shake, sparks and damage numbers change
-nothing and live in `graphics/fx.gd`.
+nothing and live in `graphics/fx.gd` — and so does what a dilated fight looks
+like: the pixel camera reads `TimeCtl.is_dilated()` every frame and grades its
+picture into the slow-motion look (`graphics/assets/shaders/picture_grade.gdshader`),
+easing on the wall clock, since its own frame time is the dilated one.
 
 ## Autoloads
 
