@@ -51,7 +51,8 @@ INSERT INTO codes (code, id) VALUES
 	(40, 'BRIDGE'),
 	(41, 'HEADBUTT'),
 	(42, 'SUMMON_PROJECTILE'), (43, 'SUMMON_PET'),
-	(44, 'ANTI_GRAVITY');
+	(44, 'ANTI_GRAVITY'),
+	(45, 'OFFENSIVE');
 
 -- WIRE and BEND carried a flow one cell and did nothing else to it, which
 -- every part already does: any part takes flow on any side and sends it where
@@ -247,18 +248,22 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 -- hangs a bolt in the air over where the attack is aimed, which falls, strikes
 -- what it touches with the flow's numbers and is gone a few seconds later
 -- (`SummonedProjectile`); each one stacked calls one more. SUMMON PET calls a
--- pet that follows its summoner and does nothing else yet (`Pet`): one to a
--- summoner, so a cast with one already there calls no other.
+-- pet that follows its summoner (`Pet`): one to a summoner, so a cast with one
+-- already there calls no other, but tells the one there again what it does.
+-- What it does is what the rest of the block on the same flow says: OFFENSIVE
+-- sends it at the nearest enemy near its summoner, to strike it with the flow.
 INSERT INTO parts (id, name, category, heat, description) VALUES
 	('SUMMON_PROJECTILE', 'SUMMON BOLT', 'summon_behavior', 0.6, 'Summons a bolt in the air over where you aim. It falls, strikes whatever it touches with the attack''s numbers, and is gone a few seconds later. Each one stacked summons one more.'),
-	('SUMMON_PET', 'SUMMON PET', 'summon_behavior', 0.8, 'Summons a pet that follows you about. It does nothing else yet. One at a time: a cast while it is there summons no other.');
+	('SUMMON_PET', 'SUMMON PET', 'summon_behavior', 0.8, 'Summons a pet that follows you about. On its own it does nothing else. One at a time: a cast while it is there summons no other, but tells it again what it does.'),
+	('OFFENSIVE', 'OFFENSIVE', 'summon_behavior', 0.6, 'A pet summoned with it goes for the nearest enemy near you and strikes it with the attack''s numbers. Each one stacked strikes more often. Does nothing without a SUMMON PET.');
 
 INSERT INTO ports (part_id, side) VALUES
-	('SUMMON_PROJECTILE', 'E'), ('SUMMON_PET', 'E');
+	('SUMMON_PROJECTILE', 'E'), ('SUMMON_PET', 'E'), ('OFFENSIVE', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('SUMMON_PROJECTILE', 0, 'summon_projectile', 'add', 1),
-	('SUMMON_PET', 0, 'summon_pet', 'add', 1);
+	('SUMMON_PET', 0, 'summon_pet', 'add', 1),
+	('OFFENSIVE', 0, 'pet_offensive', 'add', 1);
 
 
 -- ---- flow ---------------------------------------------------------------------

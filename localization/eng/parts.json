@@ -117,7 +117,11 @@
 	},
 	"SUMMON_PET": {
 		"name": "SUMMON PET",
-		"desc": "Summons a pet that follows you about. It does nothing else yet. One at a time: a cast while it is there summons no other."
+		"desc": "Summons a pet that follows you about. On its own it does nothing else. One at a time: a cast while it is there summons no other, but tells it again what it does."
+	},
+	"OFFENSIVE": {
+		"name": "OFFENSIVE",
+		"desc": "A pet summoned with it goes for the nearest enemy near you and strikes it with the attack's numbers. Each one stacked strikes more often. Does nothing without a SUMMON PET."
 	},
 	"BRIDGE": {
 		"name": "BRIDGE",

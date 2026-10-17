@@ -3,6 +3,7 @@ extends Node2D
 
 ## A pet (`Pet`): a small round thing with two eyes and a pair of ears, in the
 ## summon colour, glowing a little, facing the way its summoner does. It blinks.
+## An OFFENSIVE one wears a scowl, and reddens as it goes for an enemy.
 
 const BODY := Color(0.62, 0.86, 0.42)
 const DARK := Color(0.10, 0.12, 0.10)
@@ -38,3 +39,9 @@ func _draw() -> void:
 			draw_rect(Rect2(at - Vector2(2, 0), Vector2(4, 2)), DARK)
 		else:
 			draw_rect(Rect2(at - Vector2(1, 2), Vector2(2, 4)), DARK)
+		# The scowl: a brow over each eye, slanting in.
+		if pet.offensive > 0:
+			var inward := 1.0 if x > 3.0 else -1.0
+			draw_line(at + Vector2(-2.0, -5.0 - inward), at + Vector2(2.0, -5.0 + inward), DARK, 2.0)
+	if pet.target != null:
+		draw_circle(Vector2.ZERO, 12.0, Color(1.0, 0.35, 0.3, 0.25))

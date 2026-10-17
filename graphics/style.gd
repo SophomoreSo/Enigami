@@ -49,6 +49,7 @@ const COMPONENT := {
 	"ANTI_GRAVITY": {"glyph": "⇡"},
 	"SUMMON_PROJECTILE": {"glyph": "⇓"},
 	"SUMMON_PET": {"glyph": "✿"},
+	"OFFENSIVE": {"glyph": "⚔"},
 
 	"FIRE": {"glyph": "🔥"},
 	"ICE": {"glyph": "❄", "color": Color(0.45, 0.8, 0.98)},
@@ -146,6 +147,16 @@ const COMPONENT_ICON := {
 		"...#...",
 		"..###..",
 		"...#...",
+	],
+	# The pet's face, scowling, teeth bared.
+	"OFFENSIVE": [
+		"#.....#",
+		".#...#.",
+		"#######",
+		"#.###.#",
+		"#######",
+		"#.#.#.#",
+		".#####.",
 	],
 	# A small round thing with ears and two eyes.
 	"SUMMON_PET": [
@@ -740,6 +751,16 @@ const COMPONENT_MOTION := {
 		"...#... ...#... ....... .......",
 		"..###.. ...#... ...#... .......",
 		"...#... ..###.. ...#... .......",
+	]},
+	# It snaps its teeth shut.
+	"OFFENSIVE": {"fps": 8, "hold": [5, 2], "strip": [
+		"#.....# #.....#",
+		".#...#. .#...#.",
+		"####### #######",
+		"#.###.# #.###.#",
+		"####### #######",
+		"#.#.#.# #######",
+		".#####. .#####.",
 	]},
 	# It blinks.
 	"SUMMON_PET": {"fps": 8, "hold": [8, 2], "strip": [

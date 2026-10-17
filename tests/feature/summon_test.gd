@@ -3,7 +3,8 @@ extends Node2D
 ## SUMMON PROJECTILE hangs a bolt in the air over where the attack is aimed,
 ## which falls, strikes what it touches once with the flow, and is gone after
 ## its life; each one stacked calls one more. SUMMON PET calls a pet that
-## follows its summoner, one to a summoner, and goes with them. ANTI-GRAVITY
+## follows its summoner, one to a summoner, and goes with them; with OFFENSIVE
+## it goes for the nearest enemy near them and strikes it. ANTI-GRAVITY
 ## takes the weight off a bolt: a lobbed one flies straight, a summoned one
 ## hangs where it was called.
 ##
@@ -50,6 +51,7 @@ func _ready() -> void:
 	await _the_bolt()
 	await _the_pet()
 	await _weightless()
+	await _offensive()
 	print("[SUMMON] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)
 
@@ -150,6 +152,57 @@ func _weightless() -> void:
 	Attacks.clear_in_flight(self)
 	me.queue_free()
 	await frames(2)
+
+## By the clock: a headless run goes through frames far faster than a second a
+## sixtieth at a time.
+func seconds(s: float) -> void:
+	var t := 0.0
+	while t < s:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+
+## OFFENSIVE: a pet summoned with it goes for the nearest enemy near its
+## summoner and strikes it with the flow, over and over; one without it never
+## does; and a later cast tells a pet already there what it does.
+func _offensive() -> void:
+	check(String(Components.get_def("OFFENSIVE").get("cat", "")) == Components.CAT_SUMMON_BEHAVIOR
+			and Components.code_of("OFFENSIVE") == 45,
+		"OFFENSIVE is a summon part, with a number of its own")
+	var me := dummy(Vector2(0, 2400), 0)
+	var foe := dummy(Vector2(120, 2400), 1)
+	var far_foe := dummy(Vector2(900, 2400), 1)
+	var calm := Payload.new()
+	calm.damage = 5.0
+	calm.summon_pet = 1
+	cast(calm, me)
+	var hp := foe.health
+	await seconds(1.5)
+	check(is_equal_approx(foe.health, hp), "a pet without OFFENSIVE leaves the enemy near it alone")
+	var angry := calm.clone()
+	angry.pet_offensive = 1
+	cast(angry, me)
+	var pet: Pet = Pet.of(me, get_tree())
+	check(pets().size() == 1 and pet != null and pet.offensive == 1,
+		"a later cast with OFFENSIVE tells the pet already there, and calls no other")
+	# Long enough for the dart there and back to count for little against the
+	# wait between strikes, so one OFFENSIVE and two can be told apart.
+	await seconds(4.0)
+	var took := hp - foe.health
+	check(took >= 5.0 - 0.01, "it goes for the enemy near its summoner and strikes it (%.0f)" % took)
+	check(took >= 10.0 - 0.01, "over and over (%.0f in four seconds)" % took)
+	check(is_equal_approx(far_foe.health, far_foe.max_health), "and leaves one far from its summoner alone")
+	# Two of them strike twice as often.
+	var fiercer := angry.clone()
+	fiercer.pet_offensive = 2
+	cast(fiercer, me)
+	var before := foe.health
+	await seconds(4.0)
+	var faster := before - foe.health
+	check(faster > took, "each one stacked strikes more often (%.0f against %.0f)" % [faster, took])
+	me.queue_free()
+	foe.queue_free()
+	far_foe.queue_free()
+	await frames(3)
 
 ## A pet that follows its summoner: one to a summoner, gone with them.
 func _the_pet() -> void:
