@@ -82,6 +82,10 @@ const ENGINE_NEVER := ["Color", "Label", "RichTextLabel", "Sprite2D", "AnimatedS
 	"ColorRect", "TextureRect", "AudioServer", "RenderingServer"]
 const ENGINE_NEVER_WORDS := "(?<![\\w.])(?:queue_redraw|modulate|draw_[a-z_]+)(?![\\w])"
 const ASSET_LITERAL := "\"[^\"]*\\.(?:png|ogg|wav|mp3|ttf|otf|tres|gdshader)\""
+## A rule that names a file's kind because it writes the player's own files of
+## that kind, and loads none of the game's: the phone keeps its photos as PNGs
+## (ARCHITECTURE.md, the phone's row). Pinned to the file, as `except` is.
+const ASSET_PARDON := ["res://feature/core/phone.gd"]
 
 var fails := 0
 
@@ -233,7 +237,7 @@ func _engine_strays() -> Array:
 			for m in calls.search_all(code):
 				seen[m.get_string()] = at
 			var kept := line.strip_edges()
-			if not kept.begins_with("#"):
+			if not kept.begins_with("#") and not ASSET_PARDON.has(path):
 				for m in asset.search_all(kept.get_slice("#", 0)):
 					seen[m.get_string()] = at
 		for n in seen:
