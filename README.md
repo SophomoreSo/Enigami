@@ -445,7 +445,9 @@ same cast sends — the rest of a `DUPLICATE` volley, a lap that comes round
 after it has gone — strikes as it does and is gone when it lands. Any of them,
 the rune's too, strikes you as well once it has been clear of your hand: never
 on the way out of it, but a throw that comes round to you, or that you step in
-front of, lands on you as on an enemy. A rock left
+front of, lands on you as on an enemy. A rock or a rune that runs out of speed in the air
+drops, and is still the throw until it is down: what it falls onto is struck,
+each once and none the throw struck already. A rock left
 in a room stays in that room, and is there when you come back for it. Your
 hands in a monster (`POSSESS`) pick it up and throw it as your own do;
 stepping out, the monster lets it fall where it stands. A monster with its own

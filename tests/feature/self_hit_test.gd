@@ -3,7 +3,8 @@ extends Node2D
 ## standing in its reach, with what came after it on the flow — a HEAL heals
 ## them — while a monster's NEAR spares the monster that cast it; and a thrown
 ## rock or rune strikes whoever threw it, once it has been clear of their hand
-## and not before.
+## and not before. And a thrown stone that runs out of speed in the air goes on
+## striking what it falls onto, until it is down on the ground.
 ##
 ## Headless: nothing here is looked at.
 
@@ -47,6 +48,7 @@ func _ready() -> void:
 	await _near_heals()
 	await _monster_near()
 	await _thrown_back()
+	await _falls_striking()
 	GameState.reset_profile()
 	print("[SELF] ---- %d failures ----" % fails)
 	get_tree().quit(1 if fails > 0 else 0)
@@ -83,6 +85,42 @@ func _monster_near() -> void:
 	await seconds(0.5)
 	check(is_equal_approx(e.health, was), "a monster's NEAR spares the monster that cast it")
 	e.queue_free()
+	await frames(2)
+
+## A rock thrown out to the end of its range in the air: it drops, and strikes
+## an enemy under it on the way down — once — and nothing after it is down.
+func _falls_striking() -> void:
+	var p := Player.new()
+	add_child(p)
+	await frames(2)
+	p.global_position = Vector2(0, 6000)
+	var rock := Weapons.finalize("ROCK", flow(["PROJECTILE"], "ROCK"))
+	rock.damage = 7.0
+	rock.range_px = 80.0
+	Attacks.spawn(rock, {"attacker": p, "room": null, "team": p.team, "aim": Vector2.RIGHT,
+		"origin": p.global_position, "thrown": "ROCK", "thrower": p})
+	var falling: LooseRock = null
+	var t := 0.0
+	while falling == null and t < 2.0:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+		for r in get_tree().get_nodes_in_group("loose_rocks"):
+			if not r.is_queued_for_deletion():
+				falling = r
+	check(falling != null and falling.strikes != null, "out of speed in the air, it drops, still the throw")
+	if falling == null:
+		return
+	var foe := Actor.new()
+	foe.team = 1
+	foe.max_health = 100.0
+	add_child(foe)
+	foe.global_position = falling.global_position + Vector2(0, 40)
+	var was := foe.health
+	await seconds(0.5)
+	check(is_equal_approx(was - foe.health, 7.0), "and strikes an enemy it falls onto, once (%.0f)" % (was - foe.health))
+	check(not is_instance_valid(falling) or falling.strikes == null, "spent on it, it is only a rock")
+	foe.queue_free()
+	p.queue_free()
 	await frames(2)
 
 ## A thrown rock: not the thrower as it leaves their hand; the thrower once it

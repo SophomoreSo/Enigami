@@ -364,7 +364,11 @@ func _struck_by() -> Array:
 
 func _expire() -> void:
 	if is_rock():
-		_come_down(velocity * 0.5)
+		# Out of speed in the air, it drops — and goes on striking what it falls
+		# onto, with the throw, until it reaches the ground (`LooseRock.arm`).
+		var r := LooseRock.drop(thrown, global_position, velocity * 0.5, room, thrower)
+		r.arm(payload, team, attacker, _hit, hits_left, _left_thrower)
+		queue_free()
 		return
 	if sticks != "":
 		_drop_out()
