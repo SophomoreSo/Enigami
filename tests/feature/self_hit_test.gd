@@ -94,6 +94,10 @@ func _falls_striking() -> void:
 	add_child(p)
 	await frames(2)
 	p.global_position = Vector2(0, 6000)
+	# Whatever rock an earlier throw left lying is not this one.
+	for old in get_tree().get_nodes_in_group("loose_rocks"):
+		old.queue_free()
+	await frames(2)
 	var rock := Weapons.finalize("ROCK", flow(["PROJECTILE"], "ROCK"))
 	rock.damage = 7.0
 	rock.range_px = 80.0
@@ -114,7 +118,11 @@ func _falls_striking() -> void:
 	foe.team = 1
 	foe.max_health = 100.0
 	add_child(foe)
-	foe.global_position = falling.global_position + Vector2(0, 40)
+	# Where it will be a fifth of a second on: it still goes on along the throw,
+	# and falls the way a loose rock does.
+	var ahead := 0.2
+	foe.global_position = falling.global_position \
+		+ Vector2(falling.velocity.x * ahead, falling.velocity.y * ahead + 0.5 * LooseRock.GRAVITY * ahead * ahead)
 	var was := foe.health
 	await seconds(0.5)
 	check(is_equal_approx(was - foe.health, 7.0), "and strikes an enemy it falls onto, once (%.0f)" % (was - foe.health))
@@ -145,11 +153,19 @@ func _thrown_back() -> void:
 	check(bolt != null and bolt.thrown == "ROCK", "it is in the air")
 	if bolt == null:
 		return
-	# Clear of the thrower now; the thrower steps into its way, ahead of it.
-	await seconds(0.15)
+	# The moment it is clear of the thrower, the thrower steps into its way,
+	# just ahead of it.
+	var t := 0.0
+	while is_instance_valid(bolt) and not bolt._left_thrower and t < 1.0:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+	check(is_instance_valid(bolt) and bolt._left_thrower, "it leaves its thrower's hand")
+	if not is_instance_valid(bolt):
+		p.queue_free()
+		return
 	p.invuln = 0.0
-	p.global_position = bolt.global_position + bolt.velocity.normalized() * 60.0
-	await seconds(0.4)
+	p.global_position = bolt.global_position + bolt.velocity.normalized() * 40.0
+	await seconds(0.3)
 	check(p.health < was, "once it has left their hand, it strikes whoever threw it (%.0f from %.0f)" % [p.health, was])
 	check(Weapons.is_thrown("RUNE"), "the rune is thrown the same way, and is held to the same")
 	p.queue_free()

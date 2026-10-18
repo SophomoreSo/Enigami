@@ -171,7 +171,7 @@ func _process(delta: float) -> void:
 	# where it has got to.
 	if spent:
 		if is_rock():
-			_come_down(velocity * 0.5)
+			_fall_out()
 			return
 		if sticks != "":
 			_drop_out()
@@ -202,7 +202,7 @@ func _fly_homing(delta: float) -> void:
 		_last_open = global_position
 		if spent:
 			if is_rock():
-				_come_down(velocity * 0.5)
+				_fall_out()
 				return
 			if sticks != "":
 				_drop_out()
@@ -349,6 +349,14 @@ func _sample() -> bool:
 				return true
 	return false
 
+## A thrown stone out of throw in the air — out of range or out of time — drops
+## from where it has got to, and goes on striking what it falls onto, with the
+## throw, until it reaches the ground (`LooseRock.arm`).
+func _fall_out() -> void:
+	var r := LooseRock.drop(thrown, global_position, velocity * 0.5, room, thrower)
+	r.arm(payload, team, attacker, _hit, hits_left, _left_thrower)
+	queue_free()
+
 ## What this bolt can strike: the other side, and — off a thrown weapon, the
 ## rock or the rune, once it has been clear of them — whoever threw it.
 func _struck_by() -> Array:
@@ -364,11 +372,7 @@ func _struck_by() -> Array:
 
 func _expire() -> void:
 	if is_rock():
-		# Out of speed in the air, it drops — and goes on striking what it falls
-		# onto, with the throw, until it reaches the ground (`LooseRock.arm`).
-		var r := LooseRock.drop(thrown, global_position, velocity * 0.5, room, thrower)
-		r.arm(payload, team, attacker, _hit, hits_left, _left_thrower)
-		queue_free()
+		_fall_out()
 		return
 	if sticks != "":
 		_drop_out()
