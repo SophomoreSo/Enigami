@@ -883,7 +883,9 @@ dilation its slow-motion look).
 
 P slides a phone up from the bottom of the screen — in a raid and in the
 hideout, wherever there is a player to be carrying one — and P or ESC slides
-it down again. **The raid keeps running** behind it, as it does behind the
+it down again. It only comes out with you standing on the ground: in the air,
+on a rope or sliding down a wall, P does nothing but a refusing blip. Putting
+it away works anywhere. **The raid keeps running** behind it, as it does behind the
 assembly board, and the player stands still while they look at it. It has a
 home screen of apps, a status bar with the time along its top and a bar along
 its bottom that goes home from any app:
