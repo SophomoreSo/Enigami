@@ -11,6 +11,9 @@ var radius: float = Attacks.NEAR_RADIUS
 var life: float = 0.28
 var max_life: float = 0.28
 var _hit: Array = []
+## Whether the ring touches whoever set it off as well: a NEAR the player cast
+## (`Attacks._go_off`).
+var hits_self: bool = false
 
 ## `reach` is how far the ring opens, and as far as `p`'s NEAR reaches when it
 ## is not said (`Attacks.near_radius`). `spared` counts as struck already: the
@@ -33,7 +36,10 @@ func _process(delta: float) -> void:
 		return
 	var t := 1.0 - life / max_life
 	var r := radius * t
-	for a in Attacks.targets(team):
+	var reached := Attacks.targets(team)
+	if hits_self and attacker != null and is_instance_valid(attacker) and not attacker.dead:
+		reached.append(attacker)
+	for a in reached:
 		if _hit.has(a):
 			continue
 		if global_position.distance_to(a.global_position) <= r + a.hurt_radius:

@@ -15,6 +15,11 @@ extends Node2D
 ## A room walked out of with it lying there keeps it (`Room.save_state`), and
 ## walking back in finds it where it was. `graphics/views/loose_rock_view.gd`
 ## draws it.
+##
+## One a throw ran out of speed in the air (`Projectile._expire`) is still the
+## throw as it falls (`arm`): it strikes what it falls onto — each once, and
+## none the throw had struck already — until it first comes down on the ground,
+## and then it is only a rock.
 
 signal picked_up(rock: LooseRock, by: Actor)
 
@@ -50,6 +55,15 @@ var resting: bool = false
 ## How long it has been lying out of the air.
 var _down: float = 0.0
 var _placed: bool = false
+## The throw it is still, falling: what it strikes with, for which side, as
+## whose blow, and what it has struck already; null once it is down.
+var strikes: Payload = null
+var _team: int = 0
+var _attacker: Actor = null
+var _hit: Array = []
+var _hits_left: int = 1
+## Whether it may strike its thrower: whether the throw had left their hand.
+var _at_thrower: bool = false
 
 ## Puts the rock `weapon` down at `at`, moving at `moving`, in `in_room` — or,
 ## with no room to lie in, wherever attacks are kept — for `by` to pick back
@@ -74,6 +88,20 @@ static func drop(weapon_id: String, at: Vector2, moving: Vector2, in_room, by: P
 
 func _ready() -> void:
 	add_to_group("loose_rocks")
+
+## Makes a rock just dropped out of a throw still the throw as it falls: it
+## strikes what it falls onto with `p`, for `team`, as `atk`'s blow, sparing
+## what the throw struck already (`struck`), as many more times as the throw
+## had left (`left`) — and its thrower too, if the throw had left their hand.
+func arm(p: Payload, team: int, atk: Actor, struck: Array, left: int, at_thrower: bool) -> void:
+	if p == null or left <= 0:
+		return
+	strikes = p
+	_team = team
+	_attacker = atk if atk != null and is_instance_valid(atk) else null
+	_hit = struck.duplicate()
+	_hits_left = left
+	_at_thrower = at_thrower
 
 func _process(delta: float) -> void:
 	if not _placed:
@@ -100,6 +128,7 @@ func _unstick() -> void:
 
 func _fly(delta: float) -> void:
 	if _on_floor() and velocity.y >= 0.0:
+		strikes = null
 		_down += delta
 		velocity.y = 0.0
 		velocity.x = move_toward(velocity.x, 0.0, FRICTION * delta)
@@ -112,6 +141,27 @@ func _fly(delta: float) -> void:
 	var hops := maxi(1, int(ceil(travel.length() / MAX_STEP)))
 	for i in hops:
 		_move(travel / float(hops))
+		if strikes != null:
+			_strike()
+
+## Falling as the throw still: what it touches is struck, each once. Spent, it
+## comes back off the last one struck, as a thrown rock does, and is a rock.
+func _strike() -> void:
+	var reached := Attacks.targets(_team)
+	if _at_thrower and thrower != null and is_instance_valid(thrower) and not thrower.dead:
+		reached.append(thrower)
+	for a in reached:
+		if _hit.has(a) or not is_instance_valid(a):
+			continue
+		if global_position.distance_to(a.global_position) <= RADIUS + a.hurt_radius:
+			_hit.append(a)
+			var dir := velocity.normalized() if velocity.length() > 1.0 else Vector2.DOWN
+			Attacks.resolve_hit(strikes, a, global_position, dir, _attacker, room, _team)
+			_hits_left -= 1
+			if _hits_left <= 0:
+				strikes = null
+				velocity = Vector2(-velocity.x * 0.25, -180.0)
+				return
 
 ## One short step: across first, then down. What it meets across, it comes back
 ## off; what it meets coming down is the floor.
@@ -135,6 +185,8 @@ func _move(step: Vector2) -> void:
 ## Down onto the floor: flush with it, and either off it again, slower, or
 ## stopped coming down and only sliding now.
 func _land() -> void:
+	# Down on the ground: only a rock from here on.
+	strikes = null
 	for i in MAX_STEP + 1:
 		if _solid(global_position + Vector2(0.0, RADIUS + 1.0)):
 			break
