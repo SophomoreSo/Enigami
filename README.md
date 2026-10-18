@@ -78,6 +78,7 @@ godot res://tests/graphics/glass_test.tscn  # glass: what is behind clear glass 
 godot res://tests/graphics/bolt_view_test.tscn # a bolt's trail: the gaps between its beads drawn in, and a laser's beam from the muzzle
 godot res://tests/graphics/rock_view_test.tscn # the rock, drawn: a stone of the game's own and not the pack's morning star, held upright, turning over in the air, and marked where it lies
 godot res://tests/feature/impact_test.tscn  # PUSH, PULL, NEAR, SHATTER and MANA DRAIN, at the moment a hit lands
+godot res://tests/feature/heal_test.tscn    # HEAL: what the attack strikes healed after the blow, never one it killed, and turned to damage by INVERT
 godot res://tests/feature/summon_test.tscn  # SUMMON PET's pet following, one to a summoner, with OFFENSIVE going for an enemy, and with KAMIKAZE blowing itself up against one
 godot res://tests/feature/slam_test.tscn    # PUSH into a wall: cracked, hurt and stunned past a speed, and nothing under it
 godot res://tests/graphics/crack_test.tscn  # the crack a slam leaves: it stays, it is the room's, and it is there again when the room is walked back into
@@ -588,6 +589,10 @@ giving it further to walk.
   every one stacked drags it from further, still stopping short. It takes the
   place of the shove every hit gives, so the enemy comes in rather than
   flinching back first. A pulled enemy slams into nothing.
+- `HEAL` gives what the attack strikes health back once the blow has landed:
+  8, and 8 more for each one stacked. The blow still lands its damage first,
+  and one it kills is not healed. `INVERT` after it turns it into 8 more
+  damage, as `INVERT` after a `DAMAGE` turns that into a heal.
 - `ANTI-GRAVITY` takes the weight off a bolt: a lobbed or thrown shot — a
   Lobber's, a weapon's that arcs — flies straight instead. One is all it
   takes; more do no more.

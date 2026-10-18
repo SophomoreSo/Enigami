@@ -36,6 +36,7 @@ const GIVEN := [
 	"KAMIKAZE",
 	"PULL",
 	"NEAR",
+	"HEAL",
 ]
 
 var fails := 0

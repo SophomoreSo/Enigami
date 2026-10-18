@@ -19,12 +19,12 @@
 -- right edge (circuit/skill_board.gd).
 
 -- In the order the palette lays its blocks out. `states` is what a hit leaves
--- on what it strikes — FIRE, ICE, WATER, and POSSESS's hands in it — and was
--- `element`. `behavior` is
--- COMMON MODIFIER on screen, and holds what was the `stat` block — DAMAGE,
--- SIZE, SPEED, RANGE, SHATTER — as well; the two after it are what a bolt is
--- steered and carried by — PIERCE, HOMING, AUTO-AIM and ANTI-GRAVITY — and what
--- an attack calls up beside itself: a bolt in the air, a pet.
+-- on what it strikes — FIRE, ICE, WATER, and POSSESS's hands in it — and
+-- TIME DILATION's slowing of the world; it was `element`. `behavior` is COMMON MODIFIER on screen, and holds most of what
+-- was the `stat` block — DAMAGE, SIZE, RANGE, SHATTER — as well; the two after
+-- it are what a bolt is steered and carried by — SPEED, PIERCE, HOMING,
+-- AUTO-AIM and ANTI-GRAVITY — and what an attack calls up beside itself: a
+-- bolt in the air, a pet.
 INSERT INTO categories (id) VALUES
 	('form'), ('states'), ('behavior'), ('projectile_behavior'), ('summon_behavior'),
 	('flow'), ('trigger');
@@ -58,7 +58,8 @@ INSERT INTO codes (code, id) VALUES
 	(45, 'OFFENSIVE'),
 	(46, 'KAMIKAZE'),
 	(47, 'PULL'),
-	(48, 'NEAR');
+	(48, 'NEAR'),
+	(49, 'HEAL');
 
 -- WIRE and BEND carried a flow one cell and did nothing else to it, which
 -- every part already does: any part takes flow on any side and sends it where
@@ -179,7 +180,7 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 INSERT INTO parts (id, name, category, heat, stack_limit, description) VALUES
 	('DAMAGE', 'DAMAGE +', 'behavior', 0.3, NULL, 'Raises damage, and each one stacked raises it by more than the last. Stable and simple, but interacts with little else.'),
 	('SIZE', 'SIZE x', 'behavior', 0.4, 3, 'Scales the attack by 1.6. Melee arcs widen and reach further. Stacks up to 3.'),
-	('SPEED', 'SPEED x', 'behavior', 0.35, 4, 'Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. Does nothing to any other attack. Stacks up to 4, and at 4 a bolt flies at laser speed.'),
+	('SPEED', 'SPEED x', 'projectile_behavior', 0.35, 4, 'Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. Does nothing to any other attack. Stacks up to 4, and at 4 a bolt flies at laser speed.'),
 	('RANGE', 'RANGE x', 'behavior', 0.35, 3, 'Bolts carry 1.75x as far before they fade, and SWIFT STRIKE lunges 1.75x as far. Does nothing to any other attack. Stacks up to 3, which is the most range there is.'),
 	('SHATTER', 'SHATTER', 'behavior', 0.45, NULL, 'Breaks the frost on an enemy slowed by it: the hit lands far harder, and the enemy thaws. Each one stacked breaks harder still. Worth nothing on its own — pair it with ICE, or with a board that lands twice.');
 
@@ -236,7 +237,8 @@ INSERT INTO parts (id, name, category, heat, description) VALUES
 	('STUN', 'STUN', 'behavior', 0.6, 'Struck enemies are stunned: for a moment they stand where they are and cannot attack. Each one stacked holds them longer. Once it wears off, an enemy shrugs off the next stun for a while.'),
 	('POSSESS', 'POSSESS', 'states', 0.9, 'Takes over the monster struck for 5 seconds, unharmed, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, left behind and still hunted. Bosses resist it.'),
 	('AUTO_AIM', 'AUTO-AIM', 'projectile_behavior', 0.4, 'Aims the attack at the nearest enemy, wherever you point: bolts go straight at it and SWIFT STRIKE lunges through it, as far as each reaches, and a swing turns to it. Each one stacked looks further for one.'),
-	('ANTI_GRAVITY', 'ANTI-GRAVITY', 'projectile_behavior', 0.4, 'Bolts fly with no weight on them: a lobbed shot goes straight instead of arcing. One is all it takes.');
+	('ANTI_GRAVITY', 'ANTI-GRAVITY', 'projectile_behavior', 0.4, 'Bolts fly with no weight on them: a lobbed shot goes straight instead of arcing. One is all it takes.'),
+	('HEAL', 'HEAL', 'behavior', 0.5, 'Heals what the attack strikes by 8 once the blow has landed, and 8 more for each one stacked. The blow still lands; one it kills is not healed. Turned round by INVERT, it is 8 more damage instead.');
 
 -- NEAR selects the enemies round the one the attack strikes, out to
 -- `Attacks.NEAR_RADIUS` and further for each one stacked, and what every part
@@ -255,7 +257,7 @@ INSERT INTO parts (id, name, category, heat, tag, description) VALUES
 INSERT INTO ports (part_id, side) VALUES
 	('PIERCE', 'E'), ('HOMING', 'E'),
 	('KNOCKBACK', 'E'), ('PULL', 'E'), ('MANA_DRAIN', 'E'), ('HEALTH_DRAIN', 'E'),
-	('STUN', 'E'), ('POSSESS', 'E'), ('AUTO_AIM', 'E'), ('ANTI_GRAVITY', 'E'), ('NEAR', 'E');
+	('STUN', 'E'), ('POSSESS', 'E'), ('AUTO_AIM', 'E'), ('ANTI_GRAVITY', 'E'), ('HEAL', 'E'), ('NEAR', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('PIERCE', 0, 'pierce', 'add', 1),
@@ -268,6 +270,7 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('POSSESS', 0, 'possess', 'add', 5),
 	('AUTO_AIM', 0, 'auto_aim', 'add', 1),
 	('ANTI_GRAVITY', 0, 'anti_gravity', 'add', 1),
+	('HEAL', 0, 'heal', 'add', 8),
 	('NEAR', 0, 'near', 'add', 1);
 
 
@@ -311,8 +314,8 @@ INSERT INTO parts (id, name, category, heat, description) VALUES
 	('DUPLICATE', 'DUPLICATE x3', 'flow', 3.0, 'Produces the same result three times at full damage. Generates a lot of heat.'),
 	('OVERCLOCK', 'OVERCLOCK', 'flow', 0.0, 'Runs the whole board on a faster clock. Each one cuts the wait between casts by the same 5%; twelve bring it down to 40%, and it goes no lower. A flow goes through it without spending a tick.'),
 	('DELAY', 'DELAY', 'flow', 2.0, 'Makes every cast that passes through it wait longer before the next, and each one more adds as much again. It does nothing else: it turns a flow and leaves it as it was.'),
-	('TIME_DILATION', 'TIME DILATION', 'flow', 2.0, 'Slows the world and the board alike. Not a speed buff — a change in the pace of the fight.'),
-	('INVERT', 'INVERT', 'flow', 0.4, 'Turns the part right before it inside out: DAMAGE heals what it strikes, FIRE, ICE and STUN cleanse it, PUSH pulls and PULL pushes, and SIZE, SPEED and RANGE shrink. After anything else it does nothing.'),
+	('TIME_DILATION', 'TIME DILATION', 'states', 2.0, 'Slows the world and the board alike. Not a speed buff — a change in the pace of the fight.'),
+	('INVERT', 'INVERT', 'flow', 0.4, 'Turns the part right before it inside out: DAMAGE heals what it strikes and HEAL harms it, FIRE, ICE and STUN cleanse it, PUSH pulls and PULL pushes, and SIZE, SPEED and RANGE shrink. After anything else it does nothing.'),
 	('BRIDGE', 'BRIDGE', 'flow', 0.0, 'Carries a flow one cell and does nothing else: it turns the flow and leaves it as it was. Steer a flow round to the way out with it, or walk a trigger''s branch round a ring and back.');
 
 INSERT INTO ports (part_id, side) VALUES
@@ -363,6 +366,7 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 -- multiplies to it.
 INSERT INTO inversions (part_id, position, field, op, value) VALUES
 	('DAMAGE', 0, 'heal', 'add', 8),
+	('HEAL', 0, 'damage', 'add', 8),
 	('FIRE', 0, 'cleanse', 'set', 'true'),
 	('ICE', 0, 'cleanse', 'set', 'true'),
 	('STUN', 0, 'cleanse', 'set', 'true'),

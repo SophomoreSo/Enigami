@@ -27,6 +27,10 @@
 		"name": "WATER",
 		"desc": "Soaks what it strikes. A wet enemy freezes solid under ICE, and FIRE only dries it; water puts a burning enemy out."
 	},
+	"HEAL": {
+		"name": "HEAL",
+		"desc": "Heals what the attack strikes by 8 once the blow has landed, and 8 more for each one stacked. The blow still lands; one it kills is not healed. Turned round by INVERT, it is 8 more damage instead."
+	},
 	"DAMAGE": {
 		"name": "DAMAGE +",
 		"desc": "Raises damage, and each one stacked raises it by more than the last. Stable and simple, but interacts with little else."
@@ -105,7 +109,7 @@
 	},
 	"INVERT": {
 		"name": "INVERT",
-		"desc": "Turns the part right before it inside out: DAMAGE heals what it strikes, FIRE, ICE and STUN cleanse it, PUSH pulls and PULL pushes, and SIZE, SPEED and RANGE shrink. After anything else it does nothing."
+		"desc": "Turns the part right before it inside out: DAMAGE heals what it strikes and HEAL harms it, FIRE, ICE and STUN cleanse it, PUSH pulls and PULL pushes, and SIZE, SPEED and RANGE shrink. After anything else it does nothing."
 	},
 	"ANTI_GRAVITY": {
 		"name": "ANTI-GRAVITY",
