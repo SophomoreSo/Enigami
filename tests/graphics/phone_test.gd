@@ -100,13 +100,17 @@ func _ready() -> void:
 	game._deploy("SWORD")
 	await frames(10)
 	var raid: Raid = game.current
-	# In the air, it does not come out.
+	# In the air, it does not come out. `physics_frame` comes before the bodies
+	# move in it, so one is not enough for the player to find they are off the
+	# floor: wait until they have.
 	raid.player.global_position.y -= 200.0
 	raid.player.velocity = Vector2.ZERO
-	await get_tree().physics_frame
+	var t0 := Time.get_ticks_msec()
+	while raid.player.is_on_floor() and Time.get_ticks_msec() - t0 < 2000:
+		await get_tree().physics_frame
+	check(not raid.player.is_on_floor(), "(lifted off the floor)")
 	await key(KEY_P)
-	check(not raid.player.is_on_floor() and not game._phoning() and not raid.on_phone,
-		"P in the air brings nothing up")
+	check(not game._phoning() and not raid.on_phone, "P in the air brings nothing up")
 	await landed(raid.player)
 	await key(KEY_P)
 	check(game._phoning() and raid.on_phone, "P on the ground brings the phone up over a raid")

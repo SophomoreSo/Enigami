@@ -184,9 +184,12 @@ const THUMB_TAB_W := 132.0
 const THUMB_GAP := 4.0
 ## The most a tab stands; with many categories they stand shorter, to fit.
 const THUMB_PLATE := 72.0
-## The size what the part in hand does is written at, under a thumb's tiles:
-## smaller than the page's words, since it runs to several lines.
-const THUMB_DESC_TEXT := 24
+## The size what the part in hand does is written at, under a thumb's tiles: the
+## page's own, since the face is a pixel face and anything between its size and
+## twice it lands its pixels between the screen's (editor_touch_test asks that
+## every PIXEL block of the board be one colour). It runs to several lines, and
+## stops where the column does.
+const THUMB_DESC_TEXT := UiKit.THUMB_TEXT
 ## TURN and REMOVE, along the foot of the column: a button's height, as CODE and
 ## CLOSE are.
 const THUMB_ACT := THUMB_BTN
