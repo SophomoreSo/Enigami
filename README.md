@@ -677,10 +677,10 @@ giving it further to walk.
 
 The palette beside the board shows one category at a time: the categories
 stand down its left as tabs, and a click on one puts up that category's parts
-and only those. A thumb's palette works the same way. At a desk each part is
-shown as its icon alone, on a tile the size it stands on the board — a cell,
-or two for a two-cell part — with how many you have in its corner; hover one
-for its name and what it does.
+and only those. Each part is shown as its icon alone, on a tile the size it
+stands on the board — a cell, or two for a two-cell part — with how many you
+have in its corner. At a desk, hover one for its name and what it does; in
+mobile mode the part in hand is named under the tiles, with what it does.
 
 Parts are placed by dragging: press a palette entry and drop it on the grid, or
 lift a placed part and drop it somewhere else. The mouse wheel turns whatever
