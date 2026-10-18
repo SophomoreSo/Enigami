@@ -197,7 +197,12 @@ static func reach_of(size: float, stacked: int) -> float:
 ## first strike and the last, and a node can re-check that before it fires.
 class Deferred extends Node:
 	var t: float = 0.0
+	## "spawn" for a whole spawn put off — a trigger's follow-up — or "" for one
+	## cast of a volley, the `i`-th of `count`, of the form `form`.
 	var kind: String = ""
+	var form: String = ""
+	var i: int = 0
+	var count: int = 1
 	var payload: Payload
 	var aim: Vector2 = Vector2.RIGHT
 	var pos: Vector2 = Vector2.ZERO
@@ -215,41 +220,37 @@ class Deferred extends Node:
 		if t > 0.0:
 			return
 		var atk: Actor = attacker if is_instance_valid(attacker) and attacker is Actor else null
-		match kind:
-			"melee":
-				Attacks._melee(payload, aim, team, atk, room)
-			"near":
-				Attacks._near_here(payload, pos, team, atk, room)
-			"dash":
-				Attacks._dash_slash(payload, aim, team, atk, room, far)
-			"headbutt":
-				Attacks._headbutt(payload, aim, team, atk, room)
-			"spawn":
-				# The full spawn path, so a trigger's attack behaves exactly as
-				# it would fired straight off the board.
-				var c := ctx.duplicate()
-				c["attacker"] = atk
-				# The attack that caused this has moved the attacker since, so
-				# a follow-up aims where they are aiming now rather than down
-				# the hit that triggered it: a chain of lunges kept on the old
-				# heading walks past the target and every link after the first
-				# misses. The origin stays at the impact point, so an ON HIT
-				# burst or bolt still comes from where the hit landed.
-				if atk != null:
-					var live_aim = atk.get("aim")
-					if live_aim is Vector2 and (live_aim as Vector2).length() > 0.01:
-						c["aim"] = live_aim
-				Attacks.spawn(payload, c)
+		if kind == "spawn":
+			# The full spawn path, so a trigger's attack behaves exactly as it
+			# would fired straight off the board.
+			var c := ctx.duplicate()
+			c["attacker"] = atk
+			# The attack that caused this has moved the attacker since, so a
+			# follow-up aims where they are aiming now rather than down the
+			# hit that triggered it: a chain of lunges kept on the old heading
+			# walks past the target and every link after the first misses. The
+			# origin stays at the impact point, so an ON HIT burst or bolt
+			# still comes from where the hit landed.
+			if atk != null:
+				var live_aim = atk.get("aim")
+				if live_aim is Vector2 and (live_aim as Vector2).length() > 0.01:
+					c["aim"] = live_aim
+			Attacks.spawn(payload, c)
+		else:
+			Attacks.cast_form(form, payload, aim, pos, team, atk, room, far, ctx, i, count)
 		queue_free()
 
-static func _schedule(seconds: float, kind: String, p: Payload, aim: Vector2, pos: Vector2,
-		team: int, attacker: Actor, room, far: float = 1.0) -> void:
+## Puts off the `i`-th cast of a volley of `count`, of `form`, by `seconds`.
+static func _schedule(seconds: float, form: String, p: Payload, aim: Vector2, pos: Vector2,
+		team: int, attacker: Actor, room, far: float, ctx: Dictionary, i: int, count: int) -> void:
 	var w := container()
 	if w == null or not is_instance_valid(w):
 		return
 	var d := Deferred.new()
 	d.t = seconds
-	d.kind = kind
+	d.form = form
+	d.i = i
+	d.count = count
 	d.payload = p
 	d.aim = aim
 	d.pos = pos
@@ -257,6 +258,7 @@ static func _schedule(seconds: float, kind: String, p: Payload, aim: Vector2, po
 	d.attacker = attacker
 	d.room = room
 	d.far = far
+	d.ctx = ctx
 	w.add_child(d)
 
 ## Schedules a whole `spawn` — used for trigger follow-ups, which need the form
@@ -327,55 +329,89 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 	# out of the hand the way the rock does, so it is heard as a throw too.
 	Cues.at(&"attack", origin, {"form": payload.form, "payload": payload, "aim": aim,
 		"thrown": thrown if thrown != "" else sticks})
-	match payload.form:
-		"PROJECTILE":
-			for i in count:
-				var spread := 0.0 if count == 1 else deg_to_rad(lerpf(-16.0, 16.0, float(i) / float(count - 1)))
-				# ANTI-GRAVITY takes the weight off a bolt that would have arced.
-				var n := _projectile(payload, origin, aim.rotated(spread), team, attacker, room,
-					bool(ctx.get("gravity", false)) and payload.anti_gravity <= 0, far)
-				if thrown != "":
-					n.thrown = thrown
-					n.thrower = ctx.get("thrower", null)
-					n.ghost = i > 0 or bool(ctx.get("ghost", false))
-				elif sticks != "":
-					n.sticks = sticks
-					n.thrower = ctx.get("thrower", null)
-		"SLASH":
-			for i in count:
-				var delay := float(i) * 0.07
-				var off := 0.0 if count == 1 else deg_to_rad(lerpf(-22.0, 22.0, float(i) / float(count - 1)))
-				if delay <= 0.0:
-					_melee(payload, aim.rotated(off), team, attacker, room)
-				else:
-					_schedule(delay, "melee", payload, aim.rotated(off), origin, team, attacker, room)
-		"":
-			# No form, so no blow and no enemy struck: a NEAR on the flow is the
-			# attack, touching the enemies round where it is cast — a monster's
-			# board that is one, a trigger's branch with one on it, at the hit
-			# that set it off. A volley scatters round the point. Without one,
-			# nothing goes off.
-			if payload.near > 0 and payload.spread != null:
-				for i in count:
-					var pos: Vector2 = origin + (Vector2.ZERO if i == 0 else Vector2(randf_range(-70, 70), randf_range(-40, 40)))
-					if i == 0:
-						_near_here(payload, pos, team, attacker, room)
-					else:
-						_schedule(float(i) * 0.1, "near", payload, aim, pos, team, attacker, room)
-		"DASHSLASH":
-			for i in count:
-				if i == 0:
-					_dash_slash(payload, aim, team, attacker, room, far)
-				else:
-					_schedule(float(i) * 0.12, "dash", payload, aim, origin, team, attacker, room, far)
-		"HEADBUTT":
-			for i in count:
-				if i == 0:
-					_headbutt(payload, aim, team, attacker, room)
-				else:
-					_schedule(float(i) * 0.12, "headbutt", payload, aim, origin, team, attacker, room)
-		_:
-			pass
+	var form: Dictionary = forms().get(payload.form, {})
+	if form.is_empty():
+		return
+	# The first of a volley now, and each after it a little later, by the
+	# form's own spacing — a bolt's all at once.
+	for i in count:
+		var wait := float(form["delay"]) * float(i)
+		if wait <= 0.0:
+			cast_form(payload.form, payload, aim, origin, team, attacker, room, far, ctx, i, count)
+		else:
+			_schedule(wait, payload.form, payload, aim, origin, team, attacker, room, far, ctx, i, count)
+
+## Every form an attack goes off as, by its id — and "" for a flow with no
+## form, which goes off as the NEAR on it: how long each of a volley's later
+## casts waits on the one before (`delay`), and how one cast is made (`cast`),
+## the `i`-th of `count`. One table for a cast made now (`spawn`) and one put
+## off (`Deferred`), so the two cannot disagree about what a form is.
+static var _forms: Dictionary = {}
+
+static func forms() -> Dictionary:
+	if _forms.is_empty():
+		_forms = {
+			"PROJECTILE": {"delay": 0.0, "cast": _cast_bolt},
+			"SLASH": {"delay": 0.07, "cast": _cast_slash},
+			"": {"delay": 0.1, "cast": _cast_near},
+			"DASHSLASH": {"delay": 0.12, "cast": _cast_lunge},
+			"HEADBUTT": {"delay": 0.12, "cast": _cast_punch},
+		}
+	return _forms
+
+## One cast of `form`: the `i`-th of a volley of `count`, aimed `aim` from
+## `origin`, as far as `far` says.
+static func cast_form(form: String, p: Payload, aim: Vector2, origin: Vector2, team: int, atk: Actor,
+		room, far: float, ctx: Dictionary, i: int, count: int) -> void:
+	var f: Dictionary = forms().get(form, {})
+	if f.is_empty():
+		return
+	(f["cast"] as Callable).call(p, aim, origin, team, atk, room, far, ctx, i, count)
+
+## A bolt: a volley fans out 16 degrees either side. A thrown weapon throws
+## itself (`Weapons.is_thrown`) — the first of the volley is the weapon, unless
+## the flow says it is a copy, and the rest are copies — and a stacked one
+## throws one of itself a bolt (`Weapons.is_stacked`), each sticking where it
+## strikes. ANTI-GRAVITY takes the weight off a bolt that would have arced.
+static func _cast_bolt(p: Payload, aim: Vector2, origin: Vector2, team: int, atk: Actor, room,
+		far: float, ctx: Dictionary, i: int, count: int) -> void:
+	var spread := 0.0 if count == 1 else deg_to_rad(lerpf(-16.0, 16.0, float(i) / float(count - 1)))
+	var n := _projectile(p, origin, aim.rotated(spread), team, atk, room,
+		bool(ctx.get("gravity", false)) and p.anti_gravity <= 0, far)
+	var thrown := String(ctx.get("thrown", ""))
+	var sticks := String(ctx.get("sticks", ""))
+	if thrown != "":
+		n.thrown = thrown
+		n.thrower = ctx.get("thrower", null)
+		n.ghost = i > 0 or bool(ctx.get("ghost", false))
+	elif sticks != "":
+		n.sticks = sticks
+		n.thrower = ctx.get("thrower", null)
+
+## A swing: a volley fans out 22 degrees either side.
+static func _cast_slash(p: Payload, aim: Vector2, _origin: Vector2, team: int, atk: Actor, room,
+		_far: float, _ctx: Dictionary, i: int, count: int) -> void:
+	var off := 0.0 if count == 1 else deg_to_rad(lerpf(-22.0, 22.0, float(i) / float(count - 1)))
+	_melee(p, aim.rotated(off), team, atk, room)
+
+## No form, so no blow and no enemy struck: a NEAR on the flow is the attack,
+## touching the enemies round where it is cast — a monster's board that is
+## one, a trigger's branch with one on it, at the hit that set it off. A volley
+## scatters round the point. Without one, nothing goes off.
+static func _cast_near(p: Payload, _aim: Vector2, origin: Vector2, team: int, atk: Actor, room,
+		_far: float, _ctx: Dictionary, i: int, _count: int) -> void:
+	if p.near <= 0 or p.spread == null:
+		return
+	var pos := origin + (Vector2.ZERO if i == 0 else Vector2(randf_range(-70, 70), randf_range(-40, 40)))
+	_near_here(p, pos, team, atk, room)
+
+static func _cast_lunge(p: Payload, aim: Vector2, _origin: Vector2, team: int, atk: Actor, room,
+		far: float, _ctx: Dictionary, _i: int, _count: int) -> void:
+	_dash_slash(p, aim, team, atk, room, far)
+
+static func _cast_punch(p: Payload, aim: Vector2, _origin: Vector2, team: int, atk: Actor, room,
+		_far: float, _ctx: Dictionary, _i: int, _count: int) -> void:
+	_headbutt(p, aim, team, atk, room)
 
 static func _projectile(p: Payload, pos: Vector2, dir: Vector2, team: int, atk: Actor, room,
 		gravity: bool, far: float = 1.0) -> Projectile:
@@ -667,130 +703,252 @@ static func _stacked(words: String, count: int) -> String:
 static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, attacker, room, team: int) -> void:
 	if target == null or not is_instance_valid(target) or target.dead:
 		return
+	var h := Hit.new()
+	h.p = p
+	h.target = target
+	h.pos = pos
+	h.dir = dir
 	# Both halves are needed: a fully deleted node fails `is_instance_valid`,
 	# and one still being torn down passes it but no longer answers to `is`.
-	var atk: Actor = attacker if is_instance_valid(attacker) and attacker is Actor else null
-	# POSSESS takes the monster it strikes, and does it no harm: the hit is the
-	# player's hands going in, not a blow — no damage, no shove, nothing it
-	# carries. Something it cannot take, a boss, is struck as by anything else.
-	var pilot := _possessor(atk)
-	if p.possess > 0.0 and pilot != null and Player.can_possess(target):
-		_possess_hit(p, target, pos, dir, atk, pilot, room, team)
-		return
-	# SHATTER reads the target's state from before this hit lands, so an attack
-	# carrying ICE and SHATTER together does not shatter the chill it is in the
-	# middle of applying. It takes two arrivals, which is what makes it a
-	# combination rather than a flat damage part.
-	var breaks := p.shatter > 0 and target.chill_time > 0.0
-	var damage := p.damage * shatter_mul(p.shatter) if breaks else p.damage
-	# A hit that cleanses lands bare, and what it carries goes on once the
-	# cleanse has been through (below): the other way round, the cleanse would
-	# take what its own hit brought along with what was there before it.
-	#
-	# A NEAR's touch is no blow (`Payload.touch`): it lands what damage the parts
-	# after the NEAR gave it, if any, and does the rest whether or not that hurt
-	# — what it carries landing as hard as the blow it spreads from.
-	var touched := p.touch >= 0.0
-	var dealt := target.apply_damage(damage, [] if p.cleanse or touched else p.elements, atk)
-	if dealt <= 0.0 and not touched:
-		return
-	var strength := maxf(dealt, p.touch) if touched else dealt
-	# A monster the player is in passes for one of them until it hurts one of
-	# them, and then it is found out (`Enemy.revealed`). Attacking alone gives
-	# nothing away — a swing at the air, a throw that misses — and a throw that
-	# lands POSSESS hurts nobody (above), so a hop from one body to the next is
-	# never one of them hurt.
-	if dealt > 0.0 and atk is Enemy and (atk as Enemy).piloted() and target.team != atk.team:
-		(atk as Enemy).revealed = true
-	# The frost is what broke: the enemy thaws, and that takes the chill this
-	# same hit may have brought with it, so the next break needs a fresh one.
-	# Frozen solid, it is the ice that breaks, and it stands free again.
-	if breaks:
-		target.thaw()
-		Cues.at(&"shatter", pos, {"payload": p, "damage": dealt})
-	# A cleanse — what an INVERT makes of FIRE, ICE or STUN — ends what the enemy
-	# struck was carrying when the hit reached it: every burn, chill and stun.
-	# What this hit brings is some other part's doing and not the cleanse's to
-	# end, so it goes on after, the stun further down included: FIRE, FIRE,
-	# INVERT turns round the second FIRE alone, and still burns from the first.
-	if p.cleanse and not target.dead:
-		if target.cleanse():
-			Cues.at(&"cleanse", target.global_position, {"target_team": target.team})
-		target.afflict(strength, p.elements)
-	elif touched and not target.dead:
-		target.afflict(strength, p.elements)
-	# Every hit gives the enemy it strikes a shove along the attack: no touch
-	# does, which is no blow, nor a PULL, which drags it the other way.
-	if not p.hook and not touched:
-		target.knockback(dir, hit_shove(p))
-	# KNOCKBACK throws the struck enemy on the way the attack was going, which is
-	# the `dir` every form hands in: along a bolt's flight, out from a swing or a
-	# NEAR's middle, down the line of a lunge. It adds to whatever the hit did
-	# above.
-	# Thrown so, it can be slammed into a wall (`Actor.SLAM_SPEED`), and the
-	# slam is the thrower's side's.
-	if p.knockback:
-		target.knockback(dir, KNOCKBACK_FORCE * float(p.knockback), team)
-	# PULL, and what an INVERT made of KNOCKBACK: the struck enemy is dragged
-	# toward whoever struck it, as hard as KNOCKBACK throws it on but never past
-	# them (`hook_force`) — in place of the shove every hit gives (above), or a
-	# heavy blow's would cancel the pull. One a NEAR touched is dragged in to
-	# the NEAR's middle instead — the enemy struck, or where it went off — so a
-	# NEAR and a PULL gather the enemies round the one struck onto it. With
-	# nobody to drag it to, it is hauled back the way the attack came.
-	if p.hook:
-		var to := -dir
-		var far := INF
-		var toward := Vector2.INF
-		if touched:
-			toward = p.touch_at
-		elif atk != null:
-			toward = atk.global_position
-		if toward != Vector2.INF:
-			var gap := toward - target.global_position
-			if gap.length() > 0.01:
-				to = gap.normalized()
-			far = gap.length() - HOOK_SHORT
-		target.knockback(to, hook_force(p, far))
-	# NEAR: what the parts after it did reaches everything round the enemy it
-	# struck.
-	if p.near > 0 and p.spread != null:
-		_near(p, target, pos, dealt, atk, room, team)
-	if p.stun > 0.0 and target.stun(p.stun):
-		Cues.at(&"stun", target.global_position, {"seconds": p.stun, "target_team": target.team})
-	if p.mana_drain and atk != null and atk.has_method("gain_mana"):
-		var drained := MANA_PER_HIT * float(p.mana_drain)
-		atk.gain_mana(drained)
-		Cues.at(&"mana_drain", pos, {"amount": drained})
-	if p.health_drain and atk != null:
-		var back := atk.heal(dealt * HEALTH_DRAIN_SHARE * float(p.health_drain))
+	h.atk = attacker if is_instance_valid(attacker) and attacker is Actor else null
+	h.room = room
+	h.team = team
+	for step: Array in hit_steps():
+		if h.possessed and not bool(step[0]):
+			continue
+		if not (step[1] as Callable).call(h):
+			return
+
+## One connection going through the steps of `resolve_hit`: what came in, and
+## what the steps before found out, for the steps after to read.
+class Hit extends RefCounted:
+	var p: Payload
+	var target: Actor
+	var pos: Vector2
+	var dir: Vector2
+	## Whoever struck, or null for nobody left to credit.
+	var atk: Actor = null
+	var room = null
+	var team: int = 0
+	## SHATTER on a chilled target, read before the blow lands (`_hit_blow`).
+	var breaks := false
+	## A NEAR's touch rather than a blow (`Payload.touch`).
+	var touched := false
+	## What the blow took, and how hard what the hit carries lands: the blow's
+	## worth, or on a touch the blow it spreads from.
+	var dealt := 0.0
+	var strength := 0.0
+	## POSSESS took the target: no blow, and only the tail of the steps.
+	var possessed := false
+	var killed := false
+
+## The steps of a hit, in the order they run, each `[tail, step]`: `step` takes
+## the `Hit` and says whether to go on, and `tail` marks the steps every
+## connection ends with — the clock stopping, the hit heard, the triggers —
+## which a POSSESS, having no blow, skips to. The order is a rule, and some of
+## it is load-bearing:
+##   - the blow reads the target's chill before it lands and thaws after, so an
+##     ICE and SHATTER on one attack take two arrivals to break
+##   - the cleanse goes before what this hit brings, so FIRE, FIRE, INVERT
+##     turns round the second FIRE alone
+##   - PULL stands in for the shove every blow gives, or the blow's would cancel it
+##   - the drains, the heal and NEAR read what the blow dealt
+##   - whether it killed is read at the end, after every step that could
+static var _hit_steps: Array = []
+
+static func hit_steps() -> Array:
+	if _hit_steps.is_empty():
+		_hit_steps = [
+			[false, _hit_possess],
+			[false, _hit_blow],
+			[false, _hit_reveal],
+			[false, _hit_shatter],
+			[false, _hit_states],
+			[false, _hit_shove],
+			[false, _hit_knockback],
+			[false, _hit_hook],
+			[false, _hit_near],
+			[false, _hit_stun],
+			[false, _hit_mana_drain],
+			[false, _hit_health_drain],
+			[false, _hit_heal],
+			[true, _hit_hitstop],
+			[true, _hit_heard],
+			[true, _hit_triggers],
+		]
+	return _hit_steps
+
+## POSSESS takes the monster it strikes, and does it no harm: the hit is the
+## player's hands going in, not a blow — no damage, no shove, nothing it
+## carries. Something it cannot take, a boss, is struck as by anything else. A
+## hop from one monster to the next is the same hands going in.
+static func _hit_possess(h: Hit) -> bool:
+	var pilot := _possessor(h.atk)
+	if h.p.possess > 0.0 and pilot != null and Player.can_possess(h.target):
+		pilot.possess(h.target as Enemy, h.p.possess)
+		h.possessed = true
+	return true
+
+## The blow lands. SHATTER reads the target's state from before this hit, so
+## an attack carrying ICE and SHATTER together does not shatter the chill it is
+## in the middle of applying: it takes two arrivals, which is what makes it a
+## combination rather than a flat damage part. A hit that cleanses lands bare,
+## and what it carries goes on once the cleanse has been through (`_hit_states`).
+## A NEAR's touch is no blow (`Payload.touch`): it lands what damage the parts
+## after the NEAR gave it, if any, and does the rest whether or not that hurt —
+## what it carries landing as hard as the blow it spreads from. A blow that
+## lands nothing ends here.
+static func _hit_blow(h: Hit) -> bool:
+	h.breaks = h.p.shatter > 0 and h.target.chill_time > 0.0
+	var damage := h.p.damage * shatter_mul(h.p.shatter) if h.breaks else h.p.damage
+	h.touched = h.p.touch >= 0.0
+	h.dealt = h.target.apply_damage(damage, [] if h.p.cleanse or h.touched else h.p.elements, h.atk)
+	if h.dealt <= 0.0 and not h.touched:
+		return false
+	h.strength = maxf(h.dealt, h.p.touch) if h.touched else h.dealt
+	return true
+
+## A monster the player is in passes for one of them until it hurts one of
+## them, and then it is found out (`Enemy.revealed`). Attacking alone gives
+## nothing away — a swing at the air, a throw that misses — and a POSSESS hurts
+## nobody, so a hop from one body to the next is never one of them hurt.
+static func _hit_reveal(h: Hit) -> bool:
+	if h.dealt > 0.0 and h.atk is Enemy and (h.atk as Enemy).piloted() and h.target.team != h.atk.team:
+		(h.atk as Enemy).revealed = true
+	return true
+
+## The frost is what broke: the enemy thaws, and that takes the chill this same
+## hit may have brought with it, so the next break needs a fresh one. Frozen
+## solid, it is the ice that breaks, and it stands free again.
+static func _hit_shatter(h: Hit) -> bool:
+	if h.breaks:
+		h.target.thaw()
+		Cues.at(&"shatter", h.pos, {"payload": h.p, "damage": h.dealt})
+	return true
+
+## A cleanse — what an INVERT makes of FIRE, ICE or STUN — ends what the enemy
+## struck was carrying when the hit reached it: every burn, chill and stun.
+## What this hit brings is some other part's doing and not the cleanse's to
+## end, so it goes on after, the stun further down included: FIRE, FIRE,
+## INVERT turns round the second FIRE alone, and still burns from the first.
+## A touch's states land here too, as hard as the blow it spreads from.
+static func _hit_states(h: Hit) -> bool:
+	if h.target.dead:
+		return true
+	if h.p.cleanse:
+		if h.target.cleanse():
+			Cues.at(&"cleanse", h.target.global_position, {"target_team": h.target.team})
+		h.target.afflict(h.strength, h.p.elements)
+	elif h.touched:
+		h.target.afflict(h.strength, h.p.elements)
+	return true
+
+## Every hit gives the enemy it strikes a shove along the attack: no touch does,
+## which is no blow, nor a PULL, which drags it the other way.
+static func _hit_shove(h: Hit) -> bool:
+	if not h.p.hook and not h.touched:
+		h.target.knockback(h.dir, hit_shove(h.p))
+	return true
+
+## KNOCKBACK throws the struck enemy on the way the attack was going, which is
+## the `dir` every form hands in: along a bolt's flight, out from a swing or a
+## NEAR's middle, down the line of a lunge. It adds to whatever the hit did
+## above. Thrown so, it can be slammed into a wall (`Actor.SLAM_SPEED`), and
+## the slam is the thrower's side's.
+static func _hit_knockback(h: Hit) -> bool:
+	if h.p.knockback:
+		h.target.knockback(h.dir, KNOCKBACK_FORCE * float(h.p.knockback), h.team)
+	return true
+
+## PULL, and what an INVERT made of KNOCKBACK: the struck enemy is dragged
+## toward whoever struck it, as hard as KNOCKBACK throws it on but never past
+## them (`hook_force`) — in place of the shove every hit gives, or a heavy
+## blow's would cancel the pull. One a NEAR touched is dragged in to the NEAR's
+## middle instead — the enemy struck, or where it went off — so a NEAR and a
+## PULL gather the enemies round the one struck onto it. With nobody to drag it
+## to, it is hauled back the way the attack came.
+static func _hit_hook(h: Hit) -> bool:
+	if not h.p.hook:
+		return true
+	var to := -h.dir
+	var far := INF
+	var toward := Vector2.INF
+	if h.touched:
+		toward = h.p.touch_at
+	elif h.atk != null:
+		toward = h.atk.global_position
+	if toward != Vector2.INF:
+		var gap := toward - h.target.global_position
+		if gap.length() > 0.01:
+			to = gap.normalized()
+		far = gap.length() - HOOK_SHORT
+	h.target.knockback(to, hook_force(h.p, far))
+	return true
+
+## NEAR: what the parts after it did reaches everything round the enemy it
+## struck.
+static func _hit_near(h: Hit) -> bool:
+	if h.p.near > 0 and h.p.spread != null:
+		_near(h.p, h.target, h.pos, h.dealt, h.atk, h.room, h.team)
+	return true
+
+static func _hit_stun(h: Hit) -> bool:
+	if h.p.stun > 0.0 and h.target.stun(h.p.stun):
+		Cues.at(&"stun", h.target.global_position, {"seconds": h.p.stun, "target_team": h.target.team})
+	return true
+
+static func _hit_mana_drain(h: Hit) -> bool:
+	if h.p.mana_drain and h.atk != null and h.atk.has_method("gain_mana"):
+		var drained := MANA_PER_HIT * float(h.p.mana_drain)
+		h.atk.gain_mana(drained)
+		Cues.at(&"mana_drain", h.pos, {"amount": drained})
+	return true
+
+static func _hit_health_drain(h: Hit) -> bool:
+	if h.p.health_drain and h.atk != null:
+		var back := h.atk.heal(h.dealt * HEALTH_DRAIN_SHARE * float(h.p.health_drain))
 		if back > 0.0:
-			Cues.at(&"heal", atk.global_position, {"amount": back, "target_team": atk.team})
-	# What an INVERT made of DAMAGE: health given back to the enemy struck, after
-	# the harm and only while it still stands, so a blow that kills stays a kill.
-	if p.heal > 0.0 and not target.dead:
-		var healed := target.heal(p.heal)
+			Cues.at(&"heal", h.atk.global_position, {"amount": back, "target_team": h.atk.team})
+	return true
+
+## HEAL, and what an INVERT made of DAMAGE: health given back to the enemy
+## struck, after the harm and only while it still stands, so a blow that kills
+## stays a kill.
+static func _hit_heal(h: Hit) -> bool:
+	if h.p.heal > 0.0 and not h.target.dead:
+		var healed := h.target.heal(h.p.heal)
 		if healed > 0.0:
-			Cues.at(&"heal", target.global_position, {"amount": healed, "target_team": target.team})
-	# A connection stops the clock for a frame. That is a rule — everything in
-	# the fight feels it — so it is applied here and not left to the screen.
-	TimeCtl.hitstop(CHAIN_HITSTOP if p.follow_up else HITSTOP)
+			Cues.at(&"heal", h.target.global_position, {"amount": healed, "target_team": h.target.team})
+	return true
 
-	var killed := target.dead
-	# The player brought down by their own NEAR or their own thrown stone is no
-	# kill of theirs.
-	if killed and atk != null and atk.team == 0 and target.team != 0:
+## A connection stops the clock for a frame. That is a rule — everything in the
+## fight feels it — so it is applied here and not left to the screen. A chain's
+## link stops it more lightly than a blow of its own.
+static func _hit_hitstop(h: Hit) -> bool:
+	TimeCtl.hitstop(CHAIN_HITSTOP if h.p.follow_up else HITSTOP)
+	return true
+
+## The hit is heard, and a kill counted — the player's, unless it was the player
+## brought down by their own NEAR or their own thrown stone.
+static func _hit_heard(h: Hit) -> bool:
+	h.killed = h.target.dead
+	if h.killed and h.atk != null and h.atk.team == 0 and h.target.team != 0:
 		GameState.register_kill()
-	Cues.at(&"hit", pos, {"payload": p, "killed": killed, "target_team": target.team})
+	Cues.at(&"hit", h.pos, {"payload": h.p, "killed": h.killed, "target_team": h.target.team})
+	return true
 
+## The triggers the hit sets off: ON HIT on every connection, ON KILL on one
+## that killed.
+static func _hit_triggers(h: Hit) -> bool:
 	var ctx := {
-		"attacker": atk, "room": room, "team": team,
-		"aim": dir, "origin": pos, "gravity": false,
+		"attacker": h.atk, "room": h.room, "team": h.team,
+		"aim": h.dir, "origin": h.pos, "gravity": false,
 	}
-	if p.on_hit != null:
-		_schedule_spawn(TRIGGER_DELAY, _follow(p.on_hit), ctx)
-	if killed and p.on_kill != null:
-		_schedule_spawn(TRIGGER_DELAY, _follow(p.on_kill), ctx)
+	if h.p.on_hit != null:
+		_schedule_spawn(TRIGGER_DELAY, _follow(h.p.on_hit), ctx)
+	if h.killed and h.p.on_kill != null:
+		_schedule_spawn(TRIGGER_DELAY, _follow(h.p.on_kill), ctx)
+	return true
 
 ## The player whose hit this is — struck from their own body, or from a monster
 ## they are in — or null for anyone else's.
@@ -800,21 +958,6 @@ static func _possessor(atk: Actor) -> Player:
 	if atk is Enemy and (atk as Enemy).piloted():
 		return (atk as Enemy).pilot
 	return null
-
-## A hit carrying POSSESS on a monster it can take: the player's hands go into
-## it — whether the hit came from their own body or from a monster they are
-## already in, which is a hop from one to the next — and it is not hurt. It is
-## still a connection: it is heard and felt, and an ON HIT on it goes off.
-static func _possess_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, atk: Actor, pilot: Player,
-		room, team: int) -> void:
-	pilot.possess(target as Enemy, p.possess)
-	TimeCtl.hitstop(CHAIN_HITSTOP if p.follow_up else HITSTOP)
-	Cues.at(&"hit", pos, {"payload": p, "killed": false, "target_team": target.team})
-	if p.on_hit != null:
-		_schedule_spawn(TRIGGER_DELAY, _follow(p.on_hit), {
-			"attacker": atk, "room": room, "team": team,
-			"aim": dir, "origin": pos, "gravity": false,
-		})
 
 ## A link of a chain, marked as belonging to the blow that caused it rather than
 ## being one of its own. A parry's riposte is deliberately not marked: that is a
