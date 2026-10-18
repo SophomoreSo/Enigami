@@ -587,44 +587,66 @@ static func summary(p: Payload) -> String:
 		parts.append(_stacked(Loc.t("editor.payload.near", [Loc.t("editor.payload.separator").join(touched)]), p.near))
 	return Loc.t("editor.payload.separator").join(parts)
 
+## How each field of a payload that does something when a hit lands reads in
+## the workbench's preview, in the order they are said: the field, and how its
+## word is made from its value —
+##   count    the word, and "x N" for more than one of the part (`_stacked`)
+##   flag     the word alone
+##   number   the word with the value in it
+##   shatter, mana, health   the word with a number of this file's worked in
+## The word is `editor.payload.<field>` in the language being played. A field
+## with no row here is said elsewhere or not at all (`WORDLESS`): the form,
+## damage, size and count stand at the front of the line (`summary`), NEAR is
+## said round what it touches, and the rest is the runner's or a hit's own.
+## payload_test holds every field to one list or the other.
+const WORDS := [
+	[&"pierce", "number"],
+	[&"homing", "count"],
+	[&"auto_aim", "count"],
+	[&"knockback", "count"],
+	[&"shatter", "shatter"],
+	[&"mana_drain", "mana"],
+	[&"health_drain", "health"],
+	[&"stun", "number"],
+	[&"possess", "number"],
+	[&"anti_gravity", "flag"],
+	[&"summon_pet", "flag"],
+	[&"pet_offensive", "count"],
+	[&"pet_kamikaze", "count"],
+	[&"heal", "number"],
+	[&"cleanse", "flag"],
+	[&"hook", "count"],
+]
+const WORDLESS := [&"damage", &"size", &"speed", &"range_px", &"lunge", &"form", &"elements",
+	&"near", &"spread", &"touch", &"touch_at", &"duplicates", &"heat", &"branch", &"follow_up",
+	&"stacks", &"on_hit", &"on_kill", &"on_parry"]
+
 ## What a payload carries and does when it lands, in words, but for its form,
-## damage, size and count: a NEAR's touch has none of its own to name.
+## damage, size and count: a NEAR's touch has none of its own to name. The
+## elements first, then every field of `WORDS` that is not nothing.
 static func _words(p: Payload) -> Array[String]:
 	var parts: Array[String] = []
 	for e in p.elements:
 		parts.append(Components.name_for(e).to_lower())
-	if p.pierce > 0:
-		parts.append(Loc.t("editor.payload.pierce", [p.pierce]))
-	if p.homing:
-		parts.append(_stacked(Loc.t("editor.payload.homing"), p.homing))
-	if p.auto_aim:
-		parts.append(_stacked(Loc.t("editor.payload.auto_aim"), p.auto_aim))
-	if p.knockback:
-		parts.append(_stacked(Loc.t("editor.payload.knockback"), p.knockback))
-	if p.shatter:
-		parts.append(Loc.t("editor.payload.shatter", [shatter_mul(p.shatter)]))
-	if p.mana_drain:
-		parts.append(Loc.t("editor.payload.mana_drain", [MANA_PER_HIT * float(p.mana_drain)]))
-	if p.health_drain:
-		parts.append(Loc.t("editor.payload.health_drain", [roundi(HEALTH_DRAIN_SHARE * 100.0 * float(p.health_drain))]))
-	if p.stun > 0.0:
-		parts.append(Loc.t("editor.payload.stun", [p.stun]))
-	if p.possess > 0.0:
-		parts.append(Loc.t("editor.payload.possess", [p.possess]))
-	if p.anti_gravity:
-		parts.append(Loc.t("editor.payload.anti_gravity"))
-	if p.summon_pet:
-		parts.append(Loc.t("editor.payload.summon_pet"))
-	if p.pet_offensive:
-		parts.append(_stacked(Loc.t("editor.payload.pet_offensive"), p.pet_offensive))
-	if p.pet_kamikaze:
-		parts.append(_stacked(Loc.t("editor.payload.pet_kamikaze"), p.pet_kamikaze))
-	if p.heal > 0.0:
-		parts.append(Loc.t("editor.payload.heal", [p.heal]))
-	if p.cleanse:
-		parts.append(Loc.t("editor.payload.cleanse"))
-	if p.hook:
-		parts.append(_stacked(Loc.t("editor.payload.hook"), p.hook))
+	for row: Array in WORDS:
+		var field: StringName = row[0]
+		var value = p.get(field)
+		if not value:
+			continue
+		var key := "editor.payload.%s" % field
+		match String(row[1]):
+			"count":
+				parts.append(_stacked(Loc.t(key), int(value)))
+			"flag":
+				parts.append(Loc.t(key))
+			"number":
+				parts.append(Loc.t(key, [value]))
+			"shatter":
+				parts.append(Loc.t(key, [shatter_mul(int(value))]))
+			"mana":
+				parts.append(Loc.t(key, [MANA_PER_HIT * float(value)]))
+			"health":
+				parts.append(Loc.t(key, [roundi(HEALTH_DRAIN_SHARE * 100.0 * float(value))]))
 	return parts
 
 ## A behaviour's words in the preview, with how many of its part are stacked

@@ -51,9 +51,12 @@ const CAT_FLOW := "flow"
 const CAT_TRIGGER := "trigger"
 
 ## Fields of a payload the runner keeps for itself, which no effect may touch:
-## a part's own heat is its `heat`, and the rest is how a trigger's branch is
-## carried and chained.
-const KEPT := ["heat", "branch", "follow_up", "stacks", "on_hit", "on_kill", "on_parry"]
+## a part's own heat is its `heat`; `stacks`, `branch`, `follow_up` and the
+## triggers are how a trigger's branch is carried and chained; and `spread`,
+## `touch` and `touch_at` are a NEAR's, built as the flow goes and set as a hit
+## lands.
+const KEPT := ["heat", "branch", "follow_up", "stacks", "on_hit", "on_kill", "on_parry",
+	"spread", "touch", "touch_at"]
 
 ## id -> definition, in palette order. Fields:
 ##   name, cat, heat, cells (1 or 2), limit (how many of it one flow can stack,

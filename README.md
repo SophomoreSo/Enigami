@@ -67,6 +67,7 @@ godot res://tests/graphics/hideout_theme_test.tscn # HIDEOUT THEME, on the hideo
 godot res://tests/graphics/bench_pixel_test.tscn # the bench panel's pixel look and layout
 godot res://tests/circuit/code_test.tscn    # a board survives being written down as a code
 godot res://tests/circuit/parts_test.tscn   # every part's rows fit, and the runner does what they say
+godot res://tests/circuit/payload_test.tscn # the payload's fields are its schema: clone copies every one, each has its word in the preview, and the runner's kept fields are fields
 godot res://tests/circuit/invert_test.tscn  # INVERT turns round the one part before it, by that part's opposites
 godot res://tests/feature/boards_test.tscn  # every board the game ships builds whole and gets all its flow out
 godot res://tests/graphics/menus_test.tscn  # every menu's rows name an act its screen has, in every language

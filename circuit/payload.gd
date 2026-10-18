@@ -3,6 +3,14 @@ extends RefCounted
 
 ## The value that travels along a skill flow. Every component mutates it, and
 ## whatever leaves the board by its way out becomes a real effect in the world.
+##
+## Its fields are the schema: a part's `effects` row names one, and is refused
+## as the parts are read if the field is not here or cannot take what the row
+## does (`Components._effect`); the workbench's preview has a word for each
+## that does something when a hit lands (`Attacks.WORDS`); and `clone` copies
+## every one. `fields()` lists them off the declarations, and
+## tests/circuit/payload_test holds `clone` to the lot, so a field added here
+## and forgotten there fails rather than being quietly lost at the first hop.
 
 ## How far a bolt carries before it fades, in pixels. A room is 40 cells of 32
 ## across, so the standard reach is an eighth of one — five cells: you fight
@@ -32,9 +40,8 @@ var pierce: int = 0                ## extra targets an attack passes through
 ## thing harder — a tighter turn, a stronger drag, a longer throw.
 var homing: int = 0                ## tracks the nearest enemy, and finds its way round walls
 var auto_aim: int = 0              ## goes at the nearest enemy, wherever it was aimed
-## Weightless: a bolt flies with no gravity on it — a thrown or lobbed one goes
-## straight rather than arcing, and a summoned one hangs where it was called
-## rather than falling (ANTI-GRAVITY).
+## Weightless: a bolt flies with no gravity on it — a lobbed one goes straight
+## rather than arcing (ANTI-GRAVITY).
 var anti_gravity: int = 0
 var knockback: int = 0             ## the struck enemy is thrown on along the attack
 ## NEAR: how many the flow has been through, which is how far round the enemy
@@ -92,6 +99,22 @@ var on_hit: Payload = null
 var on_kill: Payload = null
 var on_parry: Payload = null
 
+## The fields a payload has, in the order they are declared — the schema, read
+## off the declarations once. `spread` is a payload of its own and is copied as
+## one; the triggers are shared between a flow and its copies (`SHARED`).
+static var _fields: Array[StringName] = []
+const SHARED := [&"on_hit", &"on_kill", &"on_parry"]
+
+static func fields() -> Array[StringName]:
+	if _fields.is_empty():
+		for prop in (Payload as GDScript).get_script_property_list():
+			if prop["usage"] & PROPERTY_USAGE_SCRIPT_VARIABLE:
+				_fields.append(StringName(prop["name"]))
+	return _fields
+
+## Every field, by hand, since this runs on every hop of every pulse: a copy
+## by name over `fields()` costs several times as much. payload_test checks
+## nothing is missing here.
 func clone() -> Payload:
 	var p := Payload.new()
 	p.damage = damage
