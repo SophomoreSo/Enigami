@@ -279,15 +279,15 @@ func _the_desk() -> void:
 			and is_equal_approx(desk._inspect.get_rect().end.y, s.y),
 		"and the inspector down the right (%s)" % str(desk._inspect.get_rect()))
 	check(is_equal_approx(desk._sheet.position.x, StoryDesk.SIDE_W) and is_equal_approx(desk._sheet.get_rect().end.x, s.x - StoryDesk.INSPECT_W)
-			and is_equal_approx(desk._sheet.get_rect().end.y, s.y - StoryDesk.FOOT_H),
-		"and the sheet has the rest, over the foot (%s)" % str(desk._sheet.get_rect()))
+			and is_equal_approx(desk._sheet.get_rect().end.y, s.y),
+		"and the sheet has the rest, down to the screen's foot (%s)" % str(desk._sheet.get_rect()))
 	check(desk._map.text == "DESK_STAGE", "the column says which map the story is set on (%s)" % desk._map.text)
 	check(desk._modes.size() == 3 and (desk._modes[StoryMaker.Mode.FROZEN] as Button).disabled
 			and not (desk._modes[StoryMaker.Mode.FREE] as Button).disabled,
 		"and the three ways of playing it, the box's lit")
-	check(desk._npc_name.text == StoryMaker.NEW_NAME and desk._player_name.text == StoryMaker.NEW_PLAYER_NAME
-			and desk._sprite.text == StoryMaker.NEW_SPRITE.to_upper(),
-		"who the character is, what they look like and what the player is called (%s)" % desk._sprite.text)
+	check(desk._player_name.text == StoryMaker.NEW_PLAYER_NAME
+			and desk._side.find_children("*", "LineEdit", true, false).size() == 1,
+		"what the player is called, and nothing of the character: the characters are the map's")
 	check(maker.node_count() == 0 and desk.selected == "" and desk._inspect_rows.get_child_count() == 1 and desk._text == null,
 		"no nodes yet, and the inspector says so")
 	check(desk._bar.get_combined_minimum_size().x <= s.x and desk._side.get_combined_minimum_size().x <= StoryDesk.SIDE_W
@@ -473,21 +473,6 @@ func _settings() -> void:
 	desk._import("desk_stage")
 	await frames(2)
 	check(maker.map_id == "desk_stage" and desk._popup == null, "a map picked is the story's, and the list goes")
-	var was := maker.sprite
-	await click_on(desk._sprite)
-	check(maker.sprite != was and desk.cast().has(maker.sprite) and desk._sprite.text == maker.sprite.to_upper(),
-		"the character's look goes round the cast (%s)" % maker.sprite)
-	for i in desk.cast().size() - 1:
-		await click_on(desk._sprite)
-	check(maker.sprite == was, "and round to where it was")
-	desk._npc_name.text = "Tinker"
-	desk._npc_name.text_changed.emit("Tinker")
-	await frames(1)
-	# Who says the line is on its panel, which is to be open to be read.
-	if inspect_button("TINKER") == null and inspect_button(Loc.t("hud.story.property.line")) != null:
-		await click_on_scrolled(inspect_button(Loc.t("hud.story.property.line")))
-	check(maker.npc_name == "Tinker" and inspect_button("TINKER") != null,
-		"the character's name typed in the column is the story's, and the inspector says it")
 	desk._player_name.text = "You"
 	desk._player_name.text_changed.emit("You")
 	await click(node_centre("2"))
@@ -508,7 +493,7 @@ func _keeping() -> void:
 	desk._new()
 	await frames(2)
 	check(maker.node_count() == 0 and maker.story_id == "" and desk._name.text == "" and desk.selected == ""
-			and desk._npc_name.text == StoryMaker.NEW_NAME and not maker.unsaved,
+			and maker.npc_name == StoryMaker.NEW_NAME and desk._player_name.text == StoryMaker.NEW_PLAYER_NAME and not maker.unsaved,
 		"NEW clears the desk, the name and the character with it")
 	desk._name.text = "desk story"
 	desk._save()
@@ -548,7 +533,7 @@ func _keeping() -> void:
 	desk._load("desk_story")
 	await frames(3)
 	check(desk._popup == null and maker.story_id == "desk_story" and desk._name.text == "desk_story"
-			and maker.node_count() == 2 and desk.selected == maker.start and desk._npc_name.text == maker.npc_name,
+			and maker.node_count() == 2 and desk.selected == maker.start and desk._player_name.text == maker.player_name,
 		"a story picked from the list is put on the desk under its name with its start picked, and the list goes")
 	check(desk._open.is_empty() and desk._text == null and not panels().is_empty()
 			and panels().size() == maker.properties_of(maker.start).size(),
@@ -653,7 +638,7 @@ func _both_ways() -> void:
 				"the inspector is its own width, and nothing in it wants more (%s: %.0f)" % [how, desk._inspect_rows.get_combined_minimum_size().x])
 			check(is_equal_approx(desk._sheet.position.x, StoryDesk.SIDE_W) and desk._sheet.size.x > 0.0 and desk._sheet.size.y > 0.0,
 				"and the sheet has the rest (%s: %s)" % [how, str(desk._sheet.get_rect())])
-			check(maker.node_count() == 2 and desk.selected == maker.start and desk._npc_name.text == maker.npc_name
+			check(maker.node_count() == 2 and desk.selected == maker.start and desk._player_name.text == maker.player_name
 					and panels().size() == maker.properties_of(maker.start).size() and desk._text == null,
 				"with the nodes still on it, the start picked, its properties folded shut as they come up, and the names (%s)" % how)
 	Touch.set_mode(Touch.OFF)
