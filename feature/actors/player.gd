@@ -66,7 +66,7 @@ signal released(monster)
 
 ## The most weapons carried at once. `GameState.MAX_CARRIED` is the same number
 ## from the profile's side: what a raid can be walked into with.
-const MAX_WEAPONS := 3
+const MAX_WEAPONS := Loadout.MAX_WEAPONS
 ## The slot of the empty hand: the fourth, after the most weapons carried,
 ## whatever is carried before it. With it, or any slot no weapon is in, in hand
 ## there is no weapon (`weapon_id` is "") and no graph (`runner` is null) — see
@@ -74,7 +74,7 @@ const MAX_WEAPONS := 3
 const EMPTY_HAND := MAX_WEAPONS
 ## How many slots there are to have in hand: a weapon's each, carried or not,
 ## and the empty hand's.
-const SLOTS := MAX_WEAPONS + 1
+const SLOTS := Loadout.SLOTS
 ## How long a monster stands stunned once the player has stepped out of it,
 ## which is the head start they have on it.
 const RELEASE_STUN := 1.2
@@ -237,26 +237,36 @@ const SWING_FASTEST := 450.0
 const ROPE_JUMP := -520.0
 const ROPE_JUMP_MOST := -820.0
 
-## The weapons carried, in slot order, and the graph of each, run live. A
-## weapon is its skill, so this is every skill the player has to hand.
-var weapons: Array[String] = []
-var runners: Array[SkillRunner] = []
-## The empty hand's graph, and its runner: what every slot no weapon is in casts
-## (`Weapons.HAND`). Whoever hands the kit out says which board it is, as they
-## do for the weapons' — the profile's, a raid's copy, a bench's — before they
-## do (`setup_kit`); otherwise a bare one is made, PUNCH alone, and kept from
-## one kit to the next.
-var hand_board: SkillBoard = null
-var hand_runner: SkillRunner = null
-## Which slot is in hand, and so which of them the buttons fire: 0 to SLOTS - 1,
-## a weapon's while it is under `weapons.size()` and an empty hand from there.
-var hand: int = 0
-## The weapon in hand and its runner: `weapons[hand]` and `runners[hand]`, kept
-## beside them because nearly everything that asks about the player's weapon
-## means this one — and with an empty hand in hand, no weapon ("") and the
-## empty hand's runner.
-var weapon_id: String = "SWORD"
-var runner: SkillRunner = null
+## The kit in the hands (`Loadout`): the weapons carried and their graphs, the
+## slot in hand, the thrown weapons by whose hands each is in, the stacked by
+## how many are left, and the empty hand's graph. The rest of the game reads
+## it through the player by the names it always had, which stand here and
+## reach into it.
+var _kit := Loadout.new()
+var weapons: Array[String]:
+	get: return _kit.weapons
+	set(v): _kit.weapons = v
+var runners: Array[SkillRunner]:
+	get: return _kit.runners
+	set(v): _kit.runners = v
+var hand_board: SkillBoard:
+	get: return _kit.hand_board
+	set(v): _kit.hand_board = v
+var hand_runner: SkillRunner:
+	get: return _kit.hand_runner
+	set(v): _kit.hand_runner = v
+## Which slot is in hand, and so which of them the buttons fire.
+var hand: int:
+	get: return _kit.hand
+	set(v): _kit.hand = v
+## The weapon in hand and its runner: no weapon ("") and the empty hand's
+## runner with an empty hand in hand.
+var weapon_id: String:
+	get: return _kit.weapon_id
+	set(v): _kit.weapon_id = v
+var runner: SkillRunner:
+	get: return _kit.runner
+	set(v): _kit.runner = v
 ## The monster the player's hands are in, or null — see `possess`.
 var possessing: Enemy = null
 ## Seconds left before the player is put back in their own body, and how many
@@ -266,14 +276,14 @@ var possess_for: float = 0.0
 ## Where the monster the player is in last stood, for a rock in its hand to be
 ## let go of there should the monster be gone by the time they step out.
 var _vessel_at: Vector2 = Vector2.ZERO
-## The thrown weapons carried (`Weapons.is_thrown`) — the rock — by whose hands
-## each is in: the body, or the monster the player is in. One out of hand has
-## no entry: it is in the air, or lying where it came down (`LooseRock`). A
-## thrown weapon is cast only from the hands holding it.
-var holders: Dictionary = {}
-## The stacked weapons carried (`Weapons.is_stacked`) — the shuriken — and how
-## many of each are in hand: weapon id -> count, never more than its stack.
-var stock: Dictionary = {}
+## The thrown weapons by whose hands each is in, and the stacked by how many
+## are left: the kit's (`Loadout`).
+var holders: Dictionary:
+	get: return _kit.holders
+	set(v): _kit.holders = v
+var stock: Dictionary:
+	get: return _kit.stock
+	set(v): _kit.stock = v
 ## Whether the attack button was down a frame ago, so a press on a rock that
 ## is not in the hand is answered once rather than every frame it is held.
 var _was_attacking: bool = false
@@ -285,9 +295,6 @@ var _press_spent: bool = false
 ## Whether the monster has taken the weapon out of the body's hands. While it
 ## has, the weapon's graph is cast from the monster, and the body holds nothing.
 var vessel_armed: bool = false
-## Runner -> whether every attack its graph fires is a HEADBUTT (`bare_handed`),
-## walked once a graph and thrown away whenever a graph or the kit changes.
-var _bare: Dictionary = {}
 ## The room the body is in. A rope in the hands is let go of as it changes: the
 ## rope was the room's.
 var room = null:
@@ -509,53 +516,17 @@ func setup(weapon: String, board: SkillBoard) -> void:
 ## one the kit before this one carried keeps what it had left, so a graph
 ## changed at the bench does not fill a stack thrown half away.
 func setup_kit(ids: Array, boards: Array, in_hand: int = 0) -> void:
-	var out: Array = []
-	for w in weapons:
-		if Weapons.is_thrown(w) and not holds(w):
-			out.append(w)
-	var had := stock.duplicate()
-	weapons.clear()
-	runners.clear()
-	_bare.clear()
-	holders.clear()
-	stock.clear()
-	for i in mini(mini(ids.size(), boards.size()), MAX_WEAPONS):
-		var id := String(ids[i])
-		weapons.append(id)
-		runners.append(_make_runner(id, boards[i]))
-		if Weapons.is_thrown(id) and not out.has(id):
-			holders[id] = self
-		if Weapons.is_stacked(id):
-			stock[id] = int(had.get(id, Weapons.stack_of(id)))
-	if hand_board == null:
-		hand_board = Weapons.make_board(Weapons.HAND)
-	hand_runner = _make_runner(Weapons.HAND, hand_board)
+	_kit.setup(ids, boards, in_hand, _make_runner, self)
 	_charge.let_go()
-	if weapons.is_empty():
-		runner = null
-		hand = 0
-		return
-	hand = clampi(in_hand, 0, SLOTS - 1)
-	_hold_hand()
-
-## `weapon_id` and `runner` for the slot in hand: no weapon and the empty
-## hand's graph for an empty one.
-func _hold_hand() -> void:
-	var armed := hand < weapons.size()
-	weapon_id = weapons[hand] if armed else ""
-	runner = runners[hand] if armed else hand_runner
 
 ## Every graph the player runs: each weapon's and the empty hand's.
 func _every_runner() -> Array[SkillRunner]:
-	var all: Array[SkillRunner] = runners.duplicate()
-	if hand_runner != null:
-		all.append(hand_runner)
-	return all
+	return _kit.every_runner()
 
 ## Whether an empty hand is in hand — the fourth slot, or one no weapon is
 ## carried in: no weapon, and the empty hand's graph to cast.
 func empty_handed() -> bool:
-	return not weapons.is_empty() and hand >= weapons.size()
+	return _kit.empty_handed()
 
 ## One weapon's graph, run live. What it fires is finalized as that weapon's,
 ## whichever weapon is in hand by the time it lands.
@@ -579,14 +550,13 @@ func _make_runner(weapon: String, board: SkillBoard) -> SkillRunner:
 ## one. That weapon keeps the wait it was in, and anything it had already cast
 ## still lands.
 func switch_to(slot: int) -> bool:
-	if weapons.is_empty() or slot < 0 or slot >= SLOTS or slot == hand:
+	if not _kit.may_switch(slot):
 		return false
 	_charge.let_go()
 	if runner != null:
 		runner.ttl_bonus = 0
 		runner.set_active(false)
-	hand = slot
-	_hold_hand()
+	_kit.switch_to(slot)
 	weapon_switched.emit(weapon_id)
 	Cues.at(&"weapon_switch", global_position, {"weapon": weapon_id, "slot": hand})
 	return true
@@ -596,8 +566,7 @@ func switch_to(slot: int) -> bool:
 ## Whether the thrown weapon `id` is in a hand the player has: the body's, or
 ## the monster's they are in.
 func holds(id: String) -> bool:
-	var h = holders.get(id, null)
-	return h != null and is_instance_valid(h)
+	return _kit.holds(id)
 
 ## Whether the weapon in hand can go off from the hands the player is in: a
 ## thrown weapon only from the hands holding it; any other from the body, and
@@ -622,24 +591,10 @@ func can_cast() -> bool:
 ## Whether every attack the graph in hand fires is one the body makes with
 ## nothing in its hands — a HEADBUTT (`Weapons.BARE_FORMS`) — so that it goes
 ## off whether the weapon is in hand or not: the rock lying elsewhere, every
-## shuriken thrown, the hands in a monster that has not taken the weapon. A
-## graph that fires nothing is not: it has nothing to go off with. Walked
-## offline, uncharged, the first time it is asked, and kept until a graph is
-## edited (`rebuild_runner`) or the kit handed out again (`setup_kit`).
+## shuriken thrown, the hands in a monster that has not taken the weapon
+## (`Loadout.bare_handed`).
 func bare_handed() -> bool:
-	if runner == null:
-		return false
-	var key := runner.get_instance_id()
-	if not _bare.has(key):
-		var dry := SkillRunner.new(runner.board)
-		dry.base_payload_provider = runner.base_payload_provider
-		dry.forms_only = runner.forms_only
-		var outs: Array = dry.simulate()["outputs"]
-		var bare := not outs.is_empty()
-		for p: Payload in outs:
-			bare = bare and not Weapons.needs_weapon(p.form)
-		_bare[key] = bare
-	return bool(_bare[key])
+	return _kit.bare_handed()
 
 ## The hands the weapon in hand is in, for whatever draws it there: the body,
 ## the monster the player is in once it holds it, or null — the empty hand, a
@@ -658,29 +613,26 @@ func weapon_hands() -> Actor:
 ## The thrown weapon `id`, back in hand: picked up off the floor by `hands` —
 ## the body, or the monster the player is in (`LooseRock`).
 func take_back(id: String, hands: Actor) -> void:
-	holders[id] = hands
+	_kit.take_back(id, hands)
 
 ## The thrown weapon `id`, out of hand: lying somewhere the player has not been
 ## back to — a raid walked back into after it was put down with the rock on
 ## the floor.
 func let_go(id: String) -> void:
-	holders.erase(id)
+	_kit.let_go(id)
 
 ## --- the shuriken -----------------------------------------------------------
 
 ## How many of the stacked weapon `id` are in hand: 0 for one not carried, and
 ## for one that is not a stack.
 func stock_of(id: String) -> int:
-	return int(stock.get(id, 0))
+	return _kit.stock_of(id)
 
 ## One of the stacked weapon `id` back in hand, picked up where it struck
 ## (`StuckShuriken`). Whether there was room for it: not for a weapon not
 ## carried, nor in a stack that is already whole.
 func take_one_back(id: String) -> bool:
-	if not stock.has(id) or stock_of(id) >= Weapons.stack_of(id):
-		return false
-	stock[id] = stock_of(id) + 1
-	return true
+	return _kit.take_one_back(id)
 
 ## --- possession -------------------------------------------------------------
 
@@ -924,15 +876,13 @@ func _throw_bare() -> void:
 func _on_magic(on: bool) -> void:
 	for r in _every_runner():
 		r.forms_only = not on
-	_bare.clear()
+	_kit.forget_bare()
 
 ## A graph was edited under its runner: every weapon carried walks its own
 ## again. Assembly only ever opens the one in hand, and the rest cost nothing
 ## to be sure of.
 func rebuild_runner() -> void:
-	_bare.clear()
-	for r in _every_runner():
-		r.refresh()
+	_kit.refresh()
 
 func _on_parry_opened(seconds: float) -> void:
 	parry_time = maxf(parry_time, seconds)
