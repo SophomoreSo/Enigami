@@ -677,10 +677,10 @@ giving it further to walk.
 
 The palette beside the board shows one category at a time: the categories
 stand down its left as tabs, and a click on one puts up that category's parts
-and only those. A thumb's palette works the same way. At a desk each part is
-shown as its icon alone, on a tile the size it stands on the board — a cell,
-or two for a two-cell part — with how many you have in its corner; hover one
-for its name and what it does.
+and only those. Each part is shown as its icon alone, on a tile the size it
+stands on the board — a cell, or two for a two-cell part — with how many you
+have in its corner. At a desk, hover one for its name and what it does; in
+mobile mode the part in hand is named under the tiles, with what it does.
 
 Parts are placed by dragging: press a palette entry and drop it on the grid, or
 lift a placed part and drop it somewhere else. The mouse wheel turns whatever
@@ -883,7 +883,9 @@ dilation its slow-motion look).
 
 P slides a phone up from the bottom of the screen — in a raid and in the
 hideout, wherever there is a player to be carrying one — and P or ESC slides
-it down again. **The raid keeps running** behind it, as it does behind the
+it down again. It only comes out with you standing on the ground: in the air,
+on a rope or sliding down a wall, P does nothing but a refusing blip. Putting
+it away works anywhere. **The raid keeps running** behind it, as it does behind the
 assembly board, and the player stands still while they look at it. It has a
 home screen of apps, a status bar with the time along its top and a bar along
 its bottom that goes home from any app:

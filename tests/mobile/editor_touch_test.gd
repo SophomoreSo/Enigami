@@ -3,7 +3,7 @@ extends Node
 ## with one (`SkillEditor`, "for a thumb").
 ##
 ## On the layout: the back arrow in the corner, the board with COPY and PASTE
-## under it, the tabs, the plates and the two under them are all on the screen
+## under it, the tabs, the tiles and the two under them are all on the screen
 ## and none on another; everything a thumb presses is
 ## a thumb's size; every part in the pool is on some tab; a first workbench's
 ## grid stands at a thumb's width a cell and the biggest one a workbench grows
@@ -12,10 +12,10 @@ extends Node
 ## desk's is.
 ##
 ## On the working of it, with a thumb sent the way the system sends one: a tab
-## brings its category up; a touch on a plate takes the part in hand and a touch
+## brings its category up; a touch on a tile takes the part in hand and a touch
 ## on an empty cell sets it down; a touch on a part on the board picks it — and
 ## moves nothing — for TURN to turn and REMOVE to put back in the bag; a part
-## dragged is moved, from a plate or across the board, and thrown at the parts
+## dragged is moved, from a tile or across the board, and thrown at the parts
 ## it is put away; the weapon's own part is picked, turned and moved the same
 ## way, and REMOVE leaves it on the board. COPY puts the board on the clipboard
 ## and PASTE builds it back off it, and the back arrow closes the board.
@@ -223,12 +223,11 @@ func _the_layout() -> void:
 			and (l["column"] as Rect2).encloses(l["remove"]),
 		"the plates, TURN and REMOVE are one column, which is where a part is thrown away")
 
-	# Every part is on some tab, on a plate a thumb can land on, with its name
-	# whole on it at a thumb's size — scrolled to, on a tab too long for the
-	# column.
+	# Every part is on some tab, on a tile the size it stands on the board — a
+	# thumb's cell, two for a two-cell part — in the column's room, scrolled to
+	# on a tab too long for it.
 	var seen := {}
 	var cramped: Array = []
-	var clipped: Array = []
 	for i in tabs.size():
 		ed._tab = i
 		var ids := ed._palette_ids()
@@ -237,18 +236,14 @@ func _the_layout() -> void:
 			seen[id] = true
 			ed._show_plate(id)
 			var r := ed._pal_rect(k)
-			if r.size.y < 56.0 or not (l["plates"] as Rect2).grow(0.5).encloses(r):
-				cramped.append("%s %s" % [id, str(r)])
-			var part := Components.name_for(id)
-			var size := Loc.text_size(part, UiKit.THUMB_TEXT)
-			if PixelDraw.text_width(part, size) > r.size.x - 56.0 - 14.0 - 60.0 - 12.0:
-				clipped.append(part)
+			var want := Vector2(SkillEditor._tile_cells(id)) * ed.cell_size()
+			if not r.size.is_equal_approx(want) or not (l["plates"] as Rect2).grow(0.5).encloses(r):
+				cramped.append("%s %s, not %s" % [id, str(r), str(want)])
 	ed._tab = 0
 	ed._plate_first = 0
 	check(seen.size() == ed._pool_ids().size(), "every part in the pool is on a tab (%d of %d)"
 		% [seen.size(), ed._pool_ids().size()])
-	check(cramped.is_empty(), "each on a plate a thumb's size, in the column's room (%s)" % str(cramped))
-	check(clipped.is_empty(), "with its name whole on it, written big (%s)" % str(clipped))
+	check(cramped.is_empty(), "each on a tile the size it stands on the board, in the column's room (%s)" % str(cramped))
 
 ## --- the grid ----------------------------------------------------------------------
 
@@ -453,10 +448,12 @@ func _a_part_dragged() -> void:
 
 ## --- a tab too long for the column ---------------------------------------------------------
 
-## A tab with more parts than the column holds at a thumb's size stands as many
-## as fit and scrolls through the rest: a thumb dragged up or down its plates
-## moves them a plate at a time and takes nothing, a touch on one still takes it
-## in hand, and another tab comes up from its first.
+## A tab with more rows of tiles than the column holds stands as many rows as
+## fit and scrolls through the rest: a thumb dragged up or down its tiles moves
+## them a row at a time and takes nothing, a touch on one still takes it in
+## hand, and another tab comes up from its first row. On a screen where every
+## tab's tiles fit the column at once there is nothing to scroll, and that is
+## what is checked.
 func _a_long_tab() -> void:
 	var long := -1
 	for i in ed._pal_groups().size():
@@ -464,33 +461,38 @@ func _a_long_tab() -> void:
 		if ed._plates_scroll():
 			long = i
 			break
-	check(long >= 0, "(a tab with more parts than the column shows)")
 	if long < 0:
+		var hidden: Array = []
+		for i in ed._pal_groups().size():
+			ed._show_tab(i, false)
+			for k in ed._palette_ids().size():
+				if ed._pal_rect(k).size.y <= 0.0:
+					hidden.append(ed._palette_ids()[k])
+		ed._show_tab(0, false)
+		check(hidden.is_empty(), "every tab's tiles stand in the column at once, none to scroll to (%s)" % str(hidden))
 		return
 	var ids := ed._palette_ids()
+	var rows := ed._plate_rows
 	var shown := ed._plates_shown
 	var room: Rect2 = layout()["plates"]
-	check(ed._plate_first == 0 and ed._pal_rect(0).size.y >= 56.0 and room.grow(0.5).encloses(ed._pal_rect(shown - 1))
-			and ed._pal_rect(ids.size() - 1).size.y == 0.0,
-		"its first %d of %d stand a thumb tall in the column, and the rest wait under them" % [shown, ids.size()])
+	var last: String = ids[ids.size() - 1]
+	check(ed._plate_first == 0 and room.grow(0.5).encloses(ed._pal_rect(0)) and ed._pal_rect(ids.size() - 1).size.y == 0.0,
+		"its first %d rows of %d stand in the column, and the rest wait under them" % [shown, rows])
 	var held := ed.selected
 	var before := changes
-	var from := ed._pal_rect(shown - 1).get_center()
-	await carry(from, from - Vector2(0.0, ed._plate_pitch * 2.0))
-	var want := mini(2, ids.size() - shown)
-	check(ed._plate_first == want, "a thumb dragged up the plates scrolls them with it, a plate at a time (%d of %d)"
-		% [ed._plate_first, want])
+	var from := ed._pal_rect(0).get_center()
+	await carry(from, from - Vector2(0.0, ed._plate_pitch))
+	check(ed._plate_first == mini(1, rows - shown), "a thumb dragged up the tiles scrolls them with it, a row at a time (%d)"
+		% ed._plate_first)
 	check(ed.selected == held and ed._drag_id == "" and changes == before, "and takes nothing in hand")
-	await carry(from, from - Vector2(0.0, ed._plate_pitch * float(ids.size())))
-	var last: String = ids[ids.size() - 1]
-	check(ed._plate_first == ids.size() - shown and room.grow(0.5).encloses(ed._pal_rect(ids.size() - 1))
-			and ed._pal_rect(0).size.y == 0.0,
-		"dragged as far as it goes, the last part comes up and the list stops there")
+	await carry(from, from - Vector2(0.0, ed._plate_pitch * float(rows)))
+	check(ed._plate_first == rows - shown and room.grow(0.5).encloses(ed._pal_rect(ids.size() - 1)),
+		"dragged as far as it goes, the last row comes up and the tiles stop there")
 	await tap(plate_of(last))
-	check(ed.selected == last and changes == before, "a touch on a plate down there takes it in hand")
-	var top := ed._pal_rect(ed._plate_first).get_center()
-	await carry(top, top + Vector2(0.0, ed._plate_pitch * float(ids.size())))
-	check(ed._plate_first == 0, "and a thumb dragged down brings the first back")
+	check(ed.selected == last and changes == before, "a touch on a tile down there takes it in hand")
+	var top := ed._pal_rect(ids.size() - 1).get_center()
+	await carry(top, top + Vector2(0.0, ed._plate_pitch * float(rows)))
+	check(ed._plate_first == 0, "and a thumb dragged down brings the first row back")
 	var other := 0 if long != 0 else 1
 	await tap((layout()["tabs"][other] as Rect2).get_center())
 	await tap((layout()["tabs"][long] as Rect2).get_center())

@@ -1,7 +1,8 @@
 extends Node
 ## The phone on the screen (`PhoneScreen`): P slides it up over a raid and
-## over the hideout, holding the player still and putting the HUD away, and P
-## or ESC slides it down again; its apps come up on its own pages, and the ones
+## over the hideout, holding the player still and putting the HUD away — only
+## with the player standing on the ground — and P or ESC slides it down again;
+## its apps come up on its own pages, and the ones
 ## that are pages of the screen over the world put the phone away and that
 ## page up; the camera keeps a photo of the screen the gallery then shows and
 ## throws away; and the alarm's page sets one, and puts the phone down on the
@@ -77,6 +78,13 @@ func tile(id: String) -> void:
 	if t != null:
 		await click(t.get_global_rect().get_center())
 
+## Until the player stands on the ground, by the wall clock: the phone only
+## comes out there.
+func landed(p: Player) -> void:
+	var t0 := Time.get_ticks_msec()
+	while not p.is_on_floor() and Time.get_ticks_msec() - t0 < 3000:
+		await get_tree().physics_frame
+
 func _ready() -> void:
 	GameState.reset_profile()
 	Phone.photo_dir = PHOTOS
@@ -92,8 +100,16 @@ func _ready() -> void:
 	game._deploy("SWORD")
 	await frames(10)
 	var raid: Raid = game.current
+	# In the air, it does not come out.
+	raid.player.global_position.y -= 200.0
+	raid.player.velocity = Vector2.ZERO
+	await get_tree().physics_frame
 	await key(KEY_P)
-	check(game._phoning() and raid.on_phone, "P brings the phone up over a raid")
+	check(not raid.player.is_on_floor() and not game._phoning() and not raid.on_phone,
+		"P in the air brings nothing up")
+	await landed(raid.player)
+	await key(KEY_P)
+	check(game._phoning() and raid.on_phone, "P on the ground brings the phone up over a raid")
 	check(raid.player.input_locked, "the player stands still under it")
 	check(not Views.of(raid).hud.visible, "and the HUD is put away")
 	await frames(40)
@@ -186,6 +202,7 @@ func _ready() -> void:
 	# --- over the hideout ---------------------------------------------------------
 	game.goto_hideout()
 	await frames(10)
+	await landed(game.hideout_ref.player)
 	await key(KEY_P)
 	check(game._phoning() and game.hideout_ref.editing, "P brings the phone up over the hideout, holding the player")
 	check(not Views.of(game.hideout_ref).hud.visible, "with the HUD away")

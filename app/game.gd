@@ -928,15 +928,33 @@ func _toggle_magic() -> void:
 ## page of the screen or a station's panel: those have the screen. The phone
 ## puts itself away through `closed`, and its apps open the pages of the
 ## screen in its place (`_phone_app`) or put it down on the floor
-## (`_phone_down`).
+## (`_phone_down`). It comes out only with the player standing on the ground
+## (`_grounded`) — not in the air, on a rope or down a wall — and a press
+## anywhere else is refused with a sound; it goes away wherever they are.
 func _toggle_phone() -> void:
 	if get_tree().paused or not (state == State.RAID or state == State.HIDEOUT):
 		return
 	if _phoning():
 		_close_phone()
 	elif not (_assembling() or _mapping() or _paneled() or _reading()):
-		_open_phone()
+		if _grounded():
+			_open_phone()
+		else:
+			Audio.play("deny")
 	get_viewport().set_input_as_handled()
+
+## Whether the body the player is in stands on the ground: their own, or the
+## monster their hands are in.
+func _grounded() -> bool:
+	var who: Player = null
+	if state == State.RAID and current is Raid and is_instance_valid(current):
+		who = (current as Raid).player
+	elif state == State.HIDEOUT and hideout_ref != null and is_instance_valid(hideout_ref):
+		who = hideout_ref.player
+	if who == null or not is_instance_valid(who):
+		return false
+	var body := who.vessel()
+	return body is CharacterBody2D and (body as CharacterBody2D).is_on_floor()
 
 ## Whether the phone is up.
 func _phoning() -> bool:
