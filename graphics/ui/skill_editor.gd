@@ -128,6 +128,11 @@ const PAL_GROUP_GAP := 4.0
 ## onto the second. Taller where the panel is — stretched down to the foot of
 ## a bigger board — since the tabs share out whatever it stands.
 const PAL_TAB_LEAST := 46.0
+## The least a tab stands where the board beside it cannot grow as tall as the
+## panel would be at PAL_TAB_LEAST — a screen too narrow for the cell — and the
+## panel comes up to the board's foot instead: two lines of a name, LINE apart,
+## and a PIXEL and more clear of them over and under.
+const PAL_TAB_FLOOR := 36.0
 ## The space between one part's tile and the next, at a desk. A tile is a cell
 ## of the board across, two for a two-cell part — the part as it will stand
 ## on the board, with no name: hovering it names it on its card.
@@ -649,14 +654,18 @@ const BTN_GAP := 8.0
 ## its first cell and `parts` that of the first row, the gutter the category
 ## names sit in included: what `board_origin` and the palette's rows are laid
 ## out from; `cell` is how big a cell is drawn, and `tall` how tall the two
-## stand. The back arrow stays in the screen's own corner.
+## stand, COPY and PASTE left out. The back arrow stays in the screen's own
+## corner.
 ##
-## The board and the parts stand on the same lines, top and foot. The board's
-## cells grow until it stands, COPY and PASTE and all, as tall as the parts'
-## panel — on the PIXEL grid, an odd number of PIXELs so an icon lands in the
-## middle of one, never under CELL and no wider than the screen has room for —
-## and a board a Workbench has grown that already stands taller at CELL has
-## the panel stretched down to its foot (`_pal_panel`). Both are halfway down.
+## The board and the parts stand on the same lines, top and foot, and COPY and
+## PASTE hang under that foot. The board's cells grow until its frame stands as
+## tall as the parts' panel — on the PIXEL grid, an odd number of PIXELs so an
+## icon lands in the middle of one, never under CELL and no wider than the
+## screen has room for — and the panel is stretched down to the frame's foot
+## where that came out taller (`_pal_panel`). Where the screen is too narrow
+## for a cell that big the panel comes up to the frame's foot instead, its
+## tabs shorter, down to PAL_TAB_FLOOR (`_pal_least`). The two, with COPY and
+## PASTE under them, are halfway down.
 ##
 ## The weapons down the board's left go with it, and the three are in the
 ## middle together. Where they do not fit BOARD_TO_PARTS apart — the first
@@ -674,18 +683,18 @@ func _desk_layout() -> Dictionary:
 	var panel := _pal_panel_size()
 	var weapons := SHELF_W + SHELF_AWAY if not shelf.is_empty() else 0.0
 	var foot := BTN_GAP + BTN_H
-	var cell := _odd_up(maxf(float(CELL), (panel.y - foot - 20.0) / grid.y))
+	var cell := _odd_up(maxf(float(CELL), (panel.y - 20.0) / grid.y))
 	var most := (vp.x - EDGE_LEAST * 2.0 - weapons - BOARD_TO_PARTS_LEAST - panel.x - 20.0) / grid.x
 	if cell > most:
 		cell = maxf(float(CELL), _odd_down(most))
 	var frame := grid * cell + Vector2(20, 20)
-	var tall := maxf(frame.y + foot, panel.y)
+	var tall := maxf(frame.y, _pal_least(cell))
 	var gap := BOARD_TO_PARTS
 	var over := weapons + frame.x + gap + panel.x - (vp.x - CORNER.x * 2.0)
 	if over > 0.0:
 		gap = maxf(BOARD_TO_PARTS_LEAST, gap - over)
 	var left := _halfway(vp.x, weapons + frame.x + gap + panel.x) + weapons
-	var top := _halfway(vp.y, tall)
+	var top := _halfway(vp.y, tall + foot)
 	_desk_rects = {
 		"board": Vector2(left, top) + Vector2(10, 10),
 		"parts": Vector2(left + frame.x + gap, top) + Vector2(10, 10),
@@ -2956,11 +2965,11 @@ func _build_palette() -> void:
 	var origin: Vector2 = _desk_layout()["parts"]
 	_pal_origin = origin
 	var groups := _pal_groups()
-	_pal_height = maxf(_pal_panel_size().y, float(_desk_layout()["tall"])) - 20.0
+	_pal_height = float(_desk_layout()["tall"]) - 20.0
 	if groups.is_empty():
 		return
 	var n := float(groups.size())
-	var tall := maxf(PAL_TAB_LEAST, floorf((_pal_height - (n - 1.0) * PAL_GROUP_GAP) / n / PX) * PX)
+	var tall := maxf(PAL_TAB_FLOOR, floorf((_pal_height - (n - 1.0) * PAL_GROUP_GAP) / n / PX) * PX)
 	for i in groups.size():
 		_pal_tabs.append(Rect2(origin.x, origin.y + float(i) * (tall + PAL_GROUP_GAP), _pal_tab_w(), tall))
 	_pal_height = maxf(_pal_height, n * tall + (n - 1.0) * PAL_GROUP_GAP)
@@ -3031,6 +3040,19 @@ func _pal_panel() -> Rect2:
 	# Down to the board's foot where the board stands taller than the rows.
 	return Rect2(_pal_origin - Vector2(10, 10),
 		Vector2(_pal_gutter() + PAL_ROOM + 20, maxf(_pal_height + 20, float(_desk_layout()["tall"]))))
+
+## The least a desk's parts panel can stand beside a board of `cell`: its tabs
+## at PAL_TAB_FLOOR, or the category with the most parts in tiles that size,
+## whichever is taller, 10 clear of them over and under.
+func _pal_least(cell: float) -> float:
+	var groups := _pal_groups()
+	var n := float(groups.size())
+	var tall := maxf(n * PAL_TAB_FLOOR + (n - 1.0) * PAL_GROUP_GAP, 0.0)
+	var across := maxi(1, int((PAL_ROOM + PAL_TILE_GAP) / (cell + PAL_TILE_GAP)))
+	for group in groups:
+		var rows := ceilf(float((group["ids"] as Array).size()) / float(across))
+		tall = maxf(tall, rows * (cell + PAL_TILE_GAP) - PAL_TILE_GAP)
+	return tall + 20.0
 
 ## How big a desk's parts panel stands: 10 clear of its rows on every side, the
 ## gutter included. As tall as the tabs are at their least, a tab a category,

@@ -209,12 +209,15 @@ func _ready() -> void:
 		"COPY and PASTE stand under the board, side by side")
 	# The board and the parts stand on the same lines, top and foot: a first
 	# workbench's grid grows its cells, an odd number of PIXELs, to stand as tall
-	# as the parts, COPY and PASTE and all.
+	# as the parts, and COPY and PASTE hang under that foot.
 	var parts_box := ed._pal_panel()
 	check(ed.cell_size() > float(SkillEditor.CELL) and int(ed.cell_size() / UiKit.PIXEL) % 2 == 1
-			and frame.position.y == parts_box.position.y and ed._paste_rect().end.y == parts_box.end.y,
+			and frame.position.y == parts_box.position.y and frame.end.y == parts_box.end.y,
 		"the board, grown to a cell of %.0f, stands on the parts' lines (%.0f to %.0f, the parts %.0f to %.0f)"
-			% [ed.cell_size(), frame.position.y, ed._paste_rect().end.y, parts_box.position.y, parts_box.end.y])
+			% [ed.cell_size(), frame.position.y, frame.end.y, parts_box.position.y, parts_box.end.y])
+	check(ed._copy_rect().position.y > parts_box.end.y,
+		"and COPY and PASTE stand under the line the two stand on (%.0f under %.0f)"
+			% [ed._copy_rect().position.y, parts_box.end.y])
 	for lang in Loc.languages():
 		var copy_w := maxf(SkillEditor.BTN_W, ceilf((PixelDraw.ink_width(_in(lang, "editor.share.copy"))
 			+ 40.0) / UiKit.PIXEL) * UiKit.PIXEL)
@@ -634,13 +637,12 @@ func _ready() -> void:
 	check(absf(weapons.position.x - (vp.x - panel.end.x)) <= SkillEditor.PX,
 		"the weapons, the board and the parts are in the middle, as far from either side (%.0f and %.0f)"
 			% [weapons.position.x, vp.x - panel.end.x])
-	check(biggest.position.y == panel.position.y and foot == panel.end.y,
+	check(biggest.position.y == panel.position.y and biggest.end.y == panel.end.y,
 		"the biggest board and the parts stand on the same lines, the panel stretched down to its foot"
-			+ " (%.0f to %.0f, the parts %.0f to %.0f)" % [biggest.position.y, foot, panel.position.y, panel.end.y])
-	check(absf(biggest.position.y - (vp.y - foot)) <= SkillEditor.PX
-			and absf(panel.position.y - (vp.y - panel.end.y)) <= SkillEditor.PX,
-		"and each is halfway down (the board %.0f over and %.0f under, the palette %.0f and %.0f)"
-			% [biggest.position.y, vp.y - foot, panel.position.y, vp.y - panel.end.y])
+			+ " (%.0f to %.0f, the parts %.0f to %.0f)" % [biggest.position.y, biggest.end.y, panel.position.y, panel.end.y])
+	check(absf(biggest.position.y - (vp.y - foot)) <= SkillEditor.PX,
+		"and the two, COPY and PASTE under them, are halfway down (%.0f over and %.0f under)"
+			% [biggest.position.y, vp.y - foot])
 	# A tab a category down the palette's left, inside its panel, none on
 	# another; and under each, that category's parts and no others, in rows
 	# beside the tabs that none of them overlaps.
