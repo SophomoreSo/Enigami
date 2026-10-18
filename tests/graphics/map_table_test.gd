@@ -178,15 +178,15 @@ func _the_table() -> void:
 		"the bar runs across the top of the screen (%s)" % str(table._bar.get_rect()))
 	check(is_equal_approx(table._side.size.x, MapTable.SIDE_W) and is_equal_approx(table._side.get_rect().end.y, s.y),
 		"and the column down the left, under it (%s)" % str(table._side.get_rect()))
-	check(table._tools.size() == 2 and table._tabs.size() == 4 and table.tab == MapTable.Tab.GROUND,
-		"the column has the two tools and four tabs, and opens on the ground's")
+	check(table._tools.size() == 2 and table._tabs.size() == MapTable.TAB_KEYS.size() and table.tab == MapTable.Tab.GROUND,
+		"the column has the two tools and a tab a layer — CREATURES and THINGS both in the plan — and opens on the ground's")
 	check(table.tiles.id() == MapMaker.NEW_TILESET, "drawn in the tileset a new map is (%s)" % table.tiles.id())
 	# Each tab offers its own, and all of it fits.
 	var inside := true
 	var named := true
 	var offered: Array = []
 	var column := Rect2(table._side.global_position, table._side.size)
-	for t in 4:
+	for t in MapTable.TAB_KEYS.size():
 		await tab_up(t)
 		check(PackedStringArray(table._palette.keys()) == table.entries(t),
 			"the %s tab has a tile for everything it offers (%d)" % [MapTable.TAB_KEYS[t], table._palette.size()])
@@ -195,7 +195,8 @@ func _the_table() -> void:
 			inside = inside and column.encloses(tile(entry).get_global_rect())
 			named = named and table.name_of(entry) != "" and table.name_of(entry) != entry
 	# The ground's tab has the magic stone besides, which is not in GROUND.
-	check(offered == [MadeRoom.GROUND.size() + 1, GroveTiles.BACK.size() + MapTiles.GLASS.size(), MadeRoom.things().size(), MapTiles.PROPS.size()],
+	check(offered == [MadeRoom.GROUND.size() + 1, GroveTiles.BACK.size() + MapTiles.GLASS.size(),
+			MadeRoom.creatures().size(), MadeRoom.things().size(), MapTiles.PROPS.size()],
 		"every kind of ground, everything that can stand behind it, in it and about it (%s)" % str(offered))
 	check(inside, "every one of them in the column, none of them scrolled out of it")
 	check(named, "and every one with a name")
@@ -238,7 +239,7 @@ func _the_pointer() -> void:
 	check(maker.mark_at(Vector2i(23, 7)) == MadeRoom.OPEN and maker.mark_at(Vector2i(24, 7)) == MadeRoom.OPEN
 			and maker.mark_at(Vector2i(22, 7)) == MadeRoom.ROCK, "and with the right button, erases one")
 	# A tile takes its mark in hand.
-	await tab_up(MapTable.Tab.THINGS)
+	await tab_up(MapTable.Tab.CREATURES)
 	await click(tile("c").get_global_rect().get_center())
 	check(table.brush == "c" and tile("c").disabled and not tile(MadeRoom.START).disabled
 			and table._in_hand.text == Monsters.name_for("CRAWLER").to_upper(),
@@ -623,7 +624,7 @@ func _canvas() -> void:
 ## fits: nothing wider than the bar, the column no wider than it was and no
 ## taller than the screen, and what is in hand still in hand.
 func _both_ways() -> void:
-	table.take_tab(MapTable.Tab.THINGS)
+	table.take_tab(MapTable.Tab.CREATURES)
 	table.take("w")
 	for lang in Loc.languages():
 		for thumb in [false, true]:
@@ -639,8 +640,8 @@ func _both_ways() -> void:
 					% [how, str(table._side.size), str(table._side.get_combined_minimum_size())])
 			check(is_equal_approx(table._sheet.position.x, MapTable.SIDE_W) and table._sheet.size.x > 0.0 and table._sheet.size.y > 0.0,
 				"and the sheet has the rest (%s: %s)" % [how, str(table._sheet.get_rect())])
-			check(table.brush == "w" and table.tab == MapTable.Tab.THINGS and tile("w").disabled
-					and table._palette.size() == MadeRoom.things().size(),
+			check(table.brush == "w" and table.tab == MapTable.Tab.CREATURES and tile("w").disabled
+					and table._palette.size() == MadeRoom.creatures().size(),
 				"with what was in hand still in hand, under its tab (%s)" % how)
 	Touch.set_mode(Touch.OFF)
 	Loc.set_language(Loc.DEFAULT)

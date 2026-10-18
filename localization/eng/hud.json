@@ -120,6 +120,7 @@
 		"tab": {
 			"ground": "GROUND",
 			"back": "BACK",
+			"creatures": "CREATURES",
 			"things": "THINGS",
 			"props": "PROPS"
 		},
@@ -221,8 +222,6 @@
 			"frozen": "FROZEN MOVEMENT: THE PLAYER WALKS UP, PRESSES TO TALK, AND IS HELD STILL WHILE THE BOX RUNS",
 			"novel": "NOVEL: NOBODY PLAYS. THE STORY IS READ A PRESS AT A TIME, LIKE A SCENE"
 		},
-		"character": "CHARACTER",
-		"sprite": "LOOKS LIKE",
 		"player": "PLAYER",
 		"npc": "CHARACTER",
 		"you": "YOU",
@@ -283,11 +282,6 @@
 		"delete_node": "DELETE NODE",
 		"remove_asks": "DELETE AGAIN TO TAKE NODE %s OFF THE DESK",
 		"sure": "SURE?",
-		"count_one": "%d NODE",
-		"count_many": "%d NODES",
-		"hint": "DRAG A NODE TO MOVE IT  DRAG A PORT ONTO A NODE TO LEAD THERE  DOUBLE-CLICK TO ADD  DEL REMOVES",
-		"hint_touch": "DRAG A NODE TO MOVE IT  DRAG A PORT ONTO A NODE TO LEAD THERE  DOUBLE-TAP TO ADD",
-		"unsaved": "NOT SAVED",
 		"saved": "SAVED  %s",
 		"loaded": "LOADED %s",
 		"deleted": "%s THROWN AWAY",

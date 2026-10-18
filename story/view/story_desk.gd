@@ -7,7 +7,8 @@ extends Control
 ## down the right the node picked, after Blender's properties — it starts
 ## with nothing, + PROPERTY adds what it needs (a line, an expression, a
 ## motion for its letters, an action, answers), and each is a panel that
-## folds shut by its head and comes off by its cross; down the left what the
+## comes up folded shut — its head alone, which opens it and shuts it again —
+## and comes off by its cross; down the left what the
 ## story is set on and how it is played; and along the top the story's name
 ## and what is done with it — SAVE, LOAD, NEW, a node put in, PLAY.
 ##
@@ -26,7 +27,6 @@ extends Control
 ## tall the line along the bottom.
 const SIDE_W := 232.0
 const INSPECT_W := 316.0
-const FOOT_H := 28.0
 ## The room a panel of the desk's keeps inside its edge, in either mode.
 const PANEL_PAD := 8.0
 ## How much of its own size a node is drawn at, nearest first.
@@ -50,10 +50,6 @@ const LINK_RUN := 14.0
 ## How long a button that asks twice stays asked, and a line stays said.
 const ARM_TIME := 3.0
 const SAY_TIME := 4.0
-## Who a story's character may look like: the atlas's people, and the game's
-## own player. One the atlas does not have is left out.
-const CAST := ["wizzard_m", "wizzard_f", "knight_m", "knight_f", "elf_m", "elf_f",
-	"dwarf_m", "dwarf_f", "lizard_m", "lizard_f", "angel", "doc", "player"]
 const DOTS := Color(1, 1, 1, 0.06)
 ## The room a property's panel keeps inside its edge, and the room left at a
 ## panel head's left for the mark that says whether it is open.
@@ -103,17 +99,17 @@ var _inspect_scroll: ScrollContainer
 ## words.
 var _text: LineEdit = null
 var _answer_edits: Array = []
-## The properties folded shut, by "<node>:<kind>" — an action's by
-## "<node>:action:<place>". The desk's own, and no part of the story.
-var _folded: Dictionary = {}
+## The properties folded open, by "<node>:<kind>" — an action's by
+## "<node>:action:<place>". Every other is shut: a node's properties come up
+## folded, a head each, and are opened one at a time. The desk's own, and no
+## part of the story.
+var _open: Dictionary = {}
 ## Whether the list of properties to add is open under + PROPERTY.
 var _adding: bool = false
 var _name: LineEdit
 var _map: Button
 ## Mode -> its button.
 var _modes: Dictionary = {}
-var _npc_name: LineEdit
-var _sprite: Button
 var _player_name: LineEdit
 ## Where the sheet's origin stands on it, and how near the nodes are.
 var _origin := Vector2.ZERO
@@ -129,7 +125,8 @@ var _panning: bool = false
 var _pan_at := Vector2.ZERO
 ## What is up over the desk — the list of kept stories, or the maps — or null.
 var _popup: Control = null
-## The line the foot is saying, in what colour, and for how much longer.
+## The line the desk is saying over the sheet's foot, in what colour, and for
+## how much longer: what SAVE did, why PLAY or a save was refused.
 var _said: String = ""
 var _said_tone := UiKit.TEXT
 var _said_left: float = 0.0
@@ -232,16 +229,8 @@ func _build_side() -> void:
 		_say_on(b, Loc.t("hud.story.modes.%s" % StoryMaker.MODE_IDS[m]))
 		_chosen_look(b)
 		_modes[m] = b
-	column.add_child(UiKit.hline(true))
-	column.add_child(_word(Loc.t("hud.story.character"), UiKit.DIM))
-	_npc_name = _edit(maker.npc_name, Loc.t("hud.story.npc"))
-	_npc_name.text_changed.connect(func(text: String) -> void:
-		maker.set_npc_name(text)
-		_refresh()
-		_fill_inspect())
-	column.add_child(_npc_name)
-	column.add_child(_word(Loc.t("hud.story.sprite"), UiKit.DIM))
-	_sprite = _side_button(column, _cycle_sprite)
+	# Who the character is and what they look like are not set here: the
+	# characters are the map's, set where the map is made.
 	column.add_child(UiKit.hline(true))
 	column.add_child(_word(Loc.t("hud.story.player"), UiKit.DIM))
 	_player_name = _edit(maker.player_name, Loc.t("hud.story.you"))
@@ -374,7 +363,7 @@ func _property(key: String, title: String, remove: Callable, has_words: Callable
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 4)
 	column.add_child(head)
-	var shut := _folded.has(key)
+	var shut := not _open.has(key)
 	var fold := _button(title, UiKit.ACCENT)
 	fold.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	fold.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -386,9 +375,9 @@ func _property(key: String, title: String, remove: Callable, has_words: Callable
 			Color.WHITE if fold.is_hovered() else UiKit.TEXT))
 	fold.pressed.connect(func() -> void:
 		if shut:
-			_folded.erase(key)
+			_open[key] = true
 		else:
-			_folded[key] = true
+			_open.erase(key)
 		_fill_inspect()
 		Audio.play("ui"))
 	head.add_child(fold)
@@ -408,7 +397,7 @@ func _drop(key: String, remove: Callable, has_words: Callable) -> void:
 		Audio.play("ui")
 		return
 	_armed = ""
-	_folded.erase(key)
+	_open.erase(key)
 	remove.call()
 	_fill_inspect()
 	_sheet.queue_redraw()
@@ -421,7 +410,8 @@ func _add_property(id: String, kind: String) -> void:
 	_adding = false
 	if at < 0:
 		return
-	_folded.erase("%s:action:%d" % [id, at] if kind == "action" else "%s:%s" % [id, kind])
+	# The one just added opens, to be filled in; the rest stay as they were.
+	_open["%s:action:%d" % [id, at] if kind == "action" else "%s:%s" % [id, kind]] = true
 	_fill_inspect()
 	_sheet.queue_redraw()
 	var typed: Control = null
@@ -567,15 +557,16 @@ func _action_panel(id: String, i: int) -> void:
 				_set_action(id, i, "dir", StoryMaker.DIRS[(StoryMaker.DIRS.find(dir) + 1) % StoryMaker.DIRS.size()]))
 			what.add_child(dir_button)
 
-## Takes action `i` off node `id`, and moves the folds of those after it down
-## a place with them.
+## Takes action `i` off node `id`, and moves which of those after it are open
+## down a place with them.
 func _drop_action(id: String, i: int) -> void:
 	var n := maker.actions_of(id).size()
 	maker.remove_action(id, i)
+	_open.erase("%s:action:%d" % [id, i])
 	for j in range(i + 1, n):
-		if _folded.has("%s:action:%d" % [id, j]):
-			_folded.erase("%s:action:%d" % [id, j])
-			_folded["%s:action:%d" % [id, j - 1]] = true
+		if _open.has("%s:action:%d" % [id, j]):
+			_open.erase("%s:action:%d" % [id, j])
+			_open["%s:action:%d" % [id, j - 1]] = true
 
 ## ANSWERS: each answer's words, where it leads, and a cross for that one; and
 ## a way to give the question another.
@@ -733,23 +724,12 @@ func _panel() -> PanelContainer:
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
 	return p
 
-## Who the character may look like, of `CAST`, as the atlas has them.
-func cast() -> PackedStringArray:
-	var out := PackedStringArray()
-	for art in CAST:
-		if Style.has_character(art):
-			out.append(art)
-	if out.is_empty():
-		out.append(maker.sprite)
-	return out
-
 ## Puts on the chrome whatever the maker has that it shows.
 func _refresh() -> void:
 	var map := maker.map_to_play()
 	_say_on(_map, map.to_upper() if map != "" else Loc.t("hud.story.no_map"))
 	for m in _modes:
 		(_modes[m] as Button).disabled = m == maker.mode
-	_say_on(_sprite, maker.sprite.to_upper())
 	if maker.story_id != _shown_id:
 		_shown_id = maker.story_id
 		_name.text = maker.story_id
@@ -757,19 +737,18 @@ func _refresh() -> void:
 
 ## The whole story put on the desk again: after NEW, or a story loaded.
 func _took() -> void:
-	_npc_name.text = maker.npc_name
 	_player_name.text = maker.player_name
 	selected = maker.start
 	_armed = ""
 	_adding = false
-	_folded.clear()
+	_open.clear()
 	_frame_nodes()
 	_refresh()
 	_fill_inspect()
 
 ## Where everything stands for the screen as it is: the bar across the top,
 ## the column down the left, the inspector down the right, and the sheet in
-## what is left over the foot.
+## what is left, down to the screen's foot.
 func _fit() -> void:
 	var bar_h := _bar.get_combined_minimum_size().y
 	_bar.position = Vector2.ZERO
@@ -778,7 +757,7 @@ func _fit() -> void:
 	_side.size = Vector2(SIDE_W, size.y - bar_h)
 	_inspect.position = Vector2(size.x - INSPECT_W, bar_h)
 	_inspect.size = Vector2(INSPECT_W, size.y - bar_h)
-	var room := Rect2(SIDE_W, bar_h, size.x - SIDE_W - INSPECT_W, size.y - bar_h - FOOT_H)
+	var room := Rect2(SIDE_W, bar_h, size.x - SIDE_W - INSPECT_W, size.y - bar_h)
 	if _sheet.position != room.position or _sheet.size != room.size:
 		_sheet.position = room.position
 		_sheet.size = room.size
@@ -789,7 +768,11 @@ func _process(delta: float) -> void:
 	if _thumb != UiKit.mobile():
 		_build()
 	_fit()
-	_said_left = maxf(0.0, _said_left - delta)
+	if _said_left > 0.0:
+		_said_left = maxf(0.0, _said_left - delta)
+		# Gone off the sheet the frame it is over.
+		if _said_left == 0.0:
+			_sheet.queue_redraw()
 	if _armed != "":
 		_armed_left -= delta
 		if _armed_left <= 0.0:
@@ -1043,6 +1026,19 @@ func _paint_sheet(cv: CanvasItem) -> void:
 			_paint_node(cv, id)
 	if maker.holds(selected):
 		_paint_node(cv, selected)
+	_paint_said(cv)
+
+## What the desk last said, on a plate over the sheet's foot, while it says
+## it: and nothing there the rest of the time.
+func _paint_said(cv: CanvasItem) -> void:
+	if _said_left <= 0.0 or _said == "":
+		return
+	var px := PixelDraw.new(cv)
+	var wide := minf(PixelDraw.text_width(_said) + 24.0, _sheet.size.x - 16.0)
+	var plate := Rect2(floorf((_sheet.size.x - wide) * 0.5), _sheet.size.y - 36.0, wide, 28.0)
+	px.rect(plate, UiKit.PANEL)
+	px.frame(plate, Color(_said_tone.r, _said_tone.g, _said_tone.b, 0.6))
+	px.text(plate.position + Vector2(12.0, 20.0), _said, _said_tone, plate.size.x - 24.0)
 
 ## A link from a port out to the left edge of the node it leads to: straight
 ## out of the port, across, and in, with a head at the end.
@@ -1153,11 +1149,12 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## --- what the bar does --------------------------------------------------------
 
-## Says a line along the foot for a while.
+## Says a line over the sheet's foot for a while.
 func _tell(line: String, tone: Color = UiKit.TEXT) -> void:
 	_said = line
 	_said_tone = tone
 	_said_left = SAY_TIME
+	_sheet.queue_redraw()
 
 func _arm(what: String) -> void:
 	_armed = what
@@ -1174,8 +1171,10 @@ func _disarm() -> void:
 ## The return key on a line's words: the next node, with a line said by
 ## whoever's turn it is, put in after it and led to, picked, and the keyboard
 ## on its words — so a conversation is written straight on, a return a line.
+## Its line comes up open, as one added with + PROPERTY does, to be typed in.
 func _next_line() -> void:
 	var id := maker.add_node_after(selected, true)
+	_open[id + ":line"] = true
 	_pick(id)
 	_show(id)
 	if _text != null:
@@ -1237,13 +1236,6 @@ func _remove(id: String) -> void:
 func _set_mode(m: int) -> void:
 	maker.set_mode(m)
 	_refresh()
-	Audio.play("ui")
-
-func _cycle_sprite() -> void:
-	var who := cast()
-	maker.set_sprite(who[(who.find(maker.sprite) + 1) % who.size()])
-	_refresh()
-	_fill_inspect()
 	Audio.play("ui")
 
 ## SAVE: the story is kept under the name in the field. Under the name of
@@ -1390,25 +1382,6 @@ func _import(id: String) -> void:
 
 ## --- the desk itself -----------------------------------------------------------
 
-## The ground under everything, and the line along the foot: what the desk
-## last said, or else what the pointer does on the sheet; and on the right
-## how many nodes there are, and whether the story has changed since it was
-## kept.
+## The ground under everything.
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), UiKit.BG)
-	var foot := Rect2(SIDE_W, size.y - FOOT_H, size.x - SIDE_W - INSPECT_W, FOOT_H)
-	_px.rect(foot, UiKit.PANEL)
-	var base := foot.position + Vector2(12.0, 20.0)
-	var n := maker.node_count()
-	var count := Loc.t("hud.story.count_one" if n == 1 else "hud.story.count_many", [n])
-	var right := foot.end.x - 12.0 - PixelDraw.text_width(count)
-	_px.text(Vector2(right, base.y), count, UiKit.DIM)
-	if maker.unsaved:
-		var unsaved := Loc.t("hud.story.unsaved")
-		right -= PixelDraw.text_width(unsaved) + 16.0
-		_px.text(Vector2(right, base.y), unsaved, UiKit.WARN)
-	var room := right - base.x - 16.0
-	if _said_left > 0.0:
-		_px.text(base, _said, _said_tone, room)
-	else:
-		_px.text(base, Loc.t("hud.story.hint_touch" if _thumb else "hud.story.hint"), UiKit.DIM, room)
