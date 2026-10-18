@@ -1,5 +1,5 @@
 class_name Diamond
-extends Node2D
+extends FallingThing
 
 ## The Jean Grey test's prize: one stone, lying where it was left until hands the
 ## player is in walk onto it — their own body's, or a monster's they are in
@@ -16,18 +16,10 @@ extends Node2D
 signal picked_up(by: Actor)
 signal let_go(at: Vector2)
 
-const GRAVITY := 1500.0
-const MAX_FALL := 900.0
 ## Half its height, for meeting the floor.
 const RADIUS := 8.0
-## The longest step it falls between looks at the room, so it cannot drop
-## through a floor a cell thick.
-const MAX_STEP := 6.0
 ## How close the hands have to come: touching it, give or take.
 const REACH := 8.0
-## How long it has to have lain still before it can be taken. One let go of is
-## not straight back in the hands that let go of it.
-const SETTLE := 0.3
 ## How far over the top of whoever carries it it rides: clear of the head,
 ## which is drawn taller than the body that bumps into things. Any nearer and
 ## the stone sits on the player's helmet like a hat.
@@ -35,15 +27,14 @@ const OVERHEAD := 24.0
 
 ## Whose hands can take it: the player's body, or whichever monster they are in.
 var player: Player = null
-var room = null
 ## Who is carrying it, or null while it lies somewhere.
 var carrier: Actor = null
-var velocity: Vector2 = Vector2.ZERO
-## How long it has lain still.
-var _down: float = 0.0
 ## Where the one carrying it last stood, for letting go of it there should
 ## they be gone by the time it is noticed.
 var _held_at: Vector2 = Vector2.ZERO
+
+func _init() -> void:
+	radius = RADIUS
 
 ## Puts it down at `at`, nobody's, ready to be taken.
 func place(at: Vector2) -> void:
@@ -96,39 +87,24 @@ func _offer() -> void:
 	if _down < SETTLE or player == null or not is_instance_valid(player) or player.dead:
 		return
 	var hands := player.vessel()
-	if global_position.distance_to(hands.global_position) <= RADIUS + hands.hurt_radius + REACH:
+	if _hands_on(hands, REACH):
 		take(hands)
 
+## Straight down, onto the floor under it, and still there.
 func _fall(delta: float) -> void:
-	if _solid(global_position + Vector2(0.0, RADIUS + 1.0)) and velocity.y >= 0.0:
+	if _on_floor() and velocity.y >= 0.0:
 		velocity.y = 0.0
 		_down += delta
 		return
 	_down = 0.0
-	velocity.y = minf(velocity.y + GRAVITY * delta, MAX_FALL)
-	var step := velocity.y * delta
-	var hops := maxi(1, int(ceil(absf(step) / MAX_STEP)))
-	for i in hops:
-		var next := global_position + Vector2(0.0, step / float(hops))
-		if _solid(next + Vector2(0.0, RADIUS)):
-			# Down onto the floor, flush with it.
-			for k in int(MAX_STEP) + 2:
-				if _solid(global_position + Vector2(0.0, RADIUS + 1.0)):
-					break
-				global_position.y += 1.0
-			velocity.y = 0.0
-			return
-		global_position = next
+	_fall_by(delta)
 
-## Let go of inside the rock — a carrier hard up under a ceiling — it is lifted
-## out of it.
-func _unstick() -> void:
-	for up in range(0, Room.CELL * 3):
-		if not _solid(global_position + Vector2(0.0, -up)):
-			global_position.y -= up
-			return
-
-func _solid(at: Vector2) -> bool:
-	if room != null and not is_instance_valid(room):
-		room = null
-	return room != null and room.has_method("is_solid_at") and room.is_solid_at(at)
+## Down onto the floor it meets, flush with it.
+func _hop(step: Vector2) -> bool:
+	var next := global_position + step
+	if _solid(next + Vector2(0.0, radius)):
+		_settle_down()
+		velocity.y = 0.0
+		return false
+	global_position = next
+	return true

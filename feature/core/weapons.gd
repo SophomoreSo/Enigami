@@ -31,7 +31,7 @@ extends RefCounted
 ##
 ## A weapon can be a `rune`: a rock with mana in it. It is thrown and picked
 ## back up the way the rock is, by the attack button alone, and a throw of it
-## carries the charge stored in it for nothing (`GameState.rune_mana`). A throw
+## carries the charge stored in it for nothing (`GameState.rune`). A throw
 ## spends it: it is still a stone to throw, but bare, its graph cast not at all
 ## (`Player._throw_bare`), until it is filled again — by holding the cast button
 ## with it in hand, which pours the player's own mana into it
@@ -221,7 +221,7 @@ static func is_thrown(weapon_id: String) -> bool:
 	return bool(get_def(weapon_id).get("thrown", false))
 
 ## Whether the weapon is a rune: a thrown stone with mana in it, which a hold
-## charges out of (`GameState.rune_mana`).
+## charges out of (`GameState.rune`).
 static func is_rune(weapon_id: String) -> bool:
 	return bool(get_def(weapon_id).get("rune", false))
 

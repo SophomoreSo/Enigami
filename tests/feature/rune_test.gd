@@ -75,8 +75,8 @@ func _the_weapon() -> void:
 		"its graph is a PROJECTILE at the root, as a new profile gets it")
 	check(GameState.owned_weapons.has("RUNE") and GameState.HANDED_OUT.has("RUNE"),
 		"a new profile has one, and an old one is handed it")
-	check(is_equal_approx(GameState.rune_mana, GameState.RUNE_MANA) and not GameState.rune_spent,
-		"it starts lit, with one full charge in it (%.1f)" % GameState.rune_mana)
+	check(is_equal_approx(GameState.rune.mana, Rune.START) and not GameState.rune.spent,
+		"it starts lit, with one full charge in it (%.1f)" % GameState.rune.mana)
 
 func _played() -> void:
 	var h := HideoutWorld.new()
@@ -107,7 +107,7 @@ func _played() -> void:
 	await frames(3)
 	check(bolts(h).is_empty() and p.holds("RUNE") and heard(&"attack") == 0,
 		"held and let go, the cast button throws nothing")
-	check(is_zero_approx(p.charge) and not GameState.rune_spent and is_equal_approx(p.mana, mana_was),
+	check(is_zero_approx(p.charge) and not GameState.rune.spent and is_equal_approx(p.mana, mana_was),
 		"and charges nothing, spends nothing of the rune or the player")
 
 	# The attack button throws it, charged, and it is spent.
@@ -122,7 +122,7 @@ func _played() -> void:
 	var lit_damage := (flying[0] as Projectile).payload.damage if not flying.is_empty() else 0.0
 	check(p.runner._cycle_life >= p.runner.pass_cost + int(p.charge_cap()),
 		"carrying the charge stored in it (a life of %d)" % p.runner._cycle_life)
-	check(GameState.rune_spent and is_zero_approx(GameState.rune_mana) and heard(&"rune_spent") == 1,
+	check(GameState.rune.spent and is_zero_approx(GameState.rune.mana) and heard(&"rune_spent") == 1,
 		"and thrown, it is spent")
 	check(is_equal_approx(p.mana, mana_was), "the player paid nothing for the charge (%.0f)" % p.mana)
 
@@ -150,7 +150,7 @@ func _played() -> void:
 		var dmg := (bare[0] as Projectile).payload.damage
 		check(dmg < lit_damage and is_equal_approx(dmg, Weapons.finalize("RUNE", _bare_payload()).damage),
 			"but bare: the rune's own numbers, nothing its graph builds in (%.1f, %.1f lit)" % [dmg, lit_damage])
-	check(heard(&"refused") == 0 and GameState.rune_spent and is_zero_approx(GameState.rune_mana),
+	check(heard(&"refused") == 0 and GameState.rune.spent and is_zero_approx(GameState.rune.mana),
 		"it goes with no warning, and stays spent")
 	# Fetched again, to fill.
 	landed = await until(func() -> bool:
@@ -169,19 +169,19 @@ func _played() -> void:
 	await wait(0.8)
 	bot.cast = false
 	await frames(2)
-	check(p.mana < 1.0 and absf(GameState.rune_mana - 20.0) < 1.5 and GameState.rune_spent,
-		"a hold pours the player's mana in as far as it goes, and short of full it stays spent (%.1f in it)" % GameState.rune_mana)
+	check(p.mana < 1.0 and absf(GameState.rune.mana - 20.0) < 1.5 and GameState.rune.spent,
+		"a hold pours the player's mana in as far as it goes, and short of full it stays spent (%.1f in it)" % GameState.rune.mana)
 
 	# A hold with mana enough fills it, and it is lit again — and that hold
 	# throws nothing.
 	p.mana = p.max_mana
 	cues.clear()
 	bot.cast = true
-	var lit := await until(func() -> bool: return not GameState.rune_spent, 3.0)
+	var lit := await until(func() -> bool: return not GameState.rune.spent, 3.0)
 	bot.cast = false
 	await frames(3)
-	check(lit and is_equal_approx(GameState.rune_mana, p.rune_full()) and heard(&"rune_lit") == 1,
-		"held long enough, it is filled and lit again (%.1f)" % GameState.rune_mana)
+	check(lit and is_equal_approx(GameState.rune.mana, p.rune_full()) and heard(&"rune_lit") == 1,
+		"held long enough, it is filled and lit again (%.1f)" % GameState.rune.mana)
 	check(bolts(h).is_empty() and p.holds("RUNE") and p.can_cast(),
 		"the hold that filled it throws nothing, and it casts again")
 	check(absf((p.max_mana - p.mana) - (p.rune_full() - 20.0)) < 3.0,
@@ -197,11 +197,11 @@ func _bare_payload() -> Payload:
 
 ## What is in it, and whether it is spent, goes with the profile.
 func _kept() -> void:
-	GameState.rune_mana = 12.0
-	GameState.rune_spent = true
+	GameState.rune.mana = 12.0
+	GameState.rune.spent = true
 	GameState.save_game()
-	GameState.rune_mana = 0.0
-	GameState.rune_spent = false
+	GameState.rune.mana = 0.0
+	GameState.rune.spent = false
 	GameState.load_slot(GameState.slot)
-	check(is_equal_approx(GameState.rune_mana, 12.0) and GameState.rune_spent,
-		"what is in the rune comes back with the profile (%.0f, spent %s)" % [GameState.rune_mana, GameState.rune_spent])
+	check(is_equal_approx(GameState.rune.mana, 12.0) and GameState.rune.spent,
+		"what is in the rune comes back with the profile (%.0f, spent %s)" % [GameState.rune.mana, GameState.rune.spent])

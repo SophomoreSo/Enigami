@@ -200,8 +200,8 @@ func _draw_kit(at: Vector2) -> float:
 		# The rune says how much mana is left in it, and when there is none, that
 		# it is spent: dimmed, as a weapon that casts nothing is.
 		if Weapons.is_rune(id):
-			if GameState.rune_spent:
-				var filled := clampf(GameState.rune_mana / maxf(player.rune_full(), 1.0), 0.0, 1.0)
+			if GameState.rune.spent:
+				var filled := clampf(GameState.rune.mana / maxf(player.rune_full(), 1.0), 0.0, 1.0)
 				label = Loc.t("hud.rune_spent", [label, int(filled * 100.0)])
 				ink.a *= AWAY
 			else:

@@ -440,10 +440,14 @@ An `add` or a `multiply` may also carry a `per_stack`: what is added to its
 `value` for every one of the part the flow has already stacked, so that each
 one is worth more than the last. DAMAGE adds 8, then 12, then 16.
 
-The fields are the payload's: `damage` `size` `speed` `range_px` `lunge` `stun`
-`heal` (numbers), `pierce` `duplicates` `homing` `knockback` `near` `shatter`
-`mana_drain` `hook` (whole numbers — the behaviours are counts, one
-for every part of the kind stacked), `cleanse` (a flag), `form` (a word) and `elements` (a list). `value` is read as
+The fields are the payload's (`circuit/payload.gd`, whose declarations are
+the schema): `damage` `size` `speed` `range_px` `lunge` `stun` `possess` `heal`
+(numbers), `pierce` `duplicates` `homing` `auto_aim` `anti_gravity` `knockback`
+`near` `shatter` `mana_drain` `health_drain` `hook` `summon_pet` `pet_offensive`
+`pet_kamikaze` (whole numbers — the behaviours are counts, one for every part
+of the kind stacked), `cleanse` (a flag), `form` (a word) and `elements` (a
+list). The runner's own — `heat`, `stacks`, the triggers — and a NEAR's
+`spread`, `touch` and `touch_at` no row may touch (`Components.KEPT`). `value` is read as
 JSON — `8`, `1.6`, `'true'` — and a word may go without its quotes: `'FIRE'`.
 A row asking for a field there is not, or for something its field cannot
 take, is a fault the game reports as it reads the parts, and

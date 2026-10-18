@@ -38,7 +38,8 @@ func _process(delta: float) -> void:
 	var r := radius * t
 	var reached := Attacks.targets(team)
 	if hits_self and attacker != null and is_instance_valid(attacker) and not attacker.dead:
-		reached.append(attacker)
+		# The Arena's list is not ours to add to.
+		reached = reached + [attacker]
 	for a in reached:
 		if _hit.has(a):
 			continue

@@ -1,5 +1,5 @@
 class_name StuckShuriken
-extends Node2D
+extends FallingThing
 
 ## A shuriken where it struck (`Weapons.is_stacked`): in a wall at the point it
 ## met it, pointing the way it was going, or riding in a monster at the place
@@ -18,20 +18,11 @@ extends Node2D
 
 signal picked_up(shuriken: StuckShuriken, by: Actor)
 
-const GRAVITY := 1500.0
-const MAX_FALL := 900.0
-## The longest step it takes coming down between looks at the room, so a fast
-## one cannot pass through a floor a cell thick.
-const MAX_STEP := 6.0
 ## How far from its point to the middle of it: the tile it is drawn with is
 ## seven pixels of the picture across, two of the world's each.
 const RADIUS := 7.0
 ## How close the hands have to come: touching it, give or take.
 const REACH := 10.0
-## How long it has to have been still before it can be taken back. One thrown
-## into a wall from beside it is not straight back in the stack for the next
-## throw.
-const SETTLE := 0.3
 ## How long one comes down with no room to stick in before it is given up:
 ## a screen with no ground has nothing for it to stop on.
 const ADRIFT := 3.0
@@ -42,7 +33,6 @@ const SHAKEN := 120.0
 var weapon: String = "SHURIKEN"
 ## Whose it is: the only hands that take it back are this player's.
 var thrower: Player = null
-var room = null
 ## The monster it is in, and where on it from the monster's middle; null when
 ## it is in a wall, or coming down.
 var host: Actor = null
@@ -50,12 +40,13 @@ var _offset: Vector2 = Vector2.ZERO
 ## The way it was going when it struck, which is the way it points in what it
 ## struck.
 var heading: Vector2 = Vector2.RIGHT
-## Whether it is coming down rather than stuck, and how fast.
+## Whether it is coming down rather than stuck.
 var falling: bool = false
-var velocity: Vector2 = Vector2.ZERO
-## How long it has stood still, and how long it has been coming down.
-var _still: float = 0.0
+## How long it has been coming down with no room under it.
 var _adrift: float = 0.0
+
+func _init() -> void:
+	radius = RADIUS
 
 ## A shuriken of `weapon_id` stuck at `at`, going `moving` as it struck, in
 ## `in_room` — or in `into`, the monster it struck, at that place on it — for
@@ -84,16 +75,7 @@ static func _make(weapon_id: String, at: Vector2, in_room, by: Player) -> StuckS
 	var s := StuckShuriken.new()
 	s.weapon = weapon_id
 	s.thrower = by
-	# The room it struck in; failing that, the one its thrower stands in. One
-	# left anywhere but a room would outlast the room it is in.
-	var where = in_room
-	if (where == null or not is_instance_valid(where)) and by != null and is_instance_valid(by):
-		where = by.room
-	s.room = where if where != null and is_instance_valid(where) else null
-	var home: Node = s.room if s.room != null else Attacks.container()
-	s.position = (home as Node2D).to_local(at) if home is Node2D else at
-	if home != null:
-		home.add_child(s)
+	s._home_in(at, in_room, by)
 	return s
 
 func _ready() -> void:
@@ -115,46 +97,44 @@ func _process(delta: float) -> void:
 	if falling:
 		_fall(delta)
 		return
-	_still += delta
+	_down += delta
 	_offer()
 
-## A frame of coming down, a short step at a time. The first thing it meets, it
-## sticks in.
+## A frame of coming down. With no room to come down in, it is given up after
+## a while.
 func _fall(delta: float) -> void:
 	if room == null:
 		_adrift += delta
 		if _adrift >= ADRIFT:
 			queue_free()
 			return
-	velocity.y = minf(velocity.y + GRAVITY * delta, MAX_FALL)
-	var travel := velocity * delta
-	var hops := maxi(1, int(ceil(travel.length() / MAX_STEP)))
-	for i in hops:
-		var next := global_position + travel / float(hops)
-		if room != null and room.has_method("out_of_bounds") and room.out_of_bounds(next):
-			queue_free()
-			return
-		if _solid(next):
-			falling = false
-			if velocity.length() > 0.01:
-				heading = velocity.normalized()
-			velocity = Vector2.ZERO
-			_still = 0.0
-			return
-		global_position = next
+	_fall_by(delta)
 
-func _solid(at: Vector2) -> bool:
-	return room != null and room.has_method("is_solid_at") and room.is_solid_at(at)
+## The first thing it meets, it sticks in; out past the room, it is gone.
+func _hop(step: Vector2) -> bool:
+	var next := global_position + step
+	if _out_of_bounds(next):
+		queue_free()
+		return false
+	if _solid(next):
+		falling = false
+		if velocity.length() > 0.01:
+			heading = velocity.normalized()
+		velocity = Vector2.ZERO
+		_down = 0.0
+		return false
+	global_position = next
+	return true
 
 ## Taken back by the hands that threw it, if they are on it and the stack has
 ## room for it.
 func _offer() -> void:
-	if _still < SETTLE:
+	if _down < SETTLE:
 		return
 	if thrower == null or not is_instance_valid(thrower) or thrower.dead:
 		return
 	var hands := thrower.vessel()
-	if global_position.distance_to(hands.global_position) > RADIUS + hands.hurt_radius + REACH:
+	if not _hands_on(hands, REACH):
 		return
 	if not thrower.take_one_back(weapon):
 		return

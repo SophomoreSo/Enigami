@@ -367,8 +367,8 @@ func _struck_by() -> Array:
 		if global_position.distance_to(thrower.global_position) > radius + thrower.hurt_radius + LEAVE_MARGIN:
 			_left_thrower = true
 		return out
-	out.append(thrower)
-	return out
+	# The Arena's list is not ours to add to.
+	return out + [thrower]
 
 func _expire() -> void:
 	if is_rock():
