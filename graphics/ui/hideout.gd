@@ -38,10 +38,13 @@ signal weapon_changed(weapon: String)
 const COL_WEAPONS := 320.0
 const COL_FACILITIES := 348.0
 ## The least a weapon's plate is across on the rack in mobile mode, where they
-## stand in a row: five to a page's width — every weapon there is, the shuriken
-## among them — and a word's room in each. A longer name than that takes what
-## it needs from the rest of the row.
-const RACK_PLATE := 160.0
+## stand RACK_COLUMNS to a row: wide enough for the longest name (SHURIKEN, in
+## English), so every plate is as wide as every other and they share out the
+## row between them.
+const RACK_PLATE := 240.0
+## How many plates stand in a row of the rack in mobile mode: six weapons are
+## two rows of three, as six names are wider than a phone's page.
+const RACK_COLUMNS := 3
 
 var weapon_id: String = ""
 ## Which of the two columns this screen is. "" builds both under a header and
@@ -206,14 +209,16 @@ func _weapons_column() -> Control:
 	p.add_child(v)
 	v.add_child(_label(Loc.t("hideout.weapons.heading", [GameState.MAX_CARRIED]), UiKit.ACCENT))
 	v.add_child(UiKit.hline(true))
-	# One under another at a desk. For a thumb they stand side by side, as many
-	# to a row as fit: a plate THUMB tall for each, stacked, left no room on a
-	# phone for what the rack says under them, and BUILD went off the bottom.
+	# One under another at a desk. For a thumb they stand side by side,
+	# RACK_COLUMNS to a row: a plate THUMB tall for each, stacked, left no room
+	# on a phone for what the rack says under them, and BUILD went off the bottom.
 	var rack: Container = v
 	if section != "" and UiKit.mobile():
-		rack = HFlowContainer.new()
-		rack.add_theme_constant_override("h_separation", 8)
-		rack.add_theme_constant_override("v_separation", 8)
+		var grid := GridContainer.new()
+		grid.columns = RACK_COLUMNS
+		grid.add_theme_constant_override("h_separation", 8)
+		grid.add_theme_constant_override("v_separation", 8)
+		rack = grid
 		v.add_child(rack)
 	# The kit, as the gate would carry it: a weapon in it wears the number of
 	# its slot, which is the key that draws it in a raid.
@@ -256,8 +261,10 @@ func _weapons_column() -> Control:
 		rack.add_child(b)
 	# What the weapon is, and nothing more. The numbers behind it — what it
 	# multiplies, what it costs to die carrying it — were four more wrapped
-	# blocks under this one, and are gone.
-	v.add_child(UiKit.spacer(6))
+	# blocks under this one, and are gone. A thumb's rack has a row's gap under
+	# its plates already, and the page no room for another.
+	if rack == v:
+		v.add_child(UiKit.spacer(6))
 	v.add_child(_wrapped(Weapons.desc_for(weapon_id)))
 	# And the graph on it: what has been built onto the weapon's own part, and
 	# the way onto the assembly board to build more. TAB opens the same board

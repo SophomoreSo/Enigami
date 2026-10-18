@@ -308,7 +308,7 @@ has a second layout (`UiKit.mobile`), and at a desk each is exactly as it was:
   them, and the switch is drawn at twice the size. A page longer than the
   screen is dragged by whatever the thumb lands on. The save slots are a page
   of plates rather than a column of lines, each with its can on a plate of its
-  own; the rack's weapons stand side by side so BUILD stays on the page.
+  own; the rack's weapons stand three to a row so BUILD stays on the page.
 * **The controls page is a different list.** The aim's help, the switch, and
   SET BUTTON POSITIONS. The pointer's speed and the bindings are a desk's — the
   mouse is put away while the console is up, and there is no key on the glass
