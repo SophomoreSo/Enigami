@@ -152,6 +152,14 @@ func _held() -> void:
 func _thrown() -> void:
 	bot.point_at(player.global_position + Vector2(300, -200))
 	await wait(0.1)
+	# The rock flies as fast and as flat as a shuriken, and on a slow screen
+	# (CI's) it was on the floor before its picture was read. The clock run at a
+	# quarter for the throw keeps it in the air for as many frames again, however
+	# few a second there are: this is about how it is drawn, not how fast it goes.
+	# Held there by hand, with TimeCtl, which would ease it back, stood down:
+	# its own slowing would draw the room dilated as well.
+	TimeCtl.set_process(false)
+	Engine.time_scale = 0.25
 	bot.attack = true
 	await wait(0.06)
 	bot.attack = false
@@ -159,6 +167,7 @@ func _thrown() -> void:
 	var flying := _rock_away()
 	check(flying != null, "(a rock in the air)")
 	if flying == null:
+		_clock_back()
 		return
 	# How far it has turned over, a quarter at a time, every frame from here
 	# while it flies — through the frames the picture below is read in, too.
@@ -179,8 +188,14 @@ func _thrown() -> void:
 	check(seen >= 6, "and it is the rock that flies (%d of its pixels)" % seen)
 	await until(func() -> bool: return turns.size() >= 2 or pv == null or not is_instance_valid(pv), 0.25)
 	get_tree().process_frame.disconnect(watch)
+	_clock_back()
 	# Two quarters seen is a rock turning over.
 	check(turns.size() >= 2, "turning over as it goes, a quarter at a time (%s)" % str(turns))
+
+## The clock as the game keeps it again, after the throw held it at a quarter.
+func _clock_back() -> void:
+	Engine.time_scale = 1.0
+	TimeCtl.set_process(true)
 
 ## The rock in the air, once it is well out of the hand; or null.
 func _rock_away() -> Projectile:
