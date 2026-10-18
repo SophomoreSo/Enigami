@@ -98,8 +98,8 @@ func _soft() -> void:
 		"but slower than the slam asks, it only meets it")
 	e.queue_free()
 
-## As hard a push from anything but KNOCKBACK — a heavy hit's own shove,
-## GRAVITY — slams nothing.
+## As hard a push from anything but KNOCKBACK — a heavy hit's own shove, a
+## PULL's drag — slams nothing.
 func _not_knockback() -> void:
 	var e := dummy(340.0, 2)
 	await physics(2)

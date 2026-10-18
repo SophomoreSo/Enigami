@@ -130,20 +130,6 @@ const REACH_MIN := 0.3
 static func distance_for(reach: float) -> float:
 	return lerpf(REACH_MIN, 1.0, clampf(reach, 0.0, 1.0))
 
-## GRAVITY. How far from the impact the pull reaches at size 1, and how hard it
-## drags. The far end of the field pulls harder than the near end, which is the
-## opposite of real gravity and the point of this one: an even pull leaves the
-## far enemies where they were and throws the near ones past the middle, where a
-## rising one brings the whole room in together and lands them in a heap.
-##
-## That is one GRAVITY. Every one stacked drags as hard again, and reaches a
-## little further (`PULL_REACH_PER`): the pull is what the part is for, so that
-## is what stacking it buys, and the reach only keeps up with it.
-const PULL_RADIUS := 150.0
-const PULL_FORCE := 300.0
-const PULL_NEAR := 0.45
-const PULL_REACH_PER := 0.25
-
 ## KNOCKBACK. The push it adds to a hit, in pixels a second, straight along the
 ## way the attack was going — on top of the hit's own shove, not instead of it.
 ## Bled off at `Actor.SHOVE_DECAY`, it carries an enemy that stands its ground
@@ -195,10 +181,6 @@ const HEALTH_DRAIN_SHARE := 0.2
 ## What a hit carrying `stacked` SHATTERs is multiplied by on a chilled enemy.
 static func shatter_mul(stacked: int) -> float:
 	return 1.0 + SHATTER_PER * float(stacked)
-
-## How far a pull or a push carrying `stacked` of its part reaches, at `size`.
-static func pull_radius(stacked: int, size: float) -> float:
-	return PULL_RADIUS * size * (1.0 + PULL_REACH_PER * float(maxi(stacked - 1, 0)))
 
 ## How far `p`'s NEAR reaches round the enemy struck: its size, and every NEAR
 ## stacked on it.
@@ -422,19 +404,18 @@ static func _melee(p: Payload, dir: Vector2, team: int, atk: Actor, room) -> voi
 
 ## What a NEAR on `p` lands on each enemy it touches: what the parts after it
 ## did (`Payload.spread`) and nothing of the blow — but for what was the enemy
-## struck's alone: another NEAR, or every touch would reach on again; POSSESS,
-## since the hands go into one monster; and GRAVITY and its opposite, which are
-## about everything round the impact already. Its triggers go only with a NEAR
-## that is the attack (`_near_here`). A touch stops the clock as lightly as a
-## chain's link.
-static func _touching(p: Payload, strength: float) -> Payload:
+## struck's alone: another NEAR, or every touch would reach on again; and
+## POSSESS, since the hands go into one monster. Its triggers go only with a
+## NEAR that is the attack (`_near_here`). Its middle is `at` — the enemy
+## struck, or where a NEAR with no form goes off — which a PULL on it drags the
+## enemy touched in to. A touch stops the clock as lightly as a chain's link.
+static func _touching(p: Payload, strength: float, at: Vector2) -> Payload:
 	var t := p.spread.clone()
 	t.form = ""
 	t.near = 0
 	t.spread = null
 	t.possess = 0.0
-	t.pull = 0
-	t.repel = 0
+	t.touch_at = at
 	t.on_hit = null
 	t.on_kill = null
 	t.on_parry = null
@@ -446,7 +427,7 @@ static func _touching(p: Payload, strength: float) -> Payload:
 ## enemies round `pos`, where it goes off, are touched by what came after it —
 ## its triggers going off on every one, since this is the attack.
 static func _near_here(p: Payload, pos: Vector2, team: int, atk: Actor, room) -> void:
-	var t := _touching(p, 0.0)
+	var t := _touching(p, 0.0, pos)
 	t.on_hit = p.on_hit
 	t.on_kill = p.on_kill
 	t.on_parry = p.on_parry
@@ -456,7 +437,7 @@ static func _near_here(p: Payload, pos: Vector2, team: int, atk: Actor, room) ->
 ## what came after it on the flow — not the enemy struck again, which has taken
 ## the whole of it — what they carry landing as hard as the blow did, `dealt`.
 static func _near(p: Payload, struck: Actor, pos: Vector2, dealt: float, atk: Actor, room, team: int) -> void:
-	_go_off(_touching(p, dealt), pos, near_radius(p), team, atk, room, struck, &"near")
+	_go_off(_touching(p, dealt, struck.global_position), pos, near_radius(p), team, atk, room, struck, &"near")
 
 ## A ring of `p` opening at `pos` out to `radius`, round `spared` if it is
 ## given one, landing on everything it reaches, and heard and seen as `cue`.
@@ -612,8 +593,6 @@ static func _words(p: Payload) -> Array[String]:
 		parts.append(_stacked(Loc.t("editor.payload.homing"), p.homing))
 	if p.auto_aim:
 		parts.append(_stacked(Loc.t("editor.payload.auto_aim"), p.auto_aim))
-	if p.pull:
-		parts.append(_stacked(Loc.t("editor.payload.pull"), p.pull))
 	if p.knockback:
 		parts.append(_stacked(Loc.t("editor.payload.knockback"), p.knockback))
 	if p.shatter:
@@ -638,8 +617,6 @@ static func _words(p: Payload) -> Array[String]:
 		parts.append(Loc.t("editor.payload.heal", [p.heal]))
 	if p.cleanse:
 		parts.append(Loc.t("editor.payload.cleanse"))
-	if p.repel:
-		parts.append(_stacked(Loc.t("editor.payload.repel"), p.repel))
 	if p.hook:
 		parts.append(_stacked(Loc.t("editor.payload.hook"), p.hook))
 	return parts
@@ -714,17 +691,14 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 		target.afflict(strength, p.elements)
 	elif touched and not target.dead:
 		target.afflict(strength, p.elements)
-	# GRAVITY drags instead of shoving: rather than being knocked away, the
-	# struck enemy becomes the point every other enemy nearby is pulled onto.
-	if p.pull:
-		_pull(p, pos, team)
-	elif not p.hook and not touched:
+	# Every hit gives the enemy it strikes a shove along the attack: no touch
+	# does, which is no blow, nor a PULL, which drags it the other way.
+	if not p.hook and not touched:
 		target.knockback(dir, hit_shove(p))
 	# KNOCKBACK throws the struck enemy on the way the attack was going, which is
 	# the `dir` every form hands in: along a bolt's flight, out from a swing or a
-	# blast, down the line of a lunge. It adds to whatever the hit did above,
-	# GRAVITY's pin included, so a board with both gathers the room and sends
-	# the one it struck flying out of the middle of it.
+	# NEAR's middle, down the line of a lunge. It adds to whatever the hit did
+	# above.
 	# Thrown so, it can be slammed into a wall (`Actor.SLAM_SPEED`), and the
 	# slam is the thrower's side's.
 	if p.knockback:
@@ -732,20 +706,24 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 	# PULL, and what an INVERT made of KNOCKBACK: the struck enemy is dragged
 	# toward whoever struck it, as hard as KNOCKBACK throws it on but never past
 	# them (`hook_force`) — in place of the shove every hit gives (above), or a
-	# heavy blow's would cancel the pull. With nobody to drag it to, it is
-	# hauled back the way the attack came.
+	# heavy blow's would cancel the pull. One a NEAR touched is dragged in to
+	# the NEAR's middle instead — the enemy struck, or where it went off — so a
+	# NEAR and a PULL gather the enemies round the one struck onto it. With
+	# nobody to drag it to, it is hauled back the way the attack came.
 	if p.hook:
 		var to := -dir
 		var far := INF
-		if atk != null:
-			var gap := atk.global_position - target.global_position
+		var toward := Vector2.INF
+		if touched:
+			toward = p.touch_at
+		elif atk != null:
+			toward = atk.global_position
+		if toward != Vector2.INF:
+			var gap := toward - target.global_position
 			if gap.length() > 0.01:
 				to = gap.normalized()
 			far = gap.length() - HOOK_SHORT
 		target.knockback(to, hook_force(p, far))
-	# And of GRAVITY: everything round the impact is driven off it.
-	if p.repel:
-		_repel(p, target, pos, team)
 	# NEAR: what the parts after it did reaches everything round the enemy it
 	# struck.
 	if p.near > 0 and p.spread != null:
@@ -807,46 +785,6 @@ static func _possess_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, 
 			"attacker": atk, "room": room, "team": team,
 			"aim": dir, "origin": pos, "gravity": false,
 		})
-
-## Everything `team` may hurt, dragged towards `pos`.
-##
-## An arc, a burst and a lunge all resolve their hit at the target's own
-## position, so the enemy that was struck is normally standing on `pos` itself:
-## it is the anchor the rest of the room is drawn onto, neither pulled nor
-## knocked back. (A bolt resolves where the bolt is, a little short of the
-## target, so there it takes a small pull of its own — which is the same rule,
-## not an exception to it.)
-static func _pull(p: Payload, pos: Vector2, team: int) -> void:
-	var radius := pull_radius(p.pull, p.size)
-	for a in targets(team):
-		var to: Vector2 = pos - a.global_position
-		var d := to.length()
-		if d > radius:
-			continue
-		if d < 0.01:
-			continue   # already there; a zero direction would be a shove nowhere
-		a.knockback(to / d, PULL_FORCE * float(p.pull) * lerpf(PULL_NEAR, 1.0, d / radius))
-	Cues.at(&"pull", pos, {"radius": radius})
-
-## Everything `team` may hurt, driven off `pos`: GRAVITY's drag turned round,
-## over the same reach and as hard, but the nearer harder, the way a blast
-## throws. The enemy `struck` has the hit's own shove instead, wherever on it
-## the hit landed. A bolt resolves where the bolt is, a little short of what it
-## strikes, and that is the hard end of this: counted among the driven, the one
-## a bolt struck would be thrown several times as far as one a swing did.
-static func _repel(p: Payload, struck: Actor, pos: Vector2, team: int) -> void:
-	var radius := pull_radius(p.repel, p.size)
-	for a in targets(team):
-		if a == struck:
-			continue
-		var away: Vector2 = a.global_position - pos
-		var d := away.length()
-		if d > radius:
-			continue
-		if d < 0.01:
-			continue   # standing on it; a zero direction would be a shove nowhere
-		a.knockback(away / d, PULL_FORCE * float(p.repel) * lerpf(1.0, PULL_NEAR, d / radius))
-	Cues.at(&"repel", pos, {"radius": radius})
 
 ## A link of a chain, marked as belonging to the blow that caused it rather than
 ## being one of its own. A parry's riposte is deliberately not marked: that is a

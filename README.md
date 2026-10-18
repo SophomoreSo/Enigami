@@ -77,7 +77,7 @@ godot res://tests/graphics/lighting_test.tscn # the light: the world drawn for i
 godot res://tests/graphics/glass_test.tscn  # glass: what is behind clear glass seen through it, what is in front of a mirror shown in it, upside down or turned round, and the map creator's
 godot res://tests/graphics/bolt_view_test.tscn # a bolt's trail: the gaps between its beads drawn in, and a laser's beam from the muzzle
 godot res://tests/graphics/rock_view_test.tscn # the rock, drawn: a stone of the game's own and not the pack's morning star, held upright, turning over in the air, and marked where it lies
-godot res://tests/feature/impact_test.tscn  # GRAVITY, PUSH, PULL, SHATTER and MANA DRAIN, at the moment a hit lands
+godot res://tests/feature/impact_test.tscn  # PUSH, PULL, NEAR, SHATTER and MANA DRAIN, at the moment a hit lands
 godot res://tests/feature/summon_test.tscn  # SUMMON PET's pet following, one to a summoner, with OFFENSIVE going for an enemy, and with KAMIKAZE blowing itself up against one
 godot res://tests/feature/slam_test.tscn    # PUSH into a wall: cracked, hurt and stunned past a speed, and nothing under it
 godot res://tests/graphics/crack_test.tscn  # the crack a slam leaves: it stays, it is the room's, and it is there again when the room is walked back into
@@ -512,7 +512,7 @@ giving it further to walk.
   one are worth more than one, and a ring that walks a flow through a part lap
   after lap stacks it once a lap. `DAMAGE` is worth more each time: the first
   adds 8, the next 12, the next 16. The parts that used to be a switch are a
-  count now — `HOMING`, `GRAVITY`, `PUSH`, `SHATTER`, `MANA DRAIN` — and
+  count now — `HOMING`, `PUSH`, `SHATTER`, `MANA DRAIN` — and
   do the same thing harder for a higher one, and the graph's line in the
   editor says how many (`homing x3`).
   Some parts stop. A part's limit is how many of it one flow can stack
@@ -568,21 +568,16 @@ giving it further to walk.
   outright; three is the most a flow can stack, and three reach further than a
   room is wide. A monster is given whatever reach its own attack range needs, so
   nothing ever fires a shot that cannot arrive.
-- `GRAVITY` pins the enemy it strikes instead of knocking it back, and drags
-  every other enemy nearby onto it — a room gathered into one place for whatever
-  the rest of the board does next. Every one stacked drags as hard again, and
-  reaches a little further.
 - `PUSH` (its id is `KNOCKBACK`) throws the enemy it strikes on the way the attack was going:
   along a bolt's flight, out from a swing or a `NEAR`'s middle, down the line of a
   lunge. A hit on its own barely shifts anything; this throws an enemy standing
   its ground some five cells and one running at you back two, which buys room
   and can just as easily put it out of reach. Every one stacked throws as hard
-  again. With `GRAVITY` on the same board the struck enemy still flies, out of
-  the crowd being dragged in. Thrown into a wall still going hard — 260 pixels
+  again. Thrown into a wall still going hard — 260 pixels
   a second or more, which one `PUSH` does from up to about three cells
   off and two from up to twelve — it cracks the rock and is hurt by it, 10 at
   that speed and more the harder it hits, and stunned for 0.8s. One slam to a
-  throw; a hit with no `PUSH` never slams, nor does `GRAVITY`'s drag. The
+  throw; a hit with no `PUSH` never slams, nor does a `PULL`'s drag. The
   crack stays in the wall, wider the harder the slam: it does not fade, and it
   is still there when you walk back into the room — up to 24 a room, the
   oldest going first — until the raid is over or you leave the hideout.
@@ -620,10 +615,12 @@ giving it further to walk.
   enemy round it. Only those parts' effects reach them, not the blow: the
   weapon's damage lands on the enemy struck alone, and the ones round it are
   hurt only by a `DAMAGE` after the `NEAR`, burnt as hard as the blow burnt
-  the enemy struck, pushed or pulled from the middle. What comes before the
-  `NEAR` stays on the enemy struck, which takes the whole flow as ever. A
-  trigger after it goes off on the hit alone, and `POSSESS` and `GRAVITY`
-  stay with the enemy struck.
+  the enemy struck, pushed out from it by a `PUSH`, and dragged in to it by a
+  `PULL` — so `NEAR` and `PULL` gather the enemies round the one struck onto
+  it, which `GRAVITY` did before it was retired. What comes before the `NEAR`
+  stays on the enemy struck, which takes the whole flow as ever. A trigger
+  after it goes off on the hit alone, and `POSSESS` stays with the enemy
+  struck.
   On a flow with no form there is no blow and nobody struck, and the `NEAR`
   is the attack: everything round where the flow goes off is touched by what
   comes after it, its triggers going off on each — the Hopper's attack, the
@@ -660,8 +657,7 @@ giving it further to walk.
   second and a half, so no board can hold one for good.
 - `INVERT` turns round the part straight before it. `DAMAGE` heals the enemy
   struck instead; `FIRE`, `ICE` and `STUN` cleanse it of every burn, chill and
-  stun it was carrying; `GRAVITY` drives the room away from the impact instead
-  of gathering it; `PUSH` drags the struck enemy in as `PULL` does, and `PULL`
+  stun it was carrying; `PUSH` drags the struck enemy in as `PULL` does, and `PULL`
   throws it away as `PUSH` does; and `SIZE`, `SPEED` and `RANGE` make the attack as much less as they
   would have made it more. Only the one part before it is turned round: `FIRE`,
   `FIRE`, `INVERT` puts out whatever the enemy came burning with and sets it

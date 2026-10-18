@@ -48,13 +48,14 @@ func _ready() -> void:
 	# OUTPUT, which were those, are retired. So is DASH, which the player's own
 	# dash key and SWIFT STRIKE left with nothing to do, SPLIT and TEE, whose
 	# forks a trigger's branch does instead, REVERSE and BLINK, SUMMON BOLT,
-	# whose place KAMIKAZE took, and EXPLODE, whose place NEAR took.
+	# whose place KAMIKAZE took, EXPLODE, whose place NEAR took, and GRAVITY,
+	# which NEAR and PULL do between them.
 	var retired: Array = []
-	for id in ["INPUT", "OUTPUT", "WIRE", "BEND", "DASH", "SPLIT", "TEE", "REVERSE", "BLINK", "SUMMON_PROJECTILE", "EXPLODE"]:
+	for id in ["INPUT", "OUTPUT", "WIRE", "BEND", "DASH", "SPLIT", "TEE", "REVERSE", "BLINK", "SUMMON_PROJECTILE", "EXPLODE", "GRAVITY"]:
 		if Components.exists(id) or not Components.is_retired(id) or Components.code_of(id) < 0:
 			retired.append(id)
 	check(retired.is_empty(),
-		"INPUT, OUTPUT, WIRE, BEND, DASH, SPLIT, TEE, REVERSE, BLINK, SUMMON BOLT and EXPLODE are retired: each keeps its number, and is no part (%s)" % str(retired))
+		"INPUT, OUTPUT, WIRE, BEND, DASH, SPLIT, TEE, REVERSE, BLINK, SUMMON BOLT, EXPLODE and GRAVITY are retired: each keeps its number, and is no part (%s)" % str(retired))
 	check(Components.world_inputs("SLASH", 0) == [Components.S, Components.W, Components.N],
 		"no part is a source: every part takes flow on every side but its own outputs, the root's included")
 	var nowhere: Array = []

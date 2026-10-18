@@ -156,15 +156,15 @@ func _payloads() -> void:
 			{"op": "set", "field": "stun", "value": 1, "per_stack": 1.0},
 			{"op": "add", "field": "pierce", "value": 1, "per_stack": 0.5}]:
 		check(Components._effect(bad, shape) is String, "and a row that cannot grow that way is turned away (%s %s)" % [bad["op"], bad["field"]])
-	for row in [["PIERCE", "pierce"], ["HOMING", "homing"], ["GRAVITY", "pull"], ["KNOCKBACK", "knockback"],
+	for row in [["PIERCE", "pierce"], ["HOMING", "homing"], ["NEAR", "near"], ["KNOCKBACK", "knockback"], ["PULL", "hook"],
 			["MANA_DRAIN", "mana_drain"], ["HEALTH_DRAIN", "health_drain"], ["SHATTER", "shatter"]]:
 		var p := stacked("PROJECTILE", row[0], 3)
 		check(int(p.get(row[1])) == 3, "three %s are three (%s)" % [row[0], str(p.get(row[1]))])
 	var stun1 := stacked("SLASH", "STUN", 1)
 	var stun3 := stacked("SLASH", "STUN", 3)
 	check(is_equal_approx(stun3.stun, stun1.stun * 3.0), "three STUN hold three times as long (%.1fs)" % stun3.stun)
-	var push := payload_of(["SLASH", "GRAVITY", "GRAVITY", "INVERT"])
-	check(push.pull == 1 and push.repel == 1, "GRAVITY, GRAVITY, INVERT: one still drags and one pushes")
+	var push := payload_of(["SLASH", "KNOCKBACK", "KNOCKBACK", "INVERT"])
+	check(push.knockback == 1 and push.hook == 1, "PUSH, PUSH, INVERT: one still throws and one pulls")
 	# And the preview says how many, where the stack has no number of its own.
 	var says := Attacks.summary(stacked("PROJECTILE", "HOMING", 3))
 	check(says.contains(Loc.t("editor.payload.stacked", [Loc.t("editor.payload.homing"), 3])),
@@ -199,16 +199,18 @@ func _hits() -> void:
 		check((thrown.shove - nudged.shove).is_equal_approx(Vector2.RIGHT * Attacks.KNOCKBACK_FORCE * float(n)),
 			"%d KNOCKBACK throw %d times as hard" % [n, n])
 
-	# GRAVITY: the drag on a bystander 60px off.
+	# PULL: the drag on an enemy struck far from whoever struck it.
 	var drags: Array = []
 	for n: int in [1, 3]:
-		var hub := dummy(Vector2(0, 4000.0 + 2000.0 * n))
-		var by := dummy(hub.global_position + Vector2(60, 0))
-		Attacks.resolve_hit(stacked("SLASH", "GRAVITY", n), hub, hub.global_position, Vector2.RIGHT, null, null, 0)
-		drags.append(-by.shove.x)
-	check(drags[0] > 0.0 and drags[1] > drags[0] * 2.0,
-		"three GRAVITY drag far harder than one (%.0f against %.0f)" % [drags[1], drags[0]])
-	check(Attacks.pull_radius(3, 1.0) > Attacks.pull_radius(1, 1.0), "and reach a little further")
+		var by := dummy(Vector2(0, 4000.0 + 2000.0 * n))
+		by.team = 0
+		var reeled := dummy(by.global_position + Vector2(1400, 0))
+		Attacks.resolve_hit(stacked("SLASH", "PULL", n), reeled, reeled.global_position, Vector2.RIGHT, by, null, 0)
+		drags.append(-reeled.shove.x)
+	check(drags[0] > 0.0 and drags[1] > drags[0] * 1.5,
+		"three PULLs drag far harder than one (%.0f against %.0f)" % [drags[1], drags[0]])
+	check(Attacks.near_radius(stacked("SLASH", "NEAR", 3)) > Attacks.near_radius(stacked("SLASH", "NEAR", 1)),
+		"and three NEARs reach further than one")
 
 	# MANA DRAIN.
 	var caster := Player.new()

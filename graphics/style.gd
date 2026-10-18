@@ -62,7 +62,6 @@ const COMPONENT := {
 
 	"PIERCE": {"glyph": "⇢"},
 	"HOMING": {"glyph": "◈"},
-	"GRAVITY": {"glyph": "⤓"},
 	"KNOCKBACK": {"glyph": "↦"},
 	"PULL": {"glyph": "↤"},
 	"NEAR": {"glyph": "◌"},
@@ -307,15 +306,6 @@ const COMPONENT_ICON := {
 		"#....##",
 		"##..##.",
 		".#..#..",
-	],
-	"GRAVITY": [
-		"#######",
-		".#####.",
-		"..###..",
-		"...#...",
-		"...#...",
-		"...#...",
-		"...#...",
 	],
 	"KNOCKBACK": [
 		"#......",
@@ -635,15 +625,6 @@ const COMPONENT_MOTION := {
 		".#.#.#. ..#.#.. ...#... ..#.#..",
 		"..#.#.. ...#... ....... ...#...",
 		"...#... ....... ....... .......",
-	]},
-	"GRAVITY": {"fps": 8, "hold": [2, 1, 1, 1, 1], "strip": [
-		"####### ####### ####### ####### #######",
-		".#####. .#####. .#####. .#####. .#####.",
-		"..###.. ..###.. ..###.. ..###.. ..###..",
-		"...#... ...#... ....... ...#... .......",
-		"...#... ....... ...#... ....... ...#...",
-		"...#... ...#... ....... ...#... .......",
-		"...#... ....... ...#... ....... ...#...",
 	]},
 	"KNOCKBACK": {"fps": 10, "hold": [4, 1, 1, 1], "strip": [
 		"#...... #...... #...... #......",
@@ -1122,15 +1103,14 @@ const MODIFIER_COLOR := {
 static func modifier_color(id: String) -> Color:
 	return MODIFIER_COLOR.get(id, Color(0.85, 0.85, 0.9))
 
-## What the three parts that act at the moment of impact look like: frost
-## breaking, a field closing in, and mana coming back.
+## What the parts that act at the moment of impact look like: frost breaking,
+## and mana coming back.
 const SHATTER_SPARK := Color(0.72, 0.93, 1.0)
-const PULL_RING := Color(0.72, 0.6, 1.0, 0.8)
 const MANA_SPARK := Color(0.45, 0.62, 1.0)
 ## And the ones that land on the enemy struck: a stun (stars over its head, and
 ## the HUD's word when it is the player), what an INVERT turns the others into —
 ## health given back, green beside damage's white; a cleanse washing what was on
-## it off; a field thrown open rather than closed.
+## it off.
 const STUN_COLOR := Color(1.0, 0.9, 0.45)
 ## POSSESS: the ring round a monster the player is in, the time left on it, the
 ## word on the HUD, and the body left behind, dimmed while nobody is in it.
@@ -1138,7 +1118,6 @@ const POSSESS_COLOR := Color(0.78, 0.55, 1.0)
 const POSSESS_BODY := Color(0.62, 0.6, 0.75, 0.55)
 const HEAL_COLOR := Color(0.45, 0.95, 0.55)
 const CLEANSE_COLOR := Color(0.85, 0.97, 1.0)
-const REPEL_RING := Color(1.0, 0.78, 0.55, 0.8)
 
 const ELITE_RING := Color(1, 0.9, 0.5, 0.7)
 const AGGRO_DOT := Color(1, 0.4, 0.4, 0.9)

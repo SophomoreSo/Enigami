@@ -189,21 +189,20 @@ func _come_round() -> void:
 	stun_time = 0.0
 	stun_guard = STUN_GUARD
 
-## A push the world is putting on this actor — a knockback, GRAVITY's drag —
+## A push the world is putting on this actor — a PUSH, a PULL —
 ## kept apart from the motion the actor chooses for itself.
 ##
 ## Every body here assigns `velocity` outright each physics frame: a turret
 ## writes zero into it, a patroller writes its patrol speed, a runner walks it
 ## towards its quarry. A push added into `velocity` was therefore gone before it
-## had moved anything — a Sentry or a Lobber did not budge at all, and GRAVITY,
-## which is nothing but pushes, did nothing whatsoever. It has to live somewhere
+## had moved anything — a Sentry or a Lobber did not budge at all, and a drag
+## that is nothing but pushes did nothing whatsoever. It has to live somewhere
 ## the movement code does not write.
 var shove: Vector2 = Vector2.ZERO
 
 ## How fast a push bleeds off, in pixels per second per second. A shove reads as
-## something that lands and is then over: at this rate a full-strength GRAVITY
-## drag runs for about half a second and carries an enemy some seventy pixels,
-## a good part of the way in from the edge of the field.
+## something that lands and is then over: at this rate a push of three hundred
+## runs for about half a second and carries an enemy some seventy pixels.
 const SHOVE_DECAY := 620.0
 
 ## Below this there is no push left worth moving anything for.
@@ -219,7 +218,7 @@ const SHOVE_MIN := 8.0
 ##
 ## At this speed one KNOCKBACK on an ordinary hit slams into a wall up to about
 ## three cells away, and two up to twelve; a hit with no KNOCKBACK never does,
-## however hard, nor does GRAVITY's drag.
+## however hard, nor does a PULL's drag.
 const SLAM_SPEED := 260.0
 const SLAM_DAMAGE := 10.0
 const SLAM_STUN := 0.8

@@ -1,8 +1,8 @@
 extends Node
 ## What STUN, and what INVERT makes of the part before it, do once a hit lands:
 ## the enemy struck is healed, cleansed of every burn, chill and stun it was
-## carrying, stood still where it is; the room round the impact is driven off
-## it; the one struck is hauled back the way the attack came.
+## carrying, stood still where it is; the one struck is hauled back the way the
+## attack came.
 ##
 ## Driven through `Attacks.resolve_hit`, which is the one door every attack form
 ## goes through, against dummies and real monsters, the way impact_test is —
@@ -102,7 +102,6 @@ func _ready() -> void:
 	await _stunned_monster()
 	await _blocked()
 	await _from_the_board()
-	await _repel()
 	await _hook()
 	await _stunned_player()
 	print("[INVERT_HIT] ---- %d failures ----" % fails)
@@ -318,24 +317,7 @@ func _from_the_board() -> void:
 		"DAMAGE, INVERT landed: the blow a bare board lands, and DAMAGE's share given back (%.1f of 400)" % d.health)
 	d.queue_free()
 
-## --- repel and hook ------------------------------------------------------------
-
-## How far a `kind` travels in x over half a second while `p` lands 60px to
-## its left. Run with and without REPEL, the difference is the push alone.
-func push_travel(kind: String, p: Payload) -> float:
-	_plot += 1
-	var at := Vector2(0, float(_plot) * 4000.0)
-	var struck := dummy(at)
-	var m := monster(kind, at + Vector2(60, 0))
-	await frames(2)
-	m.global_position = at + Vector2(60, 0)
-	var x0: float = m.global_position.x
-	Attacks.resolve_hit(p, struck, struck.global_position, Vector2.RIGHT, null, null, 0)
-	await phys(30)
-	var moved: float = m.global_position.x - x0
-	struck.queue_free()
-	m.queue_free()
-	return moved
+## --- hook --------------------------------------------------------------------
 
 ## How far a `kind` travels in x over half a second after `p` strikes it, the
 ## attack going right — resolved `short` of the middle of it, the way a bolt's
@@ -354,22 +336,6 @@ func knock_travel(kind: String, p: Payload, short: float = 0.0) -> float:
 	var moved: float = m.global_position.x - x0
 	m.queue_free()
 	return moved
-
-func _repel() -> void:
-	var plain := hit()
-	var push := hit()
-	push.repel = 1
-	for kind in ["DUMMY", "CRAWLER", "LOBBER", "DRIFTER"]:
-		var driven: float = await push_travel(kind, push) - await push_travel(kind, plain)
-		check(driven > 20.0, "a %s 60px from a hit that repels is driven %.0fpx away from it" % [kind, driven])
-	# The one struck has the hit's own shove and nothing on top of it, wherever
-	# on it the hit landed. A bolt's lands a little short of the middle, which
-	# is the hard end of the push: counted among the driven, the enemy a bolt
-	# strikes would be thrown several times as far as one a swing does.
-	for kind in ["DUMMY", "CRAWLER"]:
-		var bolt: float = await knock_travel(kind, push, 12.0) - await knock_travel(kind, plain, 12.0)
-		check(absf(bolt) < 2.0,
-			"a %s struck by a bolt that repels goes no further than a plain bolt sends it (%.0fpx)" % [kind, bolt])
 
 func _hook() -> void:
 	var plain := hit()

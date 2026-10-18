@@ -92,8 +92,13 @@ INSERT INTO codes (code, id) VALUES
 -- the one struck. It had been AREA before it was EXPLODE, and was made over
 -- under its new name; a save old enough to spell it AREA reads with it left
 -- out, as one that spells it EXPLODE does now, and a code says its number.
+--
+-- GRAVITY pinned the enemy struck and dragged everything round it onto it.
+-- NEAR and PULL do that between them now: the ones round the enemy struck
+-- dragged in to it (`Attacks.resolve_hit`, a touch's `hook`).
 INSERT INTO retired_parts (id) VALUES ('WIRE'), ('BEND'), ('INPUT'), ('OUTPUT'), ('DASH'),
-	('SPLIT'), ('TEE'), ('REVERSE'), ('BLINK'), ('SUMMON_PROJECTILE'), ('EXPLODE');
+	('SPLIT'), ('TEE'), ('REVERSE'), ('BLINK'), ('SUMMON_PROJECTILE'), ('EXPLODE'),
+	('GRAVITY');
 
 -- DASHSLASH_AUTO, SWIFT STRIKE+, was SWIFT STRIKE with AUTO-AIM built into it:
 -- it lunged at the nearest enemy and through. AUTO-AIM is a part now, and does
@@ -221,7 +226,6 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 INSERT INTO parts (id, name, category, heat, description) VALUES
 	('PIERCE', 'PIERCE', 'projectile_behavior', 0.5, 'The attack passes through one enemy and carries on to the next. Each one stacked is one more enemy it passes through.'),
 	('HOMING', 'HOMING', 'projectile_behavior', 0.6, 'Tracks the nearest enemy. Bolts curve and find their way round walls; melee forms re-aim themselves. Each one stacked turns a bolt tighter, so it holds a winding path it would otherwise fly wide of.'),
-	('GRAVITY', 'GRAVITY', 'behavior', 0.7, 'The enemy struck is not knocked back but pinned, and every other enemy nearby is dragged onto it. Gathers a room into one place for whatever comes next. Each one stacked drags harder.'),
 	('KNOCKBACK', 'PUSH', 'behavior', 0.5, 'Hits throw the enemy back the way the attack was going. Thrown hard into a wall, it cracks the wall and is hurt and stunned. Buys room, but can put it out of reach. Each one stacked throws harder.'),
 	('PULL', 'PULL', 'behavior', 0.5, 'Hits drag the enemy toward whoever struck it, and it stops just short of them. Brings an enemy into reach, but brings it close. Each one stacked drags it from further off.'),
 	('MANA_DRAIN', 'MANA DRAIN', 'behavior', 0.5, 'Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting. Each one stacked drains more.'),
@@ -247,13 +251,12 @@ INSERT INTO parts (id, name, category, heat, tag, description) VALUES
 
 INSERT INTO ports (part_id, side) VALUES
 	('PIERCE', 'E'), ('HOMING', 'E'),
-	('GRAVITY', 'E'), ('KNOCKBACK', 'E'), ('PULL', 'E'), ('MANA_DRAIN', 'E'), ('HEALTH_DRAIN', 'E'),
+	('KNOCKBACK', 'E'), ('PULL', 'E'), ('MANA_DRAIN', 'E'), ('HEALTH_DRAIN', 'E'),
 	('STUN', 'E'), ('POSSESS', 'E'), ('AUTO_AIM', 'E'), ('ANTI_GRAVITY', 'E'), ('NEAR', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('PIERCE', 0, 'pierce', 'add', 1),
 	('HOMING', 0, 'homing', 'add', 1),
-	('GRAVITY', 0, 'pull', 'add', 1),
 	('KNOCKBACK', 0, 'knockback', 'add', 1),
 	('PULL', 0, 'hook', 'add', 1),
 	('MANA_DRAIN', 0, 'mana_drain', 'add', 1),
@@ -306,7 +309,7 @@ INSERT INTO parts (id, name, category, heat, description) VALUES
 	('OVERCLOCK', 'OVERCLOCK', 'flow', 0.0, 'Runs the whole board on a faster clock. Each one cuts the wait between casts by the same 5%; twelve bring it down to 40%, and it goes no lower. A flow goes through it without spending a tick.'),
 	('DELAY', 'DELAY', 'flow', 2.0, 'Makes every cast that passes through it wait longer before the next, and each one more adds as much again. It does nothing else: it turns a flow and leaves it as it was.'),
 	('TIME_DILATION', 'TIME DILATION', 'flow', 2.0, 'Slows the world and the board alike. Not a speed buff — a change in the pace of the fight.'),
-	('INVERT', 'INVERT', 'flow', 0.4, 'Turns the part right before it inside out: DAMAGE heals what it strikes, FIRE, ICE and STUN cleanse it, GRAVITY pushes away, PUSH pulls and PULL pushes, and SIZE, SPEED and RANGE shrink. After anything else it does nothing.'),
+	('INVERT', 'INVERT', 'flow', 0.4, 'Turns the part right before it inside out: DAMAGE heals what it strikes, FIRE, ICE and STUN cleanse it, PUSH pulls and PULL pushes, and SIZE, SPEED and RANGE shrink. After anything else it does nothing.'),
 	('BRIDGE', 'BRIDGE', 'flow', 0.0, 'Carries a flow one cell and does nothing else: it turns the flow and leaves it as it was. Steer a flow round to the way out with it, or walk a trigger''s branch round a ring and back.');
 
 INSERT INTO ports (part_id, side) VALUES
@@ -360,7 +363,6 @@ INSERT INTO inversions (part_id, position, field, op, value) VALUES
 	('FIRE', 0, 'cleanse', 'set', 'true'),
 	('ICE', 0, 'cleanse', 'set', 'true'),
 	('STUN', 0, 'cleanse', 'set', 'true'),
-	('GRAVITY', 0, 'repel', 'add', 1),
 	('KNOCKBACK', 0, 'hook', 'add', 1),
 	('PULL', 0, 'knockback', 'add', 1),
 	('SIZE', 0, 'size', 'multiply', 0.625),

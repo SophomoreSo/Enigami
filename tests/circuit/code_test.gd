@@ -390,9 +390,9 @@ func _ready() -> void:
 		"a code shared while EXPLODE was AREA still reads, with it left out (%s)" % shared["error"])
 	check(same_parts(_saved([["INPUT", 0, 2, 0], ["AREA", 1, 2, 0], ["OUTPUT", 3, 2, 0]]), _board([])),
 		"and a board saved with an AREA on it reads back without it")
-	check(same_parts(_saved([["SLASH", 0, 2, 0], ["EXPLODE", 1, 2, 0], ["FIRE", 2, 2, 0]]),
+	check(same_parts(_saved([["SLASH", 0, 2, 0], ["EXPLODE", 1, 2, 0], ["FIRE", 2, 2, 0], ["GRAVITY", 3, 2, 0]]),
 			_board([["SLASH", 0, 2, 0], ["FIRE", 2, 2, 0]])),
-		"as does one saved with an EXPLODE on it")
+		"as does one saved with an EXPLODE on it, or a GRAVITY")
 
 	# --- a board from before SWIFT STRIKE+ was made SWIFT STRIKE ------------
 	# It was SWIFT STRIKE with AUTO-AIM built in, in the same two cells. A save

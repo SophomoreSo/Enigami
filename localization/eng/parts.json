@@ -55,10 +55,6 @@
 		"name": "HOMING",
 		"desc": "Tracks the nearest enemy. Bolts curve and find their way round walls; melee forms re-aim themselves. Each one stacked turns a bolt tighter, so it holds a winding path it would otherwise fly wide of."
 	},
-	"GRAVITY": {
-		"name": "GRAVITY",
-		"desc": "The enemy struck is not knocked back but pinned, and every other enemy nearby is dragged onto it. Gathers a room into one place for whatever comes next. Each one stacked drags harder."
-	},
 	"KNOCKBACK": {
 		"name": "PUSH",
 		"desc": "Hits throw the enemy back the way the attack was going. Thrown hard into a wall, it cracks the wall and is hurt and stunned. Buys room, but can put it out of reach. Each one stacked throws harder."
@@ -109,7 +105,7 @@
 	},
 	"INVERT": {
 		"name": "INVERT",
-		"desc": "Turns the part right before it inside out: DAMAGE heals what it strikes, FIRE, ICE and STUN cleanse it, GRAVITY pushes away, PUSH pulls and PULL pushes, and SIZE, SPEED and RANGE shrink. After anything else it does nothing."
+		"desc": "Turns the part right before it inside out: DAMAGE heals what it strikes, FIRE, ICE and STUN cleanse it, PUSH pulls and PULL pushes, and SIZE, SPEED and RANGE shrink. After anything else it does nothing."
 	},
 	"ANTI_GRAVITY": {
 		"name": "ANTI-GRAVITY",

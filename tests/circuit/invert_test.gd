@@ -1,8 +1,8 @@
 extends Node
 ## INVERT: the part that turns the part straight before it inside out, by that
 ## part's rows of `inversions`. DAMAGE's damage becomes a heal of the enemy
-## struck, a burn, a chill or a stun a cleanse of it, GRAVITY's drag a push
-## away, KNOCKBACK's throw a haul back, and SIZE, SPEED and RANGE make the
+## struck, a burn, a chill or a stun a cleanse of it, KNOCKBACK's throw a pull
+## and PULL's pull a throw, and SIZE, SPEED and RANGE make the
 ## attack as much less as they would have made it more. A part with no opposite
 ## is left as it was.
 ##
@@ -112,7 +112,7 @@ func _rows() -> void:
 		if Components.effects_of(id).is_empty():
 			hollow.append(id)
 	check(hollow.is_empty(), "every part with an opposite does something for it to turn round (%s)" % str(hollow))
-	for id in ["DAMAGE", "FIRE", "ICE", "STUN", "GRAVITY", "KNOCKBACK", "PULL", "SIZE", "SPEED", "RANGE"]:
+	for id in ["DAMAGE", "FIRE", "ICE", "STUN", "KNOCKBACK", "PULL", "SIZE", "SPEED", "RANGE"]:
 		check(id in turned, "%s has an opposite" % id)
 	# Each number is its effect's turned round.
 	var heal := _value(Components.inversions_of("DAMAGE"), "add", &"heal")
@@ -133,7 +133,7 @@ func _rows() -> void:
 func _flips() -> void:
 	var plain := payload_of(["SLASH"])
 	check(plain != null and plain.heal == 0.0 and not plain.cleanse and plain.stun == 0.0
-			and not plain.repel and not plain.hook,
+			and not plain.hook,
 		"a board without them carries none of them")
 	if plain == null:
 		return
@@ -169,9 +169,6 @@ func _flips() -> void:
 	check(Array(mixed.elements) == ["ICE"] and mixed.cleanse,
 		"ICE, FIRE, INVERT: the FIRE goes and the ICE stays (%s)" % str(mixed.elements))
 
-	var push := payload_of(["SLASH", "GRAVITY", "INVERT"])
-	check(push.repel and not push.pull and differ(push, plain) == ["repel"],
-		"GRAVITY then INVERT: no drag, a push away instead (%s)" % str(differ(push, plain)))
 	var reel := payload_of(["SLASH", "KNOCKBACK", "INVERT"])
 	check(reel.hook and not reel.knockback and differ(reel, plain) == ["hook"],
 		"PUSH then INVERT: no throw, a pull instead (%s)" % str(differ(reel, plain)))

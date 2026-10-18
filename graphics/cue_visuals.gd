@@ -113,17 +113,8 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 			# Frost coming apart reads as shards, not as a bigger hit.
 			Fx.burst(pos, Style.SHATTER_SPARK, 10, 210.0)
 			Fx.shake(4.0)
-		&"pull":
-			# The ring is drawn at the reach the pull actually had, so what it
-			# gathered and what the player saw are the same circle.
-			Fx.ring(pos, Style.PULL_RING, float(d.get("radius", 150.0)))
-			Fx.shake(3.5)
 		&"mana_drain":
 			Fx.burst(pos, Style.MANA_SPARK, 4, 90.0)
-		&"repel":
-			# GRAVITY's ring turned round: the same reach, thrown open.
-			Fx.ring(pos, Style.REPEL_RING, float(d.get("radius", 150.0)))
-			Fx.shake(3.5)
 		&"stun":
 			Fx.burst(pos + Vector2(0, -18), Style.STUN_COLOR, 6, 70.0)
 		&"cleanse":
