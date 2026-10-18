@@ -7,7 +7,8 @@ extends Control
 ## down the right the node picked, after Blender's properties — it starts
 ## with nothing, + PROPERTY adds what it needs (a line, an expression, a
 ## motion for its letters, an action, answers), and each is a panel that
-## folds shut by its head and comes off by its cross; down the left what the
+## comes up folded shut — its head alone, which opens it and shuts it again —
+## and comes off by its cross; down the left what the
 ## story is set on and how it is played; and along the top the story's name
 ## and what is done with it — SAVE, LOAD, NEW, a node put in, PLAY.
 ##
@@ -103,9 +104,11 @@ var _inspect_scroll: ScrollContainer
 ## words.
 var _text: LineEdit = null
 var _answer_edits: Array = []
-## The properties folded shut, by "<node>:<kind>" — an action's by
-## "<node>:action:<place>". The desk's own, and no part of the story.
-var _folded: Dictionary = {}
+## The properties folded open, by "<node>:<kind>" — an action's by
+## "<node>:action:<place>". Every other is shut: a node's properties come up
+## folded, a head each, and are opened one at a time. The desk's own, and no
+## part of the story.
+var _open: Dictionary = {}
 ## Whether the list of properties to add is open under + PROPERTY.
 var _adding: bool = false
 var _name: LineEdit
@@ -374,7 +377,7 @@ func _property(key: String, title: String, remove: Callable, has_words: Callable
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 4)
 	column.add_child(head)
-	var shut := _folded.has(key)
+	var shut := not _open.has(key)
 	var fold := _button(title, UiKit.ACCENT)
 	fold.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	fold.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -386,9 +389,9 @@ func _property(key: String, title: String, remove: Callable, has_words: Callable
 			Color.WHITE if fold.is_hovered() else UiKit.TEXT))
 	fold.pressed.connect(func() -> void:
 		if shut:
-			_folded.erase(key)
+			_open[key] = true
 		else:
-			_folded[key] = true
+			_open.erase(key)
 		_fill_inspect()
 		Audio.play("ui"))
 	head.add_child(fold)
@@ -408,7 +411,7 @@ func _drop(key: String, remove: Callable, has_words: Callable) -> void:
 		Audio.play("ui")
 		return
 	_armed = ""
-	_folded.erase(key)
+	_open.erase(key)
 	remove.call()
 	_fill_inspect()
 	_sheet.queue_redraw()
@@ -421,7 +424,8 @@ func _add_property(id: String, kind: String) -> void:
 	_adding = false
 	if at < 0:
 		return
-	_folded.erase("%s:action:%d" % [id, at] if kind == "action" else "%s:%s" % [id, kind])
+	# The one just added opens, to be filled in; the rest stay as they were.
+	_open["%s:action:%d" % [id, at] if kind == "action" else "%s:%s" % [id, kind]] = true
 	_fill_inspect()
 	_sheet.queue_redraw()
 	var typed: Control = null
@@ -567,15 +571,16 @@ func _action_panel(id: String, i: int) -> void:
 				_set_action(id, i, "dir", StoryMaker.DIRS[(StoryMaker.DIRS.find(dir) + 1) % StoryMaker.DIRS.size()]))
 			what.add_child(dir_button)
 
-## Takes action `i` off node `id`, and moves the folds of those after it down
-## a place with them.
+## Takes action `i` off node `id`, and moves which of those after it are open
+## down a place with them.
 func _drop_action(id: String, i: int) -> void:
 	var n := maker.actions_of(id).size()
 	maker.remove_action(id, i)
+	_open.erase("%s:action:%d" % [id, i])
 	for j in range(i + 1, n):
-		if _folded.has("%s:action:%d" % [id, j]):
-			_folded.erase("%s:action:%d" % [id, j])
-			_folded["%s:action:%d" % [id, j - 1]] = true
+		if _open.has("%s:action:%d" % [id, j]):
+			_open.erase("%s:action:%d" % [id, j])
+			_open["%s:action:%d" % [id, j - 1]] = true
 
 ## ANSWERS: each answer's words, where it leads, and a cross for that one; and
 ## a way to give the question another.
@@ -762,7 +767,7 @@ func _took() -> void:
 	selected = maker.start
 	_armed = ""
 	_adding = false
-	_folded.clear()
+	_open.clear()
 	_frame_nodes()
 	_refresh()
 	_fill_inspect()
@@ -1174,8 +1179,10 @@ func _disarm() -> void:
 ## The return key on a line's words: the next node, with a line said by
 ## whoever's turn it is, put in after it and led to, picked, and the keyboard
 ## on its words — so a conversation is written straight on, a return a line.
+## Its line comes up open, as one added with + PROPERTY does, to be typed in.
 func _next_line() -> void:
 	var id := maker.add_node_after(selected, true)
+	_open[id + ":line"] = true
 	_pick(id)
 	_show(id)
 	if _text != null:

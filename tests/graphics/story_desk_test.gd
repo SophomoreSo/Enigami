@@ -357,11 +357,12 @@ func _the_sheet() -> void:
 	check(maker.next_of("2") == "3" and desk.selected == "2", "and led there again, the node it comes from picked")
 	# A click on a node picks it.
 	await click(node_centre("1"))
-	check(desk.selected == "1" and desk._text != null and desk._text.text == maker.text_of("1"), "a click on a node picks it, and its words are up")
+	check(desk.selected == "1" and desk._text != null and desk._text.text == maker.text_of("1"),
+		"a click on a node picks it, and its words are up: its line was opened when it was added")
 	check(maker.unsaved, "and the story has something to save")
 
-## The node picked, given properties one at a time in the inspector: added,
-## set, folded shut and open, taken off.
+## The node picked, given properties one at a time in the inspector: added —
+## open, to be filled in — set, folded shut and open, taken off.
 func _the_inspector() -> void:
 	await click(node_centre("3"))
 	check(desk.selected == "3" and panels().is_empty(), "node 3 is picked, with no properties")
@@ -378,11 +379,11 @@ func _the_inspector() -> void:
 	check(maker.effect_of("3") == "shake" and inspect_button(Loc.t("hud.story.effect.shake")).disabled, "and the motion picked")
 	# Folded shut by its head, and open again.
 	await click_on_scrolled(inspect_button(Loc.t("hud.story.property.effect")))
-	check(desk._folded.has("3:effect") and inspect_button(Loc.t("hud.story.effect.shake")) == null and maker.effect_of("3") == "shake"
+	check(not desk._open.has("3:effect") and inspect_button(Loc.t("hud.story.effect.shake")) == null and maker.effect_of("3") == "shake"
 			and panels().size() == 2,
 		"a panel's head folds it shut, and what it holds is kept")
 	await click_on_scrolled(inspect_button(Loc.t("hud.story.property.effect")))
-	check(not desk._folded.has("3:effect") and inspect_button(Loc.t("hud.story.effect.shake")) != null, "and open again")
+	check(desk._open.has("3:effect") and inspect_button(Loc.t("hud.story.effect.shake")) != null, "and open again")
 	# Its cross takes it off at once: it holds no words.
 	await click_on_scrolled(cross_of(Loc.t("hud.story.property.effect")))
 	check(not maker.has_property("3", "effect") and panels().size() == 1, "the cross on its head takes it off the node, at once")
@@ -482,6 +483,9 @@ func _settings() -> void:
 	desk._npc_name.text = "Tinker"
 	desk._npc_name.text_changed.emit("Tinker")
 	await frames(1)
+	# Who says the line is on its panel, which is to be open to be read.
+	if inspect_button("TINKER") == null and inspect_button(Loc.t("hud.story.property.line")) != null:
+		await click_on_scrolled(inspect_button(Loc.t("hud.story.property.line")))
 	check(maker.npc_name == "Tinker" and inspect_button("TINKER") != null,
 		"the character's name typed in the column is the story's, and the inspector says it")
 	desk._player_name.text = "You"
@@ -544,8 +548,15 @@ func _keeping() -> void:
 	desk._load("desk_story")
 	await frames(3)
 	check(desk._popup == null and maker.story_id == "desk_story" and desk._name.text == "desk_story"
-			and maker.node_count() == 2 and desk.selected == maker.start and desk._text != null and desk._npc_name.text == maker.npc_name,
+			and maker.node_count() == 2 and desk.selected == maker.start and desk._npc_name.text == maker.npc_name,
 		"a story picked from the list is put on the desk under its name with its start picked, and the list goes")
+	check(desk._open.is_empty() and desk._text == null and not panels().is_empty()
+			and panels().size() == maker.properties_of(maker.start).size(),
+		"its properties come up folded shut, a head each (%d)" % panels().size())
+	await click_on_scrolled(inspect_button(Loc.t("hud.story.property.line")))
+	check(desk._open.has(maker.start + ":line") and desk._text != null and desk._text.text == maker.text_of(maker.start)
+			and panels().size() == maker.properties_of(maker.start).size(),
+		"a press on a head opens that one, and its words are up")
 
 ## Each of the three ways, from PLAY, and back from each.
 func _playing() -> void:
@@ -623,7 +634,8 @@ func _leaving() -> void:
 
 ## In the other language and in mobile mode the desk is built again, and
 ## still fits: nothing wider than the bar, the columns their own widths and no
-## taller than the screen, and the nodes still on it with the start picked.
+## taller than the screen, and the nodes still on it with the start picked —
+## its properties folded shut, as a desk built afresh has them.
 func _both_ways() -> void:
 	for lang in Loc.languages():
 		for thumb in [false, true]:
@@ -641,9 +653,9 @@ func _both_ways() -> void:
 				"the inspector is its own width, and nothing in it wants more (%s: %.0f)" % [how, desk._inspect_rows.get_combined_minimum_size().x])
 			check(is_equal_approx(desk._sheet.position.x, StoryDesk.SIDE_W) and desk._sheet.size.x > 0.0 and desk._sheet.size.y > 0.0,
 				"and the sheet has the rest (%s: %s)" % [how, str(desk._sheet.get_rect())])
-			check(maker.node_count() == 2 and desk.selected == maker.start and desk._text != null and desk._text.text == maker.text_of(maker.start)
-					and desk._npc_name.text == maker.npc_name,
-				"with the nodes still on it, the start picked, and the names (%s)" % how)
+			check(maker.node_count() == 2 and desk.selected == maker.start and desk._npc_name.text == maker.npc_name
+					and panels().size() == maker.properties_of(maker.start).size() and desk._text == null,
+				"with the nodes still on it, the start picked, its properties folded shut as they come up, and the names (%s)" % how)
 	Touch.set_mode(Touch.OFF)
 	Loc.set_language(Loc.DEFAULT)
 	await frames(4)
