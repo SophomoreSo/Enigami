@@ -431,18 +431,23 @@ static func _near_here(p: Payload, pos: Vector2, team: int, atk: Actor, room) ->
 	t.on_hit = p.on_hit
 	t.on_kill = p.on_kill
 	t.on_parry = p.on_parry
-	_go_off(t, pos, near_radius(p), team, atk, room, null, &"near")
+	_go_off(t, pos, near_radius(p), team, atk, room, null, &"near", atk is Player)
 
 ## NEAR on a hit: the enemies round the one `struck` at `pos` are touched by
 ## what came after it on the flow — not the enemy struck again, which has taken
 ## the whole of it — what they carry landing as hard as the blow did, `dealt`.
+##
+## A NEAR the player cast touches the player too, standing in its reach: what
+## came after it lands on them as on an enemy — a HEAL heals them, a FIRE burns
+## them. A monster's NEAR spares the monster that cast it.
 static func _near(p: Payload, struck: Actor, pos: Vector2, dealt: float, atk: Actor, room, team: int) -> void:
-	_go_off(_touching(p, dealt, struck.global_position), pos, near_radius(p), team, atk, room, struck, &"near")
+	_go_off(_touching(p, dealt, struck.global_position), pos, near_radius(p), team, atk, room, struck, &"near",
+		atk is Player)
 
 ## A ring of `p` opening at `pos` out to `radius`, round `spared` if it is
 ## given one, landing on everything it reaches, and heard and seen as `cue`.
 static func _go_off(p: Payload, pos: Vector2, radius: float, team: int, atk: Actor, room,
-		spared: Actor = null, cue: StringName = &"area_blast") -> void:
+		spared: Actor = null, cue: StringName = &"area_blast", hits_self: bool = false) -> void:
 	var w := container()
 	if w == null or not is_instance_valid(w):
 		return
@@ -452,6 +457,7 @@ static func _go_off(p: Payload, pos: Vector2, radius: float, team: int, atk: Act
 		room = null
 	var n := AreaBurst.new()
 	n.setup(p, pos, team, atk, room, radius, spared)
+	n.hits_self = hits_self and atk != null
 	w.add_child(n)
 	Cues.at(cue, pos, {"payload": p})
 
@@ -749,7 +755,9 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 	TimeCtl.hitstop(CHAIN_HITSTOP if p.follow_up else HITSTOP)
 
 	var killed := target.dead
-	if killed and atk != null and atk.team == 0:
+	# The player brought down by their own NEAR or their own thrown stone is no
+	# kill of theirs.
+	if killed and atk != null and atk.team == 0 and target.team != 0:
 		GameState.register_kill()
 	Cues.at(&"hit", pos, {"payload": p, "killed": killed, "target_team": target.team})
 

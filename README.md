@@ -78,6 +78,7 @@ godot res://tests/graphics/glass_test.tscn  # glass: what is behind clear glass 
 godot res://tests/graphics/bolt_view_test.tscn # a bolt's trail: the gaps between its beads drawn in, and a laser's beam from the muzzle
 godot res://tests/graphics/rock_view_test.tscn # the rock, drawn: a stone of the game's own and not the pack's morning star, held upright, turning over in the air, and marked where it lies
 godot res://tests/feature/impact_test.tscn  # PUSH, PULL, NEAR, SHATTER and MANA DRAIN, at the moment a hit lands
+godot res://tests/feature/self_hit_test.tscn # what strikes the player who made it: their own NEAR, and their own rock or rune once clear of their hand
 godot res://tests/feature/heal_test.tscn    # HEAL: what the attack strikes healed after the blow, never one it killed, and turned to damage by INVERT
 godot res://tests/feature/summon_test.tscn  # SUMMON PET's pet following, one to a summoner, with OFFENSIVE going for an enemy, and with KAMIKAZE blowing itself up against one
 godot res://tests/feature/slam_test.tscn    # PUSH into a wall: cracked, hurt and stunned past a speed, and nothing under it
@@ -441,7 +442,10 @@ walk over it where it came down and pick it back up, the rock casts nothing,
 charges nothing, and says NO ROCK when you reach for it — unless its graph does
 nothing but punch (below), which needs no rock. A copy of it that the
 same cast sends — the rest of a `DUPLICATE` volley, a lap that comes round
-after it has gone — strikes as it does and is gone when it lands. A rock left
+after it has gone — strikes as it does and is gone when it lands. Any of them,
+the rune's too, strikes you as well once it has been clear of your hand: never
+on the way out of it, but a throw that comes round to you, or that you step in
+front of, lands on you as on an enemy. A rock left
 in a room stays in that room, and is there when you come back for it. Your
 hands in a monster (`POSSESS`) pick it up and throw it as your own do;
 stepping out, the monster lets it fall where it stands. A monster with its own
@@ -635,6 +639,11 @@ giving it further to walk.
   round only with one of its own. `NEAR` took the place of `EXPLODE`, which
   burst every hit on everything round it; a board or a code with an `EXPLODE`
   on it reads with it left out.
+  A `NEAR` you cast touches you too, if you stand in its reach — round the
+  enemy you struck up close, or round you with no form on the flow: what comes
+  after it lands on you as on them, so `NEAR`, `HEAL` heals you, and a
+  `FIRE` after a `NEAR` burns you. A monster's `NEAR` spares the monster that
+  cast it. Brought down by your own, you are no kill of yours.
 - `SHATTER` breaks the frost on an enemy already slowed by it: the hit lands
   far harder — x2.5 for one `SHATTER`, x4 for two, x5.5 for three — and the
   enemy thaws, so there is one break to a chill. It never shatters the chill

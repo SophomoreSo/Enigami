@@ -9,7 +9,9 @@ extends Node2D
 ## rock — and it does not fade when it is done: it comes down off whatever it
 ## struck, or out of the end of its throw, and lies where it lands for whoever
 ## threw it to pick back up (`LooseRock`). The rest of a volley it went out in
-## are copies of it, and those go the way any bolt does.
+## are copies of it, and those go the way any bolt does. Any of them — the rock
+## or the rune, the weapon or a copy — strikes whoever threw it as well, once it
+## has been clear of their hand (`_struck_by`).
 ##
 ## Off a stacked weapon (`Weapons.is_stacked`) every bolt of a volley is one of
 ## the stack — a shuriken — and it does not fade either: it sticks where it
@@ -107,6 +109,12 @@ var _travelled: float = 0.0
 var thrown: String = ""
 var thrower: Player = null
 var ghost: bool = false
+## Whether a thrown bolt has been clear of whoever threw it yet. Till then it
+## cannot strike them: it starts in their hand.
+var _left_thrower: bool = false
+## How far clear of its thrower a thrown bolt has to have been before it can
+## strike them, past where the two would touch.
+const LEAVE_MARGIN := 6.0
 ## The stacked weapon this bolt is one of, or "": the shuriken, which sticks
 ## where it ends rather than fading. `thrower` is whose it is.
 var sticks: String = ""
@@ -320,7 +328,7 @@ func _sample() -> bool:
 		queue_free()
 		return true
 
-	for a in Attacks.targets(team):
+	for a in _struck_by():
 		if _hit.has(a):
 			continue
 		if global_position.distance_to(a.global_position) <= radius + a.hurt_radius:
@@ -340,6 +348,19 @@ func _sample() -> bool:
 				queue_free()
 				return true
 	return false
+
+## What this bolt can strike: the other side, and — off a thrown weapon, the
+## rock or the rune, once it has been clear of them — whoever threw it.
+func _struck_by() -> Array:
+	var out := Attacks.targets(team)
+	if thrown == "" or thrower == null or not is_instance_valid(thrower) or thrower.dead:
+		return out
+	if not _left_thrower:
+		if global_position.distance_to(thrower.global_position) > radius + thrower.hurt_radius + LEAVE_MARGIN:
+			_left_thrower = true
+		return out
+	out.append(thrower)
+	return out
 
 func _expire() -> void:
 	if is_rock():
