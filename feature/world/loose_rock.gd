@@ -149,7 +149,8 @@ func _fly(delta: float) -> void:
 func _strike() -> void:
 	var reached := Attacks.targets(_team)
 	if _at_thrower and thrower != null and is_instance_valid(thrower) and not thrower.dead:
-		reached.append(thrower)
+		# The Arena's list is not ours to add to.
+		reached = reached + [thrower]
 	for a in reached:
 		if _hit.has(a) or not is_instance_valid(a):
 			continue

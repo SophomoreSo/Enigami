@@ -334,6 +334,7 @@ func piloted() -> bool:
 func take_pilot(p: Player) -> void:
 	pilot = p
 	team = 0
+	Arena.sides_changed()
 	revealed = false
 	attacking = false
 	aggro = false
@@ -350,6 +351,7 @@ func take_pilot(p: Player) -> void:
 func release_pilot(stun_for: float) -> void:
 	pilot = null
 	team = 1
+	Arena.sides_changed()
 	revealed = false
 	attacking = false
 	aggro = false
@@ -404,18 +406,19 @@ func _hunts(a) -> bool:
 func _nearest_quarry(noticed: bool = false) -> Actor:
 	var best: Actor = null
 	var best_d := INF
-	for group in ["player", "enemies"]:
-		for a in get_tree().get_nodes_in_group(group):
-			if not _hunts(a):
-				continue
-			var at := (a as Actor).global_position
-			var d := global_position.distance_to(at)
-			if d >= best_d:
-				continue
-			if noticed and (d > float(def["aggro"]) or not _sees(at) or not _faces(at)):
-				continue
-			best_d = d
-			best = a
+	# Off the Arena's list rather than a walk of two groups, which every monster
+	# did up to twice a frame.
+	for a in Arena.actors():
+		if not _hunts(a):
+			continue
+		var at := (a as Actor).global_position
+		var d := global_position.distance_to(at)
+		if d >= best_d:
+			continue
+		if noticed and (d > float(def["aggro"]) or not _sees(at) or not _faces(at)):
+			continue
+		best_d = d
+		best = a
 	return best
 
 ## What it is after. Having noticed something it keeps after it — unless

@@ -5,15 +5,13 @@ extends RefCounted
 ## hits those things cause (including trigger payloads).
 
 ## Every living actor that `team` is allowed to hurt.
+## Every actor something of `team` can strike: the ones not on its side,
+## alive. The Arena keeps the list (`Arena.against`), so this is a lookup and
+## not a walk of the tree; it is the Arena's list, so read it and do not
+## change it — one that wants its thrower or its caster besides adds them to a
+## copy of its own.
 static func targets(team: int) -> Array:
-	var out: Array = []
-	var tree := Engine.get_main_loop() as SceneTree
-	if tree == null:
-		return out
-	for a in tree.get_nodes_in_group("actors"):
-		if a is Actor and not a.dead and a.team != team:
-			out.append(a)
-	return out
+	return Arena.against(team)
 
 static func nearest_target(pos: Vector2, team: int, max_dist: float = 1e9) -> Actor:
 	var best: Actor = null
