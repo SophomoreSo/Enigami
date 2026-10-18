@@ -112,7 +112,7 @@ func _rows() -> void:
 		if Components.effects_of(id).is_empty():
 			hollow.append(id)
 	check(hollow.is_empty(), "every part with an opposite does something for it to turn round (%s)" % str(hollow))
-	for id in ["DAMAGE", "FIRE", "ICE", "STUN", "GRAVITY", "KNOCKBACK", "SIZE", "SPEED", "RANGE"]:
+	for id in ["DAMAGE", "FIRE", "ICE", "STUN", "GRAVITY", "KNOCKBACK", "PULL", "SIZE", "SPEED", "RANGE"]:
 		check(id in turned, "%s has an opposite" % id)
 	# Each number is its effect's turned round.
 	var heal := _value(Components.inversions_of("DAMAGE"), "add", &"heal")
@@ -174,7 +174,13 @@ func _flips() -> void:
 		"GRAVITY then INVERT: no drag, a push away instead (%s)" % str(differ(push, plain)))
 	var reel := payload_of(["SLASH", "KNOCKBACK", "INVERT"])
 	check(reel.hook and not reel.knockback and differ(reel, plain) == ["hook"],
-		"KNOCKBACK then INVERT: no throw, a haul back instead (%s)" % str(differ(reel, plain)))
+		"PUSH then INVERT: no throw, a pull instead (%s)" % str(differ(reel, plain)))
+	var pulled := payload_of(["SLASH", "PULL"])
+	check(pulled.hook == reel.hook and differ(pulled, plain) == ["hook"],
+		"PULL is what an INVERT makes of PUSH (%s)" % str(differ(pulled, plain)))
+	var thrown := payload_of(["SLASH", "PULL", "INVERT"])
+	check(thrown.knockback and not thrown.hook and differ(thrown, plain) == ["knockback"],
+		"PULL then INVERT: no pull, a throw instead (%s)" % str(differ(thrown, plain)))
 
 	var grow := _value(Components.effects_of("SIZE"), "multiply", &"size")
 	var small := payload_of(["SLASH", "SIZE", "INVERT"])

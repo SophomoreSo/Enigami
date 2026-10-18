@@ -152,6 +152,23 @@ const PULL_REACH_PER := 0.25
 ## enemy cracks it and is hurt and stunned (`Actor.SLAM_SPEED`).
 const KNOCKBACK_FORCE := 300.0
 
+## PULL — and what an INVERT makes of KNOCKBACK, which is the same: how far
+## short of whoever struck it the enemy dragged in stops, about a body apart.
+const HOOK_SHORT := 28.0
+
+## The shove every hit gives the enemy it strikes, along the attack, before
+## anything on the flow adds to it or takes its place.
+static func hit_shove(p: Payload) -> float:
+	return 120.0 + p.damage * 2.0
+
+## How hard `p`'s PULL drags, toward whoever struck: as hard as KNOCKBACK throws
+## — the hit's own shove and KNOCKBACK_FORCE for every one stacked — and no
+## harder than carries the enemy `far`, the gap to HOOK_SHORT of them, before
+## the push bleeds off (`Actor.SHOVE_DECAY`): it ends up nearer them, never past.
+static func hook_force(p: Payload, far: float) -> float:
+	var strength := hit_shove(p) + KNOCKBACK_FORCE * float(p.hook)
+	return minf(strength, sqrt(2.0 * Actor.SHOVE_DECAY * maxf(far, 0.0)))
+
 ## EXPLODE. How far a burst reaches at size 1, and how much further every
 ## EXPLODE stacked past the first carries it: the burst is what the part is
 ## for, so a wider one is what stacking it buys. A hit's burst and the one a
@@ -662,7 +679,7 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 	if p.pull:
 		_pull(p, pos, team)
 	elif not p.hook:
-		target.knockback(dir, 120.0 + p.damage * 2.0)
+		target.knockback(dir, hit_shove(p))
 	# KNOCKBACK throws the struck enemy on the way the attack was going, which is
 	# the `dir` every form hands in: along a bolt's flight, out from a swing or a
 	# blast, down the line of a lunge. It adds to whatever the hit did above,
@@ -672,11 +689,20 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 	# slam is the thrower's side's.
 	if p.knockback:
 		target.knockback(dir, KNOCKBACK_FORCE * float(p.knockback), team)
-	# What an INVERT made of KNOCKBACK: the struck enemy is hauled back the way
-	# the attack came, as hard as KNOCKBACK throws it on — and in place of the
-	# shove every hit gives (above), or a heavy blow's would cancel the pull.
+	# PULL, and what an INVERT made of KNOCKBACK: the struck enemy is dragged
+	# toward whoever struck it, as hard as KNOCKBACK throws it on but never past
+	# them (`hook_force`) — in place of the shove every hit gives (above), or a
+	# heavy blow's would cancel the pull. With nobody to drag it to, it is
+	# hauled back the way the attack came.
 	if p.hook:
-		target.knockback(-dir, KNOCKBACK_FORCE * float(p.hook))
+		var to := -dir
+		var far := INF
+		if atk != null:
+			var gap := atk.global_position - target.global_position
+			if gap.length() > 0.01:
+				to = gap.normalized()
+			far = gap.length() - HOOK_SHORT
+		target.knockback(to, hook_force(p, far))
 	# And of GRAVITY: everything round the impact is driven off it.
 	if p.repel:
 		_repel(p, target, pos, team)

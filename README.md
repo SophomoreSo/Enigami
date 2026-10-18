@@ -77,9 +77,9 @@ godot res://tests/graphics/lighting_test.tscn # the light: the world drawn for i
 godot res://tests/graphics/glass_test.tscn  # glass: what is behind clear glass seen through it, what is in front of a mirror shown in it, upside down or turned round, and the map creator's
 godot res://tests/graphics/bolt_view_test.tscn # a bolt's trail: the gaps between its beads drawn in, and a laser's beam from the muzzle
 godot res://tests/graphics/rock_view_test.tscn # the rock, drawn: a stone of the game's own and not the pack's morning star, held upright, turning over in the air, and marked where it lies
-godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
+godot res://tests/feature/impact_test.tscn  # GRAVITY, PUSH, PULL, SHATTER and MANA DRAIN, at the moment a hit lands
 godot res://tests/feature/summon_test.tscn  # SUMMON PET's pet following, one to a summoner, with OFFENSIVE going for an enemy, and with KAMIKAZE blowing itself up against one
-godot res://tests/feature/slam_test.tscn    # KNOCKBACK into a wall: cracked, hurt and stunned past a speed, and nothing under it
+godot res://tests/feature/slam_test.tscn    # PUSH into a wall: cracked, hurt and stunned past a speed, and nothing under it
 godot res://tests/graphics/crack_test.tscn  # the crack a slam leaves: it stays, it is the room's, and it is there again when the room is walked back into
 godot res://tests/feature/stack_test.tscn   # parts stack: what each one more is worth, where a part stops, laser speed, and HOMING round a wall
 godot res://tests/feature/invert_hit_test.tscn # a stun, a heal, a cleanse, a push away and a haul back, as they land
@@ -512,7 +512,7 @@ giving it further to walk.
   one are worth more than one, and a ring that walks a flow through a part lap
   after lap stacks it once a lap. `DAMAGE` is worth more each time: the first
   adds 8, the next 12, the next 16. The parts that used to be a switch are a
-  count now — `HOMING`, `GRAVITY`, `KNOCKBACK`, `SHATTER`, `MANA DRAIN` — and
+  count now — `HOMING`, `GRAVITY`, `PUSH`, `SHATTER`, `MANA DRAIN` — and
   do the same thing harder for a higher one, and the graph's line in the
   editor says how many (`homing x3`).
   Some parts stop. A part's limit is how many of it one flow can stack
@@ -572,20 +572,27 @@ giving it further to walk.
   every other enemy nearby onto it — a room gathered into one place for whatever
   the rest of the board does next. Every one stacked drags as hard again, and
   reaches a little further.
-- `KNOCKBACK` throws the enemy it strikes on the way the attack was going:
+- `PUSH` (its id is `KNOCKBACK`) throws the enemy it strikes on the way the attack was going:
   along a bolt's flight, out from a swing or an `EXPLODE`, down the line of a
   lunge. A hit on its own barely shifts anything; this throws an enemy standing
   its ground some five cells and one running at you back two, which buys room
   and can just as easily put it out of reach. Every one stacked throws as hard
   again. With `GRAVITY` on the same board the struck enemy still flies, out of
   the crowd being dragged in. Thrown into a wall still going hard — 260 pixels
-  a second or more, which one `KNOCKBACK` does from up to about three cells
+  a second or more, which one `PUSH` does from up to about three cells
   off and two from up to twelve — it cracks the rock and is hurt by it, 10 at
   that speed and more the harder it hits, and stunned for 0.8s. One slam to a
-  throw; a hit with no `KNOCKBACK` never slams, nor does `GRAVITY`'s drag. The
+  throw; a hit with no `PUSH` never slams, nor does `GRAVITY`'s drag. The
   crack stays in the wall, wider the harder the slam: it does not fade, and it
   is still there when you walk back into the room — up to 24 a room, the
   oldest going first — until the raid is over or you leave the hideout.
+- `PULL` is `PUSH` turned round: the enemy it strikes is dragged toward
+  whoever struck it — you, or the monster that hit you — as hard as `PUSH`
+  would have thrown it away, and it stops about a body short of them, never
+  past. One drags an enemy standing its ground in from some five cells off;
+  every one stacked drags it from further, still stopping short. It takes the
+  place of the shove every hit gives, so the enemy comes in rather than
+  flinching back first. A pulled enemy slams into nothing.
 - `ANTI-GRAVITY` takes the weight off a bolt: a lobbed or thrown shot — a
   Lobber's, a weapon's that arcs — flies straight instead. One is all it
   takes; more do no more.
@@ -608,7 +615,7 @@ giving it further to walk.
   with it left out.
 - `EXPLODE` bursts every hit. The enemy an attack strikes is the middle of a
   blast that lands the same hit on everything round it — its damage, its
-  elements, its `STUN`, a `KNOCKBACK` out from the middle — though not on that
+  elements, its `STUN`, a `PUSH` out from the middle — though not on that
   enemy again, which has just taken it. The blast does not set off the hit's
   triggers: its `ON HIT` goes off once, on the hit itself. Every one stacked
   makes the blast wider: two reach half as far again as one, three twice as
@@ -647,8 +654,8 @@ giving it further to walk.
 - `INVERT` turns round the part straight before it. `DAMAGE` heals the enemy
   struck instead; `FIRE`, `ICE` and `STUN` cleanse it of every burn, chill and
   stun it was carrying; `GRAVITY` drives the room away from the impact instead
-  of gathering it; `KNOCKBACK` hauls the struck enemy back the way the attack
-  came; and `SIZE`, `SPEED` and `RANGE` make the attack as much less as they
+  of gathering it; `PUSH` drags the struck enemy in as `PULL` does, and `PULL`
+  throws it away as `PUSH` does; and `SIZE`, `SPEED` and `RANGE` make the attack as much less as they
   would have made it more. Only the one part before it is turned round: `FIRE`,
   `FIRE`, `INVERT` puts out whatever the enemy came burning with and sets it
   alight again from the first `FIRE`, since a cleanse ends what was there

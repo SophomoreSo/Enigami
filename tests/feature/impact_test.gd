@@ -1,7 +1,8 @@
 extends Node
 ## The parts that act at the moment a hit lands, rather than on the way to it:
-## GRAVITY drags the room in, KNOCKBACK throws the enemy struck on the way the
-## attack was going, EXPLODE bursts the hit on everything round it, SHATTER
+## GRAVITY drags the room in, PUSH (KNOCKBACK) throws the enemy struck on the
+## way the attack was going and PULL drags it toward whoever struck it, EXPLODE
+## bursts the hit on everything round it, SHATTER
 ## punishes an enemy frost has already slowed, and MANA DRAIN pays the caster
 ## back for connecting.
 ##
@@ -98,6 +99,26 @@ func knock_travel(kind: String, p: Payload) -> float:
 	var moved: float = m.global_position.x - x0
 	m.queue_free()
 	return moved
+
+## How far to the right of whoever struck it a `kind` stands a second after `p`
+## strikes it from `far` to their right, the attack going right.
+func pulled_to(kind: String, p: Payload, far: float) -> float:
+	_plot += 1
+	var at := Vector2(0, float(_plot) * 4000.0)
+	var by := dummy(at)
+	by.team = 0
+	var m := monster(kind, at + Vector2(far, 0))
+	await frames(2)
+	m.global_position = at + Vector2(far, 0)
+	m.max_health = 9999.0
+	m.health = 9999.0
+	Attacks.resolve_hit(p, m, m.global_position, Vector2.RIGHT, by, null, 0)
+	for i in 60:
+		await get_tree().physics_frame
+	var ended: float = m.global_position.x - by.global_position.x
+	by.queue_free()
+	m.queue_free()
+	return ended
 
 ## A board with `ids` in a line — the first on the root, the way a weapon's own
 ## part is — on a board exactly as long, so the last of them is against the way
@@ -251,6 +272,37 @@ func _ready() -> void:
 		var flew: float = await knock_travel(kind, knock) - await knock_travel(kind, plain)
 		check(flew > 3.0 * Room.CELL,
 			"a %s struck with KNOCKBACK is thrown %.0fpx further" % [kind, flew])
+
+	# --- PULL -----------------------------------------------------------------
+	var pull_in := payload_of(["SLASH", "PULL"])
+	check(pull_in != null and pull_in.hook == 1 and not pull_in.knockback
+			and Attacks.summary(pull_in).contains(Loc.t("editor.payload.hook")),
+		"a board with PULL carries it, and the workbench preview says so (%s)" % Attacks.summary(pull_in))
+	# From afar, whichever way the attack was going, the enemy struck is dragged
+	# toward whoever struck it, as hard as PUSH would throw it away.
+	var shooter := dummy(Vector2(0, 3200))
+	shooter.team = 0
+	var reeled := dummy(Vector2(-300, 3000))
+	Attacks.resolve_hit(pull_in, reeled, reeled.global_position, way, shooter, null, 0)
+	var toward := (shooter.global_position - reeled.global_position).normalized()
+	check(reeled.shove.normalized().is_equal_approx(toward)
+			and is_equal_approx(reeled.shove.length(), Attacks.hit_shove(pull_in) + Attacks.KNOCKBACK_FORCE),
+		"PULL drags the enemy struck toward whoever struck it, as hard as PUSH throws (%s)" % str(reeled.shove))
+	# From close by, no harder than lands it just short of them.
+	var close_by := dummy(Vector2(60, 3200))
+	Attacks.resolve_hit(pull_in, close_by, close_by.global_position, Vector2.RIGHT, shooter, null, 0)
+	var just := sqrt(2.0 * Actor.SHOVE_DECAY * (60.0 - Attacks.HOOK_SHORT))
+	check(close_by.shove.x < 0.0 and is_equal_approx(close_by.shove.length(), just),
+		"from close by, no harder than carries it to just short of them (%.0f, %.0f)" % [close_by.shove.length(), just])
+	shooter.queue_free()
+	reeled.queue_free()
+	close_by.queue_free()
+	# A monster that writes its own velocity every frame ends up nearer whoever
+	# struck it, from close by and from afar, and never past them.
+	for off: float in [60.0, 300.0]:
+		var ended: float = await pulled_to("DUMMY", pull_in, off)
+		check(ended > 0.0 and ended < off - 20.0,
+			"a DUMMY pulled from %.0fpx off ends %.0fpx off: nearer, and not past" % [off, ended])
 
 	# --- MANA DRAIN ---------------------------------------------------------
 	var caster := Player.new()

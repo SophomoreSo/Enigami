@@ -34,6 +34,7 @@ const GIVEN := [
 	"ANTI_GRAVITY",
 	"OFFENSIVE",
 	"KAMIKAZE",
+	"PULL",
 ]
 
 var fails := 0

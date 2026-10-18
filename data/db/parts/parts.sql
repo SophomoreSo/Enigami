@@ -53,7 +53,8 @@ INSERT INTO codes (code, id) VALUES
 	(42, 'SUMMON_PROJECTILE'), (43, 'SUMMON_PET'),
 	(44, 'ANTI_GRAVITY'),
 	(45, 'OFFENSIVE'),
-	(46, 'KAMIKAZE');
+	(46, 'KAMIKAZE'),
+	(47, 'PULL');
 
 -- WIRE and BEND carried a flow one cell and did nothing else to it, which
 -- every part already does: any part takes flow on any side and sends it where
@@ -204,11 +205,17 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 
 -- Every one of these stacks: each is a count on the payload, and what reads it
 -- (feature/attacks/) does more for a higher one.
+--
+-- KNOCKBACK is PUSH on screen; the id stays, since saved boards and share codes
+-- carry ids. PULL is its opposite, and what an INVERT makes of it: the field it
+-- adds to is the same `hook`, which drags the enemy struck toward whoever
+-- struck it, and no further than to just short of them (`Attacks.hook_force`).
 INSERT INTO parts (id, name, category, heat, description) VALUES
 	('PIERCE', 'PIERCE', 'projectile_behavior', 0.5, 'The attack passes through one enemy and carries on to the next. Each one stacked is one more enemy it passes through.'),
 	('HOMING', 'HOMING', 'projectile_behavior', 0.6, 'Tracks the nearest enemy. Bolts curve and find their way round walls; melee forms re-aim themselves. Each one stacked turns a bolt tighter, so it holds a winding path it would otherwise fly wide of.'),
 	('GRAVITY', 'GRAVITY', 'behavior', 0.7, 'The enemy struck is not knocked back but pinned, and every other enemy nearby is dragged onto it. Gathers a room into one place for whatever comes next. Each one stacked drags harder.'),
-	('KNOCKBACK', 'KNOCKBACK', 'behavior', 0.5, 'Hits throw the enemy back the way the attack was going. Thrown hard into a wall, it cracks the wall and is hurt and stunned. Buys room, but can put it out of reach. Each one stacked throws harder.'),
+	('KNOCKBACK', 'PUSH', 'behavior', 0.5, 'Hits throw the enemy back the way the attack was going. Thrown hard into a wall, it cracks the wall and is hurt and stunned. Buys room, but can put it out of reach. Each one stacked throws harder.'),
+	('PULL', 'PULL', 'behavior', 0.5, 'Hits drag the enemy toward whoever struck it, and it stops just short of them. Brings an enemy into reach, but brings it close. Each one stacked drags it from further off.'),
 	('MANA_DRAIN', 'MANA DRAIN', 'behavior', 0.5, 'Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting. Each one stacked drains more.'),
 	('HEALTH_DRAIN', 'HEALTH DRAIN', 'behavior', 0.6, 'Every enemy this attack hurts gives health back to the caster: a fifth of the damage dealt, and a fifth more for each one stacked. What keeps you standing is landing hits.'),
 	('STUN', 'STUN', 'behavior', 0.6, 'Struck enemies are stunned: for a moment they stand where they are and cannot attack. Each one stacked holds them longer. Once it wears off, an enemy shrugs off the next stun for a while.'),
@@ -230,7 +237,7 @@ INSERT INTO parts (id, name, category, heat, tag, description) VALUES
 
 INSERT INTO ports (part_id, side) VALUES
 	('PIERCE', 'E'), ('HOMING', 'E'),
-	('GRAVITY', 'E'), ('KNOCKBACK', 'E'), ('MANA_DRAIN', 'E'), ('HEALTH_DRAIN', 'E'),
+	('GRAVITY', 'E'), ('KNOCKBACK', 'E'), ('PULL', 'E'), ('MANA_DRAIN', 'E'), ('HEALTH_DRAIN', 'E'),
 	('STUN', 'E'), ('POSSESS', 'E'), ('AUTO_AIM', 'E'), ('ANTI_GRAVITY', 'E'), ('EXPLODE', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
@@ -238,6 +245,7 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('HOMING', 0, 'homing', 'add', 1),
 	('GRAVITY', 0, 'pull', 'add', 1),
 	('KNOCKBACK', 0, 'knockback', 'add', 1),
+	('PULL', 0, 'hook', 'add', 1),
 	('MANA_DRAIN', 0, 'mana_drain', 'add', 1),
 	('HEALTH_DRAIN', 0, 'health_drain', 'add', 1),
 	('STUN', 0, 'stun', 'add', 0.8),
@@ -288,7 +296,7 @@ INSERT INTO parts (id, name, category, heat, description) VALUES
 	('OVERCLOCK', 'OVERCLOCK', 'flow', 0.0, 'Runs the whole board on a faster clock. Each one cuts the wait between casts by the same 5%; twelve bring it down to 40%, and it goes no lower. A flow goes through it without spending a tick.'),
 	('DELAY', 'DELAY', 'flow', 2.0, 'Makes every cast that passes through it wait longer before the next, and each one more adds as much again. It does nothing else: it turns a flow and leaves it as it was.'),
 	('TIME_DILATION', 'TIME DILATION', 'flow', 2.0, 'Slows the world and the board alike. Not a speed buff — a change in the pace of the fight.'),
-	('INVERT', 'INVERT', 'flow', 0.4, 'Turns the part right before it inside out: DAMAGE heals what it strikes, FIRE, ICE and STUN cleanse it, GRAVITY pushes away, KNOCKBACK pulls in, and SIZE, SPEED and RANGE shrink. After anything else it does nothing.'),
+	('INVERT', 'INVERT', 'flow', 0.4, 'Turns the part right before it inside out: DAMAGE heals what it strikes, FIRE, ICE and STUN cleanse it, GRAVITY pushes away, PUSH pulls and PULL pushes, and SIZE, SPEED and RANGE shrink. After anything else it does nothing.'),
 	('BRIDGE', 'BRIDGE', 'flow', 0.0, 'Carries a flow one cell and does nothing else: it turns the flow and leaves it as it was. Steer a flow round to the way out with it, or walk a trigger''s branch round a ring and back.');
 
 INSERT INTO ports (part_id, side) VALUES
@@ -344,6 +352,7 @@ INSERT INTO inversions (part_id, position, field, op, value) VALUES
 	('STUN', 0, 'cleanse', 'set', 'true'),
 	('GRAVITY', 0, 'repel', 'add', 1),
 	('KNOCKBACK', 0, 'hook', 'add', 1),
+	('PULL', 0, 'knockback', 'add', 1),
 	('SIZE', 0, 'size', 'multiply', 0.625),
 	('SPEED', 0, 'speed', 'multiply', 0.6667),
 	('SPEED', 1, 'range_px', 'multiply', 0.8333),

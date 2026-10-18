@@ -65,8 +65,8 @@ var pet_kamikaze: int = 0
 ## landing on the struck enemy once the hit has: health given back, every burn,
 ## chill and stun it was carrying ended — though not what this same hit brings
 ## it — the enemies round the impact driven off rather than gathered (GRAVITY's
-## opposite), the struck one hauled back the way the attack came rather than
-## thrown on (KNOCKBACK's).
+## opposite), the struck one dragged toward whoever struck it rather than thrown
+## on (KNOCKBACK's — and PULL's own, `hook` being what PULL adds to).
 var heal: float = 0.0
 var cleanse: bool = false
 var repel: int = 0
