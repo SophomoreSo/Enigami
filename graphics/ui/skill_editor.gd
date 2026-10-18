@@ -128,6 +128,11 @@ const PAL_GROUP_GAP := 4.0
 ## onto the second. Taller where the panel is — stretched down to the foot of
 ## a bigger board — since the tabs share out whatever it stands.
 const PAL_TAB_LEAST := 46.0
+## The least a tab stands where the board beside it cannot grow as tall as the
+## panel would be at PAL_TAB_LEAST — a screen too narrow for the cell — and the
+## panel comes up to the board's foot instead: two lines of a name, LINE apart,
+## and a PIXEL and more clear of them over and under.
+const PAL_TAB_FLOOR := 36.0
 ## The space between one part's tile and the next, at a desk. A tile is a cell
 ## of the board across, two for a two-cell part — the part as it will stand
 ## on the board, with no name: hovering it names it on its card.
@@ -152,9 +157,11 @@ const NOWHERE := Vector2i(-1, -1)
 ##   * down the right, THUMB_PARTS wide and the screen's height, the parts: a
 ##     tab a category, and beside them the picked category's parts, a plate
 ##     each, with the name written at the size a thumb's page writes at. A
-##     block's plates share the column's height between them, so nothing
-##     scrolls — a list that scrolled under a thumb dragging a part out of it
-##     would be asking the same gesture to mean two things;
+##     block's plates share the column's height between them, down to
+##     THUMB_PLATE_LEAST; a block with more than fit at that scrolls, a plate
+##     at a time. A drag means one thing by the way it goes: up or down the
+##     plates of a block that scrolls it scrolls them, and any other way it
+##     takes the part to the board (`_drag_plate`);
 ##   * under the parts, TURN and REMOVE.
 ##
 ## What a thumb does there: a touch on a part's plate takes it in hand, and a
@@ -174,6 +181,10 @@ const THUMB_TAB_W := 132.0
 const THUMB_GAP := 4.0
 ## The most a tab or a part's plate stands; a long block's stand shorter, to fit.
 const THUMB_PLATE := 72.0
+## The least a part's plate stands, which a thumb can still land on. A block
+## with more parts than fit the column at this stands as many as fit, this tall
+## or a little more, and scrolls through the rest (`_scroll_plates`).
+const THUMB_PLATE_LEAST := 56.0
 ## TURN and REMOVE, along the foot of the column: a button's height, as CODE and
 ## CLOSE are, which leaves the plates the room for a block of ten — the
 ## behaviours — at a thumb's 56, and not for an eleventh.
@@ -229,6 +240,16 @@ var _picked: Vector2i = NOWHERE
 ## landed. Lifted, it picks the part; dragged past a thumb's slop, it lifts the
 ## part off the board the way a desk's press does at once. Empty with none.
 var _tap: Dictionary = {}
+## The same for a thumb down on a part's plate: where it landed, which plate,
+## and the scroll it found — not a take yet, since it may be a scroll
+## (`_drag_plate`). `scrolling` once it is one.
+var _plate_tap: Dictionary = {}
+## Mobile mode's plates, for a block too long for the column: the first one
+## shown, how many are, and the pitch they stand at, which is how far a thumb
+## goes to scroll them by one.
+var _plate_first: int = 0
+var _plates_shown: int = 0
+var _plate_pitch: float = 0.0
 ## Drag state. `_drag_source` is -1 for a part pulled off the palette, 1 for
 ## one lifted off the board (which remembers where it came from so a bad drop
 ## can put it back instead of destroying it), and 2 for the root — which is not
@@ -336,7 +357,7 @@ func board_origin() -> Vector2:
 func _layout_key() -> Array:
 	var b := current_board()
 	return [thumb(), get_viewport_rect().size,
-		Vector2i(b.width, b.height) if b != null else Vector2i.ZERO, shelf.size(), _tab]
+		Vector2i(b.width, b.height) if b != null else Vector2i.ZERO, shelf.size(), _tab, _plate_first]
 
 ## Where everything on mobile mode's screen stands, for a screen of this shape
 ## and a grid of this size: `close` in the top-left corner and the tabs of the
@@ -445,6 +466,7 @@ func _pick(cell: Vector2i) -> void:
 	selected = String(entry["id"])
 	rotation_step = int(entry["rot"])
 	_show_tab(_tab_of(selected), false)
+	_show_plate(selected)
 	Audio.play("ui")
 
 ## Mobile mode's REMOVE: the picked part goes back in the bag.
@@ -466,8 +488,41 @@ func _show_tab(i: int, sound: bool = true) -> void:
 	if i == _tab:
 		return
 	_tab = i
+	# Another block's plates come up from its first.
+	_plate_first = 0
 	if sound:
 		Audio.play("ui")
+
+## Whether the block that is up has more parts than mobile mode's column shows
+## at once, and so scrolls.
+func _plates_scroll() -> bool:
+	if not thumb():
+		return false
+	var ids := _palette_ids()
+	return _plates_shown < ids.size()
+
+## Scrolls mobile mode's plates so `first` stands at the top, as far as there
+## are plates to bring up.
+func _scroll_plates(first: int) -> void:
+	var ids := _palette_ids()
+	first = clampi(first, 0, maxi(0, ids.size() - _plates_shown))
+	if first == _plate_first:
+		return
+	_plate_first = first
+	_update_hover(_mouse_pos)
+
+## Scrolls `id`'s plate into the column, where its block scrolls and it is not
+## already shown: what was picked on the board is lit where it can be seen.
+func _show_plate(id: String) -> void:
+	if not _plates_scroll():
+		return
+	var at := _palette_ids().find(id)
+	if at < 0:
+		return
+	if at < _plate_first:
+		_scroll_plates(at)
+	elif at >= _plate_first + _plates_shown:
+		_scroll_plates(at - _plates_shown + 1)
 
 func _ready() -> void:
 	UiKit.fill_screen(self)
@@ -551,6 +606,7 @@ func _put(b: SkillBoard, inv: Dictionary, unlim: bool, r: SkillRunner) -> void:
 	_trace_cache = {}
 	_picked = NOWHERE
 	_tap = {}
+	_plate_tap = {}
 
 func current_board() -> SkillBoard:
 	return board
@@ -571,6 +627,7 @@ func _gui_input(event: InputEvent) -> void:
 		_mouse_pos = event.position
 		_update_hover(event.position)
 		_drag_tap()
+		_drag_plate()
 		accept_event()
 	elif event is InputEventMouseButton:
 		_mouse_pos = event.position
@@ -649,14 +706,18 @@ const BTN_GAP := 8.0
 ## its first cell and `parts` that of the first row, the gutter the category
 ## names sit in included: what `board_origin` and the palette's rows are laid
 ## out from; `cell` is how big a cell is drawn, and `tall` how tall the two
-## stand. The back arrow stays in the screen's own corner.
+## stand, COPY and PASTE left out. The back arrow stays in the screen's own
+## corner.
 ##
-## The board and the parts stand on the same lines, top and foot. The board's
-## cells grow until it stands, COPY and PASTE and all, as tall as the parts'
-## panel — on the PIXEL grid, an odd number of PIXELs so an icon lands in the
-## middle of one, never under CELL and no wider than the screen has room for —
-## and a board a Workbench has grown that already stands taller at CELL has
-## the panel stretched down to its foot (`_pal_panel`). Both are halfway down.
+## The board and the parts stand on the same lines, top and foot, and COPY and
+## PASTE hang under that foot. The board's cells grow until its frame stands as
+## tall as the parts' panel — on the PIXEL grid, an odd number of PIXELs so an
+## icon lands in the middle of one, never under CELL and no wider than the
+## screen has room for — and the panel is stretched down to the frame's foot
+## where that came out taller (`_pal_panel`). Where the screen is too narrow
+## for a cell that big the panel comes up to the frame's foot instead, its
+## tabs shorter, down to PAL_TAB_FLOOR (`_pal_least`). The two, with COPY and
+## PASTE under them, are halfway down.
 ##
 ## The weapons down the board's left go with it, and the three are in the
 ## middle together. Where they do not fit BOARD_TO_PARTS apart — the first
@@ -674,18 +735,18 @@ func _desk_layout() -> Dictionary:
 	var panel := _pal_panel_size()
 	var weapons := SHELF_W + SHELF_AWAY if not shelf.is_empty() else 0.0
 	var foot := BTN_GAP + BTN_H
-	var cell := _odd_up(maxf(float(CELL), (panel.y - foot - 20.0) / grid.y))
+	var cell := _odd_up(maxf(float(CELL), (panel.y - 20.0) / grid.y))
 	var most := (vp.x - EDGE_LEAST * 2.0 - weapons - BOARD_TO_PARTS_LEAST - panel.x - 20.0) / grid.x
 	if cell > most:
 		cell = maxf(float(CELL), _odd_down(most))
 	var frame := grid * cell + Vector2(20, 20)
-	var tall := maxf(frame.y + foot, panel.y)
+	var tall := maxf(frame.y, _pal_least(cell))
 	var gap := BOARD_TO_PARTS
 	var over := weapons + frame.x + gap + panel.x - (vp.x - CORNER.x * 2.0)
 	if over > 0.0:
 		gap = maxf(BOARD_TO_PARTS_LEAST, gap - over)
 	var left := _halfway(vp.x, weapons + frame.x + gap + panel.x) + weapons
-	var top := _halfway(vp.y, tall)
+	var top := _halfway(vp.y, tall + foot)
 	_desk_rects = {
 		"board": Vector2(left, top) + Vector2(10, 10),
 		"parts": Vector2(left + frame.x + gap, top) + Vector2(10, 10),
@@ -940,13 +1001,13 @@ func _press_left() -> void:
 		_remove_picked()
 		return
 	if _hover_pal >= 0:
-		selected = String(_palette_ids()[_hover_pal])
-		_drag_id = selected
-		_drag_source = -1
-		_drag_from = Vector2i(-1, -1)
-		_picked = NOWHERE
-		_update_hover(_mouse_pos)
-		Audio.play("ui")
+		# A thumb's press on a plate is not a take yet: up or down the plates it
+		# may be a scroll (`_drag_plate`), and lifted where it landed it is a
+		# touch (`_release_left`).
+		if thumb():
+			_plate_tap = {"index": _hover_pal, "at": _mouse_pos, "first": _plate_first}
+			return
+		_take_from_palette(_hover_pal)
 		return
 	if _hover_cell.x < 0:
 		return
@@ -996,6 +1057,39 @@ func _lift(b: SkillBoard, cell: Vector2i) -> void:
 	_sim_dirty = true
 	Audio.play("erase")
 
+## The part on the palette's row `i`, taken in hand, to be dragged or set down.
+func _take_from_palette(i: int) -> void:
+	selected = String(_palette_ids()[i])
+	_drag_id = selected
+	_drag_source = -1
+	_drag_from = Vector2i(-1, -1)
+	_picked = NOWHERE
+	_update_hover(_mouse_pos)
+	Audio.play("ui")
+
+## A thumb down on a part's plate has moved. Past a thumb's slop, straight up or
+## down the plates of a block that scrolls — twice as far that way as across —
+## it is a scroll, and from then on the plates go with the thumb a plate at a
+## time; any other way it is a drag, and the part is taken in hand under it, as
+## at a desk. A part carried to the board's foot goes down as steeply as it goes
+## across, and is a drag.
+func _drag_plate() -> void:
+	if _plate_tap.is_empty():
+		return
+	var moved := _mouse_pos - (_plate_tap["at"] as Vector2)
+	if bool(_plate_tap.get("scrolling", false)):
+		_scroll_plates(int(_plate_tap["first"]) - roundi(moved.y / maxf(_plate_pitch, 1.0)))
+		return
+	if moved.length() <= UiKit.TOUCH_SLOP:
+		return
+	if absf(moved.y) > absf(moved.x) * 2.0 and _plates_scroll():
+		_plate_tap["scrolling"] = true
+		_drag_plate()
+		return
+	var i := int(_plate_tap["index"])
+	_plate_tap = {}
+	_take_from_palette(i)
+
 ## A thumb down on a placed part has moved: past a thumb's slop it is a drag,
 ## and the part comes up off the board under it.
 func _drag_tap() -> void:
@@ -1008,6 +1102,17 @@ func _drag_tap() -> void:
 		_lift(b, cell)
 
 func _release_left() -> void:
+	# A thumb that came down on a plate and lifted where it landed: a touch,
+	# which takes the part in hand to be set down. Lifted after a scroll, it did
+	# that and nothing more.
+	if not _plate_tap.is_empty():
+		var tap := _plate_tap
+		_plate_tap = {}
+		if not bool(tap.get("scrolling", false)):
+			_take_from_palette(int(tap["index"]))
+			_drag_id = ""
+			_drag_source = 0
+		return
 	# A thumb that came down on a part and lifted where it landed: a touch.
 	if not _tap.is_empty():
 		var cell: Vector2i = _tap["cell"]
@@ -2956,11 +3061,11 @@ func _build_palette() -> void:
 	var origin: Vector2 = _desk_layout()["parts"]
 	_pal_origin = origin
 	var groups := _pal_groups()
-	_pal_height = maxf(_pal_panel_size().y, float(_desk_layout()["tall"])) - 20.0
+	_pal_height = float(_desk_layout()["tall"]) - 20.0
 	if groups.is_empty():
 		return
 	var n := float(groups.size())
-	var tall := maxf(PAL_TAB_LEAST, floorf((_pal_height - (n - 1.0) * PAL_GROUP_GAP) / n / PX) * PX)
+	var tall := maxf(PAL_TAB_FLOOR, floorf((_pal_height - (n - 1.0) * PAL_GROUP_GAP) / n / PX) * PX)
 	for i in groups.size():
 		_pal_tabs.append(Rect2(origin.x, origin.y + float(i) * (tall + PAL_GROUP_GAP), _pal_tab_w(), tall))
 	_pal_height = maxf(_pal_height, n * tall + (n - 1.0) * PAL_GROUP_GAP)
@@ -3003,7 +3108,10 @@ func _pal_list() -> Array:
 ## Mobile mode's rows: the parts of the category whose tab is up and no others,
 ## a plate each down the column beside the tabs. `_pal_rows` is what the rest of
 ## the screen asks — what is under a press, what is in the hand's reach — so the
-## parts on the other tabs are not there to be pressed.
+## parts on the other tabs are not there to be pressed. A block too long for the
+## column at THUMB_PLATE_LEAST stands as many as fit, from `_plate_first`, and
+## the rest have no room on the screen (an empty rect) until it is scrolled to
+## them.
 func _build_thumb_parts() -> void:
 	_pal_rows = []
 	_pal_tabs = []
@@ -3013,10 +3121,20 @@ func _build_thumb_parts() -> void:
 	_tab = clampi(_tab, 0, groups.size() - 1)
 	var ids: Array = groups[_tab]["ids"]
 	var room: Rect2 = _thumb_layout()["plates"]
-	var tall := _plate_height(room.size.y, ids.size())
+	var shown := ids.size()
+	var tall := _plate_height(room.size.y, shown)
+	if tall < THUMB_PLATE_LEAST:
+		shown = maxi(1, int((room.size.y + THUMB_GAP) / (THUMB_PLATE_LEAST + THUMB_GAP)))
+		tall = _plate_height(room.size.y, shown)
+	_plates_shown = shown
+	_plate_pitch = tall + THUMB_GAP
+	_plate_first = clampi(_plate_first, 0, maxi(0, ids.size() - shown))
 	for i in ids.size():
-		_pal_rows.append({"id": String(ids[i]), "rect": Rect2(
-			room.position.x, room.position.y + float(i) * (tall + THUMB_GAP), room.size.x, tall)})
+		var slot := i - _plate_first
+		var r := Rect2()
+		if slot >= 0 and slot < shown:
+			r = Rect2(room.position.x, room.position.y + float(slot) * _plate_pitch, room.size.x, tall)
+		_pal_rows.append({"id": String(ids[i]), "rect": r})
 
 func _pal_rect(i: int) -> Rect2:
 	return _pal_list()[i]["rect"]
@@ -3031,6 +3149,19 @@ func _pal_panel() -> Rect2:
 	# Down to the board's foot where the board stands taller than the rows.
 	return Rect2(_pal_origin - Vector2(10, 10),
 		Vector2(_pal_gutter() + PAL_ROOM + 20, maxf(_pal_height + 20, float(_desk_layout()["tall"]))))
+
+## The least a desk's parts panel can stand beside a board of `cell`: its tabs
+## at PAL_TAB_FLOOR, or the category with the most parts in tiles that size,
+## whichever is taller, 10 clear of them over and under.
+func _pal_least(cell: float) -> float:
+	var groups := _pal_groups()
+	var n := float(groups.size())
+	var tall := maxf(n * PAL_TAB_FLOOR + (n - 1.0) * PAL_GROUP_GAP, 0.0)
+	var across := maxi(1, int((PAL_ROOM + PAL_TILE_GAP) / (cell + PAL_TILE_GAP)))
+	for group in groups:
+		var rows := ceilf(float((group["ids"] as Array).size()) / float(across))
+		tall = maxf(tall, rows * (cell + PAL_TILE_GAP) - PAL_TILE_GAP)
+	return tall + 20.0
 
 ## How big a desk's parts panel stands: 10 clear of its rows on every side, the
 ## gutter included. As tall as the tabs are at their least, a tab a category,
@@ -3190,6 +3321,9 @@ func _draw_thumb_parts() -> void:
 	for i in ids.size():
 		var id: String = ids[i]
 		var r := _pal_rect(i)
+		# Scrolled out of the column.
+		if r.size.y <= 0.0:
+			continue
 		var have := unlimited or int(inventory.get(id, 0)) > 0
 		var c := Style.component_color(id)
 		_px.rect(r, Color(0.08, 0.09, 0.12, 0.92))
@@ -3207,6 +3341,7 @@ func _draw_thumb_parts() -> void:
 			r.size.x - 56.0 - 14.0 - counted - 12.0, Loc.text_size(part, big))
 		if i == _hover_pal:
 			_px.frame(r, Color(1, 1, 1, 0.5))
+	_draw_plate_cues(l["plates"], ids.size())
 
 	# TURN shows the way the part in hand faces — the one picked on the board, or
 	# the next one set down — and turns it. REMOVE has something to take off only
@@ -3224,6 +3359,23 @@ func _draw_thumb_parts() -> void:
 	var b := current_board()
 	_px.plate(l["remove"], Loc.t("editor.remove"), Color(1.0, 0.55, 0.55), _hover_remove,
 		_picked_part() != NOWHERE and b != null and not b.is_root(_picked))
+
+## Where a block scrolls, a small arrow over its plates while there are more
+## above, and one under them while there are more below, in the gaps the column
+## leaves there.
+func _draw_plate_cues(room: Rect2, count: int) -> void:
+	if _plates_shown >= count:
+		return
+	var col := Color(0.8, 0.9, 1.0, 0.8)
+	var mid := floorf(room.get_center().x / PX) * PX
+	if _plate_first > 0:
+		var top := room.position.y - 4.0 * PX
+		_px.rect(Rect2(mid - PX, top, PX * 2.0, PX), col)
+		_px.rect(Rect2(mid - PX * 3.0, top + PX, PX * 6.0, PX), col)
+	if _plate_first + _plates_shown < count:
+		var under := room.end.y + PX
+		_px.rect(Rect2(mid - PX * 3.0, under, PX * 6.0, PX), col)
+		_px.rect(Rect2(mid - PX, under + PX, PX * 2.0, PX), col)
 
 ## A part's count at a thumb's size, right-aligned on `right`, a baseline: "x2",
 ## or the infinity sign. Hands back how wide it came out.

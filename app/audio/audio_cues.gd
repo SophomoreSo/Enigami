@@ -35,6 +35,8 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 			Audio.play("pickup", 1.5)
 		&"area_blast":
 			Audio.play("explode")
+		&"near":
+			Audio.play("zap", 1.5)
 		&"lunge_cut", &"dash":
 			Audio.play("dash")
 		&"summon_pet":
@@ -62,12 +64,8 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 			Audio.play("hurt")
 		&"shatter":
 			Audio.play("hit", 1.55)
-		&"pull":
-			Audio.play("explode", 0.7)
 		&"mana_drain":
 			Audio.play("pickup", 1.4)
-		&"repel":
-			Audio.play("explode", 1.25)
 		&"stun":
 			Audio.play("zap", 0.55)
 		&"heal":

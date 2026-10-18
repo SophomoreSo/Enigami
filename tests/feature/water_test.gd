@@ -68,7 +68,7 @@ func _ready() -> void:
 	var ice := payload_of(["SLASH", "ICE"])
 	var fire := payload_of(["SLASH", "FIRE"])
 
-	check(Components.exists("WATER") and Components.get_def("WATER")["cat"] == Components.CAT_ELEMENT
+	check(Components.exists("WATER") and Components.get_def("WATER")["cat"] == Components.CAT_STATES
 			and water != null and water.elements.has("WATER"),
 		"WATER is an element, and a flow through it carries it")
 

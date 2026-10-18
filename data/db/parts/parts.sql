@@ -18,19 +18,22 @@
 -- own. They are the board's: its root, and its way out in the middle of its
 -- right edge (circuit/skill_board.gd).
 
--- In the order the palette lays its blocks out. `behavior` is COMMON MODIFIER
--- on screen; the two after it are what a bolt is steered and carried by —
--- PIERCE, HOMING, AUTO-AIM and ANTI-GRAVITY — and what an attack calls up beside itself:
--- a bolt in the air, a pet.
+-- In the order the palette lays its blocks out. `states` is what a hit leaves
+-- on what it strikes — FIRE, ICE, WATER, and POSSESS's hands in it — and
+-- TIME DILATION's slowing of the world; it was `element`. `behavior` is COMMON MODIFIER on screen, and holds most of what
+-- was the `stat` block — DAMAGE, SIZE, RANGE, SHATTER — as well; the two after
+-- it are what a bolt is steered and carried by — SPEED, PIERCE, HOMING,
+-- AUTO-AIM and ANTI-GRAVITY — and what an attack calls up beside itself: a
+-- bolt in the air, a pet.
 INSERT INTO categories (id) VALUES
-	('form'), ('element'), ('stat'), ('behavior'), ('projectile_behavior'), ('summon_behavior'),
+	('form'), ('states'), ('behavior'), ('projectile_behavior'), ('summon_behavior'),
 	('flow'), ('trigger');
 
 -- Every number a part has ever had in a shared code, in order. **Only ever
 -- add to the end.** A code written today has to mean the same board next
 -- year, so a number is a part's for good: INPUT, OUTPUT, WIRE and BEND keep
--- theirs though they are gone, and EXPLODE has the number it had when it was
--- called AREA. A code has six bits for it, so the last number there can be
+-- theirs though they are gone, and so does EXPLODE, which had the number it
+-- had when it was called AREA. A code has six bits for it, so the last number there can be
 -- is 63.
 INSERT INTO codes (code, id) VALUES
 	(0, 'INPUT'), (1, 'OUTPUT'), (2, 'WIRE'), (3, 'BEND'),
@@ -53,7 +56,10 @@ INSERT INTO codes (code, id) VALUES
 	(42, 'SUMMON_PROJECTILE'), (43, 'SUMMON_PET'),
 	(44, 'ANTI_GRAVITY'),
 	(45, 'OFFENSIVE'),
-	(46, 'KAMIKAZE');
+	(46, 'KAMIKAZE'),
+	(47, 'PULL'),
+	(48, 'NEAR'),
+	(49, 'HEAL');
 
 -- WIRE and BEND carried a flow one cell and did nothing else to it, which
 -- every part already does: any part takes flow on any side and sends it where
@@ -83,8 +89,20 @@ INSERT INTO codes (code, id) VALUES
 -- SUMMON_PROJECTILE, SUMMON BOLT, hung a bolt in the air over where the attack
 -- was aimed, which fell and struck what it touched once. KAMIKAZE took its
 -- place in the summon block.
+--
+-- EXPLODE burst every hit, landing it again on everything round the enemy it
+-- struck, and on a flow with no form was a burst of its own where it went off.
+-- NEAR took its place: what the parts after it do reaches the enemies round
+-- the one struck. It had been AREA before it was EXPLODE, and was made over
+-- under its new name; a save old enough to spell it AREA reads with it left
+-- out, as one that spells it EXPLODE does now, and a code says its number.
+--
+-- GRAVITY pinned the enemy struck and dragged everything round it onto it.
+-- NEAR and PULL do that between them now: the ones round the enemy struck
+-- dragged in to it (`Attacks.resolve_hit`, a touch's `hook`).
 INSERT INTO retired_parts (id) VALUES ('WIRE'), ('BEND'), ('INPUT'), ('OUTPUT'), ('DASH'),
-	('SPLIT'), ('TEE'), ('REVERSE'), ('BLINK'), ('SUMMON_PROJECTILE');
+	('SPLIT'), ('TEE'), ('REVERSE'), ('BLINK'), ('SUMMON_PROJECTILE'), ('EXPLODE'),
+	('GRAVITY');
 
 -- DASHSLASH_AUTO, SWIFT STRIKE+, was SWIFT STRIKE with AUTO-AIM built into it:
 -- it lunged at the nearest enemy and through. AUTO-AIM is a part now, and does
@@ -99,7 +117,7 @@ INSERT INTO retired_parts (id) VALUES ('WIRE'), ('BEND'), ('INPUT'), ('OUTPUT'),
 -- what they do already, and it is PROJECTILE now wherever it was — a board, a
 -- stash, a drop. It keeps its number, 33, since PROJECTILE has one already;
 -- a code that says 33 reads as PROJECTILE.
-INSERT INTO renamed_parts (old_id, new_id) VALUES ('AREA', 'EXPLODE'), ('DASHSLASH_AUTO', 'DASHSLASH'),
+INSERT INTO renamed_parts (old_id, new_id) VALUES ('DASHSLASH_AUTO', 'DASHSLASH'),
 	('ZAP', 'PROJECTILE');
 
 
@@ -133,14 +151,14 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('HEADBUTT', 0, 'form', 'set', 'HEADBUTT');
 
 
--- ---- element ----------------------------------------------------------------
+-- ---- states (was element) -----------------------------------------------------
 
 -- WATER is the third, and what it does is change the other two: a wet enemy
 -- freezes under ICE and is only dried by FIRE (`Actor.afflict`).
 INSERT INTO parts (id, name, category, heat, description) VALUES
-	('FIRE', 'FIRE', 'element', 0.4, 'Adds flame. Struck enemies burn for damage over time; a wet one is only dried.'),
-	('ICE', 'ICE', 'element', 0.4, 'Adds frost. Struck enemies are slowed; a wet one freezes solid for a moment.'),
-	('WATER', 'WATER', 'element', 0.4, 'Soaks what it strikes. A wet enemy freezes solid under ICE, and FIRE only dries it; water puts a burning enemy out.');
+	('FIRE', 'FIRE', 'states', 0.4, 'Adds flame. Struck enemies burn for damage over time; a wet one is only dried.'),
+	('ICE', 'ICE', 'states', 0.4, 'Adds frost. Struck enemies are slowed; a wet one freezes solid for a moment.'),
+	('WATER', 'WATER', 'states', 0.4, 'Soaks what it strikes. A wet enemy freezes solid under ICE, and FIRE only dries it; water puts a burning enemy out.');
 
 INSERT INTO ports (part_id, side) VALUES ('FIRE', 'E'), ('ICE', 'E'), ('WATER', 'E');
 
@@ -150,7 +168,7 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('WATER', 0, 'elements', 'include', 'WATER');
 
 
--- ---- stat ---------------------------------------------------------------------
+-- ---- what was stat: in COMMON MODIFIER (`behavior`) now ---------------------------
 
 -- `stack_limit` is how many of a part one flow can stack; a part without one
 -- stacks for as long as the board has room. SIZE stops at three, which is an
@@ -160,11 +178,11 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 -- bolt further than a room is wide — the most range there is to have — and
 -- SWIFT STRIKE's lunge five times as far.
 INSERT INTO parts (id, name, category, heat, stack_limit, description) VALUES
-	('DAMAGE', 'DAMAGE +', 'stat', 0.3, NULL, 'Raises damage, and each one stacked raises it by more than the last. Stable and simple, but interacts with little else.'),
-	('SIZE', 'SIZE x', 'stat', 0.4, 3, 'Scales the attack by 1.6. Melee arcs widen and reach further. Stacks up to 3.'),
-	('SPEED', 'SPEED x', 'stat', 0.35, 4, 'Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. Does nothing to any other attack. Stacks up to 4, and at 4 a bolt flies at laser speed.'),
-	('RANGE', 'RANGE x', 'stat', 0.35, 3, 'Bolts carry 1.75x as far before they fade, and SWIFT STRIKE lunges 1.75x as far. Does nothing to any other attack. Stacks up to 3, which is the most range there is.'),
-	('SHATTER', 'SHATTER', 'stat', 0.45, NULL, 'Breaks the frost on an enemy slowed by it: the hit lands far harder, and the enemy thaws. Each one stacked breaks harder still. Worth nothing on its own — pair it with ICE, or with a board that lands twice.');
+	('DAMAGE', 'DAMAGE +', 'behavior', 0.3, NULL, 'Raises damage, and each one stacked raises it by more than the last. Stable and simple, but interacts with little else.'),
+	('SIZE', 'SIZE x', 'behavior', 0.4, 3, 'Scales the attack by 1.6. Melee arcs widen and reach further. Stacks up to 3.'),
+	('SPEED', 'SPEED x', 'projectile_behavior', 0.35, 4, 'Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. Does nothing to any other attack. Stacks up to 4, and at 4 a bolt flies at laser speed.'),
+	('RANGE', 'RANGE x', 'behavior', 0.35, 3, 'Bolts carry 1.75x as far before they fade, and SWIFT STRIKE lunges 1.75x as far. Does nothing to any other attack. Stacks up to 3, which is the most range there is.'),
+	('SHATTER', 'SHATTER', 'behavior', 0.45, NULL, 'Breaks the frost on an enemy slowed by it: the hit lands far harder, and the enemy thaws. Each one stacked breaks harder still. Worth nothing on its own — pair it with ICE, or with a board that lands twice.');
 
 INSERT INTO ports (part_id, side) VALUES
 	('DAMAGE', 'E'), ('SIZE', 'E'), ('SPEED', 'E'), ('RANGE', 'E'), ('SHATTER', 'E');
@@ -204,47 +222,56 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 
 -- Every one of these stacks: each is a count on the payload, and what reads it
 -- (feature/attacks/) does more for a higher one.
+--
+-- KNOCKBACK is PUSH on screen; the id stays, since saved boards and share codes
+-- carry ids. PULL is its opposite, and what an INVERT makes of it: the field it
+-- adds to is the same `hook`, which drags the enemy struck toward whoever
+-- struck it, and no further than to just short of them (`Attacks.hook_force`).
 INSERT INTO parts (id, name, category, heat, description) VALUES
 	('PIERCE', 'PIERCE', 'projectile_behavior', 0.5, 'The attack passes through one enemy and carries on to the next. Each one stacked is one more enemy it passes through.'),
 	('HOMING', 'HOMING', 'projectile_behavior', 0.6, 'Tracks the nearest enemy. Bolts curve and find their way round walls; melee forms re-aim themselves. Each one stacked turns a bolt tighter, so it holds a winding path it would otherwise fly wide of.'),
-	('GRAVITY', 'GRAVITY', 'behavior', 0.7, 'The enemy struck is not knocked back but pinned, and every other enemy nearby is dragged onto it. Gathers a room into one place for whatever comes next. Each one stacked drags harder.'),
-	('KNOCKBACK', 'KNOCKBACK', 'behavior', 0.5, 'Hits throw the enemy back the way the attack was going. Thrown hard into a wall, it cracks the wall and is hurt and stunned. Buys room, but can put it out of reach. Each one stacked throws harder.'),
+	('KNOCKBACK', 'PUSH', 'behavior', 0.5, 'Hits throw the enemy back the way the attack was going. Thrown hard into a wall, it cracks the wall and is hurt and stunned. Buys room, but can put it out of reach. Each one stacked throws harder.'),
+	('PULL', 'PULL', 'behavior', 0.5, 'Hits drag the enemy toward whoever struck it, and it stops just short of them. Brings an enemy into reach, but brings it close. Each one stacked drags it from further off.'),
 	('MANA_DRAIN', 'MANA DRAIN', 'behavior', 0.5, 'Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting. Each one stacked drains more.'),
 	('HEALTH_DRAIN', 'HEALTH DRAIN', 'behavior', 0.6, 'Every enemy this attack hurts gives health back to the caster: a fifth of the damage dealt, and a fifth more for each one stacked. What keeps you standing is landing hits.'),
 	('STUN', 'STUN', 'behavior', 0.6, 'Struck enemies are stunned: for a moment they stand where they are and cannot attack. Each one stacked holds them longer. Once it wears off, an enemy shrugs off the next stun for a while.'),
-	('POSSESS', 'POSSESS', 'behavior', 0.9, 'Takes over the monster struck for 5 seconds, unharmed, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, left behind and still hunted. Bosses resist it.'),
+	('POSSESS', 'POSSESS', 'states', 0.9, 'Takes over the monster struck for 5 seconds, unharmed, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, left behind and still hunted. Bosses resist it.'),
 	('AUTO_AIM', 'AUTO-AIM', 'projectile_behavior', 0.4, 'Aims the attack at the nearest enemy, wherever you point: bolts go straight at it and SWIFT STRIKE lunges through it, as far as each reaches, and a swing turns to it. Each one stacked looks further for one.'),
-	('ANTI_GRAVITY', 'ANTI-GRAVITY', 'projectile_behavior', 0.4, 'Bolts fly with no weight on them: a lobbed shot goes straight instead of arcing. One is all it takes.');
+	('ANTI_GRAVITY', 'ANTI-GRAVITY', 'projectile_behavior', 0.4, 'Bolts fly with no weight on them: a lobbed shot goes straight instead of arcing. One is all it takes.'),
+	('HEAL', 'HEAL', 'behavior', 0.5, 'Heals what the attack strikes by 8 once the blow has landed, and 8 more for each one stacked. The blow still lands; one it kills is not healed. Turned round by INVERT, it is 8 more damage instead.');
 
--- EXPLODE was a form, an attack of its own — a burst round the caster — and a
--- flow it was placed on was that burst instead of whatever its form had made
--- it. Now it keeps the attack and bursts every hit of it (`Attacks._explode`).
--- A flow with no form has no attack to keep, and there EXPLODE is still the
--- burst it was, where the flow goes off: the Hopper's board, the Arbiter's
--- second, a trigger's branch with one on it. A branch starts without the one
--- before its trigger, as it starts without the form (`SkillRunner._exit`).
--- Its tag and its heat are the form's: whatever the attack, a board with it
--- strikes an area.
+-- NEAR selects the enemies round the one the attack strikes, out to
+-- `Attacks.NEAR_RADIUS` and further for each one stacked, and what every part
+-- after it on the flow does reaches them too — the effects alone, not the
+-- blow: they are not struck by the weapon, only touched by what comes after
+-- the NEAR (`Payload.spread`, which the runner builds from those parts as the
+-- flow goes on through them). The enemy struck takes the whole flow as ever.
+-- A flow with no form has no blow and no enemy struck, and its NEAR selects
+-- the enemies round where it goes off, its triggers going off on each: the
+-- Hopper's board, the Arbiter's second, a trigger's branch with one on it. A
+-- branch starts without the one before its trigger, as it starts without the
+-- form (`SkillRunner._exit`). Its tag is an area's.
 INSERT INTO parts (id, name, category, heat, tag, description) VALUES
-	('EXPLODE', 'EXPLODE', 'behavior', 1.2, 'area', 'Every enemy the attack hits bursts, and everything round it takes the hit too. Each one stacked bursts wider. A trigger''s branch starts without it, and one with no form but an EXPLODE on it bursts where it goes off.');
+	('NEAR', 'NEAR', 'behavior', 1.0, 'area', 'Every part after it reaches the enemies round the one the attack strikes too: FIRE burns them, STUN stuns them, DAMAGE hurts them. The blow itself lands on the enemy struck alone. Each one stacked reaches further.');
 
 INSERT INTO ports (part_id, side) VALUES
 	('PIERCE', 'E'), ('HOMING', 'E'),
-	('GRAVITY', 'E'), ('KNOCKBACK', 'E'), ('MANA_DRAIN', 'E'), ('HEALTH_DRAIN', 'E'),
-	('STUN', 'E'), ('POSSESS', 'E'), ('AUTO_AIM', 'E'), ('ANTI_GRAVITY', 'E'), ('EXPLODE', 'E');
+	('KNOCKBACK', 'E'), ('PULL', 'E'), ('MANA_DRAIN', 'E'), ('HEALTH_DRAIN', 'E'),
+	('STUN', 'E'), ('POSSESS', 'E'), ('AUTO_AIM', 'E'), ('ANTI_GRAVITY', 'E'), ('HEAL', 'E'), ('NEAR', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('PIERCE', 0, 'pierce', 'add', 1),
 	('HOMING', 0, 'homing', 'add', 1),
-	('GRAVITY', 0, 'pull', 'add', 1),
 	('KNOCKBACK', 0, 'knockback', 'add', 1),
+	('PULL', 0, 'hook', 'add', 1),
 	('MANA_DRAIN', 0, 'mana_drain', 'add', 1),
 	('HEALTH_DRAIN', 0, 'health_drain', 'add', 1),
 	('STUN', 0, 'stun', 'add', 0.8),
 	('POSSESS', 0, 'possess', 'add', 5),
 	('AUTO_AIM', 0, 'auto_aim', 'add', 1),
 	('ANTI_GRAVITY', 0, 'anti_gravity', 'add', 1),
-	('EXPLODE', 0, 'explode', 'add', 1);
+	('HEAL', 0, 'heal', 'add', 8),
+	('NEAR', 0, 'near', 'add', 1);
 
 
 -- ---- summon ---------------------------------------------------------------------
@@ -287,8 +314,8 @@ INSERT INTO parts (id, name, category, heat, description) VALUES
 	('DUPLICATE', 'DUPLICATE x3', 'flow', 3.0, 'Produces the same result three times at full damage. Generates a lot of heat.'),
 	('OVERCLOCK', 'OVERCLOCK', 'flow', 0.0, 'Runs the whole board on a faster clock. Each one cuts the wait between casts by the same 5%; twelve bring it down to 40%, and it goes no lower. A flow goes through it without spending a tick.'),
 	('DELAY', 'DELAY', 'flow', 2.0, 'Makes every cast that passes through it wait longer before the next, and each one more adds as much again. It does nothing else: it turns a flow and leaves it as it was.'),
-	('TIME_DILATION', 'TIME DILATION', 'flow', 2.0, 'Slows the world and the board alike. Not a speed buff — a change in the pace of the fight.'),
-	('INVERT', 'INVERT', 'flow', 0.4, 'Turns the part right before it inside out: DAMAGE heals what it strikes, FIRE, ICE and STUN cleanse it, GRAVITY pushes away, KNOCKBACK pulls in, and SIZE, SPEED and RANGE shrink. After anything else it does nothing.'),
+	('TIME_DILATION', 'TIME DILATION', 'states', 2.0, 'Slows the world and the board alike. Not a speed buff — a change in the pace of the fight.'),
+	('INVERT', 'INVERT', 'flow', 0.4, 'Turns the part right before it inside out: DAMAGE heals what it strikes and HEAL harms it, FIRE, ICE and STUN cleanse it, PUSH pulls and PULL pushes, and SIZE, SPEED and RANGE shrink. After anything else it does nothing.'),
 	('BRIDGE', 'BRIDGE', 'flow', 0.0, 'Carries a flow one cell and does nothing else: it turns the flow and leaves it as it was. Steer a flow round to the way out with it, or walk a trigger''s branch round a ring and back.');
 
 INSERT INTO ports (part_id, side) VALUES
@@ -339,11 +366,12 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 -- multiplies to it.
 INSERT INTO inversions (part_id, position, field, op, value) VALUES
 	('DAMAGE', 0, 'heal', 'add', 8),
+	('HEAL', 0, 'damage', 'add', 8),
 	('FIRE', 0, 'cleanse', 'set', 'true'),
 	('ICE', 0, 'cleanse', 'set', 'true'),
 	('STUN', 0, 'cleanse', 'set', 'true'),
-	('GRAVITY', 0, 'repel', 'add', 1),
 	('KNOCKBACK', 0, 'hook', 'add', 1),
+	('PULL', 0, 'knockback', 'add', 1),
 	('SIZE', 0, 'size', 'multiply', 0.625),
 	('SPEED', 0, 'speed', 'multiply', 0.6667),
 	('SPEED', 1, 'range_px', 'multiply', 0.8333),

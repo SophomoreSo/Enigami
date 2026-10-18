@@ -387,8 +387,7 @@ func forge_component(inputs: Array[String]) -> String:
 ## buying a part to scrap it is never a trade, at any level of the hideout.
 const SHOP_PRICES := {
 	Components.CAT_FORM: 60,
-	Components.CAT_ELEMENT: 55,
-	Components.CAT_STAT: 40,
+	Components.CAT_STATES: 55,
 	Components.CAT_BEHAVIOR: 65,
 	Components.CAT_PROJECTILE_BEHAVIOR: 65,
 	Components.CAT_SUMMON_BEHAVIOR: 65,
@@ -401,7 +400,7 @@ func shop_stock() -> Array:
 	return Components.loot_pool()
 
 func shop_price(id: String) -> int:
-	var cat := String(Components.get_def(id).get("cat", Components.CAT_STAT))
+	var cat := String(Components.get_def(id).get("cat", Components.CAT_BEHAVIOR))
 	return int(SHOP_PRICES.get(cat, 50))
 
 func can_buy(id: String) -> bool:

@@ -36,16 +36,22 @@ var auto_aim: int = 0              ## goes at the nearest enemy, wherever it was
 ## straight rather than arcing, and a summoned one hangs where it was called
 ## rather than falling (ANTI-GRAVITY).
 var anti_gravity: int = 0
-## Drags nearby enemies into the impact instead of knocking the struck one back.
-## Not to be confused with a thrown weapon's `gravity_shots`, which arcs the
-## bolt: that one is a property of the weapon and rides in the spawn context.
-var pull: int = 0
 var knockback: int = 0             ## the struck enemy is thrown on along the attack
-## Every enemy the attack hits bursts, the hit landing again on everything round
-## it, wider for each one stacked (`Attacks._explode`). With no form there is no
-## attack to burst the hits of, and the EXPLODE is the attack: a burst where the
-## flow goes off.
-var explode: int = 0
+## NEAR: how many the flow has been through, which is how far round the enemy
+## struck it reaches (`Attacks.near_radius`), and `spread`, what every part after
+## the first of them did — those parts' effects alone, on a payload of nothing,
+## which the runner builds as the flow goes on through them (`SkillRunner._apply`).
+## What lands on the enemies round the one struck is `spread` (`Attacks._near`);
+## with no form there is no blow and no enemy struck, and it lands on the
+## enemies round where the flow goes off.
+var near: int = 0
+var spread: Payload = null
+## On a NEAR's touch, how hard the blow it spreads from landed, which is what a
+## burn it carries is worked from; -1 on every other hit (`Attacks.resolve_hit`).
+## And where its middle is — the enemy struck, or where a NEAR with no form went
+## off — which a PULL on it drags the enemy touched in to.
+var touch: float = -1.0
+var touch_at: Vector2 = Vector2.ZERO
 var shatter: int = 0               ## breaks the frost on a slowed enemy, for far more damage
 var mana_drain: int = 0            ## every connection pays the caster back
 var health_drain: int = 0          ## every hit that hurts heals the caster a share of it
@@ -64,12 +70,10 @@ var pet_kamikaze: int = 0
 ## What an INVERT makes of the part before it (the `inversions` rows), each
 ## landing on the struck enemy once the hit has: health given back, every burn,
 ## chill and stun it was carrying ended — though not what this same hit brings
-## it — the enemies round the impact driven off rather than gathered (GRAVITY's
-## opposite), the struck one hauled back the way the attack came rather than
-## thrown on (KNOCKBACK's).
+## it — the struck one dragged toward whoever struck it rather than thrown on
+## (KNOCKBACK's — and PULL's own, `hook` being what PULL adds to).
 var heal: float = 0.0
 var cleanse: bool = false
-var repel: int = 0
 var hook: int = 0
 var duplicates: int = 1
 var heat: float = 0.0              ## accumulated while travelling; feeds cycle cooldown
@@ -101,9 +105,11 @@ func clone() -> Payload:
 	p.homing = homing
 	p.auto_aim = auto_aim
 	p.anti_gravity = anti_gravity
-	p.pull = pull
 	p.knockback = knockback
-	p.explode = explode
+	p.near = near
+	p.spread = spread.clone() if spread != null else null
+	p.touch = touch
+	p.touch_at = touch_at
 	p.shatter = shatter
 	p.mana_drain = mana_drain
 	p.health_drain = health_drain
@@ -114,7 +120,6 @@ func clone() -> Payload:
 	p.pet_kamikaze = pet_kamikaze
 	p.heal = heal
 	p.cleanse = cleanse
-	p.repel = repel
 	p.hook = hook
 	p.duplicates = duplicates
 	p.heat = heat
@@ -139,6 +144,6 @@ func at_limit(id: String) -> bool:
 	return limit > 0 and stack(id) >= limit
 
 ## Does this payload do anything at all when it leaves the board? An attack, or
-## with no form an EXPLODE, which is a burst of its own.
+## with no form a NEAR, which touches the enemies round where it goes off.
 func is_productive() -> bool:
-	return form != "" or explode > 0
+	return form != "" or (near > 0 and spread != null)

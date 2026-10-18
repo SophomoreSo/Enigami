@@ -214,7 +214,7 @@ func _kamikaze() -> void:
 	# Wider for each one stacked: an enemy past one KAMIKAZE's blast, and inside
 	# two's.
 	var who := dummy(Vector2(0, 4800), 0)
-	var between := (Attacks.BURST_RADIUS + Attacks.BURST_RADIUS * (1.0 + Attacks.BURST_WIDER)) * 0.5
+	var between := (Attacks.NEAR_RADIUS + Attacks.NEAR_RADIUS * (1.0 + Attacks.NEAR_WIDER)) * 0.5
 	for n in [1, 2]:
 		var out := dummy(Vector2(between, 4800), 1)
 		out.global_position.x += out.hurt_radius

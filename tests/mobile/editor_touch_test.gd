@@ -140,6 +140,7 @@ func _ready() -> void:
 	await _the_parts()
 	await _a_part_picked()
 	await _a_part_dragged()
+	await _a_long_tab()
 	await _copy_and_paste()
 	await _at_a_desk()
 	await _closing()
@@ -223,7 +224,8 @@ func _the_layout() -> void:
 		"the plates, TURN and REMOVE are one column, which is where a part is thrown away")
 
 	# Every part is on some tab, on a plate a thumb can land on, with its name
-	# whole on it at a thumb's size.
+	# whole on it at a thumb's size — scrolled to, on a tab too long for the
+	# column.
 	var seen := {}
 	var cramped: Array = []
 	var clipped: Array = []
@@ -233,6 +235,7 @@ func _the_layout() -> void:
 		for k in ids.size():
 			var id: String = ids[k]
 			seen[id] = true
+			ed._show_plate(id)
 			var r := ed._pal_rect(k)
 			if r.size.y < 56.0 or not (l["plates"] as Rect2).grow(0.5).encloses(r):
 				cramped.append("%s %s" % [id, str(r)])
@@ -241,6 +244,7 @@ func _the_layout() -> void:
 			if PixelDraw.text_width(part, size) > r.size.x - 56.0 - 14.0 - 60.0 - 12.0:
 				clipped.append(part)
 	ed._tab = 0
+	ed._plate_first = 0
 	check(seen.size() == ed._pool_ids().size(), "every part in the pool is on a tab (%d of %d)"
 		% [seen.size(), ed._pool_ids().size()])
 	check(cramped.is_empty(), "each on a plate a thumb's size, in the column's room (%s)" % str(cramped))
@@ -446,6 +450,51 @@ func _a_part_dragged() -> void:
 	check(at(Vector2i(6, 4)) == "", "and one dragged back onto the parts is put away")
 	await carry(cell(to), Vector2(cell(to).x, screen().y - 4.0))
 	check(at(to) == id, "one let go nowhere goes back where it was")
+
+## --- a tab too long for the column ---------------------------------------------------------
+
+## A tab with more parts than the column holds at a thumb's size stands as many
+## as fit and scrolls through the rest: a thumb dragged up or down its plates
+## moves them a plate at a time and takes nothing, a touch on one still takes it
+## in hand, and another tab comes up from its first.
+func _a_long_tab() -> void:
+	var long := -1
+	for i in ed._pal_groups().size():
+		await tap((layout()["tabs"][i] as Rect2).get_center())
+		if ed._plates_scroll():
+			long = i
+			break
+	check(long >= 0, "(a tab with more parts than the column shows)")
+	if long < 0:
+		return
+	var ids := ed._palette_ids()
+	var shown := ed._plates_shown
+	var room: Rect2 = layout()["plates"]
+	check(ed._plate_first == 0 and ed._pal_rect(0).size.y >= 56.0 and room.grow(0.5).encloses(ed._pal_rect(shown - 1))
+			and ed._pal_rect(ids.size() - 1).size.y == 0.0,
+		"its first %d of %d stand a thumb tall in the column, and the rest wait under them" % [shown, ids.size()])
+	var held := ed.selected
+	var before := changes
+	var from := ed._pal_rect(shown - 1).get_center()
+	await carry(from, from - Vector2(0.0, ed._plate_pitch * 2.0))
+	var want := mini(2, ids.size() - shown)
+	check(ed._plate_first == want, "a thumb dragged up the plates scrolls them with it, a plate at a time (%d of %d)"
+		% [ed._plate_first, want])
+	check(ed.selected == held and ed._drag_id == "" and changes == before, "and takes nothing in hand")
+	await carry(from, from - Vector2(0.0, ed._plate_pitch * float(ids.size())))
+	var last: String = ids[ids.size() - 1]
+	check(ed._plate_first == ids.size() - shown and room.grow(0.5).encloses(ed._pal_rect(ids.size() - 1))
+			and ed._pal_rect(0).size.y == 0.0,
+		"dragged as far as it goes, the last part comes up and the list stops there")
+	await tap(plate_of(last))
+	check(ed.selected == last and changes == before, "a touch on a plate down there takes it in hand")
+	var top := ed._pal_rect(ed._plate_first).get_center()
+	await carry(top, top + Vector2(0.0, ed._plate_pitch * float(ids.size())))
+	check(ed._plate_first == 0, "and a thumb dragged down brings the first back")
+	var other := 0 if long != 0 else 1
+	await tap((layout()["tabs"][other] as Rect2).get_center())
+	await tap((layout()["tabs"][long] as Rect2).get_center())
+	check(ed._plate_first == 0, "a tab comes up from its first part")
 
 ## --- COPY and PASTE ------------------------------------------------------------------------
 

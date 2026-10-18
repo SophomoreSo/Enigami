@@ -77,9 +77,10 @@ godot res://tests/graphics/lighting_test.tscn # the light: the world drawn for i
 godot res://tests/graphics/glass_test.tscn  # glass: what is behind clear glass seen through it, what is in front of a mirror shown in it, upside down or turned round, and the map creator's
 godot res://tests/graphics/bolt_view_test.tscn # a bolt's trail: the gaps between its beads drawn in, and a laser's beam from the muzzle
 godot res://tests/graphics/rock_view_test.tscn # the rock, drawn: a stone of the game's own and not the pack's morning star, held upright, turning over in the air, and marked where it lies
-godot res://tests/feature/impact_test.tscn  # GRAVITY, KNOCKBACK, SHATTER and MANA DRAIN, at the moment a hit lands
+godot res://tests/feature/impact_test.tscn  # PUSH, PULL, NEAR, SHATTER and MANA DRAIN, at the moment a hit lands
+godot res://tests/feature/heal_test.tscn    # HEAL: what the attack strikes healed after the blow, never one it killed, and turned to damage by INVERT
 godot res://tests/feature/summon_test.tscn  # SUMMON PET's pet following, one to a summoner, with OFFENSIVE going for an enemy, and with KAMIKAZE blowing itself up against one
-godot res://tests/feature/slam_test.tscn    # KNOCKBACK into a wall: cracked, hurt and stunned past a speed, and nothing under it
+godot res://tests/feature/slam_test.tscn    # PUSH into a wall: cracked, hurt and stunned past a speed, and nothing under it
 godot res://tests/graphics/crack_test.tscn  # the crack a slam leaves: it stays, it is the room's, and it is there again when the room is walked back into
 godot res://tests/feature/stack_test.tscn   # parts stack: what each one more is worth, where a part stops, laser speed, and HOMING round a wall
 godot res://tests/feature/invert_hit_test.tscn # a stun, a heal, a cleanse, a push away and a haul back, as they land
@@ -512,7 +513,7 @@ giving it further to walk.
   one are worth more than one, and a ring that walks a flow through a part lap
   after lap stacks it once a lap. `DAMAGE` is worth more each time: the first
   adds 8, the next 12, the next 16. The parts that used to be a switch are a
-  count now — `HOMING`, `GRAVITY`, `KNOCKBACK`, `SHATTER`, `MANA DRAIN` — and
+  count now — `HOMING`, `PUSH`, `SHATTER`, `MANA DRAIN` — and
   do the same thing harder for a higher one, and the graph's line in the
   editor says how many (`homing x3`).
   Some parts stop. A part's limit is how many of it one flow can stack
@@ -531,8 +532,8 @@ giving it further to walk.
   the way and flies wide of the corners; every one stacked turns as hard again,
   and several take them. Melee forms re-aim themselves at the nearest enemy.
 - Triggers (`ON HIT`, `ON KILL`, `ON PARRY`) grow a second flow out of their
-  side port. That branch inherits the numbers but not the attack form, nor an
-  `EXPLODE` (below), so it defines its own payload, and it attaches to the
+  side port. That branch inherits the numbers but not the attack form, nor a
+  `NEAR` (below), so it defines its own payload, and it attaches to the
   attacks the skill fires. A
   board has one way out, so a branch is only a follow-up once it has been
   turned back round to it: one left running off another edge is lost, and the
@@ -568,24 +569,30 @@ giving it further to walk.
   outright; three is the most a flow can stack, and three reach further than a
   room is wide. A monster is given whatever reach its own attack range needs, so
   nothing ever fires a shot that cannot arrive.
-- `GRAVITY` pins the enemy it strikes instead of knocking it back, and drags
-  every other enemy nearby onto it — a room gathered into one place for whatever
-  the rest of the board does next. Every one stacked drags as hard again, and
-  reaches a little further.
-- `KNOCKBACK` throws the enemy it strikes on the way the attack was going:
-  along a bolt's flight, out from a swing or an `EXPLODE`, down the line of a
+- `PUSH` (its id is `KNOCKBACK`) throws the enemy it strikes on the way the attack was going:
+  along a bolt's flight, out from a swing or a `NEAR`'s middle, down the line of a
   lunge. A hit on its own barely shifts anything; this throws an enemy standing
   its ground some five cells and one running at you back two, which buys room
   and can just as easily put it out of reach. Every one stacked throws as hard
-  again. With `GRAVITY` on the same board the struck enemy still flies, out of
-  the crowd being dragged in. Thrown into a wall still going hard — 260 pixels
-  a second or more, which one `KNOCKBACK` does from up to about three cells
+  again. Thrown into a wall still going hard — 260 pixels
+  a second or more, which one `PUSH` does from up to about three cells
   off and two from up to twelve — it cracks the rock and is hurt by it, 10 at
   that speed and more the harder it hits, and stunned for 0.8s. One slam to a
-  throw; a hit with no `KNOCKBACK` never slams, nor does `GRAVITY`'s drag. The
+  throw; a hit with no `PUSH` never slams, nor does a `PULL`'s drag. The
   crack stays in the wall, wider the harder the slam: it does not fade, and it
   is still there when you walk back into the room — up to 24 a room, the
   oldest going first — until the raid is over or you leave the hideout.
+- `PULL` is `PUSH` turned round: the enemy it strikes is dragged toward
+  whoever struck it — you, or the monster that hit you — as hard as `PUSH`
+  would have thrown it away, and it stops about a body short of them, never
+  past. One drags an enemy standing its ground in from some five cells off;
+  every one stacked drags it from further, still stopping short. It takes the
+  place of the shove every hit gives, so the enemy comes in rather than
+  flinching back first. A pulled enemy slams into nothing.
+- `HEAL` gives what the attack strikes health back once the blow has landed:
+  8, and 8 more for each one stacked. The blow still lands its damage first,
+  and one it kills is not healed. `INVERT` after it turns it into 8 more
+  damage, as `INVERT` after a `DAMAGE` turns that into a heal.
 - `ANTI-GRAVITY` takes the weight off a bolt: a lobbed or thrown shot — a
   Lobber's, a weapon's that arcs — flies straight instead. One is all it
   takes; more do no more.
@@ -599,26 +606,35 @@ giving it further to walk.
   the flow's numbers — everything the board built into it — once every 1.2
   seconds, and more often for each one stacked, coming back between strikes.
   With `KAMIKAZE` it flies at that enemy as soon as there is one and blows
-  itself up against it: the flow goes off there as a burst, as one with no
-  form but an `EXPLODE` does, and everything round it takes the attack's
-  numbers — the pet's summoner's blow, triggers and all. Then the pet is gone,
-  and the next cast with `SUMMON PET` calls another. Each one stacked bursts
-  wider, as each `EXPLODE` does. `SUMMON BOLT`, which hung a bolt in the air
+  itself up against it: the flow goes off there as a blast, and everything
+  within three cells takes the whole of the attack's numbers — the pet's
+  summoner's blow, triggers and all. Then the pet is gone, and the next cast
+  with `SUMMON PET` calls another. Each one stacked bursts wider, half as far
+  again for the second. `SUMMON BOLT`, which hung a bolt in the air
   over where you aimed, is retired: a board or a code with one on it reads
   with it left out.
-- `EXPLODE` bursts every hit. The enemy an attack strikes is the middle of a
-  blast that lands the same hit on everything round it — its damage, its
-  elements, its `STUN`, a `KNOCKBACK` out from the middle — though not on that
-  enemy again, which has just taken it. The blast does not set off the hit's
-  triggers: its `ON HIT` goes off once, on the hit itself. Every one stacked
-  makes the blast wider: two reach half as far again as one, three twice as
-  far.
-  It was a form until it was made a modifier — an attack of its own, a burst
-  round the caster — and on a flow with no form it still is: the Hopper's
-  attack, the Arbiter's second form, and a trigger's branch with an `EXPLODE`
-  on it and no form, which bursts where the hit that set it off landed. A
-  branch starts without the `EXPLODE` before its trigger, so a follow-up
-  bursts only with one of its own.
+- `NEAR` reaches the enemies round the one an attack strikes — within three
+  cells of it, and further for each one stacked: two half as far again as
+  one, three twice as far — with whatever the parts after it on the flow do.
+  `SLASH`, `NEAR`, `FIRE`, `STUN` cuts one enemy and burns and stuns every
+  enemy round it. Only those parts' effects reach them, not the blow: the
+  weapon's damage lands on the enemy struck alone, and the ones round it are
+  hurt only by a `DAMAGE` after the `NEAR`, burnt as hard as the blow burnt
+  the enemy struck, pushed out from it by a `PUSH`, and dragged in to it by a
+  `PULL` — so `NEAR` and `PULL` gather the enemies round the one struck onto
+  it, which `GRAVITY` did before it was retired. What comes before the `NEAR`
+  stays on the enemy struck, which takes the whole flow as ever. A trigger
+  after it goes off on the hit alone, and `POSSESS` stays with the enemy
+  struck.
+  On a flow with no form there is no blow and nobody struck, and the `NEAR`
+  is the attack: everything round where the flow goes off is touched by what
+  comes after it, its triggers going off on each — the Hopper's attack, the
+  Arbiter's second form, the Bomber's last, and a trigger's branch with a
+  `NEAR` on it and no form, round where the hit that set it off landed. A
+  branch starts without the `NEAR` before its trigger, so a follow-up reaches
+  round only with one of its own. `NEAR` took the place of `EXPLODE`, which
+  burst every hit on everything round it; a board or a code with an `EXPLODE`
+  on it reads with it left out.
 - `SHATTER` breaks the frost on an enemy already slowed by it: the hit lands
   far harder — x2.5 for one `SHATTER`, x4 for two, x5.5 for three — and the
   enemy thaws, so there is one break to a chill. It never shatters the chill
@@ -646,9 +662,8 @@ giving it further to walk.
   second and a half, so no board can hold one for good.
 - `INVERT` turns round the part straight before it. `DAMAGE` heals the enemy
   struck instead; `FIRE`, `ICE` and `STUN` cleanse it of every burn, chill and
-  stun it was carrying; `GRAVITY` drives the room away from the impact instead
-  of gathering it; `KNOCKBACK` hauls the struck enemy back the way the attack
-  came; and `SIZE`, `SPEED` and `RANGE` make the attack as much less as they
+  stun it was carrying; `PUSH` drags the struck enemy in as `PULL` does, and `PULL`
+  throws it away as `PUSH` does; and `SIZE`, `SPEED` and `RANGE` make the attack as much less as they
   would have made it more. Only the one part before it is turned round: `FIRE`,
   `FIRE`, `INVERT` puts out whatever the enemy came burning with and sets it
   alight again from the first `FIRE`, since a cleanse ends what was there
@@ -747,10 +762,11 @@ Monsters run boards through the exact same simulator, and a kill can drop the
 components its attack was visibly built from.
 
 The **Bomber**'s attack is the last thing it does. It runs at you and, once it
-is close enough, punches you: its board is a `PUNCH` carrying `DAMAGE`,
-`FIRE` and an `EXPLODE`, so the blow bursts on everything round you. Then it
-goes up where it stands — the same flow with no form under it, which its
-`EXPLODE` makes a burst of its own, and you are in that one — and it dies in
+is close enough, punches you: its board is a `PUNCH` and a `NEAR` carrying
+`DAMAGE` and `FIRE`, so what the punch does reaches everything round you.
+Then it goes up where it stands — the same flow with no form under it, which
+its `NEAR` makes a touch on everything round it, and you are in that one — and
+it dies in
 it, whether the blow found you or not. Fragile and quick: stop it before it
 arrives, or be out of reach when it does.
 
@@ -808,8 +824,9 @@ two, stays where it was and shows where its flow now stops. A code written
 while the root could not move still reads: its root is what stood where every
 root stood then.
 
-A renamed part keeps its number too. EXPLODE was called AREA, and a code or a
-save from then reads back with an EXPLODE wherever it had an AREA.
+A renamed part keeps its number too. EXPLODE was called AREA, and kept the
+number; now that it is retired, a code or a save from either name reads back
+with it left out.
 
 Every part covers one cell. SWIFT STRIKE and EXPLODE covered two until they
 were made one, and let their flow out of the second: a code or a save from then
@@ -844,7 +861,7 @@ in the tests off it, in the hideout, and in the map creator. While it is off:
   `DUPLICATE` or an `OVERCLOCK` would do to it is done; a trigger's branch is
   not walked, so there are no follow-ups; the board's clock runs at its base.
   The monsters' boards are held to the same: a Bomber's blow is a punch that
-  neither burns nor bursts. Where the board forks the flow still forks — that
+  neither burns nor reaches anyone round. Where the board forks the flow still forks — that
   is wiring, not a part's work — so a `SPLIT` is two flows at full damage
   rather than two at half.
 - **a hold charges nothing.** RMB casts the graph as a tap would.

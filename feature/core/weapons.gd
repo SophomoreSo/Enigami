@@ -206,12 +206,9 @@ static func finalize(weapon_id: String, p: Payload) -> Payload:
 			# cells, the rock five, and a bolt off the sword not much more than
 			# twice what a swing would have covered.
 			p.range_px *= float(d["reach_mul"])
-		"":
-			# With no form, what goes off is an EXPLODE's burst — a parry's
-			# riposte with nothing but one on its branch — weighed as the burst
-			# was when EXPLODE was a form.
-			if p.explode > 0:
-				p.damage *= float(d["ranged_mul"])
+	# What a NEAR carries to the enemies round the one struck is no blow of the
+	# weapon's, and nothing of the weapon weighs it: neither does it on a flow
+	# with no form, where it is the attack.
 	return p
 
 static func uses_gravity_shots(weapon_id: String) -> bool:

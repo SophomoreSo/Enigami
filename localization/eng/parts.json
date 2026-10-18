@@ -27,6 +27,10 @@
 		"name": "WATER",
 		"desc": "Soaks what it strikes. A wet enemy freezes solid under ICE, and FIRE only dries it; water puts a burning enemy out."
 	},
+	"HEAL": {
+		"name": "HEAL",
+		"desc": "Heals what the attack strikes by 8 once the blow has landed, and 8 more for each one stacked. The blow still lands; one it kills is not healed. Turned round by INVERT, it is 8 more damage instead."
+	},
 	"DAMAGE": {
 		"name": "DAMAGE +",
 		"desc": "Raises damage, and each one stacked raises it by more than the last. Stable and simple, but interacts with little else."
@@ -55,13 +59,17 @@
 		"name": "HOMING",
 		"desc": "Tracks the nearest enemy. Bolts curve and find their way round walls; melee forms re-aim themselves. Each one stacked turns a bolt tighter, so it holds a winding path it would otherwise fly wide of."
 	},
-	"GRAVITY": {
-		"name": "GRAVITY",
-		"desc": "The enemy struck is not knocked back but pinned, and every other enemy nearby is dragged onto it. Gathers a room into one place for whatever comes next. Each one stacked drags harder."
-	},
 	"KNOCKBACK": {
-		"name": "KNOCKBACK",
+		"name": "PUSH",
 		"desc": "Hits throw the enemy back the way the attack was going. Thrown hard into a wall, it cracks the wall and is hurt and stunned. Buys room, but can put it out of reach. Each one stacked throws harder."
+	},
+	"NEAR": {
+		"name": "NEAR",
+		"desc": "Every part after it reaches the enemies round the one the attack strikes too: FIRE burns them, STUN stuns them, DAMAGE hurts them. The blow itself lands on the enemy struck alone. Each one stacked reaches further."
+	},
+	"PULL": {
+		"name": "PULL",
+		"desc": "Hits drag the enemy toward whoever struck it, and it stops just short of them. Brings an enemy into reach, but brings it close. Each one stacked drags it from further off."
 	},
 	"MANA_DRAIN": {
 		"name": "MANA DRAIN",
@@ -83,10 +91,6 @@
 		"name": "AUTO-AIM",
 		"desc": "Aims the attack at the nearest enemy, wherever you point: bolts go straight at it and SWIFT STRIKE lunges through it, as far as each reaches, and a swing turns to it. Each one stacked looks further for one."
 	},
-	"EXPLODE": {
-		"name": "EXPLODE",
-		"desc": "Every enemy the attack hits bursts, and everything round it takes the hit too. Each one stacked bursts wider. A trigger's branch starts without it, and one with no form but an EXPLODE on it bursts where it goes off."
-	},
 	"DUPLICATE": {
 		"name": "DUPLICATE x3",
 		"desc": "Produces the same result three times at full damage. Generates a lot of heat."
@@ -105,7 +109,7 @@
 	},
 	"INVERT": {
 		"name": "INVERT",
-		"desc": "Turns the part right before it inside out: DAMAGE heals what it strikes, FIRE, ICE and STUN cleanse it, GRAVITY pushes away, KNOCKBACK pulls in, and SIZE, SPEED and RANGE shrink. After anything else it does nothing."
+		"desc": "Turns the part right before it inside out: DAMAGE heals what it strikes and HEAL harms it, FIRE, ICE and STUN cleanse it, PUSH pulls and PULL pushes, and SIZE, SPEED and RANGE shrink. After anything else it does nothing."
 	},
 	"ANTI_GRAVITY": {
 		"name": "ANTI-GRAVITY",

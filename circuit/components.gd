@@ -43,8 +43,7 @@ const SIDES := "ESWN"
 # Categories are used for palette grouping and for weapon compatibility tags.
 # What each one looks like is `Style.CAT_COLOR`, over in the graphics module.
 const CAT_FORM := "form"
-const CAT_ELEMENT := "element"
-const CAT_STAT := "stat"
+const CAT_STATES := "states"
 const CAT_BEHAVIOR := "behavior"
 const CAT_PROJECTILE_BEHAVIOR := "projectile_behavior"
 const CAT_SUMMON_BEHAVIOR := "summon_behavior"
