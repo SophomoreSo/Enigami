@@ -1611,7 +1611,7 @@ func _draw_ports_preview(id: String, origin: Vector2i) -> void:
 ## notice about a ring takes four rows in English; the card grows to however
 ## many the language being played takes, and only past HINT_DEAD_ROWS is it cut.
 const HINT_W := 380.0
-const HINT_DESC_ROWS := 7
+const HINT_DESC_ROWS := 8
 const HINT_DEAD_ROWS := 6
 const HINT_PAD := 8.0
 ## Between the card and what it is about, which it never covers.

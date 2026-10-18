@@ -343,10 +343,16 @@ func _the_hideout() -> void:
 		if c is Button and Weapons.ids().any(func(id: String) -> bool:
 				return (c as Button).text.contains(Weapons.name_for(id))):
 			rack.append(c)
+	# Rows of Hideout.RACK_COLUMNS, every plate as wide as the first.
 	var level := rack.size() == Weapons.ids().size()
-	for b: Control in rack:
-		level = level and is_equal_approx(b.global_position.y, (rack[0] as Control).global_position.y)
-	check(level, "the rack: its weapons stand side by side (%d of them)" % rack.size())
+	for i in rack.size():
+		var b: Control = rack[i]
+		var first: Control = rack[i - i % Hideout.RACK_COLUMNS]
+		# To a pixel: a row's width shared three ways need not come out whole.
+		level = level and is_equal_approx(b.global_position.y, first.global_position.y) \
+			and absf(b.size.x - (rack[0] as Control).size.x) <= 1.0
+	check(level, "the rack: its weapons stand in rows of %d, as wide as each other (%d of them)"
+		% [Hideout.RACK_COLUMNS, rack.size()])
 	check(frame.rows.get_combined_minimum_size().y <= frame.body.size.y + 1.0,
 		"the rack: so the whole of it is on the page, BUILD included, with nothing to scroll (%.0f in %.0f)"
 			% [frame.rows.get_combined_minimum_size().y, frame.body.size.y])
