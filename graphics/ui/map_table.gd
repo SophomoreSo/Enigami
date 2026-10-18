@@ -77,8 +77,13 @@ const MOVE := "move"
 const ERASE := "."
 ## The tabs, each a layer of the map; and what each is called, by its key under
 ## `hud.maker.tab`.
-enum Tab { GROUND, BACK, THINGS, PROPS }
-const TAB_KEYS := ["ground", "back", "things", "props"]
+## CREATURES and THINGS both lay in the plan: the player's start and the
+## monsters under the one, and what else stands in a room under the other.
+enum Tab { GROUND, BACK, CREATURES, THINGS, PROPS }
+const TAB_KEYS := ["ground", "back", "creatures", "things", "props"]
+## How the tabs stand down the column, a row at a time: two to a row, but
+## CREATURES, whose name is wider than half the column, across it.
+const TAB_ROWS := [[Tab.GROUND, Tab.BACK], [Tab.CREATURES], [Tab.THINGS, Tab.PROPS]]
 ## How far into what is put about a map a still picture of it has got: a flame
 ## halfway up, a firefly lit.
 const STILL := 0.6
@@ -312,21 +317,23 @@ func _build_side() -> void:
 				ICON_MOVE if tool == MOVE else ICON_ERASE, Color.WHITE if b.disabled or b.is_hovered() else UiKit.TEXT))
 		tools.add_child(b)
 		_tools[tool] = b
-	# The tabs, two by two.
-	var tabs := GridContainer.new()
-	tabs.columns = 2
-	tabs.add_theme_constant_override("h_separation", 4)
-	tabs.add_theme_constant_override("v_separation", 4)
+	# The tabs, in their rows (TAB_ROWS).
+	var tabs := VBoxContainer.new()
+	tabs.add_theme_constant_override("separation", 4)
 	column.add_child(tabs)
 	_tabs.clear()
-	for t in TAB_KEYS.size():
-		var b := _button(Loc.t("hud.maker.tab.%s" % TAB_KEYS[t]), UiKit.ACCENT)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.clip_text = true
-		_chosen_look(b)
-		b.pressed.connect(take_tab.bind(t))
-		tabs.add_child(b)
-		_tabs[t] = b
+	for row_tabs: Array in TAB_ROWS:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 4)
+		tabs.add_child(row)
+		for t: int in row_tabs:
+			var b := _button(Loc.t("hud.maker.tab.%s" % TAB_KEYS[t]), UiKit.ACCENT)
+			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			b.clip_text = true
+			_chosen_look(b)
+			b.pressed.connect(take_tab.bind(t))
+			row.add_child(b)
+			_tabs[t] = b
 	column.add_child(UiKit.hline(true))
 	# What there is to lay under the tab that is up.
 	_grid = GridContainer.new()
@@ -358,6 +365,8 @@ func entries(t: int) -> PackedStringArray:
 			return tiles.ground_marks()
 		Tab.BACK:
 			return tiles.back_marks()
+		Tab.CREATURES:
+			return MadeRoom.creatures()
 		Tab.THINGS:
 			return MadeRoom.things()
 	return PackedStringArray(MapTiles.PROPS.keys())
@@ -901,7 +910,7 @@ static func _paint_dig(cv: CanvasItem, r: Rect2, k: float) -> void:
 ## Arbiter are too big for one.
 func _paint_tile(b: Button, entry: String, in_tab: int) -> void:
 	var room := Rect2(Vector2.ZERO, b.size).grow(-4.0)
-	if in_tab != Tab.THINGS:
+	if in_tab != Tab.THINGS and in_tab != Tab.CREATURES:
 		tiles.icon(b, layer_of(in_tab), entry, room.get_center().round(), 1.0)
 		return
 	var stands := stands_in(entry)

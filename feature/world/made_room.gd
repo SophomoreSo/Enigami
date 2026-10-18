@@ -146,13 +146,19 @@ static func _in(layer: PackedStringArray, x: int, y: int) -> String:
 static func is_ground(mark: String) -> bool:
 	return GROUND.has(mark) or (mark == MAGIC and Magic.on)
 
-## Everything that can be put in a cell of the plan that is not ground, in the
-## order the map creator offers it: the player's start, each monster, the box,
-## the ground to dig and a bench.
-static func things() -> PackedStringArray:
+## Whoever can be put in a cell of the plan, in the order the map creator
+## offers them under CREATURES: the player's start, and each monster.
+static func creatures() -> PackedStringArray:
 	var out := PackedStringArray([START])
 	for mark in MONSTERS:
 		out.append(String(mark))
+	return out
+
+## Everything else that can be put in a cell of the plan that is not ground, in
+## the order the map creator offers it under THINGS: the box, the ground to dig,
+## a bench, and the ways out.
+static func things() -> PackedStringArray:
+	var out := PackedStringArray()
 	out.append(BOX)
 	out.append(DIG)
 	out.append(BENCH)

@@ -120,6 +120,7 @@
 		"tab": {
 			"ground": "지형",
 			"back": "배경",
+			"creatures": "생물",
 			"things": "개체",
 			"props": "소품"
 		},

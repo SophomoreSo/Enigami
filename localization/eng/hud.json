@@ -120,6 +120,7 @@
 		"tab": {
 			"ground": "GROUND",
 			"back": "BACK",
+			"creatures": "CREATURES",
 			"things": "THINGS",
 			"props": "PROPS"
 		},
