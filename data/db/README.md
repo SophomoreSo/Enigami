@@ -33,6 +33,7 @@ data/
     ├── foliage/      what grows on the rooms' floors, and how much of each a room grows
     │   └── foliage.sql
     ├── lights/       the light each kind of shining thing gives
+    ├── sounds/       the sound bank: a row a sound, its file's path, its prompt and whether the file is in use
     │   └── lights.sql
     ├── maps/         the maps the game ships with, a file a map, as the map creator writes them
     │   ├── moonlit_grove.sql
@@ -172,10 +173,10 @@ deep, since nothing under them is seen.
 
 ### Sounds
 
-Every sound is synthesised, so `sfx` names one from the bank in
-`app/audio/audio.gd`: `shoot` `slash` `hit` `explode` `jump` `dash` `hurt` `death`
-`pickup` `place` `erase` `ui` `deny` `extract` `parry` `boss` `voice` `zap`. An unknown
-id plays nothing and warns in the output.
+`sfx` names a sound of the bank — a row of `sounds` (see [A sound](#a-sound)):
+`shoot` `slash` `hit` `explode` `jump` `dash` `hurt` `death` `pickup` `place`
+`erase` `ui` `deny` `extract` `parry` `boss` `voice` `zap`. A line naming one
+that is not there fails the build.
 
 ## Free talk
 
@@ -746,6 +747,27 @@ fight lights with `Lamp` (`graphics/lamp.gd`): a bolt, a blast, a body
 burning and the way out are each a light made in code, a point or a spot.
 `tests/graphics/lighting_test.tscn` makes a light of a kind and finds its
 row's numbers in it, and lights a picture with each type.
+
+## A sound
+
+Every sound effect the game plays is a row of `sounds`, in
+`sounds/sounds.sql`, by the id the code plays it by (`Audio.play`) and a line's
+`sfx` names. Each is synthesised at boot by `app/audio/audio.gd`, as every
+sound always was; the row is where a made sound takes its place.
+
+| Column | What it is |
+|---|---|
+| `sounds.id` | The sound's id, lower case: what `Audio.play` and a line's `sfx` name. |
+| `sounds.path` | Where a file made for it goes, under `res://audio/sfx/`: the `id` with `.wav` on it. |
+| `sounds.description` | The prompt the file is made from — given to Stable Audio by hand — which says what the synthesised sound is like, so a made one takes its place without the game changing character. |
+| `sounds.use_flag` | `Y` plays the file at `path` in the synthesised sound's place; `N`, the default, plays the synthesised one. |
+
+To replace a sound: give its `description` to Stable Audio, save what comes
+back at its `path`, run the editor or `godot --import` once so the file is
+imported, set its `use_flag` to `Y`, and rebuild. A flag on a file that is not
+there warns at boot and plays the synthesised sound still, so a half-made bank
+is never silent. A new sound is a row here and a synthesised fallback in
+`Audio._build_library`, and whatever plays it in `app/audio/audio_cues.gd`.
 
 ## A map
 
