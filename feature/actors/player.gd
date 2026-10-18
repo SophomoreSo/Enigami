@@ -166,22 +166,19 @@ const DASH_STAMINA := 25.0
 const STAMINA_REGEN := 38.0    ## per second
 const STAMINA_PAUSE := 0.45    ## quiet after a dash before any of it returns
 
-## Mana is what charging spends, and the longer the hold the more of it goes.
-## Holding the cast button builds the charge; releasing it is what casts, with
-## whatever was built. Charging engages on every skill alike — nothing is
-## special-cased on the shape of the board — and the life it buys is spent by
-## whatever cycle the player put there to spend it.
-## The first cast of a hold still goes out at once — charge is what the ones
-## after it ride on, so holding is a decision about depth, not a wind-up that
-## delays the opening shot.
-const MAX_MANA := 100.0
-const MANA_REGEN := 20.0          ## per second
-const MANA_PAUSE := 0.6           ## quiet after charging before any returns
-const CHARGE_TTL_RATE := 12.0     ## extra life bought per second of holding
-const MANA_PER_TTL := 1.4
-const MAX_CHARGE_TTL := float(SkillRunner.MAX_TTL_BONUS)
-const CHARGE_DECAY := 150.0       ## how fast an unspent charge bleeds off
-const CAST_BUFFER := 0.18         ## grace for a release landing on a cooldown
+## Mana, and the charge a hold of the cast button builds out of it, are a
+## `Charge` of the player's (`_charge`): what it builds, bleeds, pays and
+## refills is there, and whether a hold may charge at all is said here
+## (`can_charge`). Its numbers are kept here by name, for whoever names them
+## through the player.
+const MAX_MANA := Charge.MAX_MANA
+const MANA_REGEN := Charge.MANA_REGEN
+const MANA_PAUSE := Charge.MANA_PAUSE
+const CHARGE_TTL_RATE := Charge.CHARGE_TTL_RATE
+const MANA_PER_TTL := Charge.MANA_PER_TTL
+const MAX_CHARGE_TTL := Charge.MAX_CHARGE_TTL
+const CHARGE_DECAY := Charge.CHARGE_DECAY
+const CAST_BUFFER := Charge.CAST_BUFFER
 
 ## --- a rope -----------------------------------------------------------------
 ## The hands hold a rope over the head, this far over the middle of the body,
@@ -349,26 +346,34 @@ var _wall_dir: int = 0
 var _air_jump_used: bool = false
 var stamina: float = MAX_STAMINA
 var _stamina_pause: float = 0.0
-var mana: float = MAX_MANA
 ## The player's own numbers with what the profile adds to them
 ## (`GameState.boost`) — the bars' ceilings, how much faster the body runs, and
 ## how fast and how far a hold charges. Taken when the body comes up, and again
 ## whenever what is added changes (`_reboost`), so a perk bought in the hideout
 ## reaches the body standing there.
 var max_stamina: float = MAX_STAMINA
-var max_mana: float = MAX_MANA
 var _pace_mul: float = 1.0
-var _charge_mul: float = 1.0
-var _charge_cap: float = MAX_CHARGE_TTL
+## Mana, and the charge a hold builds out of it (`Charge`). The HUD, the
+## picture and the tests read it through the player by the names it always
+## had, so those stand here and reach into it.
+var _charge := Charge.new()
+var mana: float:
+	get: return _charge.mana
+	set(v): _charge.mana = v
+var max_mana: float:
+	get: return _charge.max_mana
+	set(v): _charge.max_mana = v
 ## Extra life being built up while the button is held, in TTL.
-var charge: float = 0.0
+var charge: float:
+	get: return _charge.charge
+	set(v): _charge.charge = v
 ## What the last release actually paid for, carried by the cast it bought.
-var cast_charge: float = 0.0
-var _cast_buffer: float = 0.0
-var _mana_pause: float = 0.0
-## True while the cast button is actually buying life. Read rather than
-## announced: it is a state that lasts, not a moment that happens.
-var charging: bool = false
+var cast_charge: float:
+	get: return _charge.cast_charge
+	set(v): _charge.cast_charge = v
+## True while the cast button is actually buying life.
+var charging: bool:
+	get: return _charge.charging
 ## True while the cast button is pouring the player's mana into a spent rune
 ## (`refill_rune`), the same way.
 var refilling: bool = false
@@ -525,10 +530,7 @@ func setup_kit(ids: Array, boards: Array, in_hand: int = 0) -> void:
 	if hand_board == null:
 		hand_board = Weapons.make_board(Weapons.HAND)
 	hand_runner = _make_runner(Weapons.HAND, hand_board)
-	charge = 0.0
-	cast_charge = 0.0
-	_cast_buffer = 0.0
-	charging = false
+	_charge.let_go()
 	if weapons.is_empty():
 		runner = null
 		hand = 0
@@ -579,10 +581,7 @@ func _make_runner(weapon: String, board: SkillBoard) -> SkillRunner:
 func switch_to(slot: int) -> bool:
 	if weapons.is_empty() or slot < 0 or slot >= SLOTS or slot == hand:
 		return false
-	charge = 0.0
-	cast_charge = 0.0
-	_cast_buffer = 0.0
-	charging = false
+	_charge.let_go()
 	if runner != null:
 		runner.ttl_bonus = 0
 		runner.set_active(false)
@@ -712,10 +711,7 @@ func possess(e: Enemy, seconds: float) -> bool:
 	possess_left = seconds
 	possess_for = seconds
 	vessel_armed = false
-	charge = 0.0
-	cast_charge = 0.0
-	_cast_buffer = 0.0
-	charging = false
+	_charge.let_go()
 	for r in _every_runner():
 		r.ttl_bonus = 0
 		r.set_active(false)
@@ -806,7 +802,7 @@ func stamina_ratio() -> float:
 	return clampf(stamina / max_stamina, 0.0, 1.0)
 
 func mana_ratio() -> float:
-	return clampf(mana / max_mana, 0.0, 1.0)
+	return _charge.mana_ratio()
 
 ## Takes what the profile adds to the player's own numbers again: a perk was
 ## bought, a profile opened. What a ceiling gained is added to what is under it,
@@ -818,12 +814,9 @@ func _reboost() -> void:
 	var had_stamina := max_stamina
 	max_stamina = MAX_STAMINA + GameState.boost("max_stamina")
 	stamina = minf(stamina + maxf(max_stamina - had_stamina, 0.0), max_stamina)
-	var had_mana := max_mana
-	max_mana = MAX_MANA + GameState.boost("max_mana")
-	mana = minf(mana + maxf(max_mana - had_mana, 0.0), max_mana)
+	_charge.reboost(MAX_MANA + GameState.boost("max_mana"), 1.0 + GameState.boost("charge_speed"),
+		MAX_CHARGE_TTL + GameState.boost("max_charge"))
 	_pace_mul = 1.0 + GameState.boost("move_speed")
-	_charge_mul = 1.0 + GameState.boost("charge_speed")
-	_charge_cap = MAX_CHARGE_TTL + GameState.boost("max_charge")
 	for r in _every_runner():
 		r.cooldown_mul = _cast_mul()
 
@@ -834,51 +827,28 @@ func _cast_mul() -> float:
 	return CAST_COOLDOWN_MUL * maxf(1.0 - GameState.boost("cast_speed"), 0.5)
 
 ## Mana taken back off an enemy by a MANA DRAIN attack. It lands whatever the
-## charge is doing, unlike regeneration: `_mana_pause` exists to stop a hold
+## charge is doing, unlike regeneration: the quiet after a hold (`Charge.pause`) exists to stop it
 ## refilling itself the moment it is released, and this was earned by landing a
 ## hit rather than by waiting.
 func gain_mana(amount: float) -> void:
-	mana = minf(max_mana, mana + maxf(amount, 0.0))
+	_charge.gain(amount)
 
-## How full the charge is, against the most this player can hold: a full bar is
-## a full hold however far DEEP CHARGE has taken it.
+## How full the charge is, against the most this player can hold.
 func charge_ratio() -> float:
-	return clampf(charge / charge_cap(), 0.0, 1.0)
+	return _charge.ratio()
 
 ## One ceiling for every skill in the game, with what the profile adds to it
 ## (DEEP CHARGE). Nothing here asks what shape the board is: charging engages
 ## the same way on all of them, and what the life it buys is worth is then up
 ## to what the player built.
 func charge_cap() -> float:
-	return _charge_cap
+	return _charge.cap
 
-## Charging runs only while the cast button is held on a graph that could be
-## cast right now, and only while there is mana to pay for it. Released, it
-## bleeds off quickly: the depth is bought for this burst, not banked.
+## A frame of the hold: it charges only while the cast button is held on a
+## graph that may be charged (`can_charge`), and bleeds off otherwise
+## (`Charge.tick`).
 func _update_charge(delta: float, holding: bool) -> void:
-	# While the button is down the charge only ever holds or grows. Letting the
-	# decay branch run once it reached the cap made the two fight each other
-	# frame by frame — charge sat just under the cap while mana drained away
-	# into the gap being refilled.
-	if holding and can_charge():
-		charging = true
-		var cap := charge_cap()
-		if charge < cap and mana > 0.0:
-			# QUICK CHARGE builds it faster; the mana goes as fast as it builds.
-			var want := CHARGE_TTL_RATE * _charge_mul * delta
-			var afford := mana / MANA_PER_TTL
-			var gained := minf(minf(want, afford), cap - charge)
-			charge += gained
-			mana = maxf(0.0, mana - gained * MANA_PER_TTL)
-		_mana_pause = MANA_PAUSE
-		return
-	# Let go, or hold a graph still recovering, and it bleeds off.
-	charging = false
-	charge = maxf(0.0, charge - CHARGE_DECAY * delta)
-	if _mana_pause > 0.0:
-		_mana_pause = maxf(0.0, _mana_pause - delta)
-	elif mana < max_mana:
-		mana = minf(max_mana, mana + MANA_REGEN * delta)
+	_charge.tick(delta, holding, can_charge())
 
 func can_dash() -> bool:
 	return _dash_cd <= 0.0 and stamina >= DASH_STAMINA
@@ -910,18 +880,18 @@ func rune_in_hand() -> bool:
 ## nothing until it is filled again (`refill_rune`), though the stone can still
 ## be thrown bare (`_throw_bare`).
 func rune_spent_in_hand() -> bool:
-	return rune_in_hand() and GameState.rune_spent
+	return rune_in_hand() and GameState.rune.spent
 
-## The mana a full rune holds for this player: what a hold up to the most this
-## player can charge costs (`charge_cap`, `MANA_PER_TTL`) — so a rune holds one
-## full charge, and DEEP CHARGE makes it a deeper one.
+## The mana a full rune holds for this player (`Rune.full`): one full charge,
+## deeper with DEEP CHARGE.
 func rune_full() -> float:
-	return charge_cap() * MANA_PER_TTL
+	return Rune.full(charge_cap())
 
-## The charge a throw of the lit rune carries: as much as the mana in it buys,
-## up to the most this player can charge. The rune pays for it, not the player.
+## The charge a throw of the lit rune carries (`Rune.charge_in`): as much as
+## the mana in it buys, up to the most this player can charge. The rune pays
+## for it, not the player.
 func rune_charge() -> int:
-	return int(minf(charge_cap(), GameState.rune_mana / MANA_PER_TTL))
+	return GameState.rune.charge_in(charge_cap())
 
 ## A hold of the cast button with a spent rune in hand pours the player's own
 ## mana into it, as fast as RUNE_FILL and for as long as there is mana to pour,
@@ -932,14 +902,8 @@ func refill_rune(delta: float, holding: bool) -> bool:
 	if not holding or not rune_spent_in_hand() or possessing != null or not holds(weapon_id):
 		return false
 	refilling = true
-	_mana_pause = MANA_PAUSE
-	var full := rune_full()
-	var pour := minf(minf(RUNE_FILL * delta, mana), maxf(full - GameState.rune_mana, 0.0))
-	mana -= pour
-	GameState.rune_mana += pour
-	if GameState.rune_mana >= full - 0.001:
-		GameState.rune_mana = full
-		GameState.rune_spent = false
+	var pour := _charge.pour(minf(RUNE_FILL * delta, GameState.rune.lacks(charge_cap())))
+	if GameState.rune.fill(pour, charge_cap()):
 		refilling = false
 		Cues.at(&"rune_lit", global_position, {"weapon": weapon_id})
 	return true
@@ -978,13 +942,12 @@ func _on_parry_opened(seconds: float) -> void:
 ## Only the weapon in hand ever starts one — a weapon put away is not cast — so
 ## there is no asking whose it was.
 func _on_cycle_started() -> void:
-	_cast_buffer = 0.0
+	_charge.buffer = 0.0
 	# A cast of the lit rune takes the charge stored in it — the life was read as
 	# the cycle started (`rune_charge`) — and spends it: the throw goes out, and
 	# the rune is dead until it is filled again.
-	if rune_in_hand() and not GameState.rune_spent:
-		GameState.rune_mana = 0.0
-		GameState.rune_spent = true
+	if rune_in_hand() and not GameState.rune.spent:
+		GameState.rune.spend()
 		Cues.at(&"rune_spent", global_position, {"weapon": weapon_id})
 
 ## A graph's flow left its board: the attack. `weapon` is whose graph it was —
@@ -1051,7 +1014,7 @@ static func push_for(reach: float) -> float:
 ## keep aiming a cast until it has gone — the touch console, whose thumb leaves
 ## the stick in the same moment it casts.
 func casting() -> bool:
-	return _cast_buffer > 0.0 or (runner != null and not runner.is_ready())
+	return _charge.waiting() or (runner != null and not runner.is_ready())
 
 func on_dashed() -> void:
 	invuln = maxf(invuln, 0.12)
@@ -1123,13 +1086,9 @@ func _process(delta: float) -> void:
 	# already reads as up, and letting the bleed-off run first shaved a fifth
 	# off what the player had actually paid for.
 	if s.cast_released and castable and not rune:
-		cast_charge = charge
-		charge = 0.0
-		# Held over a few frames, so a release landing on the tail of the last
-		# cooldown still goes off instead of being swallowed.
-		_cast_buffer = CAST_BUFFER
+		_charge.release()
 	_update_charge(delta, holding)
-	_cast_buffer = maxf(0.0, _cast_buffer - delta)
+	_charge.wait(delta)
 	# The attack button runs the graph as it is, for as long as it is held and
 	# as often as the graph comes round — and never while a charge is being
 	# built, which would spend the cast the hold is paying for on nothing.
@@ -1138,11 +1097,11 @@ func _process(delta: float) -> void:
 		# Whatever a release paid for rides on the cast it bought, and on no
 		# other: the life is read once, as a cycle starts, so it is offered only
 		# while the release is still waiting for one.
-		runner.ttl_bonus = int(cast_charge) if _cast_buffer > 0.0 else 0
+		runner.ttl_bonus = _charge.ttl_bonus()
 		# A throw of the lit rune carries the charge stored in it, for nothing.
-		if rune and not GameState.rune_spent:
+		if rune and not GameState.rune.spent:
 			runner.ttl_bonus = rune_charge()
-		runner.set_active(castable and (_cast_buffer > 0.0 or attacking))
+		runner.set_active(castable and (_charge.waiting() or attacking))
 		runner.update(delta)
 	# The weapons put away are not cast, but they go on: a cast already out
 	# plays through, and each one's wait runs down in its slot.
@@ -1163,8 +1122,8 @@ func _process(delta: float) -> void:
 func _attack_as_monster(delta: float, s: InputState) -> void:
 	possessing.attacking = (s.attack and not _press_spent) or s.cast
 	_update_charge(delta, false)
-	_cast_buffer = 0.0
-	cast_charge = 0.0
+	_charge.buffer = 0.0
+	_charge.cast_charge = 0.0
 	for r in _every_runner():
 		r.ttl_bonus = 0
 		r.set_active(false)
