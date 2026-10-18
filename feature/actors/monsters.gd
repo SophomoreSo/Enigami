@@ -45,12 +45,13 @@ const DEFS := {
 		"aggro": 520.0, "attack_range": 200.0, "contact": 5.0, "scrap": 4,
 		"board": "drifter",
 	},
-	## Runs at whoever it hunts and, once close enough to headbutt them, does —
-	## and goes up with it. Its board is a HEADBUTT carrying DAMAGE, FIRE and an
-	## EXPLODE, so the blow bursts on everything round whoever it struck; and
-	## its attack is the last thing it does (`spent_by_attack`): it bursts where
-	## it stands, with the same flow, and dies in it. Fragile and quick, so it
-	## is a thing to stop before it arrives.
+	## Runs at whoever it hunts and, once close enough to punch them, does —
+	## and goes up with it. Its board is a HEADBUTT (PUNCH) and a NEAR carrying
+	## DAMAGE and FIRE, so what the punch does reaches everything round whoever
+	## it struck; and its attack is the last thing it does (`spent_by_attack`):
+	## it goes up where it stands, the same flow touching everything round it,
+	## and dies in it. Fragile and quick, so it is a thing to stop before it
+	## arrives.
 	"BOMBER": {
 		"name": "Bomber", "hp": 24.0, "speed": 185.0, "ai": "runner",
 		"size": 13.0,

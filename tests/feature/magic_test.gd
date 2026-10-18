@@ -138,20 +138,21 @@ func _the_player() -> void:
 	await frames(1)
 
 ## A monster's board follows it too: the Bomber's blow is a punch that neither
-## burns nor bursts while magic is off.
+## burns nor reaches round while magic is off.
 func _the_monster() -> void:
 	var e := Enemy.new()
 	e.setup("BOMBER", 1, "")
 	add_child(e)
 	await frames(2)
 	var full := first_out(e.runner)
-	check(not e.runner.forms_only and full != null and full.explode > 0 and full.elements.has("FIRE"),
-		"in magic the Bomber's blow burns and bursts")
+	check(not e.runner.forms_only and full != null and full.near > 0 and full.spread != null
+			and full.elements.has("FIRE"),
+		"in magic the Bomber's blow burns and reaches round")
 	Magic.set_on(false)
 	await frames(2)
 	var bare := first_out(e.runner)
-	check(e.runner.forms_only and bare != null and bare.form == "HEADBUTT" and bare.explode == 0
-			and bare.elements.is_empty(),
+	check(e.runner.forms_only and bare != null and bare.form == "HEADBUTT" and bare.near == 0
+			and bare.spread == null and bare.elements.is_empty(),
 		"magic off, it is a punch and nothing more")
 	Magic.set_on(true)
 	await frames(2)

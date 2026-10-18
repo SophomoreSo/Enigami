@@ -140,10 +140,12 @@ func _ready() -> void:
 		frost = frost and p.form == "PROJECTILE" and p.has_element("ICE") \
 			and p.duplicates == 3 and is_equal_approx(p.damage, whole)
 	check(frost, "the Warden's frost bolt leaves the board once, three times over at full damage (%d)" % volley.size())
-	# The Arbiter's second form is an explosion whose every hit sends a bolt
-	# three times over: one attack out of the board — an EXPLODE with no form
-	# under it, which is a burst of its own — and one follow-up hung off its ON
-	# HIT. The bolts burst nothing: the branch starts without the EXPLODE.
+	# The Arbiter's second form is a blow on everything round it whose every
+	# touch sends a bolt three times over: one attack out of the board — a NEAR
+	# with no form under it, which touches everything round it with the DAMAGE
+	# after it — and one follow-up hung off its ON HIT. The bolts reach nobody
+	# else and are no harder for the DAMAGE: the branch starts without the NEAR,
+	# and before the DAMAGE.
 	var rage_run := SkillRunner.new(rage).simulate()
 	var blasts: Array = rage_run["outputs"]
 	var after: Array = []
@@ -154,10 +156,11 @@ func _ready() -> void:
 	var bolts := after.size() == 1
 	for bolt: Payload in after:
 		bolts = bolts and bolt.form == "PROJECTILE" and bolt.duplicates == 3 and is_equal_approx(bolt.damage, whole) \
-			and bolt.explode == 0
+			and bolt.near == 0 and bolt.spread == null
 	var blast: Payload = blasts[0] if blasts.size() == 1 else null
-	check(blast != null and blast.form == "" and blast.explode == 1 and bolts,
-		"the Arbiter's second form explodes, and each hit of it sends a bolt three times over (%d and %d)"
+	check(blast != null and blast.form == "" and blast.near == 1 and blast.spread != null
+			and blast.spread.damage > 0.0 and bolts,
+		"the Arbiter's second form touches everything round it, and each touch sends a bolt three times over (%d and %d)"
 			% [blasts.size(), after.size()])
 
 	# --- the checker catches what it is for -----------------------------------
@@ -165,7 +168,7 @@ func _ready() -> void:
 	# are the mistakes a writer makes, and every one is silent at run time if
 	# nothing goes looking.
 	var base := {"id": "b", "width": 7, "height": 5, "parts": [
-		{"x": 0, "y": 2, "part": "EXPLODE", "facing": "E", "root": 1},
+		{"x": 0, "y": 2, "part": "NEAR", "facing": "E", "root": 1},
 		{"x": 2, "y": 2, "part": "FIRE", "facing": "E"}]}
 	check(Boards.problems_in(base).is_empty(), "a sound board has no problems (%s)" % str(Boards.problems_in(base)))
 	check(_caught(base, {"x": 7, "y": 2, "part": "DASHSLASH", "facing": "E"}, "does not fit"),

@@ -357,7 +357,7 @@ func _begin_pass() -> bool:
 	var before := _before(id, p)
 	var took := _apply(id, p)
 	var first := Pulse.new(start, Components.tick_cost(id), p, cycle_ttl())
-	first.undo = {"id": id, "before": before, "took": took}
+	first.undo = {"id": id, "before": before, "took": took, "spread_before": {}}
 	pulses = [first]
 	return true
 
@@ -418,13 +418,14 @@ func _exit(p: Pulse) -> Array[Pulse]:
 	if pay_dir >= 0 and not forms_only:
 		# A trigger's branch starts a flow of its own: it inherits the numbers
 		# but not the attack form, so the branch defines its own payload. Nor
-		# an EXPLODE, which on a flow with no form is an attack of its own: kept,
-		# it would make every branch after one a burst, as the form would make
-		# it that form.
+		# a NEAR, which on a flow with no form is an attack of its own: kept,
+		# it would make every branch after one a touch on everything round it,
+		# as the form would make it that form.
 		var bp := p.payload.clone()
 		bp.branch = id
 		bp.form = ""
-		bp.explode = 0
+		bp.near = 0
+		bp.spread = null
 		bp.duplicates = 1
 		_send(ex, pay_dir, bp, result, p.ttl, p.undo)
 
@@ -458,9 +459,10 @@ func _send(from: Vector2i, dir: int, payload: Payload, result: Array[Pulse], ttl
 		return  # out of life; a ring winds down here
 	var tid := String(port["id"])
 	var before := _before(tid, payload)
+	var spread_before := _before(tid, payload.spread) if payload.spread != null else {}
 	var took := _apply(tid, payload, came)
 	var next := Pulse.new(port["to"], Components.tick_cost(tid), payload, ttl - 1)
-	next.undo = {"id": tid, "before": before, "took": took}
+	next.undo = {"id": tid, "before": before, "took": took, "spread_before": spread_before}
 	if tid in NO_TICK:
 		# Through and out in the same tick it was entered on, so a row of them
 		# speeds the clock without adding to the walk the clock runs.
@@ -476,6 +478,10 @@ func _send(from: Vector2i, dir: int, payload: Payload, result: Array[Pulse], ttl
 ## A part with a `stack_limit` does its work that many times on one flow and no
 ## more: past it the part still costs its heat, and does nothing. Returns
 ## whether it did its work, which an INVERT straight after needs to know.
+##
+## From the first NEAR on, every part's effects go on `p.spread` as well, a
+## payload of nothing else (`_spread`): what the NEAR carries to the enemies
+## round the one struck.
 func _apply(id: String, p: Payload, came: Dictionary = {}) -> bool:
 	var def := Components.get_def(id)
 	# With forms alone a part that is not a form is wire: crossed, and nothing
@@ -488,6 +494,7 @@ func _apply(id: String, p: Payload, came: Dictionary = {}) -> bool:
 	if limit > 0 and p.stack(id) >= limit:
 		return false
 	p.stacks[id] = p.stack(id) + 1
+	var spreading := p.spread != null
 	for e: Dictionary in def.get("effects", []):
 		match String(e["op"]):
 			"dilate":
@@ -500,7 +507,28 @@ func _apply(id: String, p: Payload, came: Dictionary = {}) -> bool:
 				_invert(p, came)
 			_:
 				_do(p, e, p.stack(id))
+	if spreading:
+		_spread(id, def, p.spread, came)
+	elif p.near > 0:
+		# The first NEAR: what comes after it starts from nothing.
+		p.spread = Payload.new()
+		p.spread.damage = 0.0
 	return true
+
+## The part `id` again, on what a NEAR before it carries (`spread`): its
+## effects but for the moments it opens, which it has already opened, and an
+## INVERT turning round there what the part before it did there.
+func _spread(id: String, def: Dictionary, spread: Payload, came: Dictionary) -> void:
+	spread.stacks[id] = spread.stack(id) + 1
+	for e: Dictionary in def.get("effects", []):
+		match String(e["op"]):
+			"dilate", "guard":
+				pass
+			"invert":
+				_invert(spread, {"id": came.get("id", ""), "took": came.get("took", true),
+					"before": came.get("spread_before", {})})
+			_:
+				_do(spread, e, spread.stack(id))
 
 ## One change to one field of `p`, an effect's or an opposite's: set, add,
 ## multiply, toggle or include. `stacked` is how many of the part the flow has

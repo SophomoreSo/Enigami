@@ -29,8 +29,8 @@ INSERT INTO categories (id) VALUES
 -- Every number a part has ever had in a shared code, in order. **Only ever
 -- add to the end.** A code written today has to mean the same board next
 -- year, so a number is a part's for good: INPUT, OUTPUT, WIRE and BEND keep
--- theirs though they are gone, and EXPLODE has the number it had when it was
--- called AREA. A code has six bits for it, so the last number there can be
+-- theirs though they are gone, and so does EXPLODE, which had the number it
+-- had when it was called AREA. A code has six bits for it, so the last number there can be
 -- is 63.
 INSERT INTO codes (code, id) VALUES
 	(0, 'INPUT'), (1, 'OUTPUT'), (2, 'WIRE'), (3, 'BEND'),
@@ -54,7 +54,8 @@ INSERT INTO codes (code, id) VALUES
 	(44, 'ANTI_GRAVITY'),
 	(45, 'OFFENSIVE'),
 	(46, 'KAMIKAZE'),
-	(47, 'PULL');
+	(47, 'PULL'),
+	(48, 'NEAR');
 
 -- WIRE and BEND carried a flow one cell and did nothing else to it, which
 -- every part already does: any part takes flow on any side and sends it where
@@ -84,8 +85,15 @@ INSERT INTO codes (code, id) VALUES
 -- SUMMON_PROJECTILE, SUMMON BOLT, hung a bolt in the air over where the attack
 -- was aimed, which fell and struck what it touched once. KAMIKAZE took its
 -- place in the summon block.
+--
+-- EXPLODE burst every hit, landing it again on everything round the enemy it
+-- struck, and on a flow with no form was a burst of its own where it went off.
+-- NEAR took its place: what the parts after it do reaches the enemies round
+-- the one struck. It had been AREA before it was EXPLODE, and was made over
+-- under its new name; a save old enough to spell it AREA reads with it left
+-- out, as one that spells it EXPLODE does now, and a code says its number.
 INSERT INTO retired_parts (id) VALUES ('WIRE'), ('BEND'), ('INPUT'), ('OUTPUT'), ('DASH'),
-	('SPLIT'), ('TEE'), ('REVERSE'), ('BLINK'), ('SUMMON_PROJECTILE');
+	('SPLIT'), ('TEE'), ('REVERSE'), ('BLINK'), ('SUMMON_PROJECTILE'), ('EXPLODE');
 
 -- DASHSLASH_AUTO, SWIFT STRIKE+, was SWIFT STRIKE with AUTO-AIM built into it:
 -- it lunged at the nearest enemy and through. AUTO-AIM is a part now, and does
@@ -100,7 +108,7 @@ INSERT INTO retired_parts (id) VALUES ('WIRE'), ('BEND'), ('INPUT'), ('OUTPUT'),
 -- what they do already, and it is PROJECTILE now wherever it was — a board, a
 -- stash, a drop. It keeps its number, 33, since PROJECTILE has one already;
 -- a code that says 33 reads as PROJECTILE.
-INSERT INTO renamed_parts (old_id, new_id) VALUES ('AREA', 'EXPLODE'), ('DASHSLASH_AUTO', 'DASHSLASH'),
+INSERT INTO renamed_parts (old_id, new_id) VALUES ('DASHSLASH_AUTO', 'DASHSLASH'),
 	('ZAP', 'PROJECTILE');
 
 
@@ -223,22 +231,24 @@ INSERT INTO parts (id, name, category, heat, description) VALUES
 	('AUTO_AIM', 'AUTO-AIM', 'projectile_behavior', 0.4, 'Aims the attack at the nearest enemy, wherever you point: bolts go straight at it and SWIFT STRIKE lunges through it, as far as each reaches, and a swing turns to it. Each one stacked looks further for one.'),
 	('ANTI_GRAVITY', 'ANTI-GRAVITY', 'projectile_behavior', 0.4, 'Bolts fly with no weight on them: a lobbed shot goes straight instead of arcing. One is all it takes.');
 
--- EXPLODE was a form, an attack of its own — a burst round the caster — and a
--- flow it was placed on was that burst instead of whatever its form had made
--- it. Now it keeps the attack and bursts every hit of it (`Attacks._explode`).
--- A flow with no form has no attack to keep, and there EXPLODE is still the
--- burst it was, where the flow goes off: the Hopper's board, the Arbiter's
--- second, a trigger's branch with one on it. A branch starts without the one
--- before its trigger, as it starts without the form (`SkillRunner._exit`).
--- Its tag and its heat are the form's: whatever the attack, a board with it
--- strikes an area.
+-- NEAR selects the enemies round the one the attack strikes, out to
+-- `Attacks.NEAR_RADIUS` and further for each one stacked, and what every part
+-- after it on the flow does reaches them too — the effects alone, not the
+-- blow: they are not struck by the weapon, only touched by what comes after
+-- the NEAR (`Payload.spread`, which the runner builds from those parts as the
+-- flow goes on through them). The enemy struck takes the whole flow as ever.
+-- A flow with no form has no blow and no enemy struck, and its NEAR selects
+-- the enemies round where it goes off, its triggers going off on each: the
+-- Hopper's board, the Arbiter's second, a trigger's branch with one on it. A
+-- branch starts without the one before its trigger, as it starts without the
+-- form (`SkillRunner._exit`). Its tag is an area's.
 INSERT INTO parts (id, name, category, heat, tag, description) VALUES
-	('EXPLODE', 'EXPLODE', 'behavior', 1.2, 'area', 'Every enemy the attack hits bursts, and everything round it takes the hit too. Each one stacked bursts wider. A trigger''s branch starts without it, and one with no form but an EXPLODE on it bursts where it goes off.');
+	('NEAR', 'NEAR', 'behavior', 1.0, 'area', 'Every part after it reaches the enemies round the one the attack strikes too: FIRE burns them, STUN stuns them, DAMAGE hurts them. The blow itself lands on the enemy struck alone. Each one stacked reaches further.');
 
 INSERT INTO ports (part_id, side) VALUES
 	('PIERCE', 'E'), ('HOMING', 'E'),
 	('GRAVITY', 'E'), ('KNOCKBACK', 'E'), ('PULL', 'E'), ('MANA_DRAIN', 'E'), ('HEALTH_DRAIN', 'E'),
-	('STUN', 'E'), ('POSSESS', 'E'), ('AUTO_AIM', 'E'), ('ANTI_GRAVITY', 'E'), ('EXPLODE', 'E');
+	('STUN', 'E'), ('POSSESS', 'E'), ('AUTO_AIM', 'E'), ('ANTI_GRAVITY', 'E'), ('NEAR', 'E');
 
 INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('PIERCE', 0, 'pierce', 'add', 1),
@@ -252,7 +262,7 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('POSSESS', 0, 'possess', 'add', 5),
 	('AUTO_AIM', 0, 'auto_aim', 'add', 1),
 	('ANTI_GRAVITY', 0, 'anti_gravity', 'add', 1),
-	('EXPLODE', 0, 'explode', 'add', 1);
+	('NEAR', 0, 'near', 'add', 1);
 
 
 -- ---- summon ---------------------------------------------------------------------

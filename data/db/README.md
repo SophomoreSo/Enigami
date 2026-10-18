@@ -440,7 +440,7 @@ An `add` or a `multiply` may also carry a `per_stack`: what is added to its
 one is worth more than the last. DAMAGE adds 8, then 12, then 16.
 
 The fields are the payload's: `damage` `size` `speed` `range_px` `lunge` `stun`
-`heal` (numbers), `pierce` `duplicates` `homing` `pull` `knockback` `explode` `shatter`
+`heal` (numbers), `pierce` `duplicates` `homing` `pull` `knockback` `near` `shatter`
 `mana_drain` `repel` `hook` (whole numbers — the behaviours are counts, one
 for every part of the kind stacked), `cleanse` (a flag), `form` (a word) and `elements` (a list). `value` is read as
 JSON — `8`, `1.6`, `'true'` — and a word may go without its quotes: `'FIRE'`.
@@ -489,9 +489,11 @@ the save.
 INSERT INTO boards (id) VALUES ('arbiter_phase2');
 
 INSERT INTO board_parts (board_id, x, y, part, facing, root) VALUES
-	('arbiter_phase2', 3, 2, 'EXPLODE', 'E', 1), ('arbiter_phase2', 4, 2, 'ON_HIT', 'E', 0),
+	('arbiter_phase2', 2, 2, 'NEAR', 'E', 1), ('arbiter_phase2', 3, 2, 'ON_HIT', 'E', 0),
+	('arbiter_phase2', 4, 2, 'DAMAGE', 'E', 0),
 	('arbiter_phase2', 5, 2, 'BRIDGE', 'E', 0), ('arbiter_phase2', 6, 2, 'BRIDGE', 'E', 0),
-	('arbiter_phase2', 4, 3, 'PROJECTILE', 'E', 0), ('arbiter_phase2', 5, 3, 'DUPLICATE', 'N', 0);
+	('arbiter_phase2', 3, 3, 'PROJECTILE', 'E', 0), ('arbiter_phase2', 4, 3, 'BRIDGE', 'E', 0),
+	('arbiter_phase2', 5, 3, 'DUPLICATE', 'N', 0);
 ```
 
 The part with `root` 1 is the root: the flow starts in it, and a board with

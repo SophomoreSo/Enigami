@@ -41,11 +41,18 @@ var anti_gravity: int = 0
 ## bolt: that one is a property of the weapon and rides in the spawn context.
 var pull: int = 0
 var knockback: int = 0             ## the struck enemy is thrown on along the attack
-## Every enemy the attack hits bursts, the hit landing again on everything round
-## it, wider for each one stacked (`Attacks._explode`). With no form there is no
-## attack to burst the hits of, and the EXPLODE is the attack: a burst where the
-## flow goes off.
-var explode: int = 0
+## NEAR: how many the flow has been through, which is how far round the enemy
+## struck it reaches (`Attacks.near_radius`), and `spread`, what every part after
+## the first of them did — those parts' effects alone, on a payload of nothing,
+## which the runner builds as the flow goes on through them (`SkillRunner._apply`).
+## What lands on the enemies round the one struck is `spread` (`Attacks._near`);
+## with no form there is no blow and no enemy struck, and it lands on the
+## enemies round where the flow goes off.
+var near: int = 0
+var spread: Payload = null
+## On a NEAR's touch, how hard the blow it spreads from landed, which is what a
+## burn it carries is worked from; -1 on every other hit (`Attacks.resolve_hit`).
+var touch: float = -1.0
 var shatter: int = 0               ## breaks the frost on a slowed enemy, for far more damage
 var mana_drain: int = 0            ## every connection pays the caster back
 var health_drain: int = 0          ## every hit that hurts heals the caster a share of it
@@ -103,7 +110,9 @@ func clone() -> Payload:
 	p.anti_gravity = anti_gravity
 	p.pull = pull
 	p.knockback = knockback
-	p.explode = explode
+	p.near = near
+	p.spread = spread.clone() if spread != null else null
+	p.touch = touch
 	p.shatter = shatter
 	p.mana_drain = mana_drain
 	p.health_drain = health_drain
@@ -139,6 +148,6 @@ func at_limit(id: String) -> bool:
 	return limit > 0 and stack(id) >= limit
 
 ## Does this payload do anything at all when it leaves the board? An attack, or
-## with no form an EXPLODE, which is a burst of its own.
+## with no form a NEAR, which touches the enemies round where it goes off.
 func is_productive() -> bool:
-	return form != "" or explode > 0
+	return form != "" or (near > 0 and spread != null)

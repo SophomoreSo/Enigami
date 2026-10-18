@@ -1,8 +1,8 @@
 extends Node
 ## The parts that act at the moment a hit lands, rather than on the way to it:
 ## GRAVITY drags the room in, PUSH (KNOCKBACK) throws the enemy struck on the
-## way the attack was going and PULL drags it toward whoever struck it, EXPLODE
-## bursts the hit on everything round it, SHATTER
+## way the attack was going and PULL drags it toward whoever struck it, NEAR
+## reaches round the enemy struck with what the parts after it do, SHATTER
 ## punishes an enemy frost has already slowed, and MANA DRAIN pays the caster
 ## back for connecting.
 ##
@@ -348,43 +348,61 @@ func _ready() -> void:
 	check(Attacks.summary(leech).contains(Loc.t("editor.payload.health_drain", [20])),
 		"and the preview says how much (%s)" % Attacks.summary(leech))
 
-	# --- EXPLODE ------------------------------------------------------------
-	# The attack stays what it was, and every hit of it bursts: everything round
-	# the enemy struck takes the hit as well, and that enemy does not take it a
-	# second time. Laid out well clear of everything above, which is still
-	# standing and would be in the burst's way.
-	var boom := payload_of(["SLASH", "EXPLODE"])
-	check(boom != null and boom.form == "SLASH" and boom.explode == 1
-			and Attacks.summary(boom).contains(Loc.t("editor.payload.explode")),
-		"a board with EXPLODE keeps its attack and bursts it, and the workbench preview says so (%s)"
-			% (Attacks.summary(boom) if boom != null else "nothing"))
+	# --- NEAR ---------------------------------------------------------------
+	# The attack stays what it was, and lands on the enemy struck whole; what
+	# the parts after the NEAR do reaches the enemies round it as well — their
+	# effects, not the blow. Laid out well clear of everything above, which is
+	# still standing and would be in the reach.
+	var round_it := payload_of(["SLASH", "NEAR", "FIRE", "STUN"])
+	check(round_it != null and round_it.form == "SLASH" and round_it.near == 1 and round_it.spread != null
+			and round_it.has_element("FIRE") and round_it.stun > 0.0
+			and round_it.spread.has_element("FIRE") and round_it.spread.stun > 0.0
+			and is_zero_approx(round_it.spread.damage)
+			and Attacks.summary(round_it).contains(Loc.t("editor.payload.near", [""]).strip_edges()),
+		"a board with NEAR keeps its attack, and carries what comes after it apart, which the preview says (%s)"
+			% (Attacks.summary(round_it) if round_it != null else "nothing"))
 	var centre := dummy(Vector2(3000, 3000))
-	var beside := dummy(Vector2(3040, 3000))
-	var past := dummy(Vector2(3000.0 + Attacks.burst_radius(boom) * 2.0, 3000))
+	var by_it := dummy(Vector2(3040, 3000))
+	var past := dummy(Vector2(3000.0 + Attacks.near_radius(round_it) * 2.0, 3000))
 	var hp_centre := centre.health
-	var hp_beside := beside.health
+	var hp_by := by_it.health
 	var hp_past := past.health
-	Attacks.resolve_hit(boom, centre, centre.global_position, Vector2.RIGHT, null, null, 0)
+	Attacks.resolve_hit(round_it, centre, centre.global_position, Vector2.RIGHT, null, null, 0)
 	await bursts_done()
-	check(is_equal_approx(hp_centre - centre.health, boom.damage),
-		"the enemy struck takes the hit once, and nothing more from the burst (%.1f of %.1f)"
-			% [hp_centre - centre.health, boom.damage])
-	check(is_equal_approx(hp_beside - beside.health, boom.damage),
-		"the one beside it takes the same hit from the burst (%.1f)" % (hp_beside - beside.health))
-	check(is_equal_approx(hp_past, past.health), "and nothing past the burst's reach is touched")
-	var alone := dummy(Vector2(3000, 3400))
-	var near_alone := dummy(Vector2(3040, 3400))
+	check(is_equal_approx(hp_centre - centre.health, round_it.damage),
+		"the enemy struck takes the whole hit once, and nothing more from the reach (%.1f of %.1f)"
+			% [hp_centre - centre.health, round_it.damage])
+	check(is_equal_approx(hp_by, by_it.health) and by_it.burn_time > 0.0 and by_it.stunned()
+			and is_equal_approx(by_it.burn_dps, centre.burn_dps),
+		"the one beside it is not struck, but burnt as hard as the enemy struck and stunned (%.1f lost, %.2f burn)"
+			% [hp_by - by_it.health, by_it.burn_dps])
+	check(is_equal_approx(hp_past, past.health) and past.burn_time <= 0.0, "and nothing past the reach is touched")
+	# A DAMAGE after it hurts the ones round the enemy struck by as much as it
+	# adds; what came before the NEAR stays on the enemy struck.
+	var hurt_round := payload_of(["SLASH", "FIRE", "NEAR", "DAMAGE"])
+	var struck2 := dummy(Vector2(3000, 3400))
+	var by2 := dummy(Vector2(3040, 3400))
+	var hp_by2 := by2.health
+	Attacks.resolve_hit(hurt_round, struck2, struck2.global_position, Vector2.RIGHT, null, null, 0)
+	await bursts_done()
+	check(hurt_round.spread != null and is_equal_approx(hp_by2 - by2.health, hurt_round.spread.damage)
+			and hurt_round.spread.damage > 0.0 and by2.burn_time <= 0.0 and struck2.burn_time > 0.0,
+		"a DAMAGE after it hurts the ones round it by its own (%.1f), and a FIRE before it burns the enemy struck alone"
+			% (hp_by2 - by2.health))
+	var alone := dummy(Vector2(3000, 3600))
+	var near_alone := dummy(Vector2(3040, 3600))
 	var hp_near_alone := near_alone.health
 	Attacks.resolve_hit(plain, alone, alone.global_position, Vector2.RIGHT, null, null, 0)
 	await bursts_done()
-	check(is_equal_approx(hp_near_alone, near_alone.health), "a board without EXPLODE hits only what it strikes")
-	# What the burst lands is the hit, not what the hit sets off: the hit's own
-	# ON HIT goes off once, and the burst neither bursts again nor takes a
-	# monster over.
-	var armed := boom.clone()
+	check(is_equal_approx(hp_near_alone, near_alone.health), "a board without NEAR hits only what it strikes")
+	# What reaches round is the parts after it, not what the hit sets off: the
+	# hit's own ON HIT goes off once, and the reach neither reaches on nor takes
+	# a monster over.
+	var armed := round_it.clone()
 	armed.on_hit = Payload.new()
 	armed.on_kill = Payload.new()
 	armed.possess = 5.0
+	armed.spread.possess = 5.0
 	var host := dummy(Vector2(3000, 3800))
 	Attacks.resolve_hit(armed, host, host.global_position, Vector2.RIGHT, null, null, 0)
 	var opened: AreaBurst = null
@@ -392,25 +410,27 @@ func _ready() -> void:
 		if c is AreaBurst:
 			opened = c
 	check(opened != null and opened.position == host.global_position
-			and opened.payload.explode == 0 and opened.payload.on_hit == null
-			and opened.payload.on_kill == null and opened.payload.possess == 0.0
-			and is_equal_approx(opened.payload.damage, armed.damage),
-		"the burst opens on the enemy struck with the hit, but not its EXPLODE, its triggers or its POSSESS")
+			and opened.payload.near == 0 and opened.payload.spread == null and opened.payload.touch >= 0.0
+			and opened.payload.on_hit == null and opened.payload.on_kill == null and opened.payload.possess == 0.0
+			and is_zero_approx(opened.payload.damage),
+		"the reach opens on the enemy struck with what came after the NEAR, but not another NEAR, its triggers or its POSSESS")
 	await bursts_done()
-	# Every one stacked bursts wider.
-	var wider := payload_of(["SLASH", "EXPLODE", "EXPLODE"])
-	check(wider != null and wider.explode == 2 and is_equal_approx(Attacks.burst_radius(wider),
-			Attacks.burst_radius(boom) * (1.0 + Attacks.BURST_WIDER)),
-		"a second EXPLODE makes the burst wider (%.0f against %.0f)"
-			% [Attacks.burst_radius(wider) if wider != null else 0.0, Attacks.burst_radius(boom)])
-	# With no form there is no attack to burst the hits of, and the EXPLODE is
-	# the attack: a burst where the flow is cast — the Hopper's, the Arbiter's
-	# second form's, a trigger's branch with one on it. Its hits are its own,
-	# and burst nothing further: of the two caught in it, the nearer would take
-	# the farther one's burst as well.
+	# Every one stacked reaches further.
+	var wider := payload_of(["SLASH", "NEAR", "NEAR", "FIRE"])
+	check(wider != null and wider.near == 2 and is_equal_approx(Attacks.near_radius(wider),
+			Attacks.near_radius(round_it) * (1.0 + Attacks.NEAR_WIDER)),
+		"a second NEAR reaches further (%.0f against %.0f)"
+			% [Attacks.near_radius(wider) if wider != null else 0.0, Attacks.near_radius(round_it)])
+	# With no form there is no blow and nobody struck, and the NEAR is the
+	# attack: what comes after it touches everything round where the flow is
+	# cast — the Hopper's, the Arbiter's second form's, a trigger's branch with
+	# one on it. Its touches reach on no further: of the two caught in it, the
+	# nearer would take the farther one's as well.
 	var bare := Payload.new()
-	bare.explode = 1
-	check(bare.is_productive(), "a flow with no form but an EXPLODE does something as it leaves the board")
+	bare.near = 1
+	bare.spread = Payload.new()
+	bare.spread.damage = 5.0
+	check(bare.is_productive(), "a flow with no form but a NEAR does something as it leaves the board")
 	var ringed := dummy(Vector2(3030, 4200))
 	var ringed_far := dummy(Vector2(3060, 4200))
 	var hp_ringed := ringed.health
@@ -418,10 +438,10 @@ func _ready() -> void:
 	Attacks.spawn(bare, {"attacker": null, "room": null, "team": 0, "aim": Vector2.RIGHT,
 		"origin": Vector2(3000, 4200)})
 	await bursts_done()
-	check(is_equal_approx(hp_ringed - ringed.health, bare.damage)
-			and is_equal_approx(hp_ringed_far - ringed_far.health, bare.damage),
-		"and bursts where it is cast, each caught in it hit once (%.1f and %.1f of %.1f)"
-			% [hp_ringed - ringed.health, hp_ringed_far - ringed_far.health, bare.damage])
+	check(is_equal_approx(hp_ringed - ringed.health, bare.spread.damage)
+			and is_equal_approx(hp_ringed_far - ringed_far.health, bare.spread.damage),
+		"and touches everything round where it is cast, each once, with what came after it (%.1f and %.1f of %.1f)"
+			% [hp_ringed - ringed.health, hp_ringed_far - ringed_far.health, bare.spread.damage])
 
 	# --- the three of them together -----------------------------------------
 	var all_cold := dummy(Vector2(0, 1400))

@@ -531,8 +531,8 @@ giving it further to walk.
   the way and flies wide of the corners; every one stacked turns as hard again,
   and several take them. Melee forms re-aim themselves at the nearest enemy.
 - Triggers (`ON HIT`, `ON KILL`, `ON PARRY`) grow a second flow out of their
-  side port. That branch inherits the numbers but not the attack form, nor an
-  `EXPLODE` (below), so it defines its own payload, and it attaches to the
+  side port. That branch inherits the numbers but not the attack form, nor a
+  `NEAR` (below), so it defines its own payload, and it attaches to the
   attacks the skill fires. A
   board has one way out, so a branch is only a follow-up once it has been
   turned back round to it: one left running off another edge is lost, and the
@@ -573,7 +573,7 @@ giving it further to walk.
   the rest of the board does next. Every one stacked drags as hard again, and
   reaches a little further.
 - `PUSH` (its id is `KNOCKBACK`) throws the enemy it strikes on the way the attack was going:
-  along a bolt's flight, out from a swing or an `EXPLODE`, down the line of a
+  along a bolt's flight, out from a swing or a `NEAR`'s middle, down the line of a
   lunge. A hit on its own barely shifts anything; this throws an enemy standing
   its ground some five cells and one running at you back two, which buys room
   and can just as easily put it out of reach. Every one stacked throws as hard
@@ -606,26 +606,33 @@ giving it further to walk.
   the flow's numbers — everything the board built into it — once every 1.2
   seconds, and more often for each one stacked, coming back between strikes.
   With `KAMIKAZE` it flies at that enemy as soon as there is one and blows
-  itself up against it: the flow goes off there as a burst, as one with no
-  form but an `EXPLODE` does, and everything round it takes the attack's
-  numbers — the pet's summoner's blow, triggers and all. Then the pet is gone,
-  and the next cast with `SUMMON PET` calls another. Each one stacked bursts
-  wider, as each `EXPLODE` does. `SUMMON BOLT`, which hung a bolt in the air
+  itself up against it: the flow goes off there as a blast, and everything
+  within three cells takes the whole of the attack's numbers — the pet's
+  summoner's blow, triggers and all. Then the pet is gone, and the next cast
+  with `SUMMON PET` calls another. Each one stacked bursts wider, half as far
+  again for the second. `SUMMON BOLT`, which hung a bolt in the air
   over where you aimed, is retired: a board or a code with one on it reads
   with it left out.
-- `EXPLODE` bursts every hit. The enemy an attack strikes is the middle of a
-  blast that lands the same hit on everything round it — its damage, its
-  elements, its `STUN`, a `PUSH` out from the middle — though not on that
-  enemy again, which has just taken it. The blast does not set off the hit's
-  triggers: its `ON HIT` goes off once, on the hit itself. Every one stacked
-  makes the blast wider: two reach half as far again as one, three twice as
-  far.
-  It was a form until it was made a modifier — an attack of its own, a burst
-  round the caster — and on a flow with no form it still is: the Hopper's
-  attack, the Arbiter's second form, and a trigger's branch with an `EXPLODE`
-  on it and no form, which bursts where the hit that set it off landed. A
-  branch starts without the `EXPLODE` before its trigger, so a follow-up
-  bursts only with one of its own.
+- `NEAR` reaches the enemies round the one an attack strikes — within three
+  cells of it, and further for each one stacked: two half as far again as
+  one, three twice as far — with whatever the parts after it on the flow do.
+  `SLASH`, `NEAR`, `FIRE`, `STUN` cuts one enemy and burns and stuns every
+  enemy round it. Only those parts' effects reach them, not the blow: the
+  weapon's damage lands on the enemy struck alone, and the ones round it are
+  hurt only by a `DAMAGE` after the `NEAR`, burnt as hard as the blow burnt
+  the enemy struck, pushed or pulled from the middle. What comes before the
+  `NEAR` stays on the enemy struck, which takes the whole flow as ever. A
+  trigger after it goes off on the hit alone, and `POSSESS` and `GRAVITY`
+  stay with the enemy struck.
+  On a flow with no form there is no blow and nobody struck, and the `NEAR`
+  is the attack: everything round where the flow goes off is touched by what
+  comes after it, its triggers going off on each — the Hopper's attack, the
+  Arbiter's second form, the Bomber's last, and a trigger's branch with a
+  `NEAR` on it and no form, round where the hit that set it off landed. A
+  branch starts without the `NEAR` before its trigger, so a follow-up reaches
+  round only with one of its own. `NEAR` took the place of `EXPLODE`, which
+  burst every hit on everything round it; a board or a code with an `EXPLODE`
+  on it reads with it left out.
 - `SHATTER` breaks the frost on an enemy already slowed by it: the hit lands
   far harder — x2.5 for one `SHATTER`, x4 for two, x5.5 for three — and the
   enemy thaws, so there is one break to a chill. It never shatters the chill
@@ -754,10 +761,11 @@ Monsters run boards through the exact same simulator, and a kill can drop the
 components its attack was visibly built from.
 
 The **Bomber**'s attack is the last thing it does. It runs at you and, once it
-is close enough, punches you: its board is a `PUNCH` carrying `DAMAGE`,
-`FIRE` and an `EXPLODE`, so the blow bursts on everything round you. Then it
-goes up where it stands — the same flow with no form under it, which its
-`EXPLODE` makes a burst of its own, and you are in that one — and it dies in
+is close enough, punches you: its board is a `PUNCH` and a `NEAR` carrying
+`DAMAGE` and `FIRE`, so what the punch does reaches everything round you.
+Then it goes up where it stands — the same flow with no form under it, which
+its `NEAR` makes a touch on everything round it, and you are in that one — and
+it dies in
 it, whether the blow found you or not. Fragile and quick: stop it before it
 arrives, or be out of reach when it does.
 
@@ -815,8 +823,9 @@ two, stays where it was and shows where its flow now stops. A code written
 while the root could not move still reads: its root is what stood where every
 root stood then.
 
-A renamed part keeps its number too. EXPLODE was called AREA, and a code or a
-save from then reads back with an EXPLODE wherever it had an AREA.
+A renamed part keeps its number too. EXPLODE was called AREA, and kept the
+number; now that it is retired, a code or a save from either name reads back
+with it left out.
 
 Every part covers one cell. SWIFT STRIKE and EXPLODE covered two until they
 were made one, and let their flow out of the second: a code or a save from then
@@ -851,7 +860,7 @@ in the tests off it, in the hideout, and in the map creator. While it is off:
   `DUPLICATE` or an `OVERCLOCK` would do to it is done; a trigger's branch is
   not walked, so there are no follow-ups; the board's clock runs at its base.
   The monsters' boards are held to the same: a Bomber's blow is a punch that
-  neither burns nor bursts. Where the board forks the flow still forks — that
+  neither burns nor reaches anyone round. Where the board forks the flow still forks — that
   is wiring, not a part's work — so a `SPLIT` is two flows at full damage
   rather than two at half.
 - **a hold charges nothing.** RMB casts the graph as a tap would.

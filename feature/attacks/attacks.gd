@@ -169,12 +169,11 @@ static func hook_force(p: Payload, far: float) -> float:
 	var strength := hit_shove(p) + KNOCKBACK_FORCE * float(p.hook)
 	return minf(strength, sqrt(2.0 * Actor.SHOVE_DECAY * maxf(far, 0.0)))
 
-## EXPLODE. How far a burst reaches at size 1, and how much further every
-## EXPLODE stacked past the first carries it: the burst is what the part is
-## for, so a wider one is what stacking it buys. A hit's burst and the one a
-## flow with no form goes off as are the same blast (`burst_radius`).
-const BURST_RADIUS := 90.0
-const BURST_WIDER := 0.5
+## NEAR. How far round the enemy struck it reaches at size 1, about three
+## cells, and how much further every NEAR stacked past the first carries it.
+## KAMIKAZE's blast is as wide, and as much wider for each one stacked.
+const NEAR_RADIUS := 90.0
+const NEAR_WIDER := 0.5
 
 ## SHATTER. What a hit is worth against an enemy frost has already slowed: the
 ## frost breaks, the hit lands this much harder for every SHATTER stacked, and
@@ -201,9 +200,15 @@ static func shatter_mul(stacked: int) -> float:
 static func pull_radius(stacked: int, size: float) -> float:
 	return PULL_RADIUS * size * (1.0 + PULL_REACH_PER * float(maxi(stacked - 1, 0)))
 
-## How far a burst off `p` reaches: its size, and every EXPLODE stacked on it.
-static func burst_radius(p: Payload) -> float:
-	return BURST_RADIUS * p.size * (1.0 + BURST_WIDER * float(maxi(p.explode - 1, 0)))
+## How far `p`'s NEAR reaches round the enemy struck: its size, and every NEAR
+## stacked on it.
+static func near_radius(p: Payload) -> float:
+	return reach_of(p.size, p.near)
+
+## How far round its middle a reach of `stacked` NEARs — or KAMIKAZEs — goes at
+## `size`.
+static func reach_of(size: float, stacked: int) -> float:
+	return NEAR_RADIUS * size * (1.0 + NEAR_WIDER * float(maxi(stacked - 1, 0)))
 
 ## Staggered follow-ups (DUPLICATE, multi-hit forms, triggers) are scheduled by
 ## a small node rather than a captured lambda: an attacker can die between the
@@ -231,8 +236,8 @@ class Deferred extends Node:
 		match kind:
 			"melee":
 				Attacks._melee(payload, aim, team, atk, room)
-			"burst":
-				Attacks._burst(payload, pos, team, atk, room)
+			"near":
+				Attacks._near_here(payload, pos, team, atk, room)
 			"dash":
 				Attacks._dash_slash(payload, aim, team, atk, room, far)
 			"headbutt":
@@ -363,17 +368,18 @@ static func spawn(payload: Payload, ctx: Dictionary) -> void:
 				else:
 					_schedule(delay, "melee", payload, aim.rotated(off), origin, team, attacker, room)
 		"":
-			# No form, so no attack to burst the hits of: an EXPLODE on the flow
-			# is the attack, a burst where it is cast — a monster's board that is
-			# one, a trigger's branch with one on it, at the hit that set it off.
-			# A volley scatters round the point. Without one, nothing goes off.
-			if payload.explode > 0:
+			# No form, so no blow and no enemy struck: a NEAR on the flow is the
+			# attack, touching the enemies round where it is cast — a monster's
+			# board that is one, a trigger's branch with one on it, at the hit
+			# that set it off. A volley scatters round the point. Without one,
+			# nothing goes off.
+			if payload.near > 0 and payload.spread != null:
 				for i in count:
 					var pos: Vector2 = origin + (Vector2.ZERO if i == 0 else Vector2(randf_range(-70, 70), randf_range(-40, 40)))
 					if i == 0:
-						_burst(payload, pos, team, attacker, room)
+						_near_here(payload, pos, team, attacker, room)
 					else:
-						_schedule(float(i) * 0.1, "burst", payload, aim, pos, team, attacker, room)
+						_schedule(float(i) * 0.1, "near", payload, aim, pos, team, attacker, room)
 		"DASHSLASH":
 			for i in count:
 				if i == 0:
@@ -414,36 +420,48 @@ static func _melee(p: Payload, dir: Vector2, team: int, atk: Actor, room) -> voi
 	container().add_child(n)
 	Cues.at(&"melee_arc", n.global_position, {"payload": p})
 
-## An EXPLODE on a flow with no form: the burst is the attack, and its every hit
-## is the attack's, triggers and all. It lands the flow but for the EXPLODE,
-## which it is — a hit of it bursting again would set off the next, and the next.
-static func _burst(p: Payload, pos: Vector2, team: int, atk: Actor, room) -> void:
-	var blast := p.clone()
-	blast.explode = 0
-	_go_off(blast, pos, burst_radius(p), team, atk, room)
+## What a NEAR on `p` lands on each enemy it touches: what the parts after it
+## did (`Payload.spread`) and nothing of the blow — but for what was the enemy
+## struck's alone: another NEAR, or every touch would reach on again; POSSESS,
+## since the hands go into one monster; and GRAVITY and its opposite, which are
+## about everything round the impact already. Its triggers go only with a NEAR
+## that is the attack (`_near_here`). A touch stops the clock as lightly as a
+## chain's link.
+static func _touching(p: Payload, strength: float) -> Payload:
+	var t := p.spread.clone()
+	t.form = ""
+	t.near = 0
+	t.spread = null
+	t.possess = 0.0
+	t.pull = 0
+	t.repel = 0
+	t.on_hit = null
+	t.on_kill = null
+	t.on_parry = null
+	t.follow_up = true
+	t.touch = maxf(strength, 0.0)
+	return t
 
-## EXPLODE on a hit: the enemy `struck` at `pos` is the middle of a burst that
-## lands the hit again on everything round it — and not on the enemy itself,
-## which has just taken it. The burst carries what the hit did but for what was
-## that one hit's alone: the EXPLODE, or every hit of the burst would burst
-## again; its triggers, since the hit's own ON HIT has gone off, and a burst's
-## every hit setting off another would multiply a chain by the crowd at every
-## link; and POSSESS, since the hands go into one monster. It is the blow that
-## struck, landing wider, so its hits stop the clock as lightly as a chain's.
-static func _explode(p: Payload, struck: Actor, pos: Vector2, atk: Actor, room, team: int) -> void:
-	var blast := p.clone()
-	blast.explode = 0
-	blast.on_hit = null
-	blast.on_kill = null
-	blast.on_parry = null
-	blast.possess = 0.0
-	blast.follow_up = true
-	_go_off(blast, pos, burst_radius(p), team, atk, room, struck)
+## NEAR on a flow with no form: there is no blow and nobody struck, and the
+## enemies round `pos`, where it goes off, are touched by what came after it —
+## its triggers going off on every one, since this is the attack.
+static func _near_here(p: Payload, pos: Vector2, team: int, atk: Actor, room) -> void:
+	var t := _touching(p, 0.0)
+	t.on_hit = p.on_hit
+	t.on_kill = p.on_kill
+	t.on_parry = p.on_parry
+	_go_off(t, pos, near_radius(p), team, atk, room, null, &"near")
 
-## A burst of `p` opening at `pos` out to `radius`, round `spared` if it is
-## given one.
+## NEAR on a hit: the enemies round the one `struck` at `pos` are touched by
+## what came after it on the flow — not the enemy struck again, which has taken
+## the whole of it — what they carry landing as hard as the blow did, `dealt`.
+static func _near(p: Payload, struck: Actor, pos: Vector2, dealt: float, atk: Actor, room, team: int) -> void:
+	_go_off(_touching(p, dealt), pos, near_radius(p), team, atk, room, struck, &"near")
+
+## A ring of `p` opening at `pos` out to `radius`, round `spared` if it is
+## given one, landing on everything it reaches, and heard and seen as `cue`.
 static func _go_off(p: Payload, pos: Vector2, radius: float, team: int, atk: Actor, room,
-		spared: Actor = null) -> void:
+		spared: Actor = null, cue: StringName = &"area_blast") -> void:
 	var w := container()
 	if w == null or not is_instance_valid(w):
 		return
@@ -454,7 +472,7 @@ static func _go_off(p: Payload, pos: Vector2, radius: float, team: int, atk: Act
 	var n := AreaBurst.new()
 	n.setup(p, pos, team, atk, room, radius, spared)
 	w.add_child(n)
-	Cues.at(&"area_blast", pos, {"payload": p})
+	Cues.at(cue, pos, {"payload": p})
 
 static func _dash_slash(p: Payload, aim: Vector2, team: int, atk: Actor, room, far: float = 1.0) -> void:
 	if atk == null or not is_instance_valid(atk):
@@ -515,15 +533,16 @@ static func _summon_pet(p: Payload, atk: Actor) -> void:
 	Cues.at(&"summon_pet", pet.global_position, {})
 
 ## KAMIKAZE: a pet blowing itself up at `pos` (`Pet`). The flow it was summoned
-## with goes off there as a burst, as a flow with no form but an EXPLODE does —
-## its every hit the attack's, triggers and all, as its summoner's blow — and as
-## wide as a burst with an EXPLODE for every KAMIKAZE the flow carried, on top
-## of any EXPLODEs of its own.
+## with goes off there as a blast, the whole of it landing on everything round
+## — its every hit the attack's, triggers and all, as its summoner's blow — out
+## as far as a NEAR reaches, and as much further for every KAMIKAZE stacked. A
+## NEAR on the flow reaches on from none of its hits.
 static func kamikaze(p: Payload, pos: Vector2, team: int, atk: Actor, room) -> void:
 	var blast := p.clone()
-	blast.explode = p.explode + maxi(p.pet_kamikaze, 1)
+	blast.near = 0
+	blast.spread = null
 	Cues.at(&"pet_kamikaze", pos, {"payload": p})
-	_burst(blast, pos, team, atk, room)
+	_go_off(blast, pos, reach_of(p.size, maxi(p.pet_kamikaze, 1)), team, atk, room)
 
 ## HEADBUTT, PUNCH to a player: a fist thrown a short way down the aim from
 ## where the attacker stands — no further than the first wall — that stops on
@@ -558,18 +577,33 @@ static func _headbutt(p: Payload, aim: Vector2, team: int, atk: Actor, room) -> 
 ## nothing of what happens at the moment a hit lands.
 static func summary(p: Payload) -> String:
 	var parts: Array[String] = []
-	# With no form an EXPLODE is the attack, and is named where the form would be.
-	if p.form != "":
-		parts.append(Components.name_for(p.form))
-	elif p.explode:
-		parts.append(_stacked(Components.name_for("EXPLODE"), p.explode))
-	else:
-		parts.append(Loc.t("editor.payload.no_form"))
+	var spreads := p.near > 0 and p.spread != null
+	# With no form a NEAR is the attack, and is named where the form would be:
+	# what lands is what came after it, on everything round where it goes off.
+	if p.form == "" and spreads:
+		parts.append(_stacked(Components.name_for("NEAR"), p.near))
+		parts.append(Loc.t("editor.payload.damage", [p.spread.damage]))
+		parts.append_array(_words(p.spread))
+		return Loc.t("editor.payload.separator").join(parts)
+	parts.append(Components.name_for(p.form) if p.form != "" else Loc.t("editor.payload.no_form"))
 	parts.append(Loc.t("editor.payload.damage", [p.damage]))
 	if p.size != 1.0:
 		parts.append(Loc.t("editor.payload.size", [p.size]))
 	if p.duplicates > 1:
 		parts.append(Loc.t("editor.payload.duplicates", [p.duplicates]))
+	parts.append_array(_words(p))
+	# What reaches the enemies round the one struck: the parts after the NEAR.
+	if spreads:
+		var touched := _words(p.spread)
+		if p.spread.damage > 0.0:
+			touched.push_front(Loc.t("editor.payload.damage", [p.spread.damage]))
+		parts.append(_stacked(Loc.t("editor.payload.near", [Loc.t("editor.payload.separator").join(touched)]), p.near))
+	return Loc.t("editor.payload.separator").join(parts)
+
+## What a payload carries and does when it lands, in words, but for its form,
+## damage, size and count: a NEAR's touch has none of its own to name.
+static func _words(p: Payload) -> Array[String]:
+	var parts: Array[String] = []
 	for e in p.elements:
 		parts.append(Components.name_for(e).to_lower())
 	if p.pierce > 0:
@@ -582,8 +616,6 @@ static func summary(p: Payload) -> String:
 		parts.append(_stacked(Loc.t("editor.payload.pull"), p.pull))
 	if p.knockback:
 		parts.append(_stacked(Loc.t("editor.payload.knockback"), p.knockback))
-	if p.explode and p.form != "":
-		parts.append(_stacked(Loc.t("editor.payload.explode"), p.explode))
 	if p.shatter:
 		parts.append(Loc.t("editor.payload.shatter", [shatter_mul(p.shatter)]))
 	if p.mana_drain:
@@ -610,7 +642,7 @@ static func summary(p: Payload) -> String:
 		parts.append(_stacked(Loc.t("editor.payload.repel"), p.repel))
 	if p.hook:
 		parts.append(_stacked(Loc.t("editor.payload.hook"), p.hook))
-	return Loc.t("editor.payload.separator").join(parts)
+	return parts
 
 ## A behaviour's words in the preview, with how many of its part are stacked
 ## when that is more than one: what stacking it bought has no number of its own
@@ -649,15 +681,21 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 	# A hit that cleanses lands bare, and what it carries goes on once the
 	# cleanse has been through (below): the other way round, the cleanse would
 	# take what its own hit brought along with what was there before it.
-	var dealt := target.apply_damage(damage, [] if p.cleanse else p.elements, atk)
-	if dealt <= 0.0:
+	#
+	# A NEAR's touch is no blow (`Payload.touch`): it lands what damage the parts
+	# after the NEAR gave it, if any, and does the rest whether or not that hurt
+	# — what it carries landing as hard as the blow it spreads from.
+	var touched := p.touch >= 0.0
+	var dealt := target.apply_damage(damage, [] if p.cleanse or touched else p.elements, atk)
+	if dealt <= 0.0 and not touched:
 		return
+	var strength := maxf(dealt, p.touch) if touched else dealt
 	# A monster the player is in passes for one of them until it hurts one of
 	# them, and then it is found out (`Enemy.revealed`). Attacking alone gives
 	# nothing away — a swing at the air, a throw that misses — and a throw that
 	# lands POSSESS hurts nobody (above), so a hop from one body to the next is
 	# never one of them hurt.
-	if atk is Enemy and (atk as Enemy).piloted() and target.team != atk.team:
+	if dealt > 0.0 and atk is Enemy and (atk as Enemy).piloted() and target.team != atk.team:
 		(atk as Enemy).revealed = true
 	# The frost is what broke: the enemy thaws, and that takes the chill this
 	# same hit may have brought with it, so the next break needs a fresh one.
@@ -673,12 +711,14 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 	if p.cleanse and not target.dead:
 		if target.cleanse():
 			Cues.at(&"cleanse", target.global_position, {"target_team": target.team})
-		target.afflict(dealt, p.elements)
+		target.afflict(strength, p.elements)
+	elif touched and not target.dead:
+		target.afflict(strength, p.elements)
 	# GRAVITY drags instead of shoving: rather than being knocked away, the
 	# struck enemy becomes the point every other enemy nearby is pulled onto.
 	if p.pull:
 		_pull(p, pos, team)
-	elif not p.hook:
+	elif not p.hook and not touched:
 		target.knockback(dir, hit_shove(p))
 	# KNOCKBACK throws the struck enemy on the way the attack was going, which is
 	# the `dir` every form hands in: along a bolt's flight, out from a swing or a
@@ -706,10 +746,10 @@ static func resolve_hit(p: Payload, target: Actor, pos: Vector2, dir: Vector2, a
 	# And of GRAVITY: everything round the impact is driven off it.
 	if p.repel:
 		_repel(p, target, pos, team)
-	# EXPLODE: the hit bursts, and lands again on everything round the enemy it
+	# NEAR: what the parts after it did reaches everything round the enemy it
 	# struck.
-	if p.explode:
-		_explode(p, target, pos, atk, room, team)
+	if p.near > 0 and p.spread != null:
+		_near(p, target, pos, dealt, atk, room, team)
 	if p.stun > 0.0 and target.stun(p.stun):
 		Cues.at(&"stun", target.global_position, {"seconds": p.stun, "target_team": target.team})
 	if p.mana_drain and atk != null and atk.has_method("gain_mana"):

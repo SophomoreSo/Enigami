@@ -1,10 +1,10 @@
 extends Node
 ## The Bomber: a monster whose attack is the last thing it does. Its board is a
-## HEADBUTT carrying DAMAGE, FIRE and an EXPLODE; it runs at whoever it hunts,
-## headbutts them once it is close, and goes up where it stands — the same flow
-## with no form under it, which its EXPLODE makes a burst of its own — dying in
-## it, whether the blow found anybody or not (`Enemy._go_up`). Killed before it
-## gets there, it just dies.
+## HEADBUTT (PUNCH) and a NEAR carrying DAMAGE and FIRE; it runs at whoever it
+## hunts, punches them once it is close, and goes up where it stands — the same
+## flow with no form under it, which its NEAR makes a touch on everything round
+## it — dying in it, whether the blow found anybody or not (`Enemy._go_up`).
+## Killed before it gets there, it just dies.
 ##
 ## Headless: nothing here is looked at, only what each of them took.
 
@@ -79,23 +79,24 @@ func _the_board() -> void:
 	check(Monsters.NORMAL_POOL.has("BOMBER"), "and raids bring it")
 	var drops := Monsters.drop_pool("BOMBER")
 	var made: Array = []
-	for id in ["HEADBUTT", "DAMAGE", "FIRE", "EXPLODE"]:
+	for id in ["HEADBUTT", "NEAR", "DAMAGE", "FIRE"]:
 		if drops.has(id):
 			made.append(id)
-	check(made.size() == 4 and drops.size() == 4, "its board is a HEADBUTT, a DAMAGE, a FIRE and an EXPLODE (%s)" % str(drops))
+	check(made.size() == 4 and drops.size() == 4, "its board is a HEADBUTT, a NEAR, a DAMAGE and a FIRE (%s)" % str(drops))
 	var e := Enemy.new()
 	e.setup("BOMBER", 1, "")
 	add_child(e)
 	var base := (e.runner.base_payload_provider.call() as Payload).damage
 	var p := blow(e)
-	check(p != null and p.form == "HEADBUTT" and p.explode == 1 and p.has_element("FIRE") and p.damage > base,
-		"which make one burning headbutt that bursts, harder than the monster's own blow (%s)"
+	check(p != null and p.form == "HEADBUTT" and p.near == 1 and p.has_element("FIRE") and p.damage > base
+			and p.spread != null and p.spread.damage > 0.0 and p.spread.has_element("FIRE"),
+		"which make one burning punch, harder than the monster's own blow, whose DAMAGE and FIRE reach round (%s)"
 			% (Attacks.summary(p) if p != null else "nothing"))
 	e.queue_free()
 
-## Close enough, it headbutts whoever it hunts, and goes up: the one struck
-## takes the blow and then the blast, anyone beside them is caught as well, and
-## nothing on its own side is. And it is dead.
+## Close enough, it punches whoever it hunts, and goes up: the one struck takes
+## the blow and then the touch of what it goes up with, anyone beside them is
+## caught as well, and nothing on its own side is. And it is dead.
 func _goes_up() -> void:
 	var victim := dummy(Vector2(1030, 0), 0)
 	var beside := dummy(Vector2(1080, 0), 0)
@@ -108,10 +109,10 @@ func _goes_up() -> void:
 	e._on_fired(p)
 	check(e.dead, "the attack is the last thing it does")
 	await bursts_done()
-	check(hp_victim - victim.health >= p.damage * 2.0 - 0.01,
-		"the one it struck takes the headbutt and then the blast it goes up in (%.1f, two of %.1f)"
-			% [hp_victim - victim.health, p.damage])
-	check(hp_beside - beside.health >= p.damage - 0.01,
+	check(hp_victim - victim.health >= p.damage + p.spread.damage - 0.01,
+		"the one it struck takes the punch and then what it goes up with (%.1f, %.1f and %.1f)"
+			% [hp_victim - victim.health, p.damage, p.spread.damage])
+	check(hp_beside - beside.health >= p.spread.damage - 0.01,
 		"anyone beside them is caught as well (%.1f)" % (hp_beside - beside.health))
 	check(is_equal_approx(kin.health, hp_kin), "and nothing on its own side is")
 
@@ -128,8 +129,8 @@ func _goes_up_missing() -> void:
 	check(e.dead, "a blow that finds nobody ends it all the same")
 	await bursts_done()
 	check(is_equal_approx(far.health, hp_far), "and what it was after, out of reach, is untouched")
-	check(hp_near - near.health >= p.damage - 0.01,
-		"but what stood near it is caught in the blast (%.1f)" % (hp_near - near.health))
+	check(hp_near - near.health >= p.spread.damage - 0.01,
+		"but what stood near it is caught in what it goes up with (%.1f)" % (hp_near - near.health))
 
 ## Killed before it gets there, it does not go up: only its attack spends it.
 func _killed_first() -> void:

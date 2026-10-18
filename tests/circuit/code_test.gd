@@ -35,6 +35,7 @@ const GIVEN := [
 	"OFFENSIVE",
 	"KAMIKAZE",
 	"PULL",
+	"NEAR",
 ]
 
 var fails := 0
@@ -380,15 +381,18 @@ func _ready() -> void:
 			_board([["SLASH", 0, 2, 0], ["FIRE", 2, 2, 0], ["DAMAGE", 6, 2, 0]])),
 		"a board saved with a DASH, a SPLIT, a TEE, a REVERSE, a BLINK and a SUMMON BOLT on it reads back with them left out")
 
-	# --- a board from before AREA was renamed EXPLODE -----------------------
-	# The part kept its number, so a code shared under the old name builds the
-	# same board. A save spells it the old way, and reads back under the new one.
-	var burst := _board([["EXPLODE", 6, 2, 0]])
+	# --- a board from before AREA was renamed EXPLODE, and EXPLODE retired ----
+	# The part kept its number, so a code shared under the old name still reads,
+	# and now leaves it out, EXPLODE being retired; so does a save that spells it
+	# either way.
 	var shared := BoardCode.decode("7kBve29jhx111117")
-	check(String(shared["error"]) == "" and same_parts(shared["board"], burst),
-		"a code shared while EXPLODE was AREA still builds it (%s)" % shared["error"])
-	check(same_parts(_saved([["INPUT", 0, 2, 0], ["AREA", 1, 2, 0], ["OUTPUT", 3, 2, 0]]), burst),
-		"and a board saved with an AREA on it reads back with an EXPLODE")
+	check(String(shared["error"]) == "" and same_parts(shared["board"], _board([])),
+		"a code shared while EXPLODE was AREA still reads, with it left out (%s)" % shared["error"])
+	check(same_parts(_saved([["INPUT", 0, 2, 0], ["AREA", 1, 2, 0], ["OUTPUT", 3, 2, 0]]), _board([])),
+		"and a board saved with an AREA on it reads back without it")
+	check(same_parts(_saved([["SLASH", 0, 2, 0], ["EXPLODE", 1, 2, 0], ["FIRE", 2, 2, 0]]),
+			_board([["SLASH", 0, 2, 0], ["FIRE", 2, 2, 0]])),
+		"as does one saved with an EXPLODE on it")
 
 	# --- a board from before SWIFT STRIKE+ was made SWIFT STRIKE ------------
 	# It was SWIFT STRIKE with AUTO-AIM built in, in the same two cells. A save
@@ -424,12 +428,12 @@ func _ready() -> void:
 	check(same_parts(bare_then, Weapons.make_board("SWORD")) and bare_then.root == Weapons.make_board("SWORD").root,
 		"a sword nobody had built on is the one a new profile gets now")
 	# What fed one runs into the cell it left, and the break is there to mend.
-	var fed := _saved([["DELAY", 2, 2, 0], ["EXPLODE", 3, 2, 0], ["DAMAGE", 5, 2, 0], ["FIRE", 6, 2, 0]],
+	var fed := _saved([["DELAY", 2, 2, 0], ["DASHSLASH", 3, 2, 0], ["DAMAGE", 5, 2, 0], ["FIRE", 6, 2, 0]],
 		Vector2i(2, 2))
 	var fed_leaks: Array = fed.trace()["leaks"]
-	check(same_parts(fed, _board([["DELAY", 2, 2, 0], ["EXPLODE", 4, 2, 0], ["DAMAGE", 5, 2, 0], ["FIRE", 6, 2, 0]]))
+	check(same_parts(fed, _board([["DELAY", 2, 2, 0], ["DASHSLASH", 4, 2, 0], ["DAMAGE", 5, 2, 0], ["FIRE", 6, 2, 0]]))
 			and fed_leaks.size() == 1 and fed_leaks[0]["from"] == Vector2i(2, 2),
-		"an EXPLODE something fed moves on all the same, and what fed it leaks where it stood")
+		"a SWIFT STRIKE something fed moves on all the same, and what fed it leaks where it stood")
 	var shared_lunge := BoardCode.decode("CapygBlgg54LHBuG")
 	check(String(shared_lunge["error"]) == "" and same_parts(shared_lunge["board"], lunge)
 			and (shared_lunge["board"] as SkillBoard).root == lunge.root,
@@ -457,9 +461,9 @@ func _ready() -> void:
 		"and the board it was refused by is untouched")
 	var inside := SkillBoard.new(11, 9, "theirs, but close to its way out")
 	inside.place("SLASH", Vector2i(8, 3), 1)
-	inside.place("EXPLODE", Vector2i(10, 4), 0)  # against the way out
+	inside.place("NEAR", Vector2i(10, 4), 0)  # against the way out
 	check(small.adopt(inside), "a build that fits is taken on")
-	check(same_parts(small, _board([["SLASH", 4, 1, 1], ["EXPLODE", 6, 2, 0]])),
+	check(same_parts(small, _board([["SLASH", 4, 1, 1], ["NEAR", 6, 2, 0]])),
 		"with its way out on this one's: everything four over and two up")
 	check(small.width == 7 and small.height == 5 and small.skill_name == "mine",
 		"on this board's own grid, under its own name")

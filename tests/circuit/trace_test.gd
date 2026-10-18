@@ -358,7 +358,7 @@ func _ready() -> void:
 	# cell between, and nothing carries it on.
 	var d2 := SkillBoard.new(7, 5, "gap")
 	d2.set_root("BRIDGE", Vector2i(1, 0), 1)    # south, down the column
-	d2.place("EXPLODE", Vector2i(1, 2), 0)       # two cells down
+	d2.place("NEAR", Vector2i(1, 2), 0)          # two cells down
 	var td2 := d2.trace()
 	check((td2["breaks"] as Array).is_empty() and (td2["leaks"] as Array).size() == 1
 			and td2["reachable"].size() == 1,

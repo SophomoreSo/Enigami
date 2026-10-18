@@ -63,6 +63,10 @@
 		"name": "PUSH",
 		"desc": "Hits throw the enemy back the way the attack was going. Thrown hard into a wall, it cracks the wall and is hurt and stunned. Buys room, but can put it out of reach. Each one stacked throws harder."
 	},
+	"NEAR": {
+		"name": "NEAR",
+		"desc": "Every part after it reaches the enemies round the one the attack strikes too: FIRE burns them, STUN stuns them, DAMAGE hurts them. The blow itself lands on the enemy struck alone. Each one stacked reaches further."
+	},
 	"PULL": {
 		"name": "PULL",
 		"desc": "Hits drag the enemy toward whoever struck it, and it stops just short of them. Brings an enemy into reach, but brings it close. Each one stacked drags it from further off."
@@ -86,10 +90,6 @@
 	"AUTO_AIM": {
 		"name": "AUTO-AIM",
 		"desc": "Aims the attack at the nearest enemy, wherever you point: bolts go straight at it and SWIFT STRIKE lunges through it, as far as each reaches, and a swing turns to it. Each one stacked looks further for one."
-	},
-	"EXPLODE": {
-		"name": "EXPLODE",
-		"desc": "Every enemy the attack hits bursts, and everything round it takes the hit too. Each one stacked bursts wider. A trigger's branch starts without it, and one with no form but an EXPLODE on it bursts where it goes off."
 	},
 	"DUPLICATE": {
 		"name": "DUPLICATE x3",

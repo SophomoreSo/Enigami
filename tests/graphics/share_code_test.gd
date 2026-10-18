@@ -107,7 +107,7 @@ func _ready() -> void:
 		b.erase_at(c)
 	# Four facings, so the code carries more than a straight line of
 	# defaults — and the weapon's own root, which stays.
-	b.place("EXPLODE", Vector2i(1, 1), 0)
+	b.place("NEAR", Vector2i(1, 1), 0)
 	b.place("FIRE", Vector2i(3, 1), 1)
 	b.place("ICE", Vector2i(3, 2), 2)
 	b.place("DAMAGE", Vector2i(2, 2), 3)

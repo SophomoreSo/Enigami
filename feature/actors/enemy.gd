@@ -199,13 +199,14 @@ func _on_fired(p: Payload) -> void:
 
 ## Spent by its attack, as the Bomber is (`spent_by_attack`): the blow is the
 ## last thing it does. What it carried goes up where it stands — wherever the
-## blow left it — as the same flow with no form under it, which an EXPLODE on
-## it makes a burst of its own (`Attacks.spawn`), and it dies in it, whether
-## the blow found anybody or not. A player whose hands are in it is put back in
-## their own body, as from any monster that dies.
+## blow left it — as the same flow with no form under it, which a NEAR on it
+## makes a touch on everything round it (`Attacks.spawn`), with a bang, and it
+## dies in it, whether the blow found anybody or not. A player whose hands are
+## in it is put back in their own body, as from any monster that dies.
 func _go_up(p: Payload) -> void:
 	var blast := p.clone()
 	blast.form = ""
+	Cues.at(&"area_blast", global_position, {"payload": blast})
 	Attacks.spawn(blast, {"attacker": null, "room": room, "team": team, "aim": Vector2.RIGHT,
 		"origin": global_position})
 	_kill()
@@ -585,11 +586,14 @@ func _kill() -> void:
 		return
 	if modifier == "volatile":
 		var p := Payload.new()
-		p.damage = 18.0
 		p.size = 1.3
-		# No form, so the EXPLODE is the attack: a burst where it died.
-		p.explode = 1
-		p.elements = ["FIRE"] as Array[String]
+		# No form, so the NEAR is the attack: everything round where it died is
+		# hurt and burnt, and it goes up with a bang.
+		p.near = 1
+		p.spread = Payload.new()
+		p.spread.damage = 18.0
+		p.spread.elements = ["FIRE"] as Array[String]
+		Cues.at(&"area_blast", global_position, {"payload": p})
 		Attacks.spawn(p, {"attacker": null, "room": room, "team": team, "aim": Vector2.RIGHT, "origin": global_position})
 	if room != null and room.has_method("on_enemy_died"):
 		room.on_enemy_died(self)

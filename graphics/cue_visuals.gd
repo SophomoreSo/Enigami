@@ -37,6 +37,10 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 			Fx.shake(2.5)
 		&"area_blast":
 			Fx.shake(6.0)
+		&"near":
+			# NEAR's reach going out round the one struck: its ring is the
+			# burst's own (`AreaBurstView`); no more than a nudge to the screen.
+			Fx.shake(1.5)
 		&"lunge_cut":
 			Fx.shake(4.0)
 		&"pet_kamikaze":

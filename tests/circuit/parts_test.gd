@@ -47,14 +47,14 @@ func _ready() -> void:
 	# no part's own: they are the board's root and its way out, and INPUT and
 	# OUTPUT, which were those, are retired. So is DASH, which the player's own
 	# dash key and SWIFT STRIKE left with nothing to do, SPLIT and TEE, whose
-	# forks a trigger's branch does instead, REVERSE and BLINK, and SUMMON BOLT,
-	# whose place KAMIKAZE took.
+	# forks a trigger's branch does instead, REVERSE and BLINK, SUMMON BOLT,
+	# whose place KAMIKAZE took, and EXPLODE, whose place NEAR took.
 	var retired: Array = []
-	for id in ["INPUT", "OUTPUT", "WIRE", "BEND", "DASH", "SPLIT", "TEE", "REVERSE", "BLINK", "SUMMON_PROJECTILE"]:
+	for id in ["INPUT", "OUTPUT", "WIRE", "BEND", "DASH", "SPLIT", "TEE", "REVERSE", "BLINK", "SUMMON_PROJECTILE", "EXPLODE"]:
 		if Components.exists(id) or not Components.is_retired(id) or Components.code_of(id) < 0:
 			retired.append(id)
 	check(retired.is_empty(),
-		"INPUT, OUTPUT, WIRE, BEND, DASH, SPLIT, TEE, REVERSE, BLINK and SUMMON BOLT are retired: each keeps its number, and is no part (%s)" % str(retired))
+		"INPUT, OUTPUT, WIRE, BEND, DASH, SPLIT, TEE, REVERSE, BLINK, SUMMON BOLT and EXPLODE are retired: each keeps its number, and is no part (%s)" % str(retired))
 	check(Components.world_inputs("SLASH", 0) == [Components.S, Components.W, Components.N],
 		"no part is a source: every part takes flow on every side but its own outputs, the root's included")
 	var nowhere: Array = []
@@ -69,10 +69,9 @@ func _ready() -> void:
 	check(unbranched.is_empty(), "ON HIT, ON KILL and ON PARRY are triggers, each with a branch (%s)" % str(unbranched))
 	# An attack is spawned by its form (`Attacks.spawn`), and four are drawn.
 	# Each is a part that makes a flow that form, and no row makes any other.
-	# EXPLODE and ZAP were two more. EXPLODE is a behaviour now: it bursts the
-	# hits of the form the flow has, and is a burst of its own only on a flow
-	# with none. ZAP is PROJECTILE now (`renamed_parts`). HEADBUTT is the
-	# newest, and the one with no weapon in it.
+	# EXPLODE and ZAP were two more. EXPLODE became a behaviour, and is retired
+	# now, NEAR in its place. ZAP is PROJECTILE now (`renamed_parts`). HEADBUTT
+	# is the newest, and the one with no weapon in it.
 	const DRAWN := ["PROJECTILE", "SLASH", "DASHSLASH", "HEADBUTT"]
 	var misformed: Array = []
 	for id in DRAWN:
