@@ -1,5 +1,5 @@
 class_name LostKit
-extends Node2D
+extends FallingThing
 
 ## Everything a death left on the floor, lying on the spot it fell.
 ##
@@ -15,15 +15,15 @@ signal collected(kit: LostKit)
 ## Wider than a loose part's reach. A drop is the thing the whole run was for,
 ## so brushing past it counts; it does not have to be stood on exactly.
 const PICKUP_RANGE := 30.0
-const GRAVITY := 1100.0
+## Half its height: how far under its middle the floor it lies on is.
+const RADIUS := 10.0
 
 var record: Dictionary = {}
-var room = null
-var velocity: Vector2 = Vector2.ZERO
 
 func setup(rec: Dictionary, at: Vector2) -> void:
 	record = rec
 	position = at
+	radius = RADIUS
 
 func _ready() -> void:
 	add_to_group("lost_kits")
@@ -31,14 +31,14 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	# It settles onto the floor and then stays put. Loot leaps out of whatever
 	# dropped it and is drawn to whoever walks past; this is a landmark, and a
-	# landmark that slid around would be a worse one.
-	if room != null and room.has_method("is_solid_at"):
-		var below := global_position + Vector2(0, 10) + velocity * delta
-		if room.is_solid_at(below):
+	# landmark that slid around would be a worse one. With no room under it,
+	# it stays where it was put.
+	if room != null and not resting:
+		if _on_floor() and velocity.y >= 0.0:
 			velocity = Vector2.ZERO
+			resting = true
 		else:
-			velocity.y = minf(velocity.y + GRAVITY * delta, 900.0)
-	position += velocity * delta
+			_fall_by(delta)
 
 	var players := get_tree().get_nodes_in_group("player")
 	if players.is_empty():
@@ -48,6 +48,17 @@ func _process(delta: float) -> void:
 		collected.emit(self)
 		Cues.at(&"kit_back", global_position, {"size": size()})
 		queue_free()
+
+## Down onto the floor it meets, flush with it, and still.
+func _hop(step: Vector2) -> bool:
+	var next := global_position + step
+	if _solid(next + Vector2(0.0, radius)):
+		_settle_down()
+		velocity = Vector2.ZERO
+		resting = true
+		return false
+	global_position = next
+	return true
 
 ## What is in it, as one number: a weapon counts for one, and so does every
 ## part built onto a graph that fell and every component in the bag. Scrap is
