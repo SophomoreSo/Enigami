@@ -19,7 +19,8 @@
 -- right edge (circuit/skill_board.gd).
 
 -- In the order the palette lays its blocks out. `states` is what a hit leaves
--- on what it strikes — FIRE, ICE, WATER — and was `element`. `behavior` is
+-- on what it strikes — FIRE, ICE, WATER, and POSSESS's hands in it — and was
+-- `element`. `behavior` is
 -- COMMON MODIFIER on screen, and holds what was the `stat` block — DAMAGE,
 -- SIZE, SPEED, RANGE, SHATTER — as well; the two after it are what a bolt is
 -- steered and carried by — PIERCE, HOMING, AUTO-AIM and ANTI-GRAVITY — and what
@@ -233,7 +234,7 @@ INSERT INTO parts (id, name, category, heat, description) VALUES
 	('MANA_DRAIN', 'MANA DRAIN', 'behavior', 0.5, 'Every enemy this attack connects with gives mana back to the caster. What pays for the next charge is landing hits, not waiting. Each one stacked drains more.'),
 	('HEALTH_DRAIN', 'HEALTH DRAIN', 'behavior', 0.6, 'Every enemy this attack hurts gives health back to the caster: a fifth of the damage dealt, and a fifth more for each one stacked. What keeps you standing is landing hits.'),
 	('STUN', 'STUN', 'behavior', 0.6, 'Struck enemies are stunned: for a moment they stand where they are and cannot attack. Each one stacked holds them longer. Once it wears off, an enemy shrugs off the next stun for a while.'),
-	('POSSESS', 'POSSESS', 'behavior', 0.9, 'Takes over the monster struck for 5 seconds, unharmed, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, left behind and still hunted. Bosses resist it.'),
+	('POSSESS', 'POSSESS', 'states', 0.9, 'Takes over the monster struck for 5 seconds, unharmed, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, left behind and still hunted. Bosses resist it.'),
 	('AUTO_AIM', 'AUTO-AIM', 'projectile_behavior', 0.4, 'Aims the attack at the nearest enemy, wherever you point: bolts go straight at it and SWIFT STRIKE lunges through it, as far as each reaches, and a swing turns to it. Each one stacked looks further for one.'),
 	('ANTI_GRAVITY', 'ANTI-GRAVITY', 'projectile_behavior', 0.4, 'Bolts fly with no weight on them: a lobbed shot goes straight instead of arcing. One is all it takes.');
 

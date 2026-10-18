@@ -97,8 +97,8 @@ func _ready() -> void:
 
 ## --- the part ---------------------------------------------------------------
 func _the_part() -> void:
-	check(Components.exists("POSSESS") and Components.get_def("POSSESS")["cat"] == Components.CAT_BEHAVIOR,
-		"POSSESS is a behaviour part")
+	check(Components.exists("POSSESS") and Components.get_def("POSSESS")["cat"] == Components.CAT_STATES,
+		"POSSESS is a STATES part")
 	check(Components.code_of("POSSESS") >= 0, "with a number in a shared code (%d)" % Components.code_of("POSSESS"))
 	var b := SkillBoard.new(3, 5, "test")
 	b.set_root("PROJECTILE")
