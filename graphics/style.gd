@@ -14,8 +14,7 @@ extends RefCounted
 ## --- components -------------------------------------------------------------
 const CAT_COLOR := {
 	Components.CAT_FORM: Color(0.98, 0.78, 0.26),
-	Components.CAT_ELEMENT: Color(0.95, 0.42, 0.32),
-	Components.CAT_STAT: Color(0.45, 0.85, 0.62),
+	Components.CAT_STATES: Color(0.95, 0.42, 0.32),
 	Components.CAT_BEHAVIOR: Color(0.42, 0.72, 0.98),
 	Components.CAT_PROJECTILE_BEHAVIOR: Color(0.38, 0.88, 0.92),
 	Components.CAT_SUMMON_BEHAVIOR: Color(0.62, 0.86, 0.42),
@@ -27,8 +26,7 @@ const CAT_COLOR := {
 ## ids are the rules' own; the wording on screen is ours.
 const CAT_NAME := {
 	Components.CAT_FORM: "FORM",
-	Components.CAT_ELEMENT: "ELEMENT",
-	Components.CAT_STAT: "STAT",
+	Components.CAT_STATES: "STATES",
 	Components.CAT_BEHAVIOR: "COMMON MODIFIER",
 	Components.CAT_PROJECTILE_BEHAVIOR: "PROJECTILE MODIFIER",
 	Components.CAT_SUMMON_BEHAVIOR: "SUMMON MODIFIER",

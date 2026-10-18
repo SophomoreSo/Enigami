@@ -18,12 +18,14 @@
 -- own. They are the board's: its root, and its way out in the middle of its
 -- right edge (circuit/skill_board.gd).
 
--- In the order the palette lays its blocks out. `behavior` is COMMON MODIFIER
--- on screen; the two after it are what a bolt is steered and carried by —
--- PIERCE, HOMING, AUTO-AIM and ANTI-GRAVITY — and what an attack calls up beside itself:
--- a bolt in the air, a pet.
+-- In the order the palette lays its blocks out. `states` is what a hit leaves
+-- on what it strikes — FIRE, ICE, WATER — and was `element`. `behavior` is
+-- COMMON MODIFIER on screen, and holds what was the `stat` block — DAMAGE,
+-- SIZE, SPEED, RANGE, SHATTER — as well; the two after it are what a bolt is
+-- steered and carried by — PIERCE, HOMING, AUTO-AIM and ANTI-GRAVITY — and what
+-- an attack calls up beside itself: a bolt in the air, a pet.
 INSERT INTO categories (id) VALUES
-	('form'), ('element'), ('stat'), ('behavior'), ('projectile_behavior'), ('summon_behavior'),
+	('form'), ('states'), ('behavior'), ('projectile_behavior'), ('summon_behavior'),
 	('flow'), ('trigger');
 
 -- Every number a part has ever had in a shared code, in order. **Only ever
@@ -147,14 +149,14 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('HEADBUTT', 0, 'form', 'set', 'HEADBUTT');
 
 
--- ---- element ----------------------------------------------------------------
+-- ---- states (was element) -----------------------------------------------------
 
 -- WATER is the third, and what it does is change the other two: a wet enemy
 -- freezes under ICE and is only dried by FIRE (`Actor.afflict`).
 INSERT INTO parts (id, name, category, heat, description) VALUES
-	('FIRE', 'FIRE', 'element', 0.4, 'Adds flame. Struck enemies burn for damage over time; a wet one is only dried.'),
-	('ICE', 'ICE', 'element', 0.4, 'Adds frost. Struck enemies are slowed; a wet one freezes solid for a moment.'),
-	('WATER', 'WATER', 'element', 0.4, 'Soaks what it strikes. A wet enemy freezes solid under ICE, and FIRE only dries it; water puts a burning enemy out.');
+	('FIRE', 'FIRE', 'states', 0.4, 'Adds flame. Struck enemies burn for damage over time; a wet one is only dried.'),
+	('ICE', 'ICE', 'states', 0.4, 'Adds frost. Struck enemies are slowed; a wet one freezes solid for a moment.'),
+	('WATER', 'WATER', 'states', 0.4, 'Soaks what it strikes. A wet enemy freezes solid under ICE, and FIRE only dries it; water puts a burning enemy out.');
 
 INSERT INTO ports (part_id, side) VALUES ('FIRE', 'E'), ('ICE', 'E'), ('WATER', 'E');
 
@@ -164,7 +166,7 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 	('WATER', 0, 'elements', 'include', 'WATER');
 
 
--- ---- stat ---------------------------------------------------------------------
+-- ---- what was stat: in COMMON MODIFIER (`behavior`) now ---------------------------
 
 -- `stack_limit` is how many of a part one flow can stack; a part without one
 -- stacks for as long as the board has room. SIZE stops at three, which is an
@@ -174,11 +176,11 @@ INSERT INTO effects (part_id, position, field, op, value) VALUES
 -- bolt further than a room is wide — the most range there is to have — and
 -- SWIFT STRIKE's lunge five times as far.
 INSERT INTO parts (id, name, category, heat, stack_limit, description) VALUES
-	('DAMAGE', 'DAMAGE +', 'stat', 0.3, NULL, 'Raises damage, and each one stacked raises it by more than the last. Stable and simple, but interacts with little else.'),
-	('SIZE', 'SIZE x', 'stat', 0.4, 3, 'Scales the attack by 1.6. Melee arcs widen and reach further. Stacks up to 3.'),
-	('SPEED', 'SPEED x', 'stat', 0.35, 4, 'Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. Does nothing to any other attack. Stacks up to 4, and at 4 a bolt flies at laser speed.'),
-	('RANGE', 'RANGE x', 'stat', 0.35, 3, 'Bolts carry 1.75x as far before they fade, and SWIFT STRIKE lunges 1.75x as far. Does nothing to any other attack. Stacks up to 3, which is the most range there is.'),
-	('SHATTER', 'SHATTER', 'stat', 0.45, NULL, 'Breaks the frost on an enemy slowed by it: the hit lands far harder, and the enemy thaws. Each one stacked breaks harder still. Worth nothing on its own — pair it with ICE, or with a board that lands twice.');
+	('DAMAGE', 'DAMAGE +', 'behavior', 0.3, NULL, 'Raises damage, and each one stacked raises it by more than the last. Stable and simple, but interacts with little else.'),
+	('SIZE', 'SIZE x', 'behavior', 0.4, 3, 'Scales the attack by 1.6. Melee arcs widen and reach further. Stacks up to 3.'),
+	('SPEED', 'SPEED x', 'behavior', 0.35, 4, 'Bolts leave 1.5x faster. They also carry further before they fade, and are harder to dodge. Does nothing to any other attack. Stacks up to 4, and at 4 a bolt flies at laser speed.'),
+	('RANGE', 'RANGE x', 'behavior', 0.35, 3, 'Bolts carry 1.75x as far before they fade, and SWIFT STRIKE lunges 1.75x as far. Does nothing to any other attack. Stacks up to 3, which is the most range there is.'),
+	('SHATTER', 'SHATTER', 'behavior', 0.45, NULL, 'Breaks the frost on an enemy slowed by it: the hit lands far harder, and the enemy thaws. Each one stacked breaks harder still. Worth nothing on its own — pair it with ICE, or with a board that lands twice.');
 
 INSERT INTO ports (part_id, side) VALUES
 	('DAMAGE', 'E'), ('SIZE', 'E'), ('SPEED', 'E'), ('RANGE', 'E'), ('SHATTER', 'E');

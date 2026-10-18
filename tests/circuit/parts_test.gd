@@ -89,7 +89,7 @@ func _ready() -> void:
 	var categories: Array = []
 	for r in Db.rows("SELECT id FROM categories"):
 		categories.append(String(r["id"]))
-	var named_cats := [Components.CAT_FORM, Components.CAT_ELEMENT, Components.CAT_STAT,
+	var named_cats := [Components.CAT_FORM, Components.CAT_STATES,
 		Components.CAT_BEHAVIOR, Components.CAT_PROJECTILE_BEHAVIOR, Components.CAT_SUMMON_BEHAVIOR,
 		Components.CAT_FLOW, Components.CAT_TRIGGER]
 	var unknown_cats: Array = []
