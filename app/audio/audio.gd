@@ -1,11 +1,20 @@
 extends Node
 
-## All sound is synthesised at boot, so the project carries no audio assets.
-## Each cue is a short PCM buffer built from an envelope plus a waveform.
+## The sound bank. Every sound is synthesised at boot — a short PCM buffer
+## built from an envelope plus a waveform — under the id the code and the
+## content play it by. The bank is listed in the content database (`sounds`,
+## data/db/sounds/sounds.sql): a row a sound, with where a file made for it
+## goes, the prompt it is made from, and whether that file is in use. A sound
+## flagged in use is played from its file in the synthesised one's place
+## (`_load_files`); the rest, and everything with no file yet, play as they
+## always did. So the project still carries no audio assets it has not been
+## given, one at a time.
 
 const RATE := 22050
 
 var _sfx: Dictionary = {}
+## The sounds playing from a file rather than synthesised (`_load_files`).
+var _from_file: Dictionary = {}
 var _players: Array[AudioStreamPlayer] = []
 var _music_player: AudioStreamPlayer
 var _next_player := 0
@@ -18,6 +27,7 @@ var music_volume: float = 0.0
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_build_library()
+	_load_files()
 	for i in 12:
 		var p := AudioStreamPlayer.new()
 		p.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -109,6 +119,33 @@ func _build_library() -> void:
 ## Whether the bank holds a sound, for content that names one by id.
 func has(id: String) -> bool:
 	return _sfx.has(id)
+
+## Whether `id` plays from its file rather than the synthesised sound.
+func from_file(id: String) -> bool:
+	return _from_file.has(id)
+
+## The bank's files: for each sound the table flags in use, the file at its
+## path, played in the synthesised sound's place. A flag on a file that is not
+## there, or that is not a sound, warns and leaves the synthesised one; a
+## database without the table changes nothing.
+func _load_files() -> void:
+	_from_file.clear()
+	if not Db.available() or not Db.has_table("sounds"):
+		return
+	for row in Db.rows("SELECT id, path, use_flag FROM sounds"):
+		var id := String(row["id"])
+		if String(row["use_flag"]) != "Y":
+			continue
+		var path := String(row["path"])
+		if not ResourceLoader.exists(path):
+			push_warning("Audio: the sound %s is flagged in use, and there is no file at %s" % [id, path])
+			continue
+		var stream := load(path)
+		if not (stream is AudioStream):
+			push_warning("Audio: the file at %s is not a sound (%s)" % [path, id])
+			continue
+		_sfx[id] = stream
+		_from_file[id] = true
 
 func _wave(kind: String, phase: float) -> float:
 	match kind:

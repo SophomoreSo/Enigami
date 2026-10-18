@@ -22,7 +22,7 @@ CREATE TABLE meta (
 );
 -- `Db.SCHEMA_VERSION` in app/db.gd is the same number: bump both when a
 -- change is one older code could not read. build.sh adds `source_hash`.
-INSERT INTO meta (key, value) VALUES ('schema_version', '16');
+INSERT INTO meta (key, value) VALUES ('schema_version', '17');
 
 -- How a portrait and the letters behave while a line is said: the ids
 -- `Style.EMOTIONS` (graphics/style.gd) draws. A line naming one not here
@@ -79,7 +79,7 @@ CREATE TABLE nodes (
 	sprite       TEXT,                                        -- swaps the portrait for this line
 	camera       JSON CHECK (camera IS NULL OR camera = 'reset' OR json_valid(camera)),
 	                                                          -- {"focus", "zoom", "shake", "time"}, or reset
-	sfx          TEXT,                                        -- a sound from the bank in app/audio/audio.gd, as the line starts
+	sfx          TEXT REFERENCES sounds (id) DEFERRABLE INITIALLY DEFERRED,  -- a sound of the bank (`sounds`), as the line starts
 	voice        TEXT REFERENCES voices (id),                 -- NULL: line_voice
 	next         TEXT,                                        -- the line a press moves on to; NULL ends, unless there are choices
 	PRIMARY KEY (character_id, id),
@@ -194,7 +194,7 @@ CREATE TABLE rules (
 	speaker      TEXT CHECK (speaker IN ('npc', 'player')),   -- NULL: the character's line_speaker
 	speed        INTEGER CHECK (speed >= 1),                  -- letters per second; NULL: line_speed
 	emotion      TEXT REFERENCES emotions (id),               -- NULL: line_emotion
-	sfx          TEXT,                                        -- a sound from the bank in app/audio/audio.gd, as the line starts
+	sfx          TEXT REFERENCES sounds (id) DEFERRABLE INITIALLY DEFERRED,  -- a sound of the bank (`sounds`), as the line starts
 	voice        TEXT REFERENCES voices (id),                 -- NULL: line_voice
 	hold         REAL CHECK (hold >= 0),                      -- seconds it stays up once it is out; NULL: long enough to read
 	next         TEXT,                                        -- said after it, whatever the facts
@@ -745,3 +745,19 @@ CREATE TABLE raid_rooms (
 );
 -- One way in.
 CREATE UNIQUE INDEX raid_rooms_one_entry ON raid_rooms (kind) WHERE kind = 'entry';
+
+-- ---- the sound bank -----------------------------------------------------------
+-- Every sound effect the game plays, by the id the code and the content name
+-- it by (`Audio.play`; a line's `sfx`). Each is synthesised at boot as it
+-- always was (app/audio/audio.gd). `path` is where a file made for it goes —
+-- the prompt in `description` given to Stable Audio by hand, and what comes
+-- back saved there — and `use_flag` whether that file is played in the
+-- synthesised sound's place: 'N', the default, plays the synthesised one, so
+-- a sound is switched to its file one at a time, as each is made and heard.
+-- Rows are data/db/sounds/sounds.sql; see "A sound" in README.md.
+CREATE TABLE sounds (
+	id          TEXT PRIMARY KEY CHECK (id <> '' AND id = lower(id)),
+	path        TEXT NOT NULL CHECK (path LIKE 'res://audio/sfx/%'),
+	description TEXT NOT NULL CHECK (description <> ''),
+	use_flag    TEXT NOT NULL DEFAULT 'N' CHECK (use_flag IN ('Y', 'N'))
+);

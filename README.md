@@ -10,7 +10,7 @@ the map way: a skin, drawn once, and poses painted in the colours of a map
 that names its pixels, so reskinning is one file
 (`graphics/assets/sprites/player/README.md`). Everything else — rooms,
 attacks, effects, the whole UI and the title screen's circuit board — is still
-drawn from primitives, and every sound is synthesised at boot. The only other
+drawn from primitives, and every sound is synthesised at boot, or played from a file switched on in the sound bank (`data/db/sounds/`). The only other
 assets are two OFL fonts (`graphics/assets/fonts/CREDITS.md`) and the studio's
 logos, one of which, picked at random, the game opens on, on white
 (`graphics/assets/logos/`, and `LogoCard`).
@@ -54,6 +54,7 @@ godot res://tests/feature/pool_test.tscn    # pooling: lent, played out and hand
 godot res://tests/feature/magic_test.tscn   # magic off: every graph cast as its forms alone, no charging, and the magic stone gone and back
 godot res://tests/feature/phone_test.tscn   # the phone: an alarm that counts down and rings, the monsters it calls, the phone put down on a floor and picked up, and its photos
 godot res://tests/graphics/phone_test.tscn  # the phone on the screen: up on P over a raid and the hideout, its apps, its camera and gallery, and the alarm's page
+godot res://tests/shared/sounds_test.tscn   # the sound bank: a row a sound, with its path, its prompt and its flag; every sound the code and the content name has one
 godot res://tests/perks/perks_test.tscn     # the perks: bought with gold a step at a time, kept with the profile, and what they add reaching the player
 godot res://tests/graphics/fx_pool_test.tscn # sparks, rings and floating numbers come out of pools, never out of nothing
 godot res://tests/graphics/menu_fit_test.tscn # menus stay on screen and scroll the rest

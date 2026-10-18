@@ -93,3 +93,4 @@ echo "Built $(basename "$OUT") from ${#rels[@]} file(s) — $(du -h "$OUT" | cut
 "$SQLITE" "$OUT" "SELECT '  ' || (SELECT count(*) FROM lights) || ' kinds of light: ' || group_concat(n || ' ' || type, ', ') FROM (SELECT type, count(*) AS n FROM lights GROUP BY type ORDER BY type);"
 "$SQLITE" "$OUT" "SELECT '  ' || (SELECT count(*) FROM maps) || ' maps, ' || (SELECT count(*) FROM map_layers) || ' layers, ' || (SELECT count(*) FROM map_rows) || ' rows of cells';"
 "$SQLITE" "$OUT" "SELECT '  the raid: ' || count(*) || ' rooms, ' || (SELECT count(*) FROM raid_rooms WHERE exit IS NOT NULL) || ' with a way out' FROM raid_rooms;"
+"$SQLITE" "$OUT" "SELECT '  ' || count(*) || ' sounds in the bank, ' || sum(use_flag = 'Y') || ' played from a file' FROM sounds;"
