@@ -431,7 +431,7 @@ has to hear about it.
 | The screen the graph, the map, the monster dictionary and the perks are pages of — the tabs along its top, its back arrow, its veil | `graphics/ui/screen_tabs.gd`, drawn by every page (`SkillEditor`, `MapPanel`, `MonsterDex`, `PerkScreen`), the first three tabs wherever it comes up (`ScreenTabs.PAGES`) and PERKS after them in a raid, on the bench and at the hideout's workbench (`PAGES_WITH_PERKS`), which `app/game.gd` puts up there. What a press on a tab puts up is the view that opens it: `graphics/views/raid_view.gd` for a raid, whose map's page is the floor plan, and `graphics/ui/screen_pages.gd` for everywhere with no map, whose map's page says so (`hud.map.none`). The tabs' words are `hud.tabs` in `localization/`. `tests/graphics/editor_close_test` |
 | How a menu is laid out in mobile mode — a row's height, a word's size, a page's width | the kit's: `THUMB`, `THUMB_TEXT` and `THUMB_PAGE` in `graphics/ui/ui_kit.gd`, which every page built of Controls takes them from. What is *on* a page there is that screen's own — the "for a thumb" section of `skill_editor.gd`, `dialogue_box.gd` and the rest, `_build_for_a_thumb` in `controls_panel.gd` |
 | The resolution the world is drawn at | `graphics/pixel_camera.gd` (the size comes from `Sprites.PIXEL_SCALE`) |
-| A new sound | a row of `sounds` in `data/db/sounds/sounds.sql` — its file's path, the prompt it is made from, and whether the file is in use — its synthesised fallback in `app/audio/audio.gd`, and what plays it in `app/audio/audio_cues.gd` |
+| A new sound | a row of `sounds` in `data/db/sounds/sounds.sql` — its file's path, the prompt it is made from, and whether the file is in use — and what plays it in `app/audio/audio_cues.gd`; `app/audio/audio.gd` plays what the table gives it and makes nothing of its own |
 | What a moment says on screen — WINDED, a boss's second form | `hud.fx` in `localization/`, spelled in `graphics/cue_visuals.gd`; the rule sends the id |
 | A setting on both settings pages — a volume, the language, the screen | `graphics/ui/settings_rows.gd` for the game's, `graphics/ui/video_rows.gd` for the machine's; the title and the pause menu both ask for the rows |
 | A new thing a press of `interact` can use in a world | that world's `use_nearby()`, see `feature/world/world.gd`; the shell asks and names nothing |
@@ -459,7 +459,7 @@ easing on the wall clock, since its own frame time is the dilated one.
 | `Loc` | app | every word, in the language being played |
 | `Db` | app | the content database, `data/enigami.db` — the conversations, the state machines, the parts and the boards the game ships with, the menus, the lines that hang in the rooms and what grows on their floors, as tables — read-only |
 | `Cues` | app | the seam |
-| `Audio`, `AudioCues` | app | the sound bank — synthesised, or played from a file where the `sounds` table says so — and what each cue sounds like |
+| `Audio`, `AudioCues` | app | the sound bank — the files the `sounds` table lists and switches on, silent until one is made — and what each cue sounds like |
 | `Pointer` | app | where the game is pointing and who is doing it — the player's hand, at the speed the setting asks, with the system's arrow hidden under it; the computer, with the arrow shown beside it; or the system alone, for a window |
 | `Video` | app | whether the window takes the whole display, and whether an impact may move the camera |
 | `Arena` | feature | the node live world objects are parented to |

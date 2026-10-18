@@ -1,15 +1,14 @@
 -- The sound bank: a row a sound effect. See "A sound" in README.md.
 --
--- Every one is synthesised at boot by app/audio/audio.gd under its id, and
--- that is what plays while its `use_flag` is 'N'. To replace one with a made
--- sound: give its `description` to Stable Audio as the prompt, save what comes
--- back at its `path` (a WAV; Godot imports it on the next run of the editor
--- or `--import`), set `use_flag` to 'Y', and rebuild. A flag on a file that is
--- not there warns at boot and plays the synthesised sound still.
+-- Every sound is silent until it is made: give its `description` to Stable
+-- Audio as the prompt, save what comes back at its `path` (a WAV; Godot
+-- imports it on the next run of the editor or `--import`), set `use_flag` to
+-- 'Y', and rebuild. A flag on a file that is not there warns at boot and
+-- stays silent. Nothing is synthesised in code (app/audio/audio.gd).
 --
--- The descriptions say what the synthesised sound is like, so a made one can
--- take its place without the game changing character; make them say
--- something else to change it.
+-- The descriptions say what each sound was like when it was synthesised, so
+-- the made ones keep the game's character; make them say something else to
+-- change it.
 
 INSERT INTO sounds (id, path, description, use_flag) VALUES
 	('shoot', 'res://audio/sfx/shoot.wav', 'Short retro video game laser shot: a square-wave blip falling from high to low pitch over 120 milliseconds, a little crackle, 8-bit arcade style, dry, no reverb', 'N'),
