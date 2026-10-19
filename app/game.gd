@@ -45,6 +45,9 @@ var perk_screen: PerkScreen = null
 ## The phone (`PhoneScreen`), built the first time it is brought up and kept,
 ## over a raid or the hideout; see `_toggle_phone`.
 var phone: PhoneScreen = null
+## The bench's screen (`HeroSelect`): who to play as, up while the player sits
+## on a bench; see `_open_heroes`.
+var heroes: HeroSelect = null
 var pause_menu: Control = null
 ## The pause menu's two pages: PAUSED, and the rebinding list behind its
 ## CONTROL SETTINGS button. Exactly one of them is on screen; see
@@ -106,6 +109,9 @@ func _ready() -> void:
 	# The pause menu is built once and outlives every screen, so it is the one
 	# thing a language switch on the title screen cannot reach by itself.
 	Loc.language_changed.connect(_rebuild_pause_menu)
+	# Sitting down on a bench brings up who to play as, and standing up puts
+	# it away: the bench says so through the cue the body sits with.
+	Cues.fired.connect(_on_cue)
 	goto_title()
 	# The game as launched opens on one of the studio's logos, over the title
 	# built under it in the same frame, which it fades into — see `LogoCard`.
@@ -196,7 +202,7 @@ func _process(_delta: float) -> void:
 func _touch_face() -> int:
 	if state == State.INTRO or _reading():
 		return TouchPad.Face.TALK
-	if _assembling() or _mapping() or _paneled() or _phoning():
+	if _assembling() or _mapping() or _paneled() or _phoning() or _choosing():
 		return TouchPad.Face.CLEAR
 	for p in get_tree().get_nodes_in_group("player"):
 		if not p.controls_locked():
@@ -268,6 +274,8 @@ func _clear() -> void:
 	_close_perks()
 	if _phoning():
 		phone.close()
+	if _choosing():
+		heroes.visible = false
 	# The phone goes with the player wherever they go next, whatever floor it
 	# was lying on.
 	Phone.recover()
@@ -920,6 +928,60 @@ func _toggle_magic() -> void:
 			State.JEAN_GREY_TEST, State.LIGHTING_TEST, State.MAP_MAKER]:
 		Magic.toggle()
 		get_viewport().set_input_as_handled()
+
+## --- the bench's screen: who to play as -------------------------------------------
+## Sat down on a bench — in a raid, on the bench, in the hideout — the player
+## is shown who they can play as (`HeroSelect`, `Heroes`), and picks one or
+## puts the screen away; standing up puts it away too. The world holds them
+## sat and still under it the way it holds them under the phone. The pick is
+## the profile's (`GameState.set_hero`).
+func _on_cue(cue: StringName, d: Dictionary) -> void:
+	if cue != &"sit":
+		return
+	if String(d.get("kind", "")) == "down":
+		_open_heroes()
+	else:
+		_close_heroes()
+
+## Whether the bench's screen is up.
+func _choosing() -> bool:
+	return heroes != null and is_instance_valid(heroes) and heroes.visible
+
+func _open_heroes() -> void:
+	if get_tree().paused or _choosing() or not (state in [State.RAID, State.SANDBOX, State.HIDEOUT]):
+		return
+	if heroes == null or not is_instance_valid(heroes):
+		heroes = HeroSelect.new()
+		heroes.picked.connect(_hero_picked)
+		heroes.closed.connect(_close_heroes)
+		window_layer.add_child(heroes)
+	heroes.open()
+	_hold_for_heroes(true)
+	Audio.play("ui", 1.1)
+
+func _hero_picked(id: String) -> void:
+	GameState.set_hero(id)
+	Audio.play("pickup", 1.2)
+	_close_heroes()
+
+func _close_heroes() -> void:
+	if not _choosing():
+		return
+	heroes.visible = false
+	_hold_for_heroes(false)
+
+## The world holds the player still under the screen — sat, since that is how
+## it came up: a raid by a state of its own, the hideout by the hold it has for
+## anything up over it, the bench by a drawer's.
+func _hold_for_heroes(on: bool) -> void:
+	if current == null or not is_instance_valid(current):
+		return
+	if state == State.RAID and current is Raid:
+		(current as Raid).set_choosing(on)
+	elif state == State.HIDEOUT and hideout_ref != null and is_instance_valid(hideout_ref):
+		hideout_ref.set_editing(on)
+	elif state == State.SANDBOX and current is Sandbox:
+		(current as Sandbox).set_tools_open(on, "heroes")
 
 ## --- the phone ------------------------------------------------------------------
 ## P: the phone up over the raid or the hideout (`PhoneScreen`, `Phone`) —

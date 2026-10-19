@@ -746,6 +746,19 @@ CREATE TABLE raid_rooms (
 -- One way in.
 CREATE UNIQUE INDEX raid_rooms_one_entry ON raid_rooms (kind) WHERE kind = 'entry';
 
+-- ---- the heroes -----------------------------------------------------------------
+-- Who the player can play as: a row a hero, in the order they stand on the
+-- bench's screen (`place`, from 1), the character of the atlas each is drawn
+-- as (`sprite`, one `Sprites.has_character` knows) and the colour each wears
+-- on their card. What a hero can do is to come: a column here when it does.
+-- Rows are data/db/heroes/heroes.sql; see "A hero" in README.md.
+CREATE TABLE heroes (
+	id     TEXT PRIMARY KEY CHECK (id <> '' AND id = lower(id)),
+	place  INTEGER NOT NULL UNIQUE CHECK (place >= 1),
+	sprite TEXT NOT NULL CHECK (sprite <> ''),
+	color  TEXT NOT NULL CHECK (length(color) = 7 AND color GLOB '#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]')
+);
+
 -- ---- the sound bank -----------------------------------------------------------
 -- Every sound effect the game plays, by the id the code and the content name
 -- it by (`Audio.play`; a line's `sfx`). `path` is where its file goes — the

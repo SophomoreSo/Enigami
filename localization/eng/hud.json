@@ -404,5 +404,17 @@
 			"ringing": "RINGING",
 			"down": "PHONE ON THE FLOOR"
 		}
+	},
+	"heroes": {
+		"title": "SELECT YOUR CHARACTER",
+		"confirm": "CONFIRM",
+		"back": "BACK",
+		"playing": "PLAYING AS",
+		"name": {
+			"dren_repus": "DREN REPUS",
+			"legna_dennis": "LEGNA DENNIS",
+			"reniart_lamina": "RENIART LAMINA",
+			"sett_eragic": "SETT ERAGIC"
+		}
 	}
 }

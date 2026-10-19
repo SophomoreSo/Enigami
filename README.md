@@ -55,6 +55,7 @@ godot res://tests/feature/magic_test.tscn   # magic off: every graph cast as its
 godot res://tests/feature/phone_test.tscn   # the phone: an alarm that counts down and rings, the monsters it calls, the phone put down on a floor and picked up, and its photos
 godot res://tests/graphics/phone_test.tscn  # the phone on the screen: up on P over a raid and the hideout, its apps, its camera and gallery, and the alarm's page
 godot res://tests/shared/sounds_test.tscn   # the sound bank: a row a sound, with its path, its prompt and its flag; every sound the content names has one, and one not yet made is silent
+godot res://tests/graphics/hero_select_test.tscn  # sitting on a bench brings up who to play as: the heroes in a row, the cursor moved and a hero taken, kept with the profile, ESC leaving it be
 godot res://tests/perks/perks_test.tscn     # the perks: bought with gold a step at a time, kept with the profile, and what they add reaching the player
 godot res://tests/graphics/fx_pool_test.tscn # sparks, rings and floating numbers come out of pools, never out of nothing
 godot res://tests/graphics/menu_fit_test.tscn # menus stay on screen and scroll the rest
@@ -937,6 +938,27 @@ phone_prop.gd`) and the photos as files. The screen is `PhoneScreen`
 (`graphics/ui/phone_screen.gd`), put up and taken down by the shell
 (`app/game.gd`, `_toggle_phone`); the phone on the floor is drawn by
 `graphics/views/phone_prop_view.gd`.
+
+## Choosing a character
+
+Sit down on a bench — the hideout's, the sandbox's, or one laid in a raid's
+map — and the screen comes up over the world the way Metal Slug's does: SELECT
+YOUR CHARACTER along the top and the heroes in a row under it, a card each
+with their portrait and their name, the one played as marked. There are four:
+**Dren Repus**, **Legna Dennis**, **Reniart Lamina** and **Sett Eragic**. Left
+and right, or the pointer, move the cursor; F or SPACE takes the hero it is
+on, and ESC, or standing up, puts the screen away with nothing changed. The
+world runs on behind it, and you stay sat until you press a key. The pick is
+kept with the profile. What each hero can do is to come: for now a hero is a
+face and a name.
+
+The roster is `heroes` in the content database (`data/db/heroes/heroes.sql`:
+the order they stand in, the character of the atlas each is drawn as, and the
+colour each wears), read by `Heroes` (`feature/core/heroes.gd`); who is played
+as is `GameState.hero`. The screen is `HeroSelect`
+(`graphics/ui/hero_select.gd`), put up by the shell when the body sits
+(`app/game.gd`, `_open_heroes`). Their names are `hud.heroes` in
+`localization/`.
 
 ## The dragon test
 

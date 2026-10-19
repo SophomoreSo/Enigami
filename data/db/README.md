@@ -33,6 +33,7 @@ data/
     ├── foliage/      what grows on the rooms' floors, and how much of each a room grows
     │   └── foliage.sql
     ├── lights/       the light each kind of shining thing gives
+    ├── heroes/       who the player can play as: a row a hero, in the order they stand, drawn as a character of the atlas
     ├── sounds/       the sound bank: a row a sound, its file's path, its prompt and whether the file is in use
     │   └── lights.sql
     ├── maps/         the maps the game ships with, a file a map, as the map creator writes them
@@ -752,6 +753,20 @@ fight lights with `Lamp` (`graphics/lamp.gd`): a bolt, a blast, a body
 burning and the way out are each a light made in code, a point or a spot.
 `tests/graphics/lighting_test.tscn` makes a light of a kind and finds its
 row's numbers in it, and lights a picture with each type.
+
+## A hero
+
+Who the player can play as, chosen sat down on a bench (`HeroSelect`): a row
+of `heroes` each, in `heroes/heroes.sql`, read by `Heroes`
+(`feature/core/heroes.gd`). A hero's name is `hud.heroes.name.<id>` in
+`localization/`. What a hero can do is to come: a column here when it does.
+
+| Column | What it is |
+|---|---|
+| `heroes.id` | The hero's id, lower case: what the profile keeps as who is played as (`GameState.hero`). |
+| `heroes.place` | Where they stand in the row on the bench's screen, from 1. The first is who a new profile plays as. |
+| `heroes.sprite` | The character of the atlas they are drawn as — one `Sprites.has_character` knows: `doc`, `angel`, `elf_m`, `wizzard_m`, `knight_m`, ... |
+| `heroes.color` | The colour their card wears, `#rrggbb`. |
 
 ## A sound
 

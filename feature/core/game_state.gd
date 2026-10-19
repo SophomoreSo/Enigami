@@ -12,6 +12,8 @@ signal records_changed()
 ## What is added to the player's own numbers changed — a perk bought, a profile
 ## opened — and whoever holds one of those numbers takes it again (`boost`).
 signal boosts_changed()
+## Who is played as changed: a hero picked on a bench (`set_hero`).
+signal hero_changed(id: String)
 
 ## How many profiles can be kept side by side. The title screen offers this
 ## many rows; `graphics/ui/title_screen.gd` reads it rather than counting its
@@ -230,6 +232,7 @@ func _new_profile() -> void:
 		facilities[key] = FACILITY_START
 	records = {"raids": 0, "escapes": 0, "deaths": 0, "kills": 0, "best_haul": 0}
 	intro_seen = false
+	hero = Heroes.first()
 	memory = {}
 	bestiary = {"monsters": [], "skills": []}
 	perks = {}
@@ -825,6 +828,20 @@ func discover_skill(kind: String, skill: String) -> void:
 
 ## The opening scene has been played, or skipped. Saved on the spot: a prologue
 ## sat through once is never sat through again, whatever happens after it.
+## Who the player plays as: a hero of the roster (`Heroes`), chosen sat down on
+## a bench (`HeroSelect`). What it changes is to come; for now it is kept with
+## the profile.
+var hero: String = ""
+
+## The hero picked on a bench: kept, and said. One not on the roster is not
+## taken.
+func set_hero(id: String) -> void:
+	if id == hero or not Heroes.exists(id):
+		return
+	hero = id
+	save_game()
+	hero_changed.emit(id)
+
 func mark_intro_seen() -> void:
 	if intro_seen:
 		return
@@ -936,6 +953,7 @@ func save_game() -> void:
 		"facilities": facilities,
 		"records": records,
 		"intro_seen": intro_seen,
+		"hero": hero,
 		"memory": memory,
 		"bestiary": bestiary,
 		"perks": perks,
@@ -1021,6 +1039,11 @@ func _read_save(path: String) -> bool:
 	# A profile saved before there was an opening scene has already played the
 	# game, so it is not shown one now.
 	intro_seen = bool(parsed.get("intro_seen", true))
+	# A profile from before there were heroes, or naming one no longer there,
+	# plays as the first.
+	hero = String(parsed.get("hero", ""))
+	if not Heroes.exists(hero):
+		hero = Heroes.first()
 	# Whole numbers going in; JSON hands every number back as a float.
 	memory = {}
 	var kept = parsed.get("memory", {})
