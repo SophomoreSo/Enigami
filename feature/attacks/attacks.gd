@@ -385,6 +385,10 @@ static func _cast_bolt(p: Payload, aim: Vector2, origin: Vector2, team: int, atk
 	elif sticks != "":
 		n.sticks = sticks
 		n.thrower = ctx.get("thrower", null)
+	# Lobbed, it flies its arc out rather than its range (`Projectile.lobbed`),
+	# so it is given the air to.
+	if n.lobbed():
+		n.life = maxf(n.life, Projectile.LOB_LIFE)
 
 ## A swing: a volley fans out 22 degrees either side.
 static func _cast_slash(p: Payload, aim: Vector2, _origin: Vector2, team: int, atk: Actor, room,

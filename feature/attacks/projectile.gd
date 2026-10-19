@@ -28,6 +28,10 @@ extends Node2D
 ## clean over a one-cell platform and out the far side of whatever it was aimed
 ## at. The hops cost nothing — even the fastest build needs a handful.
 const MAX_STEP := 12.0
+## How long a lobbed throw may stay in the air. Its arc is what brings it down,
+## not its range (`lobbed`), and this is the backstop under that: a throw over
+## a pit, or out over nothing, still ends.
+const LOB_LIFE := 6.0
 
 ## How long a bolt may stay in the air whatever it is doing. Range is what
 ## actually ends a shot now — see `Payload.range_px` — and this is the backstop
@@ -154,9 +158,10 @@ func _process(delta: float) -> void:
 	# This frame's flight, and no further than the range it has left: a bolt
 	# quick enough to cover the rest of its range inside one frame — a laser
 	# at any frame rate, anything fast at a slow one — still flies that rest,
-	# striking what is on the way, rather than fading where it stands.
+	# striking what is on the way, rather than fading where it stands. A
+	# lobbed throw has no range to run out of: its arc brings it down.
 	var travel := velocity * delta
-	var left := range_px - _travelled
+	var left := INF if lobbed() else range_px - _travelled
 	var spent := travel.length() >= left
 	if spent:
 		travel = travel.limit_length(maxf(left, 0.0))
@@ -194,7 +199,7 @@ func _fly_homing(delta: float) -> void:
 		_home(maxf(step, step * pace / HOMING_PACE))
 		velocity.y += gravity * step
 		var hop := velocity * step
-		var left := range_px - _travelled
+		var left := INF if lobbed() else range_px - _travelled
 		var spent := hop.length() >= left
 		if spent:
 			hop = hop.limit_length(maxf(left, 0.0))
@@ -363,6 +368,13 @@ func _fall_out() -> void:
 	var r := LooseRock.drop(thrown, global_position, velocity * 0.5, room, thrower)
 	r.arm(payload, team, attacker, _hit, hits_left, _left_thrower)
 	queue_free()
+
+## Whether this is a thrown thing with weight on it — the rock, the rune, a
+## shuriken, lobbed — which flies its arc out: nothing ends it but what it
+## meets, a wall or the ground, where the throw goes off (`Attacks.land`). Its
+## range is a flat shot's, and ANTI-GRAVITY makes it one.
+func lobbed() -> bool:
+	return gravity > 0.0 and (thrown != "" or sticks != "")
 
 ## What this bolt can strike: the other side, and — off a thrown weapon, the
 ## rock or the rune, once it has been clear of them — whoever threw it.

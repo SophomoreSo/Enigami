@@ -117,20 +117,22 @@ func _at_the_wall(room: Room) -> void:
 	far.queue_free()
 	await frames(2)
 
-## Thrown with a short range, it drops short of the wall, and the throw goes
-## off where it comes down on the ground.
+## Lobbed, it flies its arc out — its range is no end to it — and comes down
+## on the floor, where the throw goes off.
 func _on_the_ground(room: Room) -> void:
 	var me := dummy(Vector2(80, 50), 0)
 	var p := flow(["PROJECTILE", "NEAR", "DAMAGE"])
+	# A range it would run out of in a few cells, were it a flat shot's to run out of.
 	p.range_px = 60.0
-	# Where it comes down: about the end of its range, on the floor.
-	var below := dummy(Vector2(150, 118))
+	# Where its arc comes down from that height at that speed: some nine cells
+	# on, by the far wall.
+	var below := dummy(Vector2(370, 118))
 	var hp := below.health
 	cues.clear()
 	throw(p, me.global_position, Vector2.RIGHT, me, room)
 	await seconds(1.5)
-	check(heard(&"stone_cast") == 1, "out of speed in the air, the throw goes off where it comes down (%d)" % heard(&"stone_cast"))
-	check(hp - below.health > 0.0, "touching whoever stands there (%.0f)" % (hp - below.health))
+	check(heard(&"stone_cast") == 1, "lobbed, the throw goes off where it comes down (%d)" % heard(&"stone_cast"))
+	check(hp - below.health > 0.0, "well past its range, touching whoever stands there (%.0f)" % (hp - below.health))
 	for r in rocks():
 		r.queue_free()
 	me.queue_free()
@@ -146,15 +148,16 @@ func _a_trigger(room: Room) -> void:
 	p.on_hit = Payload.new()
 	p.on_hit.form = "SLASH"
 	p.on_hit.damage = 3.0
-	var swings := 0
+	# Counted in a box: a lambda takes a copy of a plain number.
+	var swings := [0]
 	var count := func(cue: StringName, _d: Dictionary) -> void:
 		if cue == &"melee_arc":
-			swings += 1
+			swings[0] += 1
 	Cues.fired.connect(count)
 	throw(p, me.global_position, Vector2.RIGHT, me, room)
-	await seconds(1.0)
+	await seconds(1.5)
 	Cues.fired.disconnect(count)
-	check(swings == 1, "an ON HIT on the throw goes off where the stone stops (%d swings)" % swings)
+	check(swings[0] == 1, "an ON HIT on the throw goes off where the stone stops (%d swings)" % swings[0])
 	for r in rocks():
 		r.queue_free()
 	me.queue_free()
