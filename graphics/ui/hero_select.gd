@@ -132,12 +132,17 @@ func _draw() -> void:
 		Loc.t("hud.heroes.confirm"), Loc.t("hud.heroes.back")]
 	_px.text_centered(Vector2(0.0, first.end.y + 44.0), foot, DIM, size.x)
 
+## The colour `id` wears on their card: the roster's, read as a colour here and
+## not in the rules, which name no colour (module_test).
+static func color_of(id: String) -> Color:
+	return Color.html(Heroes.color_html(id))
+
 ## A hero's card: their colour's plate, their portrait standing on it, their
 ## name under it; lit and blinking under the cursor, and marked as the one
 ## played as.
 func _draw_card(i: int, r: Rect2) -> void:
 	var id := ids[i]
-	var col := Heroes.color_of(id)
+	var col := color_of(id)
 	var on := i == cursor
 	var lit := on and fmod(_t * BLINK, 1.0) < 0.5
 	_px.rect(r, PLATE)

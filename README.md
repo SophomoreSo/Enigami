@@ -941,7 +941,7 @@ phone_prop.gd`) and the photos as files. The screen is `PhoneScreen`
 
 ## Choosing a character
 
-Sit down on a bench — the hideout's, the sandbox's, or one laid in a raid's
+Sit down on a bench — the hideout's, or one laid in a raid's
 map — and the screen comes up over the world the way Metal Slug's does: SELECT
 YOUR CHARACTER along the top and the heroes in a row under it, a card each
 with their portrait and their name, the one played as marked. There are four:
