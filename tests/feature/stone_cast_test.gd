@@ -97,7 +97,9 @@ func _at_the_wall(room: Room) -> void:
 	check(p != null and p.near > 0 and p.spread != null and p.spread.damage > 0.0,
 		"a rock with NEAR, DAMAGE carries a touch of %.0f" % (p.spread.damage if p != null and p.spread != null else -1.0))
 	p.range_px = 2000.0
-	# Thrown over the one in the way, so only the wall stops it.
+	# Weightless, so it flies level and only the wall stops it — thrown over
+	# the one in the way.
+	p.anti_gravity = 1
 	me.global_position.y = 50.0
 	var hp_wall := by_wall.health
 	var hp_far := far.health
@@ -140,6 +142,7 @@ func _a_trigger(room: Room) -> void:
 	var me := dummy(Vector2(80, 50), 0)
 	var p := flow(["PROJECTILE"])
 	p.range_px = 2000.0
+	# Lobbed, it comes down on the floor short of the wall: that is where it stops.
 	p.on_hit = Payload.new()
 	p.on_hit.form = "SLASH"
 	p.on_hit.damage = 3.0
@@ -164,6 +167,8 @@ func _spent_first(room: Room) -> void:
 	var by_wall := dummy(Vector2(390, 112))
 	var p := flow(["PROJECTILE", "NEAR", "DAMAGE"])
 	p.range_px = 2000.0
+	# Weightless, so it flies level into the enemy in its way.
+	p.anti_gravity = 1
 	var hp := by_wall.health
 	cues.clear()
 	throw(p, me.global_position, Vector2.RIGHT, me, room)

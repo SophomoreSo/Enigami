@@ -3,7 +3,7 @@ extends Node
 ## bolt and picked back up where they struck.
 ##
 ## Every profile is handed it, and a kit carries the whole stack. A press throws
-## one, flat and straight — no arc — and it sticks where it strikes: in the wall,
+## one, lobbed — straight only with ANTI-GRAVITY on its graph — and it sticks where it strikes: in the wall,
 ## at the face of it, pointing the way it flew. The hands that threw it take it
 ## back by walking over it, but not into a stack that is already whole. Out of
 ## throw with nothing struck it drops, and sticks in the floor.
@@ -135,6 +135,7 @@ func _ready() -> void:
 	bot = ComputerHands.new()
 	p.input.add(bot)
 	await frames(3)
+	await _lobbed()
 	await _straight_into_the_wall()
 	await _taken_back()
 	await _out_of_throw()
@@ -155,15 +156,46 @@ func _the_weapon() -> void:
 	check(Weapons.is_stacked("SHURIKEN") and Weapons.stack_of("SHURIKEN") > 1
 			and not Weapons.is_thrown("SHURIKEN") and not Weapons.is_stacked("ROCK"),
 		"the shuriken is a stack of %d, and not the rock's one thrown weapon" % Weapons.stack_of("SHURIKEN"))
-	check(Weapons.root_part("SHURIKEN") == "PROJECTILE" and not Weapons.uses_gravity_shots("SHURIKEN"),
-		"its graph throws a bolt, and with no arc")
+	check(Weapons.root_part("SHURIKEN") == "PROJECTILE" and Weapons.uses_gravity_shots("SHURIKEN"),
+		"its graph throws a bolt, lobbed, as every thrown thing is")
 	check(GameState.owned_weapons.has("SHURIKEN") and GameState.HANDED_OUT.has("SHURIKEN"),
 		"every profile is handed it")
 
-## --- thrown, it flies flat and sticks at the face of the wall -----------------------
-func _straight_into_the_wall() -> void:
+## --- thrown, it is lobbed: it arcs, and comes down on the way ------------------------
+## A plain throw at the wall from close by meets it lower than it set off,
+## having come down on the way. The star is taken back off the wall and the
+## stack made whole again, so what follows finds the kit as it was handed out.
+func _lobbed() -> void:
 	check(p.stock_of("SHURIKEN") == Weapons.stack_of("SHURIKEN") and p.can_cast() and p.weapon_hands() == p,
 		"a kit carries the whole stack (%d)" % p.stock_of("SHURIKEN"))
+	var face := float(WALL_X) * Room.CELL
+	await stand(floor_at(face - 120.0))
+	await throw(Vector2.RIGHT)
+	var flying := bolts()
+	check(flying.size() == 1 and (flying[0] as Projectile).sticks == "SHURIKEN"
+			and (flying[0] as Projectile).gravity > 0.0,
+		"a press throws one, lobbed (%d bolts)" % flying.size())
+	var level := (flying[0] as Projectile).global_position.y if not flying.is_empty() else p.global_position.y
+	await until(func() -> bool: return not stars().is_empty(), 2.0)
+	var all := stars()
+	check(all.size() == 1 and (all[0] as StuckShuriken).global_position.y > level + 2.0,
+		"and it comes down on the way, sticking lower than it set off (%.1f under)"
+			% ((all[0] as StuckShuriken).global_position.y - level if not all.is_empty() else 0.0))
+	for s in all:
+		s.queue_free()
+	p.stock["SHURIKEN"] = Weapons.stack_of("SHURIKEN")
+	await frames(2)
+	# ANTI-GRAVITY on its graph, for the rest: the throws fly straight.
+	var straight := Weapons.make_board("SHURIKEN")
+	straight.move_root(Vector2i(5, 2), 0)
+	straight.place("ANTI_GRAVITY", Vector2i(6, 2), 0)
+	p.setup_kit(["SHURIKEN"], [straight])
+	await frames(2)
+
+## --- weightless, it flies flat and sticks at the face of the wall --------------------
+func _straight_into_the_wall() -> void:
+	check(p.stock_of("SHURIKEN") == Weapons.stack_of("SHURIKEN") and p.can_cast() and p.weapon_hands() == p,
+		"the kit handed out again carries the whole stack (%d)" % p.stock_of("SHURIKEN"))
 	var face := float(WALL_X) * Room.CELL
 	await stand(floor_at(face - 120.0))
 	cues.clear()
@@ -172,7 +204,7 @@ func _straight_into_the_wall() -> void:
 	var flying := bolts()
 	check(flying.size() == 1 and (flying[0] as Projectile).sticks == "SHURIKEN"
 			and is_zero_approx((flying[0] as Projectile).gravity),
-		"a press throws one, with no arc (%d bolts)" % flying.size())
+		"with ANTI-GRAVITY on its graph a press throws one with no arc (%d bolts)" % flying.size())
 	check(p.stock_of("SHURIKEN") == Weapons.stack_of("SHURIKEN") - 1, "and the stack is one short (%d)" % p.stock_of("SHURIKEN"))
 	check(heard(&"attack") == 1 and String((cues[0][1] as Dictionary).get("thrown", "")) == "SHURIKEN",
 		"it is heard as a throw, not a shot")

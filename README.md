@@ -467,8 +467,9 @@ lands and is picked back up exactly as the rock is — by the attack button; the
 cast button never throws it — and its throw goes out carrying a full charge,
 paid for by the mana stored in it and not by yours. Thrown, it is spent:
 picked back up, it is still a stone to throw, but bare — the rune's own numbers
-and nothing its graph would build into it, no charge, no follow-up. Both the
-rune and the rock are thrown as fast and as flat as a shuriken: no lob. Holding the cast button with the spent rune in hand pours your own mana
+and nothing its graph would build into it, no charge, no follow-up. The rune,
+the rock and a shuriken are all lobbed: a throw arcs and comes down, and flies
+straight only with `ANTI-GRAVITY` on its graph. Holding the cast button with the spent rune in hand pours your own mana
 into it, 60 a second for as long as you have any to pour — in a raid or in the
 hideout alike — until it holds a full charge (50 mana, more with
 `DEEP CHARGE`), and then it lights again. Short of that it keeps what was
@@ -607,8 +608,8 @@ giving it further to walk.
   8, and 8 more for each one stacked. The blow still lands its damage first,
   and one it kills is not healed. `INVERT` after it turns it into 8 more
   damage, as `INVERT` after a `DAMAGE` turns that into a heal.
-- `ANTI-GRAVITY` takes the weight off a bolt: a lobbed or thrown shot — a
-  Lobber's, a weapon's that arcs — flies straight instead. One is all it
+- `ANTI-GRAVITY` takes the weight off a bolt: a lobbed shot — the rock, the
+  rune, a shuriken, a Lobber's — flies straight instead. One is all it
   takes; more do no more.
 - `SUMMON PET`, in the SUMMON MODIFIER block with `OFFENSIVE` and `KAMIKAZE`,
   calls something up beside the attack every time a flow carrying it goes off,
