@@ -80,6 +80,7 @@ godot res://tests/graphics/glass_test.tscn  # glass: what is behind clear glass 
 godot res://tests/graphics/bolt_view_test.tscn # a bolt's trail: the gaps between its beads drawn in, and a laser's beam from the muzzle
 godot res://tests/graphics/rock_view_test.tscn # the rock, drawn: a stone of the game's own and not the pack's morning star, held upright, turning over in the air, and marked where it lies
 godot res://tests/feature/impact_test.tscn  # PUSH, PULL, NEAR, SHATTER and MANA DRAIN, at the moment a hit lands
+godot res://tests/feature/stone_cast_test.tscn # a thrown stone's throw goes off where it stops: at the wall it flies into, on the ground it falls to, once
 godot res://tests/feature/self_hit_test.tscn # what strikes the player who made it: their own NEAR, and their own rock or rune once clear of their hand
 godot res://tests/feature/heal_test.tscn    # HEAL: what the attack strikes healed after the blow, never one it killed, and turned to damage by INVERT
 godot res://tests/feature/summon_test.tscn  # SUMMON PET's pet following, one to a summoner, with OFFENSIVE going for an enemy, and with KAMIKAZE blowing itself up against one
@@ -449,7 +450,12 @@ the rune's too, strikes you as well once it has been clear of your hand: never
 on the way out of it, but a throw that comes round to you, or that you step in
 front of, lands on you as on an enemy. A rock or a rune that runs out of speed in the air
 drops, and is still the throw until it is down: what it falls onto is struck,
-each once and none the throw struck already. A rock left
+each once and none the throw struck already. And a throw not yet spent on
+anything it struck goes off where the stone stops — the wall it flies into,
+the ground it falls to: a `NEAR` on it touches everything round the point, and
+an `ON HIT` on it goes off from there, so a rock with `NEAR`, `FIRE` thrown at
+a wall burns whoever stands by the wall. One that struck an enemy lands
+harmless: a throw goes off once. A rock left
 in a room stays in that room, and is there when you come back for it. Your
 hands in a monster (`POSSESS`) pick it up and throw it as your own do;
 stepping out, the monster lets it fall where it stands. A monster with its own

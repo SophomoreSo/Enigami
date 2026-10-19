@@ -18,8 +18,10 @@ extends FallingThing
 ##
 ## One a throw ran out of speed in the air (`Projectile._fall_out`) is still
 ## the throw as it falls (`arm`): it strikes what it falls onto — each once,
-## and none the throw had struck already — until it first comes down on the
-## ground, and then it is only a rock.
+## and none the throw had struck already — and where it first meets the rock,
+## a wall on the way or the ground it comes down on, the throw goes off
+## (`Attacks.land`) if it was not spent on what it struck. Then it is only a
+## rock.
 
 signal picked_up(rock: LooseRock, by: Actor)
 
@@ -96,7 +98,7 @@ func _process(delta: float) -> void:
 ## rock from then on.
 func _fly(delta: float) -> void:
 	if _on_floor() and velocity.y >= 0.0:
-		strikes = null
+		_spend_on_rock()
 		_down += delta
 		velocity.y = 0.0
 		velocity.x = move_toward(velocity.x, 0.0, FRICTION * delta)
@@ -141,6 +143,7 @@ func _move(step: Vector2) -> void:
 	if step.x != 0.0:
 		var across := global_position + Vector2(step.x, 0.0)
 		if _solid(across + Vector2(signf(step.x) * radius, 0.0)):
+			_spend_on_rock()
 			velocity.x = -velocity.x * BOUNCE
 		else:
 			global_position = across
@@ -157,7 +160,7 @@ func _move(step: Vector2) -> void:
 ## Down onto the floor: flush with it, and either off it again, slower, or
 ## stopped coming down and only sliding now. Only a rock from here on.
 func _land() -> void:
-	strikes = null
+	_spend_on_rock()
 	_settle_down()
 	var hit := velocity.y
 	if hit > REST_SPEED:
@@ -166,6 +169,17 @@ func _land() -> void:
 	else:
 		velocity.y = 0.0
 	Cues.at(&"rock_down", global_position + Vector2(0.0, radius), {"weapon": weapon, "speed": hit})
+
+## The throw it still was, if any, goes off here, where it met the rock — a
+## wall, the ground — unless it was spent on what it struck on the way down.
+## Only a rock after.
+func _spend_on_rock() -> void:
+	if strikes == null:
+		return
+	if _hits_left > 0:
+		var dir := velocity.normalized() if velocity.length() > 1.0 else Vector2.DOWN
+		Attacks.land(strikes, global_position, dir, _attacker, room, _team)
+	strikes = null
 
 ## Picked up by the hands that threw it, if they are on it. Or gone, if the
 ## weapon is back in hand some other way.

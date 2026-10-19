@@ -467,6 +467,27 @@ static func _near_here(p: Payload, pos: Vector2, team: int, atk: Actor, room) ->
 	t.on_parry = p.on_parry
 	_go_off(t, pos, near_radius(p), team, atk, room, null, &"near", atk is Player)
 
+## A thrown stone — the rock, the rune — that meets the room's rock with its
+## throw not yet spent casts what it carried there, where it stopped: a wall it
+## flew into, the ground it fell to. A NEAR on it touches everything round the
+## point, as a NEAR with no form does where it goes off, and an ON HIT on it
+## goes off from the point, aimed the way the stone was going. Nothing else it
+## carries has anything to land on. One spent on what it struck lands harmless,
+## so a throw goes off once: on the enemy it hits, or where it stops.
+static func land(p: Payload, pos: Vector2, dir: Vector2, atk: Actor, room, team: int) -> void:
+	if atk != null and not is_instance_valid(atk):
+		atk = null
+	if room != null and not is_instance_valid(room):
+		room = null
+	if p.near > 0 and p.spread != null:
+		_near_here(p, pos, team, atk, room)
+	if p.on_hit != null:
+		_schedule_spawn(TRIGGER_DELAY, _follow(p.on_hit), {
+			"attacker": atk, "room": room, "team": team,
+			"aim": dir if dir.length() > 0.01 else Vector2.RIGHT, "origin": pos, "gravity": false,
+		})
+	Cues.at(&"stone_cast", pos, {"payload": p})
+
 ## NEAR on a hit: the enemies round the one `struck` at `pos` are touched by
 ## what came after it on the flow — not the enemy struck again, which has taken
 ## the whole of it — what they carry landing as hard as the blow did, `dealt`.

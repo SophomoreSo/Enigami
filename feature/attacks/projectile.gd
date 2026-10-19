@@ -11,7 +11,10 @@ extends Node2D
 ## threw it to pick back up (`LooseRock`). The rest of a volley it went out in
 ## are copies of it, and those go the way any bolt does. Any of them — the rock
 ## or the rune, the weapon or a copy — strikes whoever threw it as well, once it
-## has been clear of their hand (`_struck_by`).
+## has been clear of their hand (`_struck_by`). One that meets a wall with its
+## throw not yet spent casts the throw there (`Attacks.land`), and one that runs
+## out of speed in the air is still the throw as it falls (`LooseRock.arm`),
+## which casts it where it comes down.
 ##
 ## Off a stacked weapon (`Weapons.is_stacked`) every bolt of a volley is one of
 ## the stack — a shuriken — and it does not fade either: it sticks where it
@@ -314,6 +317,10 @@ func _sample() -> bool:
 	if room != null and room.has_method("is_solid_at") and room.is_solid_at(global_position):
 		Cues.at(&"impact", global_position, {"payload": payload, "kind": "wall"})
 		if is_rock():
+			# Not yet spent on anything it struck: the throw goes off here,
+			# at the last open place before the wall, and the stone drops.
+			if hits_left > 0:
+				Attacks.land(payload, _last_open, velocity.normalized(), attacker, room, team)
 			_come_down(_off_the_wall(), true)
 			return true
 		if sticks != "":

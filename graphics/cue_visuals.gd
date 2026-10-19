@@ -57,6 +57,9 @@ func _on_cue(cue: StringName, d: Dictionary) -> void:
 		&"rune_spent":
 			# The last of its mana gone out with the cast that drained it.
 			Fx.burst(pos, Style.RUNE_GLOW.darkened(0.4), 6, 60.0)
+		&"stone_cast":
+			# The throw going off where the stone stopped: a ring in its colour.
+			Fx.ring(pos, Style.element_color(d.get("payload")), 34.0)
 		&"wall_slam":
 			# The rock cracks where the body struck it, and dust comes off it.
 			var force := float(d.get("force", 1.0))
