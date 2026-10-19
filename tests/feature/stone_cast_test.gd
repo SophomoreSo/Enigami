@@ -57,8 +57,9 @@ func dummy(at: Vector2, team: int = 1) -> Actor:
 
 ## The rock thrown from `from` along `aim` by `by`, in `room`.
 func throw(p: Payload, from: Vector2, aim: Vector2, by: Actor, room: Room) -> void:
+	# As the player throws it (`Player._on_fired`): lobbed, as the rock is.
 	Attacks.spawn(p, {"attacker": by, "room": room, "team": by.team, "aim": aim, "origin": from,
-		"thrown": "ROCK", "thrower": null})
+		"gravity": Weapons.uses_gravity_shots("ROCK"), "thrown": "ROCK", "thrower": null})
 
 func rocks() -> Array:
 	return get_tree().get_nodes_in_group("loose_rocks").filter(func(r: Node) -> bool: return not r.is_queued_for_deletion())
@@ -124,12 +125,20 @@ func _on_the_ground(room: Room) -> void:
 	var p := flow(["PROJECTILE", "NEAR", "DAMAGE"])
 	# A range it would run out of in a few cells, were it a flat shot's to run out of.
 	p.range_px = 60.0
-	# Where its arc comes down from that height at that speed: some nine cells
-	# on, by the far wall.
-	var below := dummy(Vector2(370, 118))
-	var hp := below.health
 	cues.clear()
 	throw(p, me.global_position, Vector2.RIGHT, me, room)
+	# Where its arc comes down: worked out from the throw as it leaves, so the
+	# pull on it and its speed can be tuned without moving this.
+	var bolt: Projectile = null
+	for c in get_children():
+		if c is Projectile and not c.is_queued_for_deletion():
+			bolt = c
+	check(bolt != null and bolt.lobbed() and bolt.gravity >= Projectile.THROW_GRAVITY - 0.01,
+		"it leaves lobbed, under the world's pull (%.0f)" % (bolt.gravity if bolt != null else 0.0))
+	var drop := 5.0 * Room.CELL - me.global_position.y
+	var lands_x := me.global_position.x + (bolt.velocity.x if bolt != null else 0.0) * sqrt(2.0 * drop / Projectile.THROW_GRAVITY)
+	var below := dummy(Vector2(lands_x, 118))
+	var hp := below.health
 	await seconds(1.5)
 	check(heard(&"stone_cast") == 1, "lobbed, the throw goes off where it comes down (%d)" % heard(&"stone_cast"))
 	check(hp - below.health > 0.0, "well past its range, touching whoever stands there (%.0f)" % (hp - below.health))

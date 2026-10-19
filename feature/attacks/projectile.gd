@@ -28,6 +28,11 @@ extends Node2D
 ## clean over a one-cell platform and out the far side of whatever it was aimed
 ## at. The hops cost nothing — even the fastest build needs a handful.
 const MAX_STEP := 12.0
+## The pull on a thrown thing in the air — the rock, the rune, a shuriken: the
+## world's, the same it falls under once it is down (`FallingThing.GRAVITY`),
+## so a throw is a short, steep arc that slows on the way up and comes down
+## hard, and not the long easy lob a Lobber's shot is (`Attacks._projectile`).
+const THROW_GRAVITY := FallingThing.GRAVITY
 ## How long a lobbed throw may stay in the air. Its arc is what brings it down,
 ## not its range (`lobbed`), and this is the backstop under that: a throw over
 ## a pit, or out over nothing, still ends.

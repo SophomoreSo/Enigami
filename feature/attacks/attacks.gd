@@ -385,9 +385,11 @@ static func _cast_bolt(p: Payload, aim: Vector2, origin: Vector2, team: int, atk
 	elif sticks != "":
 		n.sticks = sticks
 		n.thrower = ctx.get("thrower", null)
-	# Lobbed, it flies its arc out rather than its range (`Projectile.lobbed`),
-	# so it is given the air to.
+	# Lobbed, it falls under the world's pull, not the easy lob a monster's
+	# shot has (`Projectile.THROW_GRAVITY`), and flies its arc out rather than
+	# its range (`lobbed`), so it is given the air to.
 	if n.lobbed():
+		n.gravity = Projectile.THROW_GRAVITY
 		n.life = maxf(n.life, Projectile.LOB_LIFE)
 
 ## A swing: a volley fans out 22 degrees either side.
