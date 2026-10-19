@@ -4,7 +4,7 @@ extends RefCounted
 ## The roster: who the player can play as, as the content database lists them
 ## (`heroes`, data/db/heroes/heroes.sql) — a row a hero, in the order they
 ## stand on the bench's screen (`HeroSelect`), with the character of the atlas
-## each is drawn as and the colour each wears. Who is played as is the
+## each is drawn as and the colour each wears, which is the picture's to read. Who is played as is the
 ## profile's (`GameState.hero`), chosen sat down on a bench. What a hero can
 ## do is to come: the table grows a column for it when it does, and for now a
 ## hero is a face and a name.
@@ -31,9 +31,10 @@ static func first() -> String:
 static func sprite_of(id: String) -> String:
 	return String(Db.value("SELECT sprite FROM heroes WHERE id = ?", [id], ""))
 
-## The colour `id` wears on their card.
-static func color_of(id: String) -> Color:
-	return Color.html(String(Db.value("SELECT color FROM heroes WHERE id = ?", [id], "#ffffff")))
+## The colour `id` wears on their card, as the table writes it ("#rrggbb"). A
+## colour is the picture's (`HeroSelect.color_of`): the rules hand the words on.
+static func color_html(id: String) -> String:
+	return String(Db.value("SELECT color FROM heroes WHERE id = ?", [id], "#ffffff"))
 
 ## What `id` is called, in the language being played: the English is the
 ## id's words as the fallback.

@@ -75,8 +75,13 @@ func _ready() -> void:
 	game.goto_sandbox()
 	await frames(12)
 	var sb: Sandbox = game.current
-	check(not sb.room.benches.is_empty(), "the bench has a bench to sit on")
-	var bench: Bench = sb.room.benches[0]
+	# The sandbox's room has no bench of its own, so one is put down where the
+	# player stands, on the floor under them, as a laid map's would be.
+	var at := Vector2i((sb.player.global_position / Room.CELL).floor())
+	while at.y < Room.H - 1 and not sb.room.is_solid(at.x, at.y + 1):
+		at.y += 1
+	var bench: Bench = sb.room.add_bench(sb.room.cell_center(at.x, at.y))
+	check(sb.room.benches.has(bench), "a bench put down in the sandbox's room")
 	check(await sit_on(sb.player, bench), "interact beside it sits the player down")
 	await frames(3)
 	check(game._choosing() and screen().visible and screen().ids == roster,
