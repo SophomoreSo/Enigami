@@ -237,7 +237,7 @@ INSERT INTO parts (id, name, category, heat, description) VALUES
 	('STUN', 'STUN', 'behavior', 0.6, 'Struck enemies are stunned: for a moment they stand where they are and cannot attack. Each one stacked holds them longer. Once it wears off, an enemy shrugs off the next stun for a while.'),
 	('POSSESS', 'POSSESS', 'states', 0.9, 'Takes over the monster struck for 5 seconds, unharmed, longer for each one stacked. Your keys move it; it fights with its own attack, or your weapon once it takes it from your body, left behind and still hunted. Bosses resist it.'),
 	('AUTO_AIM', 'AUTO-AIM', 'projectile_behavior', 0.4, 'Aims the attack at the nearest enemy, wherever you point: bolts go straight at it and SWIFT STRIKE lunges through it, as far as each reaches, and a swing turns to it. Each one stacked looks further for one.'),
-	('ANTI_GRAVITY', 'ANTI-GRAVITY', 'projectile_behavior', 0.4, 'Bolts fly with no weight on them: a lobbed shot goes straight instead of arcing. One is all it takes.'),
+	('ANTI_GRAVITY', 'ANTI-GRAVITY', 'projectile_behavior', 0.4, 'Bolts fly with no weight on them: a lobbed shot — the rock, the rune, a shuriken, a Lobber''s — goes straight instead of arcing. One is all it takes.'),
 	('HEAL', 'HEAL', 'behavior', 0.5, 'Heals what the attack strikes by 8 once the blow has landed, and 8 more for each one stacked. The blow still lands; one it kills is not healed. Turned round by INVERT, it is 8 more damage instead.');
 
 -- NEAR selects the enemies round the one the attack strikes, out to

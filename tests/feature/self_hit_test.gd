@@ -100,6 +100,9 @@ func _falls_striking() -> void:
 	await frames(2)
 	var rock := Weapons.finalize("ROCK", flow(["PROJECTILE"], "ROCK"))
 	rock.damage = 7.0
+	# Weightless, so its range is what ends it, in the air: a lobbed one would
+	# fly its arc out and land first.
+	rock.anti_gravity = 1
 	rock.range_px = 80.0
 	Attacks.spawn(rock, {"attacker": p, "room": null, "team": p.team, "aim": Vector2.RIGHT,
 		"origin": p.global_position, "thrown": "ROCK", "thrower": p})

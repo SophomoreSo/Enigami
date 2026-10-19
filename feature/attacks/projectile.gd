@@ -11,7 +11,10 @@ extends Node2D
 ## threw it to pick back up (`LooseRock`). The rest of a volley it went out in
 ## are copies of it, and those go the way any bolt does. Any of them — the rock
 ## or the rune, the weapon or a copy — strikes whoever threw it as well, once it
-## has been clear of their hand (`_struck_by`).
+## has been clear of their hand (`_struck_by`). One that meets a wall with its
+## throw not yet spent casts the throw there (`Attacks.land`), and one that runs
+## out of speed in the air is still the throw as it falls (`LooseRock.arm`),
+## which casts it where it comes down.
 ##
 ## Off a stacked weapon (`Weapons.is_stacked`) every bolt of a volley is one of
 ## the stack — a shuriken — and it does not fade either: it sticks where it
@@ -25,6 +28,15 @@ extends Node2D
 ## clean over a one-cell platform and out the far side of whatever it was aimed
 ## at. The hops cost nothing — even the fastest build needs a handful.
 const MAX_STEP := 12.0
+## The pull on a thrown thing in the air — the rock, the rune, a shuriken: the
+## world's, the same it falls under once it is down (`FallingThing.GRAVITY`),
+## so a throw is a short, steep arc that slows on the way up and comes down
+## hard, and not the long easy lob a Lobber's shot is (`Attacks._projectile`).
+const THROW_GRAVITY := FallingThing.GRAVITY
+## How long a lobbed throw may stay in the air. Its arc is what brings it down,
+## not its range (`lobbed`), and this is the backstop under that: a throw over
+## a pit, or out over nothing, still ends.
+const LOB_LIFE := 6.0
 
 ## How long a bolt may stay in the air whatever it is doing. Range is what
 ## actually ends a shot now — see `Payload.range_px` — and this is the backstop
@@ -151,9 +163,10 @@ func _process(delta: float) -> void:
 	# This frame's flight, and no further than the range it has left: a bolt
 	# quick enough to cover the rest of its range inside one frame — a laser
 	# at any frame rate, anything fast at a slow one — still flies that rest,
-	# striking what is on the way, rather than fading where it stands.
+	# striking what is on the way, rather than fading where it stands. A
+	# lobbed throw has no range to run out of: its arc brings it down.
 	var travel := velocity * delta
-	var left := range_px - _travelled
+	var left := INF if lobbed() else range_px - _travelled
 	var spent := travel.length() >= left
 	if spent:
 		travel = travel.limit_length(maxf(left, 0.0))
@@ -191,7 +204,7 @@ func _fly_homing(delta: float) -> void:
 		_home(maxf(step, step * pace / HOMING_PACE))
 		velocity.y += gravity * step
 		var hop := velocity * step
-		var left := range_px - _travelled
+		var left := INF if lobbed() else range_px - _travelled
 		var spent := hop.length() >= left
 		if spent:
 			hop = hop.limit_length(maxf(left, 0.0))
@@ -314,6 +327,10 @@ func _sample() -> bool:
 	if room != null and room.has_method("is_solid_at") and room.is_solid_at(global_position):
 		Cues.at(&"impact", global_position, {"payload": payload, "kind": "wall"})
 		if is_rock():
+			# Not yet spent on anything it struck: the throw goes off here,
+			# at the last open place before the wall, and the stone drops.
+			if hits_left > 0:
+				Attacks.land(payload, _last_open, velocity.normalized(), attacker, room, team)
 			_come_down(_off_the_wall(), true)
 			return true
 		if sticks != "":
@@ -356,6 +373,13 @@ func _fall_out() -> void:
 	var r := LooseRock.drop(thrown, global_position, velocity * 0.5, room, thrower)
 	r.arm(payload, team, attacker, _hit, hits_left, _left_thrower)
 	queue_free()
+
+## Whether this is a thrown thing with weight on it — the rock, the rune, a
+## shuriken, lobbed — which flies its arc out: nothing ends it but what it
+## meets, a wall or the ground, where the throw goes off (`Attacks.land`). Its
+## range is a flat shot's, and ANTI-GRAVITY makes it one.
+func lobbed() -> bool:
+	return gravity > 0.0 and (thrown != "" or sticks != "")
 
 ## What this bolt can strike: the other side, and — off a thrown weapon, the
 ## rock or the rune, once it has been clear of them — whoever threw it.

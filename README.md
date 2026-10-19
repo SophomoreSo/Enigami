@@ -81,6 +81,7 @@ godot res://tests/graphics/glass_test.tscn  # glass: what is behind clear glass 
 godot res://tests/graphics/bolt_view_test.tscn # a bolt's trail: the gaps between its beads drawn in, and a laser's beam from the muzzle
 godot res://tests/graphics/rock_view_test.tscn # the rock, drawn: a stone of the game's own and not the pack's morning star, held upright, turning over in the air, and marked where it lies
 godot res://tests/feature/impact_test.tscn  # PUSH, PULL, NEAR, SHATTER and MANA DRAIN, at the moment a hit lands
+godot res://tests/feature/stone_cast_test.tscn # a thrown stone's throw goes off where it stops: at the wall it flies into, on the ground it falls to, once
 godot res://tests/feature/self_hit_test.tscn # what strikes the player who made it: their own NEAR, and their own rock or rune once clear of their hand
 godot res://tests/feature/heal_test.tscn    # HEAL: what the attack strikes healed after the blow, never one it killed, and turned to damage by INVERT
 godot res://tests/feature/summon_test.tscn  # SUMMON PET's pet following, one to a summoner, with OFFENSIVE going for an enemy, and with KAMIKAZE blowing itself up against one
@@ -450,7 +451,12 @@ the rune's too, strikes you as well once it has been clear of your hand: never
 on the way out of it, but a throw that comes round to you, or that you step in
 front of, lands on you as on an enemy. A rock or a rune that runs out of speed in the air
 drops, and is still the throw until it is down: what it falls onto is struck,
-each once and none the throw struck already. A rock left
+each once and none the throw struck already. And a throw not yet spent on
+anything it struck goes off where the stone stops — the wall it flies into,
+the ground it falls to: a `NEAR` on it touches everything round the point, and
+an `ON HIT` on it goes off from there, so a rock with `NEAR`, `FIRE` thrown at
+a wall burns whoever stands by the wall. One that struck an enemy lands
+harmless: a throw goes off once. A rock left
 in a room stays in that room, and is there when you come back for it. Your
 hands in a monster (`POSSESS`) pick it up and throw it as your own do;
 stepping out, the monster lets it fall where it stands. A monster with its own
@@ -462,8 +468,9 @@ lands and is picked back up exactly as the rock is — by the attack button; the
 cast button never throws it — and its throw goes out carrying a full charge,
 paid for by the mana stored in it and not by yours. Thrown, it is spent:
 picked back up, it is still a stone to throw, but bare — the rune's own numbers
-and nothing its graph would build into it, no charge, no follow-up. Both the
-rune and the rock are thrown as fast and as flat as a shuriken: no lob. Holding the cast button with the spent rune in hand pours your own mana
+and nothing its graph would build into it, no charge, no follow-up. The rune,
+the rock and a shuriken are all lobbed: a throw arcs and comes down, and flies
+straight only with `ANTI-GRAVITY` on its graph. Holding the cast button with the spent rune in hand pours your own mana
 into it, 60 a second for as long as you have any to pour — in a raid or in the
 hideout alike — until it holds a full charge (50 mana, more with
 `DEEP CHARGE`), and then it lights again. Short of that it keeps what was
@@ -602,8 +609,8 @@ giving it further to walk.
   8, and 8 more for each one stacked. The blow still lands its damage first,
   and one it kills is not healed. `INVERT` after it turns it into 8 more
   damage, as `INVERT` after a `DAMAGE` turns that into a heal.
-- `ANTI-GRAVITY` takes the weight off a bolt: a lobbed or thrown shot — a
-  Lobber's, a weapon's that arcs — flies straight instead. One is all it
+- `ANTI-GRAVITY` takes the weight off a bolt: a lobbed shot — the rock, the
+  rune, a shuriken, a Lobber's — flies straight instead. One is all it
   takes; more do no more.
 - `SUMMON PET`, in the SUMMON MODIFIER block with `OFFENSIVE` and `KAMIKAZE`,
   calls something up beside the attack every time a flow carrying it goes off,

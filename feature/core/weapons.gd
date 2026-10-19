@@ -23,7 +23,7 @@ extends RefCounted
 ##
 ## A weapon can be `stacked` instead: a stack of the same thing, spent one at a
 ## time — the shuriken. A raid walks in with the whole stack (`stack_of`), and
-## every bolt its graph sends throws one, flat and straight, while there are
+## every bolt its graph sends throws one, lobbed as the rock is, while there are
 ## any left: a volley of three spends three. Each sticks where it strikes, in
 ## a wall or in a monster, and is picked back up by walking over it; one left
 ## behind in a room walked out of is gone. With none left the weapon casts
@@ -75,11 +75,12 @@ const DEFS := {
 		"base_damage": 7.5,
 		"melee_mul": 1.1,
 		"ranged_mul": 1.15,
-		# Thrown as fast and as flat as a shuriken: no lob.
+		# Thrown as fast as a shuriken, and lobbed as every thrown thing is:
+		# it arcs, and flies straight only with ANTI-GRAVITY on its graph.
 		"projectile_speed": 1.4,
 		"reach_mul": 1.0,
 		"size_mul": 1.25,
-		"gravity_shots": false,
+		"gravity_shots": true,
 		"thrown": true,
 	},
 	"SHOVEL": {
@@ -104,17 +105,17 @@ const DEFS := {
 		"base_damage": 7.0,
 		"melee_mul": 1.0,
 		"ranged_mul": 1.15,
-		# As the rock: as fast and as flat as a shuriken.
+		# As the rock: as fast as a shuriken, and lobbed.
 		"projectile_speed": 1.4,
 		"reach_mul": 1.0,
 		"size_mul": 1.15,
-		"gravity_shots": false,
+		"gravity_shots": true,
 		"thrown": true,
 		"rune": true,
 	},
 	"SHURIKEN": {
 		"name": "Shuriken",
-		"desc": "A stack of throwing stars, thrown with everything built into them. Each flies flat and true and sticks where it strikes; walk over one to take it back.",
+		"desc": "A stack of throwing stars, thrown with everything built into them. Each is lobbed, and sticks where it strikes; walk over one to take it back.",
 		"root": "PROJECTILE",
 		"board": "shuriken",
 		"base_damage": 8.0,
@@ -123,7 +124,8 @@ const DEFS := {
 		"projectile_speed": 1.4,
 		"reach_mul": 1.2,
 		"size_mul": 0.85,
-		"gravity_shots": false,
+		# Lobbed, as every thrown thing is; straight only with ANTI-GRAVITY.
+		"gravity_shots": true,
 		"stack": 10,
 	},
 }
