@@ -19,6 +19,8 @@ signal reading_dex_changed(on: bool)
 signal reading_perks_changed(on: bool)
 ## The phone came up over the raid, or went away (`Phone`). The same again.
 signal on_phone_changed(on: bool)
+## The bench's screen came up over the raid — who to play as — or went away.
+signal choosing_changed(on: bool)
 ## A new room is live and populated.
 signal room_changed(room: Room)
 
@@ -31,6 +33,9 @@ var reading_perks: bool = false
 ## Whether the phone is up over the raid, holding the player still as a page
 ## of the screen does; what is on it is the shell's (`PhoneScreen`).
 var on_phone: bool = false
+## Whether the bench's screen is up over the raid (`HeroSelect`), the player
+## sat under it; the shell puts it up and says so here.
+var choosing: bool = false
 var ended: bool = false
 ## What stands between the player and the exit they are standing in — a toll,
 ## a seal — or "" when nothing does, or they are not in one. An exit that will
@@ -496,6 +501,16 @@ func set_on_phone(on: bool) -> void:
 	player.input_locked = _held()
 	on_phone_changed.emit(on)
 
+## The bench's screen, up over the raid while the player sits (`HeroSelect`):
+## it costs what the phone costs — the raid runs on, the player stays sat and
+## still — and the shell puts it up and takes it down.
+func set_choosing(on: bool) -> void:
+	if choosing == on:
+		return
+	choosing = on
+	player.input_locked = _held()
+	choosing_changed.emit(on)
+
 ## Where the phone is, for its clock (`Phone.tick`): in the player's hand,
 ## lying in this room, or null for one lying in a room out of sight.
 func _phone_here() -> Variant:
@@ -530,7 +545,7 @@ func put_phone_down() -> bool:
 ## Whether a page of the screen, or the phone, is up over the raid, holding
 ## the player still.
 func _held() -> bool:
-	return editing or reading_map or reading_dex or reading_perks or on_phone
+	return editing or reading_map or reading_dex or reading_perks or on_phone or choosing
 
 ## A monster in the room just come into: met, for the monster dictionary, and
 ## heard from whenever its attack goes off, which is its skill seen. A room is

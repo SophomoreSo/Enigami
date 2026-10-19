@@ -1,20 +1,23 @@
 extends Node
 
-## The sound bank. Every sound is synthesised at boot — a short PCM buffer
-## built from an envelope plus a waveform — under the id the code and the
-## content play it by. The bank is listed in the content database (`sounds`,
-## data/db/sounds/sounds.sql): a row a sound, with where a file made for it
-## goes, the prompt it is made from, and whether that file is in use. A sound
-## flagged in use is played from its file in the synthesised one's place
-## (`_load_files`); the rest, and everything with no file yet, play as they
-## always did. So the project still carries no audio assets it has not been
-## given, one at a time.
+## The sound bank: every sound effect the game plays, as the content database
+## lists it (`sounds`, data/db/sounds/sounds.sql) — a row a sound, with where
+## its file is, the prompt it is made from, and whether it is in use. A sound
+## flagged in use with a file at its path is loaded at boot and played by its
+## id (`play`); every other sound is silent — the bank knows it is there to be
+## made (`has`), and says nothing until it is. Nothing is synthesised: the game
+## carries exactly the sounds it has been given, one at a time.
+##
+## The music is the one sound still made in code (`_make_music`), and is off
+## (`music_volume`).
 
 const RATE := 22050
 
+## The sounds there are to play: id -> its stream, for every sound in use with
+## a file at its path (`_load_bank`).
 var _sfx: Dictionary = {}
-## The sounds playing from a file rather than synthesised (`_load_files`).
-var _from_file: Dictionary = {}
+## Every sound the bank lists, in use or not: what `has` answers for.
+var _known: Dictionary = {}
 var _players: Array[AudioStreamPlayer] = []
 var _music_player: AudioStreamPlayer
 var _next_player := 0
@@ -26,8 +29,7 @@ var music_volume: float = 0.0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	_build_library()
-	_load_files()
+	_load_bank()
 	for i in 12:
 		var p := AudioStreamPlayer.new()
 		p.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -92,48 +94,19 @@ func play_music() -> void:
 func stop_music() -> void:
 	_music_player.stop()
 
-## --- synthesis --------------------------------------------------------------
-func _build_library() -> void:
-	_sfx["shoot"] = _tone(620.0, 240.0, 0.12, "square", 0.35, 0.10)
-	# A crackle, higher and sharper than a shot and over sooner: a stun, played
-	# low.
-	_sfx["zap"] = _tone(1500.0, 260.0, 0.10, "saw", 0.28, 0.08)
-	_sfx["slash"] = _noise(0.14, 0.5, 0.55)
-	_sfx["hit"] = _tone(300.0, 120.0, 0.09, "square", 0.4, 0.35)
-	_sfx["explode"] = _noise(0.36, 0.25, 0.15)
-	_sfx["jump"] = _tone(320.0, 640.0, 0.10, "tri", 0.3, 0.0)
-	_sfx["dash"] = _noise(0.16, 0.4, 0.8)
-	_sfx["hurt"] = _tone(220.0, 90.0, 0.22, "saw", 0.45, 0.2)
-	_sfx["death"] = _tone(180.0, 40.0, 0.6, "saw", 0.5, 0.3)
-	_sfx["pickup"] = _tone(700.0, 1150.0, 0.11, "tri", 0.35, 0.0)
-	_sfx["place"] = _tone(480.0, 520.0, 0.05, "tri", 0.3, 0.0)
-	_sfx["erase"] = _tone(340.0, 220.0, 0.06, "tri", 0.3, 0.0)
-	_sfx["ui"] = _tone(880.0, 880.0, 0.035, "tri", 0.22, 0.0)
-	_sfx["deny"] = _tone(200.0, 160.0, 0.13, "square", 0.3, 0.2)
-	_sfx["extract"] = _tone(420.0, 880.0, 0.5, "tri", 0.4, 0.0)
-	_sfx["parry"] = _tone(1200.0, 700.0, 0.18, "tri", 0.5, 0.0)
-	_sfx["boss"] = _tone(90.0, 60.0, 0.8, "saw", 0.6, 0.4)
-	# The typing blip: short and soft, since it plays a dozen times a line.
-	_sfx["voice"] = _tone(540.0, 480.0, 0.04, "square", 0.12, 0.0)
-
-## Whether the bank holds a sound, for content that names one by id.
-func has(id: String) -> bool:
-	return _sfx.has(id)
-
-## Whether `id` plays from its file rather than the synthesised sound.
-func from_file(id: String) -> bool:
-	return _from_file.has(id)
-
-## The bank's files: for each sound the table flags in use, the file at its
-## path, played in the synthesised sound's place. A flag on a file that is not
-## there, or that is not a sound, warns and leaves the synthesised one; a
-## database without the table changes nothing.
-func _load_files() -> void:
-	_from_file.clear()
+## --- the bank ----------------------------------------------------------------
+## Every sound the table lists is known; each flagged in use with a file at its
+## path is loaded, and plays. One flagged in use with no file there, or a file
+## that is not a sound, warns and stays silent. A database without the table
+## is a bank with nothing in it.
+func _load_bank() -> void:
+	_sfx.clear()
+	_known.clear()
 	if not Db.available() or not Db.has_table("sounds"):
 		return
 	for row in Db.rows("SELECT id, path, use_flag FROM sounds"):
 		var id := String(row["id"])
+		_known[id] = true
 		if String(row["use_flag"]) != "Y":
 			continue
 		var path := String(row["path"])
@@ -145,8 +118,17 @@ func _load_files() -> void:
 			push_warning("Audio: the file at %s is not a sound (%s)" % [path, id])
 			continue
 		_sfx[id] = stream
-		_from_file[id] = true
 
+## Whether the bank lists a sound, for content that names one by id — in use
+## and playing, or still to be made.
+func has(id: String) -> bool:
+	return _known.has(id)
+
+## Whether `id` plays: in use, with its file loaded.
+func plays(id: String) -> bool:
+	return _sfx.has(id)
+
+## --- the music, still made in code ------------------------------------------------
 func _wave(kind: String, phase: float) -> float:
 	match kind:
 		"square":
@@ -158,35 +140,6 @@ func _wave(kind: String, phase: float) -> float:
 			return (t * 4.0 - 1.0) if t < 0.5 else (3.0 - t * 4.0)
 		_:
 			return sin(phase * TAU)
-
-func _tone(f0: float, f1: float, dur: float, kind: String, amp: float, noise_mix: float) -> AudioStreamWAV:
-	var n := int(dur * RATE)
-	var data := PackedByteArray()
-	data.resize(n * 2)
-	var phase := 0.0
-	for i in n:
-		var t := float(i) / float(n)
-		var f: float = lerpf(f0, f1, t * t)
-		phase += f / float(RATE)
-		var env: float = pow(1.0 - t, 1.6)
-		var s: float = _wave(kind, phase) * (1.0 - noise_mix) + randf_range(-1.0, 1.0) * noise_mix
-		var v := int(clampf(s * env * amp, -1.0, 1.0) * 32000.0)
-		data.encode_s16(i * 2, v)
-	return _wav(data)
-
-func _noise(dur: float, amp: float, brightness: float) -> AudioStreamWAV:
-	var n := int(dur * RATE)
-	var data := PackedByteArray()
-	data.resize(n * 2)
-	var last := 0.0
-	for i in n:
-		var t := float(i) / float(n)
-		var raw := randf_range(-1.0, 1.0)
-		last = lerpf(last, raw, clampf(brightness, 0.05, 1.0))
-		var env: float = pow(1.0 - t, 2.2)
-		var v := int(clampf(last * env * amp, -1.0, 1.0) * 32000.0)
-		data.encode_s16(i * 2, v)
-	return _wav(data)
 
 func _wav(data: PackedByteArray) -> AudioStreamWAV:
 	var s := AudioStreamWAV.new()

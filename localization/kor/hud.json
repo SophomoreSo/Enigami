@@ -404,5 +404,17 @@
 			"ringing": "울리는 중",
 			"down": "전화기를 바닥에 둠"
 		}
+	},
+	"heroes": {
+		"title": "캐릭터 선택",
+		"confirm": "결정",
+		"back": "뒤로",
+		"playing": "플레이 중",
+		"name": {
+			"dren_repus": "드렌 레푸스",
+			"legna_dennis": "레그나 데니스",
+			"reniart_lamina": "레니아르트 라미나",
+			"sett_eragic": "세트 에라직"
+		}
 	}
 }
