@@ -11,6 +11,14 @@ write into itself: it keeps the stories written on that machine under
 `first_meeting` is the Old Tinker met in the Moonlit Grove, with a question
 in it, to play and to start from.
 
+[AUTHORING.md](AUTHORING.md) points at the same format written for whoever
+writes a story from outside the desk — by hand, or a language model handed
+the page — one guide per way it is played, each complete on its own:
+[AUTHORING_FROZEN.md](AUTHORING_FROZEN.md) for a conversation in the box,
+[AUTHORING_FREE.md](AUTHORING_FREE.md) for talk in bubbles while the player
+plays. Each has every value a key may take, what plays on screen, what the
+checker refuses, and a worked example with staging, a hub and endings.
+
 ## The file
 
 A story is a graph of nodes, each one beat of it, starting at `start` and
