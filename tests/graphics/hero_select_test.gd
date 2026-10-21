@@ -57,6 +57,27 @@ func sit_on(p: Player, b: Bench) -> bool:
 	Input.action_release("interact")
 	return await until(func() -> bool: return p.seated(), 4.0)
 
+## The middle of a cell on the sandbox's floor — open, with open air over it and
+## solid ground under it — as far across as the room allows from everyone
+## standing in it, the people to talk to and the dummy.
+func _clear_floor(sb: Sandbox) -> Vector2:
+	var others: Array = get_tree().get_nodes_in_group("npcs") + get_tree().get_nodes_in_group("enemies")
+	var best := Vector2.ZERO
+	var widest := -1.0
+	for x in range(2, sb.room.cols - 2):
+		for y in range(Room.H - 2, 0, -1):
+			if sb.room.is_solid(x, y) or sb.room.is_solid(x, y - 1) or not sb.room.is_solid(x, y + 1):
+				continue
+			var at := sb.room.cell_center(x, y)
+			var nearest := INF
+			for o: Node2D in others:
+				nearest = minf(nearest, at.distance_to(o.global_position))
+			if nearest > widest:
+				widest = nearest
+				best = at
+			break
+	return best
+
 func screen() -> HeroSelect:
 	return game.heroes
 
@@ -75,12 +96,14 @@ func _ready() -> void:
 	game.goto_sandbox()
 	await frames(12)
 	var sb: Sandbox = game.current
-	# The sandbox's room has no bench of its own, so one is put down where the
-	# player stands, on the floor under them, as a laid map's would be.
-	var at := Vector2i((sb.player.global_position / Room.CELL).floor())
-	while at.y < Room.H - 1 and not sb.room.is_solid(at.x, at.y + 1):
-		at.y += 1
-	var bench: Bench = sb.room.add_bench(sb.room.cell_center(at.x, at.y))
+	# The sandbox's room has no bench of its own, so one is put down on its
+	# floor, as a laid map's would be: as far as it can be from anyone standing
+	# there to talk to, and from the dummy. Interact answers whatever it is in
+	# reach of, and beside the one who talks it is the walk over to talk.
+	var bench: Bench = sb.room.add_bench(_clear_floor(sb))
+	# The sandbox does not tell its room who plays it, as the hideout and a raid
+	# do, so the bench is told.
+	bench.player = sb.player
 	check(sb.room.benches.has(bench), "a bench put down in the sandbox's room")
 	check(await sit_on(sb.player, bench), "interact beside it sits the player down")
 	await frames(3)
@@ -109,7 +132,11 @@ func _ready() -> void:
 	GameState.hero = ""
 	check(GameState.load_slot(SLOT) and GameState.hero == was, "the slot read back off disk plays as them")
 	# Up off the bench, and sat again: the cursor is on them, and ESC changes nothing.
-	await key(KEY_SPACE)
+	# A jump the way the hands read one: an action, which `key` is not.
+	Input.action_press("jump")
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	Input.action_release("jump")
 	await until(func() -> bool: return not sb.player.seated(), 2.0)
 	check(not sb.player.seated() and not game._choosing(), "a jump stands the player up, and nothing comes up")
 	check(await sit_on(sb.player, bench), "sat down again")
@@ -120,13 +147,12 @@ func _ready() -> void:
 	check(not game._choosing() and GameState.hero == was and not game.get_tree().paused,
 		"ESC puts it away with nothing changed, pausing nothing")
 	check(sb.player.seated(), "and the player still sat")
-	# Standing up while it is up puts it away.
-	check(await sit_on(sb.player, bench) or sb.player.seated(), "(sat)")
-	if not game._choosing():
-		Input.action_press("interact")
-		await frames(2)
-		Input.action_release("interact")
-		await until(func() -> bool: return game._choosing(), 4.0)
+	# Standing up while it is up puts it away. It came up as the player sat, so
+	# to have it back they stand and sit again: interact at the bench they are
+	# sat on would only stand them up.
+	sb.player.stand_up()
+	await frames(3)
+	check(await sit_on(sb.player, bench) and game._choosing(), "sat again, it is back up")
 	sb.player.stand_up()
 	await frames(3)
 	check(not game._choosing() and not sb.tools_open, "standing up puts the screen away")
